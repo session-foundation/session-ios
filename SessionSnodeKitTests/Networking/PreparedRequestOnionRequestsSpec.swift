@@ -14,6 +14,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
         case endpoint1
         case endpoint2
         
+        static var name: String { "TestEndpoint" }
         static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
         static var excludedSubRequestHeaders: [HTTPHeader] { [] }
         
@@ -52,7 +53,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                 )
                 preparedRequest = HTTP.PreparedRequest(
                     request: request,
-                    urlRequest: try! request.generateUrlRequest(),
+                    urlRequest: try! request.generateUrlRequest(using: dependencies),
                     publicKey: TestConstants.publicKey,
                     responseType: Int.self,
                     metadata: [:],

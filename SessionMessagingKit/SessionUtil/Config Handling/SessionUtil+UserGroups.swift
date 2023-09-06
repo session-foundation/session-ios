@@ -424,7 +424,6 @@ internal extension SessionUtil {
         
         try groups.forEach { group in
             guard
-                let name: String = group.name,
                 let joinedAt: Int64 = group.joinedAt
             else { return }
 
@@ -434,20 +433,20 @@ internal extension SessionUtil {
                     db,
                     groupIdentityPublicKey: group.groupIdentityPublicKey,
                     groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-                    name: name,
+                    name: group.name,
                     authData: group.authData,
                     created: Int64((group.joinedAt ?? (latestConfigSentTimestampMs / 1000))),
-                    approved: true,// TODO: What to do here???? <#T##Bool#>,
+                    approved: (group.approved == true),
                     calledFromConfigHandling: true,
                     using: dependencies
                 )
             }
             else {
-                // Otherwise update the existing group
+                /// Otherwise update the existing group
+                ///
+                /// **Note:** We ignore the `name` value here as if it's an existing group then assume we will get the
+                /// proper name by polling for the `GROUP_INFO` instead of via syncing the `USER_GROUPS` data
                 let groupChanges: [ConfigColumnAssignment] = [
-                    (existingGroups[group.groupIdentityPublicKey]?.name == name ? nil :
-                        ClosedGroup.Columns.name.set(to: name)
-                    ),
                     (existingGroups[group.groupIdentityPublicKey]?.formationTimestamp == TimeInterval(joinedAt) ? nil :
                         ClosedGroup.Columns.formationTimestamp.set(to: TimeInterval(joinedAt))
                     ),
@@ -456,6 +455,9 @@ internal extension SessionUtil {
                     ),
                     (existingGroups[group.groupIdentityPublicKey]?.groupIdentityPrivateKey == group.groupIdentityPrivateKey ? nil :
                         ClosedGroup.Columns.groupIdentityPrivateKey.set(to: group.groupIdentityPrivateKey)
+                    ),
+                    (existingGroups[group.groupIdentityPublicKey]?.approved == group.approved ? nil :
+                        ClosedGroup.Columns.approved.set(to: (group.approved ?? false))
                     )
                 ].compactMap { $0 }
 
@@ -481,9 +483,9 @@ internal extension SessionUtil {
             }
         }
         
-        // Remove any legacy groups which are no longer in the config
+        // Remove any groups which are no longer in the config
         let groupIdsToRemove: Set<String> = existingGroupIds
-            .subtracting(legacyGroups.map { $0.id })
+            .subtracting(groups.map { $0.groupIdentityPublicKey })
         
         if !groupIdsToRemove.isEmpty {
             SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(groupIdsToRemove))
@@ -496,6 +498,14 @@ internal extension SessionUtil {
                     groupLeaveType: .forced,
                     calledFromConfigHandling: true
                 )
+            
+            groupIdsToRemove.forEach { groupId in
+                SessionUtil.removeGroupStateIfNeeded(
+                    db,
+                    groupIdentityPublicKey: groupId,
+                    using: dependencies
+                )
+            }
         }
     }
     
@@ -946,6 +956,7 @@ public extension SessionUtil {
         name: String?,
         authData: Data?,
         joinedAt: Int64,
+        approved: Bool,
         using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
@@ -961,7 +972,8 @@ public extension SessionUtil {
                         groupIdentityPrivateKey: groupIdentityPrivateKey,
                         name: name,
                         authData: authData,
-                        joinedAt: joinedAt
+                        joinedAt: joinedAt,
+                        approved: approved
                     )
                 ],
                 in: config
@@ -975,6 +987,7 @@ public extension SessionUtil {
         groupIdentityPrivateKey: Data? = nil,
         name: String? = nil,
         authData: Data? = nil,
+        approved: Bool? = nil,
         using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
@@ -989,7 +1002,8 @@ public extension SessionUtil {
                         groupIdentityPublicKey: groupIdentityPublicKey,
                         groupIdentityPrivateKey: groupIdentityPrivateKey,
                         name: name,
-                        authData: authData
+                        authData: authData,
+                        approved: approved
                     )
                 ],
                 in: config
@@ -1160,6 +1174,7 @@ extension SessionUtil {
         let authData: Data?
         let priority: Int32?
         let joinedAt: Int64?
+        let approved: Bool?
         
         init(
             groupIdentityPublicKey: String,
@@ -1167,7 +1182,8 @@ extension SessionUtil {
             name: String? = nil,
             authData: Data? = nil,
             priority: Int32? = nil,
-            joinedAt: Int64? = nil
+            joinedAt: Int64? = nil,
+            approved: Bool? = nil
         ) {
             self.groupIdentityPublicKey = groupIdentityPublicKey
             self.groupIdentityPrivateKey = groupIdentityPrivateKey
@@ -1175,6 +1191,7 @@ extension SessionUtil {
             self.authData = authData
             self.priority = priority
             self.joinedAt = joinedAt
+            self.approved = approved
         }
     }
 }

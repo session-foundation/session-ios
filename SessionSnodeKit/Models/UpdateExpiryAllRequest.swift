@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 extension SnodeAPI {
     public class UpdateExpiryAllRequest: SnodeAuthenticatedRequestBody {
@@ -23,18 +24,12 @@ extension SnodeAPI {
         public init(
             expiryMs: UInt64,
             namespace: SnodeAPI.Namespace?,
-            pubkey: String,
-            ed25519PublicKey: [UInt8],
-            ed25519SecretKey: [UInt8]
+            authInfo: AuthenticationInfo
         ) {
             self.expiryMs = expiryMs
             self.namespace = namespace
             
-            super.init(
-                pubkey: pubkey,
-                ed25519PublicKey: ed25519PublicKey,
-                ed25519SecretKey: ed25519SecretKey
-            )
+            super.init(authInfo: authInfo)
         }
         
         // MARK: - Coding
@@ -56,12 +51,12 @@ extension SnodeAPI {
         
         // MARK: - Abstract Methods
         
-        override func generateSignature() throws -> [UInt8] {
+        override func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
             /// Ed25519 signature of `("expire_all" || namespace || expiry)`, signed by `pubkey`.  Must be
             /// base64 encoded (json) or bytes (OMQ).  namespace should be the stringified namespace for
             /// non-default namespace expiries (i.e. "42", "-99", "all"), or an empty string for the default
             /// namespace (whether or not explicitly provided).
-            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.expireAll.rawValue.bytes
+            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.expireAll.path.bytes
                 .appending(
                     contentsOf: (namespace == nil ?
                         "all" :
@@ -70,16 +65,7 @@ extension SnodeAPI {
                 )
                 .appending(contentsOf: "\(expiryMs)".data(using: .ascii)?.bytes)
             
-            guard
-                let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(
-                    message: verificationBytes,
-                    secretKey: ed25519SecretKey
-                )
-            else {
-                throw SnodeAPIError.signingFailed
-            }
-            
-            return signatureBytes
+            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

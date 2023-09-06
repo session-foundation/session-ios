@@ -21,7 +21,7 @@ class SessionUtilSpec: QuickSpec {
         var mockCrypto: MockCrypto!
         var mockSessionUtilCache: MockSessionUtilCache!
         
-        var createGroupOutput: (identityKeyPair: KeyPair, group: ClosedGroup, members: [GroupMember])!
+        var createGroupOutput: SessionUtil.CreatedGroupInfo!
         var userGroupsConfig: SessionUtil.Config!
         
         describe("SessionUtil") {

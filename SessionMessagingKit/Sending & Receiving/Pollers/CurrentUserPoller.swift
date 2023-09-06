@@ -16,11 +16,11 @@ public final class CurrentUserPoller: Poller {
     
     override func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] { CurrentUserPoller.namespaces }
     
-    /// After polling a given snode this many times we always switch to a new one.
+    /// After polling a given snode 6 times we always switch to a new one.
     ///
     /// The reason for doing this is that sometimes a snode will be giving us successful responses while
     /// it isn't actually getting messages from other snodes.
-    override var maxNodePollCount: UInt { 6 }
+    override var pollDrainBehaviour: SwarmDrainBehaviour { .limitedReuse(count: 6) }
     
     private let pollInterval: TimeInterval = 1.5
     private let retryInterval: TimeInterval = 0.25
@@ -64,9 +64,12 @@ public final class CurrentUserPoller: Poller {
         if UserDefaults.sharedLokiProject?[.isMainAppActive] != true {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }
-        else if let targetSnode: Snode = targetSnode.wrappedValue {
+        else if
+            let drainBehaviour: Atomic<SwarmDrainBehaviour> = drainBehaviour.wrappedValue[publicKey],
+            case .limitedReuse(_, .some(let targetSnode), _, _) = drainBehaviour.wrappedValue
+        {
             SNLog("Main Poller polling \(targetSnode) failed; dropping it and switching to next snode.")
-            self.targetSnode.mutate { $0 = nil }
+            drainBehaviour.mutate { $0 = $0.clearTargetSnode() }
             SnodeAPI.dropSnodeFromSwarmIfNeeded(targetSnode, publicKey: publicKey, using: dependencies)
         }
         else {

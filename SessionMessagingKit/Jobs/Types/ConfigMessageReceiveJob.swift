@@ -38,7 +38,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         
         guard
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             removeDependencyOnMessageReceiveJobs()
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)

@@ -492,7 +492,10 @@ public extension SessionUtil {
                         return false
                         
                     case .group:
-                        return false
+                        var group: ugroups_group_info = ugroups_group_info()
+                        
+                        /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
+                        return user_groups_get_group(conf, &group, &cThreadId)
                 }
             }
             .defaulting(to: false)

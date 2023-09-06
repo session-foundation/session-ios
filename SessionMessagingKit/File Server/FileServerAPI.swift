@@ -24,7 +24,10 @@ public enum FileServerAPI {
     
     // MARK: - File Storage
     
-    public static func upload(_ file: Data) -> AnyPublisher<FileUploadResponse, Error> {
+    public static func upload(
+        _ file: Data,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<FileUploadResponse, Error> {
         let request = Request(
             method: .post,
             server: server,
@@ -33,33 +36,65 @@ public enum FileServerAPI {
                 .contentDisposition: "attachment",
                 .contentType: "application/octet-stream"
             ],
+            x25519PublicKey: serverPublicKey,
             body: Array(file)
         )
 
-        return send(request, serverPublicKey: serverPublicKey, timeout: FileServerAPI.fileUploadTimeout)
+        return send(request, serverPublicKey: serverPublicKey, timeout: FileServerAPI.fileUploadTimeout, using: dependencies)
             .decoded(as: FileUploadResponse.self)
     }
     
-    public static func download(_ fileId: String, useOldServer: Bool) -> AnyPublisher<Data, Error> {
+    public static func preparedUpload(
+        _ file: Data,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<FileUploadResponse> {
+        return try prepareRequest(
+            request: Request(
+                method: .post,
+                server: server,
+                endpoint: Endpoint.file,
+                headers: [
+                    .contentDisposition: "attachment",
+                    .contentType: "application/octet-stream"
+                ],
+                x25519PublicKey: serverPublicKey,
+                body: Array(file)
+            ),
+            responseType: FileUploadResponse.self,
+            timeout: FileServerAPI.fileUploadTimeout,
+            using: dependencies
+        )
+    }
+    
+    public static func download(
+        _ fileId: String,
+        useOldServer: Bool,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Data, Error> {
         let serverPublicKey: String = (useOldServer ? oldServerPublicKey : serverPublicKey)
         let request = Request<NoBody, Endpoint>(
             server: (useOldServer ? oldServer : server),
-            endpoint: .fileIndividual(fileId: fileId)
+            endpoint: .fileIndividual(fileId: fileId),
+            x25519PublicKey: serverPublicKey
         )
         
-        return send(request, serverPublicKey: serverPublicKey, timeout: FileServerAPI.fileDownloadTimeout)
+        return send(request, serverPublicKey: serverPublicKey, timeout: FileServerAPI.fileDownloadTimeout, using: dependencies)
     }
 
-    public static func getVersion(_ platform: String) -> AnyPublisher<String, Error> {
+    public static func getVersion(
+        _ platform: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<String, Error> {
         let request = Request<NoBody, Endpoint>(
             server: server,
             endpoint: .sessionVersion,
             queryParameters: [
                 .platform: platform
-            ]
+            ],
+            x25519PublicKey: serverPublicKey
         )
         
-        return send(request, serverPublicKey: serverPublicKey, timeout: HTTP.defaultTimeout)
+        return send(request, serverPublicKey: serverPublicKey, timeout: HTTP.defaultTimeout, using: dependencies)
             .decoded(as: VersionResponse.self)
             .map { response in response.version }
             .eraseToAnyPublisher()
@@ -70,30 +105,46 @@ public enum FileServerAPI {
     private static func send<T: Encodable>(
         _ request: Request<T, Endpoint>,
         serverPublicKey: String,
-        timeout: TimeInterval
+        timeout: TimeInterval,
+        using dependencies: Dependencies
     ) -> AnyPublisher<Data, Error> {
-        let urlRequest: URLRequest
+        let preparedRequest: HTTP.PreparedRequest<Data?>
         
         do {
-            urlRequest = try request.generateUrlRequest()
+            preparedRequest = try prepareRequest(
+                request: request,
+                responseType: Data?.self,
+                timeout: timeout,
+                using: dependencies
+            )
         }
         catch {
             return Fail(error: error)
                 .eraseToAnyPublisher()
         }
         
-        return OnionRequestAPI
-            .sendOnionRequest(
-                urlRequest,
-                to: request.server,
-                with: serverPublicKey,
-                timeout: timeout
-            )
+        return preparedRequest.send(using: dependencies)
             .tryMap { _, response -> Data in
                 guard let response: Data = response else { throw HTTPError.parsingFailed }
                 
                 return response
             }
             .eraseToAnyPublisher()
+    }
+    
+    private static func prepareRequest<T: Encodable, R: Decodable>(
+        request: Request<T, Endpoint>,
+        responseType: R.Type,
+        retryCount: Int = 0,
+        timeout: TimeInterval,
+        using dependencies: Dependencies
+    ) throws -> HTTP.PreparedRequest<R> {
+        return HTTP.PreparedRequest<R>(
+            request: request,
+            urlRequest: try request.generateUrlRequest(using: dependencies),
+            responseType: responseType,
+            retryCount: retryCount,
+            timeout: timeout
+        )
     }
 }

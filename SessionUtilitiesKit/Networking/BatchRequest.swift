@@ -2,20 +2,39 @@
 
 import Foundation
 
+public protocol BatchRequestChildRetrievable {
+    var requests: [HTTP.BatchRequest.Child] { get }
+}
+
 public extension HTTP {
-    struct BatchRequest: Encodable {
-        let requests: [Child]
+    struct BatchRequest: Encodable, BatchRequestChildRetrievable {
+        public enum CodingKeys: String, CodingKey {
+            // Storage Server keys
+            case requests
+        }
         
-        public init(requests: [any ErasedPreparedRequest]) {
+        let requestsKey: CodingKeys?
+        public let requests: [Child]
+        
+        public init(requestsKey: CodingKeys? = nil, requests: [any ErasedPreparedRequest]) {
+            self.requestsKey = requestsKey
             self.requests = requests.map { Child(request: $0) }
         }
         
         // MARK: - Encodable
         
         public func encode(to encoder: Encoder) throws {
-            var container = encoder.singleValueContainer()
+            switch requestsKey {
+                case .requests:
+                    var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
 
-            try container.encode(requests)
+                    try container.encode(requests, forKey: .requests)
+                    
+                case .none:
+                    var container: SingleValueEncodingContainer = encoder.singleValueContainer()
+
+                    try container.encode(requests)
+            }
         }
         
         // MARK: - BatchRequest.Child

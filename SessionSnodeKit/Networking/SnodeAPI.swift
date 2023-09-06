@@ -6,18 +6,6 @@ import Sodium
 import GRDB
 import SessionUtilitiesKit
 
-public extension Network.RequestType {
-    static func message(
-        _ message: SnodeMessage,
-        in namespace: SnodeAPI.Namespace,
-        using dependencies: Dependencies = Dependencies()
-    ) -> Network.RequestType<SendMessagesResponse> {
-        return Network.RequestType(id: "snodeAPI.sendMessage", args: [message, namespace]) {
-            SnodeAPI.sendMessage(message, in: namespace, using: dependencies)
-        }
-    }
-}
-
 public final class SnodeAPI {
     internal static let sodium: Atomic<Sodium> = Atomic(Sodium())
     
@@ -45,7 +33,7 @@ public final class SnodeAPI {
 
     // MARK: - Settings
     
-    private static let maxRetryCount: Int = 8
+    internal static let maxRetryCount: Int = 8
     private static let minSwarmSnodeCount: Int = 3
     private static let seedNodePool: Set<String> = {
         guard !Features.useTestnet else {
@@ -67,7 +55,7 @@ public final class SnodeAPI {
         return (Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)) + clockOffsetMs)
     }
 
-    // MARK: Snode Pool Interaction
+    // MARK: - Snode Pool Interaction
     
     private static var hasInsufficientSnodes: Bool { snodePool.wrappedValue.count < minSnodePoolCount }
     
@@ -156,7 +144,7 @@ public final class SnodeAPI {
         setSwarm(to: swarm, for: publicKey, using: dependencies)
     }
 
-    // MARK: - Public API
+    // MARK: - Snode API
     
     public static func hasCachedSnodesIncludingExpired(
         using dependencies: Dependencies = Dependencies()
@@ -232,6 +220,271 @@ public final class SnodeAPI {
         }
     }
     
+    public static func getSwarm(
+        for publicKey: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Set<Snode>, Error> {
+        loadSwarmIfNeeded(for: publicKey, using: dependencies)
+        
+        if let cachedSwarm = swarmCache.wrappedValue[publicKey], cachedSwarm.count >= minSwarmSnodeCount {
+            return Just(cachedSwarm)
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
+        
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        SNLog("Getting swarm for: \((publicKey == currentUserPublicKey) ? "self" : publicKey).")
+        
+        return getRandomSnode(using: dependencies)
+            .flatMap { snode in
+                SnodeAPI.send(
+                    request: SnodeRequest(
+                        endpoint: .getSwarm,
+                        body: GetSwarmRequest(pubkey: publicKey)
+                    ),
+                    to: snode,
+                    associatedWith: publicKey,
+                    using: dependencies
+                )
+                .retry(4)
+                .eraseToAnyPublisher()
+            }
+            .map { _, responseData in parseSnodes(from: responseData, using: dependencies) }
+            .handleEvents(
+                receiveOutput: { swarm in setSwarm(to: swarm, for: publicKey, using: dependencies) }
+            )
+            .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Batching & Polling
+    
+    public typealias PollResponse = [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)]
+
+    public static func preparedPoll(
+        _ db: Database,
+        namespaces: [SnodeAPI.Namespace],
+        refreshingConfigHashes: [String] = [],
+        from snode: Snode,
+        authInfo: SnodeAPI.AuthenticationInfo,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<PollResponse> {
+        // Determine the maxSize each namespace in the request should take up
+        var requests: [any ErasedPreparedRequest] = []
+        let namespaceMaxSizeMap: [SnodeAPI.Namespace: Int64] = SnodeAPI.Namespace.maxSizeMap(for: namespaces)
+        let fallbackSize: Int64 = (namespaceMaxSizeMap.values.min() ?? 1)
+
+        // If we have any config hashes to refresh TTLs then add those requests first
+        if !refreshingConfigHashes.isEmpty {
+            requests.append(
+                try SnodeAPI.prepareRequest(
+                    request: Request(
+                        endpoint: .expire,
+                        publicKey: authInfo.publicKey,
+                        body: UpdateExpiryRequest(
+                            messageHashes: refreshingConfigHashes,
+                            expiryMs: UInt64(
+                                SnodeAPI.currentOffsetTimestampMs() +
+                                (30 * 24 * 60 * 60 * 1000) // 30 days
+                            ),
+                            extend: true,
+                            authInfo: authInfo
+                        )
+                    ),
+                    responseType: UpdateExpiryResponse.self
+                )
+            )
+        }
+
+        // Add the various 'getMessages' requests
+        requests.append(
+            contentsOf: try namespaces.map { namespace -> any ErasedPreparedRequest in
+                try SnodeAPI.preparedGetMessages(
+                    db,
+                    in: namespace,
+                    snode: snode,
+                    maxSize: namespaceMaxSizeMap[namespace]
+                        .defaulting(to: fallbackSize),
+                    authInfo: authInfo,
+                    using: dependencies
+                )
+            }
+        )
+
+        return try preparedBatch(
+            db,
+            requests: requests,
+            requireAllBatchResponses: true,
+            associatedWith: authInfo.publicKey,
+            using: dependencies
+        )
+        .map { (_: ResponseInfoType, batchResponse: HTTP.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)] in
+            let messageResponses: [HTTP.BatchSubResponse<PreparedGetMessagesResponse>] = batchResponse
+                .compactMap { $0 as? HTTP.BatchSubResponse<PreparedGetMessagesResponse> }
+            
+            /// Since we have extended the TTL for a number of messages we need to make sure we update the local
+            /// `SnodeReceivedMessageInfo.expirationDateMs` values so we don't end up deleting them
+            /// incorrectly before they actually expire on the swarm
+            if
+                !refreshingConfigHashes.isEmpty,
+                let refreshTTLSubReponse: HTTP.BatchSubResponse<UpdateExpiryResponse> = batchResponse
+                    .first(where: { $0 is HTTP.BatchSubResponse<UpdateExpiryResponse> })
+                    .asType(HTTP.BatchSubResponse<UpdateExpiryResponse>.self),
+                let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
+                // TODO: Need to fix this for the group config polling
+                let validResults: [String: UpdateExpiryResponseResult] = try? refreshTTLResponse.validResultMap(
+                    sodium: sodium.wrappedValue,
+                    userX25519PublicKey: getUserHexEncodedPublicKey(using: dependencies),
+                    validationData: refreshingConfigHashes
+                ),
+                let targetResult: UpdateExpiryResponseResult = validResults[snode.ed25519PublicKey],
+                let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
+                    .updated(with: targetResult.unchanged)
+                    .groupedByValue()
+                    .nullIfEmpty()
+            {
+                dependencies[singleton: .storage].writeAsync { db in
+                    try groupedExpiryResult.forEach { updatedExpiry, hashes in
+                        try SnodeReceivedMessageInfo
+                            .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
+                            .updateAll(
+                                db,
+                                SnodeReceivedMessageInfo.Columns.expirationDateMs
+                                    .set(to: updatedExpiry)
+                            )
+                    }
+                }
+            }
+            
+            return zip(namespaces, messageResponses)
+                .reduce(into: [:]) { result, next in
+                    guard let messageResponse: PreparedGetMessagesResponse = next.1.body else { return }
+                    
+                    result[next.0] = (next.1, messageResponse)
+                }
+        }
+    }
+    
+    private static func preparedBatch(
+        _ db: Database,
+        requests: [any ErasedPreparedRequest],
+        requireAllBatchResponses: Bool,
+        associatedWith publicKey: String,
+        using dependencies: Dependencies
+    ) throws -> HTTP.PreparedRequest<HTTP.BatchResponse> {
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .batch,
+                    publicKey: publicKey,
+                    body: HTTP.BatchRequest(requestsKey: .requests, requests: requests)
+                ),
+                responseType: HTTP.BatchResponse.self,
+                requireAllBatchResponses: requireAllBatchResponses,
+                using: dependencies
+            )
+    }
+    
+    public static func preparedSequence(
+        _ db: Database,
+        requests: [any ErasedPreparedRequest],
+        requireAllBatchResponses: Bool,
+        associatedWith publicKey: String,
+        using dependencies: Dependencies
+    ) throws -> HTTP.PreparedRequest<HTTP.BatchResponse> {
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .sequence,
+                    publicKey: publicKey,
+                    body: HTTP.BatchRequest(requestsKey: .requests, requests: requests)
+                ),
+                responseType: HTTP.BatchResponse.self,
+                requireAllBatchResponses: requireAllBatchResponses,
+                using: dependencies
+            )
+    }
+    
+    // MARK: - Retrieve
+    
+    public typealias PreparedGetMessagesResponse = (messages: [SnodeReceivedMessage], lastHash: String?)
+    
+    public static func preparedGetMessages(
+        _ db: Database,
+        in namespace: SnodeAPI.Namespace,
+        snode: Snode,
+        maxSize: Int64? = nil,
+        authInfo: AuthenticationInfo,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<PreparedGetMessagesResponse> {
+        // Prune expired message hashes for this namespace on this service node
+        try SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
+            db,
+            for: snode,
+            namespace: namespace,
+            associatedWith: authInfo.publicKey,
+            using: dependencies
+        )
+
+        let maybeLastHash: String? = try SnodeReceivedMessageInfo
+            .fetchLastNotExpired(
+                db,
+                for: snode,
+                namespace: namespace,
+                associatedWith: authInfo.publicKey,
+                using: dependencies
+            )?
+            .hash
+        let preparedRequest: HTTP.PreparedRequest<GetMessagesResponse> = try {
+            // Check if this namespace requires authentication
+            guard namespace.requiresReadAuthentication else {
+                return try SnodeAPI.prepareRequest(
+                    request: Request(
+                        endpoint: .getMessages,
+                        publicKey: authInfo.publicKey,
+                        body: LegacyGetMessagesRequest(
+                            pubkey: authInfo.publicKey,
+                            lastHash: (maybeLastHash ?? ""),
+                            namespace: namespace,
+                            maxCount: nil,
+                            maxSize: maxSize
+                        )
+                    ),
+                    responseType: GetMessagesResponse.self
+                )
+            }
+
+            return try SnodeAPI.prepareRequest(
+                request: Request(
+                    endpoint: .getMessages,
+                    publicKey: authInfo.publicKey,
+                    body: GetMessagesRequest(
+                        lastHash: (maybeLastHash ?? ""),
+                        namespace: namespace,
+                        authInfo: authInfo,
+                        timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
+                        maxSize: maxSize
+                    )
+                ),
+                responseType: GetMessagesResponse.self
+            )
+        }()
+        
+        return preparedRequest
+            .map { _, response -> (messages: [SnodeReceivedMessage], lastHash: String?) in
+                return (
+                    response.messages.compactMap { rawMessage -> SnodeReceivedMessage? in
+                        SnodeReceivedMessage(
+                            snode: snode,
+                            publicKey: authInfo.publicKey,
+                            namespace: namespace,
+                            rawMessage: rawMessage
+                        )
+                    },
+                    maybeLastHash
+                )
+            }
+    }
+    
     public static func getSessionID(
         for onsName: String,
         using dependencies: Dependencies = Dependencies()
@@ -299,349 +552,13 @@ public final class SnodeAPI {
             .eraseToAnyPublisher()
     }
     
-    public static func getSwarm(
-        for publicKey: String,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Set<Snode>, Error> {
-        loadSwarmIfNeeded(for: publicKey, using: dependencies)
-        
-        if let cachedSwarm = swarmCache.wrappedValue[publicKey], cachedSwarm.count >= minSwarmSnodeCount {
-            return Just(cachedSwarm)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        SNLog("Getting swarm for: \((publicKey == currentUserPublicKey) ? "self" : publicKey).")
-        
-        return getRandomSnode(using: dependencies)
-            .flatMap { snode in
-                SnodeAPI.send(
-                    request: SnodeRequest(
-                        endpoint: .getSwarm,
-                        body: GetSwarmRequest(pubkey: publicKey)
-                    ),
-                    to: snode,
-                    associatedWith: publicKey,
-                    using: dependencies
-                )
-                .retry(4)
-                .eraseToAnyPublisher()
-            }
-            .map { _, responseData in parseSnodes(from: responseData) }
-            .handleEvents(
-                receiveOutput: { swarm in setSwarm(to: swarm, for: publicKey, using: dependencies) }
-            )
-            .eraseToAnyPublisher()
-    }
-
-    // MARK: - Retrieve
-    
-    public static func poll(
-        namespaces: [SnodeAPI.Namespace],
-        refreshingConfigHashes: [String] = [],
-        from snode: Snode,
-        associatedWith publicKey: String,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<[SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)], Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
-            return Fail(error: SnodeAPIError.noKeyPair)
-                .eraseToAnyPublisher()
-        }
-        
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        
-        return Just(())
-            .setFailureType(to: Error.self)
-            .map { _ -> [SnodeAPI.Namespace: String] in
-                namespaces
-                    .reduce(into: [:]) { result, namespace in
-                        guard namespace.shouldFetchSinceLastHash else { return }
-                        
-                        // Prune expired message hashes for this namespace on this service node
-                        SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
-                            for: snode,
-                            namespace: namespace,
-                            associatedWith: publicKey,
-                            using: dependencies
-                        )
-                        
-                        result[namespace] = SnodeReceivedMessageInfo
-                            .fetchLastNotExpired(
-                                for: snode,
-                                namespace: namespace,
-                                associatedWith: publicKey,
-                                using: dependencies
-                            )?
-                            .hash
-                    }
-            }
-            .flatMap { namespaceLastHash -> AnyPublisher<[SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)], Error> in
-                var requests: [SnodeAPI.BatchRequest.Info] = []
-
-                // If we have any config hashes to refresh TTLs then add those requests first
-                if !refreshingConfigHashes.isEmpty {
-                    requests.append(
-                        BatchRequest.Info(
-                            request: SnodeRequest(
-                                endpoint: .expire,
-                                body: UpdateExpiryRequest(
-                                    messageHashes: refreshingConfigHashes,
-                                    expiryMs: UInt64(
-                                        SnodeAPI.currentOffsetTimestampMs() +
-                                        (30 * 24 * 60 * 60 * 1000) // 30 days
-                                    ),
-                                    extend: true,
-                                    pubkey: userX25519PublicKey,
-                                    ed25519PublicKey: userED25519KeyPair.publicKey,
-                                    ed25519SecretKey: userED25519KeyPair.secretKey,
-                                    subkey: nil    // TODO: Need to get this
-                                )
-                            ),
-                            responseType: UpdateExpiryResponse.self
-                        )
-                    )
-                }
-                
-                // Determine the maxSize each namespace in the request should take up
-                let namespaceMaxSizeMap: [SnodeAPI.Namespace: Int64] = SnodeAPI.Namespace.maxSizeMap(for: namespaces)
-                let fallbackSize: Int64 = (namespaceMaxSizeMap.values.min() ?? 1)
-
-                // Add the various 'getMessages' requests
-                requests.append(
-                    contentsOf: namespaces.map { namespace -> SnodeAPI.BatchRequest.Info in
-                        // Check if this namespace requires authentication
-                        guard namespace.requiresReadAuthentication else {
-                            return BatchRequest.Info(
-                                request: SnodeRequest(
-                                    endpoint: .getMessages,
-                                    body: LegacyGetMessagesRequest(
-                                        pubkey: publicKey,
-                                        lastHash: (namespaceLastHash[namespace] ?? ""),
-                                        namespace: namespace,
-                                        maxCount: nil,
-                                        maxSize: namespaceMaxSizeMap[namespace]
-                                            .defaulting(to: fallbackSize)
-                                    )
-                                ),
-                                responseType: GetMessagesResponse.self
-                            )
-                        }
-
-                        return BatchRequest.Info(
-                            request: SnodeRequest(
-                                endpoint: .getMessages,
-                                body: GetMessagesRequest(
-                                    lastHash: (namespaceLastHash[namespace] ?? ""),
-                                    namespace: namespace,
-                                    pubkey: publicKey,
-                                    subkey: nil,    // TODO: Need to get this
-                                    timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
-                                    ed25519PublicKey: userED25519KeyPair.publicKey,
-                                    ed25519SecretKey: userED25519KeyPair.secretKey,
-                                    maxSize: namespaceMaxSizeMap[namespace]
-                                        .defaulting(to: fallbackSize)
-                                )
-                            ),
-                            responseType: GetMessagesResponse.self
-                        )
-                    }
-                )
-
-                // Actually send the request
-                let responseTypes = requests.map { $0.responseType }
-
-                return SnodeAPI
-                    .send(
-                        request: SnodeRequest(
-                            endpoint: .batch,
-                            body: BatchRequest(requests: requests)
-                        ),
-                        to: snode,
-                        associatedWith: publicKey,
-                        using: dependencies
-                    )
-                    .decoded(as: responseTypes, using: dependencies)
-                    .map { (_: ResponseInfoType, batchResponse: HTTP.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)] in
-                        let messageResponses: [HTTP.BatchSubResponse<GetMessagesResponse>] = batchResponse
-                            .compactMap { $0 as? HTTP.BatchSubResponse<GetMessagesResponse> }
-                        
-                        /// Since we have extended the TTL for a number of messages we need to make sure we update the local
-                        /// `SnodeReceivedMessageInfo.expirationDateMs` values so we don't end up deleting them
-                        /// incorrectly before they actually expire on the swarm
-                        if
-                            !refreshingConfigHashes.isEmpty,
-                            let refreshTTLSubReponse: HTTP.BatchSubResponse<UpdateExpiryResponse> = batchResponse
-                                .first(where: { $0 is HTTP.BatchSubResponse<UpdateExpiryResponse> })
-                                .asType(HTTP.BatchSubResponse<UpdateExpiryResponse>.self),
-                            let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
-                            let validResults: [String: UpdateExpiryResponseResult] = try? refreshTTLResponse.validResultMap(
-                                sodium: sodium.wrappedValue,
-                                userX25519PublicKey: getUserHexEncodedPublicKey(),
-                                validationData: refreshingConfigHashes
-                            ),
-                            let targetResult: UpdateExpiryResponseResult = validResults[snode.ed25519PublicKey],
-                            let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
-                                .updated(with: targetResult.unchanged)
-                                .groupedByValue()
-                                .nullIfEmpty()
-                        {
-                            dependencies[singleton: .storage].writeAsync { db in
-                                try groupedExpiryResult.forEach { updatedExpiry, hashes in
-                                    try SnodeReceivedMessageInfo
-                                        .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
-                                        .updateAll(
-                                            db,
-                                            SnodeReceivedMessageInfo.Columns.expirationDateMs
-                                                .set(to: updatedExpiry)
-                                        )
-                                }
-                            }
-                        }
-                        
-                        return zip(namespaces, messageResponses)
-                            .reduce(into: [:]) { result, next in
-                                guard let messageResponse: GetMessagesResponse = next.1.body else { return }
-
-                                let namespace: SnodeAPI.Namespace = next.0
-                                
-                                result[namespace] = (
-                                    info: next.1,
-                                    data: (
-                                        messages: messageResponse.messages
-                                            .compactMap { rawMessage -> SnodeReceivedMessage? in
-                                                SnodeReceivedMessage(
-                                                    snode: snode,
-                                                    publicKey: publicKey,
-                                                    namespace: namespace,
-                                                    rawMessage: rawMessage
-                                                )
-                                            },
-                                        lastHash: namespaceLastHash[namespace]
-                                    )
-                                )
-                            }
-                    }
-                    .eraseToAnyPublisher()
-            }
-            .eraseToAnyPublisher()
-    }
-    
-    /// **Note:** This is the direct request to retrieve messages so should be retrieved automatically from the `poll()` method, in order to call
-    /// this directly remove the `@available` line
-    @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
-    public static func getMessages(
-        in namespace: SnodeAPI.Namespace,
-        from snode: Snode,
-        associatedWith publicKey: String,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<(info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?), Error> {
-        return Deferred {
-            Future<String?, Error> { resolver in
-                // Prune expired message hashes for this namespace on this service node
-                SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
-                    for: snode,
-                    namespace: namespace,
-                    associatedWith: publicKey,
-                    using: dependencies
-                )
-                
-                let maybeLastHash: String? = SnodeReceivedMessageInfo
-                    .fetchLastNotExpired(
-                        for: snode,
-                        namespace: namespace,
-                        associatedWith: publicKey,
-                        using: dependencies
-                    )?
-                    .hash
-                
-                resolver(Result.success(maybeLastHash))
-            }
-        }
-        .tryFlatMap { lastHash -> AnyPublisher<(info: ResponseInfoType, data: GetMessagesResponse?, lastHash: String?), Error> in
-            
-            guard namespace.requiresReadAuthentication else {
-                return SnodeAPI
-                    .send(
-                        request: SnodeRequest(
-                            endpoint: .getMessages,
-                            body: LegacyGetMessagesRequest(
-                                pubkey: publicKey,
-                                lastHash: (lastHash ?? ""),
-                                namespace: namespace,
-                                maxCount: nil,
-                                maxSize: nil
-                            )
-                        ),
-                        to: snode,
-                        associatedWith: publicKey,
-                        using: dependencies
-                    )
-                    .decoded(as: GetMessagesResponse.self, using: dependencies)
-                    .map { info, data in (info, data, lastHash) }
-                    .eraseToAnyPublisher()
-            }
-            
-            guard let userED25519KeyPair: KeyPair = dependencies[singleton: .storage].read({ db in Identity.fetchUserEd25519KeyPair(db, using: dependencies) }) else {
-                throw SnodeAPIError.noKeyPair
-            }
-            
-            return SnodeAPI
-                .send(
-                    request: SnodeRequest(
-                        endpoint: .getMessages,
-                        body: GetMessagesRequest(
-                            lastHash: (lastHash ?? ""),
-                            namespace: namespace,
-                            pubkey: publicKey,
-                            subkey: nil,
-                            timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
-                            ed25519PublicKey: userED25519KeyPair.publicKey,
-                            ed25519SecretKey: userED25519KeyPair.secretKey
-                        )
-                    ),
-                    to: snode,
-                    associatedWith: publicKey,
-                    using: dependencies
-                )
-                .decoded(as: GetMessagesResponse.self, using: dependencies)
-                .map { info, data in (info, data, lastHash) }
-                .eraseToAnyPublisher()
-        }
-        .map { info, data, lastHash -> (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?) in
-            return (
-                info: info,
-                data: data.map { messageResponse -> (messages: [SnodeReceivedMessage], lastHash: String?) in
-                    return (
-                        messages: messageResponse.messages
-                            .compactMap { rawMessage -> SnodeReceivedMessage? in
-                                SnodeReceivedMessage(
-                                    snode: snode,
-                                    publicKey: publicKey,
-                                    namespace: namespace,
-                                    rawMessage: rawMessage
-                                )
-                            },
-                        lastHash: lastHash
-                    )
-                }
-            )
-        }
-        .eraseToAnyPublisher()
-    }
-    
     public static func getExpiries(
         from snode: Snode,
-        associatedWith publicKey: String,
         of serverHashes: [String],
+        authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies) else {
-            return Fail(error: SnodeAPIError.noKeyPair)
-                .eraseToAnyPublisher()
-        }
-        
-        let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs())
+        let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
         
         // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
         let serverHashes: [String] = serverHashes.appending("fakehash")
@@ -652,15 +569,12 @@ public final class SnodeAPI {
                     endpoint: .getExpiries,
                     body: GetExpiriesRequest(
                         messageHashes: serverHashes,
-                        pubkey: publicKey,
-                        subkey: nil,
-                        timestampMs: sendTimestamp,
-                        ed25519PublicKey: userED25519KeyPair.publicKey,
-                        ed25519SecretKey: userED25519KeyPair.secretKey
+                        authInfo: authInfo,
+                        timestampMs: sendTimestamp
                     )
                 ),
                 to: snode,
-                associatedWith: publicKey,
+                associatedWith: authInfo.publicKey,
                 using: dependencies
             )
             .decoded(as: GetExpiriesResponse.self, using: dependencies)
@@ -672,9 +586,9 @@ public final class SnodeAPI {
     public static func sendMessage(
         _ message: SnodeMessage,
         in namespace: Namespace,
+        authInfo: AuthenticationInfo,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> {
-        let publicKey: String = message.recipient
         let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
         
@@ -691,15 +605,11 @@ public final class SnodeAPI {
                             )
                         ),
                         to: snode,
-                        associatedWith: publicKey,
+                        associatedWith: authInfo.publicKey,
                         using: dependencies
                     )
                     .decoded(as: SendMessagesResponse.self, using: dependencies)
                     .eraseToAnyPublisher()
-            }
-                    
-            guard let userED25519KeyPair: KeyPair = dependencies[singleton: .storage].read({ db in Identity.fetchUserEd25519KeyPair(db, using: dependencies) }) else {
-                throw SnodeAPIError.noKeyPair
             }
             
             return SnodeAPI
@@ -709,21 +619,19 @@ public final class SnodeAPI {
                         body: SendMessageRequest(
                             message: message,
                             namespace: namespace,
-                            subkey: nil,
-                            timestampMs: sendTimestamp,
-                            ed25519PublicKey: userED25519KeyPair.publicKey,
-                            ed25519SecretKey: userED25519KeyPair.secretKey
+                            authInfo: authInfo,
+                            timestampMs: sendTimestamp
                         )
                     ),
                     to: snode,
-                    associatedWith: publicKey,
+                    associatedWith: authInfo.publicKey,
                     using: dependencies
                 )
                 .decoded(as: SendMessagesResponse.self, using: dependencies)
                 .eraseToAnyPublisher()
         }
         
-        return getSwarm(for: publicKey)
+        return getSwarm(for: authInfo.publicKey)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> in
                 try sendMessage(to: snode)
                     .tryMap { info, response -> (ResponseInfoType, SendMessagesResponse) in
@@ -738,114 +646,73 @@ public final class SnodeAPI {
             }
     }
     
-    public static func sendConfigMessages(
-        _ messages: [(message: SnodeMessage, namespace: Namespace)],
-        signedWith ed25519KeyPair: KeyPair,
-        allObsoleteHashes: [String],
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> {
-        guard
-            !messages.isEmpty,
-            let recipient: String = messages.first?.message.recipient,
-            let recipientPrefix: SessionId.Prefix = SessionId.Prefix(from: recipient)
-        else {
-            return Fail(error: SnodeAPIError.generic)
-                .eraseToAnyPublisher()
-        }
-        
-        var requests: [SnodeAPI.BatchRequest.Info] = messages
-            .map { message, namespace in
-                // Check if this namespace requires authentication
-                guard namespace.requiresWriteAuthentication else {
-                    return BatchRequest.Info(
-                        request: SnodeRequest(
-                            endpoint: .sendMessage,
-                            body: LegacySendMessagesRequest(
-                                message: message,
-                                namespace: namespace
-                            )
-                        ),
-                        responseType: SendMessagesResponse.self
-                    )
-                }
-                
-                return BatchRequest.Info(
-                    request: SnodeRequest(
+    public static func preparedSendMessage(
+        _ db: Database,
+        message: SnodeMessage,
+        in namespace: Namespace,
+        authInfo: AuthenticationInfo,
+        using dependencies: Dependencies
+    ) throws -> HTTP.PreparedRequest<SendMessagesResponse> {
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let request: HTTP.PreparedRequest<SendMessagesResponse> = try {
+            // Check if this namespace requires authentication
+            guard namespace.requiresWriteAuthentication else {
+                return try SnodeAPI.prepareRequest(
+                    request: Request(
                         endpoint: .sendMessage,
-                        body: SendMessageRequest(
+                        publicKey: authInfo.publicKey,
+                        body: LegacySendMessagesRequest(
                             message: message,
-                            namespace: namespace,
-                            subkey: nil,    // TODO: Need to get this
-                            timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
-                            ed25519PublicKey: (recipientPrefix != .standard ? nil : ed25519KeyPair.publicKey),
-                            ed25519SecretKey: ed25519KeyPair.secretKey
+                            namespace: namespace
                         )
                     ),
                     responseType: SendMessagesResponse.self
                 )
             }
-        
-        // If we had any previous config messages then we should delete them
-        if !allObsoleteHashes.isEmpty {
-            requests.append(
-                BatchRequest.Info(
-                    request: SnodeRequest(
-                        endpoint: .deleteMessages,
-                        body: DeleteMessagesRequest(
-                            messageHashes: allObsoleteHashes,
-                            requireSuccessfulDeletion: false,
-                            pubkey: recipient,
-                            ed25519PublicKey: (recipientPrefix != .standard ? nil : ed25519KeyPair.publicKey),
-                            ed25519SecretKey: ed25519KeyPair.secretKey
-                        )
-                    ),
-                    responseType: DeleteMessagesResponse.self
-                )
-            )
-        }
-        
-        let responseTypes = requests.map { $0.responseType }
-        
-        return getSwarm(for: recipient)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> in
-                SnodeAPI
-                    .send(
-                        request: SnodeRequest(
-                            endpoint: .sequence,
-                            body: BatchRequest(requests: requests)
-                        ),
-                        to: snode,
-                        associatedWith: recipient,
-                        using: dependencies
+            
+            return try SnodeAPI.prepareRequest(
+                request: Request(
+                    endpoint: .sendMessage,
+                    publicKey: authInfo.publicKey,
+                    body: SendMessageRequest(
+                        message: message,
+                        namespace: namespace,
+                        authInfo: authInfo,
+                        timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     )
-                    .eraseToAnyPublisher()
-                    .decoded(as: responseTypes, requireAllResults: false, using: dependencies)
-                    .eraseToAnyPublisher()
+                ),
+                responseType: SendMessagesResponse.self
+            )
+        }()
+        
+        return request
+            .tryMap { _, response -> SendMessagesResponse in
+                try response.validateResultMap(
+                    sodium: sodium.wrappedValue,
+                    userX25519PublicKey: userX25519PublicKey
+                )
+
+                return response
             }
     }
     
     // MARK: - Edit
     
     public static func updateExpiry(
-        publicKey: String,
         serverHashes: [String],
         updatedExpiryMs: Int64,
         shortenOnly: Bool? = nil,
         extendOnly: Bool? = nil,
+        authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
-            return Fail(error: SnodeAPIError.noKeyPair)
-                .eraseToAnyPublisher()
-        }
-        
         // ShortenOnly and extendOnly cannot be true at the same time
         guard shortenOnly == nil || extendOnly == nil else {
             return Fail(error: SnodeAPIError.generic)
                 .eraseToAnyPublisher()
         }
         
-        return getSwarm(for: publicKey)
+        return getSwarm(for: authInfo.publicKey)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
                 SnodeAPI
                     .send(
@@ -856,21 +723,18 @@ public final class SnodeAPI {
                                 expiryMs: UInt64(updatedExpiryMs),
                                 shorten: shortenOnly,
                                 extend: extendOnly,
-                                pubkey: publicKey,
-                                ed25519PublicKey: userED25519KeyPair.publicKey,
-                                ed25519SecretKey: userED25519KeyPair.secretKey,
-                                subkey: nil
+                                authInfo: authInfo
                             )
                         ),
                         to: snode,
-                        associatedWith: publicKey,
+                        associatedWith: authInfo.publicKey,
                         using: dependencies
                     )
                     .decoded(as: UpdateExpiryResponse.self, using: dependencies)
                     .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
                         try response.validResultMap(
                             sodium: sodium.wrappedValue,
-                            userX25519PublicKey: getUserHexEncodedPublicKey(),
+                            userX25519PublicKey: getUserHexEncodedPublicKey(using: dependencies),
                             validationData: serverHashes
                         )
                     }
@@ -879,16 +743,11 @@ public final class SnodeAPI {
     }
     
     public static func revokeSubkey(
-        publicKey: String,
         subkeyToRevoke: String,
+        authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
-            return Fail(error: SnodeAPIError.noKeyPair)
-                .eraseToAnyPublisher()
-        }
-        
-        return getSwarm(for: publicKey)
+        return getSwarm(for: authInfo.publicKey)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<Void, Error> in
                 SnodeAPI
                     .send(
@@ -896,20 +755,18 @@ public final class SnodeAPI {
                             endpoint: .revokeSubkey,
                             body: RevokeSubkeyRequest(
                                 subkeyToRevoke: subkeyToRevoke,
-                                pubkey: publicKey,
-                                ed25519PublicKey: userED25519KeyPair.publicKey,
-                                ed25519SecretKey: userED25519KeyPair.secretKey
+                                authInfo: authInfo
                             )
                         ),
                         to: snode,
-                        associatedWith: publicKey,
+                        associatedWith: authInfo.publicKey,
                         using: dependencies
                     )
                     .decoded(as: RevokeSubkeyResponse.self, using: dependencies)
                     .tryMap { _, response -> Void in
                         try response.validateResultMap(
                             sodium: sodium.wrappedValue,
-                            userX25519PublicKey: getUserHexEncodedPublicKey(),
+                            userX25519PublicKey: getUserHexEncodedPublicKey(using: dependencies),
                             validationData: subkeyToRevoke
                         )
                         
@@ -922,18 +779,13 @@ public final class SnodeAPI {
     // MARK: Delete
     
     public static func deleteMessages(
-        publicKey: String,
         serverHashes: [String],
+        authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies) else {
-            return Fail(error: SnodeAPIError.noKeyPair)
-                .eraseToAnyPublisher()
-        }
-        
         let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        return getSwarm(for: publicKey, using: dependencies)
+        return getSwarm(for: authInfo.publicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 SnodeAPI
                     .send(
@@ -942,13 +794,11 @@ public final class SnodeAPI {
                             body: DeleteMessagesRequest(
                                 messageHashes: serverHashes,
                                 requireSuccessfulDeletion: false,
-                                pubkey: userX25519PublicKey,
-                                ed25519PublicKey: userED25519KeyPair.publicKey,
-                                ed25519SecretKey: userED25519KeyPair.secretKey
+                                authInfo: authInfo
                             )
                         ),
                         to: snode,
-                        associatedWith: publicKey,
+                        associatedWith: authInfo.publicKey,
                         using: dependencies
                     )
                     .decoded(as: DeleteMessagesResponse.self, using: dependencies)
@@ -976,19 +826,57 @@ public final class SnodeAPI {
             }
     }
     
+    public static func preparedDeleteMessages(
+        serverHashes: [String],
+        requireSuccessfulDeletion: Bool,
+        authInfo: AuthenticationInfo,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<[String: Bool]> {
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .deleteMessages,
+                    publicKey: authInfo.publicKey,
+                    body: DeleteMessagesRequest(
+                        messageHashes: serverHashes,
+                        requireSuccessfulDeletion: requireSuccessfulDeletion,
+                        authInfo: authInfo
+                    )
+                ),
+                responseType: DeleteMessagesResponse.self
+            )
+            .tryMap { _, response -> [String: Bool] in
+                let validResultMap: [String: Bool] = try response.validResultMap(
+                    sodium: sodium.wrappedValue,
+                    userX25519PublicKey: userX25519PublicKey,
+                    validationData: serverHashes
+                )
+                
+                // If `validResultMap` didn't throw then at least one service node
+                // deleted successfully so we should mark the hash as invalid so we
+                // don't try to fetch updates using that hash going forward (if we
+                // do we would end up re-fetching all old messages)
+                dependencies[singleton: .storage].writeAsync { db in
+                    try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                        db,
+                        potentiallyInvalidHashes: serverHashes
+                    )
+                }
+                
+                return validResultMap
+            }
+    }
+    
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
     public static func deleteAllMessages(
         namespace: SnodeAPI.Namespace,
+        authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies) else {
-            return Fail(error: SnodeAPIError.noKeyPair)
-                .eraseToAnyPublisher()
-        }
-        
         let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        return getSwarm(for: userX25519PublicKey, using: dependencies)
+        return getSwarm(for: authInfo.publicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 getNetworkTime(from: snode)
                     .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
@@ -998,14 +886,12 @@ public final class SnodeAPI {
                                     endpoint: .deleteAll,
                                     body: DeleteAllMessagesRequest(
                                         namespace: namespace,
-                                        pubkey: userX25519PublicKey,
-                                        timestampMs: timestampMs,
-                                        ed25519PublicKey: userED25519KeyPair.publicKey,
-                                        ed25519SecretKey: userED25519KeyPair.secretKey
+                                        authInfo: authInfo,
+                                        timestampMs: timestampMs
                                     )
                                 ),
                                 to: snode,
-                                associatedWith: nil,
+                                associatedWith: authInfo.publicKey,
                                 using: dependencies
                             )
                             .decoded(as: DeleteAllMessagesResponse.self, using: dependencies)
@@ -1026,16 +912,12 @@ public final class SnodeAPI {
     public static func deleteAllMessages(
         beforeMs: UInt64,
         namespace: SnodeAPI.Namespace,
+        authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(using: dependencies) else {
-            return Fail(error: SnodeAPIError.noKeyPair)
-                .eraseToAnyPublisher()
-        }
-        
         let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        return getSwarm(for: userX25519PublicKey, using: dependencies)
+        return getSwarm(for: authInfo.publicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 getNetworkTime(from: snode)
                     .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
@@ -1046,14 +928,12 @@ public final class SnodeAPI {
                                     body: DeleteAllBeforeRequest(
                                         beforeMs: beforeMs,
                                         namespace: namespace,
-                                        pubkey: userX25519PublicKey,
-                                        timestampMs: timestampMs,
-                                        ed25519PublicKey: userED25519KeyPair.publicKey,
-                                        ed25519SecretKey: userED25519KeyPair.secretKey
+                                        authInfo: authInfo,
+                                        timestampMs: timestampMs
                                     )
                                 ),
                                 to: snode,
-                                associatedWith: nil,
+                                associatedWith: authInfo.publicKey,
                                 using: dependencies
                             )
                             .decoded(as: DeleteAllBeforeResponse.self, using: dependencies)
@@ -1098,6 +978,29 @@ public final class SnodeAPI {
             .eraseToAnyPublisher()
     }
     
+    public static func preparedGetNetworkTime(
+        from snode: Snode,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<UInt64> {
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request<SnodeRequest<[String: String]>, Endpoint>(
+                    endpoint: .getInfo,
+                    publicKey: snode.x25519PublicKey,
+                    body: [:]
+                ),
+                responseType: GetNetworkTimestampResponse.self
+            )
+            .map { _, response in
+                // Assume we've fetched the networkTime in order to send a message to the specified snode, in
+                // which case we want to update the 'clockOffsetMs' value for subsequent requests
+                let offset = (Int64(response.timestamp) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
+                SnodeAPI.clockOffsetMs.mutate { $0 = offset }
+
+                return response.timestamp
+            }
+    }
+    
     internal static func getRandomSnode(
         using dependencies: Dependencies
     ) -> AnyPublisher<Snode, Error> {
@@ -1128,7 +1031,7 @@ public final class SnodeAPI {
             return Fail(error: SnodeAPIError.snodePoolUpdatingFailed)
                 .eraseToAnyPublisher()
         }
-        guard let payload: Data = try? JSONEncoder().encode(request) else {
+        guard let payload: Data = try? JSONEncoder(using: dependencies).encode(request) else {
             return Fail(error: HTTPError.invalidJSON)
                 .eraseToAnyPublisher()
         }
@@ -1247,7 +1150,7 @@ public final class SnodeAPI {
         associatedWith publicKey: String?,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        guard let payload: Data = try? JSONEncoder().encode(request) else {
+        guard let payload: Data = try? JSONEncoder(using: dependencies).encode(request) else {
             return Fail(error: HTTPError.invalidJSON)
                 .eraseToAnyPublisher()
         }
@@ -1302,7 +1205,7 @@ public final class SnodeAPI {
                     // Extract and store hard fork information if returned
                     guard
                         let data: Data = maybeData,
-                        let snodeResponse: SnodeResponse = try? JSONDecoder()
+                        let snodeResponse: SnodeResponse = try? JSONDecoder(using: dependencies)
                             .decode(SnodeResponse.self, from: data)
                     else { return }
                     
@@ -1327,7 +1230,10 @@ public final class SnodeAPI {
     // The parsing utilities below use a best attempt approach to parsing; they warn for parsing
     // failures but don't throw exceptions.
 
-    private static func parseSnodes(from responseData: Data?) -> Set<Snode> {
+    private static func parseSnodes(
+        from responseData: Data?,
+        using dependencies: Dependencies
+    ) -> Set<Snode> {
         guard
             let responseData: Data = responseData,
             let responseJson: JSON = try? JSONSerialization.jsonObject(
@@ -1349,13 +1255,15 @@ public final class SnodeAPI {
         
         // FIXME: Hopefully at some point this different Snode structure will be deprecated and can be removed
         if
-            let swarmSnodes: [SwarmSnode] = try? JSONDecoder().decode([Failable<SwarmSnode>].self, from: snodeData).compactMap({ $0.value }),
+            let swarmSnodes: [SwarmSnode] = try? JSONDecoder(using: dependencies)
+                .decode([Failable<SwarmSnode>].self, from: snodeData)
+                .compactMap({ $0.value }),
             !swarmSnodes.isEmpty
         {
             return swarmSnodes.map { $0.toSnode() }.asSet()
         }
         
-        return ((try? JSONDecoder().decode([Failable<Snode>].self, from: snodeData)) ?? [])
+        return ((try? JSONDecoder(using: dependencies).decode([Failable<Snode>].self, from: snodeData)) ?? [])
             .compactMap { $0.value }
             .asSet()
     }
@@ -1408,7 +1316,7 @@ public final class SnodeAPI {
                     }
                     
                     if let data: Data = data {
-                        let snodes = parseSnodes(from: data)
+                        let snodes = parseSnodes(from: data, using: dependencies)
                         
                         if !snodes.isEmpty {
                             setSwarm(to: snodes, for: publicKey, using: dependencies)
@@ -1438,6 +1346,26 @@ public final class SnodeAPI {
         
         return nil
     }
+    
+    // MARK: - Convenience
+    
+    private static func prepareRequest<T: Encodable, R: Decodable>(
+        request: Request<T, Endpoint>,
+        responseType: R.Type,
+        requireAllBatchResponses: Bool = true,
+        retryCount: Int = 0,
+        timeout: TimeInterval = HTTP.defaultTimeout,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<R> {
+        return HTTP.PreparedRequest<R>(
+            request: request,
+            urlRequest: try request.generateUrlRequest(using: dependencies),
+            responseType: responseType,
+            requireAllBatchResponses: requireAllBatchResponses,
+            retryCount: retryCount,
+            timeout: timeout
+        )
+    }
 }
 
 @objc(SNSnodeAPI)
@@ -1448,23 +1376,47 @@ public final class SNSnodeAPI: NSObject {
     }
 }
 
-// MARK: - Convenience
+// MARK: - Publisher Convenience
 
 public extension Publisher where Output == Set<Snode> {
     func tryFlatMapWithRandomSnode<T, P>(
         maxPublishers: Subscribers.Demand = .unlimited,
         retry retries: Int = 0,
+        drainBehaviour: Atomic<SwarmDrainBehaviour> = .alwaysRandom,
         _ transform: @escaping (Snode) throws -> P
     ) -> AnyPublisher<T, Error> where T == P.Output, P: Publisher, P.Failure == Error {
         return self
             .mapError { $0 }
             .flatMap(maxPublishers: maxPublishers) { swarm -> AnyPublisher<T, Error> in
-                var remainingSnodes: Set<Snode> = swarm
+                // If we don't want to reuse a specific snode multiple times then just grab a
+                // random one from the swarm every time
+                var remainingSnodes: Set<Snode> = {
+                    switch drainBehaviour.wrappedValue {
+                        case .alwaysRandom: return swarm
+                        case .limitedReuse(_, let targetSnode, _, let usedSnodes):
+                            // If we've used all of the snodes then reset the used list
+                            guard targetSnode != nil || usedSnodes != swarm else {
+                                drainBehaviour.mutate { $0 = $0.reset() }
+                                return swarm
+                            }
+                            
+                            return swarm.subtracting(usedSnodes)
+                    }
+                }()
                 
                 return Just(())
                     .setFailureType(to: Error.self)
                     .tryFlatMap(maxPublishers: maxPublishers) { _ -> AnyPublisher<T, Error> in
-                        let snode: Snode = try remainingSnodes.popRandomElement() ?? { throw SnodeAPIError.generic }()
+                        let snode: Snode = try {
+                            switch drainBehaviour.wrappedValue {
+                                case .limitedReuse(_, .some(let targetSnode), _, _): return targetSnode
+                                default: break
+                            }
+                            
+                            // Select the next snode
+                            return try remainingSnodes.popRandomElement() ?? { throw SnodeAPIError.generic }()
+                        }()
+                        drainBehaviour.mutate { $0 = $0.use(snode: snode) }
                         
                         return try transform(snode)
                             .eraseToAnyPublisher()
@@ -1473,5 +1425,32 @@ public extension Publisher where Output == Set<Snode> {
                     .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
+    }
+}
+
+// MARK: - Snode Convenience
+
+private extension Snode {
+    var server: String { "\(address):\(port)" }
+    var urlString: String { "\(address):\(port)/storage_rpc/v1" }
+}
+
+// MARK: - Request<T, EndpointType> Convenience
+
+private extension Request {
+    init<B: Encodable>(
+        endpoint: SnodeAPI.Endpoint,
+        publicKey: String,
+        body: B
+    ) where T == SnodeRequest<B>, Endpoint == SnodeAPI.Endpoint {
+        self = Request(
+            method: .post,
+            endpoint: endpoint,
+            publicKey: publicKey,
+            body: SnodeRequest<B>(
+                endpoint: endpoint,
+                body: body
+            )
+        )
     }
 }

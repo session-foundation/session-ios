@@ -51,6 +51,7 @@ extension MessageReceiver {
                 name: name,
                 authData: authData,
                 joinedAt: created,
+                approved: approved,
                 using: dependencies
             )
         }

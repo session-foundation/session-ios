@@ -10,11 +10,8 @@ import SessionUtilitiesKit
 public class Poller {
     private var cancellables: Atomic<[String: AnyCancellable]> = Atomic([:])
     internal var isPolling: Atomic<[String: Bool]> = Atomic([:])
-    internal var pollCount: Atomic<[String: Int]> = Atomic([:])
     internal var failureCount: Atomic<[String: Int]> = Atomic([:])
-    
-    internal var targetSnode: Atomic<Snode?> = Atomic(nil)
-    private var usedSnodes: Atomic<Set<Snode>> = Atomic([])
+    internal var drainBehaviour: Atomic<[String: Atomic<SwarmDrainBehaviour>]> = Atomic([:])
     
     // MARK: - Settings
     
@@ -23,8 +20,8 @@ public class Poller {
         preconditionFailure("abstract class - override in subclass")
     }
     
-    /// The number of times the poller can poll a single snode before swapping to a new snode
-    internal var maxNodePollCount: UInt {
+    /// The behaviour for how the poller should drain it's swarm when polling
+    internal var pollDrainBehaviour: SwarmDrainBehaviour {
         preconditionFailure("abstract class - override in subclass")
     }
 
@@ -42,6 +39,8 @@ public class Poller {
     
     public func stopPolling(for publicKey: String) {
         isPolling.mutate { $0[publicKey] = false }
+        failureCount.mutate { $0[publicKey] = nil }
+        drainBehaviour.mutate { $0[publicKey] = nil }
         cancellables.mutate { $0[publicKey]?.cancel() }
     }
     
@@ -67,6 +66,8 @@ public class Poller {
     internal func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
         // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
         // on startup
+        let drainBehaviour: Atomic<SwarmDrainBehaviour> = Atomic(pollDrainBehaviour)
+        
         Threading.pollerQueue.async(using: dependencies) { [weak self] in
             guard self?.isPolling.wrappedValue[publicKey] != true else { return }
             
@@ -74,67 +75,14 @@ public class Poller {
             // and the timer is not created, if we mark the group as is polling
             // after setUpPolling. So the poller may not work, thus misses messages
             self?.isPolling.mutate { $0[publicKey] = true }
-            self?.pollRecursively(for: publicKey, using: dependencies)
+            self?.drainBehaviour.mutate { $0[publicKey] = drainBehaviour }
+            self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
         }
-    }
-    
-    internal func getSnodeForPolling(
-        for publicKey: String,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<Snode, Error> {
-        // If we don't want to poll a snode multiple times then just grab a random one from the swarm
-        guard maxNodePollCount > 0 else {
-            return SnodeAPI.getSwarm(for: publicKey, using: dependencies)
-                .tryMap { swarm -> Snode in
-                    try swarm.randomElement() ?? { throw OnionRequestAPIError.insufficientSnodes }()
-                }
-                .eraseToAnyPublisher()
-        }
-        
-        // If we already have a target snode then use that
-        if let targetSnode: Snode = self.targetSnode.wrappedValue {
-            return Just(targetSnode)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        // Select the next unused snode from the swarm (if we've used them all then clear the used list and
-        // start cycling through them again)
-        return SnodeAPI.getSwarm(for: publicKey, using: dependencies)
-            .tryMap { [usedSnodes = self.usedSnodes, targetSnode = self.targetSnode] swarm -> Snode in
-                let unusedSnodes: Set<Snode> = swarm.subtracting(usedSnodes.wrappedValue)
-                
-                // If we've used all of the SNodes then clear out the used list
-                if unusedSnodes.isEmpty {
-                    usedSnodes.mutate { $0.removeAll() }
-                }
-                
-                // Select the next SNode
-                let nextSnode: Snode = try swarm.randomElement() ?? { throw OnionRequestAPIError.insufficientSnodes }()
-                targetSnode.mutate { $0 = nextSnode }
-                usedSnodes.mutate { $0.insert(nextSnode) }
-                
-                return nextSnode
-            }
-            .eraseToAnyPublisher()
-    }
-    
-    internal func incrementPollCount(publicKey: String) {
-        guard maxNodePollCount > 0 else { return }
-        
-        let pollCount: Int = (self.pollCount.wrappedValue[publicKey] ?? 0)
-        self.pollCount.mutate { $0[publicKey] = (pollCount + 1) }
-        
-        // Check if we've polled the serice node too many times
-        guard pollCount > maxNodePollCount else { return }
-        
-        // If we have polled this service node more than the maximum allowed then clear out
-        // the 'targetServiceNode' value
-        self.targetSnode.mutate { $0 = nil }
     }
     
     private func pollRecursively(
         for publicKey: String,
+        drainBehaviour: Atomic<SwarmDrainBehaviour>,
         using dependencies: Dependencies
     ) {
         guard isPolling.wrappedValue[publicKey] == true else { return }
@@ -142,20 +90,17 @@ public class Poller {
         let namespaces: [SnodeAPI.Namespace] = self.namespaces(for: publicKey)
         let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let lastPollInterval: TimeInterval = nextPollDelay(for: publicKey, using: dependencies)
-        let getSnodePublisher: AnyPublisher<Snode, Error> = getSnodeForPolling(for: publicKey, using: dependencies)
         
         // Store the publisher intp the cancellables dictionary
         cancellables.mutate { [weak self] cancellables in
-            cancellables[publicKey] = getSnodePublisher
-                .flatMap { snode -> AnyPublisher<[Message], Error> in
-                    Poller.poll(
-                        namespaces: namespaces,
-                        from: snode,
-                        for: publicKey,
-                        poller: self,
-                        using: dependencies
-                    )
-                }
+            cancellables[publicKey] = Poller
+                .poll(
+                    namespaces: namespaces,
+                    for: publicKey,
+                    drainBehaviour: drainBehaviour,
+                    poller: self,
+                    using: dependencies
+                )
                 .subscribe(on: Threading.pollerQueue, using: dependencies)
                 .receive(on: Threading.pollerQueue, using: dependencies)
                 .sink(
@@ -170,9 +115,6 @@ public class Poller {
                             case .finished: break
                         }
                         
-                        // Increment the poll count
-                        self?.incrementPollCount(publicKey: publicKey)
-                        
                         // Calculate the remaining poll delay
                         let currentTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         let nextPollInterval: TimeInterval = (
@@ -184,12 +126,12 @@ public class Poller {
                         // Schedule the next poll
                         guard remainingInterval > 0 else {
                             return Threading.pollerQueue.async(using: dependencies) {
-                                self?.pollRecursively(for: publicKey, using: dependencies)
+                                self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
                             }
                         }
                         
                         Threading.pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
-                            self?.pollRecursively(for: publicKey, using: dependencies)
+                            self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
                         }
                     },
                     receiveValue: { _ in }
@@ -204,10 +146,10 @@ public class Poller {
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public static func poll(
         namespaces: [SnodeAPI.Namespace],
-        from snode: Snode,
         for publicKey: String,
         calledFromBackgroundPoller: Bool = false,
         isBackgroundPollValid: @escaping (() -> Bool) = { true },
+        drainBehaviour: Atomic<SwarmDrainBehaviour>,
         poller: Poller? = nil,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[Message], Error> {
@@ -227,16 +169,26 @@ public class Poller {
         )
         let configHashes: [String] = SessionUtil.configHashes(for: publicKey, using: dependencies)
         
-        // Fetch the messages
-        return SnodeAPI
-            .poll(
-                namespaces: namespaces,
-                refreshingConfigHashes: configHashes,
-                from: snode,
-                associatedWith: publicKey,
-                using: dependencies
-            )
-            .flatMap { namespacedResults -> AnyPublisher<[Message], Error> in
+        /// Fetch the messages
+        ///
+        /// **Note:**  We need a `writePublisher` here because we want to prune the `lastMessageHash` value when preparing
+        /// the request
+        return SnodeAPI.getSwarm(for: publicKey, using: dependencies)
+            .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour) { snode -> AnyPublisher<HTTP.PreparedRequest<SnodeAPI.PollResponse>, Error> in
+                dependencies[singleton: .storage]
+                    .writePublisher(using: dependencies) { db -> HTTP.PreparedRequest<SnodeAPI.PollResponse> in
+                        try SnodeAPI.preparedPoll(
+                            db,
+                            namespaces: namespaces,
+                            refreshingConfigHashes: configHashes,
+                            from: snode,
+                            authInfo: try SnodeAPI.AuthenticationInfo(db, threadId: publicKey, using: dependencies),
+                            using: dependencies
+                        )
+                    }
+            }
+            .flatMap { $0.send(using: dependencies) }
+            .flatMap { (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<[Message], Error> in
                 guard
                     (calledFromBackgroundPoller && isBackgroundPollValid()) ||
                     poller?.isPolling.wrappedValue[publicKey] == true

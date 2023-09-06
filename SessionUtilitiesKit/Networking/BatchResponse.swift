@@ -5,25 +5,50 @@ import Combine
 
 public extension HTTP {
     // MARK: - HTTP.BatchResponse
-    
-    typealias BatchResponse = [Decodable]
+
+    struct BatchResponse: Decodable, Collection {
+        public let data: [Any]
+        
+        // MARK: - Collection Conformance
+        
+        public var startIndex: Int { data.startIndex }
+        public var endIndex: Int { data.endIndex }
+        public var count: Int { data.count }
+        
+        public subscript(index: Int) -> Any { data[index] }
+        public func index(after i: Int) -> Int { return data.index(after: i) }
+        
+        // MARK: - Initialization
+        
+        init(data: [Any]) {
+            self.data = data
+        }
+        
+        public init(from decoder: Decoder) throws {
+#if DEBUG
+            preconditionFailure("The `HTTP.BatchResponse` type cannot be decoded directly, this is simply here to allow for `PreparedSendData<HTTP.BatchResponse>` support")
+#else
+            data = []
+#endif
+        }
+    }
     
     // MARK: - BatchResponseMap<E>
     
     struct BatchResponseMap<E: EndpointType>: Decodable, ErasedBatchResponseMap {
-        public let data: [E: Decodable]
+        public let data: [E: Any]
         
-        public subscript(position: E) -> Decodable? {
+        public subscript(position: E) -> Any? {
             get { return data[position] }
         }
         
         public var count: Int { data.count }
-        public var keys: Dictionary<E, Decodable>.Keys { data.keys }
-        public var values: Dictionary<E, Decodable>.Values { data.values }
+        public var keys: Dictionary<E, Any>.Keys { data.keys }
+        public var values: Dictionary<E, Any>.Values { data.values }
         
         // MARK: - Initialization
         
-        init(data: [E: Decodable]) {
+        init(data: [E: Any]) {
             self.data = data
         }
         
@@ -39,14 +64,14 @@ public extension HTTP {
         
         public static func from(
             batchEndpoints: [any EndpointType],
-            responses: [Decodable]
+            response: HTTP.BatchResponse
         ) throws -> Self {
             let convertedEndpoints: [E] = batchEndpoints.compactMap { $0 as? E }
             
-            guard convertedEndpoints.count == responses.count else { throw HTTPError.parsingFailed }
+            guard convertedEndpoints.count == response.data.count else { throw HTTPError.parsingFailed }
             
             return BatchResponseMap(
-                data: zip(convertedEndpoints, responses)
+                data: zip(convertedEndpoints, response.data)
                     .reduce(into: [:]) { result, next in
                         result[next.0] = next.1
                     }
@@ -56,7 +81,7 @@ public extension HTTP {
     
     // MARK: - BatchSubResponse<T>
     
-    struct BatchSubResponse<T>: ResponseInfoType {
+    struct BatchSubResponse<T>: ErasedBatchSubResponse {
         public enum CodingKeys: String, CodingKey {
             case code
             case headers
@@ -71,6 +96,8 @@ public extension HTTP {
         
         /// The body of the request; will be plain json if content-type is `application/json`, otherwise it will be base64 encoded data
         public let body: T?
+        
+        var erasedBody: Any? { body }
         
         /// A flag to indicate that there was a body but it failed to parse
         public let failedToParseBody: Bool
@@ -94,7 +121,7 @@ public extension HTTP {
 public protocol ErasedBatchResponseMap {
     static func from(
         batchEndpoints: [any EndpointType],
-        responses: [Decodable]
+        response: HTTP.BatchResponse
     ) throws -> Self
 }
 
@@ -117,6 +144,12 @@ extension HTTP.BatchSubResponse: Decodable {
             )
         )
     }
+}
+
+// MARK: - ErasedBatchSubResponse
+
+protocol ErasedBatchSubResponse: ResponseInfoType {
+    var erasedBody: Any? { get }
 }
 
 // MARK: - Convenience
@@ -159,29 +192,9 @@ internal extension HTTP.BatchResponse {
             default: throw HTTPError.parsingFailed
         }
         
-        return try zip(dataArray, types)
-            .map { data, type in try type.decoded(from: data, using: dependencies) }
-    }
-}
-
-public extension Publisher where Output == (ResponseInfoType, Data?), Failure == Error {
-    func decoded(
-        as types: [Decodable.Type],
-        requireAllResults: Bool = true,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> {
-        self
-            .tryMap { responseInfo, maybeData -> (ResponseInfoType, HTTP.BatchResponse) in
-                (
-                    responseInfo,
-                    try HTTP.BatchResponse.decodingResponses(
-                        from: maybeData,
-                        as: types,
-                        requireAllResults: requireAllResults,
-                        using: dependencies
-                    )
-                )
-            }
-            .eraseToAnyPublisher()
+        return HTTP.BatchResponse(
+            data: try zip(dataArray, types)
+                .map { data, type in try type.decoded(from: data, using: dependencies) }
+        )
     }
 }

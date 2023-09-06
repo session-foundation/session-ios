@@ -2,18 +2,9 @@
 
 import Foundation
 
-public extension Dependencies {
-    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!
-}
-
 public extension Data {
     func decoded<T: Decodable>(as type: T.Type, using dependencies: Dependencies = Dependencies()) throws -> T {
-        do {
-            let decoder: JSONDecoder = JSONDecoder()
-            decoder.userInfo = [ Dependencies.userInfoKey: dependencies ]
-            
-            return try decoder.decode(type, from: self)
-        }
+        do { return try JSONDecoder(using: dependencies).decode(type, from: self) }
         catch { throw HTTPError.parsingFailed }
     }
 

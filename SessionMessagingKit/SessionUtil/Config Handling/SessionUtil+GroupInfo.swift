@@ -22,6 +22,7 @@ internal extension SessionUtil {
     static func handleGroupInfoUpdate(
         _ db: Database,
         in config: Config?,
+        groupIdentityPublicKey: String,
         latestConfigSentTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
@@ -29,6 +30,93 @@ internal extension SessionUtil {
         
         guard config.needsDump else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+        
+        // If the group is destroyed then remove everything, no other properties matter and this
+        // can't be reversed
+        guard !groups_info_is_destroyed(conf) else {
+            return
+        }
+
+        // A group must have a name so if this is null then it's invalid and can be ignored
+        guard let groupNamePtr: UnsafePointer<CChar> = groups_info_get_name(conf) else { return }
+
+        let groupName: String = String(cString: groupNamePtr)
+        let formationTimestamp: TimeInterval = TimeInterval(groups_info_get_created(conf))
+        let displayPic: user_profile_pic = groups_info_get_pic(conf)
+        let displayPictureUrl: String? = String(libSessionVal: displayPic.url, nullIfEmpty: true)
+        let displayPictureKey: Data? = Data(
+            libSessionVal: displayPic.key,
+            count: ProfileManager.avatarAES256KeyByteLength
+        )
+
+        // Update the group name
+        let existingGroup: ClosedGroup? = try? ClosedGroup
+            .filter(id: groupIdentityPublicKey)
+            .fetchOne(db)
+        let needsDisplayPictureUpdate: Bool = (
+            existingGroup?.displayPictureUrl != displayPictureUrl ||
+            existingGroup?.displayPictureEncryptionKey != displayPictureKey
+        )
+
+        let groupChanges: [ConfigColumnAssignment] = [
+            ((existingGroup?.name == groupName) ? nil :
+                ClosedGroup.Columns.name.set(to: groupName)
+            ),
+            ((existingGroup?.formationTimestamp != formationTimestamp && formationTimestamp != 0) ? nil :
+                ClosedGroup.Columns.formationTimestamp.set(to: formationTimestamp)
+            ),
+            // If we are removing the display picture do so here
+            (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
+                ClosedGroup.Columns.displayPictureUrl.set(to: nil)
+            ),
+            (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
+                ClosedGroup.Columns.displayPictureFilename.set(to: nil)
+            ),
+            (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
+                ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil)
+            ),
+            (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
+                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow)
+            )
+        ].compactMap { $0 }
+
+        if !groupChanges.isEmpty {
+            try ClosedGroup
+                .filter(id: groupIdentityPublicKey)
+                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    db,
+                    groupChanges
+                )
+        }
+        if needsDisplayPictureUpdate && displayPictureUrl != nil {
+        }
+
+        // Update the disappearing messages configuration
+        let targetExpiry: Int32 = groups_info_get_expiry_timer(conf)
+        let targetIsEnable: Bool = (targetExpiry > 0)
+        let targetConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
+            threadId: groupIdentityPublicKey,
+            isEnabled: targetIsEnable,
+            durationSeconds: TimeInterval(targetExpiry),
+            type: (targetIsEnable ? .disappearAfterSend : .unknown),
+            lastChangeTimestampMs: latestConfigSentTimestampMs
+        )
+        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+            .fetchOne(db, id: groupIdentityPublicKey)
+            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(groupIdentityPublicKey))
+
+        if
+            let remoteLastChangeTimestampMs = targetConfig.lastChangeTimestampMs,
+            let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
+            remoteLastChangeTimestampMs > localLastChangeTimestampMs
+        {
+            _ = try localConfig.with(
+                isEnabled: targetConfig.isEnabled,
+                durationSeconds: targetConfig.durationSeconds,
+                type: targetConfig.type,
+                lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
+            ).save(db)
+        }
     }
 }
 
@@ -59,7 +147,10 @@ internal extension SessionUtil {
             ) { config in
                 guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
                 
-                // Update the name
+                /// Update the name
+                ///
+                /// **Note:** We indentionally only update the `GROUP_INFO` and not the `USER_GROUPS` as once the
+                /// group is synced between devices we want to rely on the proper group config to get display info
                 var updatedName: [CChar] = group.name.cArray.nullTerminated()
                 groups_info_set_name(conf, &updatedName)
                 

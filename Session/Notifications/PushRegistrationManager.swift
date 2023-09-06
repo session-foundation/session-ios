@@ -299,7 +299,7 @@ public enum PushRegistrationError: Error {
             )
             
             let messageInfoString: String? = {
-                if let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) {
+                if let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) {
                    return String(data: messageInfoData, encoding: .utf8)
                 } else {
                     return "Incoming call." // TODO: We can do better here.

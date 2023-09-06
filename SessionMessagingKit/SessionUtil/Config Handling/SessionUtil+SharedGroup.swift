@@ -210,23 +210,94 @@ internal extension SessionUtil {
             name: group.name,
             authData: group.authData,
             joinedAt: Int64(floor(group.formationTimestamp)),
+            approved: group.approved,
             using: dependencies
         )
     }
     
-    @discardableResult static func addGroup(
-        _ db: Database,
-        groupIdentityPublicKey: [UInt8],
+    @discardableResult static func createGroupState(
+        groupId: String,
+        userED25519KeyPair: KeyPair,
         groupIdentityPrivateKey: Data?,
-        name: String,
-        tag: Data?,
-        subkey: Data?,
-        joinedAt: Int64,
-        approved: Bool,
+        authData: Data?,
         using dependencies: Dependencies
-    ) throws -> (group: ClosedGroup, members: [GroupMember]) {
-        // TODO: This!!!
-        preconditionFailure()
+    ) throws -> [ConfigDump.Variant: Config] {
+        var secretKey: [UInt8] = userED25519KeyPair.secretKey
+        var groupIdentityPublicKey: [UInt8] = Array(Data(hex: groupId.removingIdPrefixIfNeeded()))
+        var groupIdentityPrivateKey: [UInt8] = Array(groupIdentityPrivateKey!)
+        
+        // Create the new config objects
+        var groupKeysConf: UnsafeMutablePointer<config_group_keys>? = nil
+        var groupInfoConf: UnsafeMutablePointer<config_object>? = nil
+        var groupMembersConf: UnsafeMutablePointer<config_object>? = nil
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
+        try groups_info_init(
+            &groupInfoConf,
+            &groupIdentityPublicKey,
+            &groupIdentityPrivateKey,
+            nil,
+            0,
+            &error
+        ).orThrow(error: error)
+        try groups_members_init(
+            &groupMembersConf,
+            &groupIdentityPublicKey,
+            &groupIdentityPrivateKey,
+            nil,
+            0,
+            &error
+        ).orThrow(error: error)
+        try groups_keys_init(
+            &groupKeysConf,
+            &secretKey,
+            &groupIdentityPublicKey,
+            &groupIdentityPrivateKey,
+            groupInfoConf,
+            groupMembersConf,
+            nil,
+            0,
+            &error
+        ).orThrow(error: error)
+        
+        guard
+            let keysConf: UnsafeMutablePointer<config_group_keys> = groupKeysConf,
+            let infoConf: UnsafeMutablePointer<config_object> = groupInfoConf,
+            let membersConf: UnsafeMutablePointer<config_object> = groupMembersConf
+        else {
+            SNLog("[SessionUtil Error] Group config objects were null")
+            throw SessionUtilError.unableToCreateConfigObject
+        }
+        
+        // Define the config state map and load it into memory
+        let groupState: [ConfigDump.Variant: Config] = [
+            .groupKeys: .groupKeys(keysConf, info: infoConf, members: membersConf),
+            .groupInfo: .object(infoConf),
+            .groupMembers: .object(membersConf),
+        ]
+        
+        dependencies.mutate(cache: .sessionUtil) { cache in
+            groupState.forEach { variant, config in
+                cache.setConfig(for: variant, publicKey: groupId, to: config)
+            }
+        }
+        
+        return groupState
+    }
+    
+    static func encrypt(
+        message: Data,
+        groupIdentityPublicKey: String,
+        using dependencies: Dependencies
+    ) throws -> Data {
+        return message
+    }
+    
+    static func decrypt(
+        ciphertext: Data,
+        groupIdentityPublicKey: String,
+        using dependencies: Dependencies
+    ) throws -> Data {
+        return ciphertext
     }
 }
 

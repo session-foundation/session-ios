@@ -472,7 +472,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         id: UUID,
         messageViewModel: MessageViewModel,
         interaction: Interaction,
-        attachmentData: Attachment.PreparedData?,
+        attachmentData: [Attachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
         linkPreviewAttachment: Attachment?,
         quoteModel: QuotedReplyModel?
@@ -507,7 +507,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             ),
             linkPreviewUrl: linkPreviewDraft?.urlString
         )
-        let optimisticAttachments: Attachment.PreparedData? = attachments
+        let optimisticAttachments: [Attachment]? = attachments
             .map { Attachment.prepare(attachments: $0) }
         let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
             try? LinkPreview.generateAttachmentIfPossible(
@@ -557,7 +557,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 )
             },
             linkPreviewAttachment: linkPreviewAttachment,
-            attachments: optimisticAttachments?.attachments
+            attachments: optimisticAttachments
         )
         let optimisticData: OptimisticMessageData = (
             optimisticMessageId,

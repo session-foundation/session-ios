@@ -579,7 +579,7 @@ extension ConversationVC:
                     // Process any attachments
                     try Attachment.process(
                         db,
-                        data: optimisticData.attachmentData,
+                        attachments: optimisticData.attachmentData,
                         for: insertedInteraction.id
                     )
                     
@@ -1340,8 +1340,8 @@ extension ConversationVC:
             }
         }
         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-        .flatMap { pendingChange -> AnyPublisher<(MessageSender.PreparedSendData?, OpenGroupInfo?), Error> in
-            dependencies[singleton: .storage].writePublisher { [weak self] db -> (MessageSender.PreparedSendData?, OpenGroupInfo?) in
+        .flatMap { pendingChange -> AnyPublisher<HTTP.PreparedRequest<Void>, Error> in
+            dependencies[singleton: .storage].writePublisher { [weak self] db -> HTTP.PreparedRequest<Void> in
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
@@ -1424,10 +1424,25 @@ extension ConversationVC:
                                 .map { _, response in response.seqNo }
                         }()
                         
-                        return (nil, (pendingReaction, pendingChange, preparedRequest))
+                        return preparedRequest
+                            .handleEvents(
+                                receiveOutput: { _, seqNo in
+                                    OpenGroupManager.updatePendingChange(pendingChange, seqNo: seqNo)
+                                },
+                                receiveCompletion: { [weak self] result in
+                                    switch result {
+                                        case .finished: break
+                                        case .failure:
+                                            OpenGroupManager.removePendingChange(pendingChange)
+                                            
+                                            self?.handleReactionSentFailure(pendingReaction, remove: remove)
+                                    }
+                                }
+                            )
+                            .map { _, _ in () }
                         
                     default:
-                        let sendData: MessageSender.PreparedSendData = try MessageSender.preparedSendData(
+                        return try MessageSender.preparedSend(
                             db,
                             message: VisibleMessage(
                                 sentTimestamp: UInt64(sentTimestamp),
@@ -1451,47 +1466,13 @@ extension ConversationVC:
                                 .from(db, threadId: cellViewModel.threadId, threadVariant: cellViewModel.threadVariant)
                                 .defaultNamespace,
                             interactionId: cellViewModel.id,
+                            fileIds: [],
                             using: dependencies
                         )
-                        
-                        return (sendData, nil)
                 }
             }
         }
-        .tryFlatMap { messageSendData, openGroupInfo -> AnyPublisher<Void, Error> in
-            switch (messageSendData, openGroupInfo) {
-                case (.some(let sendData), _):
-                    return MessageSender.sendImmediate(data: sendData, using: dependencies)
-                    
-                case (_, .some(let info)):
-                    return info.preparedRequest.send(using: dependencies)
-                        .handleEvents(
-                            receiveOutput: { _, seqNo in
-                                OpenGroupManager
-                                    .updatePendingChange(
-                                        info.pendingChange,
-                                        seqNo: seqNo
-                                    )
-                            },
-                            receiveCompletion: { [weak self] result in
-                                switch result {
-                                    case .finished: break
-                                    case .failure:
-                                        OpenGroupManager.removePendingChange(info.pendingChange)
-
-                                        self?.handleReactionSentFailure(
-                                            info.pendingReaction,
-                                            remove: remove
-                                        )
-                                }
-                            }
-                        )
-                        .map { _ in () }
-                        .eraseToAnyPublisher()
-                    
-                default: throw MessageSenderError.invalidMessage
-            }
-        }
+        .flatMap { $0.send(using: dependencies) }
         .sinkUntilComplete()
     }
     
@@ -2085,11 +2066,17 @@ extension ConversationVC:
                     
                     deleteRemotely(
                         from: self,
-                        request: SnodeAPI
-                            .deleteMessages(
-                                publicKey: targetPublicKey,
-                                serverHashes: [serverHash]
-                            )
+                        request: dependencies[singleton: .storage]
+                            .readPublisher(using: dependencies) { db in
+                                try SnodeAPI.AuthenticationInfo(db, threadId: targetPublicKey, using: dependencies)
+                            }
+                            .flatMap { authInfo in
+                                SnodeAPI
+                                    .deleteMessages(
+                                        serverHashes: [serverHash],
+                                        authInfo: authInfo
+                                    )
+                            }
                             .map { _ in () }
                             .eraseToAnyPublisher()
                     ) { completeServerDeletion() }

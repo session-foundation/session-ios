@@ -22,7 +22,7 @@ public enum GroupLeavingJob: JobExecutor {
     ) {
         guard
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId
         else {
@@ -33,7 +33,7 @@ public enum GroupLeavingJob: JobExecutor {
         let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
         
         dependencies[singleton: .storage]
-            .writePublisher { db in
+            .writePublisher { db -> HTTP.PreparedRequest<Void> in
                 guard (try? SessionThread.exists(db, id: threadId)) == true else {
                     SNLog("[GroupLeavingJob] Failed due to non-existent group conversation")
                     throw MessageSenderError.noThread
@@ -43,7 +43,7 @@ public enum GroupLeavingJob: JobExecutor {
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
-                return try MessageSender.preparedSendData(
+                return try MessageSender.preparedSend(
                     db,
                     message: ClosedGroupControlMessage(
                         kind: .memberLeft
@@ -51,13 +51,14 @@ public enum GroupLeavingJob: JobExecutor {
                     to: destination,
                     namespace: destination.defaultNamespace,
                     interactionId: job.interactionId,
+                    fileIds: [],
                     isSyncMessage: false,
                     using: dependencies
                 )
             }
-            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .flatMap { $0.send(using: dependencies) }
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     let failureChanges: [ConfigColumnAssignment] = [

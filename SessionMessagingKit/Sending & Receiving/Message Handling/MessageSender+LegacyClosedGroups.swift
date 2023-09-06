@@ -16,7 +16,7 @@ extension MessageSender {
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
         dependencies[singleton: .storage]
-            .writePublisher { db -> (String, SessionThread, [MessageSender.PreparedSendData], Set<String>) in
+            .writePublisher { db -> (String, SessionThread, [HTTP.PreparedRequest<Void>], Set<String>) in
                 // Generate the group's two keys
                 guard
                     let groupKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair()),
@@ -88,9 +88,9 @@ extension MessageSender {
                     using: dependencies
                 )
                 
-                let memberSendData: [MessageSender.PreparedSendData] = try members
-                    .map { memberId -> MessageSender.PreparedSendData in
-                        try MessageSender.preparedSendData(
+                let memberSendData: [HTTP.PreparedRequest<Void>] = try members
+                    .map { memberId -> HTTP.PreparedRequest<Void> in
+                        try MessageSender.preparedSend(
                             db,
                             message: ClosedGroupControlMessage(
                                 kind: .new(
@@ -108,6 +108,7 @@ extension MessageSender {
                             to: .contact(publicKey: memberId),
                             namespace: Message.Destination.contact(publicKey: memberId).defaultNamespace,
                             interactionId: nil,
+                            fileIds: [],
                             using: dependencies
                         )
                     }
@@ -129,7 +130,6 @@ extension MessageSender {
                     .MergeMany(
                         // Send a closed group update message to all members individually
                         memberSendData
-                            .map { MessageSender.sendImmediate(data: $0, using: dependencies) }
                             .appending(
                                 // Resubscribe to all legacy groups
                                 try? PushNotificationAPI
@@ -137,10 +137,9 @@ extension MessageSender {
                                         currentUserPublicKey: userPublicKey,
                                         legacyGroupIds: allActiveLegacyGroupIds
                                     )?
-                                    .send(using: dependencies)
-                                    .map { _ in () }
-                                    .eraseToAnyPublisher()
+                                    .map { _, _ in () }
                             )
+                            .map { $0.send(using: dependencies) }
                     )
                     .collect()
                     .map { _ in thread }
@@ -173,7 +172,7 @@ extension MessageSender {
         }
         
         return dependencies[singleton: .storage]
-            .readPublisher { db -> (ClosedGroupKeyPair, MessageSender.PreparedSendData) in
+            .readPublisher { db -> (ClosedGroupKeyPair, HTTP.PreparedRequest<Void>) in
                 // Generate the new encryption key pair
                 guard let legacyNewKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair()) else {
                     throw MessageSenderError.noKeyPair
@@ -198,8 +197,8 @@ extension MessageSender {
                         .appending(newKeyPair)
                 }
                 
-                let sendData: MessageSender.PreparedSendData = try MessageSender
-                    .preparedSendData(
+                let preparedRequest: HTTP.PreparedRequest<Void> = try MessageSender
+                    .preparedSend(
                         db,
                         message: ClosedGroupControlMessage(
                             kind: .encryptionKeyPair(
@@ -223,13 +222,14 @@ extension MessageSender {
                             .from(db, threadId: closedGroup.threadId, threadVariant: .legacyGroup)
                             .defaultNamespace,
                         interactionId: nil,
+                        fileIds: [],
                         using: dependencies
                     )
                 
-                return (newKeyPair, sendData)
+                return (newKeyPair, preparedRequest)
             }
-            .flatMap { newKeyPair, sendData -> AnyPublisher<ClosedGroupKeyPair, Error> in
-                MessageSender.sendImmediate(data: sendData, using: dependencies)
+            .flatMap { newKeyPair, preparedRequest -> AnyPublisher<ClosedGroupKeyPair, Error> in
+                preparedRequest.send(using: dependencies)
                     .map { _ in newKeyPair }
                     .eraseToAnyPublisher()
             }
@@ -553,7 +553,7 @@ extension MessageSender {
                 
                 // Send the update to the group and generate + distribute a new encryption key pair
                 return try MessageSender
-                    .preparedSendData(
+                    .preparedSend(
                         db,
                         message: ClosedGroupControlMessage(
                             kind: .membersRemoved(
@@ -566,10 +566,11 @@ extension MessageSender {
                             .from(db, threadId: closedGroup.threadId, threadVariant: .legacyGroup)
                             .defaultNamespace,
                         interactionId: interactionId,
+                        fileIds: [],
                         using: dependencies
                     )
             }
-            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .flatMap { _ -> AnyPublisher<Void, Error> in
                 MessageSender.generateAndSendNewEncryptionKeyPair(
                     targetMembers: members,

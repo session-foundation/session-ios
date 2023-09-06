@@ -16,6 +16,7 @@ class PreparedRequestSpec: QuickSpec {
     enum TestEndpoint: EndpointType {
         case endpoint
         
+        static var name: String { "TestEndpoint" }
         static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
         static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
         
@@ -29,9 +30,21 @@ class PreparedRequestSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
+        
+        var urlRequest: URLRequest?
+        var request: Request<NoBody, TestEndpoint>!
+        
         describe("a PreparedRequest") {
-            var urlRequest: URLRequest?
-            var request: Request<NoBody, TestEndpoint>!
+            beforeEach {
+                dependencies = TestDependencies()
+            }
+            
+            afterEach {
+                dependencies = nil
+                urlRequest = nil
+                request = nil
+            }
             
             // MARK: - when generating a URLRequest
             context("when generating a URLRequest") {
@@ -48,7 +61,7 @@ class PreparedRequestSpec: QuickSpec {
                         ],
                         body: nil
                     )
-                    urlRequest = try? request.generateUrlRequest()
+                    urlRequest = try? request.generateUrlRequest(using: dependencies)
                     
                     expect(urlRequest?.url?.absoluteString).to(equal("testServer/endpoint"))
                     expect(urlRequest?.httpMethod).to(equal("POST"))
@@ -70,7 +83,7 @@ class PreparedRequestSpec: QuickSpec {
                         ],
                         body: nil
                     )
-                    urlRequest = try? request.generateUrlRequest()
+                    urlRequest = try? request.generateUrlRequest(using: dependencies)
                     
                     expect(TestEndpoint.excludedSubRequestHeaders).to(equal([HTTPHeader.testHeader]))
                     expect(urlRequest?.allHTTPHeaderFields?.keys).to(contain([HTTPHeader.testHeader]))

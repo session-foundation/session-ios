@@ -261,15 +261,11 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .map { _ in () }
                         .eraseToAnyPublisher()
                 }
-                .flatMap { _ in
-                    dependencies[singleton: .storage].writePublisher { db -> MessageSender.PreparedSendData in
-                        guard
-                            let threadVariant: SessionThread.Variant = try SessionThread
-                                .filter(id: threadId)
-                                .select(.variant)
-                                .asRequest(of: SessionThread.Variant.self)
-                                .fetchOne(db)
-                        else { throw MessageSenderError.noThread }
+                .flatMap { _ -> AnyPublisher<(Interaction, [HTTP.PreparedRequest<String>]), Error> in
+                    dependencies[singleton: .storage].writePublisher { db -> (Interaction, [HTTP.PreparedRequest<String>]) in
+                        guard (try? SessionThread.exists(db, id: threadId)) == true else {
+                            throw MessageSenderError.noThread
+                        }
                         
                         // Create the interaction
                         let interaction: Interaction = try Interaction(
@@ -307,25 +303,53 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         }
                         
                         // Prepare any attachments
-                        try Attachment.process(
-                            db,
-                            data: Attachment.prepare(attachments: finalAttachments),
-                            for: interactionId
-                        )
+                        let preparedAttachments: [Attachment] = Attachment.prepare(attachments: finalAttachments)
+                        try Attachment.process(db, attachments: preparedAttachments, for: interactionId)
                         
-                        // Prepare the message send data
+                        return (
+                            interaction,
+                            try preparedAttachments.map {
+                                try $0.preparedUpload(db, threadId: threadId, using: dependencies)
+                            }
+                        )
+                    }
+                }
+                .flatMap { (interaction: Interaction, preparedUploads: [HTTP.PreparedRequest<String>]) -> AnyPublisher<(Interaction, [String]), Error> in
+                    guard !preparedUploads.isEmpty else {
+                        return Just((interaction, []))
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                    }
+                        
+                    return Publishers
+                        .MergeMany(preparedUploads.map { $0.send(using: dependencies) })
+                        .collect()
+                        .map { results in (interaction, results.map { _, id in id }) }
+                        .eraseToAnyPublisher()
+                }
+                .flatMap { interaction, fileIds in
+                    // Prepare the message send data
+                    dependencies[singleton: .storage].writePublisher { db -> HTTP.PreparedRequest<Void> in
+                        guard
+                            let threadVariant: SessionThread.Variant = try SessionThread
+                                .filter(id: interaction.threadId)
+                                .select(.variant)
+                                .asRequest(of: SessionThread.Variant.self)
+                                .fetchOne(db)
+                        else { throw MessageSenderError.noThread }
+                        
                         return try MessageSender
-                            .preparedSendData(
+                            .preparedSend(
                                 db,
                                 interaction: interaction,
+                                fileIds: fileIds,
                                 threadId: threadId,
                                 threadVariant: threadVariant,
                                 using: dependencies
                             )
                     }
                 }
-                .flatMap { MessageSender.performUploadsIfNeeded(preparedSendData: $0, using: dependencies) }
-                .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
+                .flatMap { $0.send(using: dependencies) }
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in

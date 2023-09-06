@@ -300,12 +300,13 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     
                     guard
                         let infoMessageData: Data = (interaction.body ?? "").data(using: .utf8),
-                        let messageInfo: CallMessage.MessageInfo = try? JSONDecoder().decode(
+                        let messageInfo: CallMessage.MessageInfo = try? JSONDecoder(using: dependencies).decode(
                             CallMessage.MessageInfo.self,
                             from: infoMessageData
                         ),
                         messageInfo.state == .incoming,
-                        let missedCallInfoData: Data = try? JSONEncoder().encode(missedCallInfo)
+                        let missedCallInfoData: Data = try? JSONEncoder(using: dependencies)
+                            .encode(missedCallInfo)
                     else { return }
                     
                     _ = try interaction

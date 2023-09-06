@@ -12,27 +12,16 @@ public class SnodeAuthenticatedRequestBody: Encodable {
         case signatureBase64 = "signature"
     }
     
-    private let pubkey: String
-    
-    /// This value should only be provided if the `pubkey` value is an x25519 public key
-    private let ed25519PublicKey: [UInt8]?
-    internal let ed25519SecretKey: [UInt8]
-    private let subkey: String?
+    internal let authInfo: SnodeAPI.AuthenticationInfo
     internal let timestampMs: UInt64?
     
     // MARK: - Initialization
 
     public init(
-        pubkey: String,
-        ed25519PublicKey: [UInt8]?,
-        ed25519SecretKey: [UInt8],
-        subkey: String? = nil,
+        authInfo: SnodeAPI.AuthenticationInfo,
         timestampMs: UInt64? = nil
     ) {
-        self.pubkey = pubkey
-        self.ed25519PublicKey = ed25519PublicKey
-        self.ed25519SecretKey = ed25519SecretKey
-        self.subkey = subkey
+        self.authInfo = authInfo
         self.timestampMs = timestampMs
     }
     
@@ -42,17 +31,26 @@ public class SnodeAuthenticatedRequestBody: Encodable {
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
         
         // Generate the signature for the request for encoding
-        let signatureBase64: String = try generateSignature().toBase64()
-        try container.encode(pubkey, forKey: .pubkey)
-        try container.encodeIfPresent(subkey, forKey: .subkey)
+        let signatureBase64: String = try generateSignature(using: encoder.dependencies).toBase64()
         try container.encodeIfPresent(timestampMs, forKey: .timestampMs)
-        try container.encodeIfPresent(ed25519PublicKey?.toHexString(), forKey: .ed25519PublicKey)
         try container.encode(signatureBase64, forKey: .signatureBase64)
+        
+        switch authInfo {
+            case .standard(let pubkey, let ed25519KeyPair):
+                try container.encode(pubkey, forKey: .pubkey)
+                try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
+                
+            case .groupAdmin(let pubkey, _):
+                try container.encode(pubkey, forKey: .pubkey)
+                
+            case .groupMember(let pubkey, let authData):
+                try container.encode(pubkey, forKey: .pubkey)
+        }
     }
     
     // MARK: - Abstract Functions
     
-    func generateSignature() throws -> [UInt8] {
+    func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
         preconditionFailure("abstract class - override in subclass")
     }
 }

@@ -7,18 +7,57 @@ import SessionUtilitiesKit
 public extension HTTP.PreparedRequest {
     /// Send an onion request for the prepared data
     func send(using dependencies: Dependencies) -> AnyPublisher<(ResponseInfoType, R), Error> {
-        return dependencies[singleton: .network]
-            .send(
-                .onionRequest(
-                    request,
-                    to: server,
-                    with: publicKey,
-                    timeout: timeout
+        // If we have a cached response then user that directly
+        if let cachedResponse: HTTP.PreparedRequest<R>.CachedResponse = self.cachedResponse {
+            return Just(cachedResponse)
+                .setFailureType(to: Error.self)
+                .handleEvents(
+                    receiveSubscription: { _ in self.subscriptionHandler?() },
+                    receiveOutput: self.outputEventHandler,
+                    receiveCompletion: self.completionEventHandler,
+                    receiveCancel: self.cancelEventHandler
                 )
-            )
+                .eraseToAnyPublisher()
+        }
+        
+        // Otherwise trigger the request
+        return Just(())
+            .setFailureType(to: Error.self)
+            .tryFlatMap { _ in
+                switch target {
+                    case let serverTarget as any ServerRequestTarget:
+                        return dependencies[singleton: .network]
+                            .send(
+                                .onionRequest(
+                                    request,
+                                    to: serverTarget.server,
+                                    with: serverTarget.x25519PublicKey,
+                                    timeout: timeout
+                                )
+                            )
+                        
+                    case let randomSnode as HTTP.RandomSnodeTarget:
+                        guard let payload: Data = request.httpBody else { throw HTTPError.invalidPreparedRequest }
+                        
+                        return SnodeAPI.getSwarm(for: randomSnode.publicKey, using: dependencies)
+                            .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount) { snode in
+                                dependencies[singleton: .network]
+                                    .send(
+                                        .onionRequest(
+                                            payload,
+                                            to: snode,
+                                            timeout: timeout
+                                        )
+                                    )
+                            }
+                        
+                    default: throw HTTPError.invalidPreparedRequest
+                }
+            }
             .decoded(with: self, using: dependencies)
             .retry(retryCount, using: dependencies)
             .handleEvents(
+                receiveSubscription: { _ in self.subscriptionHandler?() },
                 receiveOutput: self.outputEventHandler,
                 receiveCompletion: self.completionEventHandler,
                 receiveCancel: self.cancelEventHandler

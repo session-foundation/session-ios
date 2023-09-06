@@ -166,7 +166,6 @@ extension OpenGroupAPI {
                             failureCount: failureCount,
                             using: dependencies
                         )
-
             
                         dependencies.mutate(cache: .openGroupManager) { cache in
                             cache.hasPerformedInitialPoll[server] = true
@@ -377,7 +376,7 @@ extension OpenGroupAPI {
             using dependencies: Dependencies
         ) {
             let server: String = self.server
-            let validResponses: [OpenGroupAPI.Endpoint: Decodable] = response.data
+            let validResponses: [OpenGroupAPI.Endpoint: Any] = response.data
                 .filter { endpoint, data in
                     switch endpoint {
                         case .capabilities:
@@ -476,7 +475,7 @@ extension OpenGroupAPI {
                 
                 return (capabilities, groups)
             }
-            let changedResponses: [OpenGroupAPI.Endpoint: Decodable] = validResponses
+            let changedResponses: [OpenGroupAPI.Endpoint: Any] = validResponses
                 .filter { endpoint, data in
                     switch endpoint {
                         case .capabilities:

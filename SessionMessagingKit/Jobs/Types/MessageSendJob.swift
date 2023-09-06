@@ -22,7 +22,7 @@ public enum MessageSendJob: JobExecutor {
     ) {
         guard
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             SNLog("[MessageSendJob] Failing due to missing details")
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
@@ -168,19 +168,19 @@ public enum MessageSendJob: JobExecutor {
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
         dependencies[singleton: .storage]
-            .writePublisher { db in
-                try MessageSender.preparedSendData(
+            .writePublisher { db -> HTTP.PreparedRequest<Void> in
+                try MessageSender.preparedSend(
                     db,
                     message: details.message,
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: job.interactionId,
+                    fileIds: messageFileIds,
                     isSyncMessage: details.isSyncMessage,
                     using: dependencies
                 )
             }
-            .map { sendData in sendData.with(fileIds: messageFileIds) }
-            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
             .sinkUntilComplete(

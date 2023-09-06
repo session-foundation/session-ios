@@ -18,7 +18,7 @@ public enum MessageSenderError: LocalizedError, Equatable {
     case noKeyPair
     case invalidClosedGroupUpdate
     
-    case other(Error)
+    case other(String, Error)
 
     internal var isRetryable: Bool {
         switch self {
@@ -46,7 +46,7 @@ public enum MessageSenderError: LocalizedError, Equatable {
             case .noThread: return "Couldn't find a thread associated with the given group public key."
             case .noKeyPair: return "Couldn't find a private key associated with the given group public key."
             case .invalidClosedGroupUpdate: return "Invalid group update."
-            case .other(let error): return error.localizedDescription
+            case .other(_, let error): return error.localizedDescription
         }
     }
     
@@ -65,9 +65,12 @@ public enum MessageSenderError: LocalizedError, Equatable {
             case (.invalidClosedGroupUpdate, .invalidClosedGroupUpdate): return true
             case (.blindingFailed, .blindingFailed): return true
             
-            case (.other(let lhsError), .other(let rhsError)):
+            case (.other(let lhsDescription, let lhsError), .other(let rhsDescription, let rhsError)):
                 // Not ideal but the best we can do
-                return (lhsError.localizedDescription == rhsError.localizedDescription)
+                return (
+                    lhsDescription == rhsDescription &&
+                    lhsError.localizedDescription == rhsError.localizedDescription
+                )
                 
             default: return false
         }

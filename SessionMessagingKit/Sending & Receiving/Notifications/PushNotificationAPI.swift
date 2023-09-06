@@ -196,7 +196,6 @@ public enum PushNotificationAPI {
             .prepareRequest(
                 request: Request(
                     method: .post,
-                    server: PushNotificationAPI.server,
                     endpoint: .subscribe,
                     body: SubscribeRequest(
                         pubkey: publicKey,
@@ -244,7 +243,6 @@ public enum PushNotificationAPI {
             .prepareRequest(
                 request: Request(
                     method: .post,
-                    server: PushNotificationAPI.server,
                     endpoint: .unsubscribe,
                     body: UnsubscribeRequest(
                         pubkey: publicKey,
@@ -288,7 +286,6 @@ public enum PushNotificationAPI {
             .prepareRequest(
                 request: Request(
                     method: .post,
-                    server: PushNotificationAPI.legacyServer,
                     endpoint: .legacyNotify,
                     body: LegacyNotifyRequest(
                         data: message,
@@ -336,7 +333,6 @@ public enum PushNotificationAPI {
             .prepareRequest(
                 request: Request(
                     method: .post,
-                    server: PushNotificationAPI.legacyServer,
                     endpoint: .legacyGroupsOnlySubscribe,
                     body: LegacyGroupOnlyRequest(
                         token: deviceToken,
@@ -373,7 +369,6 @@ public enum PushNotificationAPI {
             .prepareRequest(
                 request: Request(
                     method: .post,
-                    server: PushNotificationAPI.legacyServer,
                     endpoint: .legacyGroupUnsubscribe,
                     body: LegacyGroupRequest(
                         pubKey: currentUserPublicKey,
@@ -519,7 +514,7 @@ public enum PushNotificationAPI {
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         guard
             let url: URL = URL(string: "\(request.endpoint.server)/\(request.endpoint.path)"),
-            let payload: Data = try? JSONEncoder().encode(request.body)
+            let payload: Data = try? JSONEncoder(using: dependencies).encode(request.body)
         else {
             return Fail(error: HTTPError.invalidJSON)
                 .eraseToAnyPublisher()
@@ -563,8 +558,7 @@ public enum PushNotificationAPI {
     ) throws -> HTTP.PreparedRequest<R> {
         return HTTP.PreparedRequest<R>(
             request: request,
-            urlRequest: try request.generateUrlRequest(),
-            publicKey: request.endpoint.serverPublicKey,
+            urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,
             retryCount: retryCount,
             timeout: timeout

@@ -3,7 +3,7 @@
 import Foundation
 import Sodium
 
-public struct SessionId {
+public struct SessionId: Equatable {
     public static let byteCount: Int = 33
     
     public enum Prefix: String, CaseIterable {

@@ -16,6 +16,7 @@ class BatchRequestSpec: QuickSpec {
     enum TestEndpoint1: EndpointType {
         case endpoint1
         
+        static var name: String { "TestEndpoint1" }
         static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .sogs }
         static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
         
@@ -25,6 +26,7 @@ class BatchRequestSpec: QuickSpec {
     enum TestEndpoint2: EndpointType {
         case endpoint2
         
+        static var name: String { "TestEndpoint2" }
         static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
         static var excludedSubRequestHeaders: [HTTPHeader] { [] }
         
@@ -38,8 +40,19 @@ class BatchRequestSpec: QuickSpec {
     // MARK: - Spec
 
     override func spec() {
+        var dependencies: TestDependencies!
+        
+        var request: HTTP.BatchRequest!
+        
         describe("a BatchRequest.Child") {
-            var request: HTTP.BatchRequest!
+            beforeEach {
+                dependencies = TestDependencies()
+            }
+            
+            afterEach {
+                dependencies = nil
+                request = nil
+            }
             
             // MARK: - when encoding
             context("when encoding") {
@@ -60,7 +73,7 @@ class BatchRequestSpec: QuickSpec {
                         requests: [
                             HTTP.PreparedRequest<NoResponse>(
                                 request: httpRequest,
-                                urlRequest: try! httpRequest.generateUrlRequest(),
+                                urlRequest: try! httpRequest.generateUrlRequest(using: dependencies),
                                 publicKey: "",
                                 responseType: NoResponse.self,
                                 timeout: 0
@@ -94,7 +107,7 @@ class BatchRequestSpec: QuickSpec {
                         requests: [
                             HTTP.PreparedRequest<NoResponse>(
                                 request: httpRequest,
-                                urlRequest: try! httpRequest.generateUrlRequest(),
+                                urlRequest: try! httpRequest.generateUrlRequest(using: dependencies),
                                 publicKey: "",
                                 responseType: NoResponse.self,
                                 timeout: 0

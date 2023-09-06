@@ -193,8 +193,15 @@ final class NukeDataModal: Modal {
                     .collect()
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                     .flatMap { results in
-                        SnodeAPI
-                            .deleteAllMessages(namespace: .all)
+                        dependencies[singleton: .storage]
+                            .readPublisher(using: dependencies) { db in
+                                try SnodeAPI.AuthenticationInfo(
+                                    db,
+                                    threadId: getUserHexEncodedPublicKey(db, using: dependencies),
+                                    using: dependencies
+                                )
+                            }
+                            .flatMap { SnodeAPI.deleteAllMessages(namespace: .all, authInfo: $0) }
                             .map { results.reduce($0) { result, next in result.updated(with: next) } }
                             .eraseToAnyPublisher()
                     }

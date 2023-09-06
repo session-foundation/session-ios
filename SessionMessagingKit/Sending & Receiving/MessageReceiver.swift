@@ -79,39 +79,52 @@ public enum MessageReceiver {
                     else {
                         throw MessageReceiverError.invalidGroupPublicKey
                     }
-                    guard
-                        let encryptionKeyPairs: [ClosedGroupKeyPair] = try? closedGroup.keyPairs
-                            .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
-                            .fetchAll(db),
-                        !encryptionKeyPairs.isEmpty
-                    else {
-                        throw MessageReceiverError.noGroupKeyPair
-                    }
                     
-                    // Loop through all known group key pairs in reverse order (i.e. try the latest key
-                    // pair first (which'll more than likely be the one we want) but try older ones in
-                    // case that didn't work)
-                    func decrypt(keyPairs: [ClosedGroupKeyPair], lastError: Error? = nil) throws -> (Data, String) {
-                        guard let keyPair: ClosedGroupKeyPair = keyPairs.first else {
-                            throw (lastError ?? MessageReceiverError.decryptionFailed)
-                        }
-                        
-                        do {
-                            return try decryptWithSessionProtocol(
+                    switch SessionId.Prefix(from: hexEncodedGroupPublicKey) {
+                        case .group:
+                            groupPublicKey = hexEncodedGroupPublicKey
+                            plaintext = try SessionUtil.decrypt(
                                 ciphertext: ciphertext,
-                                using: KeyPair(
-                                    publicKey: keyPair.publicKey.bytes,
-                                    secretKey: keyPair.secretKey.bytes
-                                )
+                                groupIdentityPublicKey: hexEncodedGroupPublicKey,
+                                using: dependencies
                             )
-                        }
-                        catch {
-                            return try decrypt(keyPairs: Array(keyPairs.suffix(from: 1)), lastError: error)
-                        }
+                            sender = getUserHexEncodedPublicKey(db, using: dependencies)
+                            
+                        default:
+                            guard
+                                let encryptionKeyPairs: [ClosedGroupKeyPair] = try? closedGroup.keyPairs
+                                    .order(ClosedGroupKeyPair.Columns.receivedTimestamp.desc)
+                                    .fetchAll(db),
+                                !encryptionKeyPairs.isEmpty
+                            else {
+                                throw MessageReceiverError.noGroupKeyPair
+                            }
+                            
+                            // Loop through all known group key pairs in reverse order (i.e. try the latest key
+                            // pair first (which'll more than likely be the one we want) but try older ones in
+                            // case that didn't work)
+                            func decrypt(keyPairs: [ClosedGroupKeyPair], lastError: Error? = nil) throws -> (Data, String) {
+                                guard let keyPair: ClosedGroupKeyPair = keyPairs.first else {
+                                    throw (lastError ?? MessageReceiverError.decryptionFailed)
+                                }
+                                
+                                do {
+                                    return try decryptWithSessionProtocol(
+                                        ciphertext: ciphertext,
+                                        using: KeyPair(
+                                            publicKey: keyPair.publicKey.bytes,
+                                            secretKey: keyPair.secretKey.bytes
+                                        )
+                                    )
+                                }
+                                catch {
+                                    return try decrypt(keyPairs: Array(keyPairs.suffix(from: 1)), lastError: error)
+                                }
+                            }
+                            
+                            groupPublicKey = hexEncodedGroupPublicKey
+                            (plaintext, sender) = try decrypt(keyPairs: encryptionKeyPairs)
                     }
-                    
-                    groupPublicKey = hexEncodedGroupPublicKey
-                    (plaintext, sender) = try decrypt(keyPairs: encryptionKeyPairs)
                 
                 default: throw MessageReceiverError.unknownEnvelopeType
             }

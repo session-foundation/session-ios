@@ -941,7 +941,7 @@ public extension SessionThreadViewModel {
         /// the `disappearingMessageSConfiguration` entry below otherwise the query will fail to parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 17
+        let numColumnsBeforeProfiles: Int = 16
         let request: SQLRequest<ViewModel> = """
             SELECT
                 \(thread[.rowId]) AS \(ViewModel.Columns.rowId),
@@ -972,9 +972,8 @@ public extension SessionThreadViewModel {
                 \(aggregateInteraction[.threadHasUnreadMessagesOfAnyKind]),
         
                 \(disappearingMessagesConfiguration.allColumns),
-            
-                \(contact[.lastKnownClientVersion]) AS \(ViewModel.Columns.contactLastKnownClientVersion),
                 \(contactProfile.allColumns),
+                \(contact[.lastKnownClientVersion]) AS \(ViewModel.Columns.contactLastKnownClientVersion),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(closedGroupUserCount[.closedGroupUserCount]),
                 

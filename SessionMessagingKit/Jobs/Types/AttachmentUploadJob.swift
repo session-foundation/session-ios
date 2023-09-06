@@ -23,14 +23,9 @@ public enum AttachmentUploadJob: JobExecutor {
             let threadId: String = job.threadId,
             let interactionId: Int64 = job.interactionId,
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
-            let (attachment, openGroup): (Attachment, OpenGroup?) = dependencies[singleton: .storage].read({ db in
-                guard let attachment: Attachment = try Attachment.fetchOne(db, id: details.attachmentId) else {
-                    return nil
-                }
-                
-                return (attachment, try OpenGroup.fetchOne(db, id: threadId))
-            })
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
+            let attachment: Attachment = dependencies[singleton: .storage]
+                .read({ db in try Attachment.fetchOne(db, id: details.attachmentId) })
         else {
             SNLog("[AttachmentUploadJob] Failed due to missing details")
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
@@ -52,11 +47,11 @@ public enum AttachmentUploadJob: JobExecutor {
         // If this upload is related to sending a message then trigger the 'handleMessageWillSend' logic
         // as if this is a retry the logic wouldn't run until after the upload has completed resulting in
         // a potentially incorrect delivery status
-        dependencies[singleton: .storage].write { db in
+        dependencies[singleton: .storage].write(using: dependencies) { db in
             guard
                 let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                 let sendJobDetails: Data = sendJob.details,
-                let details: MessageSendJob.Details = try? JSONDecoder()
+                let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
                     .decode(MessageSendJob.Details.self, from: sendJobDetails)
             else { return }
             
@@ -71,10 +66,13 @@ public enum AttachmentUploadJob: JobExecutor {
         // Note: In the AttachmentUploadJob we intentionally don't provide our own db instance to prevent
         // reentrancy issues when the success/failure closures get called before the upload as the JobRunner
         // will attempt to update the state of the job immediately
-        attachment
-            .upload(to: (openGroup.map { .openGroup($0) } ?? .fileServer), using: dependencies)
-            .subscribe(on: queue)
-            .receive(on: queue)
+        dependencies[singleton: .storage]
+            .writePublisher(using: dependencies) { db -> HTTP.PreparedRequest<String> in
+                try attachment.preparedUpload(db, threadId: threadId, using: dependencies)
+            }
+            .flatMap { $0.send(using: dependencies) }
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
@@ -82,25 +80,29 @@ public enum AttachmentUploadJob: JobExecutor {
                             // If this upload is related to sending a message then trigger the
                             // 'handleFailedMessageSend' logic as we want to ensure the message
                             // has the correct delivery status
-                            dependencies[singleton: .storage].read { db in
+                            var didLogError: Bool = false
+                            
+                            dependencies[singleton: .storage].read(using: dependencies) { db in
                                 guard
                                     let sendJob: Job = try Job.fetchOne(db, id: details.messageSendJobId),
                                     let sendJobDetails: Data = sendJob.details,
-                                    let details: MessageSendJob.Details = try? JSONDecoder()
+                                    let details: MessageSendJob.Details = try? JSONDecoder(using: dependencies)
                                         .decode(MessageSendJob.Details.self, from: sendJobDetails)
                                 else { return }
                                 
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: details.message,
-                                    with: .other(error),
+                                    with: .other("[AttachmentUploadJob] Failed", error),
                                     interactionId: interactionId,
                                     isSyncMessage: details.isSyncMessage,
                                     using: dependencies
                                 )
+                                didLogError = true
                             }
                             
-                            SNLog("[AttachmentUploadJob] Failed due to error: \(error)")
+                            // If we didn't log an error above then log it now
+                            if !didLogError { SNLog("[AttachmentUploadJob] Failed due to error: \(error)") }
                             failure(job, error, false, dependencies)
                         
                         case .finished: success(job, false, dependencies)

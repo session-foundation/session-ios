@@ -15,11 +15,12 @@ internal extension SessionUtil {
     static func handleGroupKeysUpdate(
         _ db: Database,
         in config: Config?,
+        groupIdentityPublicKey: String,
         latestConfigSentTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
         guard config.needsDump else { return }
-        guard case .groupKeys(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+        guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
     }
 }
 

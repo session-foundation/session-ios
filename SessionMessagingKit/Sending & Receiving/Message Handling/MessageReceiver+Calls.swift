@@ -213,7 +213,7 @@ extension MessageReceiver {
         
         guard
             let caller: String = message.sender,
-            let messageInfoData: Data = try? JSONEncoder().encode(messageInfo),
+            let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo),
             let thread: SessionThread = try SessionThread.fetchOne(db, id: caller),
             !thread.isMessageRequest(db)
         else { return }
@@ -243,27 +243,26 @@ extension MessageReceiver {
         )
         .inserted(db)
         
-        MessageSender.sendImmediate(
-            data: try MessageSender
-                .preparedSendData(
-                    db,
-                    message: CallMessage(
-                        uuid: message.uuid,
-                        kind: .endCall,
-                        sdps: [],
-                        sentTimestampMs: nil // Explicitly nil as it's a separate message from above
-                    ),
-                    to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
-                    namespace: try Message.Destination
-                        .from(db, threadId: thread.id, threadVariant: thread.variant)
-                        .defaultNamespace,
-                    interactionId: nil,      // Explicitly nil as it's a separate message from above
-                    using: dependencies
+        try MessageSender
+            .preparedSend(
+                db,
+                message: CallMessage(
+                    uuid: message.uuid,
+                    kind: .endCall,
+                    sdps: [],
+                    sentTimestampMs: nil // Explicitly nil as it's a separate message from above
                 ),
-            using: dependencies
-        )
-        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-        .sinkUntilComplete()
+                to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
+                namespace: try Message.Destination
+                    .from(db, threadId: thread.id, threadVariant: thread.variant)
+                    .defaultNamespace,
+                interactionId: nil,      // Explicitly nil as it's a separate message from above
+                fileIds: [],
+                using: dependencies
+            )
+            .send(using: dependencies)
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .sinkUntilComplete()
     }
     
     @discardableResult public static func insertCallInfoMessage(
@@ -294,10 +293,12 @@ extension MessageReceiver {
         )
         let timestampMs: Int64 = (
             message.sentTimestamp.map { Int64($0) } ??
-            SnodeAPI.currentOffsetTimestampMs()
+            SnodeAPI.currentOffsetTimestampMs(using: dependencies)
         )
         
-        guard let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) else { return nil }
+        guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) else {
+            return nil
+        }
         
         return try Interaction(
             serverHash: message.serverHash,

@@ -73,19 +73,15 @@ public final class BackgroundPoller {
     private static func pollForMessages(
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
-        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-
-        return SnodeAPI.getSwarm(for: userPublicKey)
-            .tryFlatMapWithRandomSnode { snode -> AnyPublisher<[Message], Error> in
-                CurrentUserPoller.poll(
-                    namespaces: CurrentUserPoller.namespaces,
-                    from: snode,
-                    for: userPublicKey,
-                    calledFromBackgroundPoller: true,
-                    isBackgroundPollValid: { BackgroundPoller.isValid },
-                    using: dependencies
-                )
-            }
+        return CurrentUserPoller
+            .poll(
+                namespaces: CurrentUserPoller.namespaces,
+                for: getUserHexEncodedPublicKey(using: dependencies),
+                calledFromBackgroundPoller: true,
+                isBackgroundPollValid: { BackgroundPoller.isValid },
+                drainBehaviour: .alwaysRandom,
+                using: dependencies
+            )
             .map { _ in () }
             .eraseToAnyPublisher()
     }
@@ -107,24 +103,17 @@ public final class BackgroundPoller {
                     .fetchAll(db)
             }
             .defaulting(to: [])
-            .map { groupPublicKey in
-                SnodeAPI.getSwarm(for: groupPublicKey)
-                    .tryFlatMap { swarm -> AnyPublisher<[Message], Error> in
-                        guard let snode: Snode = swarm.randomElement() else {
-                            throw OnionRequestAPIError.insufficientSnodes
-                        }
-                        
-                        return ClosedGroupPoller.poll(
-                            namespaces: ClosedGroupPoller.namespaces,
-                            from: snode,
-                            for: groupPublicKey,
-                            calledFromBackgroundPoller: true,
-                            isBackgroundPollValid: { BackgroundPoller.isValid },
-                            using: dependencies
-                        )
-                    }
-                    .map { _ in () }
-                    .eraseToAnyPublisher()
+            .map { groupId in
+                ClosedGroupPoller.poll(
+                    namespaces: ClosedGroupPoller.namespaces,
+                    for: groupId,
+                    calledFromBackgroundPoller: true,
+                    isBackgroundPollValid: { BackgroundPoller.isValid },
+                    drainBehaviour: .alwaysRandom,
+                    using: dependencies
+                )
+                .map { _ in () }
+                .eraseToAnyPublisher()
             }
     }
 }

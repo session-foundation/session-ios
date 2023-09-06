@@ -5,6 +5,23 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension SessionUtil {
+    typealias UserConfigInitialiser = (
+        UnsafeMutablePointer<UnsafeMutablePointer<config_object>?>?,    // conf
+        UnsafePointer<UInt8>?,                                          // ed25519_secretkey
+        UnsafePointer<UInt8>?,                                          // dump
+        Int,                                                            // dumplen
+        UnsafeMutablePointer<CChar>?                                    // error
+    ) -> Int32
+    typealias GroupConfigInitialiser = (
+        UnsafeMutablePointer<UnsafeMutablePointer<config_object>?>?,    // conf
+        UnsafePointer<UInt8>?,                                          // ed25519_pubkey
+        UnsafePointer<UInt8>?,                                          // ed25519_secretkey
+        UnsafePointer<UInt8>?,                                          // dump
+        Int,                                                            // dumplen
+        UnsafeMutablePointer<CChar>?                                    // error
+    ) -> Int32
+    typealias ConfigSizeInfo = (UnsafePointer<config_object>?) -> Int
+    
     enum Config {
         case object(UnsafeMutablePointer<config_object>)
         case groupKeys(
@@ -29,7 +46,7 @@ public extension SessionUtil {
         
         var needsDump: Bool {
             switch self {
-                case .object(let conf): return config_needs_push(conf)
+                case .object(let conf): return config_needs_dump(conf)
                 case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
             }
         }
@@ -43,16 +60,27 @@ public extension SessionUtil {
         
         // MARK: - Functions
         
-        static func from(_ conf: UnsafeMutablePointer<config_object>?) -> Config? {
-            return conf.map { .object($0) }
-        }
-        
-        static func from(
-            _ conf: UnsafeMutablePointer<config_group_keys>?,
-            info: UnsafeMutablePointer<config_object>,
-            members: UnsafeMutablePointer<config_object>
-        ) -> Config? {
-            return conf.map { .groupKeys($0, info: info, members: members) }
+        func addingLogger() -> Config {
+            switch self {
+                case .object(let conf):
+                    config_set_logger(
+                        conf,
+                        { logLevel, messagePtr, _ in
+                            guard
+                                logLevel.rawValue >= SessionUtil.logLevel.rawValue,
+                                let messagePtr = messagePtr
+                            else { return }
+
+                            let message: String = String(cString: messagePtr)
+                            print("[SessionUtil] \(message)")
+                        },
+                        nil
+                    )
+                
+                default: break
+            }
+            
+            return self
         }
         
         func push() throws -> (data: Data, seqNo: Int64, obsoleteHashes: [String]) {
@@ -106,16 +134,11 @@ public extension SessionUtil {
             var dumpResult: UnsafeMutablePointer<UInt8>? = nil
             var dumpResultLen: Int = 0
             
-            switch self {
-                case .object(let conf):
-                    try CExceptionHelper.performSafely {
-                        config_dump(conf, &dumpResult, &dumpResultLen)
-                    }
-                    
-                case .groupKeys(let conf, _, _):
-                    try CExceptionHelper.performSafely {
-                        groups_keys_dump(conf, &dumpResult, &dumpResultLen)
-                    }
+            try CExceptionHelper.performSafely {
+                switch self {
+                    case .object(let conf): config_dump(conf, &dumpResult, &dumpResultLen)
+                    case .groupKeys(let conf, _, _): groups_keys_dump(conf, &dumpResult, &dumpResultLen)
+                }
             }
             
             guard let dumpResult: UnsafeMutablePointer<UInt8> = dumpResult else { return nil }
@@ -142,7 +165,19 @@ public extension SessionUtil {
                     
                     return result
                     
-                case .groupKeys(var conf): return []
+                case .groupKeys(let conf, _, _):
+                    guard let hashList: UnsafeMutablePointer<config_string_list> = groups_keys_current_hashes(conf) else {
+                        return []
+                    }
+                    
+                    let result: [String] = [String](
+                        pointer: hashList.pointee.value,
+                        count: hashList.pointee.len,
+                        defaultValue: []
+                    )
+                    hashList.deallocate()
+                    
+                    return result
             }
         }
         
@@ -172,9 +207,11 @@ public extension SessionUtil {
                     return messages
                         .map { message -> Bool in
                             var data: [UInt8] = Array(message.data)
+                            var messageHash: [CChar] = (message.serverHash ?? "").cArray.nullTerminated()
                             
                             return groups_keys_load_message(
                                 conf,
+                                &messageHash,
                                 &data,
                                 data.count,
                                 Int64(message.sentTimestamp ?? 0),
@@ -185,6 +222,27 @@ public extension SessionUtil {
                         .filter { $0 }
                         .count
             }
+        }
+        
+        func count(for variant: ConfigDump.Variant) -> String {
+            var result: String? = nil
+            let funcMap: [ConfigDump.Variant: (info: String, size: ConfigSizeInfo)] = [
+                .userProfile: ("profile", { _ in 1 }),
+                .contacts: ("contacts", contacts_size),
+                .userGroups: ("group conversations", user_groups_size),
+                .convoInfoVolatile: ("volatile conversations", convo_info_volatile_size),
+                .groupInfo: ("group info", { _ in 1 }),
+                .groupMembers: ("group members", groups_members_size)
+            ]
+            
+            try? CExceptionHelper.performSafely {
+                switch self {
+                    case .object(let conf): result = funcMap[variant].map { "\($0.size(conf)) \($0.info)" }
+                    case .groupKeys(let conf, _, _): result = "\(groups_keys_size(conf)) group keys"
+                }
+            }
+            
+            return (result ?? "Invalid")
         }
     }
 }

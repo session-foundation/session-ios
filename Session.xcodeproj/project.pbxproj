@@ -626,6 +626,15 @@
 		FD432437299DEA38008A0213 /* TypeConversion+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432436299DEA38008A0213 /* TypeConversion+Utilities.swift */; };
 		FD43EE9D297A5190009C87C5 /* SessionUtil+UserGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD43EE9C297A5190009C87C5 /* SessionUtil+UserGroups.swift */; };
 		FD43EE9F297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD43EE9E297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift */; };
+		FD47E0AB2AA68EEA00A55E41 /* Authentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */; };
+		FD47E0AD2AA6918B00A55E41 /* Crypto+SessionSnodeKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0AC2AA6918B00A55E41 /* Crypto+SessionSnodeKit.swift */; };
+		FD47E0AF2AA692F400A55E41 /* JSONDecoder+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0AE2AA692F400A55E41 /* JSONDecoder+Utilities.swift */; };
+		FD47E0B12AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */; };
+		FD47E0B32AA6D5A300A55E41 /* RequestTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B22AA6D5A300A55E41 /* RequestTarget.swift */; };
+		FD47E0B52AA6D7AA00A55E41 /* Request+SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B42AA6D7AA00A55E41 /* Request+SnodeAPI.swift */; };
+		FD47E0B82AA6E62600A55E41 /* Request+OpenGroupAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B62AA6E5FF00A55E41 /* Request+OpenGroupAPI.swift */; };
+		FD47E0BA2AA6EBA200A55E41 /* Request+PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0B92AA6EBA200A55E41 /* Request+PushNotificationAPI.swift */; };
+		FD47E0C02AA83D7300A55E41 /* SwarmDrainBehaviour.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0BF2AA83D7300A55E41 /* SwarmDrainBehaviour.swift */; };
 		FD4B200E283492210034334B /* InsetLockableTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4B200D283492210034334B /* InsetLockableTableView.swift */; };
 		FD52090028AF6153006098F6 /* OWSBackgroundTask.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */; };
 		FD52090128AF61BA006098F6 /* OWSBackgroundTask.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDB38255A580B00E217F9 /* OWSBackgroundTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -781,7 +790,6 @@
 		FDB5DAEC2A95E2C2002C8721 /* PreparedRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAEB2A95E2C2002C8721 /* PreparedRequest.swift */; };
 		FDB5DAEE2A95E462002C8721 /* BatchRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAED2A95E462002C8721 /* BatchRequest.swift */; };
 		FDB5DAF32A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAF22A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift */; };
-		FDB5DAF52A9721A5002C8721 /* PreparedRequest+OpenGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DAF42A9721A5002C8721 /* PreparedRequest+OpenGroup.swift */; };
 		FDB5DAFE2A981C43002C8721 /* SessionSnodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionSnodeKit.framework */; platformFilter = ios; };
 		FDB5DB062A981C67002C8721 /* PreparedRequestOnionRequestsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB5DB052A981C67002C8721 /* PreparedRequestOnionRequestsSpec.swift */; };
 		FDB5DB072A981F88002C8721 /* Mock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC290A527D860CE005DAE71 /* Mock.swift */; };
@@ -1821,6 +1829,15 @@
 		FD432436299DEA38008A0213 /* TypeConversion+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TypeConversion+Utilities.swift"; sourceTree = "<group>"; };
 		FD43EE9C297A5190009C87C5 /* SessionUtil+UserGroups.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+UserGroups.swift"; sourceTree = "<group>"; };
 		FD43EE9E297E2EE0009C87C5 /* SessionUtil+ConvoInfoVolatile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+ConvoInfoVolatile.swift"; sourceTree = "<group>"; };
+		FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Authentication.swift; sourceTree = "<group>"; };
+		FD47E0AC2AA6918B00A55E41 /* Crypto+SessionSnodeKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crypto+SessionSnodeKit.swift"; sourceTree = "<group>"; };
+		FD47E0AE2AA692F400A55E41 /* JSONDecoder+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "JSONDecoder+Utilities.swift"; sourceTree = "<group>"; };
+		FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Authentication+SessionMessagingKit.swift"; sourceTree = "<group>"; };
+		FD47E0B22AA6D5A300A55E41 /* RequestTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestTarget.swift; sourceTree = "<group>"; };
+		FD47E0B42AA6D7AA00A55E41 /* Request+SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Request+SnodeAPI.swift"; sourceTree = "<group>"; };
+		FD47E0B62AA6E5FF00A55E41 /* Request+OpenGroupAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Request+OpenGroupAPI.swift"; sourceTree = "<group>"; };
+		FD47E0B92AA6EBA200A55E41 /* Request+PushNotificationAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Request+PushNotificationAPI.swift"; sourceTree = "<group>"; };
+		FD47E0BF2AA83D7300A55E41 /* SwarmDrainBehaviour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwarmDrainBehaviour.swift; sourceTree = "<group>"; };
 		FD4B200D283492210034334B /* InsetLockableTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsetLockableTableView.swift; sourceTree = "<group>"; };
 		FD52090228B4680F006098F6 /* RadioButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButton.swift; sourceTree = "<group>"; };
 		FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewModel.swift; sourceTree = "<group>"; };
@@ -1963,7 +1980,6 @@
 		FDB5DAEB2A95E2C2002C8721 /* PreparedRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedRequest.swift; sourceTree = "<group>"; };
 		FDB5DAED2A95E462002C8721 /* BatchRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRequest.swift; sourceTree = "<group>"; };
 		FDB5DAF22A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreparedRequest+OnionRequest.swift"; sourceTree = "<group>"; };
-		FDB5DAF42A9721A5002C8721 /* PreparedRequest+OpenGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreparedRequest+OpenGroup.swift"; sourceTree = "<group>"; };
 		FDB5DAFA2A981C42002C8721 /* SessionSnodeKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionSnodeKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDB5DB052A981C67002C8721 /* PreparedRequestOnionRequestsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedRequestOnionRequestsSpec.swift; sourceTree = "<group>"; };
 		FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Utilities.swift"; sourceTree = "<group>"; };
@@ -2698,6 +2714,7 @@
 				C3C2A5D92553860B00C340D1 /* JSON.swift */,
 				FDF8488529405A60007DCAE5 /* Request.swift */,
 				FDC438B027BB159600C60D73 /* RequestInfo.swift */,
+				FD47E0B22AA6D5A300A55E41 /* RequestTarget.swift */,
 				FDB5DAEB2A95E2C2002C8721 /* PreparedRequest.swift */,
 				FDB5DAED2A95E462002C8721 /* BatchRequest.swift */,
 				FDF8488229405A12007DCAE5 /* BatchResponse.swift */,
@@ -3355,6 +3372,7 @@
 			children = (
 				C33FDB01255A580700E217F9 /* AppReadiness.h */,
 				C33FDB75255A581000E217F9 /* AppReadiness.m */,
+				FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */,
 				FD23CE232A675C440000B97C /* Crypto+SessionMessagingKit.swift */,
 				FD859EF127BF6BA200510D0C /* Data+Utilities.swift */,
 				C38EF309255B6DBE007E1867 /* DeviceSleepManager.swift */,
@@ -3407,6 +3425,7 @@
 		C3C2A5CD255385F300C340D1 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				FD47E0AC2AA6918B00A55E41 /* Crypto+SessionSnodeKit.swift */,
 				C3C2A5D82553860B00C340D1 /* Data+Utilities.swift */,
 				C3C2A5D22553860900C340D1 /* String+Trimming.swift */,
 				C3C2A5D42553860A00C340D1 /* Threading.swift */,
@@ -3694,6 +3713,7 @@
 				FD23CE1E2A65269C0000B97C /* Crypto.swift */,
 				FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */,
 				FD09796A27F6C67500936362 /* Failable.swift */,
+				FD47E0AE2AA692F400A55E41 /* JSONDecoder+Utilities.swift */,
 				FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */,
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
 				FD09797C27FBDB2000936362 /* Notification+Utilities.swift */,
@@ -4334,6 +4354,7 @@
 				FDC13D482A16EC20007267C7 /* Service.swift */,
 				FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */,
 				FDC13D4F2A16EE50007267C7 /* PushNotificationAPIEndpoint.swift */,
+				FD47E0B92AA6EBA200A55E41 /* Request+PushNotificationAPI.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -4354,7 +4375,7 @@
 			children = (
 				FDF8487D29405993007DCAE5 /* HTTPHeader+OpenGroup.swift */,
 				FDF8487E29405994007DCAE5 /* HTTPQueryParam+OpenGroup.swift */,
-				FDB5DAF42A9721A5002C8721 /* PreparedRequest+OpenGroup.swift */,
+				FD47E0B62AA6E5FF00A55E41 /* Request+OpenGroupAPI.swift */,
 				FDC4381F27B36ADC00C60D73 /* SOGSEndpoint.swift */,
 				FDC4380827B31D4E00C60D73 /* OpenGroupAPIError.swift */,
 				FDC4381627B32EC700C60D73 /* Personalization.swift */,
@@ -4551,12 +4572,13 @@
 		FDF8488F29405C13007DCAE5 /* Types */ = {
 			isa = PBXGroup;
 			children = (
-				FDF848DF29405D6E007DCAE5 /* SnodeAPIEndpoint.swift */,
-				FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */,
-				FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */,
 				FDF848DE29405D6E007DCAE5 /* OnionRequestAPIVersion.swift */,
 				FDF848E229405D6E007DCAE5 /* OnionRequestAPIError.swift */,
 				FDF848E129405D6E007DCAE5 /* OnionRequestAPIDestination.swift */,
+				FDF848DF29405D6E007DCAE5 /* SnodeAPIEndpoint.swift */,
+				FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */,
+				FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */,
+				FD47E0BF2AA83D7300A55E41 /* SwarmDrainBehaviour.swift */,
 				FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */,
 			);
 			path = Types;
@@ -4565,10 +4587,12 @@
 		FDF8489229405C1B007DCAE5 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */,
 				FDF8489329405C1B007DCAE5 /* SnodeAPI.swift */,
-				FDF848EA29405E4E007DCAE5 /* Notification+OnionRequestAPI.swift */,
+				FD47E0B42AA6D7AA00A55E41 /* Request+SnodeAPI.swift */,
 				FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */,
 				FDF848E929405E4E007DCAE5 /* OnionRequestAPI+Encryption.swift */,
+				FDF848EA29405E4E007DCAE5 /* Notification+OnionRequestAPI.swift */,
 				FDB5DAF22A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift */,
 			);
 			path = Networking;
@@ -5865,12 +5889,14 @@
 				FDB5DAF32A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift in Sources */,
 				FDF848C629405C5B007DCAE5 /* DeleteAllMessagesRequest.swift in Sources */,
 				FDF848D429405C5B007DCAE5 /* DeleteAllBeforeResponse.swift in Sources */,
+				FD47E0B52AA6D7AA00A55E41 /* Request+SnodeAPI.swift in Sources */,
 				FDF848D629405C5B007DCAE5 /* SnodeMessage.swift in Sources */,
 				FDF848D129405C5B007DCAE5 /* SnodeSwarmItem.swift in Sources */,
 				FDF848DD29405C5B007DCAE5 /* LegacySendMessageRequest.swift in Sources */,
 				FDF848BD29405C5A007DCAE5 /* GetMessagesRequest.swift in Sources */,
 				FDF848DB29405C5B007DCAE5 /* DeleteMessagesResponse.swift in Sources */,
 				FDF848E629405D6E007DCAE5 /* OnionRequestAPIDestination.swift in Sources */,
+				FD47E0AB2AA68EEA00A55E41 /* Authentication.swift in Sources */,
 				FDF848CC29405C5B007DCAE5 /* SnodeReceivedMessage.swift in Sources */,
 				FDF848C129405C5A007DCAE5 /* UpdateExpiryRequest.swift in Sources */,
 				FDF848C729405C5B007DCAE5 /* SendMessageResponse.swift in Sources */,
@@ -5879,6 +5905,7 @@
 				FDF848D229405C5B007DCAE5 /* LegacyGetMessagesRequest.swift in Sources */,
 				FDF848CB29405C5B007DCAE5 /* SnodePoolResponse.swift in Sources */,
 				FDF848C429405C5A007DCAE5 /* RevokeSubkeyResponse.swift in Sources */,
+				FD47E0AD2AA6918B00A55E41 /* Crypto+SessionSnodeKit.swift in Sources */,
 				FDF848E529405D6E007DCAE5 /* SnodeAPIError.swift in Sources */,
 				FDF848D529405C5B007DCAE5 /* DeleteAllMessagesResponse.swift in Sources */,
 				FDF848E329405D6E007DCAE5 /* OnionRequestAPIVersion.swift in Sources */,
@@ -5890,6 +5917,7 @@
 				FDF848CD29405C5B007DCAE5 /* GetNetworkTimestampResponse.swift in Sources */,
 				FDF848DA29405C5B007DCAE5 /* GetMessagesResponse.swift in Sources */,
 				FD39353628F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift in Sources */,
+				FD47E0C02AA83D7300A55E41 /* SwarmDrainBehaviour.swift in Sources */,
 				FDF8489429405C1B007DCAE5 /* SnodeAPI.swift in Sources */,
 				FDF848C829405C5B007DCAE5 /* ONSResolveRequest.swift in Sources */,
 				C3C2A5C2255385EE00C340D1 /* Configuration.swift in Sources */,
@@ -6002,9 +6030,11 @@
 				C32C5E0C256DDAFA003C73A2 /* NSRegularExpression+SSK.swift in Sources */,
 				FD29598D2A43BC0B00888A17 /* Version.swift in Sources */,
 				FDF8487C29405906007DCAE5 /* HTTPMethod.swift in Sources */,
+				FD47E0AF2AA692F400A55E41 /* JSONDecoder+Utilities.swift in Sources */,
 				FDF8488429405A2B007DCAE5 /* RequestInfo.swift in Sources */,
 				C3BBE0A92554D4DE0050F1E3 /* HTTP.swift in Sources */,
 				FD71160028C8253500B47552 /* UIView+Combine.swift in Sources */,
+				FD47E0B32AA6D5A300A55E41 /* RequestTarget.swift in Sources */,
 				B8856D23256F116B001CE70E /* Weak.swift in Sources */,
 				FD17D7CD27F546FF00122BE0 /* Setting.swift in Sources */,
 				FD7115FC28C8155800B47552 /* Publisher+Utilities.swift in Sources */,
@@ -6057,6 +6087,7 @@
 				7B4C75CB26B37E0F0000AC89 /* UnsendRequest.swift in Sources */,
 				C300A5F22554B09800555489 /* MessageSender.swift in Sources */,
 				FDB5DAC52A944757002C8721 /* SessionUtil+GroupInfo.swift in Sources */,
+				FD47E0B12AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift in Sources */,
 				FDB5DACB2A944E72002C8721 /* SessionUtil+GroupKeys.swift in Sources */,
 				FDF848F729414477007DCAE5 /* CurrentUserPoller.swift in Sources */,
 				B8B558FF26C4E05E00693325 /* WebRTCSession+MessageHandling.swift in Sources */,
@@ -6082,7 +6113,6 @@
 				7B7AD41F2A5512CA00469FB1 /* GetExpirationJob.swift in Sources */,
 				FDA8EAFE280E8B78002B68E5 /* FailedMessageSendsJob.swift in Sources */,
 				FD245C6A2850666F00B966DD /* FileServerAPI.swift in Sources */,
-				FDB5DAF52A9721A5002C8721 /* PreparedRequest+OpenGroup.swift in Sources */,
 				FDFBB74D2A1F3C4E00CA7350 /* NotificationMetadata.swift in Sources */,
 				FDC4386927B4E6B800C60D73 /* String+Utlities.swift in Sources */,
 				FD716E6628502EE200C96BF4 /* CurrentCallProtocol.swift in Sources */,
@@ -6098,6 +6128,7 @@
 				FDC4386527B4DE7600C60D73 /* RoomPollInfo.swift in Sources */,
 				FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */,
 				FD37EA0F28AB3330003AE748 /* _006_FixHiddenModAdminSupport.swift in Sources */,
+				FD47E0BA2AA6EBA200A55E41 /* Request+PushNotificationAPI.swift in Sources */,
 				FD2B4AFD294688D000AB4848 /* SessionUtil+Contacts.swift in Sources */,
 				7B81682328A4C1210069F315 /* UpdateTypes.swift in Sources */,
 				FDC13D472A16E4CA007267C7 /* SubscribeRequest.swift in Sources */,
@@ -6164,6 +6195,7 @@
 				FD83B9CC27D179BC005E1583 /* FSEndpoint.swift in Sources */,
 				FDC13D4B2A16ECBA007267C7 /* SubscribeResponse.swift in Sources */,
 				FD7115F228C6CB3900B47552 /* _010_AddThreadIdToFTS.swift in Sources */,
+				FD47E0B82AA6E62600A55E41 /* Request+OpenGroupAPI.swift in Sources */,
 				FD716E6428502DDD00C96BF4 /* CallManagerProtocol.swift in Sources */,
 				FDC438C727BB6DF000C60D73 /* DirectMessage.swift in Sources */,
 				FDC13D502A16EE50007267C7 /* PushNotificationAPIEndpoint.swift in Sources */,

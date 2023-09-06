@@ -569,7 +569,7 @@ class NotificationActionHandler {
         }
         
         return dependencies[singleton: .storage]
-            .writePublisher { db in
+            .writePublisher { db -> HTTP.PreparedRequest<Void> in
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
                     authorId: getUserHexEncodedPublicKey(db),
@@ -593,15 +593,17 @@ class NotificationActionHandler {
                     using: dependencies
                 )
                 
-                return try MessageSender.preparedSendData(
+                return try MessageSender.preparedSend(
                     db,
                     interaction: interaction,
+                    fileIds: [],
                     threadId: threadId,
                     threadVariant: thread.variant,
                     using: dependencies
                 )
             }
-            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
+            .map { _ in () }
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {

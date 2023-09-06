@@ -66,20 +66,6 @@ public extension Crypto.Action {
             Sodium().sign.toX25519(ed25519SecretKey: ed25519SecretKey)
         }
     }
-    
-    static func signature(message: Bytes, secretKey: Bytes) -> Crypto.Action {
-        return Crypto.Action(id: "signature", args: [message, secretKey]) {
-            Sodium().sign.signature(message: message, secretKey: secretKey)
-        }
-    }
-}
-
-public extension Crypto.Verification {
-    static func signature(message: Bytes, publicKey: Bytes, signature: Bytes) -> Crypto.Verification {
-        return Crypto.Verification(id: "signature", args: [message, publicKey, signature]) {
-            Sodium().sign.verify(message: message, publicKey: publicKey, signature: signature)
-        }
-    }
 }
 
 // MARK: - Box

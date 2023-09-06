@@ -9,6 +9,8 @@ import SessionUtilitiesKit
 // MARK: - SessionUtil
 
 public enum SessionUtil {
+    internal static let logLevel: config_log_level = LOG_LEVEL_INFO
+    
     public struct ConfResult {
         let needsPush: Bool
         let needsDump: Bool
@@ -74,14 +76,16 @@ public enum SessionUtil {
                 cache.setConfig(
                     for: dump.variant,
                     publicKey: dump.publicKey,
-                    to: try? SessionUtil.loadState(
-                        for: dump.variant,
-                        publicKey: dump.publicKey,
-                        userEd25519SecretKey: ed25519SecretKey,
-                        groupEd25519SecretKey: groupsByKey[dump.publicKey].map { Array($0) },
-                        cachedData: dump.data,
-                        cache: cache
-                    )
+                    to: try? SessionUtil
+                        .loadState(
+                            for: dump.variant,
+                            publicKey: dump.publicKey,
+                            userEd25519SecretKey: ed25519SecretKey,
+                            groupEd25519SecretKey: groupsByKey[dump.publicKey].map { Array($0) },
+                            cachedData: dump.data,
+                            cache: cache
+                        )
+                        .addingLogger()
                 )
             }
             
@@ -89,14 +93,16 @@ public enum SessionUtil {
                 cache.setConfig(
                     for: variant,
                     publicKey: currentUserPublicKey,
-                    to: try? SessionUtil.loadState(
-                        for: variant,
-                        publicKey: currentUserPublicKey,
-                        userEd25519SecretKey: ed25519SecretKey,
-                        groupEd25519SecretKey: nil,
-                        cachedData: nil,
-                        cache: cache
-                    )
+                    to: try? SessionUtil
+                        .loadState(
+                            for: variant,
+                            publicKey: currentUserPublicKey,
+                            userEd25519SecretKey: ed25519SecretKey,
+                            groupEd25519SecretKey: nil,
+                            cachedData: nil,
+                            cache: cache
+                        )
+                        .addingLogger()
                 )
             }
         }
@@ -113,7 +119,7 @@ public enum SessionUtil {
         // Setup initial variables (including getting the memory address for any cached data)
         var conf: UnsafeMutablePointer<config_object>? = nil
         var keysConf: UnsafeMutablePointer<config_group_keys>? = nil
-        var secretKey: [UInt8]? = userEd25519SecretKey
+        var secretKey: [UInt8] = userEd25519SecretKey
         var error: [CChar] = [CChar](repeating: 0, count: 256)
         let cachedDump: (data: UnsafePointer<UInt8>, length: Int)? = cachedData?.withUnsafeBytes { unsafeBytes in
             return unsafeBytes.baseAddress.map {
@@ -123,132 +129,116 @@ public enum SessionUtil {
                 )
             }
         }
+        let userConfigInitCalls: [ConfigDump.Variant: UserConfigInitialiser] = [
+            .userProfile: user_profile_init,
+            .contacts: contacts_init,
+            .convoInfoVolatile: convo_info_volatile_init,
+            .userGroups: user_groups_init
+        ]
+        let groupConfigInitCalls: [ConfigDump.Variant: GroupConfigInitialiser] = [
+            .groupInfo: groups_info_init,
+            .groupMembers: groups_members_init
+        ]
         
-        // Try to create the object
-        return try {
-            switch variant {
-                case .userProfile:
-                    return try user_profile_init(
-                        &conf,
-                        &secretKey,
-                        cachedDump?.data,
-                        (cachedDump?.length ?? 0),
-                        &error
-                    )
-                    .returning(
-                        Config.from(conf),
-                        orThrow: "Unable to create \(variant.rawValue) config object",
-                        error: error
-                    )
-
-                case .contacts:
-                    return try contacts_init(
-                        &conf,
-                        &secretKey,
-                        cachedDump?.data,
-                        (cachedDump?.length ?? 0),
-                        &error
-                    )
-                    .returning(
-                        Config.from(conf),
-                        orThrow: "Unable to create \(variant.rawValue) config object",
-                        error: error
-                    )
-
-                case .convoInfoVolatile:
-                    return try convo_info_volatile_init(
-                        &conf,
-                        &secretKey,
-                        cachedDump?.data,
-                        (cachedDump?.length ?? 0),
-                        &error
-                    )
-                    .returning(
-                        Config.from(conf),
-                        orThrow: "Unable to create \(variant.rawValue) config object",
-                        error: error
-                    )
-
-                case .userGroups:
-                    return try user_groups_init(
-                        &conf,
-                        &secretKey,
-                        cachedDump?.data,
-                        (cachedDump?.length ?? 0),
-                        &error
-                    )
-                    .returning(
-                        Config.from(conf),
-                        orThrow: "Unable to create \(variant.rawValue) config object",
-                        error: error
-                    )
-
-                case .groupInfo:
-                    return try groups_info_init(
-                        &conf,
-                        &secretKey,
-                        &secretKey,
-                        cachedDump?.data,
-                        (cachedDump?.length ?? 0),
-                        &error
-                    )
-                    .returning(
-                        Config.from(conf),
-                        orThrow: "Unable to create \(variant.rawValue) config object",
-                        error: error
-                    )
-
-                case .groupMembers:
-                    return try groups_members_init(
-                        &conf,
-                        &secretKey,
-                        &secretKey,
-                        cachedDump?.data,
-                        (cachedDump?.length ?? 0),
-                        &error
-                    )
-                    .returning(
-                        Config.from(conf),
-                        orThrow: "Unable to create \(variant.rawValue) config object",
-                        error: error
-                    )
-
-                case .groupKeys:
-                    var identityPublicKey: [UInt8] = Array(Data(hex: publicKey))
-                    var adminSecretKey: [UInt8]? = groupEd25519SecretKey
-                    let infoConfig: Config? = cache
-                        .config(for: .groupInfo, publicKey: publicKey)
-                        .wrappedValue
-                    let membersConfig: Config? = cache
-                        .config(for: .groupMembers, publicKey: publicKey)
-                        .wrappedValue
-                    
-                    guard
-                        case .object(let infoConf) = infoConfig,
-                        case .object(let membersConf) = membersConfig
-                    else {
-                        SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: Group info and member config states not loaded")
-                        throw SessionUtilError.unableToCreateConfigObject
-                    }
-                    
-                    return try groups_keys_init(
-                        &keysConf,
-                        &secretKey,
-                        &identityPublicKey,
-                        &adminSecretKey,
-                        infoConf,
-                        membersConf,
-                        cachedDump?.data,
-                        (cachedDump?.length ?? 0),
-                        &error
-                    )
-                    .returning(
-                        Config.from(keysConf, info: infoConf, members: membersConf),
-                        orThrow: "Unable to create \(variant.rawValue) config object",
-                        error: error
-                    )
-            }
-        }()
+        switch (variant, groupEd25519SecretKey) {
+            case (.userProfile, _), (.contacts, _), (.convoInfoVolatile, _), (.userGroups, _):
+                return try (userConfigInitCalls[variant]?(
+                    &conf,
+                    &secretKey,
+                    cachedDump?.data,
+                    (cachedDump?.length ?? 0),
+                    &error
+                ))
+                .toConfig(conf, variant: variant, error: error)
+                
+            case (.groupInfo, .some(var adminSecretKey)), (.groupMembers, .some(var adminSecretKey)):
+                var identityPublicKey: [UInt8] = Array(Data(hex: publicKey.removingIdPrefixIfNeeded()))
+                
+                return try (groupConfigInitCalls[variant]?(
+                    &conf,
+                    &identityPublicKey,
+                    &adminSecretKey,
+                    cachedDump?.data,
+                    (cachedDump?.length ?? 0),
+                    &error
+                ))
+                .toConfig(conf, variant: variant, error: error)
+                
+            case (.groupKeys, .some(var adminSecretKey)):
+                var identityPublicKey: [UInt8] = Array(Data(hex: publicKey.removingIdPrefixIfNeeded()))
+                let infoConfig: Config? = cache.config(for: .groupInfo, publicKey: publicKey)
+                    .wrappedValue
+                let membersConfig: Config? = cache
+                    .config(for: .groupMembers, publicKey: publicKey)
+                    .wrappedValue
+                
+                guard
+                    case .object(let infoConf) = infoConfig,
+                    case .object(let membersConf) = membersConfig
+                else {
+                    SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: Group info and member config states not loaded")
+                    throw SessionUtilError.unableToCreateConfigObject
+                }
+                
+                return try groups_keys_init(
+                    &keysConf,
+                    &secretKey,
+                    &identityPublicKey,
+                    &adminSecretKey,
+                    infoConf,
+                    membersConf,
+                    cachedDump?.data,
+                    (cachedDump?.length ?? 0),
+                    &error
+                )
+                .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error)
+                
+            // It looks like C doesn't deal will passing pointers to null variables well so we need
+            // to explicitly pass 'nil' for the admin key in this case
+            case (.groupInfo, .none), (.groupMembers, .none):
+                var identityPublicKey: [UInt8] = Array(Data(hex: publicKey.removingIdPrefixIfNeeded()))
+                
+                return try (groupConfigInitCalls[variant]?(
+                    &conf,
+                    &identityPublicKey,
+                    nil,
+                    cachedDump?.data,
+                    (cachedDump?.length ?? 0),
+                    &error
+                ))
+                .toConfig(conf, variant: variant, error: error)
+                
+            // It looks like C doesn't deal will passing pointers to null variables well so we need
+            // to explicitly pass 'nil' for the admin key in this case
+            case (.groupKeys, .none):
+                var identityPublicKey: [UInt8] = Array(Data(hex: publicKey.removingIdPrefixIfNeeded()))
+                let infoConfig: Config? = cache.config(for: .groupInfo, publicKey: publicKey)
+                    .wrappedValue
+                let membersConfig: Config? = cache
+                    .config(for: .groupMembers, publicKey: publicKey)
+                    .wrappedValue
+                
+                guard
+                    case .object(let infoConf) = infoConfig,
+                    case .object(let membersConf) = membersConfig
+                else {
+                    SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: Group info and member config states not loaded")
+                    throw SessionUtilError.unableToCreateConfigObject
+                }
+                
+                return try groups_keys_init(
+                    &keysConf,
+                    &secretKey,
+                    &identityPublicKey,
+                    nil,
+                    infoConf,
+                    membersConf,
+                    cachedDump?.data,
+                    (cachedDump?.length ?? 0),
+                    &error
+                )
+                .toConfig(keysConf, info: infoConf, members: membersConf, variant: variant, error: error)
+        }
     }
     
     internal static func createDump(
@@ -292,6 +282,7 @@ public enum SessionUtil {
         
         // Extract any pending changes from the cached config entry for each variant
         return try targetVariants
+            .sorted { (lhs: ConfigDump.Variant, rhs: ConfigDump.Variant) in lhs.sendOrder < rhs.sendOrder }
             .compactMap { variant -> OutgoingConfResult? in
                 try dependencies[cache: .sessionUtil]
                     .config(for: variant, publicKey: publicKey)
@@ -301,34 +292,7 @@ public enum SessionUtil {
                         guard config.needsPush else { return nil }
                         
                         var result: (data: Data, seqNo: Int64, obsoleteHashes: [String])!
-                        let configCountInfo: String = {
-                            var result: String = "Invalid"
-                            
-                            try? CExceptionHelper.performSafely {
-                                switch (config, variant) {
-                                    case (_, .userProfile): result = "1 profile"
-                                    case (.object(let conf), .contacts):
-                                        result = "\(contacts_size(conf)) contacts"
-                                        
-                                    case (.object(let conf), .userGroups):
-                                        result = "\(user_groups_size(conf)) group conversations"
-                                        
-                                    case (.object(let conf), .convoInfoVolatile):
-                                        result = "\(convo_info_volatile_size(conf)) volatile conversations"
-
-                                    case (_, .groupInfo): result = "1 group info"
-                                    case (.object(let conf), .groupMembers):
-                                        result = "\(groups_members_size(conf)) group members"
-                                        
-                                    case (.groupKeys(let conf, _, _), .groupKeys):
-                                        result = "\(groups_keys_size(conf)) group keys"
-                                        
-                                    default: break
-                                }
-                            }
-                            
-                            return result
-                        }()
+                        let configCountInfo: String = config.count(for: variant)
                         
                         do { result = try config.push() }
                         catch {
@@ -464,6 +428,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleGroupInfoUpdate(
                                         db,
                                         in: config,
+                                        groupIdentityPublicKey: publicKey,
                                         latestConfigSentTimestampMs: latestConfigSentTimestampMs,
                                         using: dependencies
                                     )
@@ -472,6 +437,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleGroupMembersUpdate(
                                         db,
                                         in: config,
+                                        groupIdentityPublicKey: publicKey,
                                         latestConfigSentTimestampMs: latestConfigSentTimestampMs,
                                         using: dependencies
                                     )
@@ -480,6 +446,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleGroupKeysUpdate(
                                         db,
                                         in: config,
+                                        groupIdentityPublicKey: publicKey,
                                         latestConfigSentTimestampMs: latestConfigSentTimestampMs,
                                         using: dependencies
                                     )
@@ -569,14 +536,44 @@ public extension SessionUtil {
 
 // MARK: - Convenience
 
-private extension Int32 {
-    func returning(_ config: SessionUtil.Config?, orThrow description: String, error: [CChar]) throws -> SessionUtil.Config {
-        guard self == 0, let config: SessionUtil.Config = config else {
-            SNLog("[SessionUtil Error] \(description): \(String(cString: error))")
+private extension Optional where Wrapped == Int32 {
+    func toConfig(
+        _ maybeConf: UnsafeMutablePointer<config_object>?,
+        variant: ConfigDump.Variant,
+        error: [CChar]
+    ) throws -> SessionUtil.Config {
+        guard self == 0, let conf: UnsafeMutablePointer<config_object> = maybeConf else {
+            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(String(cString: error))")
             throw SessionUtilError.unableToCreateConfigObject
         }
         
-        return config
+        switch variant {
+            case .userProfile, .contacts, .convoInfoVolatile,
+                .userGroups, .groupInfo, .groupMembers:
+                return .object(conf)
+            
+            case .groupKeys: throw SessionUtilError.unableToCreateConfigObject
+        }
+    }
+}
+
+private extension Int32 {
+    func toConfig(
+        _ maybeConf: UnsafeMutablePointer<config_group_keys>?,
+        info: UnsafeMutablePointer<config_object>,
+        members: UnsafeMutablePointer<config_object>,
+        variant: ConfigDump.Variant,
+        error: [CChar]
+    ) throws -> SessionUtil.Config {
+        guard self == 0, let conf: UnsafeMutablePointer<config_group_keys> = maybeConf else {
+            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(String(cString: error))")
+            throw SessionUtilError.unableToCreateConfigObject
+        }
+
+        switch variant {
+            case .groupKeys: return .groupKeys(conf, info: info, members: members)
+            default: throw SessionUtilError.unableToCreateConfigObject
+        }
     }
 }
 

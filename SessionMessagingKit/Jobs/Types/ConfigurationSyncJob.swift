@@ -72,76 +72,72 @@ public enum ConfigurationSyncJob: JobExecutor {
         }
         
         // Identify the destination and merge all obsolete hashes into a single set
-        let destination: Message.Destination = (publicKey == getUserHexEncodedPublicKey(using: dependencies) ?
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        let destination: Message.Destination = (publicKey == currentUserPublicKey ?
             Message.Destination.contact(publicKey: publicKey) :
             Message.Destination.closedGroup(groupPublicKey: publicKey)
         )
-        let allObsoleteHashes: Set<String> = pendingConfigChanges
+        let allObsoleteHashes: Set<String>? = pendingConfigChanges
             .map { $0.obsoleteHashes }
             .reduce([], +)
+            .nullIfEmpty()?
             .asSet()
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
         SNLog("[ConfigurationSyncJob] For \(publicKey) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
         
         dependencies[singleton: .storage]
-            .readPublisher { db -> (keyPair: KeyPair, changes: [MessageSender.PreparedSendData]) in
-                let changes: [MessageSender.PreparedSendData] = try pendingConfigChanges.map { change -> MessageSender.PreparedSendData in
-                    try MessageSender.preparedSendData(
-                        db,
-                        message: change.message,
-                        to: destination,
-                        namespace: change.namespace,
-                        interactionId: nil
-                    )
-                }
-                
-                switch destination {
-                    case .contact:
-                        return (
-                            (
-                                try Identity.fetchUserEd25519KeyPair(db, using: dependencies) ??
-                                { throw SnodeAPIError.noKeyPair }()
-                            ),
-                            changes
-                        )
-                        
-                    case .closedGroup(let groupPublicKey):
-                        // Only admins can update the group config messages
-                        let keyPair: KeyPair = try {
-                            guard
-                                let group: ClosedGroup = try ClosedGroup.fetchOne(db, id: groupPublicKey),
-                                let adminKey: Data = group.groupIdentityPrivateKey
-                            else {
-                                throw MessageSenderError.invalidClosedGroupUpdate
+            .readPublisher { db -> HTTP.PreparedRequest<HTTP.BatchResponse> in
+                try SnodeAPI.preparedSequence(
+                    db,
+                    requests: try pendingConfigChanges
+                        .map { change -> ErasedPreparedRequest in
+                            do {
+                                return try MessageSender.preparedSendToSnodeDestination(
+                                    db,
+                                    message: change.message,
+                                    to: destination,
+                                    namespace: change.namespace,
+                                    interactionId: nil,
+                                    fileIds: [],
+                                    userPublicKey: currentUserPublicKey,
+                                    messageSendTimestamp: messageSendTimestamp,
+                                    using: dependencies
+                                )
                             }
-                            
-                            return KeyPair(
-                                publicKey: Array(Data(hex: groupPublicKey).removingIdPrefixIfNeeded()),
-                                secretKey: Array(adminKey)
-                            )
-                        }()
-                        
-                        return (keyPair, changes)
-                        
-                    default: throw HTTPError.invalidPreparedRequest
-                }
+                            catch let error as MessageSenderError {
+                                throw MessageSender.handleFailedMessageSend(
+                                    db,
+                                    message: change.message,
+                                    with: error,
+                                    interactionId: nil,
+                                    isSyncMessage: false,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                        .appending(
+                            try allObsoleteHashes.map { serverHashes -> ErasedPreparedRequest in
+                                // TODO: Seems like older hashes aren't getting exposed via this method? (ie. I keep getting old ones when polling but not sure if they are included and not getting deleted, or just not included...)
+                                // TODO: Need to test this in updated groups
+                                try SnodeAPI.preparedDeleteMessages(
+                                    serverHashes: Array(serverHashes),
+                                    requireSuccessfulDeletion: false,
+                                    authInfo: try SnodeAPI.AuthenticationInfo(
+                                        db,
+                                        threadId: publicKey,
+                                        using: dependencies
+                                    ),
+                                    using: dependencies
+                                )
+                            }
+                        ),
+                    requireAllBatchResponses: false,
+                    associatedWith: publicKey,
+                    using: dependencies
+                )
             }
-            .flatMap { (keyPair: KeyPair, changes: [MessageSender.PreparedSendData]) -> AnyPublisher<(ResponseInfoType, HTTP.BatchResponse), Error> in
-                SnodeAPI
-                    .sendConfigMessages(
-                        changes.compactMap { change in
-                            guard
-                                let namespace: SnodeAPI.Namespace = change.namespace,
-                                let snodeMessage: SnodeMessage = change.snodeMessage
-                            else { return nil }
-                            
-                            return (snodeMessage, namespace)
-                        },
-                        signedWith: keyPair,
-                        allObsoleteHashes: Array(allObsoleteHashes),
-                        using: dependencies
-                    )
-            }
+            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
             .map { (_: ResponseInfoType, response: HTTP.BatchResponse) -> [ConfigDump] in
@@ -149,7 +145,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
                 zip(response, pendingConfigChanges)
-                    .compactMap { (subResponse: Decodable, change: SessionUtil.OutgoingConfResult) in
+                    .compactMap { (subResponse: Any, change: SessionUtil.OutgoingConfResult) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard

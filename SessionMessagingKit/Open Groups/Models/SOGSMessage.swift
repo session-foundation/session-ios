@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension OpenGroupAPI {
@@ -69,9 +70,6 @@ extension OpenGroupAPI.Message {
             guard let sender: String = maybeSender, let data = Data(base64Encoded: base64EncodedData), let signature = Data(base64Encoded: base64EncodedSignature) else {
                 throw HTTPError.parsingFailed
             }
-            guard let dependencies: Dependencies = decoder.userInfo[Dependencies.userInfoKey] as? Dependencies else {
-                throw HTTPError.parsingFailed
-            }
             
             // Verify the signature based on the SessionId.Prefix type
             let publicKey: Data = Data(hex: sender.removingIdPrefixIfNeeded())
@@ -79,7 +77,7 @@ extension OpenGroupAPI.Message {
             switch SessionId.Prefix(from: sender) {
                 case .blinded15, .blinded25:
                     guard
-                        dependencies[singleton: .crypto].verify(
+                        decoder.dependencies[singleton: .crypto].verify(
                             .signature(message: data.bytes, publicKey: publicKey.bytes, signature: signature.bytes)
                         )
                     else {
@@ -89,7 +87,7 @@ extension OpenGroupAPI.Message {
                     
                 case .standard, .unblinded:
                     guard
-                        dependencies[singleton: .crypto].verify(
+                        decoder.dependencies[singleton: .crypto].verify(
                             .signatureEd25519(signature, publicKey: publicKey, data: data)
                         )
                     else {

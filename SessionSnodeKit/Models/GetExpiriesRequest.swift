@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 extension SnodeAPI {
     public class GetExpiriesRequest: SnodeAuthenticatedRequestBody {
@@ -16,19 +17,13 @@ extension SnodeAPI {
         
         public init(
             messageHashes: [String],
-            pubkey: String,
-            subkey: String?,
-            timestampMs: UInt64,
-            ed25519PublicKey: [UInt8],
-            ed25519SecretKey: [UInt8]
+            authInfo: AuthenticationInfo,
+            timestampMs: UInt64
         ) {
             self.messageHashes = messageHashes
             
             super.init(
-                pubkey: pubkey,
-                ed25519PublicKey: ed25519PublicKey,
-                ed25519SecretKey: ed25519SecretKey,
-                subkey: subkey,
+                authInfo: authInfo,
                 timestampMs: timestampMs
             )
         }
@@ -45,23 +40,14 @@ extension SnodeAPI {
         
         // MARK: - Abstract Methods
         
-        override func generateSignature() throws -> [UInt8] {
+        override func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
             /// Ed25519 signature of `("get_expiries" || timestamp || messages[0] || ... || messages[N])`
             /// where `timestamp` is expressed as a string (base10).  The signature must be base64 encoded (json) or bytes (bt).
-            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.getExpiries.rawValue.bytes
+            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.getExpiries.path.bytes
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
                 .appending(contentsOf: messageHashes.joined().bytes)
             
-            guard
-                let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(
-                    message: verificationBytes,
-                    secretKey: ed25519SecretKey
-                )
-            else {
-                throw SnodeAPIError.signingFailed
-            }
-            
-            return signatureBytes
+            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

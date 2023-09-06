@@ -45,12 +45,18 @@ extension MessageReceiver {
         }
         
         if author == message.sender, let serverHash: String = interaction.serverHash {
-            SnodeAPI
-                .deleteMessages(
-                    publicKey: author,
-                    serverHashes: [serverHash],
-                    using: dependencies
-                )
+            dependencies[singleton: .storage]
+                .readPublisher(using: dependencies) { db in
+                    try SnodeAPI.AuthenticationInfo(db, threadId: author, using: dependencies)
+                }
+                .flatMap { authInfo in
+                    SnodeAPI
+                        .deleteMessages(
+                            serverHashes: [serverHash],
+                            authInfo: authInfo,
+                            using: dependencies
+                        )
+                }
                 .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
                 .sinkUntilComplete()
         }

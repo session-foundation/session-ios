@@ -66,13 +66,19 @@ extension HTTP.BatchSubResponse {
 // MARK: - Encodable Convenience
 
 extension Mocked where Self: Encodable {
-    func encoded() -> Data { try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(self) }
+    func encoded(using dependencies: Dependencies) -> Data {
+        try! JSONEncoder(using: dependencies).with(outputFormatting: .sortedKeys).encode(self)
+    }
 }
 
 extension MockedGeneric where Self: Encodable {
-    func encoded() -> Data { try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(self) }
+    func encoded(using dependencies: Dependencies) -> Data {
+        try! JSONEncoder(using: dependencies).with(outputFormatting: .sortedKeys).encode(self)
+    }
 }
 
 extension Array where Element: Encodable {
-    func encoded() -> Data { try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(self) }
+    func encoded(using dependencies: Dependencies) -> Data {
+        try! JSONEncoder(using: dependencies).with(outputFormatting: .sortedKeys).encode(self)
+    }
 }

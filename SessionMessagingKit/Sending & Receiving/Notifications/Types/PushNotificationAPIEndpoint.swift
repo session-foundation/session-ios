@@ -17,6 +17,8 @@ public extension PushNotificationAPI {
         case legacyGroupSubscribe
         case legacyGroupUnsubscribe
         
+        public static var name: String { "PushNotificationAPI.Endpoint" }
+        
         public var path: String {
             switch self {
                 case .subscribe: return "subscribe"

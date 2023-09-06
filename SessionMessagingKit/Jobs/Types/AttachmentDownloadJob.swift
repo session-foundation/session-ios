@@ -22,7 +22,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData),
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
             let attachment: Attachment = dependencies[singleton: .storage]
                 .read({ db in try Attachment.fetchOne(db, id: details.attachmentId) })
         else {
@@ -49,7 +49,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 .compactMap { info -> String? in
                     guard let data: Data = info.detailsData else { return nil }
                     
-                    return (try? JSONDecoder().decode(Details.self, from: data))?
+                    return (try? JSONDecoder(using: dependencies).decode(Details.self, from: data))?
                         .attachmentId
                 }
                 .asSet()

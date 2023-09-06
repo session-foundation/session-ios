@@ -22,7 +22,7 @@ public enum SendReadReceiptsJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
@@ -35,8 +35,8 @@ public enum SendReadReceiptsJob: JobExecutor {
         }
         
         dependencies[singleton: .storage]
-            .writePublisher { db in
-                try MessageSender.preparedSendData(
+            .writePublisher { db -> HTTP.PreparedRequest<Void> in
+                try MessageSender.preparedSend(
                     db,
                     message: ReadReceipt(
                         timestamps: details.timestampMsValues.map { UInt64($0) }
@@ -44,12 +44,13 @@ public enum SendReadReceiptsJob: JobExecutor {
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: nil,
+                    fileIds: [],
                     isSyncMessage: false
                 )
             }
-            .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .flatMap { $0.send(using: dependencies) }
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
@@ -139,7 +140,8 @@ public extension SendReadReceiptsJob {
                 .fetchOne(db),
             !dependencies[singleton: .jobRunner].isCurrentlyRunning(existingJob),
             let existingDetailsData: Data = existingJob.details,
-            let existingDetails: Details = try? JSONDecoder().decode(Details.self, from: existingDetailsData)
+            let existingDetails: Details = try? JSONDecoder(using: dependencies)
+                .decode(Details.self, from: existingDetailsData)
         {
             let maybeUpdatedJob: Job? = existingJob
                 .with(

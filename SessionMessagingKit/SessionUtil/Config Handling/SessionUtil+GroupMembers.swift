@@ -15,6 +15,7 @@ internal extension SessionUtil {
     static func handleGroupMembersUpdate(
         _ db: Database,
         in config: Config?,
+        groupIdentityPublicKey: String,
         latestConfigSentTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {

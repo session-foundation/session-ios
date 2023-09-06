@@ -22,7 +22,7 @@ public enum GetExpirationJob: JobExecutor {
     ) {
         guard
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             SNLog("[GetExpirationJob] Failing due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
@@ -47,13 +47,19 @@ public enum GetExpirationJob: JobExecutor {
             .getSwarm(for: userPublicKey, using: dependencies)
             .tryFlatMap { swarm -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> in
                 guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                
-                return SnodeAPI.getExpiries(
-                    from: snode,
-                    associatedWith: userPublicKey,
-                    of: expirationInfo.map { $0.key },
-                    using: dependencies
-                )
+                return dependencies[singleton: .storage]
+                    .readPublisher(using: dependencies) { db in
+                        try SnodeAPI.AuthenticationInfo(db, threadId: userPublicKey, using: dependencies)
+                    }
+                    .flatMap { authInfo in
+                        SnodeAPI.getExpiries(
+                            from: snode,
+                            of: expirationInfo.map { $0.key },
+                            authInfo: authInfo,
+                            using: dependencies
+                        )
+                    }
+                    .eraseToAnyPublisher()
             }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)

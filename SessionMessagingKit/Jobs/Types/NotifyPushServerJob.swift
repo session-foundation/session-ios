@@ -21,7 +21,7 @@ public enum NotifyPushServerJob: JobExecutor {
     ) {
         guard
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             SNLog("[NotifyPushServerJob] Failing due to missing details")
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
@@ -37,8 +37,8 @@ public enum NotifyPushServerJob: JobExecutor {
                 )
             }
             .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {

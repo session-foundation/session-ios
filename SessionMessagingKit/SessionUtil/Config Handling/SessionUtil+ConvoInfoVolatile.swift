@@ -476,13 +476,7 @@ public extension SessionUtil {
             )
         }
         
-        static func fetchAll(_ db: Database? = nil, ids: [String]? = nil) -> [VolatileThreadInfo] {
-            guard let db: Database = db else {
-                return Storage.shared
-                    .read { db in fetchAll(db, ids: ids) }
-                    .defaulting(to: [])
-            }
-            
+        static func fetchAll(_ db: Database, ids: [String]? = nil) -> [VolatileThreadInfo] {
             struct FetchedInfo: FetchableRecord, Codable, Hashable {
                 let id: String
                 let variant: SessionThread.Variant

@@ -9,6 +9,8 @@ extension FileServerAPI {
         case fileIndividual(fileId: String)
         case sessionVersion
         
+        public static var name: String { "FileServerAPI.Endpoint" }
+        
         public var path: String {
             switch self {
                 case .file: return "file"

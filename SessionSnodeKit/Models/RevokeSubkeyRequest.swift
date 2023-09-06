@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 extension SnodeAPI {
     public class RevokeSubkeyRequest: SnodeAuthenticatedRequestBody {
@@ -14,17 +15,11 @@ extension SnodeAPI {
         
         public init(
             subkeyToRevoke: String,
-            pubkey: String,
-            ed25519PublicKey: [UInt8],
-            ed25519SecretKey: [UInt8]
+            authInfo: AuthenticationInfo
         ) {
             self.subkeyToRevoke = subkeyToRevoke
             
-            super.init(
-                pubkey: pubkey,
-                ed25519PublicKey: ed25519PublicKey,
-                ed25519SecretKey: ed25519SecretKey
-            )
+            super.init(authInfo: authInfo)
         }
         
         // MARK: - Coding
@@ -39,22 +34,13 @@ extension SnodeAPI {
         
         // MARK: - Abstract Methods
         
-        override func generateSignature() throws -> [UInt8] {
+        override func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
             /// Ed25519 signature of `("revoke_subkey" || subkey)`; this signs the subkey tag,
             /// using `pubkey` to sign. Must be base64 encoded for json requests; binary for OMQ requests.
-            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.revokeSubkey.rawValue.bytes
+            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.revokeSubkey.path.bytes
                 .appending(contentsOf: subkeyToRevoke.bytes)
             
-            guard
-                let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(
-                    message: verificationBytes,
-                    secretKey: ed25519SecretKey
-                )
-            else {
-                throw SnodeAPIError.signingFailed
-            }
-            
-            return signatureBytes
+            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

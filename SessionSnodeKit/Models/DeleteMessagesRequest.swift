@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 extension SnodeAPI {
     public class DeleteMessagesRequest: SnodeAuthenticatedRequestBody {
@@ -17,18 +18,12 @@ extension SnodeAPI {
         public init(
             messageHashes: [String],
             requireSuccessfulDeletion: Bool,
-            pubkey: String,
-            ed25519PublicKey: [UInt8]?,
-            ed25519SecretKey: [UInt8]
+            authInfo: AuthenticationInfo
         ) {
             self.messageHashes = messageHashes
             self.requireSuccessfulDeletion = requireSuccessfulDeletion
             
-            super.init(
-                pubkey: pubkey,
-                ed25519PublicKey: ed25519PublicKey,
-                ed25519SecretKey: ed25519SecretKey
-            )
+            super.init(authInfo: authInfo)
         }
         
         // MARK: - Coding
@@ -48,23 +43,14 @@ extension SnodeAPI {
         
         // MARK: - Abstract Methods
         
-        override func generateSignature() throws -> [UInt8] {
+        override func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
             /// Ed25519 signature of `("delete" || messages...)`; this signs the value constructed
             /// by concatenating "delete" and all `messages` values, using `pubkey` to sign.  Must be base64
             /// encoded for json requests; binary for OMQ requests.
-            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.deleteMessages.rawValue.bytes
+            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.deleteMessages.path.bytes
                 .appending(contentsOf: messageHashes.joined().bytes)
             
-            guard
-                let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(
-                    message: verificationBytes,
-                    secretKey: ed25519SecretKey
-                )
-            else {
-                throw SnodeAPIError.signingFailed
-            }
-            
-            return signatureBytes
+            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

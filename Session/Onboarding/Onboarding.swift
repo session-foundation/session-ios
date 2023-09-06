@@ -32,19 +32,17 @@ enum Onboarding {
     ) -> AnyPublisher<String?, Error> {
         let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        return SnodeAPI.getSwarm(for: userPublicKey)
-            .tryFlatMapWithRandomSnode { snode -> AnyPublisher<[Message], Error> in
-                CurrentUserPoller
-                    .poll(
-                        namespaces: [.configUserProfile],
-                        from: snode,
-                        for: userPublicKey,
-                        // Note: These values mean the received messages will be
-                        // processed immediately rather than async as part of a Job
-                        calledFromBackgroundPoller: true,
-                        isBackgroundPollValid: { true }
-                    )
-            }
+        return CurrentUserPoller
+            .poll(
+                namespaces: [.configUserProfile],
+                for: userPublicKey,
+                // Note: These values mean the received messages will be
+                // processed immediately rather than async as part of a Job
+                calledFromBackgroundPoller: true,
+                isBackgroundPollValid: { true },
+                drainBehaviour: .alwaysRandom,
+                using: dependencies
+            )
             .map { _ -> String? in
                 guard requestId == profileNameRetrievalIdentifier.wrappedValue else { return nil }
                 

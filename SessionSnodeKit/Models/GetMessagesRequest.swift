@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 extension SnodeAPI {
     public class GetMessagesRequest: SnodeAuthenticatedRequestBody {
@@ -21,11 +22,8 @@ extension SnodeAPI {
         public init(
             lastHash: String,
             namespace: SnodeAPI.Namespace?,
-            pubkey: String,
-            subkey: String?,
+            authInfo: AuthenticationInfo,
             timestampMs: UInt64,
-            ed25519PublicKey: [UInt8],
-            ed25519SecretKey: [UInt8],
             maxCount: Int64? = nil,
             maxSize: Int64? = nil
         ) {
@@ -35,10 +33,7 @@ extension SnodeAPI {
             self.maxSize = maxSize
             
             super.init(
-                pubkey: pubkey,
-                ed25519PublicKey: ed25519PublicKey,
-                ed25519SecretKey: ed25519SecretKey,
-                subkey: subkey,
+                authInfo: authInfo,
                 timestampMs: timestampMs
             )
         }
@@ -58,25 +53,16 @@ extension SnodeAPI {
         
         // MARK: - Abstract Methods
         
-        override func generateSignature() throws -> [UInt8] {
+        override func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
             /// Ed25519 signature of `("retrieve" || namespace || timestamp)` (if using a non-0
             /// namespace), or `("retrieve" || timestamp)` when fetching from the default namespace.  Both
             /// namespace and timestamp are the base10 expressions of the relevant values.  Must be base64
             /// encoded for json requests; binary for OMQ requests.
-            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.getMessages.rawValue.bytes
+            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.getMessages.path.bytes
                 .appending(contentsOf: namespace?.verificationString.bytes)
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
             
-            guard
-                let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(
-                    message: verificationBytes,
-                    secretKey: ed25519SecretKey
-                )
-            else {
-                throw SnodeAPIError.signingFailed
-            }
-            
-            return signatureBytes
+            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

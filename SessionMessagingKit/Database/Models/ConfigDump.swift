@@ -111,4 +111,14 @@ public extension ConfigDump.Variant {
             case .convoInfoVolatile: return 2
         }
     }
+    
+    /// This value defines the order that the config messages should be sent in, we need to send the `groupKeys`
+    /// config _before_ the `groupInfo` and `groupMembers` configs as they both get encrypted with the latest key
+    /// and we want to avoid weird edge-cases
+    var sendOrder: Int {
+        switch self {
+            case .groupKeys: return 0
+            default: return 1
+        }
+    }
 }

@@ -31,7 +31,7 @@ public enum GarbageCollectionJob: JobExecutor {
         /// **Note:** The reason we default to handle all cases (instead of just doing nothing in that case) is so the initial registration
         /// of the garbageCollection job never needs to be updated as we continue to add more types going forward
         let typesToCollect: [Types] = (job.details
-            .map { try? JSONDecoder().decode(Details.self, from: $0) }?
+            .map { try? JSONDecoder(using: dependencies).decode(Details.self, from: $0) }?
             .typesToCollect)
             .defaulting(to: Types.allCases)
         let timestampNow: TimeInterval = dependencies.dateNow.timeIntervalSince1970

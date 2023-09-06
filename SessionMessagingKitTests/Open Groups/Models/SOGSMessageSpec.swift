@@ -39,9 +39,7 @@ class SOGSMessageSpec: QuickSpec {
                 }
                 """
                 messageData = messageJson.data(using: .utf8)!
-                
-                decoder = JSONDecoder()
-                decoder.userInfo = [ Dependencies.userInfoKey: dependencies as Any ]
+                decoder = JSONDecoder(using: dependencies)
             }
             
             afterEach {

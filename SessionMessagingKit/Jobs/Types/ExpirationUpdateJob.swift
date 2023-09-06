@@ -21,7 +21,7 @@ public enum ExpirationUpdateJob: JobExecutor {
     ) {
         guard
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             SNLog("[ExpirationUpdateJob] Failing due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
@@ -29,14 +29,20 @@ public enum ExpirationUpdateJob: JobExecutor {
         }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        SnodeAPI
-            .updateExpiry(
-                publicKey: userPublicKey,
-                serverHashes: details.serverHashes,
-                updatedExpiryMs: details.expirationTimestampMs,
-                shortenOnly: true,
-                using: dependencies
-            )
+        dependencies[singleton: .storage]
+            .readPublisher(using: dependencies) { db in
+                try SnodeAPI.AuthenticationInfo(db, threadId: userPublicKey, using: dependencies)
+            }
+            .flatMap { authInfo in
+                SnodeAPI
+                    .updateExpiry(
+                        serverHashes: details.serverHashes,
+                        updatedExpiryMs: details.expirationTimestampMs,
+                        shortenOnly: true,
+                        authInfo: authInfo,
+                        using: dependencies
+                    )
+            }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
             .map { response -> [UInt64: [String]] in

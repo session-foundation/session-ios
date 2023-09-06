@@ -33,7 +33,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                 
                 return (groupName, Profile.fetchOrCreateCurrentUser(db, using: dependencies))
             }),
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             SNLog("[InviteGroupMemberJob] Failing due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)

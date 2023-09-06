@@ -20,7 +20,7 @@ public enum MessageReceiveJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+            let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
