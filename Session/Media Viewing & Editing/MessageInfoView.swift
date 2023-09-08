@@ -19,6 +19,7 @@ struct MessageInfoView: View {
     var isMessageFailed: Bool {
         return [.failed, .failedToSync].contains(messageViewModel.state)
     }
+    var snapshot: UIView?
     
     var dismiss: (() -> Void)?
     
@@ -37,33 +38,39 @@ struct MessageInfoView: View {
                         spacing: 10
                     ) {
                         // Message bubble snapshot
-                        if let body: String = messageViewModel.body, !body.isEmpty {
-                            let (bubbleBackgroundColor, bubbleTextColor): (ThemeValue, ThemeValue) = (
-                                messageViewModel.variant == .standardIncoming ||
-                                messageViewModel.variant == .standardIncomingDeleted
-                            ) ?
-                            (.messageBubble_incomingBackground, .messageBubble_incomingText) :
-                            (.messageBubble_outgoingBackground, .messageBubble_outgoingText)
-                            
-                            ZStack {
-                                RoundedRectangle(cornerRadius: Self.cornerRadius)
-                                    .fill(themeColor: bubbleBackgroundColor)
-                                
-                                Text(body)
-                                    .foregroundColor(themeColor: bubbleTextColor)
-                                    .padding(.vertical, Values.smallSpacing)
-                                    .padding(.horizontal, Values.mediumSpacing)
+                        ZStack {
+                            if let snapshot = self.snapshot {
+                                UIView_SwiftUI(view: snapshot)
+                            } else {
+                                if let body: String = messageViewModel.body, !body.isEmpty {
+                                    let (bubbleBackgroundColor, bubbleTextColor): (ThemeValue, ThemeValue) = (
+                                        messageViewModel.variant == .standardIncoming ||
+                                        messageViewModel.variant == .standardIncomingDeleted
+                                    ) ?
+                                    (.messageBubble_incomingBackground, .messageBubble_incomingText) :
+                                    (.messageBubble_outgoingBackground, .messageBubble_outgoingText)
+                                    
+                                    RoundedRectangle(cornerRadius: Self.cornerRadius)
+                                        .fill(themeColor: bubbleBackgroundColor)
+                                    
+                                    Text(body)
+                                        .foregroundColor(themeColor: bubbleTextColor)
+                                        .padding(.vertical, Values.smallSpacing)
+                                        .padding(.horizontal, Values.mediumSpacing)
+                                    
+                                }
                             }
-                            .frame(
-                                maxWidth: .infinity,
-                                maxHeight: .infinity,
-                                alignment: .topLeading
-                            )
-                            .fixedSize(horizontal: true, vertical: true)
-                            .padding(.top, Values.smallSpacing)
-                            .padding(.bottom, Values.verySmallSpacing)
-                            .padding(.horizontal, Values.largeSpacing)
                         }
+                        .frame(
+                            maxWidth: .infinity,
+                            maxHeight: .infinity,
+                            alignment: .topLeading
+                        )
+                        .fixedSize(horizontal: true, vertical: true)
+                        .padding(.top, Values.smallSpacing)
+                        .padding(.bottom, Values.verySmallSpacing)
+                        .padding(.horizontal, Values.largeSpacing)
+                        
                         
                         if isMessageFailed {
                             let (image, statusText, tintColor) = messageViewModel.state.statusIconInfo(
