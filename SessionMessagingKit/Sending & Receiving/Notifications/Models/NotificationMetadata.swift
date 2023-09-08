@@ -41,7 +41,7 @@ extension PushNotificationAPI.NotificationMetadata {
             hash: try container.decode(String.self, forKey: .hash),
             namespace: try container.decode(Int.self, forKey: .namespace),
             dataLength: try container.decode(Int.self, forKey: .dataLength),
-            dataTooLong: ((try? container.decode(Bool.self, forKey: .dataTooLong)) ?? false)
+            dataTooLong: ((try? container.decode(Int.self, forKey: .dataTooLong) != 0) ?? false)
         )
     }
 }

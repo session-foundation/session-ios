@@ -119,8 +119,7 @@ final class QuoteView: UIView {
         // Content view
         let contentView = UIView()
         addSubview(contentView)
-        contentView.pin([ UIView.HorizontalEdge.left, UIView.VerticalEdge.top, UIView.VerticalEdge.bottom ], to: self)
-        contentView.rightAnchor.constraint(lessThanOrEqualTo: self.rightAnchor).isActive = true
+        contentView.pin(to: self)
         
         if let attachment: Attachment = attachment {
             let isAudio: Bool = MIMETypeUtil.isAudio(attachment.contentType)

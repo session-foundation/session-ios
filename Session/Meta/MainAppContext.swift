@@ -179,11 +179,6 @@ final class MainAppContext: NSObject, AppContext {
         UIApplication.shared.isIdleTimerDisabled = shouldBeBlocking
     }
     
-    func setMainAppBadgeNumber(_ value: Int) {
-        UIApplication.shared.applicationIconBadgeNumber = value
-        UserDefaults.sharedLokiProject?.setValue(value, forKey: "currentBadgeNumber")
-    }
-    
     func frontmostViewController() -> UIViewController? {
         UIApplication.shared.frontmostViewControllerIgnoringAlerts
     }
