@@ -157,7 +157,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                        .updateAllAndConfig(
                                            db,
                                            Profile.Columns.nickname
-                                               .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName))
+                                               .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName)),
+                                           using: dependencies
                                        )
                                }
                            }
@@ -816,7 +817,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                     .filter(id: threadId)
                     .updateAllAndConfig(
                         db,
-                        Contact.Columns.isBlocked.set(to: isBlocked)
+                        Contact.Columns.isBlocked.set(to: isBlocked),
+                        using: dependencies
                     )
             },
             completion: { [weak self] db, _ in

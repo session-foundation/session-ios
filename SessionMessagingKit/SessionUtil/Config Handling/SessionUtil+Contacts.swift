@@ -140,7 +140,7 @@ internal extension SessionUtil {
                     .fetchOne(db)
                 let threadExists: Bool = (threadInfo != nil)
                 let updatedShouldBeVisible: Bool = SessionUtil.shouldBeVisible(priority: data.priority)
-                
+
                 /// If we are hiding the conversation then kick the user from it if it's currently open
                 if !updatedShouldBeVisible {
                     SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])

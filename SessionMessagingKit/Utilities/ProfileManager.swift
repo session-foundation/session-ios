@@ -598,7 +598,12 @@ public struct ProfileManager {
             else {
                 try Profile
                     .filter(id: publicKey)
-                    .updateAllAndConfig(db, profileChanges)
+                    .updateAllAndConfig(
+                        db,
+                        profileChanges,
+                        calledFromConfig: calledFromConfigHandling,
+                        using: dependencies
+                    )
             }
         }
         

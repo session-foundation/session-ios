@@ -220,6 +220,7 @@ public final class OpenGroupManager {
                     db,
                     OpenGroup.Columns.isActive.set(to: true),
                     OpenGroup.Columns.sequenceNumber.set(to: 0),
+                    calledFromConfig: calledFromConfigHandling,
                     using: dependencies
                 )
         }
@@ -362,7 +363,12 @@ public final class OpenGroupManager {
             // If it's a session-run room then just set it to inactive
             _ = try? OpenGroup
                 .filter(id: openGroupId)
-                .updateAllAndConfig(db, OpenGroup.Columns.isActive.set(to: false))
+                .updateAllAndConfig(
+                    db,
+                    OpenGroup.Columns.isActive.set(to: false),
+                    calledFromConfig: calledFromConfigHandling,
+                    using: dependencies
+                )
         }
         
         // Remove the thread and associated data
@@ -450,7 +456,7 @@ public final class OpenGroupManager {
         
         try OpenGroup
             .filter(id: openGroup.id)
-            .updateAllAndConfig(db, changes)
+            .updateAllAndConfig(db, changes, using: dependencies)
         
         // Update the admin/moderator group members
         if let roomDetails: OpenGroupAPI.Room = pollInfo.details {

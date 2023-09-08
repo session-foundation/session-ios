@@ -469,8 +469,17 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         
         // If the screen wasn't presented or it was presented from a location which isn't the
         // MediaTileViewController then just pop/dismiss the screen
+        let parentNavController: UINavigationController? = {
+            switch self.presentingViewController {
+                case let topBannerController as TopBannerController:
+                    return topBannerController.children.first as? UINavigationController
+                    
+                default: return self.presentingViewController as? UINavigationController
+            }
+        }()
+        
         guard
-            let presentingNavController: UINavigationController = (self.presentingViewController as? UINavigationController),
+            let presentingNavController: UINavigationController = parentNavController,
             !(presentingNavController.viewControllers.last is AllMediaViewController)
         else {
             guard self.navigationController?.viewControllers.count == 1 else {

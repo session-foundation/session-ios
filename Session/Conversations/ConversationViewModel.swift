@@ -824,7 +824,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         dependencies[singleton: .storage].writeAsync { db in
             try Contact
                 .filter(id: threadId)
-                .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
+                .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false), using: dependencies)
         }
     }
     

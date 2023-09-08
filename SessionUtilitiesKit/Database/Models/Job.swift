@@ -124,6 +124,10 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job that runs once whenever a message is marked as read because of syncing from user config and
         /// needs to get expiration from network
         case getExpiration
+        
+        /// This is a job which sends an invitation to a member of a group asynchronously so the admin doesn't need to
+        /// wait during group creation
+        case groupInviteMemberJob
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

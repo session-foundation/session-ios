@@ -405,8 +405,11 @@ public enum PushNotificationAPI {
             return (envelope, .legacySuccess)
         }
         
+        guard let base64EncodedEncString: String = notificationContent.userInfo["enc_payload"] as? String else {
+            return (nil, .failureNoContent)
+        }
+        
         guard
-            let base64EncodedEncString: String = notificationContent.userInfo["enc_payload"] as? String,
             let encData: Data = Data(base64Encoded: base64EncodedEncString),
             let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies),
             encData.count > dependencies[singleton: .crypto].size(.aeadXChaCha20NonceBytes)
@@ -434,7 +437,7 @@ public enum PushNotificationAPI {
         
         // If the metadata says that the message was too large then we should show the generic
         // notification (this is a valid case)
-        guard !notification.info.dataTooLong else { return (nil, .success) }
+        guard !notification.info.dataTooLong else { return (nil, .successTooLong) }
         
         // Check that the body we were given is valid
         guard

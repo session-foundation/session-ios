@@ -279,7 +279,7 @@ final class NukeDataModal: Modal {
         
         // Clear the app badge and notifications
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
-        CurrentAppContext().setMainAppBadgeNumber(0)
+        UIApplication.shared.applicationIconBadgeNumber = 0
         
         // Clear out the user defaults
         UserDefaults.removeAll()

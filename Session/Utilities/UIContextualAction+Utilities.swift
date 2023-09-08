@@ -167,7 +167,7 @@ public extension UIContextualAction {
                                                         db,
                                                         threadId: threadViewModel.threadId,
                                                         threadVariant: threadViewModel.threadVariant,
-                                                        groupLeaveType: .forced,
+                                                        groupLeaveType: .silent,
                                                         calledFromConfigHandling: false
                                                     )
                                                 }
@@ -216,7 +216,8 @@ public extension UIContextualAction {
                                         .updateAllAndConfig(
                                             db,
                                             SessionThread.Columns.pinnedPriority
-                                                .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0))
+                                                .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
+                                            using: dependencies
                                         )
                                 }
                             }
@@ -319,7 +320,7 @@ public extension UIContextualAction {
                                                 .save(db)
                                             try Contact
                                                 .filter(id: threadViewModel.threadId)
-                                                .updateAllAndConfig(db, contactChanges)
+                                                .updateAllAndConfig(db, contactChanges, using: dependencies)
                                             
                                             // Blocked message requests should be deleted
                                             if threadIsMessageRequest {

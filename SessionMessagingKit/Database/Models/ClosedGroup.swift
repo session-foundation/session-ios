@@ -193,7 +193,9 @@ public extension ClosedGroup {
                 .filter(id: group.id)
                 .updateAllAndConfig(
                     db,
-                    ClosedGroup.Columns.invited.set(to: false)
+                    ClosedGroup.Columns.invited.set(to: false),
+                    calledFromConfig: calledFromConfigHandling,
+                    using: dependencies
                 )
         }
         

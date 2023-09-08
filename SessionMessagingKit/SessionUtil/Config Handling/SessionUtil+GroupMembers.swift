@@ -112,6 +112,7 @@ internal extension SessionUtil {
 // MARK: - Outgoing Changes
 
 internal extension SessionUtil {
+}
 
 // MARK: - MemberData
 

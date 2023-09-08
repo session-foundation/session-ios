@@ -545,7 +545,11 @@ extension ConversationVC:
                     if self?.viewModel.threadData.threadShouldBeVisible == false {
                         _ = try SessionThread
                             .filter(id: threadId)
-                            .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                            .updateAllAndConfig(
+                                db,
+                                SessionThread.Columns.shouldBeVisible.set(to: true),
+                                using: dependencies
+                            )
                     }
                     
                     // Insert the interaction and associated it with the optimistically inserted message so
@@ -1346,7 +1350,11 @@ extension ConversationVC:
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     _ = try SessionThread
                         .filter(id: cellViewModel.threadId)
-                        .updateAllAndConfig(db, SessionThread.Columns.shouldBeVisible.set(to: true))
+                        .updateAllAndConfig(
+                            db,
+                            SessionThread.Columns.shouldBeVisible.set(to: true),
+                            using: dependencies
+                        )
                 }
                 
                 let pendingReaction: Reaction? = {
@@ -2498,7 +2506,8 @@ extension ConversationVC {
                         db,
                         Contact.Columns.isApproved.set(to: true),
                         Contact.Columns.didApproveMe
-                            .set(to: contact.didApproveMe || !isNewThread)
+                            .set(to: contact.didApproveMe || !isNewThread),
+                        using: dependencies
                     )
             }
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))

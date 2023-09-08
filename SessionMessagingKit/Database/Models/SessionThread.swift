@@ -310,28 +310,42 @@ public extension SessionThread {
         using dependencies: Dependencies = Dependencies()
     ) throws {
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        let remainingThreadIds: [String] = threadIds.filter { $0 != currentUserPublicKey }
+        let remainingThreadIds: Set<String> = threadIds.asSet().removing(currentUserPublicKey)
         
         switch (threadVariant, groupLeaveType) {
-            case (.contact, _):
+            case (.contact, .standard), (.contact, .silent):
+                // Clear any interactions for the deleted thread
+                _ = try Interaction
+                    .filter(threadIds.contains(Interaction.Columns.threadId))
+                    .deleteAll(db)
+                
                 // We need to custom handle the 'Note to Self' conversation (it should just be
-                // hidden rather than deleted
+                // hidden locally rather than deleted)
                 if threadIds.contains(currentUserPublicKey) {
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == currentUserPublicKey)
-                        .deleteAll(db)
-                    
                     _ = try SessionThread
                         .filter(id: currentUserPublicKey)
                         .updateAllAndConfig(
                             db,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
                             SessionThread.Columns.shouldBeVisible.set(to: false),
+                            calledFromConfig: calledFromConfigHandling,
                             using: dependencies
                         )
-                    return
                 }
                 
+                // Update any other threads to be hidden (don't want to actually delete the thread
+                // record in case it's settings get changed while it's not visible)
+                _ = try SessionThread
+                    .filter(ids: remainingThreadIds)
+                    .updateAllAndConfig(
+                        db,
+                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.hiddenPriority),
+                        SessionThread.Columns.shouldBeVisible.set(to: false),
+                        calledFromConfig: calledFromConfigHandling,
+                        using: dependencies
+                    )
+                
+            case (.contact, .forced):
                 // If this wasn't called from config handling then we need to hide the conversation
                 if !calledFromConfigHandling {
                     try SessionUtil

@@ -247,7 +247,7 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                 dependencies[singleton: .storage].write { db in
                     _ = try Contact
                         .filter(ids: contactIds)
-                        .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
+                        .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false), using: dependencies)
                 }
                 
                 self?.selectedContactIdsSubject.send([])

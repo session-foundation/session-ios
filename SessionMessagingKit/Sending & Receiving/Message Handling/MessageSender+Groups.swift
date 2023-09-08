@@ -15,6 +15,7 @@ extension MessageSender {
         members: [GroupMember],
         preparedNotificationsSubscription: HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
     )
+    
     public static func createGroup(
         name: String,
         displayPicture: SignalAttachment?,
@@ -182,5 +183,8 @@ extension MessageSender {
                     // Update the group
                     _ = try ClosedGroup
                         .filter(id: groupIdentityPublicKey)
-                        .updateAllAndConfig(db, ClosedGroup.Columns.name.set(to: name))
+                        .updateAllAndConfig(db, ClosedGroup.Columns.name.set(to: name), using: dependencies)
+                }
+            }
+    }
 }

@@ -11,12 +11,35 @@ public enum AppSetup {
     private static let hasRun: Atomic<Bool> = Atomic(false)
     
     public static func setupEnvironment(
+        retrySetupIfDatabaseInvalid: Bool = false,
         appSpecificBlock: @escaping () -> (),
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
         using dependencies: Dependencies = Dependencies()
     ) {
-        guard !AppSetup.hasRun.wrappedValue else { return }
+        // If we've already run the app setup then only continue under certain circumstances
+        guard !AppSetup.hasRun.wrappedValue else {
+            let storageIsValid: Bool = dependencies[singleton: .storage].isValid
+            
+            switch (retrySetupIfDatabaseInvalid, storageIsValid) {
+                case (true, false):
+                    Storage.reconfigureDatabase(using: dependencies)
+                    AppSetup.hasRun.mutate { $0 = false }
+                    AppSetup.setupEnvironment(
+                        retrySetupIfDatabaseInvalid: false, // Don't want to get stuck in a loop
+                        appSpecificBlock: appSpecificBlock,
+                        migrationProgressChanged: migrationProgressChanged,
+                        migrationsCompletion: migrationsCompletion
+                    )
+                    
+                default:
+                    migrationsCompletion(
+                        (storageIsValid ? .success(()) : .failure(StorageError.startupFailed)),
+                        false
+                    )
+            }
+            return
+        }
         
         AppSetup.hasRun.mutate { $0 = true }
         
@@ -67,14 +90,6 @@ public enum AppSetup {
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
         using dependencies: Dependencies
     ) {
-        // If the database can't be initialised into a valid state then error
-        guard dependencies[singleton: .storage].isValid else {
-            DispatchQueue.main.async {
-                migrationsCompletion(Result.failure(StorageError.databaseInvalid), false)
-            }
-            return
-        }
-        
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         
         dependencies[singleton: .storage].perform(
