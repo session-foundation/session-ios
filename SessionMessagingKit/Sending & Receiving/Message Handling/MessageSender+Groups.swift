@@ -186,5 +186,6 @@ extension MessageSender {
                         .updateAllAndConfig(db, ClosedGroup.Columns.name.set(to: name), using: dependencies)
                 }
             }
+            .eraseToAnyPublisher()
     }
 }

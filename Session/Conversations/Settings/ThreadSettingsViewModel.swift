@@ -709,7 +709,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         from: isBlocked,
                                         isBlocked: !isBlocked,
                                         threadId: threadId,
-                                        displayName: threadViewModel.displayName
+                                        displayName: threadViewModel.displayName,
+                                        using: dependencies
                                     )
                                 }
                             )
@@ -807,7 +808,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
         from oldBlockedState: Bool,
         isBlocked: Bool,
         threadId: String,
-        displayName: String
+        displayName: String,
+        using dependencies: Dependencies
     ) {
         guard oldBlockedState != isBlocked else { return }
         
