@@ -3,12 +3,10 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
 public enum PushNotificationAPI {
-    internal static let sodium: Atomic<Sodium> = Atomic(Sodium())
     private static let keychainService: String = "PNKeyChainService"
     private static let encryptionKeyKey: String = "PNEncryptionKeyKey"
     private static let encryptionKeyLength: Int = 32
@@ -45,16 +43,11 @@ public enum PushNotificationAPI {
         
         return dependencies[singleton: .storage]
             .readPublisher(using: dependencies) { db -> SubscribeAllPreparedRequests in
-                guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
-                    throw SnodeAPIError.noKeyPair
-                }
-                
                 let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 let preparedUserRequest = try PushNotificationAPI
                     .preparedSubscribe(
+                        db,
                         publicKey: currentUserPublicKey,
-                        subkey: nil,
-                        ed25519KeyPair: userED25519KeyPair,
                         using: dependencies
                     )
                     .handleEvents(
@@ -82,7 +75,6 @@ public enum PushNotificationAPI {
                             .fetchSet(db),
                         using: dependencies
                     )
-                
                 
                 return (
                     preparedUserRequest,
@@ -129,6 +121,7 @@ public enum PushNotificationAPI {
                 let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
                 let preparedUserRequest = try PushNotificationAPI
                     .preparedUnsubscribe(
+                        db,
                         token: token,
                         publicKey: currentUserPublicKey,
                         subkey: nil,
@@ -177,9 +170,8 @@ public enum PushNotificationAPI {
     // MARK: - Prepared Requests
     
     public static func preparedSubscribe(
+        _ db: Database,
         publicKey: String,
-        subkey: String?,
-        ed25519KeyPair: KeyPair,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<SubscribeResponse> {
         guard
@@ -198,8 +190,12 @@ public enum PushNotificationAPI {
                     method: .post,
                     endpoint: .subscribe,
                     body: SubscribeRequest(
-                        pubkey: publicKey,
-                        namespaces: [.default],
+                        namespaces: {
+                            switch SessionId.Prefix(from: publicKey) {
+                                case .group: return [.default]
+                                default: return [.default, .configConvoInfoVolatile]
+                            }
+                        }(),
                         // Note: Unfortunately we always need the message content because without the content
                         // control messages can't be distinguished from visible messages which results in the
                         // 'generic' notification being shown when receiving things like typing indicator updates
@@ -208,10 +204,8 @@ public enum PushNotificationAPI {
                             token: token
                         ),
                         notificationsEncryptionKey: notificationsEncryptionKey,
-                        subkey: subkey,
-                        timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),  // Seconds
-                        ed25519PublicKey: ed25519KeyPair.publicKey,
-                        ed25519SecretKey: ed25519KeyPair.secretKey
+                        authInfo: try SnodeAPI.AuthenticationInfo(db, threadId: publicKey, using: dependencies),
+                        timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)  // Seconds
                     )
                 ),
                 responseType: SubscribeResponse.self,
@@ -233,6 +227,7 @@ public enum PushNotificationAPI {
     }
     
     public static func preparedUnsubscribe(
+        _ db: Database,
         token: Data,
         publicKey: String,
         subkey: String?,
@@ -245,14 +240,11 @@ public enum PushNotificationAPI {
                     method: .post,
                     endpoint: .unsubscribe,
                     body: UnsubscribeRequest(
-                        pubkey: publicKey,
                         serviceInfo: UnsubscribeRequest.ServiceInfo(
                             token: token.toHexString()
                         ),
-                        subkey: nil,
-                        timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),  // Seconds
-                        ed25519PublicKey: ed25519KeyPair.publicKey,
-                        ed25519SecretKey: ed25519KeyPair.secretKey
+                        authInfo: try SnodeAPI.AuthenticationInfo(db, threadId: publicKey, using: dependencies),
+                        timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)  // Seconds
                     )
                 ),
                 responseType: UnsubscribeResponse.self,

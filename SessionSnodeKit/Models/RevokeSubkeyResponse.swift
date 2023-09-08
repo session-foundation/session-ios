@@ -16,9 +16,9 @@ extension RevokeSubkeyResponse: ValidatableResponse {
     internal static var requiredSuccessfulResponses: Int { -1 }
     
     internal func validResultMap(
-        sodium: Sodium,
-        userX25519PublicKey: String,
-        validationData: String
+        publicKey: String,
+        validationData: String,
+        using dependencies: Dependencies
     ) throws -> [String: Bool] {
         let validationMap: [String: Bool] = try swarm.reduce(into: [:]) { result, next in
             guard
@@ -37,12 +37,15 @@ extension RevokeSubkeyResponse: ValidatableResponse {
             
             /// Signature of `( PUBKEY_HEX || SUBKEY_TAG_BYTES )` where `SUBKEY_TAG_BYTES` is the
             /// requested subkey tag for revocation
-            let verificationBytes: [UInt8] = userX25519PublicKey.bytes
+            let verificationBytes: [UInt8] = publicKey.bytes
                 .appending(contentsOf: validationData.bytes)
-            let isValid: Bool = sodium.sign.verify(
-                message: verificationBytes,
-                publicKey: Data(hex: next.key).bytes,
-                signature: encodedSignature.bytes
+            
+            let isValid: Bool = dependencies[singleton: .crypto].verify(
+                .signature(
+                    message: verificationBytes,
+                    publicKey: Data(hex: next.key).bytes,
+                    signature: encodedSignature.bytes
+                )
             )
             
             // If the update signature is invalid then we want to fail here

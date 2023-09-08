@@ -91,7 +91,7 @@ public extension HTTP {
                 // Results are returned in the same order they were made in so we can use the matching
                 // indexes to get the correct response
                 return { info, response in
-                    let convertedResponse: Any? = try? {
+                    let convertedResponse: Any = try {
                         switch response {
                             case let batchResponse as HTTP.BatchResponse:
                                 return HTTP.BatchResponse(
@@ -318,20 +318,18 @@ public protocol ErasedPreparedRequest {
 extension HTTP.PreparedRequest: ErasedPreparedRequest {
     public var erasedResponseConverter: ((ResponseInfoType, Any) throws -> Any) {
         let originalType: Decodable.Type = self.originalType
-        let responseConverter: ((ResponseInfoType, Any) throws -> R) = self.responseConverter
+        let converter: ((ResponseInfoType, Any) throws -> R) = self.responseConverter
         
         return { info, data in
             switch data {
-                case let erasedSubResponse as ErasedBatchSubResponse:
+                case let subResponse as ErasedBatchSubResponse:
                     return HTTP.BatchSubResponse(
-                        code: erasedSubResponse.code,
-                        headers: erasedSubResponse.headers,
-                        body: try erasedSubResponse.erasedBody
-                            .map { originalType.from($0) }
-                            .map { try responseConverter(info, $0) }
+                        code: subResponse.code,
+                        headers: subResponse.headers,
+                        body: try originalType.from(subResponse.erasedBody).map { try converter(info, $0) }
                     )
                     
-                default: return try originalType.from(data).map { try responseConverter(info, $0) } as Any
+                default: return try originalType.from(data).map { try converter(info, $0) } as Any
             }
         }
     }
@@ -346,15 +344,15 @@ extension HTTP.PreparedRequest: ErasedPreparedRequest {
         
         return { info, _, data in
             switch data {
-                case let erasedSubResponse as ErasedBatchSubResponse:
+                case let subResponse as ErasedBatchSubResponse:
                     guard
-                        let erasedBody: Any = erasedSubResponse.erasedBody.map({ originalType.from($0) }),
+                        let erasedBody: Any = originalType.from(subResponse.erasedBody),
                         let validResponse: R = try? originalConverter(info, erasedBody)
                     else { return }
                     
                     outputEventHandler(CachedResponse(
                         info: info,
-                        originalData: erasedSubResponse.erasedBody as Any,
+                        originalData: subResponse.erasedBody as Any,
                         convertedData: validResponse
                     ))
                     
@@ -653,7 +651,7 @@ public extension Publisher where Failure == Error {
 // MARK: - Decoding
 
 public extension Decodable {
-    fileprivate static func from(_ value: Any) -> Self? {
+    fileprivate static func from(_ value: Any?) -> Self? {
         return (value as? Self)
     }
     

@@ -7,8 +7,6 @@ import GRDB
 import SessionUtilitiesKit
 
 public final class SnodeAPI {
-    internal static let sodium: Atomic<Sodium> = Atomic(Sodium())
-    
     private static var hasLoadedSnodePool: Atomic<Bool> = Atomic(false)
     private static var loadedSwarms: Atomic<Set<String>> = Atomic([])
     private static var getSnodePoolPublisher: Atomic<AnyPublisher<Set<Snode>, Error>?> = Atomic(nil)
@@ -330,11 +328,10 @@ public final class SnodeAPI {
                     .first(where: { $0 is HTTP.BatchSubResponse<UpdateExpiryResponse> })
                     .asType(HTTP.BatchSubResponse<UpdateExpiryResponse>.self),
                 let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
-                // TODO: Need to fix this for the group config polling
                 let validResults: [String: UpdateExpiryResponseResult] = try? refreshTTLResponse.validResultMap(
-                    sodium: sodium.wrappedValue,
-                    userX25519PublicKey: getUserHexEncodedPublicKey(using: dependencies),
-                    validationData: refreshingConfigHashes
+                    publicKey: authInfo.publicKey,
+                    validationData: refreshingConfigHashes,
+                    using: dependencies
                 ),
                 let targetResult: UpdateExpiryResponseResult = validResults[snode.ed25519PublicKey],
                 let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
@@ -497,7 +494,7 @@ public final class SnodeAPI {
         // Hash the ONS name using BLAKE2b
         let nameAsData = [UInt8](onsName.data(using: String.Encoding.utf8)!)
         
-        guard let nameHash = sodium.wrappedValue.genericHash.hash(message: nameAsData) else {
+        guard let nameHash = try? dependencies[singleton: .crypto].perform(.hash(message: nameAsData)) else {
             return Fail(error: SnodeAPIError.hashingFailed)
                 .eraseToAnyPublisher()
         }
@@ -531,9 +528,9 @@ public final class SnodeAPI {
                                     .decoded(as: ONSResolveResponse.self)
                                     .tryMap { _, response -> String in
                                         try response.sessionId(
-                                            sodium: sodium.wrappedValue,
                                             nameBytes: nameAsData,
-                                            nameHashBytes: nameHash
+                                            nameHashBytes: nameHash,
+                                            using: dependencies
                                         )
                                     }
                                     .retry(4)
@@ -589,7 +586,6 @@ public final class SnodeAPI {
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> {
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
         
         // Create a convenience method to send a message to an individual Snode
@@ -636,8 +632,8 @@ public final class SnodeAPI {
                 try sendMessage(to: snode)
                     .tryMap { info, response -> (ResponseInfoType, SendMessagesResponse) in
                         try response.validateResultMap(
-                            sodium: sodium.wrappedValue,
-                            userX25519PublicKey: userX25519PublicKey
+                            publicKey: authInfo.publicKey,
+                            using: dependencies
                         )
                         
                         return (info, response)
@@ -653,7 +649,6 @@ public final class SnodeAPI {
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<SendMessagesResponse> {
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let request: HTTP.PreparedRequest<SendMessagesResponse> = try {
             // Check if this namespace requires authentication
             guard namespace.requiresWriteAuthentication else {
@@ -688,8 +683,8 @@ public final class SnodeAPI {
         return request
             .tryMap { _, response -> SendMessagesResponse in
                 try response.validateResultMap(
-                    sodium: sodium.wrappedValue,
-                    userX25519PublicKey: userX25519PublicKey
+                    publicKey: authInfo.publicKey,
+                    using: dependencies
                 )
 
                 return response
@@ -733,9 +728,9 @@ public final class SnodeAPI {
                     .decoded(as: UpdateExpiryResponse.self, using: dependencies)
                     .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
                         try response.validResultMap(
-                            sodium: sodium.wrappedValue,
-                            userX25519PublicKey: getUserHexEncodedPublicKey(using: dependencies),
-                            validationData: serverHashes
+                            publicKey: authInfo.publicKey,
+                            validationData: serverHashes,
+                            using: dependencies
                         )
                     }
                     .eraseToAnyPublisher()
@@ -765,9 +760,9 @@ public final class SnodeAPI {
                     .decoded(as: RevokeSubkeyResponse.self, using: dependencies)
                     .tryMap { _, response -> Void in
                         try response.validateResultMap(
-                            sodium: sodium.wrappedValue,
-                            userX25519PublicKey: getUserHexEncodedPublicKey(using: dependencies),
-                            validationData: subkeyToRevoke
+                            publicKey: authInfo.publicKey,
+                            validationData: subkeyToRevoke,
+                            using: dependencies
                         )
                         
                         return ()
@@ -783,8 +778,6 @@ public final class SnodeAPI {
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        
         return getSwarm(for: authInfo.publicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 SnodeAPI
@@ -804,9 +797,9 @@ public final class SnodeAPI {
                     .decoded(as: DeleteMessagesResponse.self, using: dependencies)
                     .tryMap { _, response -> [String: Bool] in
                         let validResultMap: [String: Bool] = try response.validResultMap(
-                            sodium: sodium.wrappedValue,
-                            userX25519PublicKey: userX25519PublicKey,
-                            validationData: serverHashes
+                            publicKey: authInfo.publicKey,
+                            validationData: serverHashes,
+                            using: dependencies
                         )
                         
                         // If `validResultMap` didn't throw then at least one service node
@@ -832,7 +825,6 @@ public final class SnodeAPI {
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<[String: Bool]> {
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         return try SnodeAPI
             .prepareRequest(
                 request: Request(
@@ -848,9 +840,9 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> [String: Bool] in
                 let validResultMap: [String: Bool] = try response.validResultMap(
-                    sodium: sodium.wrappedValue,
-                    userX25519PublicKey: userX25519PublicKey,
-                    validationData: serverHashes
+                    publicKey: authInfo.publicKey,
+                    validationData: serverHashes,
+                    using: dependencies
                 )
                 
                 // If `validResultMap` didn't throw then at least one service node
@@ -874,8 +866,6 @@ public final class SnodeAPI {
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        
         return getSwarm(for: authInfo.publicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 getNetworkTime(from: snode)
@@ -897,9 +887,9 @@ public final class SnodeAPI {
                             .decoded(as: DeleteAllMessagesResponse.self, using: dependencies)
                             .tryMap { _, response -> [String: Bool] in
                                 try response.validResultMap(
-                                    sodium: sodium.wrappedValue,
-                                    userX25519PublicKey: userX25519PublicKey,
-                                    validationData: timestampMs
+                                    publicKey: authInfo.publicKey,
+                                    validationData: timestampMs,
+                                    using: dependencies
                                 )
                             }
                             .eraseToAnyPublisher()
@@ -915,8 +905,6 @@ public final class SnodeAPI {
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        let userX25519PublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        
         return getSwarm(for: authInfo.publicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 getNetworkTime(from: snode)
@@ -939,9 +927,9 @@ public final class SnodeAPI {
                             .decoded(as: DeleteAllBeforeResponse.self, using: dependencies)
                             .tryMap { _, response -> [String: Bool] in
                                 try response.validResultMap(
-                                    sodium: sodium.wrappedValue,
-                                    userX25519PublicKey: userX25519PublicKey,
-                                    validationData: beforeMs
+                                    publicKey: authInfo.publicKey,
+                                    validationData: beforeMs,
+                                    using: dependencies
                                 )
                             }
                             .eraseToAnyPublisher()

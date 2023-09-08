@@ -42,7 +42,7 @@ extension MessageSender {
                     threadId: legacyGroupPublicKey,
                     name: name,
                     formationTimestamp: formationTimestamp,
-                    approved: true  // Legacy groups are always approved
+                    invited: false // Legacy groups are never in the "invite" state
                 ).insert(db)
                 
                 // Store the key pair

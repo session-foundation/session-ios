@@ -25,7 +25,7 @@ extension MessageReceiver {
         name: String?,
         authData: Data?,
         created: Int64,
-        approved: Bool,
+        invited: Bool,
         calledFromConfigHandling: Bool,
         using dependencies: Dependencies
     ) throws {
@@ -39,7 +39,7 @@ extension MessageReceiver {
             formationTimestamp: TimeInterval(created),
             groupIdentityPrivateKey: groupIdentityPrivateKey,
             authData: authData,
-            approved: approved
+            invited: invited
         ).saved(db)
         
         if !calledFromConfigHandling {
@@ -51,19 +51,19 @@ extension MessageReceiver {
                 name: name,
                 authData: authData,
                 joinedAt: created,
-                approved: approved,
+                invited: invited,
                 using: dependencies
             )
         }
         
-        // Only start polling and subscribe for PNs if the user has approved the group
-        guard approved else { return }
+        // If the group is not in the invite state then handle the approval process
+        guard !invited else { return }
         
-        // Start polling
-        dependencies[singleton: .closedGroupPoller].startIfNeeded(for: groupIdentityPublicKey, using: dependencies)
-        
-        // Resubscribe for group push notifications
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        
+        try ClosedGroup.approveGroup(
+            db,
+            group: closedGroup,
+            calledFromConfigHandling: calledFromConfigHandling,
+            using: dependencies
+        )
     }
 }

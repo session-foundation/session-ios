@@ -535,7 +535,7 @@ public struct ProfileManager {
             }
         }
         
-        // Blocks community message requets flag
+        // Blocks community message requests flag
         if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > profile.lastBlocksCommunityMessageRequests {
             profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
             profileChanges.append(Profile.Columns.lastBlocksCommunityMessageRequests.set(to: sentTimestamp))

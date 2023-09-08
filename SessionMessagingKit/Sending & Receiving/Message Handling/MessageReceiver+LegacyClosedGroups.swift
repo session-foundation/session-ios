@@ -163,7 +163,7 @@ extension MessageReceiver {
             threadId: groupPublicKey,
             name: name,
             formationTimestamp: (TimeInterval(formationTimestampMs) / 1000),
-            approved: true // Legacy groups are always approved
+            invited: false // Legacy groups are never in the "invite" state
         ).saved(db)
         
         // Clear the zombie list if the group wasn't active (ie. had no keys)

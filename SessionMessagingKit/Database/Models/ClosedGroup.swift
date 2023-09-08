@@ -29,7 +29,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         
         case groupIdentityPrivateKey
         case authData
-        case approved
+        case invited
     }
     
     public var id: String { threadId }  // Identifiable
@@ -62,8 +62,8 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     /// **Note:** This will be `null` if the `groupIdentityPrivateKey`  is set
     public let authData: Data?
     
-    /// A flag indicating whether the user has approved the group invitation
-    public let approved: Bool
+    /// A flag indicating whether this group is in the "invite" state
+    public let invited: Bool
     
     // MARK: - Relationships
     
@@ -111,7 +111,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         lastDisplayPictureUpdate: TimeInterval = 0,
         groupIdentityPrivateKey: Data? = nil,
         authData: Data? = nil,
-        approved: Bool
+        invited: Bool
     ) {
         self.threadId = threadId
         self.name = name
@@ -122,7 +122,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         self.lastDisplayPictureUpdate = lastDisplayPictureUpdate
         self.groupIdentityPrivateKey = groupIdentityPrivateKey
         self.authData = authData
-        self.approved = approved
+        self.invited = invited
     }
 }
 
@@ -177,6 +177,36 @@ public extension ClosedGroup {
             case .group: return 100
             default: return 0
         }
+    }
+    
+    static func approveGroup(
+        _ db: Database,
+        group: ClosedGroup,
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies
+    ) throws {
+        guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
+            throw MessageReceiverError.noUserED25519KeyPair
+        }
+        if !group.invited {
+            try ClosedGroup
+                .filter(id: group.id)
+                .updateAllAndConfig(
+                    db,
+                    ClosedGroup.Columns.invited.set(to: false)
+                )
+        }
+        
+        try SessionUtil.createGroupState(
+            groupId: group.id,
+            userED25519KeyPair: userED25519KeyPair,
+            groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+            authData: group.authData,
+            using: dependencies
+        )
+        
+        // Start polling
+        dependencies[singleton: .closedGroupPoller].startIfNeeded(for: group.id, using: dependencies)
     }
     
     static func removeKeysAndUnsubscribe(

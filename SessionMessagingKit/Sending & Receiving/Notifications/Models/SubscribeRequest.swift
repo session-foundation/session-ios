@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 extension PushNotificationAPI {
     struct SubscribeRequest: Encodable {
@@ -32,9 +33,6 @@ extension PushNotificationAPI {
             case notificationsEncryptionKey = "enc_key"
         }
         
-        /// The 33-byte account being subscribed to; typically a session ID.
-        private let pubkey: String
-        
         /// List of integer namespace (-32768 through 32767).  These must be sorted in ascending order.
         private let namespaces: [SnodeAPI.Namespace]
         
@@ -50,41 +48,28 @@ extension PushNotificationAPI {
         /// it is permitted for this to change, it is recommended that the device generate this once and persist it.
         private let notificationsEncryptionKey: Data
         
-        /// 32-byte swarm authentication subkey; omitted (or null) when not using subkey auth
-        private let subkey: String?
+        /// The authentication information needed to subscribe for notifications
+        private let authInfo: SnodeAPI.AuthenticationInfo
         
         /// The signature unix timestamp (seconds, not ms)
         private let timestamp: Int64
         
-        /// When the pubkey value starts with 05 (i.e. a session ID) this is the underlying ed25519 32-byte pubkey associated with the session
-        /// ID.  When not 05, this field should not be provided.
-        private let ed25519PublicKey: [UInt8]
-        
-        /// Secret key used to generate the signature (**Not** sent with the request)
-        private let ed25519SecretKey: [UInt8]
-        
         // MARK: - Initialization
         
         init(
-            pubkey: String,
             namespaces: [SnodeAPI.Namespace],
             includeMessageData: Bool,
             serviceInfo: ServiceInfo,
             notificationsEncryptionKey: Data,
-            subkey: String?,
-            timestamp: TimeInterval,
-            ed25519PublicKey: [UInt8],
-            ed25519SecretKey: [UInt8]
+            authInfo: SnodeAPI.AuthenticationInfo,
+            timestamp: TimeInterval
         ) {
-            self.pubkey = pubkey
             self.namespaces = namespaces
             self.includeMessageData = includeMessageData
             self.serviceInfo = serviceInfo
             self.notificationsEncryptionKey = notificationsEncryptionKey
-            self.subkey = subkey
+            self.authInfo = authInfo
             self.timestamp = Int64(timestamp)   // Server expects rounded seconds
-            self.ed25519PublicKey = ed25519PublicKey
-            self.ed25519SecretKey = ed25519SecretKey
         }
         
         // MARK: - Coding
@@ -93,10 +78,7 @@ extension PushNotificationAPI {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             
             // Generate the signature for the request for encoding
-            let signatureBase64: String = try generateSignature().toBase64()
-            try container.encode(pubkey, forKey: .pubkey)
-            try container.encode(ed25519PublicKey.toHexString(), forKey: .ed25519PublicKey)
-            try container.encodeIfPresent(subkey, forKey: .subkey)
+            let signatureBase64: String = try generateSignature(using: encoder.dependencies).toBase64()
             try container.encode(namespaces.map { $0.rawValue}.sorted(), forKey: .namespaces)
             try container.encode(includeMessageData, forKey: .includeMessageData)
             try container.encode(timestamp, forKey: .timestamp)
@@ -104,11 +86,23 @@ extension PushNotificationAPI {
             try container.encode(Service.apns, forKey: .service)
             try container.encode(serviceInfo, forKey: .serviceInfo)
             try container.encode(notificationsEncryptionKey.toHexString(), forKey: .notificationsEncryptionKey)
+            
+            switch authInfo {
+                case .standard(let pubkey, let ed25519KeyPair):
+                    try container.encode(pubkey, forKey: .pubkey)
+                    try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
+                    
+                case .groupAdmin(let pubkey, _):
+                    try container.encode(pubkey, forKey: .pubkey)
+                    
+                case .groupMember(let pubkey, let authData):
+                    try container.encode(pubkey, forKey: .pubkey)
+            }
         }
         
         // MARK: - Abstract Methods
         
-        func generateSignature() throws -> [UInt8] {
+        func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
             /// The signature data collected and stored here is used by the PN server to subscribe to the swarms
             /// for the given account; the specific rules are governed by the storage server, but in general:
             ///
@@ -125,7 +119,7 @@ extension PushNotificationAPI {
             /// comma-delimited list of namespaces that should be subscribed to, in the same sorted order as
             /// the `namespaces` parameter.
             let verificationBytes: [UInt8] = "MONITOR".bytes
-                .appending(contentsOf: pubkey.bytes)
+                .appending(contentsOf: authInfo.publicKey.bytes)
                 .appending(contentsOf: "\(timestamp)".bytes)
                 .appending(contentsOf: (includeMessageData ? "1" : "0").bytes)
                 .appending(
@@ -137,17 +131,7 @@ extension PushNotificationAPI {
                         .bytes
                 )
             
-            // TODO: Need to add handling for subkey auth
-            guard
-                let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(
-                    message: verificationBytes,
-                    secretKey: ed25519SecretKey
-                )
-            else {
-                throw SnodeAPIError.signingFailed
-            }
-            
-            return signatureBytes
+            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

@@ -17,7 +17,7 @@ public extension SnodeAPI {
         
         // MARK: - Variables
         
-        var publicKey: String {
+        public var publicKey: String {
             switch self {
                 case .standard(let pubkey, _), .groupAdmin(let pubkey, _), .groupMember(let pubkey, _):
                     return pubkey
@@ -26,7 +26,7 @@ public extension SnodeAPI {
         
         // MARK: - Functions
         
-        func generateSignature(
+        public func generateSignature(
             with verificationBytes: [UInt8],
             using dependencies: Dependencies
         ) throws -> [UInt8] {

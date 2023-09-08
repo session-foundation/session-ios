@@ -524,7 +524,7 @@
 		FD1F9C9F2A862BE60050F671 /* MigrationRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F9C9E2A862BE60050F671 /* MigrationRequirement.swift */; };
 		FD23CE1B2A651E6D0000B97C /* NetworkType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE1A2A651E6D0000B97C /* NetworkType.swift */; };
 		FD23CE1F2A65269C0000B97C /* Crypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE1E2A65269C0000B97C /* Crypto.swift */; };
-		FD23CE222A661D000000B97C /* OpenGroupAPI+Crypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE212A661D000000B97C /* OpenGroupAPI+Crypto.swift */; };
+		FD23CE222A661D000000B97C /* Crypto+OpenGroupAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE212A661D000000B97C /* Crypto+OpenGroupAPI.swift */; };
 		FD23CE242A675C440000B97C /* Crypto+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE232A675C440000B97C /* Crypto+SessionMessagingKit.swift */; };
 		FD23CE262A676B5B0000B97C /* DependenciesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE252A676B5B0000B97C /* DependenciesSpec.swift */; };
 		FD23CE282A67755C0000B97C /* MockCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE272A67755C0000B97C /* MockCrypto.swift */; };
@@ -752,6 +752,7 @@
 		FD96F3A729DBD43D00401309 /* MockJobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD96F3A629DBD43D00401309 /* MockJobRunner.swift */; };
 		FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */; };
 		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
+		FD9AECA72AAAF5B0009B3406 /* Crypto+SessionUtilitiesKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9AECA62AAAF5B0009B3406 /* Crypto+SessionUtilitiesKit.swift */; };
 		FD9B30F3293EA0BF008DEE3E /* BatchResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */; };
 		FD9BDE002A5D22B7005F1EBC /* libSessionUtil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */; };
 		FD9BDE012A5D24EA005F1EBC /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
@@ -1762,7 +1763,7 @@
 		FD1F9C9E2A862BE60050F671 /* MigrationRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationRequirement.swift; sourceTree = "<group>"; };
 		FD23CE1A2A651E6D0000B97C /* NetworkType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkType.swift; sourceTree = "<group>"; };
 		FD23CE1E2A65269C0000B97C /* Crypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crypto.swift; sourceTree = "<group>"; };
-		FD23CE212A661D000000B97C /* OpenGroupAPI+Crypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpenGroupAPI+Crypto.swift"; sourceTree = "<group>"; };
+		FD23CE212A661D000000B97C /* Crypto+OpenGroupAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crypto+OpenGroupAPI.swift"; sourceTree = "<group>"; };
 		FD23CE232A675C440000B97C /* Crypto+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crypto+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD23CE252A676B5B0000B97C /* DependenciesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependenciesSpec.swift; sourceTree = "<group>"; };
 		FD23CE272A67755C0000B97C /* MockCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCrypto.swift; sourceTree = "<group>"; };
@@ -1945,6 +1946,7 @@
 		FD96F3A629DBD43D00401309 /* MockJobRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockJobRunner.swift; sourceTree = "<group>"; };
 		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
 		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
+		FD9AECA62AAAF5B0009B3406 /* Crypto+SessionUtilitiesKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crypto+SessionUtilitiesKit.swift"; sourceTree = "<group>"; };
 		FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchResponseSpec.swift; sourceTree = "<group>"; };
 		FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSessionUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD9DD2702A72516D00ECB68E /* TestExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestExtensions.swift; sourceTree = "<group>"; };
@@ -2694,6 +2696,8 @@
 		B8A582AC258C653C00AFD84C /* Crypto */ = {
 			isa = PBXGroup;
 			children = (
+				FD23CE1E2A65269C0000B97C /* Crypto.swift */,
+				FD9AECA62AAAF5B0009B3406 /* Crypto+SessionUtilitiesKit.swift */,
 				FDE658A029418C7900A33BC1 /* CryptoKit+Utilities.swift */,
 				B88FA7FA26114EA70049422F /* Hex.swift */,
 				FDE658A229418E2F00A33BC1 /* KeyPair.swift */,
@@ -3710,7 +3714,6 @@
 				FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */,
 				FD3003692A3ADD6000B5A5FB /* CExceptionHelper.h */,
 				FD30036D2A3AE26000B5A5FB /* CExceptionHelper.mm */,
-				FD23CE1E2A65269C0000B97C /* Crypto.swift */,
 				FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */,
 				FD09796A27F6C67500936362 /* Failable.swift */,
 				FD47E0AE2AA692F400A55E41 /* JSONDecoder+Utilities.swift */,
@@ -3883,7 +3886,7 @@
 		FD23CE202A661CE80000B97C /* Crypto */ = {
 			isa = PBXGroup;
 			children = (
-				FD23CE212A661D000000B97C /* OpenGroupAPI+Crypto.swift */,
+				FD23CE212A661D000000B97C /* Crypto+OpenGroupAPI.swift */,
 			);
 			path = Crypto;
 			sourceTree = "<group>";
@@ -5975,6 +5978,7 @@
 				FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */,
 				FD37EA1128AB34B3003AE748 /* TypedTableAlteration.swift in Sources */,
 				FD30036E2A3AE26000B5A5FB /* CExceptionHelper.mm in Sources */,
+				FD9AECA72AAAF5B0009B3406 /* Crypto+SessionUtilitiesKit.swift in Sources */,
 				C3D9E4DA256778410040E4F3 /* UIImage+OWS.m in Sources */,
 				C32C600F256E07F5003C73A2 /* NSUserDefaults+OWS.m in Sources */,
 				FDE658A329418E2F00A33BC1 /* KeyPair.swift in Sources */,
@@ -6202,7 +6206,7 @@
 				FD432434299C6985008A0213 /* PendingReadReceipt.swift in Sources */,
 				FDC4381727B32EC700C60D73 /* Personalization.swift in Sources */,
 				FD245C51285065CC00B966DD /* MessageReceiver.swift in Sources */,
-				FD23CE222A661D000000B97C /* OpenGroupAPI+Crypto.swift in Sources */,
+				FD23CE222A661D000000B97C /* Crypto+OpenGroupAPI.swift in Sources */,
 				FD245C652850665400B966DD /* ClosedGroupControlMessage.swift in Sources */,
 				FDB5DAD12A94838C002C8721 /* GroupInviteMemberJob.swift in Sources */,
 				FDC4387827B5C35400C60D73 /* SendMessageRequest.swift in Sources */,

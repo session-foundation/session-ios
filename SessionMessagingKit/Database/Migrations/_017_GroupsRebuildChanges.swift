@@ -21,9 +21,9 @@ enum _017_GroupsRebuildChanges: Migration {
                 .defaults(to: 0)
             t.add(.groupIdentityPrivateKey, .blob)
             t.add(.authData, .blob)
-            t.add(.approved, .boolean)
+            t.add(.invited, .boolean)
                 .notNull()
-                .defaults(to: true)
+                .defaults(to: false)
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)

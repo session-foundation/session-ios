@@ -34,29 +34,43 @@ extension SnodeAPI {
         
         // MARK: - Convenience
         
-        func sessionId(sodium: Sodium, nameBytes: [UInt8], nameHashBytes: [UInt8]) throws -> String {
+        func sessionId(
+            nameBytes: [UInt8],
+            nameHashBytes: [UInt8],
+            using dependencies: Dependencies
+        ) throws -> String {
             let ciphertext: [UInt8] = Data(hex: result.encryptedValue).bytes
             
             // Handle old Argon2-based encryption used before HF16
             guard let hexEncodedNonce: String = result.nonce else {
-                let salt: [UInt8] = Data(repeating: 0, count: sodium.pwHash.SaltBytes).bytes
+                let salt: [UInt8] = Data(
+                    repeating: 0,
+                    count: dependencies[singleton: .crypto].size(.legacyArgon2PWHashSaltBytes)
+                ).bytes
                 
                 guard
-                    let key: [UInt8] = sodium.pwHash.hash(
-                        outputLength: sodium.secretBox.KeyBytes,
-                        passwd: nameBytes,
-                        salt: salt,
-                        opsLimit: sodium.pwHash.OpsLimitModerate,
-                        memLimit: sodium.pwHash.MemLimitModerate,
-                        alg: .Argon2ID13
+                    let key: [UInt8] = try? dependencies[singleton: .crypto].perform(
+                        .legacyArgon2PWHash(
+                            passwd: nameBytes,
+                            salt: salt
+                        )
                     )
                 else { throw SnodeAPIError.hashingFailed }
                 
-                let nonce: [UInt8] = Data(repeating: 0, count: sodium.secretBox.NonceBytes).bytes
+                let nonce: [UInt8] = Data(
+                    repeating: 0,
+                    count: dependencies[singleton: .crypto].size(.legacyArgon2SecretBoxNonceBytes)
+                ).bytes
                 
-                guard let sessionIdAsData: [UInt8] = sodium.secretBox.open(authenticatedCipherText: ciphertext, secretKey: key, nonce: nonce) else {
-                    throw SnodeAPIError.decryptionFailed
-                }
+                guard
+                    let sessionIdAsData: [UInt8] = try? dependencies[singleton: .crypto].perform(
+                        .legacyArgon2SecretBoxOpen(
+                            authenticatedCipherText: ciphertext,
+                            secretKey: key,
+                            nonce: nonce
+                        )
+                    )
+                else { throw SnodeAPIError.decryptionFailed }
 
                 return sessionIdAsData.toHexString()
             }
@@ -65,16 +79,20 @@ extension SnodeAPI {
 
             // xchacha-based encryption
             // key = H(name, key=H(name))
-            guard let key: [UInt8] = sodium.genericHash.hash(message: nameBytes, key: nameHashBytes) else {
-                throw SnodeAPIError.hashingFailed
-            }
+            guard
+                let key: [UInt8] = try? dependencies[singleton: .crypto].perform(
+                    .hash(message: nameBytes, key: nameHashBytes)
+                )
+            else { throw SnodeAPIError.hashingFailed }
             guard
                 // Should always be equal in practice
-                ciphertext.count >= (SessionId.byteCount + sodium.aead.xchacha20poly1305ietf.ABytes),
-                let sessionIdAsData = sodium.aead.xchacha20poly1305ietf.decrypt(
-                    authenticatedCipherText: ciphertext,
-                    secretKey: key,
-                    nonce: nonceBytes
+                ciphertext.count >= (SessionId.byteCount + dependencies[singleton: .crypto].size(.aeadXChaCha20ABytes)),
+                let sessionIdAsData = try? dependencies[singleton: .crypto].perform(
+                    .decryptAeadXChaCha20(
+                        authenticatedCipherText: ciphertext,
+                        secretKey: key,
+                        nonce: nonceBytes
+                    )
                 )
             else { throw SnodeAPIError.decryptionFailed }
 

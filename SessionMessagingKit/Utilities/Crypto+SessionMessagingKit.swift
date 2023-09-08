@@ -3,21 +3,14 @@
 import Foundation
 import Sodium
 import Clibsodium
-import Curve25519Kit
 import SessionUtilitiesKit
 
 // MARK: - Generic Hash
 
 public extension Crypto.Action {
-    static func hash(message: Bytes, key: Bytes?) -> Crypto.Action {
-        return Crypto.Action(id: "hash", args: [message, key]) {
-            Sodium().genericHash.hash(message: message, key: key)
-        }
-    }
-    
     static func hash(message: Bytes, outputLength: Int) -> Crypto.Action {
-        return Crypto.Action(id: "hashOutputLength", args: [message, outputLength]) {
-            Sodium().genericHash.hash(message: message, outputLength: outputLength)
+        return Crypto.Action(id: "hashOutputLength", args: [message, outputLength]) { sodium in
+            sodium.genericHash.hash(message: message, outputLength: outputLength)
         }
     }
     
@@ -52,34 +45,16 @@ public extension Crypto.Action {
     }
 }
 
-// MARK: - Sign
-
-public extension Crypto.Action {
-    static func toX25519(ed25519PublicKey: Bytes) -> Crypto.Action {
-        return Crypto.Action(id: "toX25519", args: [ed25519PublicKey]) {
-            Sodium().sign.toX25519(ed25519PublicKey: ed25519PublicKey)
-        }
-    }
-    
-    static func toX25519(ed25519SecretKey: Bytes) -> Crypto.Action {
-        return Crypto.Action(id: "toX25519", args: [ed25519SecretKey]) {
-            Sodium().sign.toX25519(ed25519SecretKey: ed25519SecretKey)
-        }
-    }
-}
-
 // MARK: - Box
 
 public extension Crypto.Size {
-    static let signature: Crypto.Size = Crypto.Size(id: "signature") { Sodium().sign.Bytes }
-    static let publicKey: Crypto.Size = Crypto.Size(id: "publicKey") { Sodium().sign.PublicKeyBytes }
-    static let secretKey: Crypto.Size = Crypto.Size(id: "secretKey") { Sodium().sign.SecretKeyBytes }
+    static let signature: Crypto.Size = Crypto.Size(id: "signature") { $0.sign.Bytes }
 }
 
 public extension Crypto.Action {
     static func seal(message: Bytes, recipientPublicKey: Bytes) -> Crypto.Action {
-        return Crypto.Action(id: "seal", args: [message, recipientPublicKey]) {
-            Sodium().box.seal(message: message, recipientPublicKey: recipientPublicKey)
+        return Crypto.Action(id: "seal", args: [message, recipientPublicKey]) { sodium in
+            sodium.box.seal(message: message, recipientPublicKey: recipientPublicKey)
         }
     }
     
@@ -87,8 +62,8 @@ public extension Crypto.Action {
         return Crypto.Action(
             id: "open",
             args: [anonymousCipherText, recipientPublicKey, recipientSecretKey]
-        ) {
-            Sodium().box.open(
+        ) { sodium in
+            sodium.box.open(
                 anonymousCipherText: anonymousCipherText,
                 recipientPublicKey: recipientPublicKey,
                 recipientSecretKey: recipientSecretKey
@@ -100,62 +75,7 @@ public extension Crypto.Action {
 // MARK: - AeadXChaCha20Poly1305Ietf
 
 public extension Crypto.Size {
-    static let aeadXChaCha20NonceBytes: Crypto.Size = Crypto.Size(id: "aeadXChaCha20NonceBytes") {
-        Sodium().aead.xchacha20poly1305ietf.NonceBytes
-    }
-}
-
-// MARK: - Ed25519
-
-public extension Crypto.Action {
-    static func signEd25519(data: Bytes, keyPair: KeyPair) -> Crypto.Action {
-        return Crypto.Action(id: "signEd25519", args: [data, keyPair]) {
-            let ecKeyPair: ECKeyPair = try ECKeyPair(
-                publicKeyData: Data(keyPair.publicKey),
-                privateKeyData: Data(keyPair.secretKey)
-            )
-            
-            return try Ed25519.sign(Data(data), with: ecKeyPair).bytes
-        }
-    }
-}
-
-public extension Crypto.Verification {
-    static func signatureEd25519(_ signature: Data, publicKey: Data, data: Data) -> Crypto.Verification {
-        return Crypto.Verification(id: "signatureEd25519", args: [signature, publicKey, data]) {
-            return ((try? Ed25519.verifySignature(signature, publicKey: publicKey, data: data)) == true)
-        }
-    }
-}
-
-public extension Crypto.KeyPairType {
-    static func x25519KeyPair() -> Crypto.KeyPairType {
-        return Crypto.KeyPairType(id: "x25519KeyPair") {
-            let keyPair: ECKeyPair = Curve25519.generateKeyPair()
-            
-            return KeyPair(publicKey: Array(keyPair.publicKey), secretKey: Array(keyPair.privateKey))
-        }
-    }
-    
-    static func ed25519KeyPair(
-        seed: Data? = nil,
-        using dependencies: Dependencies = Dependencies()
-    ) -> Crypto.KeyPairType {
-        return Crypto.KeyPairType(id: "ed25519KeyPair") {
-            let pkSize: Int = dependencies[singleton: .crypto].size(.publicKey)
-            let skSize: Int = dependencies[singleton: .crypto].size(.secretKey)
-            var edPK: [UInt8] = [UInt8](repeating: 0, count: pkSize)
-            var edSK: [UInt8] = [UInt8](repeating: 0, count: skSize)
-            var targetSeed: [UInt8] = ((seed ?? (try? Randomness.generateRandomBytes(numberBytes: skSize)))
-                .map { Array($0) })
-                .defaulting(to: [])
-            
-            // Generate the key
-            guard Sodium.lib_crypto_sign_ed25519_seed_keypair(&edPK, &edSK, &targetSeed) == 0 else {
-                return nil
-            }
-            
-            return KeyPair(publicKey: edPK, secretKey: edSK)
-        }
+    static let aeadXChaCha20NonceBytes: Crypto.Size = Crypto.Size(id: "aeadXChaCha20NonceBytes") { sodium in
+        sodium.aead.xchacha20poly1305ietf.NonceBytes
     }
 }

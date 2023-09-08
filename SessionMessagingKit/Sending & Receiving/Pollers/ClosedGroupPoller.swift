@@ -43,17 +43,18 @@ public final class ClosedGroupPoller: Poller {
     
     public func start(using dependencies: Dependencies = Dependencies()) {
         // Fetch all closed groups (excluding any don't contain the current user as a
-        // GroupMemeber as the user is no longer a member of those)
+        // GroupMemeber and any which are in the 'invited' state)
         dependencies[singleton: .storage]
-            .read { db in
+            .read { db -> Set<String> in
                 try ClosedGroup
                     .select(.threadId)
+                    .filter(ClosedGroup.Columns.invited == false)
                     .joining(
                         required: ClosedGroup.members
                             .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db, using: dependencies))
                     )
                     .asRequest(of: String.self)
-                    .fetchAll(db)
+                    .fetchSet(db)
             }
             .defaulting(to: [])
             .forEach { [weak self] publicKey in

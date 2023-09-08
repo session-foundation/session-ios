@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 extension PushNotificationAPI {
     struct UnsubscribeRequest: Encodable {
@@ -29,42 +30,26 @@ extension PushNotificationAPI {
             case serviceInfo = "service_info"
         }
         
-        /// The 33-byte account being subscribed to; typically a session ID.
-        private let pubkey: String
-        
         /// Dict of service-specific data; typically this includes just a "token" field with a device-specific token, but different services in the
         /// future may have different input requirements.
         private let serviceInfo: ServiceInfo
         
-        /// 32-byte swarm authentication subkey; omitted (or null) when not using subkey auth
-        private let subkey: String?
+        /// The authentication information needed to subscribe for notifications
+        private let authInfo: SnodeAPI.AuthenticationInfo
         
         /// The signature unix timestamp (seconds, not ms)
         private let timestamp: Int64
         
-        /// When the pubkey value starts with 05 (i.e. a session ID) this is the underlying ed25519 32-byte pubkey associated with the session
-        /// ID.  When not 05, this field should not be provided.
-        private let ed25519PublicKey: [UInt8]
-        
-        /// Secret key used to generate the signature (**Not** sent with the request)
-        private let ed25519SecretKey: [UInt8]
-        
         // MARK: - Initialization
         
         init(
-            pubkey: String,
             serviceInfo: ServiceInfo,
-            subkey: String?,
-            timestamp: TimeInterval,
-            ed25519PublicKey: [UInt8],
-            ed25519SecretKey: [UInt8]
+            authInfo: SnodeAPI.AuthenticationInfo,
+            timestamp: TimeInterval
         ) {
-            self.pubkey = pubkey
             self.serviceInfo = serviceInfo
-            self.subkey = subkey
+            self.authInfo = authInfo
             self.timestamp = Int64(timestamp)   // Server expects rounded seconds
-            self.ed25519PublicKey = ed25519PublicKey
-            self.ed25519SecretKey = ed25519SecretKey
         }
         
         // MARK: - Coding
@@ -73,39 +58,38 @@ extension PushNotificationAPI {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             
             // Generate the signature for the request for encoding
-            let signatureBase64: String = try generateSignature().toBase64()
-            try container.encode(pubkey, forKey: .pubkey)
-            try container.encode(ed25519PublicKey.toHexString(), forKey: .ed25519PublicKey)
-            try container.encodeIfPresent(subkey, forKey: .subkey)
+            let signatureBase64: String = try generateSignature(using: encoder.dependencies).toBase64()
             try container.encode(timestamp, forKey: .timestamp)
             try container.encode(signatureBase64, forKey: .signatureBase64)
             try container.encode(Service.apns, forKey: .service)
             try container.encode(serviceInfo, forKey: .serviceInfo)
+            
+            switch authInfo {
+                case .standard(let pubkey, let ed25519KeyPair):
+                    try container.encode(pubkey, forKey: .pubkey)
+                    try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
+                    
+                case .groupAdmin(let pubkey, _):
+                    try container.encode(pubkey, forKey: .pubkey)
+                    
+                case .groupMember(let pubkey, let authData):
+                    try container.encode(pubkey, forKey: .pubkey)
+            }
         }
         
         // MARK: - Abstract Methods
         
-        func generateSignature() throws -> [UInt8] {
+        func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
             /// A signature is signed using the account's Ed25519 private key (or Ed25519 subkey, if using
             /// subkey authentication with a `subkey_tag`, for future closed group subscriptions), and signs the value:
             /// `"UNSUBSCRIBE" || HEX(ACCOUNT) || SIG_TS`
             ///
             /// Where `SIG_TS` is the `sig_ts` value as a base-10 string and must be within 24 hours of the current time.
             let verificationBytes: [UInt8] = "UNSUBSCRIBE".bytes
-                .appending(contentsOf: pubkey.bytes)
+                .appending(contentsOf: authInfo.publicKey.bytes)
                 .appending(contentsOf: "\(timestamp)".data(using: .ascii)?.bytes)
             
-            // TODO: Need to add handling for subkey auth
-            guard
-                let signatureBytes: [UInt8] = sodium.wrappedValue.sign.signature(
-                    message: verificationBytes,
-                    secretKey: ed25519SecretKey
-                )
-            else {
-                throw SnodeAPIError.signingFailed
-            }
-            
-            return signatureBytes
+            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

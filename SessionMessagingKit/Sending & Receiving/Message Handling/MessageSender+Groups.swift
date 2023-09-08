@@ -65,9 +65,8 @@ extension MessageSender {
                     // Prepare the notification subscription
                     let preparedNotificationSubscription = try? PushNotificationAPI
                         .preparedSubscribe(
+                            db,
                             publicKey: createdInfo.group.id,
-                            subkey: nil,
-                            ed25519KeyPair: createdInfo.identityKeyPair,
                             using: dependencies
                         )
                     
@@ -160,4 +159,28 @@ extension MessageSender {
             .map { _, thread, _, _, _ in thread }
             .eraseToAnyPublisher()
     }
+    
+    public static func updateGroup(
+        groupIdentityPublicKey: String,
+        name: String,
+        displayPicture: SignalAttachment?,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Void, Error> {
+        guard SessionId.Prefix(from: groupIdentityPublicKey) == .group else {
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
+                .eraseToAnyPublisher()
+        }
+        
+        return dependencies[singleton: .storage]
+            .writePublisher { db in
+                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupIdentityPublicKey) else {
+                    throw MessageSenderError.invalidClosedGroupUpdate
+                }
+                
+                // Update name if needed
+                if name != closedGroup.name {
+                    // Update the group
+                    _ = try ClosedGroup
+                        .filter(id: groupIdentityPublicKey)
+                        .updateAllAndConfig(db, ClosedGroup.Columns.name.set(to: name))
 }

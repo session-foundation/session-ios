@@ -2,8 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
-import Curve25519Kit
 
 public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "identity" }
@@ -41,18 +39,25 @@ public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecor
 // MARK: - GRDB Interactions
 
 public extension Identity {
-    static func generate(from seed: Data) throws -> (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) {
+    static func generate(
+        from seed: Data,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) {
         guard (seed.count == 16) else { throw GeneralError.invalidSeed }
 
         let padding = Data(repeating: 0, count: 16)
         
         guard
-            let ed25519KeyPair = Sodium().sign.keyPair(seed: (seed + padding).bytes),
-            let x25519PublicKey = Sodium().sign.toX25519(ed25519PublicKey: ed25519KeyPair.publicKey),
-            let x25519SecretKey = Sodium().sign.toX25519(ed25519SecretKey: ed25519KeyPair.secretKey)
-        else {
-            throw GeneralError.keyGenerationFailed
-        }
+            let ed25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .ed25519KeyPair(seed: (seed + padding), using: dependencies)
+            ),
+            let x25519PublicKey: [UInt8] = try? dependencies[singleton: .crypto].perform(
+                .toX25519(ed25519PublicKey: ed25519KeyPair.publicKey)
+            ),
+            let x25519SecretKey: [UInt8] = try? dependencies[singleton: .crypto].perform(
+                .toX25519(ed25519PublicKey: ed25519KeyPair.secretKey)
+            )
+        else { throw GeneralError.keyGenerationFailed }
         
         return (
             ed25519KeyPair: KeyPair(

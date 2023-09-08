@@ -62,9 +62,9 @@ extension SendMessagesResponse: ValidatableResponse {
     internal static var requiredSuccessfulResponses: Int { -2 }
     
     internal func validResultMap(
-        sodium: Sodium,
-        userX25519PublicKey: String,
-        validationData: Void
+        publicKey: String,
+        validationData: Void,
+        using dependencies: Dependencies
     ) throws -> [String: Bool] {
         let validationMap: [String: Bool] = swarm.reduce(into: [:]) { result, next in
             guard
@@ -87,10 +87,13 @@ extension SendMessagesResponse: ValidatableResponse {
             /// Signature of `hash` signed by the node's ed25519 pubkey
             let verificationBytes: [UInt8] = hash.bytes
             
-            result[next.key] = sodium.sign.verify(
-                message: verificationBytes,
-                publicKey: Data(hex: next.key).bytes,
-                signature: encodedSignature.bytes
+            
+            result[next.key] = dependencies[singleton: .crypto].verify(
+                .signature(
+                    message: verificationBytes,
+                    publicKey: Data(hex: next.key).bytes,
+                    signature: encodedSignature.bytes
+                )
             )
         }
         

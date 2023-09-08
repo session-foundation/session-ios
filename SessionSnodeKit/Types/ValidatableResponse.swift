@@ -2,6 +2,7 @@
 
 import Foundation
 import Sodium
+import SessionUtilitiesKit
 
 internal protocol ValidatableResponse {
     associatedtype ValidationData
@@ -21,22 +22,30 @@ internal protocol ValidatableResponse {
     ) throws -> [String: ValidationResponse]
     
     func validResultMap(
-        sodium: Sodium,
-        userX25519PublicKey: String,
-        validationData: ValidationData
+        publicKey: String,
+        validationData: ValidationData,
+        using dependencies: Dependencies
     ) throws -> [String: ValidationResponse]
     
-    func validateResultMap(sodium: Sodium, userX25519PublicKey: String, validationData: ValidationData) throws
+    func validateResultMap(
+        publicKey: String,
+        validationData: ValidationData,
+        using dependencies: Dependencies
+    ) throws
 }
 
 // MARK: - Convenience
 
 internal extension ValidatableResponse {
-    func validateResultMap(sodium: Sodium, userX25519PublicKey: String, validationData: ValidationData) throws {
+    func validateResultMap(
+        publicKey: String,
+        validationData: ValidationData,
+        using dependencies: Dependencies
+    ) throws {
         _ = try validResultMap(
-            sodium: sodium,
-            userX25519PublicKey: userX25519PublicKey,
-            validationData: validationData
+            publicKey: publicKey,
+            validationData: validationData,
+            using: dependencies
         )
     }
     
@@ -63,15 +72,21 @@ internal extension ValidatableResponse {
 }
 
 internal extension ValidatableResponse where ValidationData == Void {
-    func validResultMap(sodium: Sodium, userX25519PublicKey: String) throws -> [String: ValidationResponse] {
-        return try validResultMap(sodium: sodium, userX25519PublicKey: userX25519PublicKey, validationData: ())
+    func validResultMap(
+        publicKey: String,
+        using dependencies: Dependencies
+    ) throws -> [String: ValidationResponse] {
+        return try validResultMap(publicKey: publicKey, validationData: (), using: dependencies)
     }
     
-    func validateResultMap(sodium: Sodium, userX25519PublicKey: String) throws {
+    func validateResultMap(
+        publicKey: String,
+        using dependencies: Dependencies
+    ) throws {
         _ = try validResultMap(
-            sodium: sodium,
-            userX25519PublicKey: userX25519PublicKey,
-            validationData: ()
+            publicKey: publicKey,
+            validationData: (),
+            using: dependencies
         )
     }
 }

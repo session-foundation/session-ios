@@ -202,7 +202,26 @@ internal extension SessionUtil {
                     }
                     convo_info_volatile_set_community(conf, &community)
                     
-                case .group: return
+                case .group:
+                    var group: convo_info_volatile_group = convo_info_volatile_group()
+
+                    guard convo_info_volatile_get_or_construct_group(conf, &group, &cThreadId) else {
+                        /// It looks like there are some situations where this object might not get created correctly (and
+                        /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
+                        SNLog("Unable to upsert group volatile info to SessionUtil: \(config.lastError)")
+                        throw SessionUtilError.getOrConstructFailedUnexpectedly
+                    }
+
+                    threadInfo.changes.forEach { change in
+                        switch change {
+                            case .lastReadTimestampMs(let lastReadMs):
+                                group.last_read = max(group.last_read, lastReadMs)
+
+                            case .markedAsUnread(let unread):
+                                group.unread = unread
+                        }
+                    }
+                    convo_info_volatile_set_group(conf, &group)
             }
         }
     }
@@ -296,6 +315,12 @@ internal extension SessionUtil {
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
             
+            volatileGroupIds.forEach { groupId in
+                var cGroupId: [CChar] = groupId.cArray.nullTerminated()
+
+                // Don't care if the data doesn't exist
+                convo_info_volatile_erase_group(conf, &cGroupId)
+            }
         }
     }
     
@@ -402,7 +427,15 @@ public extension SessionUtil {
                         
                         return (convoCommunity.last_read >= timestampMs)
                         
-                    case .group: return false
+                    case .group:
+                        var cThreadId: [CChar] = threadId.cArray.nullTerminated()
+                        var group: convo_info_volatile_group = convo_info_volatile_group()
+
+                        guard convo_info_volatile_get_group(conf, &group, &cThreadId) else {
+                            return false
+                        }
+
+                        return (group.last_read >= timestampMs)
                 }
             }
             .defaulting(to: false) // If we don't have a config then just assume it's unread
@@ -561,6 +594,7 @@ public extension SessionUtil {
         var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
         var community: convo_info_volatile_community = convo_info_volatile_community()
         var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
+        var group: convo_info_volatile_group = convo_info_volatile_group()
         let convoIterator: OpaquePointer = convo_info_volatile_iterator_new(conf)
 
         while !convo_info_volatile_iterator_done(convoIterator) {
@@ -611,6 +645,18 @@ public extension SessionUtil {
                         changes: [
                             .markedAsUnread(legacyGroup.unread),
                             .lastReadTimestampMs(legacyGroup.last_read)
+                        ]
+                    )
+                )
+            }
+            else if convo_info_volatile_it_is_group(convoIterator, &group) {
+                result.append(
+                    VolatileThreadInfo(
+                        threadId: String(libSessionVal: group.group_id),
+                        variant: .group,
+                        changes: [
+                            .markedAsUnread(group.unread),
+                            .lastReadTimestampMs(group.last_read)
                         ]
                     )
                 )

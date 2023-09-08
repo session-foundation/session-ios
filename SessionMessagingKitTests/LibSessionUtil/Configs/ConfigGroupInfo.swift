@@ -60,9 +60,9 @@ extension LibSessionSpec {
                     expect(config_merge(conf2, &mergeHashes1, &mergeData1, &mergeSize1, 1)).to(equal(1))
                     expect(config_needs_push(conf2)).to(beFalse())
                     mergeHashes1.forEach { $0?.deallocate() }
-                    mergeData1.forEach { $0?.deallocate() }
+                    pushData1.deallocate()
                     
-                    let namePtr: UnsafePointer<CChar>? = groups_info_get_name(conf)
+                    let namePtr: UnsafePointer<CChar>? = groups_info_get_name(conf2)
                     expect(namePtr).toNot(beNil())
                     expect(String(cString: namePtr!)).to(equal("GROUP Name"))
                     
@@ -87,7 +87,7 @@ extension LibSessionSpec {
                     )
                     expect(pushData2.pointee.seqno).to(equal(2))
                     expect(pushData2.pointee.config_len).to(equal(512))
-                    expect(obsoleteHashes).to(equal(["fakehash2"]))
+                    expect(obsoleteHashes).to(equal(["fakehash1"]))
                     
                     let fakeHash2: String = "fakehash2"
                     var cFakeHash2: [CChar] = fakeHash2.cArray.nullTerminated()

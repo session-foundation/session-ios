@@ -157,7 +157,7 @@ internal extension SessionUtil {
                 displayPictureEncryptionKey: displayPictureEncryptionKey,
                 lastDisplayPictureUpdate: creationTimestamp,
                 groupIdentityPrivateKey: Data(groupIdentityPrivateKey),
-                approved: true
+                invited: false
             ),
             finalMembers.map { memberId, info -> GroupMember in
                 GroupMember(
@@ -210,7 +210,7 @@ internal extension SessionUtil {
             name: group.name,
             authData: group.authData,
             joinedAt: Int64(floor(group.formationTimestamp)),
-            approved: group.approved,
+            invited: group.invited,
             using: dependencies
         )
     }

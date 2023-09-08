@@ -130,6 +130,7 @@ internal extension SessionUtil {
                                 nullIfEmpty: true
                             )
                         ),
+                        name: String(libSessionVal: group.name),
                         authData: (!group.have_auth_data ? nil :
                             Data(
                                 libSessionVal: group.auth_data,
@@ -138,7 +139,8 @@ internal extension SessionUtil {
                             )
                         ),
                         priority: group.priority,
-                        joinedAt: group.joined_at
+                        joinedAt: group.joined_at,
+                        invited: group.invited
                     )
                 )
             }
@@ -436,7 +438,7 @@ internal extension SessionUtil {
                     name: group.name,
                     authData: group.authData,
                     created: Int64((group.joinedAt ?? (latestConfigSentTimestampMs / 1000))),
-                    approved: (group.approved == true),
+                    invited: (group.invited == true),
                     calledFromConfigHandling: true,
                     using: dependencies
                 )
@@ -456,8 +458,8 @@ internal extension SessionUtil {
                     (existingGroups[group.groupIdentityPublicKey]?.groupIdentityPrivateKey == group.groupIdentityPrivateKey ? nil :
                         ClosedGroup.Columns.groupIdentityPrivateKey.set(to: group.groupIdentityPrivateKey)
                     ),
-                    (existingGroups[group.groupIdentityPublicKey]?.approved == group.approved ? nil :
-                        ClosedGroup.Columns.approved.set(to: (group.approved ?? false))
+                    (existingGroups[group.groupIdentityPublicKey]?.invited == group.invited ? nil :
+                        ClosedGroup.Columns.invited.set(to: (group.invited ?? false))
                     )
                 ].compactMap { $0 }
 
@@ -644,10 +646,10 @@ internal extension SessionUtil {
         
         try groups
             .forEach { group in
-                var cGroupId: [CChar] = group.groupIdentityPublicKey.cArray.nullTerminated()
+                var cGroupPubkey: [CChar] = group.groupIdentityPublicKey.cArray.nullTerminated()
                 var userGroup: ugroups_group_info = ugroups_group_info()
                 
-                guard user_groups_get_or_construct_group(conf, &userGroup, &cGroupId) else {
+                guard user_groups_get_or_construct_group(conf, &userGroup, &cGroupPubkey) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
                     SNLog("Unable to upsert group conversation to SessionUtil: \(config.lastError)")
@@ -671,8 +673,17 @@ internal extension SessionUtil {
                     // Store the updated group (needs to happen before variables go out of scope)
                     user_groups_set_group(conf, &userGroup)
                 }
+                
+                /// Assign the group name
+                if let name: String = group.name {
+                    userGroup.name = name.toLibSession()
+                    
+                    // Store the updated group (needs to happen before variables go out of scope)
+                    user_groups_set_group(conf, &userGroup)
+                }
 
                 // Store the updated group (can't be sure if we made any changes above)
+                userGroup.invited = (group.invited ?? userGroup.invited)
                 userGroup.joined_at = (group.joinedAt ?? userGroup.joined_at)
                 userGroup.priority = (group.priority ?? userGroup.priority)
                 user_groups_set_group(conf, &userGroup)
@@ -956,7 +967,7 @@ public extension SessionUtil {
         name: String?,
         authData: Data?,
         joinedAt: Int64,
-        approved: Bool,
+        invited: Bool,
         using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
@@ -973,7 +984,7 @@ public extension SessionUtil {
                         name: name,
                         authData: authData,
                         joinedAt: joinedAt,
-                        approved: approved
+                        invited: invited
                     )
                 ],
                 in: config
@@ -987,7 +998,7 @@ public extension SessionUtil {
         groupIdentityPrivateKey: Data? = nil,
         name: String? = nil,
         authData: Data? = nil,
-        approved: Bool? = nil,
+        invited: Bool? = nil,
         using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
@@ -1003,7 +1014,7 @@ public extension SessionUtil {
                         groupIdentityPrivateKey: groupIdentityPrivateKey,
                         name: name,
                         authData: authData,
-                        approved: approved
+                        invited: invited
                     )
                 ],
                 in: config
@@ -1174,7 +1185,7 @@ extension SessionUtil {
         let authData: Data?
         let priority: Int32?
         let joinedAt: Int64?
-        let approved: Bool?
+        let invited: Bool?
         
         init(
             groupIdentityPublicKey: String,
@@ -1183,7 +1194,7 @@ extension SessionUtil {
             authData: Data? = nil,
             priority: Int32? = nil,
             joinedAt: Int64? = nil,
-            approved: Bool? = nil
+            invited: Bool? = nil
         ) {
             self.groupIdentityPublicKey = groupIdentityPublicKey
             self.groupIdentityPrivateKey = groupIdentityPrivateKey
@@ -1191,7 +1202,7 @@ extension SessionUtil {
             self.authData = authData
             self.priority = priority
             self.joinedAt = joinedAt
-            self.approved = approved
+            self.invited = invited
         }
     }
 }

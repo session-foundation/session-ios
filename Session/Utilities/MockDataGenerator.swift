@@ -201,7 +201,7 @@ enum MockDataGenerator {
                     threadId: randomGroupPublicKey,
                     name: groupName,
                     formationTimestamp: timestampNow,
-                    approved: true
+                    invited: false
                 )
                 .saved(db)
                 

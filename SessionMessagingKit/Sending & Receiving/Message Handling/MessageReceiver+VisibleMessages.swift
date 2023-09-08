@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -89,8 +88,6 @@ extension MessageReceiver {
             // Need to check if the blinded id matches for open groups
             switch senderSessionId.prefix {
                 case .blinded15, .blinded25:
-                    let sodium: Sodium = Sodium()
-                    
                     guard
                         let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
                         let blindedKeyPair: KeyPair = dependencies[singleton: .crypto].generate(

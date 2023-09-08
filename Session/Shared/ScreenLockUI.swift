@@ -82,11 +82,11 @@ class ScreenLockUI {
     ///
     /// * The user is locked out by default on app launch.
     /// * The user is also locked out if the app is sent to the background
-    private var isScreenLockLocked: Bool = false
+    private var isScreenLockLocked: Atomic<Bool> = Atomic(false)
     
     // Determines what the state of the app should be.
     private var desiredUIState: ScreenLockViewController.State {
-        if isScreenLockLocked {
+        if isScreenLockLocked.wrappedValue {
             if appIsInactiveOrBackground {
                 Logger.verbose("desiredUIState: screen protection 1.")
                 return .protection
@@ -167,8 +167,13 @@ class ScreenLockUI {
         // It's not safe to access OWSScreenLock.isScreenLockEnabled
         // until the app is ready.
         AppReadiness.runNowOrWhenAppWillBecomeReady { [weak self] in
-            self?.isScreenLockLocked = Dependencies()[singleton: .storage][.isScreenLockEnabled]
-            self?.ensureUI()
+            DispatchQueue.global(qos: .background).async {
+                self?.isScreenLockLocked.mutate { $0 = Dependencies()[singleton: .storage][.isScreenLockEnabled] }
+                
+                DispatchQueue.main.async {
+                    self?.ensureUI()
+                }
+            }
         }
     }
     
@@ -189,13 +194,13 @@ class ScreenLockUI {
             Logger.verbose("tryToActivateScreenLockUponBecomingActive NO 1")
             return;
         }
-        guard !isScreenLockLocked else {
+        guard !isScreenLockLocked.wrappedValue else {
             // Screen lock is already activated.
             Logger.verbose("tryToActivateScreenLockUponBecomingActive NO 2")
             return;
         }
         
-        self.isScreenLockLocked = true
+        self.isScreenLockLocked.mutate { $0 = true }
     }
     
     /// Ensure that:
@@ -234,7 +239,7 @@ class ScreenLockUI {
             success: { [weak self] in
                 Logger.info("unlock screen lock succeeded.")
                 self?.isShowingScreenLockUI = false
-                self?.isScreenLockLocked = false
+                self?.isScreenLockLocked.mutate { $0 = false }
                 self?.didUnlockJustSucceed = true
                 self?.ensureUI()
             },
@@ -372,11 +377,15 @@ class ScreenLockUI {
             return;
         }
         
-        self.isScreenLockLocked = Dependencies()[singleton: .storage][.isScreenLockEnabled]
+        DispatchQueue.global(qos: .background).async {
+            self.isScreenLockLocked.mutate { $0 = Dependencies()[singleton: .storage][.isScreenLockEnabled] }
 
-        // NOTE: this notifications fires _before_ applicationDidBecomeActive,
-        // which is desirable.  Don't assume that though; call ensureUI
-        // just in case it's necessary.
-        self.ensureUI()
+            DispatchQueue.main.async {
+                // NOTE: this notifications fires _before_ applicationDidBecomeActive,
+                // which is desirable.  Don't assume that though; call ensureUI
+                // just in case it's necessary.
+                self.ensureUI()
+            }
+        }
     }
 }
