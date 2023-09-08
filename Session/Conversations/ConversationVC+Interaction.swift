@@ -1665,7 +1665,9 @@ extension ConversationVC:
             actions: actions,
             messageViewModel: cellViewModel
         )
-        navigationController?.pushViewController(messageInfoViewController, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.navigationController?.pushViewController(messageInfoViewController, animated: true)
+        }
     }
 
     func retry(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
