@@ -42,6 +42,7 @@ public enum SNUserDefaults {
         case lastOpen
         case lastGarbageCollection
         case lastPushNotificationSync
+        case lastCallPreOffer
     }
 
     public enum Double: Swift.String {

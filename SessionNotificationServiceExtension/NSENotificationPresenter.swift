@@ -56,11 +56,9 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         notificationContent.sound = thread.notificationSound
             .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
             .notificationSound(isQuiet: false)
-        
-        // Badge Number
-        let newBadgeNumber = CurrentAppContext().appUserDefaults().integer(forKey: "currentBadgeNumber") + 1
-        notificationContent.badge = NSNumber(value: newBadgeNumber)
-        CurrentAppContext().appUserDefaults().set(newBadgeNumber, forKey: "currentBadgeNumber")
+        notificationContent.badge = (try? Interaction.fetchUnreadCount(db))
+            .map { NSNumber(value: $0) }
+            .defaulting(to: NSNumber(value: 0))
         
         // Title & body
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]
@@ -157,16 +155,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         let notificationContent = UNMutableNotificationContent()
         notificationContent.userInfo = userInfo
         notificationContent.sound = thread.notificationSound
-            .defaulting(
-                to: db[.defaultNotificationSound]
-                    .defaulting(to: Preferences.Sound.defaultNotificationSound)
-            )
+            .defaulting(to: db[.defaultNotificationSound] ?? Preferences.Sound.defaultNotificationSound)
             .notificationSound(isQuiet: false)
-        
-        // Badge Number
-        let newBadgeNumber = CurrentAppContext().appUserDefaults().integer(forKey: "currentBadgeNumber") + 1
-        notificationContent.badge = NSNumber(value: newBadgeNumber)
-        CurrentAppContext().appUserDefaults().set(newBadgeNumber, forKey: "currentBadgeNumber")
+        notificationContent.badge = (try? Interaction.fetchUnreadCount(db))
+            .map { NSNumber(value: $0) }
+            .defaulting(to: NSNumber(value: 0))
         
         notificationContent.title = "Session"
         notificationContent.body = ""
