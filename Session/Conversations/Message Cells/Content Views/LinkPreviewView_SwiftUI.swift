@@ -1,7 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
-import NVActivityIndicatorView
+import NVActivityIndicatorView // TODO: Loading view
 import SessionUIKit
 import SessionMessagingKit
 
