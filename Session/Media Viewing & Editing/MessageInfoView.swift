@@ -12,14 +12,13 @@ struct MessageInfoView: View {
     @State var index = 1
     @State var showingAttachmentFullScreen = false
     
-    static private let cornerRadius: CGFloat = 18
+    static private let cornerRadius: CGFloat = 17
     
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     var isMessageFailed: Bool {
         return [.failed, .failedToSync].contains(messageViewModel.state)
     }
-    var snapshot: UIView?
     
     var dismiss: (() -> Void)?
     
@@ -38,29 +37,9 @@ struct MessageInfoView: View {
                         spacing: 10
                     ) {
                         // Message bubble snapshot
-                        ZStack {
-                            if let snapshot = self.snapshot {
-                                UIView_SwiftUI(view: snapshot)
-                            } else {
-                                if let body: String = messageViewModel.body, !body.isEmpty {
-                                    let (bubbleBackgroundColor, bubbleTextColor): (ThemeValue, ThemeValue) = (
-                                        messageViewModel.variant == .standardIncoming ||
-                                        messageViewModel.variant == .standardIncomingDeleted
-                                    ) ?
-                                    (.messageBubble_incomingBackground, .messageBubble_incomingText) :
-                                    (.messageBubble_outgoingBackground, .messageBubble_outgoingText)
-                                    
-                                    RoundedRectangle(cornerRadius: Self.cornerRadius)
-                                        .fill(themeColor: bubbleBackgroundColor)
-                                    
-                                    Text(body)
-                                        .foregroundColor(themeColor: bubbleTextColor)
-                                        .padding(.vertical, Values.smallSpacing)
-                                        .padding(.horizontal, Values.mediumSpacing)
-                                    
-                                }
-                            }
-                        }
+                        MessageBubble(
+                            messageViewModel: messageViewModel
+                        )
                         .frame(
                             maxWidth: .infinity,
                             maxHeight: .infinity,
@@ -376,6 +355,209 @@ struct MessageInfoView: View {
                 }
             }
         }
+    }
+}
+
+struct MessageBubble: View {
+    static private let cornerRadius: CGFloat = 18
+    
+    let messageViewModel: MessageViewModel
+    var bubbleBackgroundColor: ThemeValue {
+        messageViewModel.variant == .standardIncoming || messageViewModel.variant == .standardIncomingDeleted ?
+            .messageBubble_incomingBackground :
+            .messageBubble_outgoingBackground
+    }
+    
+    var body: some View {
+        ZStack {
+            switch messageViewModel.cellType {
+                case .typingIndicator, .dateHeader, .unreadMarker: break
+                
+                case .textOnlyMessage:
+                    let inset: CGFloat = 12
+                    let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel) - 2 * inset)
+                    
+                    if let linkPreview: LinkPreview = messageViewModel.linkPreview {
+                        switch linkPreview.variant {
+                            case .standard:
+                                let linkPreviewView: LinkPreviewView = LinkPreviewView(maxWidth: maxWidth)
+                                linkPreviewView.update(
+                                    with: LinkPreview.SentState(
+                                        linkPreview: linkPreview,
+                                        imageAttachment: messageViewModel.linkPreviewAttachment
+                                    ),
+                                    isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                    delegate: self,
+                                    cellViewModel: messageViewModel,
+                                    bodyLabelTextColor: bodyLabelTextColor,
+                                    lastSearchText: lastSearchText
+                                )
+                                bubbleView.addSubview(linkPreviewView)
+                                linkPreviewView.pin(to: bubbleView, withInset: 0)
+                                snContentView.addArrangedSubview(bubbleBackgroundView)
+                                self.bodyTappableLabel = linkPreviewView.bodyTappableLabel
+                                
+                            case .openGroupInvitation:
+                                let openGroupInvitationView: OpenGroupInvitationView = OpenGroupInvitationView(
+                                    name: (linkPreview.title ?? ""),
+                                    url: linkPreview.url,
+                                    textColor: bodyLabelTextColor,
+                                    isOutgoing: (cellViewModel.variant == .standardOutgoing)
+                                )
+                                bubbleView.addSubview(openGroupInvitationView)
+                                bubbleView.pin(to: openGroupInvitationView)
+                                snContentView.addArrangedSubview(bubbleBackgroundView)
+                        }
+                    }
+                    else {
+                        // Stack view
+                        let stackView = UIStackView(arrangedSubviews: [])
+                        stackView.axis = .vertical
+                        stackView.spacing = 2
+                        
+                        // Quote view
+                        if let quote: Quote = cellViewModel.quote {
+                            let hInset: CGFloat = 2
+                            let quoteView: QuoteView = QuoteView(
+                                for: .regular,
+                                authorId: quote.authorId,
+                                quotedText: quote.body,
+                                threadVariant: cellViewModel.threadVariant,
+                                currentUserPublicKey: cellViewModel.currentUserPublicKey,
+                                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
+                                direction: (cellViewModel.variant == .standardOutgoing ?
+                                    .outgoing :
+                                    .incoming
+                                ),
+                                attachment: cellViewModel.quoteAttachment,
+                                hInset: hInset,
+                                maxWidth: maxWidth
+                            )
+                            let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
+                            stackView.addArrangedSubview(quoteViewContainer)
+                        }
+                        
+                        // Body text view
+                        let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                            for: cellViewModel,
+                            with: maxWidth,
+                            textColor: bodyLabelTextColor,
+                            searchText: lastSearchText,
+                            delegate: self
+                        )
+                        self.bodyTappableLabel = bodyTappableLabel
+                        stackView.addArrangedSubview(bodyTappableLabel)
+                        
+                        // Constraints
+                        bubbleView.addSubview(stackView)
+                        stackView.pin(to: bubbleView, withInset: inset)
+                        stackView.widthAnchor.constraint(lessThanOrEqualToConstant: maxWidth).isActive = true
+                        snContentView.addArrangedSubview(bubbleBackgroundView)
+                    }
+                    
+                case .mediaMessage:
+                    // Body text view
+                    if let body: String = cellViewModel.body, !body.isEmpty {
+                        let inset: CGFloat = 12
+                        let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+                        let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                            for: cellViewModel,
+                            with: maxWidth,
+                            textColor: bodyLabelTextColor,
+                            searchText: lastSearchText,
+                            delegate: self
+                        )
+
+                        self.bodyTappableLabel = bodyTappableLabel
+                        bubbleView.addSubview(bodyTappableLabel)
+                        bodyTappableLabel.pin(to: bubbleView, withInset: inset)
+                        snContentView.addArrangedSubview(bubbleBackgroundView)
+                    }
+                    
+                    // Album view
+                    let maxMessageWidth: CGFloat = VisibleMessageCell.getMaxWidth(for: cellViewModel)
+                    let albumView = MediaAlbumView(
+                        mediaCache: mediaCache,
+                        items: (cellViewModel.attachments?
+                            .filter { $0.isVisualMedia })
+                            .defaulting(to: []),
+                        isOutgoing: (cellViewModel.variant == .standardOutgoing),
+                        maxMessageWidth: maxMessageWidth
+                    )
+                    self.albumView = albumView
+                    let size = getSize(for: cellViewModel)
+                    albumView.set(.width, to: size.width)
+                    albumView.set(.height, to: size.height)
+                    albumView.loadMedia()
+                    snContentView.addArrangedSubview(albumView)
+            
+                    unloadContent = { albumView.unloadMedia() }
+                    
+                case .audio:
+                    guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
+                        return
+                    }
+                    
+                    let voiceMessageView: VoiceMessageView = VoiceMessageView()
+                    voiceMessageView.update(
+                        with: attachment,
+                        isPlaying: (playbackInfo?.state == .playing),
+                        progress: (playbackInfo?.progress ?? 0),
+                        playbackRate: (playbackInfo?.playbackRate ?? 1),
+                        oldPlaybackRate: (playbackInfo?.oldPlaybackRate ?? 1)
+                    )
+                
+                    bubbleView.addSubview(voiceMessageView)
+                    voiceMessageView.pin(to: bubbleView)
+                    snContentView.addArrangedSubview(bubbleBackgroundView)
+                    self.voiceMessageView = voiceMessageView
+                    
+                case .genericAttachment:
+                    guard let attachment: Attachment = cellViewModel.attachments?.first else { preconditionFailure() }
+                    
+                    let inset: CGFloat = 12
+                    let maxWidth = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+                    
+                    // Stack view
+                    let stackView = UIStackView(arrangedSubviews: [])
+                    stackView.axis = .vertical
+                    stackView.spacing = Values.smallSpacing
+                    
+                    // Document view
+                    let documentView = DocumentView(attachment: attachment, textColor: bodyLabelTextColor)
+                    stackView.addArrangedSubview(documentView)
+                
+                    // Body text view
+                    if let body: String = cellViewModel.body, !body.isEmpty { // delegate should always be set at this point
+                        let bodyContainerView: UIView = UIView()
+                        let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                            for: cellViewModel,
+                            with: maxWidth,
+                            textColor: bodyLabelTextColor,
+                            searchText: lastSearchText,
+                            delegate: self
+                        )
+                        
+                        self.bodyTappableLabel = bodyTappableLabel
+                        bodyContainerView.addSubview(bodyTappableLabel)
+                        bodyTappableLabel.pin(.top, to: .top, of: bodyContainerView)
+                        bodyTappableLabel.pin(.leading, to: .leading, of: bodyContainerView, withInset: 12)
+                        bodyTappableLabel.pin(.trailing, to: .trailing, of: bodyContainerView, withInset: -12)
+                        bodyTappableLabel.pin(.bottom, to: .bottom, of: bodyContainerView, withInset: -12)
+                        stackView.addArrangedSubview(bodyContainerView)
+                    }
+                    
+                    bubbleView.addSubview(stackView)
+                    stackView.pin(to: bubbleView)
+                    snContentView.addArrangedSubview(bubbleBackgroundView)
+            }
+                
+        }
+        .background(
+            RoundedRectangle(cornerRadius: Self.cornerRadius)
+                .fill(themeColor: bubbleBackgroundColor)
+        )
     }
 }
 
