@@ -1,7 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
-import NVActivityIndicatorView // TODO: Loading view
 import SessionUIKit
 import SessionMessagingKit
 
@@ -60,23 +59,28 @@ public struct LinkPreviewView_SwiftUI: View {
                             height: imageSize
                         )
                         .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
+                } else if
+                    state is LinkPreview.DraftState || state is LinkPreview.SentState,
+                    let defaultImage: UIImage = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
+                {
+                    Image(uiImage: defaultImage)
+                        .foregroundColor(
+                            themeColor: isOutgoing ?
+                                .messageBubble_outgoingText :
+                                .messageBubble_incomingText
+                        )
+                        .frame(
+                            width: imageSize,
+                            height: imageSize
+                        )
+                        .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
                 } else {
-                    if
-                        state is LinkPreview.DraftState || state is LinkPreview.SentState,
-                        let defaultImage: UIImage = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
-                    {
-                        Image(uiImage: defaultImage)
-                            .foregroundColor(
-                                themeColor: isOutgoing ?
-                                    .messageBubble_outgoingText :
-                                    .messageBubble_incomingText
-                            )
-                            .frame(
-                                width: imageSize,
-                                height: imageSize
-                            )
-                            .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
-                    }
+                    ActivityIndicator()
+                        .foregroundColor(.black)
+                        .frame(
+                            width: Self.loaderSize,
+                            height: Self.loaderSize
+                        )
                 }
                 
                 // Link preview title
@@ -116,16 +120,28 @@ public struct LinkPreviewView_SwiftUI: View {
 
 struct LinkPreviewView_SwiftUI_Previews: PreviewProvider {
     static var previews: some View {
-        LinkPreviewView_SwiftUI(
-            state: LinkPreview.DraftState(
-                linkPreviewDraft: .init(
-                    urlString: "https://github.com/oxen-io",
-                    title: "Github - oxen-io/session-ios: A private messenger for iOS.",
-                    jpegImageData: UIImage(named: "AppIcon")?.jpegData(compressionQuality: 1)
-                )
-            ),
-            isOutgoing: true
-        )
-        .padding(.horizontal, Values.mediumSpacing)
+        VStack {
+            LinkPreviewView_SwiftUI(
+                state: LinkPreview.DraftState(
+                    linkPreviewDraft: .init(
+                        urlString: "https://github.com/oxen-io",
+                        title: "Github - oxen-io/session-ios: A private messenger for iOS.",
+                        jpegImageData: UIImage(named: "AppIcon")?.jpegData(compressionQuality: 1)
+                    )
+                ),
+                isOutgoing: true
+            )
+            .padding(.horizontal, Values.mediumSpacing)
+            
+            LinkPreviewView_SwiftUI(
+                state: LinkPreview.LoadingState(),
+                isOutgoing: true
+            )
+            .frame(
+                width: .infinity,
+                height: 80
+            )
+            .padding(.horizontal, Values.mediumSpacing)
+        }
     }
 }
