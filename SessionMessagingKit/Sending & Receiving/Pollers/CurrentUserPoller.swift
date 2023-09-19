@@ -61,7 +61,7 @@ public final class CurrentUserPoller: Poller {
     }
     
     override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
-        if UserDefaults.sharedLokiProject?[.isMainAppActive] != true {
+        if !dependencies[defaults: .appGroup, key: .isMainAppActive] {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }
         else if

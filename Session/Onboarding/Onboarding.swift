@@ -102,7 +102,7 @@ enum Onboarding {
             profileNameRetrievalIdentifier.mutate { $0 = nil }
             profileNameRetrievalPublisher.mutate { $0 = nil }
             
-            dependencies[singleton: .standardUserDefaults][.hasSyncedInitialConfiguration] = false
+            dependencies[defaults: .standard, key: .hasSyncedInitialConfiguration] = false
         }
         
         func preregister(
@@ -164,7 +164,7 @@ enum Onboarding {
             // home screen a configuration sync is triggered (yes, the logic is a
             // bit weird). This is needed so that if the user registers and
             // immediately links a device, there'll be a configuration in their swarm.
-            dependencies[singleton: .standardUserDefaults][.hasSyncedInitialConfiguration] = (self == .register)
+            dependencies[defaults: .standard, key: .hasSyncedInitialConfiguration] = (self == .register)
             
             // Only continue if this isn't a new account
             guard self != .register else { return }

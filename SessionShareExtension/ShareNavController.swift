@@ -26,6 +26,9 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     override func loadView() {
         super.loadView()
         
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
+        
         view.themeBackgroundColor = .backgroundPrimary
 
         // This should be the first thing we do (Note: If you leave the share context and return to it
@@ -38,7 +41,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         
         Logger.info("")
 
-        _ = AppVersion.sharedInstance()
+        AppVersion.configure(using: dependencies)
 
         Cryptography.seedRandom()
 
@@ -50,9 +53,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             // TODO: Do we need to implement isRunningTests in the SAE context?
             return
         }
-        
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
 
         AppSetup.setupEnvironment(
             appSpecificBlock: {
@@ -158,7 +158,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         // We don't need to use SyncPushTokensJob in the SAE.
         // We don't need to use DeviceSleepManager in the SAE.
 
-        AppVersion.sharedInstance().saeLaunchDidComplete()
+        AppVersion.shared.saeLaunchDidComplete(using: dependencies)
 
         showLockScreenOrMainContent(using: dependencies)
 
@@ -188,7 +188,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         // Called via the OS so create a default 'Dependencies' instance
         let dependencies: Dependencies = Dependencies()
 
-        if dependencies[singleton: .storage][.isScreenLockEnabled] {
+        if dependencies[singleton: .storage, key: .isScreenLockEnabled] {
             self.dismiss(animated: false) { [weak self] in
                 AssertIsOnMainThread()
                 self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
@@ -210,7 +210,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     private func showLockScreenOrMainContent(
         using dependencies: Dependencies
     ) {
-        if dependencies[singleton: .storage][.isScreenLockEnabled] {
+        if dependencies[singleton: .storage, key: .isScreenLockEnabled] {
             showLockScreen()
         }
         else {

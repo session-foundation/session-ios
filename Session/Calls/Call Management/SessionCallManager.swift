@@ -91,10 +91,13 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         )
     }
     
-    public func reportOutgoingCall(_ call: SessionCall) {
+    public func reportOutgoingCall(
+        _ call: SessionCall,
+        using dependencies: Dependencies = Dependencies()
+    ) {
         AssertIsOnMainThread()
-        UserDefaults.sharedLokiProject?[.isCallOngoing] = true
-        UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+        dependencies[defaults: .appGroup, key: .isCallOngoing] = true
+        dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
         
         call.stateDidChange = {
             if call.hasStartedConnecting {
@@ -107,7 +110,12 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         }
     }
     
-    public func reportIncomingCall(_ call: SessionCall, callerName: String, completion: @escaping (Error?) -> Void) {
+    public func reportIncomingCall(
+        _ call: SessionCall,
+        callerName: String,
+        using dependencies: Dependencies = Dependencies(),
+        completion: @escaping (Error?) -> Void
+    ) {
         let provider = provider ?? Self.sharedProvider(useSystemCallLog: false)
         // Construct a CXCallUpdate describing the incoming call, including the caller.
         let update = CXCallUpdate()
@@ -124,8 +132,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 completion(error)
                 return
             }
-            UserDefaults.sharedLokiProject?[.isCallOngoing] = true
-            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+            dependencies[defaults: .appGroup, key: .isCallOngoing] = true
+            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
             completion(nil)
         }
     }
@@ -143,8 +151,8 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         
         func handleCallEnded() {
             WebRTCSession.current = nil
-            UserDefaults.sharedLokiProject?[.isCallOngoing] = false
-            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
+            dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
             
             if CurrentAppContext().isInBackground() {
                 (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()

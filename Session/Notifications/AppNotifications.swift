@@ -512,7 +512,7 @@ public class NotificationPresenter: NotificationsProtocol {
 
     private func checkIfShouldPlaySound(applicationState: UIApplication.State) -> Bool {
         guard applicationState == .active else { return true }
-        guard Dependencies()[singleton: .storage][.playNotificationSoundInForeground] else { return false }
+        guard Dependencies()[singleton: .storage, key: .playNotificationSoundInForeground] else { return false }
 
         let nowMs: UInt64 = UInt64(floor(Date().timeIntervalSince1970 * 1000))
         let recentThreshold = nowMs - UInt64(kAudioNotificationsThrottleInterval * Double(kSecondInMs))

@@ -26,8 +26,8 @@ public final class SnodeAPI {
     
     // MARK: - Hardfork version
     
-    public static var hardfork = UserDefaults.standard[.hardfork]
-    public static var softfork = UserDefaults.standard[.softfork]
+    public static var hardfork: Int = Dependencies()[defaults: .standard, key: .hardfork]
+    public static var softfork: Int = Dependencies()[defaults: .standard, key: .softfork]
 
     // MARK: - Settings
     
@@ -158,7 +158,7 @@ public final class SnodeAPI {
         loadSnodePoolIfNeeded(using: dependencies)
         
         let now: Date = Date()
-        let hasSnodePoolExpired: Bool = dependencies[singleton: .storage][.lastSnodePoolRefreshDate]
+        let hasSnodePoolExpired: Bool = dependencies[singleton: .storage, key: .lastSnodePoolRefreshDate]
             .map { now.timeIntervalSince($0) > 2 * 60 * 60 }
             .defaulting(to: true)
         let snodePool: Set<Snode> = SnodeAPI.snodePool.wrappedValue
@@ -1199,14 +1199,14 @@ public final class SnodeAPI {
                     
                     if snodeResponse.hardFork[1] > softfork {
                         softfork = snodeResponse.hardFork[1]
-                        UserDefaults.standard[.softfork] = softfork
+                        dependencies[defaults: .standard, key: .softfork] = softfork
                     }
                     
                     if snodeResponse.hardFork[0] > hardfork {
                         hardfork = snodeResponse.hardFork[0]
-                        UserDefaults.standard[.hardfork] = hardfork
+                        dependencies[defaults: .standard, key: .hardfork] = hardfork
                         softfork = snodeResponse.hardFork[1]
-                        UserDefaults.standard[.softfork] = softfork
+                        dependencies[defaults: .standard, key: .softfork] = softfork
                     }
                 }
             )

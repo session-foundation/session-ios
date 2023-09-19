@@ -37,7 +37,7 @@ public class TypingIndicators {
             //
             // We also don't want to show/send typing indicators for message requests
             guard
-                dependencies[singleton: .storage][.typingIndicatorsEnabled] &&
+                dependencies[singleton: .storage, key: .typingIndicatorsEnabled] &&
                 !threadIsBlocked &&
                 !threadIsMessageRequest
             else { return nil }

@@ -8,6 +8,7 @@ public class Dependencies {
     
     private static var singletonInstances: Atomic<[Int: Any]> = Atomic([:])
     private static var cacheInstances: Atomic<[Int: MutableCacheType]> = Atomic([:])
+    private static var userDefaultsInstances: Atomic<[Int: (any UserDefaultsType)]> = Atomic([:])
     
     // MARK: - Subscript Access
     
@@ -19,6 +20,9 @@ public class Dependencies {
         getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
     }
     
+    public subscript<U: UserDefaultsType>(defaults defaults: UserDefaultsInfo.Config<U>) -> U {
+        getValueSettingIfNull(defaults: defaults, &Dependencies.userDefaultsInstances)
+    }
     
     // MARK: - Timing and Async Handling
     
@@ -81,5 +85,81 @@ public class Dependencies {
         }
         
         return cache.immutableInstance(value)
+    }
+    
+    @discardableResult private func getValueSettingIfNull<U: UserDefaultsType>(
+        defaults: UserDefaultsInfo.Config<U>,
+        _ store: inout Atomic<[Int: UserDefaultsType]>
+    ) -> U {
+        guard let value: U = (store.wrappedValue[defaults.key] as? U) else {
+            let value: U = defaults.createInstance(self)
+            store.mutate { $0[defaults.key] = value }
+            return value
+        }
+        
+        return value
+    }
+}
+
+// MARK: - Storage Setting Convenience
+
+public extension Dependencies {
+    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.BoolKey) -> Bool {
+        return self[singleton: singleton]
+            .read { db in db[key] }
+            .defaulting(to: false)  // Default to false if it doesn't exist
+    }
+    
+    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.DoubleKey) -> Double? {
+        return self[singleton: singleton].read { db in db[key] }
+    }
+    
+    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.IntKey) -> Int? {
+        return self[singleton: singleton].read { db in db[key] }
+    }
+    
+    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.StringKey) -> String? {
+        return self[singleton: singleton].read { db in db[key] }
+    }
+    
+    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.DateKey) -> Date? {
+        return self[singleton: singleton].read { db in db[key] }
+    }
+    
+    subscript<T: EnumIntSetting>(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.EnumKey) -> T? {
+        return self[singleton: singleton].read { db in db[key] }
+    }
+    
+    subscript<T: EnumStringSetting>(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.EnumKey) -> T? {
+        return self[singleton: singleton].read { db in db[key] }
+    }
+}
+
+// MARK: - UserDefaults Convenience
+
+public extension Dependencies {
+    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.BoolKey) -> Bool {
+        get { return self[defaults: defaults].bool(forKey: key.rawValue) }
+        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
+    }
+
+    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.DateKey) -> Date? {
+        get { return self[defaults: defaults].object(forKey: key.rawValue) as? Date }
+        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
+    }
+    
+    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.DoubleKey) -> Double {
+        get { return self[defaults: defaults].double(forKey: key.rawValue) }
+        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
+    }
+
+    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.IntKey) -> Int {
+        get { return self[defaults: defaults].integer(forKey: key.rawValue) }
+        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
+    }
+    
+    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.StringKey) -> String? {
+        get { return self[defaults: defaults].string(forKey: key.rawValue) }
+        set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
 }

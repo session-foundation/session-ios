@@ -216,7 +216,7 @@ public extension LinkPreview {
         selectedRange: NSRange? = nil,
         using dependencies: Dependencies = Dependencies()
     ) -> String? {
-        guard dependencies[singleton: .storage][.areLinkPreviewsEnabled] else { return nil }
+        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else { return nil }
         guard let body: String = body else { return nil }
 
         if let cachedUrl = previewUrlCache.wrappedValue.object(forKey: body as NSString) as String? {
@@ -297,7 +297,7 @@ public extension LinkPreview {
 
         // Exit early if link previews are not enabled in order to avoid
         // tainting the cache.
-        guard dependencies[singleton: .storage][.areLinkPreviewsEnabled] else { return }
+        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else { return }
 
         serialQueue.sync {
             linkPreviewDraftCache = linkPreviewDraft
@@ -308,7 +308,7 @@ public extension LinkPreview {
         previewUrl: String?,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<LinkPreviewDraft, Error> {
-        guard dependencies[singleton: .storage][.areLinkPreviewsEnabled] else {
+        guard dependencies[singleton: .storage, key: .areLinkPreviewsEnabled] else {
             return Fail(error: LinkPreviewError.featureDisabled)
                 .eraseToAnyPublisher()
         }

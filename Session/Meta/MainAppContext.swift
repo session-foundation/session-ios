@@ -239,10 +239,4 @@ final class MainAppContext: NSObject, AppContext {
         
         return (targetPath ?? "")
     }
-    
-    func appUserDefaults() -> UserDefaults {
-        owsAssertDebug(UserDefaults.sharedLokiProject != nil)
-        
-        return (UserDefaults.sharedLokiProject ?? UserDefaults.standard)
-    }
 }

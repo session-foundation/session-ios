@@ -77,7 +77,7 @@ extension ConversationVC:
     @objc func startCall(_ sender: Any?) {
         guard SessionCall.isEnabled else { return }
         guard viewModel.threadData.threadIsBlocked == false else { return }
-        guard Dependencies()[singleton: .storage][.areCallsEnabled] else {
+        guard Dependencies()[singleton: .storage, key: .areCallsEnabled] else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "modal_call_permission_request_title".localized(),
@@ -240,7 +240,7 @@ extension ConversationVC:
     // MARK: - ExpandingAttachmentsButtonDelegate
 
     func handleGIFButtonTapped() {
-        guard Dependencies()[singleton: .storage][.isGiphyEnabled] else {
+        guard Dependencies()[singleton: .storage, key: .isGiphyEnabled] else {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "GIPHY_PERMISSION_TITLE".localized(),
@@ -624,7 +624,7 @@ extension ConversationVC:
     }
 
     func handleMessageSent() {
-        if Dependencies()[singleton: .storage][.playNotificationSoundInForeground] {
+        if Dependencies()[singleton: .storage, key: .playNotificationSoundInForeground] {
             let soundID = Preferences.Sound.systemSoundId(for: .messageSent, quiet: true)
             AudioServicesPlaySystemSound(soundID)
         }

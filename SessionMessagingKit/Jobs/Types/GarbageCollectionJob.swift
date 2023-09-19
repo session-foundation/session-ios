@@ -40,7 +40,7 @@ public enum GarbageCollectionJob: JobExecutor {
         /// app at about the same time every day will trigger the garbage collection) - since this runs when the app becomes active we
         /// want to prevent it running to frequently (the app becomes active if a system alert, the notification center or the control panel
         /// are shown)
-        let lastGarbageCollection: Date = dependencies[singleton: .standardUserDefaults][.lastGarbageCollection]
+        let lastGarbageCollection: Date = dependencies[defaults: .standard, key: .lastGarbageCollection]
             .defaulting(to: Date.distantPast)
         let finalTypesToCollect: Set<Types> = {
             guard
@@ -461,7 +461,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     // If we did a full collection then update the 'lastGarbageCollection' date to
                     // prevent a full collection from running again in the next 23 hours
                     if job.behaviour == .recurringOnActive && dependencies.dateNow.timeIntervalSince(lastGarbageCollection) > (23 * 60 * 60) {
-                        dependencies[singleton: .standardUserDefaults][.lastGarbageCollection] = dependencies.dateNow
+                        dependencies[defaults: .standard, key: .lastGarbageCollection] = dependencies.dateNow
                     }
                     
                     success(job, false, dependencies)

@@ -58,7 +58,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
 
 // MARK: - Convenience
 
-public extension ConfigDump.Variant, CustomStringConvertible {
+public extension ConfigDump.Variant {
     static let userVariants: Set<ConfigDump.Variant> = [
         .userProfile, .contacts, .convoInfoVolatile, .userGroups
     ]
@@ -132,7 +132,9 @@ public extension ConfigDump.Variant, CustomStringConvertible {
             default: return 1
         }
     }
-    
+}
+
+extension ConfigDump.Variant: CustomStringConvertible {
     public var description: String {
         switch self {
             case .userProfile: return "userProfile"

@@ -86,9 +86,9 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
         .handleEvents(didFail: { SNLog("[NotificationSettingsViewModel] Observation failed with error: \($0)") })
         .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
         .manualRefreshFrom(forcedRefresh)
-        .map { dbState -> State in
+        .map { [dependencies] dbState -> State in
             State(
-                isUsingFullAPNs: UserDefaults.standard[.isUsingFullAPNs],
+                isUsingFullAPNs: dependencies[defaults: .standard, key: .isUsingFullAPNs],
                 notificationSound: dbState.notificationSound,
                 playNotificationSoundInForeground: dbState.playNotificationSoundInForeground,
                 previewType: dbState.previewType

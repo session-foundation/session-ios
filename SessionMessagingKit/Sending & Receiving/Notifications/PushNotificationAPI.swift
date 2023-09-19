@@ -30,9 +30,9 @@ public enum PushNotificationAPI {
             HTTP.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>?
         )
         let hexEncodedToken: String = token.toHexString()
-        let oldToken: String? = dependencies[singleton: .standardUserDefaults][.deviceToken]
-        let lastUploadTime: Double = dependencies[singleton: .standardUserDefaults][.lastDeviceTokenUpload]
-        let now: TimeInterval = Date().timeIntervalSince1970
+        let oldToken: String? = dependencies[defaults: .standard, key: .deviceToken]
+        let lastUploadTime: Double = dependencies[defaults: .standard, key: .lastDeviceTokenUpload]
+        let now: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         guard isForcedUpdate || hexEncodedToken != oldToken || now - lastUploadTime > tokenExpirationInterval else {
             SNLog("Device token hasn't changed or expired; no need to re-upload.")
@@ -54,9 +54,9 @@ public enum PushNotificationAPI {
                         receiveOutput: { _, response in
                             guard response.success == true else { return }
                             
-                            dependencies[singleton: .standardUserDefaults][.deviceToken] = hexEncodedToken
-                            dependencies[singleton: .standardUserDefaults][.lastDeviceTokenUpload] = now
-                            dependencies[singleton: .standardUserDefaults][.isUsingFullAPNs] = true
+                            dependencies[defaults: .standard, key: .deviceToken] = hexEncodedToken
+                            dependencies[defaults: .standard, key: .lastDeviceTokenUpload] = now
+                            dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
                         }
                     )
                 let preparedLegacyGroupRequest = try PushNotificationAPI
@@ -131,7 +131,7 @@ public enum PushNotificationAPI {
                         receiveOutput: { _, response in
                             guard response.success == true else { return }
                             
-                            dependencies[singleton: .standardUserDefaults][.deviceToken] = nil
+                            dependencies[defaults: .standard, key: .deviceToken] = nil
                         }
                     )
                 
@@ -175,8 +175,8 @@ public enum PushNotificationAPI {
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<SubscribeResponse> {
         guard
-            dependencies[singleton: .standardUserDefaults][.isUsingFullAPNs],
-            let token: String = dependencies[singleton: .standardUserDefaults][.deviceToken]
+            dependencies[defaults: .standard, key: .isUsingFullAPNs],
+            let token: String = dependencies[defaults: .standard, key: .deviceToken]
         else { throw HTTPError.invalidRequest }
         
         guard let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies) else {
@@ -312,13 +312,13 @@ public enum PushNotificationAPI {
         legacyGroupIds: Set<String>,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse>? {
-        let isUsingFullAPNs = dependencies[singleton: .standardUserDefaults][.isUsingFullAPNs]
+        let isUsingFullAPNs = dependencies[defaults: .standard, key: .isUsingFullAPNs]
         
         // Only continue if PNs are enabled and we have a device token
         guard
             !legacyGroupIds.isEmpty,
             (forced || isUsingFullAPNs),
-            let deviceToken: String = (token ?? dependencies[singleton: .standardUserDefaults][.deviceToken])
+            let deviceToken: String = (token ?? dependencies[defaults: .standard, key: .deviceToken])
         else { return nil }
         
         return try PushNotificationAPI

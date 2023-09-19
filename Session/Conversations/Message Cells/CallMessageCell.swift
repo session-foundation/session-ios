@@ -141,7 +141,7 @@ final class CallMessageCell: MessageCell {
         
         let shouldShowInfoIcon: Bool = (
             messageInfo.state == .permissionDenied &&
-            !Dependencies()[singleton: .storage][.areCallsEnabled]
+            !Dependencies()[singleton: .storage, key: .areCallsEnabled]
         )
         infoImageViewWidthConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
         infoImageViewHeightConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
@@ -177,7 +177,7 @@ final class CallMessageCell: MessageCell {
         else { return }
         
         // Should only be tappable if the info icon is visible
-        guard messageInfo.state == .permissionDenied && !Dependencies()[singleton: .storage][.areCallsEnabled] else { return }
+        guard messageInfo.state == .permissionDenied && !Dependencies()[singleton: .storage, key: .areCallsEnabled] else { return }
         
         self.delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer)
     }

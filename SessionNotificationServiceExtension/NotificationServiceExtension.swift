@@ -37,7 +37,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
 
         // Abort if the main app is running
-        guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
+        guard !dependencies[defaults: .appGroup, key: .isMainAppActive] else {
             return self.completeSilenty(using: dependencies)
         }
         
@@ -46,9 +46,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             SetCurrentAppContext(NotificationServiceExtensionContext())
         }
         
-        let isCallOngoing: Bool = (UserDefaults.sharedLokiProject?[.isCallOngoing])
-            .defaulting(to: false)
-        let lastCallPreOffer: Date? = UserDefaults.sharedLokiProject?[.lastCallPreOffer]
+        let isCallOngoing: Bool = dependencies[defaults: .appGroup, key: .isCallOngoing]
+        let lastCallPreOffer: Date? = dependencies[defaults: .appGroup, key: .lastCallPreOffer]
 
         // Perform main setup
         Storage.resumeDatabaseAccess(using: dependencies)
@@ -240,8 +239,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         NSLog("[NotificationServiceExtension] Performing setup")
         didPerformSetup = true
 
-        _ = AppVersion.sharedInstance()
-
+        AppVersion.configure(using: dependencies)
         Cryptography.seedRandom()
 
         AppSetup.setupEnvironment(
@@ -264,7 +262,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         // this path should never occur. However, the service does have our push token
                         // so it is possible that could change in the future. If it does, do nothing
                         // and don't disturb the user. Messages will be processed when they open the app.
-                        guard dependencies[singleton: .storage][.isReadyForAppExtensions] else {
+                        guard dependencies[singleton: .storage, key: .isReadyForAppExtensions] else {
                             NSLog("[NotificationServiceExtension] Not ready for extensions")
                             self?.completeSilenty(using: dependencies)
                             return
@@ -368,7 +366,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 }
                 else {
                     NSLog("[NotificationServiceExtension] Successfully notified main app of call message.")
-                    UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+                    dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
                     self.completeSilenty(using: dependencies)
                 }
             }

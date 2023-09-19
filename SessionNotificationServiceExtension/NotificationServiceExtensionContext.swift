@@ -46,13 +46,6 @@ final class NotificationServiceExtensionContext : NSObject, AppContext {
         return groupContainerURL.path
     }
 
-    func appUserDefaults() -> UserDefaults {
-        guard let userDefaults = UserDefaults.sharedLokiProject else {
-            preconditionFailure("Couldn't set up shared user defaults.")
-        }
-        return userDefaults
-    }
-
     // MARK: - Currently Unused
     
     let frame = CGRect.zero

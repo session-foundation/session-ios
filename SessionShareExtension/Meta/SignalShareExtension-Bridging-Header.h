@@ -9,5 +9,4 @@
 #import <SessionUtilitiesKit/UIView+OWS.h>
 #import <SessionUtilitiesKit/AppContext.h>
 #import <SessionMessagingKit/AppReadiness.h>
-#import <SignalUtilitiesKit/AppVersion.h>
 #import <SessionUtilitiesKit/OWSMath.h>

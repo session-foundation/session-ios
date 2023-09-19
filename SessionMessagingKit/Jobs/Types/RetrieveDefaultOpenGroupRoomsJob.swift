@@ -18,7 +18,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         using dependencies: Dependencies
     ) {
         // Don't run when inactive or not in main app
-        guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
+        guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
             deferred(job, dependencies) // Don't need to do anything if it's not the main app
             return
         }

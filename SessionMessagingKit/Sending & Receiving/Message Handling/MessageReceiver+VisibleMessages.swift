@@ -21,7 +21,7 @@ extension MessageReceiver {
         // Note: `message.sentTimestamp` is in ms (convert to TimeInterval before converting to
         // seconds to maintain the accuracy)
         let messageSentTimestamp: TimeInterval = (TimeInterval(message.sentTimestamp ?? 0) / 1000)
-        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+        let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
         let expiresInSeconds: TimeInterval? = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : nil
         
         // Update profile if needed (want to do this regardless of whether the message exists or
@@ -400,7 +400,7 @@ extension MessageReceiver {
             case .react:
                 // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
                 // requiring main-thread execution
-                let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+                let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
                 let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
                 let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
                 let reaction: Reaction = try Reaction(

@@ -168,7 +168,7 @@ class ScreenLockUI {
         // until the app is ready.
         AppReadiness.runNowOrWhenAppWillBecomeReady { [weak self] in
             DispatchQueue.global(qos: .background).async {
-                self?.isScreenLockLocked.mutate { $0 = Dependencies()[singleton: .storage][.isScreenLockEnabled] }
+                self?.isScreenLockLocked.mutate { $0 = Dependencies()[singleton: .storage, key: .isScreenLockEnabled] }
                 
                 DispatchQueue.main.async {
                     self?.ensureUI()
@@ -189,7 +189,7 @@ class ScreenLockUI {
             Logger.verbose("tryToActivateScreenLockUponBecomingActive NO 0")
             return
         }
-        guard Dependencies()[singleton: .storage][.isScreenLockEnabled] else {
+        guard Dependencies()[singleton: .storage, key: .isScreenLockEnabled] else {
             // Screen lock is not enabled.
             Logger.verbose("tryToActivateScreenLockUponBecomingActive NO 1")
             return;
@@ -378,7 +378,7 @@ class ScreenLockUI {
         }
         
         DispatchQueue.global(qos: .background).async {
-            self.isScreenLockLocked.mutate { $0 = Dependencies()[singleton: .storage][.isScreenLockEnabled] }
+            self.isScreenLockLocked.mutate { $0 = Dependencies()[singleton: .storage, key: .isScreenLockEnabled] }
 
             DispatchQueue.main.async {
                 // NOTE: this notifications fires _before_ applicationDidBecomeActive,

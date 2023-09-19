@@ -303,7 +303,7 @@ public final class MessageSender {
                     guard
                         let job: Job = job,
                         shouldNotify &&
-                        UserDefaults.sharedLokiProject?[.isMainAppActive] != true
+                        !dependencies[defaults: .appGroup, key: .isMainAppActive]
                     else { return }
                     
                     NotifyPushServerJob.run(

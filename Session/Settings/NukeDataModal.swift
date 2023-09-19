@@ -262,8 +262,8 @@ final class NukeDataModal: Modal {
     
     private func deleteAllLocalData(using dependencies: Dependencies = Dependencies()) {
         // Unregister push notifications if needed
-        let isUsingFullAPNs: Bool = UserDefaults.standard[.isUsingFullAPNs]
-        let maybeDeviceToken: String? = UserDefaults.standard[.deviceToken]
+        let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+        let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
         
         if isUsingFullAPNs, let deviceToken: String = maybeDeviceToken {
             PushNotificationAPI
@@ -298,11 +298,11 @@ final class NukeDataModal: Modal {
         
         // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
         // profile storage
-        let wasUnlinked: Bool = UserDefaults.standard[.wasUnlinked]
+        let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
         
         SessionApp.resetAppData {
             // Resetting the data clears the old user defaults. We need to restore the unlink default.
-            UserDefaults.standard[.wasUnlinked] = wasUnlinked
+            dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
         }
     }
 }

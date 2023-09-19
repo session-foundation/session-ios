@@ -36,7 +36,7 @@ public enum ThemeManager {
     internal static var dependencies: Dependencies = Dependencies()
     
     public static var currentTheme: Theme = {
-        (_initialTheme ?? dependencies[singleton: .storage][.theme].defaulting(to: Theme.classicDark))
+        (_initialTheme ?? dependencies[singleton: .storage, key: .theme].defaulting(to: Theme.classicDark))
     }() {
         didSet {
             // Only update if it was changed
@@ -60,7 +60,7 @@ public enum ThemeManager {
     }
     
     public static var primaryColor: Theme.PrimaryColor = {
-        (_initialPrimaryColor ?? dependencies[singleton: .storage][.themePrimaryColor].defaulting(to: Theme.PrimaryColor.green))
+        (_initialPrimaryColor ?? dependencies[singleton: .storage, key: .themePrimaryColor].defaulting(to: Theme.PrimaryColor.green))
     }() {
         didSet {
             // Only update if it was changed
@@ -75,7 +75,7 @@ public enum ThemeManager {
     }
     
     public static var matchSystemNightModeSetting: Bool = {
-        (_initialMatchSystemNightModeSetting ?? dependencies[singleton: .storage][.themeMatchSystemDayNightCycle])
+        (_initialMatchSystemNightModeSetting ?? dependencies[singleton: .storage, key: .themeMatchSystemDayNightCycle])
     }() {
         didSet {
             // Only update if it was changed
@@ -134,8 +134,8 @@ public enum ThemeManager {
     }
     
     public static func applySavedTheme(using dependencies: Dependencies) {
-        ThemeManager.primaryColor = dependencies[singleton: .storage][.themePrimaryColor].defaulting(to: Theme.PrimaryColor.green)
-        ThemeManager.currentTheme = dependencies[singleton: .storage][.theme].defaulting(to: Theme.classicDark)
+        ThemeManager.primaryColor = dependencies[singleton: .storage, key: .themePrimaryColor].defaulting(to: Theme.PrimaryColor.green)
+        ThemeManager.currentTheme = dependencies[singleton: .storage, key: .theme].defaulting(to: Theme.classicDark)
     }
     
     public static func applyNavigationStyling() {

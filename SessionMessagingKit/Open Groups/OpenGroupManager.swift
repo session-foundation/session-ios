@@ -1117,7 +1117,7 @@ public final class OpenGroupManager {
         // don't double up on fetch requests by storing the existing request as a promise if
         // there is one.
         let threadId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
-        let lastOpenGroupImageUpdate: Date? = dependencies[singleton: .standardUserDefaults][.lastOpenGroupImageUpdate]
+        let lastOpenGroupImageUpdate: Date? = dependencies[defaults: .standard, key: .lastOpenGroupImageUpdate]
         let now: Date = dependencies.dateNow
         let timeSinceLastUpdate: TimeInterval = (lastOpenGroupImageUpdate.map { now.timeIntervalSince($0) } ?? .greatestFiniteMagnitude)
         let updateInterval: TimeInterval = (7 * 24 * 60 * 60)
@@ -1198,7 +1198,7 @@ public final class OpenGroupManager {
                                             .filter(id: threadId)
                                             .updateAll(db, OpenGroup.Columns.imageData.set(to: imageData))
                                     }
-                                    dependencies[singleton: .standardUserDefaults][.lastOpenGroupImageUpdate] = now
+                                    dependencies[defaults: .standard, key: .lastOpenGroupImageUpdate] = now
                                 }
                                 
                                 resolver(Result.success(imageData))
@@ -1244,7 +1244,7 @@ public extension OpenGroupManager {
                 return storedTimeSinceLastOpen
             }
             
-            guard let lastOpen: Date = dependencies[singleton: .standardUserDefaults][.lastOpen] else {
+            guard let lastOpen: Date = dependencies[defaults: .standard, key: .lastOpen] else {
                 _timeSinceLastOpen = .greatestFiniteMagnitude
                 return .greatestFiniteMagnitude
             }

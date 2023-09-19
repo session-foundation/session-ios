@@ -374,7 +374,8 @@ public struct ProfileManager {
                             try success?(db)
                         }
                     },
-                    failure: failure
+                    failure: failure,
+                    using: dependencies
                 )
         }
     }
@@ -383,7 +384,8 @@ public struct ProfileManager {
         queue: DispatchQueue,
         imageData: Data,
         success: @escaping ((downloadUrl: String, fileName: String, profileKey: Data)) -> (),
-        failure: ((ProfileManagerError) -> ())? = nil
+        failure: ((ProfileManagerError) -> ())? = nil,
+        using dependencies: Dependencies
     ) {
         queue.async {
             // If the profile avatar was updated or removed then encrypt with a new profile key
@@ -504,7 +506,7 @@ public struct ProfileManager {
                         
                         // Update the cached avatar image value
                         profileAvatarCache.mutate { $0[fileName] = avatarImageData }
-                        UserDefaults.standard[.lastProfilePictureUpload] = Date()
+                        dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
                         
                         SNLog("Successfully uploaded avatar image.")
                         success((downloadUrl, fileName, newProfileKey))

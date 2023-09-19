@@ -63,7 +63,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 dependencies[singleton: .storage] = mockStorage
                 dependencies[singleton: .network] = mockNetwork
                 dependencies[singleton: .crypto] = mockCrypto
-                dependencies[singleton: .standardUserDefaults] = mockUserDefaults
+                dependencies[defaults: .standard] = mockUserDefaults
                 dependencies[cache: .openGroupManager] = mockOGMCache
                 
                 testInteraction1 = Interaction(
@@ -252,7 +252,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("defaults the time since last open to greatestFiniteMagnitude") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(nil)
                     
@@ -264,7 +264,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("returns the time since the last open") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567880))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
@@ -277,7 +277,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("caches the time since the last open") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567770))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567780)
@@ -287,7 +287,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                  
@@ -327,7 +327,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                 }
@@ -783,7 +783,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                 }
@@ -928,7 +928,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         
                         mockUserDefaults
                             .when { (defaults: inout any UserDefaultsType) -> Any? in
-                                defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
+                                defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
                             }
                             .thenReturn(Date(timeIntervalSince1970: 1234567890))
                     }
@@ -1209,7 +1209,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: SNUserDefaults.Date.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(nil)
                 }
@@ -3245,7 +3245,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .to(call(matchingParameters: .all) {
                             $0.set(
                                 testDate,
-                                forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
+                                forKey: UserDefaultsInfo.DateKey.lastOpenGroupImageUpdate.rawValue
                             )
                         })
                     expect(
@@ -3354,7 +3354,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .toNot(call(matchingParameters: .all) {
                             $0.set(
                                 dependencies.dateNow,
-                                forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
+                                forKey: UserDefaultsInfo.DateKey.lastOpenGroupImageUpdate.rawValue
                             )
                         })
                 }
@@ -3436,7 +3436,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .to(call(matchingParameters: .all) {
                                 $0.set(
                                     dependencies.dateNow,
-                                    forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
+                                    forKey: UserDefaultsInfo.DateKey.lastOpenGroupImageUpdate.rawValue
                                 )
                             })
                     }

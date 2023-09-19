@@ -38,7 +38,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Called via the OS so create a default 'Dependencies' instance
         let dependencies: Dependencies = Dependencies()
         Cryptography.seedRandom()
-        AppVersion.sharedInstance()
+        AppVersion.configure(using: dependencies)
         AppEnvironment.shared.pushRegistrationManager.createVoipRegistryIfNecessary()
 
         // Prevent the device from sleeping during database view async registration
@@ -99,8 +99,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
         
         if Environment.shared?.callManager.wrappedValue?.currentCall == nil {
-            UserDefaults.sharedLokiProject?[.isCallOngoing] = false
-            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
+            dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         }
         
         // No point continuing if we are running tests
@@ -127,7 +127,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(showMissedCallTipsIfNeeded(_:)),
+            selector: #selector(showMissedCallTipsIfNeededNotification(_:)),
             name: .missedCall,
             object: nil
         )
@@ -236,7 +236,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // Called via the OS so create a default 'Dependencies' instance
         let dependencies: Dependencies = Dependencies()
-        UserDefaults.sharedLokiProject?[.isMainAppActive] = true
+        dependencies[defaults: .appGroup, key: .isMainAppActive] = true
         
         ensureRootViewController(calledFrom: .didBecomeActive, using: dependencies)
 
@@ -259,9 +259,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
-        clearAllNotificationsAndRestoreBadgeCount()
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
         
-        UserDefaults.sharedLokiProject?[.isMainAppActive] = false
+        clearAllNotificationsAndRestoreBadgeCount(using: dependencies)
+        
+        dependencies[defaults: .appGroup, key: .isMainAppActive] = false
 
         DDLog.flushLog()
     }
@@ -374,7 +377,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             DeviceSleepManager.sharedInstance.removeBlock(blockObject: self)
             
             /// App launch hasn't really completed until the main screen is loaded so wait until then to register it
-            AppVersion.sharedInstance().mainAppLaunchDidComplete()
+            AppVersion.shared.mainAppLaunchDidComplete(using: dependencies)
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
             dependencies[singleton: .storage].writeAsync { db in
@@ -387,13 +390,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 db[.isReadyForAppExtensions] = true
                 
                 if Identity.userCompletedRequiredOnboarding(db) {
-                    let appVersion: AppVersion = AppVersion.sharedInstance()
-                    
                     // If the device needs to sync config or the user updated to a new version
                     if
                         needsConfigSync || (
-                            (appVersion.lastAppVersion?.count ?? 0) > 0 &&
-                            appVersion.lastAppVersion != appVersion.currentAppVersion
+                            (AppVersion.shared.lastAppVersion?.count ?? 0) > 0 &&
+                            AppVersion.shared.lastAppVersion != AppVersion.shared.currentAppVersion
                         )
                     {
                         ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
@@ -539,7 +540,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// called again - this can result in odd behaviours so hold off on running this logic until it's properly called again
         guard
             Identity.userExists(using: dependencies) &&
-            UserDefaults.sharedLokiProject?[.isMainAppActive] == true
+            dependencies[defaults: .appGroup, key: .isMainAppActive] == true
         else { return }
         
         enableBackgroundRefreshIfNecessary()
@@ -589,7 +590,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             let presentedViewController: UIViewController? = self?.window?.rootViewController?.presentedViewController
             let targetRootViewController: UIViewController = TopBannerController(
                 child: StyledNavigationController(rootViewController: rootViewController),
-                cachedWarning: UserDefaults.sharedLokiProject?[.topBannerWarningToShow]
+                cachedWarning: dependencies[defaults: .appGroup, key: .topBannerWarningToShow]
                     .map { rawValue in TopBannerController.Warning(rawValue: rawValue) }
             )
             
@@ -687,7 +688,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         #endif
     }
     
-    private func clearAllNotificationsAndRestoreBadgeCount(using dependencies: Dependencies = Dependencies()) {
+    private func clearAllNotificationsAndRestoreBadgeCount(using dependencies: Dependencies) {
         AppReadiness.runNowOrWhenAppDidBecomeReady {
             AppEnvironment.shared.notificationPresenter.clearAllNotifications()
             
@@ -760,11 +761,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         handleActivation()
     }
     
-    @objc public func showMissedCallTipsIfNeeded(_ notification: Notification) {
-        guard !UserDefaults.standard[.hasSeenCallMissedTips] else { return }
+    @objc public func showMissedCallTipsIfNeededNotification(_ notification: Notification) {
+        showMissedCallTipsIfNeeded(notification)
+    }
+    
+    private func showMissedCallTipsIfNeeded(
+        _ notification: Notification,
+        using dependencies: Dependencies = Dependencies()
+    ) {
+        guard !dependencies[defaults: .standard, key: .hasSeenCallMissedTips] else { return }
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
-                self.showMissedCallTipsIfNeeded(notification)
+                self.showMissedCallTipsIfNeeded(notification, using: dependencies)
             }
             return
         }
@@ -778,7 +786,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
         presentingVC.present(callMissedTipsModal, animated: true, completion: nil)
         
-        UserDefaults.standard[.hasSeenCallMissedTips] = true
+        dependencies[defaults: .standard, key: .hasSeenCallMissedTips] = true
     }
     
     // MARK: - Polling

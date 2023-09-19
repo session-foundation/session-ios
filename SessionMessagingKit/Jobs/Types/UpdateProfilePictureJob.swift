@@ -18,13 +18,13 @@ public enum UpdateProfilePictureJob: JobExecutor {
         using dependencies: Dependencies
     ) {
         // Don't run when inactive or not in main app
-        guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
+        guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
             return deferred(job, dependencies) // Don't need to do anything if it's not the main app
         }
         
         // Only re-upload the profile picture if enough time has passed since the last upload
         guard
-            let lastProfilePictureUpload: Date = dependencies[singleton: .standardUserDefaults][.lastProfilePictureUpload],
+            let lastProfilePictureUpload: Date = dependencies[defaults: .standard, key: .lastProfilePictureUpload],
             dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
         else {
             // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck

@@ -164,12 +164,6 @@ final class ShareAppExtensionContext: NSObject, AppContext {
         return (targetPath ?? "")
     }
     
-    func appUserDefaults() -> UserDefaults {
-        owsAssertDebug(UserDefaults.sharedLokiProject != nil)
-        
-        return (UserDefaults.sharedLokiProject ?? UserDefaults.standard)
-    }
-    
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) {
         OWSLogger.info("Ignoring request to show/hide status bar since we're in an app extension")
     }

@@ -18,7 +18,7 @@ extension MessageReceiver {
         guard threadVariant == .contact else { return }
         
         switch message.kind {
-            case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message)
+            case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message, using: dependencies)
             case .offer: MessageReceiver.handleOfferCallMessage(db, message: message)
             case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message, using: dependencies)
             case .provisionalAnswer: break // TODO: Implement
@@ -44,12 +44,16 @@ extension MessageReceiver {
     
     // MARK: - Specific Handling
     
-    private static func handleNewCallMessage(_ db: Database, message: CallMessage) throws {
+    private static func handleNewCallMessage(
+        _ db: Database,
+        message: CallMessage,
+        using dependencies: Dependencies
+    ) throws {
         SNLog("[Calls] Received pre-offer message.")
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
         // requiring main-thread execution
-        let isMainAppActive: Bool = (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false)
+        let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
         
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance

@@ -291,15 +291,15 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         // Suggest that the user enable link previews if they haven't already and we haven't
         // told them about link previews yet
         let text = inputTextView.text!
-        let areLinkPreviewsEnabled: Bool = dependencies[singleton: .storage][.areLinkPreviewsEnabled]
+        let areLinkPreviewsEnabled: Bool = dependencies[singleton: .storage, key: .areLinkPreviewsEnabled]
         
         if
             !LinkPreview.allPreviewUrls(forMessageBodyText: text).isEmpty &&
             !areLinkPreviewsEnabled &&
-            !UserDefaults.standard[.hasSeenLinkPreviewSuggestion]
+            !dependencies[defaults: .standard, key: .hasSeenLinkPreviewSuggestion]
         {
             delegate?.showLinkPreviewSuggestionModal()
-            UserDefaults.standard[.hasSeenLinkPreviewSuggestion] = true
+            dependencies[defaults: .standard, key: .hasSeenLinkPreviewSuggestion] = true
             return
         }
         // Check that link previews are enabled

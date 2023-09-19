@@ -7,6 +7,7 @@ import Foundation
 public class TestDependencies: Dependencies {
     private var singletonInstances: [Int: Any] = [:]
     private var cacheInstances: [Int: MutableCacheType] = [:]
+    private var defaultsInstances: [Int: (any UserDefaultsType)] = [:]
     
     // MARK: - Subscript Access
     
@@ -26,6 +27,15 @@ public class TestDependencies: Dependencies {
     public subscript<M, I>(cache cache: CacheInfo.Config<M, I>) -> M? {
         get { return (cacheInstances[cache.key] as? M) }
         set { cacheInstances[cache.key] = newValue.map { cache.mutableInstance($0) } }
+    }
+    
+    override public subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>) -> U {
+        return getValueSettingIfNull(defaults: defaults, &defaultsInstances)
+    }
+    
+    public subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>) -> U? {
+        get { return (defaultsInstances[defaults.key] as? U) }
+        set { defaultsInstances[defaults.key] = newValue }
     }
     
     // MARK: - Timing and Async Handling
@@ -119,5 +129,18 @@ public class TestDependencies: Dependencies {
         }
         
         return cache.immutableInstance(value)
+    }
+    
+    @discardableResult private func getValueSettingIfNull<U>(
+        defaults: UserDefaultsInfo.Config<U>,
+        _ store: inout [Int: (any UserDefaultsType)]
+    ) -> U {
+        guard let value: U = (store[defaults.key] as? U) else {
+            let value: U = defaults.createInstance(self)
+            store[defaults.key] = value
+            return value
+        }
+
+        return value
     }
 }

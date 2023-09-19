@@ -30,12 +30,6 @@ extension PushNotificationAPI {
         /// The message's swarm expiry timestamp (unix epoch milliseconds)
         public let expirationTimestampMs: Int64
         
-        /// The swarm timestamp when the message was created (unix epoch milliseconds)
-        public let createdTimestampMs: Int64
-        
-        /// The message's swarm expiry timestamp (unix epoch milliseconds)
-        public let expirationTimestampMs: Int64
-        
         /// The length of the message data.  This is always included, even if the message content
         /// itself was too large to fit into the push notification.
         public let dataLength: Int

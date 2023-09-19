@@ -170,7 +170,7 @@ extension OpenGroupAPI {
                         dependencies.mutate(cache: .openGroupManager) { cache in
                             cache.hasPerformedInitialPoll[server] = true
                             cache.timeSinceLastPoll[server] = dependencies.dateNow.timeIntervalSince1970
-                            dependencies[singleton: .standardUserDefaults][.lastOpen] = dependencies.dateNow
+                            dependencies[defaults: .standard, key: .lastOpen] = dependencies.dateNow
                         }
 
                         SNLog("Open group polling finished for \(server).")
