@@ -25,6 +25,8 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
         case groupInfo
         case groupMembers
         case groupKeys
+        
+        case invalid    // Should only be used when failing to convert a namespace to a variant
     }
     
     /// The type of config this dump is for
@@ -56,7 +58,7 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
 
 // MARK: - Convenience
 
-public extension ConfigDump.Variant {
+public extension ConfigDump.Variant, CustomStringConvertible {
     static let userVariants: Set<ConfigDump.Variant> = [
         .userProfile, .contacts, .convoInfoVolatile, .userGroups
     ]
@@ -64,18 +66,23 @@ public extension ConfigDump.Variant {
         .groupInfo, .groupMembers, .groupKeys
     ]
     
-    var configMessageKind: SharedConfigMessage.Kind {
-        switch self {
-            case .userProfile: return .userProfile
-            case .contacts: return .contacts
-            case .convoInfoVolatile: return .convoInfoVolatile
-            case .userGroups: return .userGroups
+    init(namespace: SnodeAPI.Namespace) {
+        switch namespace {
+            case .configUserProfile: self = .userProfile
+            case .configContacts: self = .contacts
+            case .configConvoInfoVolatile: self = .convoInfoVolatile
+            case .configUserGroups: self = .userGroups
                 
-            case .groupInfo: return .groupInfo
-            case .groupMembers: return .groupMembers
-            case .groupKeys: return .groupKeys
+            case .configGroupInfo: self = .groupInfo
+            case .configGroupMembers: self = .groupMembers
+            case .configGroupKeys: self = .groupKeys
+                
+            default: self = .invalid
         }
     }
+    
+    /// Config messages should last for 30 days rather than the standard 14
+    var ttl: UInt64 { 30 * 24 * 60 * 60 * 1000 }
     
     var namespace: SnodeAPI.Namespace {
         switch self {
@@ -87,6 +94,8 @@ public extension ConfigDump.Variant {
             case .groupInfo: return SnodeAPI.Namespace.configGroupInfo
             case .groupMembers: return SnodeAPI.Namespace.configGroupMembers
             case .groupKeys: return SnodeAPI.Namespace.configGroupKeys
+                
+            case .invalid: return SnodeAPI.Namespace.unknown
         }
     }
     
@@ -99,7 +108,7 @@ public extension ConfigDump.Variant {
         }
     }
     
-    /// This value defines the order that the SharedConfigMessages should be processed in, while we re-process config
+    /// This value defines the order that the config messages should be processed in, while we re-process config
     /// messages every time we poll this will prevent an edge-case where data/logic between different config messages
     /// could be dependant on each other (eg. there could be `convoInfoVolatile` data related to a new conversation
     /// which hasn't been created yet because it's associated `contacts`/`userGroups` message hasn't yet been
@@ -109,6 +118,8 @@ public extension ConfigDump.Variant {
             case .userProfile, .contacts, .groupKeys: return 0
             case .userGroups, .groupInfo, .groupMembers: return 1
             case .convoInfoVolatile: return 2
+                
+            case .invalid: return -1
         }
     }
     
@@ -119,6 +130,21 @@ public extension ConfigDump.Variant {
         switch self {
             case .groupKeys: return 0
             default: return 1
+        }
+    }
+    
+    public var description: String {
+        switch self {
+            case .userProfile: return "userProfile"
+            case .contacts: return "contacts"
+            case .convoInfoVolatile: return "convoInfoVolatile"
+            case .userGroups: return "userGroups"
+                
+            case .groupInfo: return "groupInfo"
+            case .groupMembers: return "groupMembers"
+            case .groupKeys: return "groupKeys"
+                
+            case .invalid: return "invalid"
         }
     }
 }

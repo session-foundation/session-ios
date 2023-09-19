@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 public enum ConfigMessageReceiveJob: JobExecutor {
     public static var maxFailureCount: Int = 0
@@ -37,31 +38,22 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         }
         
         guard
+            let publicKey: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
             removeDependencyOnMessageReceiveJobs()
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
-
-        // Ensure no standard messages are sent through this job
-        guard !details.messages.contains(where: { $0.variant != .sharedConfigMessage }) else {
-            SNLog("[ConfigMessageReceiveJob] Standard messages incorrectly sent to the 'configMessageReceive' job")
-            removeDependencyOnMessageReceiveJobs()
-            return failure(job, MessageReceiverError.invalidMessage, true, dependencies)
-        }
         
         var lastError: Error?
-        let sharedConfigMessages: [SharedConfigMessage] = details.messages
-            .compactMap { $0.message as? SharedConfigMessage }
         
         dependencies[singleton: .storage].write { db in
-            // Send any SharedConfigMessages to the SessionUtil to handle it
             do {
                 try SessionUtil.handleConfigMessages(
                     db,
-                    messages: sharedConfigMessages,
-                    publicKey: (job.threadId ?? ""),
+                    publicKey: publicKey,
+                    messages: details.messages,
                     using: dependencies
                 )
             }
@@ -71,6 +63,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         // Handle the result
         switch lastError {
             case .some(let error):
+                SNLog("[ConfigMessageReceiveJob] Couldn't receive config message due to error: \(error)")
                 removeDependencyOnMessageReceiveJobs()
                 failure(job, error, true, dependencies)
 
@@ -82,5 +75,54 @@ public enum ConfigMessageReceiveJob: JobExecutor {
 // MARK: - ConfigMessageReceiveJob.Details
 
 extension ConfigMessageReceiveJob {
-    typealias Details = MessageReceiveJob.Details
+    public struct Details: Codable {
+        public struct MessageInfo: Codable {
+            private enum CodingKeys: String, CodingKey {
+                case namespace
+                case serverHash
+                case serverTimestampMs
+                case data
+            }
+            
+            public let namespace: SnodeAPI.Namespace
+            public let serverHash: String
+            public let serverTimestampMs: Int64
+            public let data: Data
+            
+            public init(
+                namespace: SnodeAPI.Namespace,
+                serverHash: String,
+                serverTimestampMs: Int64,
+                data: Data
+            ) {
+                self.namespace = namespace
+                self.serverHash = serverHash
+                self.serverTimestampMs = serverTimestampMs
+                self.data = data
+            }
+        }
+        
+        public let messages: [MessageInfo]
+        private let calledFromBackgroundPoller: Bool
+        
+        public init(
+            messages: [ProcessedMessage],
+            calledFromBackgroundPoller: Bool
+        ) {
+            self.messages = messages
+                .compactMap { processedMessage -> MessageInfo? in
+                    switch processedMessage {
+                        case .standard: return nil
+                        case .config(_, let namespace, let serverHash, let serverTimestampMs, let data):
+                            return MessageInfo(
+                                namespace: namespace,
+                                serverHash: serverHash,
+                                serverTimestampMs: serverTimestampMs,
+                                data: data
+                            )
+                    }
+            }
+            self.calledFromBackgroundPoller = calledFromBackgroundPoller
+        }
+    }
 }

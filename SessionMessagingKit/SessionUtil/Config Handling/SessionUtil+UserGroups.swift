@@ -28,7 +28,7 @@ internal extension SessionUtil {
     static func handleUserGroupsUpdate(
         _ db: Database,
         in config: Config?,
-        latestConfigSentTimestampMs: Int64,
+        serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
         guard config.needsDump else { return }
@@ -90,7 +90,7 @@ internal extension SessionUtil {
                             .with(
                                 isEnabled: (legacyGroup.disappearing_timer > 0),
                                 durationSeconds: TimeInterval(legacyGroup.disappearing_timer),
-                                lastChangeTimestampMs: latestConfigSentTimestampMs
+                                lastChangeTimestampMs: serverTimestampMs
                             ),
                         groupMembers: members
                             .filter { _, isAdmin in !isAdmin }
@@ -266,7 +266,7 @@ internal extension SessionUtil {
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
-                    formationTimestampMs: UInt64((group.joinedAt.map { $0 * 1000 } ?? latestConfigSentTimestampMs)),
+                    formationTimestampMs: UInt64((group.joinedAt.map { $0 * 1000 } ?? serverTimestampMs)),
                     calledFromConfigHandling: true,
                     using: dependencies
                 )
@@ -437,7 +437,7 @@ internal extension SessionUtil {
                     groupIdentityPrivateKey: group.groupIdentityPrivateKey,
                     name: group.name,
                     authData: group.authData,
-                    created: Int64((group.joinedAt ?? (latestConfigSentTimestampMs / 1000))),
+                    created: Int64((group.joinedAt ?? (serverTimestampMs / 1000))),
                     invited: (group.invited == true),
                     calledFromConfigHandling: true,
                     using: dependencies

@@ -20,9 +20,26 @@ public enum MessageWrapper {
     }
 
     /// Wraps the given parameters in an `SNProtoEnvelope` and then a `WebSocketProtoWebSocketMessage` to match the desktop application.
-    public static func wrap(type: SNProtoEnvelope.SNProtoEnvelopeType, timestamp: UInt64, senderPublicKey: String, base64EncodedContent: String) throws -> Data {
+    public static func wrap(
+        type: SNProtoEnvelope.SNProtoEnvelopeType,
+        timestamp: UInt64,
+        senderPublicKey: String,
+        base64EncodedContent: String,
+        wrapInWebSocketMessage: Bool = true
+    ) throws -> Data {
         do {
-            let envelope = try createEnvelope(type: type, timestamp: timestamp, senderPublicKey: senderPublicKey, base64EncodedContent: base64EncodedContent)
+            let envelope: SNProtoEnvelope = try createEnvelope(
+                type: type,
+                timestamp: timestamp,
+                senderPublicKey: senderPublicKey,
+                base64EncodedContent: base64EncodedContent
+            )
+            
+            // If we don't want to wrap the message within the `WebSocketProtoWebSocketMessage` type
+            // the just serialise and return here
+            guard wrapInWebSocketMessage else { return try envelope.serializedData() }
+            
+            // Otherwise add the additional wrapper
             let webSocketMessage = try createWebSocketMessage(around: envelope)
             return try webSocketMessage.serializedData()
         } catch let error {
@@ -49,7 +66,7 @@ public enum MessageWrapper {
 
     private static func createWebSocketMessage(around envelope: SNProtoEnvelope) throws -> WebSocketProtoWebSocketMessage {
         do {
-            let requestBuilder = WebSocketProtoWebSocketRequestMessage.builder(verb: "PUT", path: "/api/v1/message", requestID: UInt64.random(in: 1..<UInt64.max))
+            let requestBuilder = WebSocketProtoWebSocketRequestMessage.builder(verb: "", path: "", requestID: 0)
             requestBuilder.setBody(try envelope.serializedData())
             let messageBuilder = WebSocketProtoWebSocketMessage.builder(type: .request)
             messageBuilder.setRequest(try requestBuilder.build())

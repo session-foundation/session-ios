@@ -55,7 +55,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let publicKey: String = job.threadId,
-            let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = dependencies[singleton: .storage]
+            let pendingConfigChanges: [SessionUtil.PushData] = dependencies[singleton: .storage]
                 .read(using: dependencies, { db in
                     try SessionUtil.pendingChanges(db, publicKey: publicKey, using: dependencies)
                 })
@@ -71,12 +71,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             return success(job, true, dependencies)
         }
         
-        // Identify the destination and merge all obsolete hashes into a single set
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        let destination: Message.Destination = (publicKey == currentUserPublicKey ?
-            Message.Destination.contact(publicKey: publicKey) :
-            Message.Destination.closedGroup(groupPublicKey: publicKey)
-        )
+        // Merge all obsolete hashes into a single set
         let allObsoleteHashes: Set<String>? = pendingConfigChanges
             .map { $0.obsoleteHashes }
             .reduce([], +)
@@ -91,30 +86,24 @@ public enum ConfigurationSyncJob: JobExecutor {
                 try SnodeAPI.preparedSequence(
                     db,
                     requests: try pendingConfigChanges
-                        .map { change -> ErasedPreparedRequest in
-                            do {
-                                return try MessageSender.preparedSendToSnodeDestination(
+                        .map { pushData -> ErasedPreparedRequest in
+                            try SnodeAPI
+                                .preparedSendMessage(
                                     db,
-                                    message: change.message,
-                                    to: destination,
-                                    namespace: change.namespace,
-                                    interactionId: nil,
-                                    fileIds: [],
-                                    userPublicKey: currentUserPublicKey,
-                                    messageSendTimestamp: messageSendTimestamp,
+                                    message: SnodeMessage(
+                                        recipient: publicKey,
+                                        data: pushData.data.base64EncodedString(),
+                                        ttl: pushData.variant.ttl,
+                                        timestampMs: UInt64(messageSendTimestamp)
+                                    ),
+                                    in: pushData.variant.namespace,
+                                    authInfo: try SnodeAPI.AuthenticationInfo(
+                                        db,
+                                        threadId: publicKey,
+                                        using: dependencies
+                                    ),
                                     using: dependencies
                                 )
-                            }
-                            catch let error as MessageSenderError {
-                                throw MessageSender.handleFailedMessageSend(
-                                    db,
-                                    message: change.message,
-                                    with: error,
-                                    interactionId: nil,
-                                    isSyncMessage: false,
-                                    using: dependencies
-                                )
-                            }
                         }
                         .appending(
                             try allObsoleteHashes.map { serverHashes -> ErasedPreparedRequest in
@@ -145,7 +134,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
                 zip(response, pendingConfigChanges)
-                    .compactMap { (subResponse: Any, change: SessionUtil.OutgoingConfResult) in
+                    .compactMap { (subResponse: Any, pushData: SessionUtil.PushData) -> ConfigDump? in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
@@ -158,8 +147,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                         /// Since this change was successful we need to mark it as pushed and generate any config dumps
                         /// which need to be stored
                         return SessionUtil.markingAsPushed(
-                            message: change.message,
+                            seqNo: pushData.seqNo,
                             serverHash: sendMessageResponse.hash,
+                            sentTimestamp: messageSendTimestamp,
+                            variant: pushData.variant,
                             publicKey: publicKey,
                             using: dependencies
                         )

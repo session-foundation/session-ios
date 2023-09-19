@@ -34,7 +34,7 @@ internal extension SessionUtil {
     static func handleContactsUpdate(
         _ db: Database,
         in config: Config?,
-        latestConfigSentTimestampMs: Int64,
+        serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
         guard config.needsDump else { return }
@@ -45,7 +45,7 @@ internal extension SessionUtil {
         let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let targetContactData: [String: ContactData] = try extractContacts(
             from: conf,
-            latestConfigSentTimestampMs: latestConfigSentTimestampMs
+            serverTimestampMs: serverTimestampMs
         ).filter { $0.key != userPublicKey }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
@@ -706,7 +706,7 @@ private struct ThreadCount: Codable, FetchableRecord {
 private extension SessionUtil {
     static func extractContacts(
         from conf: UnsafeMutablePointer<config_object>?,
-        latestConfigSentTimestampMs: Int64
+        serverTimestampMs: Int64
     ) throws -> [String: ContactData] {
         var infiniteLoopGuard: Int = 0
         var result: [String: ContactData] = [:]
@@ -730,7 +730,7 @@ private extension SessionUtil {
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: String(libSessionVal: contact.name),
-                lastNameUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
                 nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
                 profilePictureUrl: profilePictureUrl,
                 profileEncryptionKey: (profilePictureUrl == nil ? nil :
@@ -739,7 +739,7 @@ private extension SessionUtil {
                         count: ProfileManager.avatarAES256KeyByteLength
                     )
                 ),
-                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000),
                 lastBlocksCommunityMessageRequests: 0
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
@@ -747,7 +747,7 @@ private extension SessionUtil {
                 isEnabled: contact.exp_seconds > 0,
                 durationSeconds: TimeInterval(contact.exp_seconds),
                 type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode),
-                lastChangeTimestampMs: latestConfigSentTimestampMs
+                lastChangeTimestampMs: serverTimestampMs
             )
             
             result[contactId] = ContactData(

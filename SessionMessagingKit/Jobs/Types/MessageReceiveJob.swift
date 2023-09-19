@@ -25,23 +25,16 @@ public enum MessageReceiveJob: JobExecutor {
             return failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
         }
         
-        // Ensure no config messages are sent through this job
-        guard !details.messages.contains(where: { $0.variant == .sharedConfigMessage }) else {
-            SNLog("[MessageReceiveJob] Config messages incorrectly sent to the 'messageReceive' job")
-            return failure(job, MessageReceiverError.invalidSharedConfigMessageHandling, true, dependencies)
-        }
-        
         var updatedJob: Job = job
         var lastError: Error?
         var remainingMessagesToProcess: [Details.MessageInfo] = []
         let messageData: [(info: Details.MessageInfo, proto: SNProtoContent)] = details.messages
-            .filter { $0.variant != .sharedConfigMessage }
             .compactMap { messageInfo -> (info: Details.MessageInfo, proto: SNProtoContent)? in
                 do {
                     return (messageInfo, try SNProtoContent.parseData(messageInfo.serializedProtoData))
                 }
                 catch {
-                    SNLog("Couldn't receive message due to error: \(error)")
+                    SNLog("[MessageReceiveJob] Couldn't receive message due to error: \(error)")
                     lastError = error
                     
                     // We failed to process this message but it is a retryable error
@@ -78,11 +71,11 @@ public enum MessageReceiveJob: JobExecutor {
                             break
                         
                         case let receiverError as MessageReceiverError where !receiverError.isRetryable:
-                            SNLog("MessageReceiveJob permanently failed message due to error: \(error)")
+                            SNLog("[MessageReceiveJob] Permanently failed message due to error: \(error)")
                             continue
                         
                         default:
-                            SNLog("Couldn't receive message due to error: \(error)")
+                            SNLog("[MessageReceiveJob] Couldn't receive message due to error: \(error)")
                             lastError = error
                             
                             // We failed to process this message but it is a retryable error
@@ -125,8 +118,6 @@ public enum MessageReceiveJob: JobExecutor {
 
 extension MessageReceiveJob {
     public struct Details: Codable {
-        typealias SharedConfigInfo = (message: SharedConfigMessage, serializedProtoData: Data)
-        
         public struct MessageInfo: Codable {
             private enum CodingKeys: String, CodingKey {
                 case message
@@ -183,24 +174,7 @@ extension MessageReceiveJob {
                 self = MessageInfo(
                     message: try variant.decode(from: container, forKey: .message),
                     variant: variant,
-                    threadVariant: (try? container.decode(SessionThread.Variant.self, forKey: .threadVariant))
-                        .defaulting(to: {
-                            /// We used to store a 'groupPublicKey' value within the 'Message' type which was used to
-                            /// determine the thread variant, now we just encode the variant directly but there may be
-                            /// some legacy jobs which still have `groupPublicKey` so we have this mechanism
-                            ///
-                            /// **Note:** This can probably be removed a couple of releases after the user config
-                            /// update release (ie. after June 2023)
-                            class LegacyGroupPubkey: Codable {
-                                let groupPublicKey: String?
-                            }
-                            
-                            if (try? container.decode(LegacyGroupPubkey.self, forKey: .message))?.groupPublicKey != nil {
-                                return .legacyGroup
-                            }
-                            
-                            return .contact
-                        }()),
+                    threadVariant: try container.decode(SessionThread.Variant.self, forKey: .threadVariant),
                     serverExpirationTimestamp: try? container.decode(TimeInterval.self, forKey: .serverExpirationTimestamp),
                     serializedProtoData: try container.decode(Data.self, forKey: .serializedProtoData)
                 )
@@ -228,6 +202,19 @@ extension MessageReceiveJob {
         // Renamed variable for clarity (and didn't want to migrate old MessageReceiveJob
         // values so didn't rename the original)
         public var calledFromBackgroundPoller: Bool { isBackgroundPoll }
+        
+        public init(
+            messages: [ProcessedMessage],
+            calledFromBackgroundPoller: Bool
+        ) {
+            self.messages = messages.compactMap { processedMessage in
+                switch processedMessage {
+                    case .config: return nil
+                    case .standard(_, _, _, let messageInfo): return messageInfo
+                }
+            }
+            self.isBackgroundPoll = calledFromBackgroundPoller
+        }
         
         public init(
             messages: [MessageInfo],

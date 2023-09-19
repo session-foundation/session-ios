@@ -394,6 +394,7 @@ internal extension SessionUtil {
             switch targetConfig {
                 case .userProfile, .contacts, .convoInfoVolatile, .userGroups: return getUserHexEncodedPublicKey(db)
                 case .groupInfo, .groupMembers, .groupKeys: return threadId
+                case .invalid: return ""
             }
         }()
         
@@ -415,7 +416,7 @@ internal extension SessionUtil {
         loopCounter += 1
         
         guard loopCounter < maxLoopCount else {
-            SNLog("[libSession] Got stuck in infinite loop processing '\(variant.configMessageKind.description)' data")
+            SNLog("[libSession] Got stuck in infinite loop processing '\(variant.description)' data")
             throw SessionUtilError.processingLoopLimitReached
         }
     }

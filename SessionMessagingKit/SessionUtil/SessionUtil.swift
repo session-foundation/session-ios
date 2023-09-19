@@ -23,13 +23,7 @@ public enum SessionUtil {
         let latestSentTimestamp: TimeInterval
         
         var result: ConfResult { ConfResult(needsPush: needsPush, needsDump: needsDump) }
-    }
-    
-    public struct OutgoingConfResult {
-        let message: SharedConfigMessage
-        let namespace: SnodeAPI.Namespace
-        let obsoleteHashes: [String]
-    }
+    }    
     
     // MARK: - Variables
     
@@ -141,6 +135,10 @@ public enum SessionUtil {
         ]
         
         switch (variant, groupEd25519SecretKey) {
+            case (.invalid, _):
+                SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object")
+                throw SessionUtilError.unableToCreateConfigObject
+                
             case (.userProfile, _), (.contacts, _), (.convoInfoVolatile, _), (.userGroups, _):
                 return try (userConfigInitCalls[variant]?(
                     &conf,
@@ -267,7 +265,7 @@ public enum SessionUtil {
         _ db: Database,
         publicKey: String,
         using dependencies: Dependencies
-    ) throws -> [OutgoingConfResult] {
+    ) throws -> [PushData] {
         guard Identity.userExists(db, using: dependencies) else { throw SessionUtilError.userDoesNotExist }
         
         // Get a list of the different config variants for the provided publicKey
@@ -283,58 +281,49 @@ public enum SessionUtil {
         // Extract any pending changes from the cached config entry for each variant
         return try targetVariants
             .sorted { (lhs: ConfigDump.Variant, rhs: ConfigDump.Variant) in lhs.sendOrder < rhs.sendOrder }
-            .compactMap { variant -> OutgoingConfResult? in
+            .compactMap { variant -> PushData? in
                 try dependencies[cache: .sessionUtil]
                     .config(for: variant, publicKey: publicKey)
                     .wrappedValue
-                    .map { config -> OutgoingConfResult? in
+                    .map { config -> PushData? in
                         // Check if the config needs to be pushed
                         guard config.needsPush else { return nil }
                         
-                        var result: (data: Data, seqNo: Int64, obsoleteHashes: [String])!
-                        let configCountInfo: String = config.count(for: variant)
-                        
-                        do { result = try config.push() }
-                        catch {
-                            SNLog("[libSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
-                            throw error
-                        }
-                        
-                        return OutgoingConfResult(
-                            message: SharedConfigMessage(
-                                kind: variant.configMessageKind,
-                                seqNo: result.seqNo,
-                                data: result.data
-                            ),
-                            namespace: variant.namespace,
-                            obsoleteHashes: result.obsoleteHashes
-                        )
+                        return try Result(config.push(variant: variant))
+                            .onFailure { error in
+                                let configCountInfo: String = config.count(for: variant)
+                                
+                                SNLog("[libSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
+                            }
+                            .successOrThrow()
                     }
             }
     }
     
     public static func markingAsPushed(
-        message: SharedConfigMessage,
+        seqNo: Int64,
         serverHash: String,
+        sentTimestamp: Int64,
+        variant: ConfigDump.Variant,
         publicKey: String,
         using dependencies: Dependencies
     ) -> ConfigDump? {
         return dependencies[cache: .sessionUtil]
-            .config(for: message.kind.configDumpVariant, publicKey: publicKey)
+            .config(for: variant, publicKey: publicKey)
             .mutate { config -> ConfigDump? in
                 guard config != nil else { return nil }
                 
                 // Mark the config as pushed
-                config?.confirmPushed(seqNo: message.seqNo, hash: serverHash)
+                config?.confirmPushed(seqNo: seqNo, hash: serverHash)
                 
                 // Update the result to indicate whether the config needs to be dumped
                 guard config.needsPush else { return nil }
                 
                 return try? SessionUtil.createDump(
                     config: config,
-                    for: message.kind.configDumpVariant,
+                    for: variant,
                     publicKey: publicKey,
-                    timestampMs: (message.sentTimestamp.map { Int64($0) } ?? 0)
+                    timestampMs: sentTimestamp
                 )
             }
     }
@@ -369,26 +358,26 @@ public enum SessionUtil {
     
     public static func handleConfigMessages(
         _ db: Database,
-        messages: [SharedConfigMessage],
         publicKey: String,
+        messages: [ConfigMessageReceiveJob.Details.MessageInfo],
         using dependencies: Dependencies = Dependencies()
     ) throws {
         guard !messages.isEmpty else { return }
-        guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         
-        let groupedMessages: [ConfigDump.Variant: [SharedConfigMessage]] = messages
-            .sorted { lhs, rhs in lhs.seqNo < rhs.seqNo }
-            .grouped(by: \.kind.configDumpVariant)
+        let groupedMessages: [ConfigDump.Variant: [ConfigMessageReceiveJob.Details.MessageInfo]] = messages
+            .grouped(by: { ConfigDump.Variant(namespace: $0.namespace) })
         
         let needsPush: Bool = try groupedMessages
             .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
             .reduce(false) { prevNeedsPush, next -> Bool in
-                let latestConfigSentTimestampMs: Int64 = Int64(next.value.compactMap { $0.sentTimestamp }.max() ?? 0)
                 let needsPush: Bool = try dependencies[cache: .sessionUtil]
                     .config(for: next.key, publicKey: publicKey)
                     .mutate { config in
-                        // Merge the messages
-                        config?.merge(next.value)
+                        // Merge the messages (if it doesn't merge anything then don't bother trying
+                        // to handle the result)
+                        guard let latestServerTimestampMs: Int64 = try config?.merge(next.value) else {
+                            return config.needsPush
+                        }
                         
                         // Apply the updated states to the database
                         do {
@@ -397,7 +386,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleUserProfileUpdate(
                                         db,
                                         in: config,
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
+                                        serverTimestampMs: latestServerTimestampMs,
                                         using: dependencies
                                     )
                                     
@@ -405,7 +394,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleContactsUpdate(
                                         db,
                                         in: config,
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
+                                        serverTimestampMs: latestServerTimestampMs,
                                         using: dependencies
                                     )
                                     
@@ -420,7 +409,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleUserGroupsUpdate(
                                         db,
                                         in: config,
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
+                                        serverTimestampMs: latestServerTimestampMs,
                                         using: dependencies
                                     )
                                     
@@ -429,7 +418,7 @@ public enum SessionUtil {
                                         db,
                                         in: config,
                                         groupIdentityPublicKey: publicKey,
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
+                                        serverTimestampMs: latestServerTimestampMs,
                                         using: dependencies
                                     )
                                     
@@ -438,7 +427,7 @@ public enum SessionUtil {
                                         db,
                                         in: config,
                                         groupIdentityPublicKey: publicKey,
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
+                                        serverTimestampMs: latestServerTimestampMs,
                                         using: dependencies
                                     )
                                     
@@ -447,9 +436,11 @@ public enum SessionUtil {
                                         db,
                                         in: config,
                                         groupIdentityPublicKey: publicKey,
-                                        latestConfigSentTimestampMs: latestConfigSentTimestampMs,
                                         using: dependencies
                                     )
+                                    
+                                case .invalid:
+                                    SNLog("[libSession] Failed to process merge of invalid config namespace")
                             }
                         }
                         catch {
@@ -467,7 +458,7 @@ public enum SessionUtil {
                                 )
                                 .updateAll(
                                     db,
-                                    ConfigDump.Columns.timestampMs.set(to: latestConfigSentTimestampMs)
+                                    ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
                                 )
                             
                             return config.needsPush
@@ -477,7 +468,7 @@ public enum SessionUtil {
                             config: config,
                             for: next.key,
                             publicKey: publicKey,
-                            timestampMs: latestConfigSentTimestampMs
+                            timestampMs: latestServerTimestampMs
                         )?.save(db)
                 
                         return config.needsPush
@@ -552,7 +543,7 @@ private extension Optional where Wrapped == Int32 {
                 .userGroups, .groupInfo, .groupMembers:
                 return .object(conf)
             
-            case .groupKeys: throw SessionUtilError.unableToCreateConfigObject
+            case .groupKeys, .invalid: throw SessionUtilError.unableToCreateConfigObject
         }
     }
 }

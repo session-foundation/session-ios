@@ -22,6 +22,8 @@ public extension SessionUtil {
     ) -> Int32
     typealias ConfigSizeInfo = (UnsafePointer<config_object>?) -> Int
     
+    // MARK: - Config
+    
     enum Config {
         case object(UnsafeMutablePointer<config_object>)
         case groupKeys(
@@ -83,7 +85,7 @@ public extension SessionUtil {
             return self
         }
         
-        func push() throws -> (data: Data, seqNo: Int64, obsoleteHashes: [String]) {
+        func push(variant: ConfigDump.Variant) throws -> SessionUtil.PushData {
             switch self {
                 case .object(let conf):
                     var cPushData: UnsafeMutablePointer<config_push_data>!
@@ -104,17 +106,32 @@ public extension SessionUtil {
                     let seqNo: Int64 = cPushData.pointee.seqno
                     cPushData.deallocate()
                     
-                    return (pushData, seqNo, obsoleteHashes)
+                    return SessionUtil.PushData(
+                        data: pushData,
+                        seqNo: seqNo,
+                        variant: variant,
+                        obsoleteHashes: obsoleteHashes
+                    )
                     
                 case .groupKeys(let conf, _, _):
                     var pushResult: UnsafePointer<UInt8>!
                     var pushResultLen: Int = 0
                     
                     guard groups_keys_pending_config(conf, &pushResult, &pushResultLen) else {
-                        return (Data(), 0, [])
+                        return SessionUtil.PushData(
+                            data: Data(),
+                            seqNo: 0,
+                            variant: variant,
+                            obsoleteHashes: []
+                        )
                     }
                     
-                    return (Data(bytes: pushResult, count: pushResultLen), 0, [])
+                    return SessionUtil.PushData(
+                        data: Data(bytes: pushResult, count: pushResultLen),
+                        seqNo: 0,
+                        variant: variant,
+                        obsoleteHashes: []
+                    )
             }
         }
         
@@ -181,46 +198,58 @@ public extension SessionUtil {
             }
         }
         
-        @discardableResult func merge(_ messages: [SharedConfigMessage]) -> Int {
+        func merge(_ messages: [ConfigMessageReceiveJob.Details.MessageInfo]) throws -> Int64? {
             switch self {
-                case .object(let conf):
+                case .object(let conf):    
                     var mergeHashes: [UnsafePointer<CChar>?] = messages
-                        .map { message in (message.serverHash ?? "").cArray.nullTerminated() }
+                        .map { message in message.serverHash.cArray.nullTerminated() }
                         .unsafeCopy()
                     var mergeData: [UnsafePointer<UInt8>?] = messages
                         .map { message -> [UInt8] in message.data.bytes }
                         .unsafeCopy()
                     var mergeSize: [Int] = messages.map { $0.data.count }
-                    let numMerged: Int32 = config_merge(
-                        conf,
-                        &mergeHashes,
-                        &mergeData,
-                        &mergeSize,
-                        messages.count
-                    )
+                    try CExceptionHelper.performSafely {
+                        config_merge(
+                            conf,
+                            &mergeHashes,
+                            &mergeData,
+                            &mergeSize,
+                            messages.count
+                        )
+                    }
                     mergeHashes.forEach { $0?.deallocate() }
                     mergeData.forEach { $0?.deallocate() }
                     
-                    return Int(numMerged)
+                    // Get the list of hashes from the config (to determine which were successful)
+                    let currentHashes: Set<String> = currentHashes().asSet()
+                    
+                    return messages
+                        .filter { currentHashes.contains($0.serverHash) }
+                        .map { $0.serverTimestampMs }
+                        .sorted()
+                        .last
                     
                 case .groupKeys(let conf, let infoConf, let membersConf):
                     return messages
-                        .map { message -> Bool in
+                        .map { message -> (Bool, Int64) in
                             var data: [UInt8] = Array(message.data)
-                            var messageHash: [CChar] = (message.serverHash ?? "").cArray.nullTerminated()
-                            
-                            return groups_keys_load_message(
+                            var messageHash: [CChar] = message.serverHash.cArray.nullTerminated()
+                            let result: Bool = groups_keys_load_message(
                                 conf,
                                 &messageHash,
                                 &data,
                                 data.count,
-                                Int64(message.sentTimestamp ?? 0),
+                                message.serverTimestampMs,
                                 infoConf,
                                 membersConf
                             )
+                            
+                            return (result, message.serverTimestampMs)
                         }
-                        .filter { $0 }
-                        .count
+                        .filter { success, _ in success }
+                        .map { _, serverTimestampMs in serverTimestampMs }
+                        .sorted()
+                        .last
             }
         }
         
@@ -244,6 +273,17 @@ public extension SessionUtil {
             
             return (result ?? "Invalid")
         }
+    }
+}
+
+// MARK: - PushData
+
+public extension SessionUtil {
+    public struct PushData {
+        let data: Data
+        let seqNo: Int64
+        let variant: ConfigDump.Variant
+        let obsoleteHashes: [String]
     }
 }
 
@@ -293,13 +333,6 @@ public extension Optional where Wrapped == SessionUtil.Config {
         switch self {
             case .some(let config): return config.currentHashes()
             case .none: return []
-        }
-    }
-    
-    func merge(_ messages: [SharedConfigMessage]) {
-        switch self {
-            case .some(let config): config.merge(messages)
-            case .none: return
         }
     }
 }

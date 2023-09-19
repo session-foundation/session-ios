@@ -98,26 +98,28 @@ public final class MessageSender {
     ) throws -> HTTP.PreparedRequest<SendMessagesResponse> {
         guard let namespace: SnodeAPI.Namespace = namespace else { throw MessageSenderError.invalidMessage }
         
-        // Set the sender/recipient info (needed to be valid)
-        message.sender = userPublicKey
-        message.recipient = {
+        /// Set the sender/recipient info (needed to be valid)
+        ///
+        /// **Note:** The `sentTimestamp` will differ from the `messageSendTimestamp` as it's the time the user originally
+        /// sent the message whereas the `messageSendTimestamp` is the time it will be uploaded to the swarm
+        let sentTimestamp: UInt64 = (message.sentTimestamp ?? UInt64(messageSendTimestamp))
+        let recipient: String = {
             switch destination {
                 case .contact(let publicKey): return publicKey
                 case .closedGroup(let groupPublicKey): return groupPublicKey
                 case .openGroup, .openGroupInbox: preconditionFailure()
             }
         }()
-        message.sentTimestamp = (
-            message.sentTimestamp ??
-            UInt64(messageSendTimestamp)
-        )
+        message.sender = userPublicKey
+        message.recipient = recipient
+        message.sentTimestamp = sentTimestamp
         
         // Ensure the message is valid
         try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds)
         
         // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync
         // messages as they will be managed by the user config handling
-        let isSelfSend: Bool = (message.recipient == userPublicKey)
+        let isSelfSend: Bool = (recipient == userPublicKey)
 
         if !isSelfSend, !isSyncMessage, var messageWithProfile: MessageWithProfile = message as? MessageWithProfile {
             let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
@@ -140,81 +142,100 @@ public final class MessageSender {
         // Convert it to protobuf
         let threadId: String = Message.threadId(forMessage: message, destination: destination)
         
-        guard let proto = message.toProto(db, threadId: threadId) else { throw MessageSenderError.protoConversionFailed }
+        guard let proto = message.toProto(db, threadId: threadId) else {
+            throw MessageSenderError.protoConversionFailed
+        }
         
         // Serialize the protobuf
-        let plaintext: Data
-        
-        do { plaintext = try proto.serializedData().paddedMessageBody() }
-        catch { throw MessageSenderError.other("Couldn't serialize proto", error) }
-        
-        // Encrypt the serialized protobuf
-        let ciphertext: Data
-        do {
-            switch destination {
-                case .contact(let publicKey):
-                    ciphertext = try encryptWithSessionProtocol(db, plaintext: plaintext, for: publicKey, using: dependencies)
+        let plaintext: Data = try Result(proto.serializedData())
+            .map { serialisedData -> Data in
+                switch destination {
+                    case .closedGroup(let key) where SessionId.Prefix(from: key) == .group: return serialisedData
+                    default: return serialisedData.paddedMessageBody()
+                }
+            }
+            .mapError { MessageSenderError.other("Couldn't serialize proto", $0) }
+            .successOrThrow()
+        let base64EncodedData: String = try {
+            switch (destination, namespace) {
+                // Standard one-to-one messages
+                case (.contact(let publicKey), .default):
+                    let ciphertext: Data = try encryptWithSessionProtocol(
+                        db,
+                        plaintext: plaintext,
+                        for: publicKey,
+                        using: dependencies
+                    )
                     
-                case .closedGroup(let groupPublicKey):
-                    // FIXME: Clean this up when we deprecate legacy groups
-                    switch SessionId.Prefix(from: groupPublicKey) {
-                        case .group:
-                            ciphertext = try SessionUtil.encrypt(
-                                message: plaintext,
-                                groupIdentityPublicKey: groupPublicKey,
-                                using: dependencies
+                    return try Result(
+                        MessageWrapper.wrap(
+                            type: .sessionMessage,
+                            timestamp: sentTimestamp,
+                            senderPublicKey: "",
+                            base64EncodedContent: ciphertext.base64EncodedString()
+                        )
+                    )
+                    .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
+                    .successOrThrow()
+                    .base64EncodedString()
+                    
+                // Config messages should be sent directly rather than via this method
+                case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
+                case (.closedGroup(let groupPublicKey), _) where SessionId.Prefix(from: groupPublicKey) == .group:
+                    throw MessageSenderError.invalidConfigMessageHandling
+                    
+                // Updated group messages should be wrapped _before_ encrypting
+                case (.closedGroup(let groupPublicKey), .groupMessages) where SessionId.Prefix(from: groupPublicKey) == .group:
+                    return try SessionUtil
+                        .encrypt(
+                            message: try Result(
+                                MessageWrapper.wrap(
+                                    type: .closedGroupMessage,
+                                    timestamp: sentTimestamp,
+                                    senderPublicKey: groupPublicKey,
+                                    base64EncodedContent: plaintext.base64EncodedString(),
+                                    wrapInWebSocketMessage: false
+                                )
                             )
-                            
-                        default:
-                            // Legacy groups used a `05` prefix
-                            guard let encryptionKeyPair: ClosedGroupKeyPair = try? ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey) else {
-                                throw MessageSenderError.noKeyPair
-                            }
-                            
-                            ciphertext = try encryptWithSessionProtocol(
-                                db,
-                                plaintext: plaintext,
-                                for: SessionId(.standard, publicKey: encryptionKeyPair.publicKey.bytes).hexString,
-                                using: dependencies
-                            )
+                            .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
+                            .successOrThrow(),
+                            groupIdentityPublicKey: groupPublicKey,
+                            using: dependencies
+                        )
+                        .base64EncodedString()
+                    
+                // Legacy groups used a `05` prefix
+                case (.closedGroup(let groupPublicKey), _):
+                    guard let encryptionKeyPair: ClosedGroupKeyPair = try? ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey) else {
+                        throw MessageSenderError.noKeyPair
                     }
                     
-                case .openGroup, .openGroupInbox: preconditionFailure()
+                    let ciphertext: Data = try encryptWithSessionProtocol(
+                        db,
+                        plaintext: plaintext,
+                        for: SessionId(.standard, publicKey: encryptionKeyPair.publicKey.bytes).hexString,
+                        using: dependencies
+                    )
+                    
+                    return try Result(
+                        MessageWrapper.wrap(
+                            type: .closedGroupMessage,
+                            timestamp: sentTimestamp,
+                            senderPublicKey: groupPublicKey,
+                            base64EncodedContent: ciphertext.base64EncodedString()
+                        )
+                    )
+                    .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
+                    .successOrThrow()
+                    .base64EncodedString()
+                    
+                case (.openGroup, _), (.openGroupInbox, _): preconditionFailure()
             }
-        }
-        catch { throw MessageSenderError.other("Couldn't encrypt message for destination: \(destination)", error) }
-        
-        // Wrap the result
-        let kind: SNProtoEnvelope.SNProtoEnvelopeType
-        let senderPublicKey: String
-        
-        switch destination {
-            case .contact:
-                kind = .sessionMessage
-                senderPublicKey = ""
-                
-            case .closedGroup(let groupPublicKey):
-                kind = .closedGroupMessage
-                senderPublicKey = groupPublicKey
-            
-            case .openGroup, .openGroupInbox: preconditionFailure()
-        }
-        
-        let wrappedMessage: Data
-        do {
-            wrappedMessage = try MessageWrapper.wrap(
-                type: kind,
-                timestamp: message.sentTimestamp!,
-                senderPublicKey: senderPublicKey,
-                base64EncodedContent: ciphertext.base64EncodedString()
-            )
-        }
-        catch { throw MessageSenderError.other("Couldn't wrap message", error) }
+        }()
         
         // Send the result
-        let base64EncodedData: String = wrappedMessage.base64EncodedString()
         let snodeMessage = SnodeMessage(
-            recipient: message.recipient!,
+            recipient: recipient,
             data: base64EncodedData,
             ttl: MessageSender
                 .getSpecifiedTTL(db, threadId: threadId, message: message, isSyncMessage: isSyncMessage)

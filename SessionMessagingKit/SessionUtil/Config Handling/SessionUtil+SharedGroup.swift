@@ -289,15 +289,62 @@ internal extension SessionUtil {
         groupIdentityPublicKey: String,
         using dependencies: Dependencies
     ) throws -> Data {
-        return message
+        return try dependencies[cache: .sessionUtil]
+            .config(for: .groupKeys, publicKey: groupIdentityPublicKey)
+            .wrappedValue
+            .map { config in
+                guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
+                
+                var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
+                var ciphertextLen: Int = 0
+                groups_keys_encrypt_message(
+                    conf,
+                    Array(message),
+                    message.count,
+                    &maybeCiphertext,
+                    &ciphertextLen
+                )
+                
+                guard
+                    ciphertextLen > 0,
+                    let ciphertext: Data = maybeCiphertext
+                        .map({ Data(bytes: $0, count: ciphertextLen) })
+                else { throw MessageSenderError.encryptionFailed }
+                
+                return ciphertext
+            } ?? { throw MessageSenderError.encryptionFailed }()
     }
     
     static func decrypt(
         ciphertext: Data,
         groupIdentityPublicKey: String,
         using dependencies: Dependencies
-    ) throws -> Data {
-        return ciphertext
+    ) throws -> (plaintext: Data, sender: String) {
+        return try dependencies[cache: .sessionUtil]
+            .config(for: .groupKeys, publicKey: groupIdentityPublicKey)
+            .wrappedValue
+            .map { config -> (Data, String) in
+                guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
+                
+                var ciphertext: [UInt8] = Array(ciphertext)
+                var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
+                var plaintextLen: Int = 0
+                groups_keys_decrypt_message(
+                    conf,
+                    &ciphertext,
+                    ciphertext.count,
+                    &maybePlaintext,
+                    &plaintextLen
+                )
+                
+                guard
+                    plaintextLen > 0,
+                    let plaintext: Data = maybePlaintext
+                        .map({ Data(bytes: $0, count: plaintextLen) })
+                else { throw MessageReceiverError.decryptionFailed }
+                
+                return (plaintext, "")
+            } ?? { throw MessageReceiverError.decryptionFailed }()
     }
 }
 

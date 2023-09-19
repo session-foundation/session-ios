@@ -17,6 +17,7 @@ public enum MessageSenderError: LocalizedError, Equatable {
     case noThread
     case noKeyPair
     case invalidClosedGroupUpdate
+    case invalidConfigMessageHandling
     
     case other(String, Error)
 
@@ -46,6 +47,7 @@ public enum MessageSenderError: LocalizedError, Equatable {
             case .noThread: return "Couldn't find a thread associated with the given group public key."
             case .noKeyPair: return "Couldn't find a private key associated with the given group public key."
             case .invalidClosedGroupUpdate: return "Invalid group update."
+            case .invalidConfigMessageHandling: return "Invalid handling of a config message."
             case .other(_, let error): return error.localizedDescription
         }
     }

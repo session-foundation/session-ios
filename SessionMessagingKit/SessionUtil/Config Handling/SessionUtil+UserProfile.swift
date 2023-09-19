@@ -21,7 +21,7 @@ internal extension SessionUtil {
     static func handleUserProfileUpdate(
         _ db: Database,
         in config: Config?,
-        latestConfigSentTimestampMs: Int64,
+        serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
@@ -54,7 +54,7 @@ internal extension SessionUtil {
                     fileName: nil
                 )
             }(),
-            sentTimestamp: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+            sentTimestamp: (TimeInterval(serverTimestampMs) / 1000),
             calledFromConfigHandling: true,
             using: dependencies
         )
@@ -127,7 +127,7 @@ internal extension SessionUtil {
             isEnabled: targetIsEnable,
             durationSeconds: TimeInterval(targetExpiry),
             type: targetIsEnable ? .disappearAfterSend : .unknown,
-            lastChangeTimestampMs: latestConfigSentTimestampMs
+            lastChangeTimestampMs: serverTimestampMs
         )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: userPublicKey)

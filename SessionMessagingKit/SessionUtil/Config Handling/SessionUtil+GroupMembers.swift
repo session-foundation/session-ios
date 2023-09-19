@@ -16,7 +16,7 @@ internal extension SessionUtil {
         _ db: Database,
         in config: Config?,
         groupIdentityPublicKey: String,
-        latestConfigSentTimestampMs: Int64,
+        serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
         guard config.needsDump else { return }
@@ -38,7 +38,7 @@ internal extension SessionUtil {
             let profileResult: Profile = Profile(
                 id: memberId,
                 name: String(libSessionVal: member.name),
-                lastNameUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
                 nickname: nil,
                 profilePictureUrl: profilePictureUrl,
                 profileEncryptionKey: (profilePictureUrl == nil ? nil :
@@ -47,7 +47,7 @@ internal extension SessionUtil {
                         count: ProfileManager.avatarAES256KeyByteLength
                     )
                 ),
-                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
+                lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000),
                 lastBlocksCommunityMessageRequests: 0
             )
             

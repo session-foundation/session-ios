@@ -23,7 +23,7 @@ internal extension SessionUtil {
         _ db: Database,
         in config: Config?,
         groupIdentityPublicKey: String,
-        latestConfigSentTimestampMs: Int64,
+        serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
         typealias GroupData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
@@ -99,7 +99,7 @@ internal extension SessionUtil {
             isEnabled: targetIsEnable,
             durationSeconds: TimeInterval(targetExpiry),
             type: (targetIsEnable ? .disappearAfterSend : .unknown),
-            lastChangeTimestampMs: latestConfigSentTimestampMs
+            lastChangeTimestampMs: serverTimestampMs
         )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: groupIdentityPublicKey)

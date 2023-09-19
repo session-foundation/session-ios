@@ -152,7 +152,7 @@ public class Poller {
         drainBehaviour: Atomic<SwarmDrainBehaviour>,
         poller: Poller? = nil,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<[Message], Error> {
+    ) -> AnyPublisher<[ProcessedMessage], Error> {
         // If the polling has been cancelled then don't continue
         guard
             (calledFromBackgroundPoller && isBackgroundPollValid()) ||
@@ -188,7 +188,7 @@ public class Poller {
                     }
             }
             .flatMap { $0.send(using: dependencies) }
-            .flatMap { (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<[Message], Error> in
+            .flatMap { (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<[ProcessedMessage], Error> in
                 guard
                     (calledFromBackgroundPoller && isBackgroundPollValid()) ||
                     poller?.isPolling.wrappedValue[publicKey] == true
@@ -219,7 +219,7 @@ public class Poller {
                     .compactMap { $0.value.data?.messages.map { $0.info.hash } }
                     .reduce([], +)
                 var messageCount: Int = 0
-                var processedMessages: [Message] = []
+                var processedMessages: [ProcessedMessage] = []
                 var hadValidHashUpdate: Bool = false
                 var configMessageJobsToRun: [Job] = []
                 var standardMessageJobsToRun: [Job] = []
@@ -229,7 +229,11 @@ public class Poller {
                     let allProcessedMessages: [ProcessedMessage] = allMessages
                         .compactMap { message -> ProcessedMessage? in
                             do {
-                                return try Message.processRawReceivedMessage(db, rawMessage: message)
+                                return try Message.processRawReceivedMessage(
+                                    db,
+                                    rawMessage: message,
+                                    publicKey: publicKey
+                                )
                             }
                             catch {
                                 switch error {
@@ -262,18 +266,18 @@ public class Poller {
                     
                     // Add a job to process the config messages first
                     let configJobIds: [Int64] = allProcessedMessages
-                        .filter { $0.messageInfo.variant == .sharedConfigMessage }
-                        .grouped { threadId, _, _, _ in threadId }
+                        .filter { $0.isConfigMessage }
+                        .grouped { $0.threadId }
                         .compactMap { threadId, threadMessages in
                             messageCount += threadMessages.count
-                            processedMessages += threadMessages.map { $0.messageInfo.message }
+                            processedMessages += threadMessages
                             
                             let jobToRun: Job? = Job(
                                 variant: .configMessageReceive,
                                 behaviour: .runOnce,
                                 threadId: threadId,
                                 details: ConfigMessageReceiveJob.Details(
-                                    messages: threadMessages.map { $0.messageInfo },
+                                    messages: threadMessages,
                                     calledFromBackgroundPoller: calledFromBackgroundPoller
                                 )
                             )
@@ -296,18 +300,18 @@ public class Poller {
                     // Add jobs for processing non-config messages which are dependant on the config message
                     // processing jobs
                     allProcessedMessages
-                        .filter { $0.messageInfo.variant != .sharedConfigMessage }
-                        .grouped { threadId, _, _, _ in threadId }
+                        .filter { !$0.isConfigMessage }
+                        .grouped { $0.threadId }
                         .forEach { threadId, threadMessages in
                             messageCount += threadMessages.count
-                            processedMessages += threadMessages.map { $0.messageInfo.message }
+                            processedMessages += threadMessages
                             
                             let jobToRun: Job? = Job(
                                 variant: .messageReceive,
                                 behaviour: .runOnce,
                                 threadId: threadId,
                                 details: MessageReceiveJob.Details(
-                                    messages: threadMessages.map { $0.messageInfo },
+                                    messages: threadMessages,
                                     calledFromBackgroundPoller: calledFromBackgroundPoller
                                 )
                             )

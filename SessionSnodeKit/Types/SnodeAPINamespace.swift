@@ -5,26 +5,43 @@ import SessionUtilitiesKit
 
 public extension SnodeAPI {
     enum Namespace: Int, Codable, Hashable {
+        /// Messages sent to one-to-one conversations are stored in this namespace
         case `default` = 0
         
+        /// `USER_PROFILE` config messages
         case configUserProfile = 2
+        
+        /// `CONTACTS` config messages
         case configContacts = 3
+        
+        /// `CONVO_INFO_VOLATILE` config messages
         case configConvoInfoVolatile = 4
+        
+        /// `USER_GROUPS` config messages
         case configUserGroups = 5
         
-        // Messages sent to a closed group:
+        /// Messages sent to an updated closed group are stored in this namespace
         case groupMessages = 11
         
-        // Groups config namespaces (i.e. for shared config of the group itself, not one user's group settings)
+        /// `GROUP_INFO` config messages (general info about a specific group)
         case configGroupInfo = 12
+        
+        /// `GROUP_MEMBERS` config messages (member information for a specific group)
         case configGroupMembers = 13
+        
+        /// `GROUP_KEYS` config messages (encryption/decryption keys for messages within a specific group)
         case configGroupKeys = 14
         
+        /// Messages sent to legacy group conversations are stored in this namespace
         case legacyClosedGroup = -10
         
+        /// This is used when we somehow receive a message from an unknown namespace (shouldn't really be possible)
+        case unknown = -9999989
+        
+        /// This is a convenience namespace used to represent all other namespaces for specific API calls
         case all = -9999990
         
-        // MARK: Variables
+        // MARK: - Variables
         
         var requiresReadAuthentication: Bool {
             switch self {
@@ -61,7 +78,7 @@ public extension SnodeAPI {
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
                     .configGroupInfo, .configGroupMembers, .configGroupKeys,
-                    .all:
+                    .unknown, .all:
                     return false
             }
         }
@@ -71,6 +88,17 @@ public extension SnodeAPI {
                 case .`default`: return ""
                 case .all: return "all"
                 default: return "\(self.rawValue)"
+            }
+        }
+        
+        public var isConfigNamespace: Bool {
+            switch self {
+                case .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups,
+                    .configGroupInfo, .configGroupMembers, .configGroupKeys:
+                    return true
+                    
+                case .`default`, .legacyClosedGroup, .groupMessages, .unknown, .all:
+                    return false
             }
         }
         
@@ -98,7 +126,7 @@ public extension SnodeAPI {
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
                     .configGroupInfo, .configGroupMembers, .configGroupKeys,
-                    .all:
+                    .unknown, .all:
                     return 1
             }
         }

@@ -16,7 +16,6 @@ internal extension SessionUtil {
         _ db: Database,
         in config: Config?,
         groupIdentityPublicKey: String,
-        latestConfigSentTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
         guard config.needsDump else { return }
