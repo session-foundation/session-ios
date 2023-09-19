@@ -8,6 +8,8 @@ extension PushNotificationAPI {
             case accountId = "@"
             case hash = "#"
             case namespace = "n"
+            case createdTimestampMs = "t"
+            case expirationTimestampMs = "z"
             case dataLength = "l"
             case dataTooLong = "B"
         }
@@ -20,6 +22,12 @@ extension PushNotificationAPI {
         
         /// The swarm namespace in which this message arrived.
         let namespace: Int
+        
+        /// The swarm timestamp when the message was created (unix epoch milliseconds)
+        let createdTimestampMs: Int64
+        
+        /// The message's swarm expiry timestamp (unix epoch milliseconds)
+        let expirationTimestampMs: Int64
         
         /// The length of the message data.  This is always included, even if the message content
         /// itself was too large to fit into the push notification.
@@ -40,6 +48,8 @@ extension PushNotificationAPI.NotificationMetadata {
             accountId: try container.decode(String.self, forKey: .accountId),
             hash: try container.decode(String.self, forKey: .hash),
             namespace: try container.decode(Int.self, forKey: .namespace),
+            createdTimestampMs: try container.decode(Int64.self, forKey: .createdTimestampMs),
+            expirationTimestampMs: try container.decode(Int64.self, forKey: .expirationTimestampMs),
             dataLength: try container.decode(Int.self, forKey: .dataLength),
             dataTooLong: ((try? container.decode(Int.self, forKey: .dataTooLong) != 0) ?? false)
         )

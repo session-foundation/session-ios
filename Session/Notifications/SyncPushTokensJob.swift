@@ -86,7 +86,36 @@ public enum SyncPushTokensJob: JobExecutor {
         Logger.info("Re-registering for remote notifications.")
         PushRegistrationManager.shared.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
-                PushNotificationAPI
+                /// For our `subscribe` endpoint we only want to call it if:
+                /// • It's been longer than `SyncPushTokensJob.maxFrequency` since the last subscription;
+                /// • The token has changed; or
+                /// • We want to force an update
+                let timeSinceLastSubscription: TimeInterval = dependencies.dateNow
+                    .timeIntervalSince(
+                        dependencies.standardUserDefaults[.lastPushNotificationSync]
+                            .defaulting(to: Date.distantPast)
+                    )
+                let uploadOnlyIfStale: Bool? = {
+                    guard
+                        let detailsData: Data = job.details,
+                        let details: Details = try? JSONDecoder().decode(Details.self, from: detailsData)
+                    else { return nil }
+                    
+                    return details.uploadOnlyIfStale
+                }()
+                
+                guard
+                    timeSinceLastSubscription >= SyncPushTokensJob.maxFrequency ||
+                    dependencies.storage[.lastRecordedPushToken] != pushToken ||
+                    uploadOnlyIfStale == false
+                else {
+                    SNLog("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to frequency")
+                    return Just(())
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
+                return PushNotificationAPI
                     .subscribeAll(
                         token: Data(hex: pushToken),
                         isForcedUpdate: true,
