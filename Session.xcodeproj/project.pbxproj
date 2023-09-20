@@ -1924,6 +1924,7 @@
 		FDC438CA27BB7DB100C60D73 /* UpdateMessageRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateMessageRequest.swift; sourceTree = "<group>"; };
 		FDC438CC27BC641200C60D73 /* Set+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Set+Utilities.swift"; sourceTree = "<group>"; };
 		FDC6D75F2862B3F600B04575 /* Dependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dependencies.swift; sourceTree = "<group>"; };
+		FDCCC6E82ABA7402002BBEF5 /* EmojiGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiGenerator.swift; sourceTree = "<group>"; };
 		FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyGroupOnlyRequest.swift; sourceTree = "<group>"; };
 		FDCDB8DD2810F73B00352A0C /* Differentiable+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Differentiable+Utilities.swift"; sourceTree = "<group>"; };
 		FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -4315,6 +4316,7 @@
 			isa = PBXGroup;
 			children = (
 				FDE7214F287E50D50093DF33 /* ProtoWrappers.py */,
+				FDCCC6E82ABA7402002BBEF5 /* EmojiGenerator.swift */,
 				FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */,
 				FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */,
 			);

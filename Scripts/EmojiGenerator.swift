@@ -263,26 +263,43 @@ extension EmojiGenerator {
         }
     }
 
-    static func writeStringConversionsFile(from emojiModel: EmojiModel) {
-        // Inline helpers:
-        var firstItem = true
-        func conditionalCheckForEmojiItem(_ item: EmojiModel.EmojiDefinition.Emoji) -> String {
-            let isFirst = (firstItem == true)
-            firstItem = false
-
-            let prefix = isFirst ? "" : "} else "
-            let suffix = "if rawValue == \"\(item.emojiChar)\" {"
-            return prefix + suffix
-        }
-        func conversionForEmojiItem(_ item: EmojiModel.EmojiDefinition.Emoji, definition: EmojiModel.EmojiDefinition) -> String {
-            let skinToneString: String
-            if item.skintoneSequence.isEmpty {
-                skinToneString = "nil"
-            } else {
-                skinToneString = "[\(item.skintoneSequence.map { ".\($0)" }.joined(separator: ", "))]"
+    indirect enum Structure {
+        enum ChunkType {
+            case firstScalar
+            case scalarSum
+            
+            func chunk(_ character: Character, into size: UInt32) -> UInt32 {
+                guard size > 0 else { return 0 }
+                
+                let scalarValues: [UInt32] = character.unicodeScalars.map { $0.value }
+                
+                switch self {
+                    case .firstScalar: return (scalarValues.first.map { $0 / size } ?? 0)
+                    case .scalarSum: return (scalarValues.reduce(0, +) / size)
+                }
             }
-            return "self.init(baseEmoji: .\(definition.enumName), skinTones: \(skinToneString))"
+            
+            func switchString(with variableName: String = "rawValue") -> String {
+                switch self {
+                    case .firstScalar: return "rawValue.unicodeScalars.map({ $0.value }).first"
+                    case .scalarSum: return "rawValue.unicodeScalars.map({ $0.value }).reduce(0, +)"
+                }
+            }
         }
+        
+        case ifElse                                 // XCode 15 taking over 10 min with M1 Pro (gave up)
+        case switchStatement                        // XCode 15 taking over 10 min with M1 Pro (gave up)
+        case directLookup                           // XCode 15 taking 93 sec with M1 Pro
+        case chunked(UInt32, Structure, ChunkType)  // XCode 15 taking <10 sec with M1 Pro (chunk by 100)
+    }
+    typealias ChunkedEmojiInfo = (
+        variant: EmojiModel.EmojiDefinition.Emoji,
+        baseName: String
+    )
+    
+    static func writeStringConversionsFile(from emojiModel: EmojiModel) {
+        // This combination seems to have the smallest compile time (~2.2 sec out of all of the combinations)
+        let desiredStructure: Structure = .chunked(100, .directLookup, .scalarSum)
 
         // Conversion from String: Creates an initializer mapping a single character emoji string to an EmojiWithSkinTones
         // e.g.
@@ -291,28 +308,129 @@ extension EmojiGenerator {
         writeBlock(fileName: "EmojiWithSkinTones+String.swift") { fileHandle in
             fileHandle.writeLine("extension EmojiWithSkinTones {")
             fileHandle.indent {
-                fileHandle.writeLine("init?(rawValue: String) {")
-                fileHandle.indent {
-                    fileHandle.writeLine("guard rawValue.isSingleEmoji else { return nil }")
-
-                    emojiModel.definitions.forEach { definition in
-                        definition.variants.forEach { emoji in
-                            fileHandle.writeLine(conditionalCheckForEmojiItem(emoji))
-                            fileHandle.indent {
-                                fileHandle.writeLine(conversionForEmojiItem(emoji, definition: definition))
+                switch desiredStructure {
+                    case .chunked(let chunkSize, let childStructure, let chunkType):
+                        let chunkedEmojiInfo = emojiModel.definitions
+                            .reduce(into: [UInt32: [ChunkedEmojiInfo]]()) { result, next in
+                                next.variants.forEach { emoji in
+                                    let chunk: UInt32 = chunkType.chunk(emoji.emojiChar, into: chunkSize)
+                                    result[chunk] = ((result[chunk] ?? []) + [(emoji, next.enumName)])
+                                        .sorted { lhs, rhs in lhs.variant < rhs.variant }
+                                }
                             }
+                            .sorted { lhs, rhs in lhs.key < rhs.key } 
+                        
+                        fileHandle.writeLine("init?(rawValue: String) {")
+                        fileHandle.indent {
+                            fileHandle.writeLine("guard rawValue.isSingleEmoji else { return nil }")
+                            fileHandle.writeLine("switch \(chunkType.switchString()) {")
+                            fileHandle.indent {
+                                chunkedEmojiInfo.forEach { chunk, _ in
+                                    fileHandle.writeLine("case \(chunk): self = EmojiWithSkinTones.emojiFrom\(chunk)(rawValue)")
+                                }
+                                fileHandle.writeLine("default: self = EmojiWithSkinTones(unsupportedValue: rawValue)")
+                            }
+                            fileHandle.writeLine("}")
                         }
-                    }
-
-                    fileHandle.writeLine("} else {")
-                    fileHandle.indent {
-                        fileHandle.writeLine("self.init(unsupportedValue: rawValue)")
-                    }
-                    fileHandle.writeLine("}")
+                        fileHandle.writeLine("}")
+                        
+                        chunkedEmojiInfo.forEach { chunk, emojiInfo in
+                            fileHandle.writeLine("")
+                            fileHandle.writeLine("private static func emojiFrom\(chunk)(_ rawValue: String) -> EmojiWithSkinTones {")
+                            fileHandle.indent {
+                                switch emojiInfo.count {
+                                    case 0:
+                                        fileHandle.writeLine("return EmojiWithSkinTones(unsupportedValue: rawValue)")
+                                        
+                                    default:
+                                        writeStructure(
+                                            childStructure,
+                                            for: emojiInfo,
+                                            using: fileHandle,
+                                            assignmentPrefix: "return "
+                                        )
+                                }
+                            }
+                            
+                            fileHandle.writeLine("}")
+                        }
+                        
+                    default:
+                        fileHandle.writeLine("init?(rawValue: String) {")
+                        fileHandle.indent {
+                            fileHandle.writeLine("guard rawValue.isSingleEmoji else { return nil }")
+                            writeStructure(
+                                desiredStructure,
+                                for: emojiModel.definitions
+                                    .flatMap { definition in
+                                        definition.variants.map { ($0, definition.enumName) }
+                                    },
+                                using: fileHandle
+                            )
+                        }
+                        fileHandle.writeLine("}")
                 }
-                fileHandle.writeLine("}")
             }
             fileHandle.writeLine("}")
+        }
+    }
+    
+    private static func writeStructure(
+        _ structure: Structure,
+        for emojiInfo: [ChunkedEmojiInfo],
+        using fileHandle: WriteHandle,
+        assignmentPrefix: String = "self = "
+    ) {
+        func initItem(_ info: ChunkedEmojiInfo) -> String {
+            let skinToneString: String = {
+                guard !info.variant.skintoneSequence.isEmpty else { return "nil" }
+                return "[\(info.variant.skintoneSequence.map { ".\($0)" }.joined(separator: ", "))]"
+            }()
+            
+            return "EmojiWithSkinTones(baseEmoji: .\(info.baseName), skinTones: \(skinToneString))"
+        }
+
+        switch structure {
+            case .ifElse:
+                emojiInfo.enumerated().forEach { index, info in
+                    switch index {
+                        case 0: fileHandle.writeLine("if rawValue == \"\(info.variant.emojiChar)\" {")
+                        default: fileHandle.writeLine("} else if rawValue == \"\(info.variant.emojiChar)\" {")
+                    }
+                    
+                    fileHandle.indent {
+                        fileHandle.writeLine("\(assignmentPrefix)\(initItem(info))")
+                    }
+                }
+                
+                fileHandle.writeLine("} else {")
+                fileHandle.indent {
+                    fileHandle.writeLine("\(assignmentPrefix)EmojiWithSkinTones(unsupportedValue: rawValue)")
+                }
+                fileHandle.writeLine("}")
+                
+            case .switchStatement:
+                fileHandle.writeLine("switch rawValue {")
+                fileHandle.indent {
+                    emojiInfo.forEach { info in
+                        fileHandle.writeLine("case \"\(info.variant.emojiChar)\": \(assignmentPrefix)\(initItem(info))")
+                    }
+                    fileHandle.writeLine("default: \(assignmentPrefix)EmojiWithSkinTones(unsupportedValue: rawValue)")
+                }
+                fileHandle.writeLine("}")
+                
+            case .directLookup:
+                fileHandle.writeLine("let lookup: [String: EmojiWithSkinTones] = [")
+                fileHandle.indent {
+                    emojiInfo.enumerated().forEach { index, info in
+                        let isLast: Bool = (index == (emojiInfo.count - 1))
+                        fileHandle.writeLine("\"\(info.variant.emojiChar)\": \(initItem(info))\(isLast ? "" : ",")")
+                    }
+                }
+                fileHandle.writeLine("]")
+                fileHandle.writeLine("\(assignmentPrefix)(lookup[rawValue] ?? EmojiWithSkinTones(unsupportedValue: rawValue))")
+                
+            case .chunked: break // Provide one of the other types
         }
     }
 
@@ -514,7 +632,7 @@ extension EmojiGenerator {
                 fileHandle.indent {
                     fileHandle.writeLine("switch self {")
                     emojiModel.definitions.forEach {
-                        fileHandle.writeLine("case .\($0.enumName): return \"\($0.shortNames.joined(separator:", "))\"")
+                        fileHandle.writeLine("case .\($0.enumName): return \"\($0.shortNames.sorted().joined(separator:", "))\"")
                     }
                     fileHandle.writeLine("}")
                 }
