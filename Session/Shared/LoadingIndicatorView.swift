@@ -4,11 +4,12 @@ import SwiftUI
 
 public struct ActivityIndicator: View {
     @State private var isAnimating: Bool = false
+    @State private var trim: Double = 0.9
 
     public var body: some View {
         GeometryReader { (geometry: GeometryProxy) in
             Circle()
-                .trim(from: 0, to: 0.9)
+                .trim(from: 0, to: trim)
                 .stroke(
                     themeColor: .borderSeparator,
                     style: StrokeStyle(
@@ -20,7 +21,6 @@ public struct ActivityIndicator: View {
                     width: geometry.size.width,
                     height: geometry.size.height
                 )
-                .
                 .rotationEffect(!self.isAnimating ? .degrees(0) : .degrees(360))
                 .animation(Animation
                     .timingCurve(0.5, 1, 0.25, 1, duration: 1.5)
