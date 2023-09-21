@@ -1,129 +1,129 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Attachment";
+"ATTACHMENT" = "هاوپێچ";
 /* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Caption";
+"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "ناونیشان";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "File type: %@";
+"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "جۆری دۆسیە:%@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Size: %@";
+"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "قەبارە: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Message limit reached";
+"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "قەبارەی نووسینی نامە سنووردارە";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Send";
+"ATTACHMENT_APPROVAL_SEND_BUTTON" = "ناردن";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Attachment";
+"ATTACHMENT_DEFAULT_FILENAME" = "هاوپێچ";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Error Sending Attachment";
+"ATTACHMENT_ERROR_ALERT_TITLE" = "هەڵە لە ناردنی هاوپێچ";
 /* Attachment error message for image attachments which could not be converted to JPEG */
-"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Unable to convert image.";
+"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "ناتوانرێت جۆری وێنە بگۆردرێت.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
-"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Unable to process video.";
+"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "ناتوانرێت کار بە ڤیدیۆ بکرێت.";
 /* Attachment error message for image attachments which cannot be parsed */
-"ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Unable to parse image.";
+"ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "ناتوانرێت جۆری وێنە بگۆردرێت.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Unable to remove metadata from image.";
+"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "ناتوانرێت زانیاری داتاکان بسردڕێتەوە.";
 /* Attachment error message for image attachments which could not be resized */
-"ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Unable to resize image.";
+"ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "ناتوانرێت قەبارەی وێنە بگۆردرێت.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Attachment is too large.";
+"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "قەبارەی هاوپێچ زۆرە.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Attachment includes invalid content.";
+"ATTACHMENT_ERROR_INVALID_DATA" = "هاوپێچ ناوەرۆکێکی نادروستی تێدایە.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Attachment has an invalid file format.";
+"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "پاشگری فایلی هاوپێچ هەڵەیە.";
 /* Attachment error message for attachments without any data */
-"ATTACHMENT_ERROR_MISSING_DATA" = "Attachment is empty.";
+"ATTACHMENT_ERROR_MISSING_DATA" = "هاوپێچ بەتاڵە.";
 /* Alert title when picking a document fails for an unknown reason */
-"ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Failed to choose document.";
+"ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "هەڵبژاردنی فایل سەرکەوتوو نەبوو.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Please create a compressed archive of this file or directory and try sending that instead.";
+"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "تکایە قەبارەی فایلەکە یاخۆد فۆلدەرەکە بچووک بکەرەوە ئینجا هەولی دووبارە ناردنی بدە.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Unsupported File";
+"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "فایلی نەزانراو";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Voice Message";
+"ATTACHMENT_TYPE_VOICE_MESSAGE" = "نامەی دەنگی";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Block";
+"BLOCK_LIST_BLOCK_BUTTON" = "دوورخستن";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Block %@?";
+"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "ئایا دووری دەخەیتەوە%@?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Unblock %@?";
+"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "لابردنی دوورخستنەوە?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Unblock";
+"BLOCK_LIST_UNBLOCK_BUTTON" = "لابردنی دوورخستنەوە";
 /* The message format of the 'conversation blocked' alert. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ has been blocked.";
+"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ دوورخرایەوە.";
 /* The title of the 'user blocked' alert. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "User Blocked";
+"BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "بەکارهێنەر دوورخرایەوە";
 /* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ has been unblocked.";
+"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ دوورخرایەوە.";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "Blocked users will not be able to call you or send you messages.";
+"BLOCK_USER_BEHAVIOR_EXPLANATION" = "بەکارهێنەرە دوورخراوەکان ناتوانن پەیوەندیت پێوە بکەن یاخود نامەت بۆ بنێرن.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Done";
+"BUTTON_DONE" = "ئەنجامدرا";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Select";
+"BUTTON_SELECT" = "هەڵبژێرە";
 /* keyboard toolbar label when starting to search with no current results */
-"CONVERSATION_SEARCH_SEARCHING" = "Searching...";
+"CONVERSATION_SEARCH_SEARCHING" = "گەڕان بەدوای...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "No matches";
+"CONVERSATION_SEARCH_NO_RESULTS" = "هێچ لێکچوویەک نییە";
 /* keyboard toolbar label when exactly 1 message matches the search string */
-"CONVERSATION_SEARCH_ONE_RESULT" = "1 match";
+"CONVERSATION_SEARCH_ONE_RESULT" = "1 لێکچوو";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d of %d matches";
+"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d لە %d لێکچووە";
 /* table cell label in conversation settings */
-"CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Block This User";
+"CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "دوورخستنەوەی ئەم بەکارهێنەرە";
 /* label for 'mute thread' cell in conversation settings */
-"CONVERSATION_SETTINGS_MUTE_LABEL" = "Mute";
+"CONVERSATION_SETTINGS_MUTE_LABEL" = "کپ کردن";
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
-"CONVERSATION_SETTINGS_SEARCH" = "Search Conversation";
+"CONVERSATION_SETTINGS_SEARCH" = "گەڕان بە نێو گفتوگۆدا";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Move and Scale";
+"CROP_SCALE_IMAGE_VIEW_TITLE" = "جووڵە و پێوەر";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "This can take a few minutes.";
+"DATABASE_VIEW_OVERLAY_SUBTITLE" = "ئەمە چەند خولەکێکی پێدەچێت.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Optimizing Database";
+"DATABASE_VIEW_OVERLAY_TITLE" = "باشکردنی بنکەدراوە";
 /* The present; the current time. */
-"DATE_NOW" = "Now";
+"DATE_NOW" = "ئێستا";
 /* table cell label in conversation settings */
-"DISAPPEARING_MESSAGES" = "Disappearing Messages";
+"DISAPPEARING_MESSAGES" = "نەمانی پەیامەکان";
 /* table cell label in conversation settings */
-"EDIT_GROUP_ACTION" = "Edit Group";
+"EDIT_GROUP_ACTION" = "دەستکاری گروپ";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "You don't have any media in this conversation.";
+"GALLERY_TILES_EMPTY_GALLERY" = "لەم گفتوگۆیەدا هیچ میدیایەکتان نییە.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Loading Newer Media…";
+"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "بارکردنی میدیای نوێتر…";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Loading Older Media…";
+"GALLERY_TILES_LOADING_OLDER_LABEL" = "بارکردنی میدیای کۆنتر…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Failed to fetch the requested GIF. Please verify you are online.";
+"GIF_PICKER_ERROR_FETCH_FAILURE" = "شکستی هێنا لە هێنانی GIF ی داواکراو. تکایە پشتڕاستی بکەرەوە کە لە سەرهێڵیت.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "An unknown error occurred.";
+"GIF_PICKER_ERROR_GENERIC" = "هەڵەیەکی نەناسراو ڕوویدا.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Unable to Choose GIF";
+"GIF_PICKER_FAILURE_ALERT_TITLE" = "ناتوانرێت GIF هەڵبژێردرێت";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Please enter your search.";
+"GIF_PICKER_VIEW_MISSING_QUERY" = "تکایە گەڕانەکەت بنووسە.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Error. Tap to Retry.";
+"GIF_VIEW_SEARCH_ERROR" = "هەڵە. کرتە بکە بۆ دووبارە هەوڵدانەوە.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "No Results.";
+"GIF_VIEW_SEARCH_NO_RESULTS" = "بێ ئەنجامە.";
 /* No comment provided by engineer. */
-"GROUP_CREATED" = "Group created";
+"GROUP_CREATED" = "گروپ دروست کرا";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ joined the group. ";
+"GROUP_MEMBER_JOINED" = "%@ پەیوەندی بە گروپەکەوە کرد. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ left the group. ";
+"GROUP_MEMBER_LEFT" = "%@ گروپەکەی بەجێهێشت. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ was removed from the group. ";
+"GROUP_MEMBER_REMOVED" = "%@ لە گروپەکە لابرا. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ were removed from the group. ";
+"GROUP_MEMBERS_REMOVED" = "%@ لە گروپەکە لابران. ";
 /* No comment provided by engineer. */
-"GROUP_TITLE_CHANGED" = "Title is now '%@'. ";
+"GROUP_TITLE_CHANGED" = "ناونیشان ئێستا '%@' ە. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Group updated.";
+"GROUP_UPDATED" = "گروپ نوێکرایەوە.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "You have left the group.";
+"GROUP_YOU_LEFT" = "تۆ گروپەکەت بەجێهێشتووە.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " You were removed from the group. ";
+"YOU_WERE_REMOVED" = " تۆ لە گروپ دەرکرایت. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "You can't share more than %@ items.";
+"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "ناتوانیت زیاتر لە %@ شتەکان هاوبەش بکەیت.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Failed to select attachment.";
 /* Message for the alert indicating that an audio file is invalid. */
@@ -610,62 +610,173 @@
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
 "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
 
+/* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+
+/* State of a message while it's still in the process of being sent */
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+
+/* State of a message once it has been sent */
 "MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+
+/* State of a message after the recipient has read the message */
 "MESSAGE_DELIVERY_STATUS_READ" = "Read";
+
+/* State of a message if it failed to be sent */
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+
+/* Title of the message information screen describing the date/time a message was sent */
 "MESSAGE_INFO_SENT" = "Sent";
+
+/* Title of the message information screen describing the date/time a message was received on a specific device */
 "MESSAGE_INFO_RECEIVED" = "Received";
+
+/* Title of the message information screen describing the sender of the message */
 "MESSAGE_INFO_FROM" = "From";
+
+/* Title of the message information screen describing the identifier of the attachment */
 "ATTACHMENT_INFO_FILE_ID" = "File ID";
+
+/* Title of the message information screen describing the file type of the attachment */
 "ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+
+/* Title of the message information screen describing the size of the attachment */
 "ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+
+/* Title on the message information screen describing the resolution of a media attachment */
 "ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+
+/* Title on the message information screen describing the duration of a media attachment */
 "ATTACHMENT_INFO_DURATION" = "Duration";
+
+/* State of a message after it failed to sync to the current users other devices */
 "MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+
+/* State of a message while it's in the process of being synced to the users other devices */
 "MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to send */
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to sync to the users other devices */
 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
+
+/* Action for the modal shown when asking the user whether they want to delete from all of their devices */
 "delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+
+/* Action in the long-press menu to trigger a message to be sent again after it has failed */
 "context_menu_resend" = "Resend";
+
+/* Action in the long-press menu to trigger a message to be synced again after it has failed */
 "context_menu_resync" = "Resync";
+
+/* Title of a modal show the first time a user tries to search for GIFs */
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+
+/* Message of a modal show the first time a user tries to search for GIFs */
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+
+/* Action in the long-press menu to view more information about a specific message */
 "message_info_title" = "Message Info";
+
+/* Action to mute a conversation in the swipe menu */
 "mute_button_text" = "Mute";
+
+/* Action in the swipe menu to unmute a conversation */
 "unmute_button_text" = "Unmute";
-"mark_read_button_text" = "Mark read";
-"mark_unread_button_text" = "Mark unread";
+
+/* Action in the swipe menu to mark a conversation as read */
+"MARK_AS_READ" = "Mark read";
+
+/* Action in the swipe menu to mark a conversation as unread */
+"MARK_AS_UNREAD" = "Mark unread";
+
+/* Title of the confirmation modal show when attempting to leave a group conversation */
 "leave_group_confirmation_alert_title" = "Leave Group";
+
+/* Title of the confirmation modal show when attempting to leave a community conversation */
 "leave_community_confirmation_alert_title" = "Leave Community";
+
+/* Message in the confirmation modal when leaving a community conversation */
 "leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+
+/* Conversation subtitle while the user in the process of leaving */
 "group_you_leaving" = "Leaving...";
+
+/* Conversation subtitle if the user in the failed to leave */
 "group_leave_error" = "Failed to leave Group!";
+
+/* Message within a conversation indicating the device was unable to leave a group conversation */
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
+
+/* Title in the confirmation modal to delete a group */
 "delete_group_confirmation_alert_title" = "Delete Group";
+
+/* Message in the confirmation modal to delete a group */
 "delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+
+/* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_title" = "Delete Conversation";
+
+/* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+
+/* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+
+/* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+
+/* Title in the modal for updating the users profile display picture */
 "update_profile_modal_title" = "Set Display Picture";
+
+/* Save action in the modal for updating the users profile display picture */
 "update_profile_modal_save" = "Save";
+
+/* Remove action in the modal for updating the users profile display picture */
 "update_profile_modal_remove" = "Remove";
+
+/* Title for the error when failing to remove the users profile display picture */
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
+
+/* Title for the error when the user selects a profile display picture that is too large */
 "update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
+
+/* Message for the error when the user selects a profile display picture that is too large */
 "update_profile_modal_max_size_error_message" = "Please select a smaller photo and try again";
+
+/* Title for the error when the user fails to update their profile display picture */
 "update_profile_modal_error_title" = "Couldn't Update Profile";
+
+/* Message for the error when the user fails to update their profile display picture */
 "update_profile_modal_error_message" = "Please check your internet connection and try again";
+
+/* Placeholder when entering a nickname for a contact */
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
-"MARK_AS_READ" = "Mark Read";
-"MARK_AS_UNREAD" = "Mark Unread";
+
+/* The separator within a conversation indicating that following messages are unread */
 "UNREAD_MESSAGES" = "Unread Messages";
+
+/* Empty state for a conversation */
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
+
+/* Empty state for a read-only conversation */
 "CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+
+/* Empty state for the 'Note to Self' conversation */
 "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+
+/* Message to indicate a user has Community Message Requests disabled */
 "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
+
+/* Warning to indicate one of the users devices is running an old version of Session */
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+
+/* Ann error displayed if the device is unable to retrieve the users recovery password */
 "LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
+
+/* An error displayed when trying to send a message if the device is unable to save it to the database */
 "FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
+
+/* An error indicating that the device was unable to access the database for some reason */
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
