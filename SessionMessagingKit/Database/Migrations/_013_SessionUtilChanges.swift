@@ -180,7 +180,7 @@ enum _013_SessionUtilChanges: Migration {
         
         // Migrate the 'isPinned' value to 'pinnedPriority'
         try SessionThread
-            .filter(SessionThread.Columns.isPinned == true)
+            .filter(sql: "isPinned = true")
             .updateAll(
                 db,
                 SessionThread.Columns.pinnedPriority.set(to: 1)

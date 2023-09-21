@@ -279,10 +279,10 @@ extension EmojiGenerator {
                 }
             }
             
-            func switchString(with variableName: String = "rawValue") -> String {
+            func switchString(with variableName: String = "rawValue", size: UInt32) -> String {
                 switch self {
-                    case .firstScalar: return "rawValue.unicodeScalars.map({ $0.value }).first"
-                    case .scalarSum: return "rawValue.unicodeScalars.map({ $0.value }).reduce(0, +)"
+                    case .firstScalar: return "rawValue.unicodeScalars.map({ $0.value }).first.map({ $0 / \(size) })"
+                    case .scalarSum: return "(rawValue.unicodeScalars.map({ $0.value }).reduce(0, +) / \(size))"
                 }
             }
         }
@@ -323,7 +323,7 @@ extension EmojiGenerator {
                         fileHandle.writeLine("init?(rawValue: String) {")
                         fileHandle.indent {
                             fileHandle.writeLine("guard rawValue.isSingleEmoji else { return nil }")
-                            fileHandle.writeLine("switch \(chunkType.switchString()) {")
+                            fileHandle.writeLine("switch \(chunkType.switchString(size: chunkSize)) {")
                             fileHandle.indent {
                                 chunkedEmojiInfo.forEach { chunk, _ in
                                     fileHandle.writeLine("case \(chunk): self = EmojiWithSkinTones.emojiFrom\(chunk)(rawValue)")

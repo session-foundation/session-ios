@@ -60,7 +60,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     public let blocksCommunityMessageRequests: Bool?
     
     /// The timestamp (in seconds since epoch) that the `blocksCommunityMessageRequests` setting was last updated
-    public let lastBlocksCommunityMessageRequests: TimeInterval
+    public let lastBlocksCommunityMessageRequests: TimeInterval?
     
     // MARK: - Initialization
     
@@ -74,7 +74,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         profileEncryptionKey: Data? = nil,
         lastProfilePictureUpdate: TimeInterval,
         blocksCommunityMessageRequests: Bool? = nil,
-        lastBlocksCommunityMessageRequests: TimeInterval
+        lastBlocksCommunityMessageRequests: TimeInterval? = nil
     ) {
         self.id = id
         self.name = name
@@ -129,7 +129,7 @@ public extension Profile {
             profileEncryptionKey: profileKey,
             lastProfilePictureUpdate: try container.decode(TimeInterval.self, forKey: .lastProfilePictureUpdate),
             blocksCommunityMessageRequests: try? container.decode(Bool.self, forKey: .blocksCommunityMessageRequests),
-            lastBlocksCommunityMessageRequests: try container.decode(TimeInterval.self, forKey: .lastBlocksCommunityMessageRequests)
+            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval.self, forKey: .lastBlocksCommunityMessageRequests)
         )
     }
     
@@ -145,7 +145,7 @@ public extension Profile {
         try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
         try container.encode(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
-        try container.encode(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
+        try container.encodeIfPresent(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
     }
 }
 
@@ -263,7 +263,7 @@ public extension Profile {
             profileEncryptionKey: nil,
             lastProfilePictureUpdate: 0,
             blocksCommunityMessageRequests: nil,
-            lastBlocksCommunityMessageRequests: 0
+            lastBlocksCommunityMessageRequests: nil
         )
     }
     
