@@ -186,10 +186,6 @@ final class ShareAppExtensionContext: NSObject, AppContext {
         OWSLogger.debug("Ignoring request to block sleep.")
     }
     
-    func setMainAppBadgeNumber(_ value: Int) {
-        owsFailDebug("")
-    }
-    
     func setNetworkActivityIndicatorVisible(_ value: Bool) {
         owsFailDebug("")
     }

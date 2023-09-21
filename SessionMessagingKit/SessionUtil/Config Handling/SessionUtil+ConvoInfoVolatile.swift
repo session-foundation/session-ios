@@ -77,21 +77,27 @@ internal extension SessionUtil {
                 }
                 
                 // Mark all older interactions as read
-                try Interaction
-                    .filter(
-                        Interaction.Columns.threadId == threadId &&
-                        Interaction.Columns.timestampMs <= lastReadTimestampMs &&
-                        Interaction.Columns.wasRead == false
-                    )
+                let interactionQuery = Interaction
+                    .filter(Interaction.Columns.threadId == threadId)
+                    .filter(Interaction.Columns.timestampMs <= lastReadTimestampMs)
+                    .filter(Interaction.Columns.wasRead == false)
+                let interactionInfoToMarkAsRead: [Interaction.ReadInfo] = try interactionQuery
+                    .select(.id, .variant, .timestampMs, .wasRead)
+                    .asRequest(of: Interaction.ReadInfo.self)
+                    .fetchAll(db)
+                try interactionQuery
                     .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                         db,
                         Interaction.Columns.wasRead.set(to: true)
                     )
-                // Update old disappearing after read messages to start
-                DisappearingMessagesJob.updateNextRunIfNeeded(
+                try Interaction.scheduleReadJobs(
                     db,
+                    threadId: threadId,
+                    threadVariant: threadInfo.variant,
+                    interactionInfo: interactionInfoToMarkAsRead,
                     lastReadTimestampMs: lastReadTimestampMs,
-                    threadId: threadId
+                    trySendReadReceipt: false,  // Interactions already read, no need to send
+                    calledFromConfigHandling: true
                 )
                 return nil
             }

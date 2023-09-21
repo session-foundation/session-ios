@@ -71,7 +71,6 @@ final class NotificationServiceExtensionContext : NSObject, AppContext {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjectsDescription: String) { }
     func frontmostViewController() -> UIViewController? { nil }
     func runNowOr(whenMainAppIsActive block: @escaping AppActiveBlock) { }
-    func setMainAppBadgeNumber(_ value: Int) { }
     func setNetworkActivityIndicatorVisible(_ value: Bool) { }
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) { }
 }

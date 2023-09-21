@@ -383,6 +383,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {
         photoCollectionContents = photoCollection.contents()
+        collectionView?.reloadData()
     }
 
     // MARK: - PhotoCollectionPicker Presentation

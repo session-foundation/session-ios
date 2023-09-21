@@ -157,7 +157,7 @@ open class Storage {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else {
             let error: Error = (startupError ?? StorageError.startupFailed)
             SNLog("[Database Error] Statup failed with error: \(error)")
-            onComplete(.failure(StorageError.startupFailed), false)
+            onComplete(.failure(error), false)
             return
         }
         
@@ -430,12 +430,16 @@ open class Storage {
         try? deleteDbKeys()
     }
     
+    public static func reconfigureDatabase() {
+        Storage.shared.configureDatabase()
+    }
+    
     public static func resetForCleanMigration() {
         // Clear existing content
         resetAllStorage()
         
         // Reconfigure
-        Storage.shared.configureDatabase()
+        reconfigureDatabase()
     }
     
     private static func deleteDatabaseFiles() {

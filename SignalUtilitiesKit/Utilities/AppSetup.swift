@@ -11,11 +11,34 @@ public enum AppSetup {
     private static let hasRun: Atomic<Bool> = Atomic(false)
     
     public static func setupEnvironment(
+        retrySetupIfDatabaseInvalid: Bool = false,
         appSpecificBlock: @escaping () -> (),
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
-        guard !AppSetup.hasRun.wrappedValue else { return }
+        // If we've already run the app setup then only continue under certain circumstances
+        guard !AppSetup.hasRun.wrappedValue else {
+            let storageIsValid: Bool = Storage.shared.isValid
+            
+            switch (retrySetupIfDatabaseInvalid, storageIsValid) {
+                case (true, false):
+                    Storage.reconfigureDatabase()
+                    AppSetup.hasRun.mutate { $0 = false }
+                    AppSetup.setupEnvironment(
+                        retrySetupIfDatabaseInvalid: false, // Don't want to get stuck in a loop
+                        appSpecificBlock: appSpecificBlock,
+                        migrationProgressChanged: migrationProgressChanged,
+                        migrationsCompletion: migrationsCompletion
+                    )
+                    
+                default:
+                    migrationsCompletion(
+                        (storageIsValid ? .success(()) : .failure(StorageError.startupFailed)),
+                        false
+                    )
+            }
+            return
+        }
         
         AppSetup.hasRun.mutate { $0 = true }
         
@@ -64,14 +87,6 @@ public enum AppSetup {
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
-        // If the database can't be initialised into a valid state then error
-        guard Storage.shared.isValid else {
-            DispatchQueue.main.async {
-                migrationsCompletion(Result.failure(StorageError.databaseInvalid), false)
-            }
-            return
-        }
-        
         var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
         
         Storage.shared.perform(
