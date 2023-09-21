@@ -97,7 +97,7 @@ public extension DisappearingMessagesConfiguration {
         return DisappearingMessagesConfiguration(
             threadId: threadId,
             isEnabled: false,
-            durationSeconds: DefaultDuration.unknown.seconds,
+            durationSeconds: 0,
             type: .unknown,
             lastChangeTimestampMs: 0
         )

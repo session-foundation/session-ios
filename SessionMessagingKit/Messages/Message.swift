@@ -64,7 +64,8 @@ public class Message: Codable {
             return
         }
         
-        proto.setExpirationTimer(UInt32(disappearingMessagesConfiguration.durationSeconds))
+        let expireTimer: UInt32 = disappearingMessagesConfiguration.isEnabled ? UInt32(disappearingMessagesConfiguration.durationSeconds) : 0
+        proto.setExpirationTimer(expireTimer)
         proto.setLastDisappearingMessageChangeTimestamp(UInt64(disappearingMessagesConfiguration.lastChangeTimestampMs ?? 0))
         
         if disappearingMessagesConfiguration.isEnabled, let type = disappearingMessagesConfiguration.type {

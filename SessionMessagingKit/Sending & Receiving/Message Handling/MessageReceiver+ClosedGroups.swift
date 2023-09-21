@@ -190,10 +190,10 @@ extension MessageReceiver {
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
             .with(
                 isEnabled: (expirationTimer > 0),
-                durationSeconds: TimeInterval(expirationTimer > 0 ?
-                    expirationTimer :
-                    (24 * 60 * 60)
-                )
+                durationSeconds: (expirationTimer > 0) ?
+                    TimeInterval(expirationTimer) :
+                    DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds,
+                type: .disappearAfterSend
             )
             .saved(db)
         
