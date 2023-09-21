@@ -16,4 +16,11 @@ public extension Shape {
             ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary
         )
     }
+    
+    func stroke(themeColor: ThemeValue, style: StrokeStyle) -> some View {
+        return self.stroke(
+            ThemeManager.currentTheme.colorSwiftUI(for: themeColor) ?? Color.primary,
+            style: style
+        )
+    }
 }
