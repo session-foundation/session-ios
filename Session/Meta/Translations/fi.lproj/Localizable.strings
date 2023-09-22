@@ -842,3 +842,30 @@
 
 /* An error indicating that the device was unable to access the database for some reason */
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
+
+/* A message indicating how the disappearing messages setting applies in a one-to-one conversation */
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+
+/* A message indicating how the disappearing messages setting applies in a group conversation */
+"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
+
+/* A record that appears within the message history to indicate that the current user turned on disappearing messages */
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+
+/* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
+"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
+
+/* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+
+/* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
+
+/* The description for the legacy type of disappearing messages on the disappearing messages configuration screen */
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
+
+/* A warning shown at the top of a conversation to indicate a participant is using an old version of Session which may not support the updated disappearing messages functionality */
+"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
+
+/* An error which can occur when a user tries to update from a version that Session no longer supports updating from */
+"DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
