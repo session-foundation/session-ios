@@ -797,6 +797,18 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                     threadVariant: thread.variant,
                     using: dependencies
                 )
+                
+                // Trigger disappear after read
+                dependencies.jobRunner.upsert(
+                    db,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                        db,
+                        interaction: interaction,
+                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                    ),
+                    canStartJob: true,
+                    using: dependencies
+                )
             }
         }
     }
