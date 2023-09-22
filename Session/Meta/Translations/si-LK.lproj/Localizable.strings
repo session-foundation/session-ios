@@ -1,111 +1,111 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "अटैचमेंट जोड़ें";
+"ATTACHMENT" = "ඇමුණුම";
 /* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "कैप्शन";
+"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "ශීර්ෂ පාඨය";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "फ़ाइल प्रकार: %@";
+"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "ගොනුවේ වර්ගය: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Size: %@";
+"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "ප්‍රමාණය: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "आपके द्वारा भेजा जा रहा संदेश सीमा से अधिक है।";
+"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "පණිවිඩ සීමාව ළඟා විය";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "भेजें";
+"ATTACHMENT_APPROVAL_SEND_BUTTON" = "යවන්න";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "अटैचमेंट";
+"ATTACHMENT_DEFAULT_FILENAME" = "ඇමුණුම";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "अनुलग्नक भेजने में त्रुटि";
+"ATTACHMENT_ERROR_ALERT_TITLE" = "ඇමුණුම යැවීමේ දෝෂයකි";
 /* Attachment error message for image attachments which could not be converted to JPEG */
-"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "छवि प्रच्छन्न करने मे असफल";
+"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "රූපය පරිවර්තනය කළ නොහැක.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
-"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Unable to process video.";
+"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "වීඩියෝව සැකසීමට නොහැකිය.";
 /* Attachment error message for image attachments which cannot be parsed */
-"ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Unable to parse image.";
+"ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "රූපය විග්‍රහ කළ නොහැක.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Unable to remove metadata from image.";
+"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "රූපයෙන් පාරදත්ත ඉවත් කළ නොහැක.";
 /* Attachment error message for image attachments which could not be resized */
-"ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Unable to resize image.";
+"ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "රූපය ප්‍රතිප්‍රමාණ කිරීමට නොහැක.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Attachment is too large.";
+"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "ඇමුණුම ඉතා විශාලයි.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Attachment includes invalid content.";
+"ATTACHMENT_ERROR_INVALID_DATA" = "ඇමුණුමෙහි වලංගු නොවන අන්තර්ගතය ඇතුළත් වේ.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Attachment has an invalid file format.";
+"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "ඇමුණුමෙහි වලංගු නොවන ගොනු ආකෘතියක් ඇත.";
 /* Attachment error message for attachments without any data */
-"ATTACHMENT_ERROR_MISSING_DATA" = "Attachment is empty.";
+"ATTACHMENT_ERROR_MISSING_DATA" = "ඇමුණුම හිස් ය.";
 /* Alert title when picking a document fails for an unknown reason */
-"ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "दस्तावेज़ चुनने में विफल.";
+"ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "ලේඛනය තේරීමට අසමත් විය.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "कृपया इस फ़ाइल या निर्देशिका का एक संपीड़ित संग्रह बनाएं और इसके बजाय उसे भेजने का प्रयास करें।";
+"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "කරුණාකර මෙම ගොනුවේ හෝ නාමාවලියේ සම්පීඩිත සංරක්ෂිතයක් සාදා ඒ වෙනුවට එය යැවීමට උත්සාහ කරන්න.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "असमर्थित फ़ाइल";
+"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "සහාය නොදක්වන ගොනුවකි";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "स्वर संदेश";
+"ATTACHMENT_TYPE_VOICE_MESSAGE" = "හඬ පණිවිඩය";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "ब्लॉक";
+"BLOCK_LIST_BLOCK_BUTTON" = "අවහිර";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "%@ को ब्लॉक करें?";
+"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "%@අවහිර කරන්නද?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Unblock %@?";
+"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "%@අවහිර කිරීම ඉවත් කරන්නද?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "अनब्लॉक करें";
+"BLOCK_LIST_UNBLOCK_BUTTON" = "අවහිර කිරීම ඉවත් කරන්න";
 /* The message format of the 'conversation blocked' alert. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ को ब्लॉक कर दिया गया है";
+"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ අවහිර කර ඇත.";
 /* The title of the 'user blocked' alert. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "यूजर ब्लॉक किया हुआ है";
+"BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "පරිශීලක අවහිර කර ඇත";
 /* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ has been unblocked.";
+"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ අවහිර කිරීම ඉවත් කර ඇත.";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "अवरुद्ध उपयोगकर्ता आपको कॉल नहीं कर पाएंगे या आपको संदेश नहीं भेज पाएंगे।";
+"BLOCK_USER_BEHAVIOR_EXPLANATION" = "අවහිර කළ පරිශීලකයින්ට ඔබට ඇමතීමට හෝ ඔබට පණිවිඩ යැවීමට නොහැකි වනු ඇත.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "पूरा हुआ";
+"BUTTON_DONE" = "කළා";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "चुनें";
+"BUTTON_SELECT" = "තෝරන්න";
 /* keyboard toolbar label when starting to search with no current results */
 "CONVERSATION_SEARCH_SEARCHING" = "Searching...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "No matches";
+"CONVERSATION_SEARCH_NO_RESULTS" = "ගැලපීම් නැත";
 /* keyboard toolbar label when exactly 1 message matches the search string */
-"CONVERSATION_SEARCH_ONE_RESULT" = "1 match";
+"CONVERSATION_SEARCH_ONE_RESULT" = "1 තරගය";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d of %d matches";
+"CONVERSATION_SEARCH_RESULTS_FORMAT" = "තරඟ %d කින් %d ක්";
 /* table cell label in conversation settings */
-"CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Block This User";
+"CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "මෙම පරිශීලකයා අවහිර කරන්න";
 /* label for 'mute thread' cell in conversation settings */
-"CONVERSATION_SETTINGS_MUTE_LABEL" = "म्यूट";
+"CONVERSATION_SETTINGS_MUTE_LABEL" = "නිහඬ කරන්න";
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
-"CONVERSATION_SETTINGS_SEARCH" = "बातचीत खोजें";
+"CONVERSATION_SETTINGS_SEARCH" = "සංවාදය සොයන්න";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Move and Scale";
+"CROP_SCALE_IMAGE_VIEW_TITLE" = "චලනය සහ පරිමාණය";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "इसमें कुछ मिनटों का समय लगेगा ।";
+"DATABASE_VIEW_OVERLAY_SUBTITLE" = "මෙය විනාඩි කිහිපයක් ගත විය හැක.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "डाटाबेस का अनुकूलन";
+"DATABASE_VIEW_OVERLAY_TITLE" = "දත්ත සමුදාය ප්‍රශස්ත කිරීම";
 /* The present; the current time. */
-"DATE_NOW" = "अभी";
+"DATE_NOW" = "දැන්";
 /* table cell label in conversation settings */
-"DISAPPEARING_MESSAGES" = "गायब होने वाले संदेश";
+"DISAPPEARING_MESSAGES" = "අතුරුදහන් වන පණිවිඩ";
 /* table cell label in conversation settings */
-"EDIT_GROUP_ACTION" = "Edit Group";
+"EDIT_GROUP_ACTION" = "සමූහය සංස්කරණය";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "You don't have any media in this conversation.";
+"GALLERY_TILES_EMPTY_GALLERY" = "ඔබට මෙම සංවාදයේ කිසිදු මාධ්‍යයක් නොමැත.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Loading Newer Media…";
+"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "නව මාධ්‍ය…පූරණය වෙමින්";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Loading Older Media…";
+"GALLERY_TILES_LOADING_OLDER_LABEL" = "පැරණි මාධ්‍ය…පූරණය වෙමින්";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Failed to fetch the requested GIF. Please verify you are online.";
+"GIF_PICKER_ERROR_FETCH_FAILURE" = "ඉල්ලූ GIF ලබා ගැනීමට අසමත් විය. කරුණාකර ඔබ සබැඳි බව තහවුරු කරන්න.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "An unknown error occurred.";
+"GIF_PICKER_ERROR_GENERIC" = "නොදන්නා දෝෂයක් සිදු විය.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Unable to Choose GIF";
+"GIF_PICKER_FAILURE_ALERT_TITLE" = "GIF තේරීමට නොහැක";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Please enter your search.";
+"GIF_PICKER_VIEW_MISSING_QUERY" = "කරුණාකර ඔබගේ සෙවුම ඇතුලත් කරන්න.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Error. Tap to Retry.";
+"GIF_VIEW_SEARCH_ERROR" = "දෝෂයකි. නැවත උත්සහ කිරීම සඳහා තට්ටු කරන්න.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "No Results.";
+"GIF_VIEW_SEARCH_NO_RESULTS" = "ප්‍රත්‍ය නැත.";
 /* No comment provided by engineer. */
-"GROUP_CREATED" = "Group created";
+"GROUP_CREATED" = "කණ්ඩායම නිර්මාණය කරන ලදී";
 /* No comment provided by engineer. */
 "GROUP_MEMBER_JOINED" = "%@ joined the group. ";
 /* No comment provided by engineer. */
@@ -115,300 +115,300 @@
 /* No comment provided by engineer. */
 "GROUP_MEMBERS_REMOVED" = "%@ were removed from the group. ";
 /* No comment provided by engineer. */
-"GROUP_TITLE_CHANGED" = "Title is now '%@'. ";
+"GROUP_TITLE_CHANGED" = "මාතෘකාව දැන් '%@' වේ. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Group updated.";
+"GROUP_UPDATED" = "සමූහය යාවත්කාලීන කරන ලදී.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "आपने समूह छोड़ दिया है";
+"GROUP_YOU_LEFT" = "ඔබ කණ්ඩායම හැර ගොස් ඇත.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " You were removed from the group. ";
+"YOU_WERE_REMOVED" = " ඔබව සමූහයෙන් ඉවත් කරන ලදී. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "You can't share more than %@ items.";
+"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "ඔබට අයිතම %@ කට වඩා බෙදා ගත නොහැක.";
 /* alert title */
-"IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "अटैचमेंट का चयन करने में विफल।";
+"IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "ඇමුණුම තේරීමට අසමත් විය.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "अमान्य ऑडियो फ़ाइल.";
+"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "වලංගු නොවන ශ්‍රව්‍ය ගොනුව.";
 /* Confirmation button within contextual alert */
-"LEAVE_BUTTON_TITLE" = "छोड़ें";
+"LEAVE_BUTTON_TITLE" = "හැරයන්න";
 /* table cell label in conversation settings */
-"LEAVE_GROUP_ACTION" = "ग्रुप को छोड़ें";
+"LEAVE_GROUP_ACTION" = "සමූහය හැරයන්න";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "सभी मीडिया";
+"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "සියලු මාධ්යය";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "संदेश %d हटाएं";
+"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "පණිවිඩ %d ක් මකන්න";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "डिलीट मेसिज";
+"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "පණිවිඩය මකන්න";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ on %@";
+"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ මත %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "आप";
+"MEDIA_GALLERY_SENDER_NAME_YOU" = "ඔබ";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "इस महीने";
+"MEDIA_GALLERY_THIS_MONTH_HEADER" = "මෙම මාසය";
 /* status message for failed messages */
-"MESSAGE_STATUS_FAILED" = "भेजना विफल";
+"MESSAGE_STATUS_FAILED" = "යැවීම අසාර්ථක විය.";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "पढ़ें";
+"MESSAGE_STATUS_READ" = "කියවන්න";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "जा रहा है...";
+"MESSAGE_STATUS_SENDING" = "…යැවීම";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "भेज दिया!";
+"MESSAGE_STATUS_SENT" = "යවා ඇත";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "अपलोड हो रहा है";
+"MESSAGE_STATUS_UPLOADING" = "උඩුගත කිරීම…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ to %@";
+"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ සිට %@දක්වා";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "अपने लिए नोट";
+"NOTE_TO_SELF" = "ස්වයං සටහන්";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "हो सकता है कि आपका %@ पुनरारंभ होने के दौरान आपको संदेश प्राप्त हुए हों।";
+"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "ඔබගේ %@ නැවත ආරම්භ කරන අතරතුර ඔබට පණිවිඩ ලැබී තිබිය හැක.";
 /* No comment provided by engineer. */
-"BUTTON_OK" = "OK";
+"BUTTON_OK" = "හරි";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ ने गायब संदेश अक्षम कर दिए हैं।";
+"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ අබල කළ අතුරුදහන් වන පණිවිඩ.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ ने गायब संदेश टाइमर को %@ तक सेट कर दिया है।";
+"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ අතුරුදහන් පණිවිඩ කාලය %@ලෙස සකසන්න";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "छवि कैप्चर करने में असमर्थ।";
+"PHOTO_CAPTURE_GENERIC_ERROR" = "රූපය ග්‍රහණය කර ගැනීමට නොහැක.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "छवि कैप्चर करने में असमर्थ।";
+"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "රූපය ග්‍රහණය කර ගැනීමට නොහැක.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "कैमरा कॉन्फ़िगर करने में विफल।";
+"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "කැමරාව වින්‍යාස කිරීමට අසමත් විය.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "अनाम एल्बम";
+"PHOTO_PICKER_UNNAMED_COLLECTION" = "නම් නොකළ ඇල්බමය";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Mark as Read";
+"PUSH_MANAGER_MARKREAD" = "කියවූ බවට සලකුණු කරන්න";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Reply";
+"PUSH_MANAGER_REPLY" = "පිළිතුරු";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Session खोलने के लिए प्रमाणीकरण करें";
+"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "සැසිය විවෘත කිරීමට සත්‍යාපනය කරන්න.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "प्रमाणीकरण विफल रहा";
+"SCREEN_LOCK_UNLOCK_FAILED" = "සත්‍යාපනය අසාර්ථක විය";
 /* alert title when user attempts to leave the send media flow when they have an in-progress album */
-"SEND_MEDIA_ABANDON_TITLE" = "मीडिया छोड़ें?";
+"SEND_MEDIA_ABANDON_TITLE" = "මාධ්‍ය ඉවත දමන්නද?";
 /* alert action, confirming the user wants to exit the media flow and abandon any photos they've taken */
-"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "मीडिया छोड़ें?";
+"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "මාධ්‍ය ඉවතලන්න";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
-"SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (default)";
+"SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (පෙරනිමි)";
 /* Label for settings view that allows user to change the notification sound. */
-"SETTINGS_ITEM_NOTIFICATION_SOUND" = "Message Sound";
+"SETTINGS_ITEM_NOTIFICATION_SOUND" = "පණිවිඩ ශබ්දය";
 /* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "None";
+"SOUNDS_NONE" = "කිසිවක් නැත";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_DAYS" = "%@ days";
+"TIME_AMOUNT_DAYS" = "දවස් %@";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS_SHORT_FORMAT" = "%@d";
 /* {{number of hours}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 hours}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_HOURS" = "%@ hours";
+"TIME_AMOUNT_HOURS" = "පැය %@";
 /* Label text below navbar button, embeds {{number of hours}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5h' not '5 h'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_HOURS_SHORT_FORMAT" = "%@h";
+"TIME_AMOUNT_HOURS_SHORT_FORMAT" = "පැය %@";
 /* {{number of minutes}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 minutes}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_MINUTES" = "%@ minutes";
+"TIME_AMOUNT_MINUTES" = "විනාඩි %@";
 /* Label text below navbar button, embeds {{number of minutes}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5m' not '5 m'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_MINUTES_SHORT_FORMAT" = "%@m";
+"TIME_AMOUNT_MINUTES_SHORT_FORMAT" = "මීටර් %@";
 /* {{number of seconds}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 seconds}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_SECONDS" = "%@ seconds";
+"TIME_AMOUNT_SECONDS" = "තත්පර %@";
 /* Label text below navbar button, embeds {{number of seconds}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5s' not '5 s'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_SECONDS_SHORT_FORMAT" = "%@s";
+"TIME_AMOUNT_SECONDS_SHORT_FORMAT" = "%@තත්";
 /* {{1 day}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{1 day}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_SINGLE_DAY" = "%@ day";
+"TIME_AMOUNT_SINGLE_DAY" = "දවස් %@";
 /* {{1 hour}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{1 hour}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_SINGLE_HOUR" = "%@ hour";
+"TIME_AMOUNT_SINGLE_HOUR" = "පැය %@";
 /* {{1 minute}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{1 minute}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_SINGLE_MINUTE" = "%@ minute";
+"TIME_AMOUNT_SINGLE_MINUTE" = "විනාඩි %@";
 /* {{1 week}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{1 week}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_SINGLE_WEEK" = "%@ week";
+"TIME_AMOUNT_SINGLE_WEEK" = "සති %@";
 /* {{number of weeks}}, embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 weeks}}'. See other *_TIME_AMOUNT strings */
-"TIME_AMOUNT_WEEKS" = "%@ weeks";
+"TIME_AMOUNT_WEEKS" = "සති %@";
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@w";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Cancel";
+"TXT_CANCEL_TITLE" = "වගේ";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Delete";
+"TXT_DELETE_TITLE" = "මකන්න";
 /* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "वौइस् मैसेज";
+"VOICE_MESSAGE_FILE_NAME" = "හඬ පණිවිඩය";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "ध्वनि संदेश रिकॉर्ड करने के लिए टैप करके रखें।";
+"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "හඬ පණිවිඩයක් පටිගත කිරීමට තට්ටු කර අල්ලාගෙන සිටින්න.";
 /* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "वौइस् मैसेज";
+"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "හඬ පණිවිඩය";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "आपने गायब संदेश अक्षम कर दिए हैं।";
+"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "ඔබ අතුරුදහන් වන පණිවිඩ අක්‍රිය කර ඇත.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "आपने गायब संदेश टाइमर को %@ तक सेट कर दिया है।";
+"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "ඔබ අතුරුදහන් වන පණිවිඩ කාලය %@ලෙස සකසා ඇත";
 // MARK: - Session
-"continue_2" = "जारी रखें";
-"copy" = "कॉपी करें";
-"invalid_url" = "अमान्य यूआरएल";
-"next" = "अगला";
-"share" = "शेयर करें";
-"invalid_session_id" = "अमान्य सेशन आईडी";
-"cancel" = "रद्द करें";
-"your_session_id" = "आपकी सेशन आईडी";
-"vc_landing_title_2" = "आपका सेशन यहां आरंभ होता है...";
-"vc_landing_register_button_title" = "सेशन आईडी बनाएं";
-"vc_landing_restore_button_title" = "अपना सेशन जारी रखें";
-"vc_landing_link_button_title" = "डिवाइस को लिंक करें";
-"view_fake_chat_bubble_1" = "सेशन क्या है?";
-"view_fake_chat_bubble_2" = "यह एक decentralized, encrypted मेसेजिंग ऐप है";
-"view_fake_chat_bubble_3" = "इसलिए यह मेरी निजी जानकारी या बातचीत का metadata इकठ्ठा नहीं करता? यह कैसे काम करता है?";
-"view_fake_chat_bubble_4" = "एडवांस्ड anonymous routing और end-to-end encryption के मिश्रण का प्रयोग करके।";
-"view_fake_chat_bubble_5" = "दोस्त दोस्तों को असुरक्षित मैसेंजर नहीं उपयोग करने देते। आपका स्वागत है।";
-"vc_register_title" = "अपनी सेशन आईडी को हेल्लो कहें";
-"vc_register_explanation" = "आपकी Session ID एक ऐसा अनोखा पता है जिसका उपयोग करके लोग आपसे Session पर संपर्क कर सकते हैं। आपकी वास्तविक पहचान से कोई संबंध नहीं होने के कारण, आपका Session ID डिज़ाइन द्वारा पूरी तरह से गुमनाम और निजी है |";
-"vc_restore_title" = "अकाउंट रिस्टोर करें";
-"vc_restore_explanation" = "अकाउंट बनाते समय बनाया गया अपना रिकवरी वाक्य डालें।";
-"vc_restore_seed_text_field_hint" = "अपना पुनर्प्राप्ति वाक्यांश लिखें";
-"vc_link_device_title" = "डिवाइस को लिंक करें";
-"vc_link_device_scan_qr_code_tab_title" = "QR कोड को स्कैन करें";
-"vc_display_name_title_2" = "अपना प्रदर्शन नाम चुनें";
-"vc_display_name_explanation" = "यह सेशन इस्तेमाल करते समय आपका नाम होगा। यह आपका असली नाम, उपनाम या कुछ और भी हो सकता है।";
-"vc_display_name_text_field_hint" = "डिस्प्ले नाम डालें";
-"vc_display_name_display_name_missing_error" = "कृपया एक डिस्प्ले नाम चुनें";
-"vc_display_name_display_name_too_long_error" = "कृपया एक छोटा डिसप्ले नाम चुनें";
-"vc_pn_mode_recommended_option_tag" = "संस्तुत";
-"vc_pn_mode_no_option_picked_modal_title" = "कृपया एक विकल्प चुनें।";
-"vc_home_empty_state_message" = "अभी तक आपके पास कोई कॉन्टैक्ट्स नहीं हैं";
-"vc_home_empty_state_button_title" = "एक सेशन प्रारंभ करें";
-"vc_seed_title" = "आपका रिकवरी वाक्यांश";
-"vc_seed_title_2" = "अपने पुनर्प्राप्ति वाक्यांश से मिलें";
-"vc_seed_explanation" = "आपका रिकवरी फ्रेज आपके Session Id की मास्टर कीय है — आप इसका इस्तेमाल अपनी Session ID को वापिस पाने के लिए कर सकते है अगर आपका फ़ोन गुम हो गया है | अपने रिकवरी फ्रेज को एक सुरक्षित जगह रखे और इसे किसी के साथ शेयर न करे |";
-"vc_seed_reveal_button_title" = "देखने के लिए दबाएं";
-"view_seed_reminder_subtitle_1" = "अकाउंट सुरक्षित रखने के लिए अपनी पुनर्व्यप्ती वाक्यांश को सेव करके रखें";
-"view_seed_reminder_subtitle_2" = "अपना पुनर्प्राप्ति वाक्यांश प्रकट करने के लिए संशोधित शब्दों को टैप और होल्ड करें, फिर अपनी Session ID को सुरक्षित करने के लिए इसे सुरक्षित रूप से संग्रहीत करें।";
-"view_seed_reminder_subtitle_3" = "अपने रिकवरी फ्रेज को एक सुरक्षित जगह रखे";
-"vc_path_title" = "पाथ";
-"vc_path_explanation" = "सेशन आपके मैसेज को सेशन के डेंटरलिज़्ड नेटवर्क की बहुत साडी सर्विस नोड्स में भेज देता है जो आपकी IP को छुपाती है.";
-"vc_path_device_row_title" = "आप";
-"vc_path_guard_node_row_title" = "प्रवेश नोड";
-"vc_path_service_node_row_title" = "सर्विस नोड";
-"vc_path_destination_row_title" = "Destination";
-"vc_path_learn_more_button_title" = "Learn More";
+"continue_2" = "ඉදිරියට";
+"copy" = "පිටපත්";
+"invalid_url" = "ඒ.ස.නි. වලංගු නොවේ";
+"next" = "සඳහා";
+"share" = "බෙදාගන්න";
+"invalid_session_id" = "වලංගු නොවන සැසි හැඳුනුම්පතක්";
+"cancel" = "වගේ";
+"your_session_id" = "ඔබගේ සැසි හැඳුනුම්පත";
+"vc_landing_title_2" = "ඔබේ සැසිය මෙතැනින් ආරම්භ වේ...";
+"vc_landing_register_button_title" = "සැසි හැඳුනුම්පත සාදන්න";
+"vc_landing_restore_button_title" = "ඔබේ සැසිය දිගටම කරගෙන යන්න";
+"vc_landing_link_button_title" = "උපාංගයක් සම්බන්ධ කරන්න";
+"view_fake_chat_bubble_1" = "සෙෂන් යනු කුමක්ද?";
+"view_fake_chat_bubble_2" = "එය විමධ්‍යගත, සංකේතාත්මක පණිවිඩ යැවීමේ යෙදුමකි";
+"view_fake_chat_bubble_3" = "එබැවින් එය මගේ පුද්ගලික තොරතුරු හෝ මගේ සංවාද පාරදත්ත රැස් නොකරයිද? එය ක්රියා කරන්නේ කෙසේද?";
+"view_fake_chat_bubble_4" = "උසස් නිර්නාමික රවුටිං සහ අන්තයේ සිට අගට සංකේතාංකන තාක්‍ෂණයන්ගේ එකතුවක් භාවිතා කිරීම.";
+"view_fake_chat_bubble_5" = "සම්මුතියට පත් පණිවිඩකරුවන් භාවිතා කිරීමට මිතුරන් මිතුරන්ට ඉඩ නොදේ. ඔයාව සාදරයෙන් පිළිගන්නවා.";
+"vc_register_title" = "ඔබගේ සෙෂන් හැඳු. ආයුබෝවන් කියන්න";
+"vc_register_explanation" = "ඔබගේ සැසි හැඳුනුම මිනිසුන්ට සැසියේදී ඔබව සම්බන්ධ කර ගැනීමට භාවිතා කළ හැකි අද්විතීය ලිපිනයයි. ඔබගේ සැබෑ අනන්‍යතාවයට කිසිදු සම්බන්ධයක් නොමැතිව, ඔබගේ සැසි හැඳුනුම්පත සම්පූර්ණයෙන්ම නිර්නාමික වන අතර සැලසුම අනුව පුද්ගලික වේ.";
+"vc_restore_title" = "ඔබගේ ගිණුම ප්‍රතිසාධනය කරන්න";
+"vc_restore_explanation" = "ඔබ ඔබේ ගිණුම ප්‍රතිසාධනය කිරීමට ලියාපදිංචි වූ විට ඔබට ලබා දුන් ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය ඇතුළු කරන්න.";
+"vc_restore_seed_text_field_hint" = "ඔබගේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය ඇතුලත් කරන්න";
+"vc_link_device_title" = "උපාංගයක් සම්බන්ධ කරන්න";
+"vc_link_device_scan_qr_code_tab_title" = "QR කේතය පරිලෝකනය කරන්න";
+"vc_display_name_title_2" = "ඔබගේ සංදර්ශක නම තෝරන්න";
+"vc_display_name_explanation" = "ඔබ Session භාවිතා කරන විට මෙය ඔබගේ නම වනු ඇත. එය ඔබගේ සැබෑ නම, අන්වර්ථ නාමයක් හෝ ඔබ කැමති වෙනත් ඕනෑම දෙයක් විය හැක.";
+"vc_display_name_text_field_hint" = "සංදර්ශක නාමයක් ඇතුළත් කරන්න";
+"vc_display_name_display_name_missing_error" = "කරුණාකර සංදර්ශක නමක් තෝරන්න";
+"vc_display_name_display_name_too_long_error" = "කරුණාකර කෙටි සංදර්ශක නමක් තෝරන්න";
+"vc_pn_mode_recommended_option_tag" = "නිර්දේශිතයි";
+"vc_pn_mode_no_option_picked_modal_title" = "කරුණාකර විකල්පයක් තෝරන්න";
+"vc_home_empty_state_message" = "ඔබට තවම සම්බන්ධතා කිසිවක් නැත";
+"vc_home_empty_state_button_title" = "සැසියක් ආරම්භ කරන්න";
+"vc_seed_title" = "ඔබේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය";
+"vc_seed_title_2" = "ඔබේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය හමුවන්න";
+"vc_seed_explanation" = "ඔබේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය ඔබේ සැසි හැඳුනුම්පතේ ප්‍රධාන යතුරයි — ඔබට ඔබේ උපාංගයට ප්‍රවේශය අහිමි වුවහොත් ඔබේ සැසි හැඳුනුම්පත ප්‍රතිසාධනය කිරීමට ඔබට එය භාවිත කළ හැක. ඔබගේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය ආරක්‍ෂිත ස්ථානයක ගබඩා කරන්න, එය කිසිවෙකුට ලබා නොදෙන්න.";
+"vc_seed_reveal_button_title" = "හෙළි කිරීමට රැඳී සිටින්න";
+"view_seed_reminder_subtitle_1" = "ඔබගේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය සුරැකීමෙන් ඔබගේ ගිණුම සුරක්ෂිත කරන්න";
+"view_seed_reminder_subtitle_2" = "ඔබේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය හෙළි කිරීමට නැවත සකස් කළ වචන තට්ටු කර අල්ලාගෙන සිටින්න, ඉන්පසු ඔබේ සැසි හැඳුනුම්පත සුරක්ෂිත කිරීමට එය සුරක්ෂිතව ගබඩා කරන්න.";
+"view_seed_reminder_subtitle_3" = "ඔබගේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය ආරක්ෂිත ස්ථානයක ගබඩා කිරීමට වග බලා ගන්න";
+"vc_path_title" = "මාර්ගය";
+"vc_path_explanation" = "සැසියේ විමධ්‍යගත ජාලයේ බහුවිධ සේවා නෝඩ් හරහා ඔබේ පණිවිඩ යොමු කිරීමෙන් සැසිය ඔබේ IP සඟවයි. ඔබගේ සම්බන්ධතාවය දැනට යොමු කෙරෙන රටවල් මේවාය:";
+"vc_path_device_row_title" = "ඔබ";
+"vc_path_guard_node_row_title" = "ඇතුල්වීමේ නෝඩය";
+"vc_path_service_node_row_title" = "සේවා නෝඩය";
+"vc_path_destination_row_title" = "ගමනාන්තය";
+"vc_path_learn_more_button_title" = "තවත් හදාරන්න";
 "vc_create_private_chat_title" = "New Message";
-"vc_create_private_chat_enter_session_id_tab_title" = "Enter Session ID";
-"vc_create_private_chat_scan_qr_code_tab_title" = "Scan QR Code";
+"vc_create_private_chat_enter_session_id_tab_title" = "සැසි හැඳුනුම්පත ඇතුළත් කරන්න";
+"vc_create_private_chat_scan_qr_code_tab_title" = "QR කේතය පරිලෝකනය කරන්න";
 "vc_enter_public_key_explanation" = "Start a new conversation by entering someone's Session ID or share your Session ID with them.";
-"vc_scan_qr_code_camera_access_explanation" = "Session needs camera access to scan QR codes";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Grant Camera Access";
+"vc_scan_qr_code_camera_access_explanation" = "QR කේත පරිලෝකනය කිරීමට සැසියට කැමරා ප්‍රවේශය අවශ්‍යයි";
+"vc_scan_qr_code_grant_camera_access_button_title" = "කැමරා ප්‍රවේශය ලබා දෙන්න";
 "vc_create_closed_group_title" = "Create Group";
-"vc_create_closed_group_text_field_hint" = "Enter a group name";
-"vc_create_closed_group_empty_state_message" = "You don't have any contacts yet";
-"vc_create_closed_group_group_name_missing_error" = "Please enter a group name";
-"vc_create_closed_group_group_name_too_long_error" = "Please enter a shorter group name";
-"vc_create_closed_group_too_many_group_members_error" = "A closed group cannot have more than 100 members";
+"vc_create_closed_group_text_field_hint" = "කණ්ඩායම් නමක් ඇතුළත් කරන්න";
+"vc_create_closed_group_empty_state_message" = "ඔබට තවම සම්බන්ධතා කිසිවක් නැත";
+"vc_create_closed_group_group_name_missing_error" = "කරුණාකර කණ්ඩායම් නමක් ඇතුළත් කරන්න";
+"vc_create_closed_group_group_name_too_long_error" = "කරුණාකර කෙටි කණ්ඩායම් නමක් ඇතුළත් කරන්න";
+"vc_create_closed_group_too_many_group_members_error" = "සංවෘත කණ්ඩායමකට සාමාජිකයින් 100 කට වඩා සිටිය නොහැක";
 "vc_join_public_chat_title" = "Join Community";
 "vc_join_public_chat_enter_group_url_tab_title" = "Community URL";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Scan QR Code";
+"vc_join_public_chat_scan_qr_code_tab_title" = "QR කේතය පරිලෝකනය කරන්න";
 "vc_enter_chat_url_text_field_hint" = "Enter Community URL";
-"vc_settings_title" = "Settings";
+"vc_settings_title" = "සැකසුම්";
 "vc_group_settings_title" = "Group Settings";
-"vc_settings_display_name_missing_error" = "Please pick a display name";
-"vc_settings_display_name_too_long_error" = "Please pick a shorter display name";
-"vc_settings_privacy_button_title" = "Privacy";
-"vc_settings_notifications_button_title" = "Notifications";
-"vc_settings_recovery_phrase_button_title" = "Recovery Phrase";
-"vc_settings_clear_all_data_button_title" = "Clear Data";
-"vc_qr_code_title" = "QR Code";
-"vc_qr_code_view_my_qr_code_tab_title" = "View My QR Code";
-"vc_qr_code_view_scan_qr_code_tab_title" = "Scan QR Code";
-"vc_qr_code_view_scan_qr_code_explanation" = "Scan someone's QR code to start a conversation with them";
-"vc_view_my_qr_code_explanation" = "This is your QR code. Other users can scan it to start a session with you.";
+"vc_settings_display_name_missing_error" = "කරුණාකර සංදර්ශක නමක් තෝරන්න";
+"vc_settings_display_name_too_long_error" = "කරුණාකර කෙටි සංදර්ශක නමක් තෝරන්න";
+"vc_settings_privacy_button_title" = "පෞද්ගලිකත්වය";
+"vc_settings_notifications_button_title" = "දැනුම්දීම්";
+"vc_settings_recovery_phrase_button_title" = "ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය";
+"vc_settings_clear_all_data_button_title" = "දත්ත හිස් කරන්න";
+"vc_qr_code_title" = "QR කේතය";
+"vc_qr_code_view_my_qr_code_tab_title" = "මගේ QR කේතය බලන්න";
+"vc_qr_code_view_scan_qr_code_tab_title" = "QR කේතය පරිලෝකනය කරන්න";
+"vc_qr_code_view_scan_qr_code_explanation" = "ඔවුන් සමඟ සංවාදයක් ආරම්භ කිරීමට යමෙකුගේ QR කේතය පරිලෝකනය කරන්න";
+"vc_view_my_qr_code_explanation" = "මෙය ඔබගේ QR කේතයයි. ඔබ සමඟ සැසියක් ආරම්භ කිරීමට වෙනත් පරිශීලකයින්ට එය ස්කෑන් කළ හැක.";
 // MARK: - Not Yet Translated
-"fast_mode_explanation" = "You’ll be notified of new messages reliably and immediately using Apple’s notification servers.";
-"fast_mode" = "Fast Mode";
-"slow_mode_explanation" = "Session will occasionally check for new messages in the background.";
-"slow_mode" = "Slow Mode";
-"vc_pn_mode_title" = "Message Notifications";
-"vc_link_device_recovery_phrase_tab_title" = "Recovery Phrase";
-"vc_link_device_scan_qr_code_explanation" = "Navigate to Settings → Recovery Phrase on your other device to show your QR code.";
-"vc_enter_recovery_phrase_title" = "Recovery Phrase";
-"vc_enter_recovery_phrase_explanation" = "अपने डिवाइस को लिंक करने के लिए, पुनर्प्राप्ति वाक्यांश दर्ज करें जो आपको साइन अप करते समय दिया गया था।";
-"vc_enter_public_key_text_field_hint" = "Session आईडी या ओएनएस नाम दर्ज करें";
-"admin_group_leave_warning" = "चूंकि आप इस समूह के निर्माता हैं, इसलिए इसे सभी के लिए हटा दिया जाएगा। इसे असंपादित नहीं किया जा सकता है।";
-"vc_join_open_group_suggestions_title" = "या इनमें से एक को जोड़ें...";
-"vc_settings_invite_a_friend_button_title" = "किसी मित्र को आमंत्रित करें";
-"copied" = "कॉपी किया गया!";
-"vc_conversation_settings_copy_session_id_button_title" = "कापी सेशन आईडी";
-"vc_conversation_input_prompt" = "मैसेज";
-"vc_conversation_voice_message_cancel_message" = "रद्द करने के लिए स्लाइड करें";
-"modal_download_attachment_title" = "Trust %@?";
-"modal_download_attachment_explanation" = "क्या आप वाकई %@ द्वारा भेजे गए मीडिया को डाउनलोड करना चाहते हैं?";
-"modal_download_button_title" = "डाउनलोड";
-"modal_open_url_title" = "यूआरएल खोलें";
-"modal_open_url_explanation" = "क्या आप वाकई %@ खोलना चाहते हैं?";
-"modal_open_url_button_title" = "खोलें";
-"modal_copy_url_button_title" = "Copy Link";
-"modal_blocked_title" = "%@ अनब्लॉक करें?";
-"modal_blocked_explanation" = "क्या आप वाकई %@ को अनब्लॉक करना चाहते हैं?";
-"modal_blocked_button_title" = "अनब्लॉक करें";
-"modal_link_previews_title" = "लिंक पूर्वावलोकन सक्षम करें?";
-"modal_link_previews_explanation" = "लिंक पूर्वावलोकन सक्षम करने से आपके द्वारा भेजे और प्राप्त किए जाने वाले URL के पूर्वावलोकन दिखाई देंगे. यह उपयोगी हो सकता है, लेकिन Session को पूर्वावलोकन उत्पन्न करने के लिए लिंक की गई वेबसाइटों से संपर्क करने की आवश्यकता होगी। आप कभी भी Session की सेटिंग में लिंक पूर्वावलोकन अक्षम कर सकते हैं।";
-"modal_link_previews_button_title" = "सक्षम करें";
-"vc_share_title" = "सत्र में साझा करें";
-"vc_share_loading_message" = "अटैचमेंट तैयार किए जा रहे हैं...";
-"vc_share_sending_message" = "भेजा जा रहा है...";
-"vc_share_link_previews_unsecure" = "Preview not loaded for unsecure link";
-"vc_share_link_previews_error" = "Unable to load preview";
-"vc_share_link_previews_disabled_title" = "Link Previews Disabled";
-"vc_share_link_previews_disabled_explanation" = "Enabling link previews will show previews for URLs you share. This can be useful, but Session will need to contact linked websites to generate previews.\n\nYou can enable link previews in Session's settings.";
-"view_open_group_invitation_description" = "ग्रुप आमंत्रण खोलें";
-"vc_conversation_settings_invite_button_title" = "सदस्य जोड़ें";
-"modal_send_seed_title" = "Warning";
-"modal_send_seed_explanation" = "This is your recovery phrase. If you send it to someone they'll have full access to your account.";
-"modal_send_seed_send_button_title" = "Send";
-"vc_conversation_settings_notify_for_mentions_only_title" = "Notify for Mentions Only";
-"vc_conversation_settings_notify_for_mentions_only_explanation" = "When enabled, you'll only be notified for messages mentioning you.";
-"view_conversation_title_notify_for_mentions_only" = "Notifying for Mentions Only";
-"message_deleted" = "This message has been deleted";
-"delete_message_for_me" = "Delete just for me";
-"delete_message_for_everyone" = "Delete for everyone";
-"delete_message_for_me_and_recipient" = "Delete for me and %@";
-"context_menu_reply" = "Reply";
-"context_menu_save" = "Save";
-"context_menu_ban_user" = "Ban User";
-"context_menu_ban_and_delete_all" = "Ban and Delete All";
+"fast_mode_explanation" = "Apple හි දැනුම්දීම් සේවාදායකයන් භාවිතයෙන් ඔබට විශ්වාසවන්තව සහ වහාම නව පණිවිඩ ගැන දැනුම් දෙනු ඇත.";
+"fast_mode" = "වේගවත් මාදිලිය";
+"slow_mode_explanation" = "සැසිය විටින් විට පසුබිමේ නව පණිවිඩ සඳහා පරීක්ෂා කරනු ඇත.";
+"slow_mode" = "මන්දගාමී මාදිලිය";
+"vc_pn_mode_title" = "පණිවිඩ දැනුම්දීම්";
+"vc_link_device_recovery_phrase_tab_title" = "ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය";
+"vc_link_device_scan_qr_code_explanation" = "ඔබගේ QR කේතය පෙන්වීමට ඔබගේ අනෙක් උපාංගයේ සිටුවම් → Recovery Phase වෙත සංචාලනය කරන්න.";
+"vc_enter_recovery_phrase_title" = "ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය";
+"vc_enter_recovery_phrase_explanation" = "ඔබගේ උපාංගය සම්බන්ධ කිරීමට, ඔබ ලියාපදිංචි වූ විට ඔබට ලබා දුන් ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය ඇතුළු කරන්න.";
+"vc_enter_public_key_text_field_hint" = "Session ID හෝ ONS නම ඇතුලත් කරන්න";
+"admin_group_leave_warning" = "ඔබ මෙම සමූහයේ නිර්මාතෘ වන බැවින් එය සෑම කෙනෙකුටම මකා දැමෙනු ඇත. මෙය ආපසු හැරවිය නොහැක.";
+"vc_join_open_group_suggestions_title" = "නැත්නම් මේ එකකට එකතු වෙන්න...";
+"vc_settings_invite_a_friend_button_title" = "මිතුරෙකුට ආරාධනා කරන්න";
+"copied" = "පිටපත් විය";
+"vc_conversation_settings_copy_session_id_button_title" = "සැසි හැඳුනුම්පත පිටපත් කරන්න";
+"vc_conversation_input_prompt" = "පණිවිඩය";
+"vc_conversation_voice_message_cancel_message" = "අවලංගු කිරීමට ස්ලයිඩ් කරන්න";
+"modal_download_attachment_title" = "%@ විශ්වාස ද?";
+"modal_download_attachment_explanation" = "ඔබට %@මගින් එවන ලද මාධ්‍ය බාගැනීමට අවශ්‍ය බව විශ්වාසද?";
+"modal_download_button_title" = "බාගන්න";
+"modal_open_url_title" = "ඒ.ස.නි. විවෘත කරනවාද?";
+"modal_open_url_explanation" = "ඔබට %@විවෘත කිරීමට අවශ්‍ය බව විශ්වාසද?";
+"modal_open_url_button_title" = "විවෘත";
+"modal_copy_url_button_title" = "සබැඳිය පිටපත";
+"modal_blocked_title" = "%@ අනවහිර?";
+"modal_blocked_explanation" = "ඔබට %@අවහිර කිරීම ඉවත් කිරීමට අවශ්‍ය බව විශ්වාසද?";
+"modal_blocked_button_title" = "අනවහිර";
+"modal_link_previews_title" = "සබැඳි පෙරදසුන් සබල කරන්නද?";
+"modal_link_previews_explanation" = "සබැඳි පෙරදසුන් සබල කිරීමෙන් ඔබ යවන සහ ලබන URL සඳහා පෙරදසුන් පෙන්වනු ඇත. මෙය ප්‍රයෝජනවත් විය හැකි නමුත්, පෙරදසුන් උත්පාදනය කිරීමට සැසියට සම්බන්ධිත වෙබ් අඩවි සම්බන්ධ කර ගැනීමට අවශ්‍ය වනු ඇත. ඔබට සැම විටම සැසියේ සැකසීම් තුළ සබැඳි පෙරදසුන් අබල කළ හැක.";
+"modal_link_previews_button_title" = "සබල කරන්න";
+"vc_share_title" = "සෙෂන් වෙත බෙදාගන්න";
+"vc_share_loading_message" = "ඇමුණුම් සූදානම් කරමින්...";
+"vc_share_sending_message" = "යමින්...";
+"vc_share_link_previews_unsecure" = "අනාරක්ෂිත සබැඳිය සඳහා පෙරදසුන පූරණය නොවේ";
+"vc_share_link_previews_error" = "පෙරදසුන පූරණය කළ නොහැක";
+"vc_share_link_previews_disabled_title" = "සබැඳි පෙරදසුන් අබල කර ඇත";
+"vc_share_link_previews_disabled_explanation" = "සබැඳි පෙරදසුන් සබල කිරීමෙන් ඔබ බෙදා ගන්නා URL සඳහා පෙරදසුන් පෙන්වනු ඇත. මෙය ප්‍රයෝජනවත් විය හැකි නමුත්, පෙරදසුන් උත්පාදනය කිරීමට සැසියට සම්බන්ධිත වෙබ් අඩවි සම්බන්ධ කර ගැනීමට අවශ්‍ය වනු ඇත.\n\nඔබට සැසියේ සැකසුම් තුළ සබැඳි පෙරදසුන් සබල කළ හැක.";
+"view_open_group_invitation_description" = "කණ්ඩායම් ආරාධනාව විවෘත කරන්න";
+"vc_conversation_settings_invite_button_title" = "කටයුතු එක්කරන්න";
+"modal_send_seed_title" = "අවවාදයයි";
+"modal_send_seed_explanation" = "මෙය ඔබගේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩයයි. ඔබ එය යමෙකුට යැවුවහොත් ඔවුන්ට ඔබේ ගිණුමට සම්පූර්ණ ප්‍රවේශය ඇත.";
+"modal_send_seed_send_button_title" = "යවන්න";
+"vc_conversation_settings_notify_for_mentions_only_title" = "සඳහන් කිරීම් සඳහා පමණක් දැනුම් දෙන්න";
+"vc_conversation_settings_notify_for_mentions_only_explanation" = "සබල කළ විට, ඔබ සඳහන් කරන පණිවිඩ සඳහා පමණක් ඔබට දැනුම් දෙනු ලැබේ.";
+"view_conversation_title_notify_for_mentions_only" = "සඳහන් කිරීම් සඳහා පමණක් දැනුම් දීම";
+"message_deleted" = "මෙම පණිවිඩය මකා ඇත";
+"delete_message_for_me" = "මට විතරක් මකන්න";
+"delete_message_for_everyone" = "සියලු දෙනා සඳහා මකන්න";
+"delete_message_for_me_and_recipient" = "මට සහ %@සඳහා මකන්න";
+"context_menu_reply" = "පිළිතුරු";
+"context_menu_save" = "සුරකින්න";
+"context_menu_ban_user" = "පරිශීලක තහනම් කරන්න";
+"context_menu_ban_and_delete_all" = "සියල්ල තහනම් කර මකන්න";
 "context_menu_ban_user_error_alert_message" = "Unable to ban user";
-"accessibility_expanding_attachments_button" = "Add attachments";
+"accessibility_expanding_attachments_button" = "ඇමුණුම් එක්කරන්න";
 "accessibility_gif_button" = "Gif";
-"accessibility_document_button" = "Document";
-"accessibility_library_button" = "Photo library";
-"accessibility_camera_button" = "Camera";
-"accessibility_main_button_collapse" = "Collapse attachment options";
-"invalid_recovery_phrase" = "Invalid Recovery Phrase";
-"DISMISS_BUTTON_TEXT" = "Dismiss";
+"accessibility_document_button" = "ලේඛනය";
+"accessibility_library_button" = "ඡායාරූප පුස්තකාලය";
+"accessibility_camera_button" = "කැමරා";
+"accessibility_main_button_collapse" = "ඇමුණුම් විකල්ප හකුළන්න";
+"invalid_recovery_phrase" = "අවලංගු ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය";
+"DISMISS_BUTTON_TEXT" = "අස් කරන්න";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Settings";
-"call_outgoing" = "You called %@";
-"call_incoming" = "%@ called you";
-"call_missed" = "Missed Call from %@";
-"APN_Message" = "You've got a new message.";
-"APN_Collapsed_Messages" = "You've got %@ new messages.";
-"PIN_BUTTON_TEXT" = "Pin";
-"UNPIN_BUTTON_TEXT" = "Unpin";
-"modal_call_missed_tips_title" = "Call missed";
-"modal_call_missed_tips_explanation" = "Call missed from '%@' because you needed to enable the 'Voice and video calls' permission in the Privacy Settings.";
+"OPEN_SETTINGS_BUTTON" = "සැකසුම්";
+"call_outgoing" = "ඔබ %@ඇමතුවා";
+"call_incoming" = "%@ ඔබව ඇමතුවා";
+"call_missed" = "%@සිට මඟ හැරුණු ඇමතුම";
+"APN_Message" = "ඔබට නව පණිවිඩයක් ලැබී ඇත.";
+"APN_Collapsed_Messages" = "ඔබට නව පණිවිඩ %@ ක් ඇත.";
+"PIN_BUTTON_TEXT" = "පින් කරන්න";
+"UNPIN_BUTTON_TEXT" = "ඇමුණුම ඉවත් කරන්න";
+"modal_call_missed_tips_title" = "ඇමතුම මග හැරුණි";
+"modal_call_missed_tips_explanation" = "ඔබට රහස්‍යතා සැකසීම් තුළ 'හඬ සහ වීඩියෝ ඇමතුම්' අවසරය සබල කිරීමට අවශ්‍ය වූ නිසා '%@' වෙතින් ඇමතුම මඟ හැරී ඇත.";
 "media_saved" = "Media saved by %@.";
-"screenshot_taken" = "%@ took a screenshot.";
+"screenshot_taken" = "%@ තිර රුවක් ගත්තා.";
 "SEARCH_SECTION_CONTACTS" = "Contacts & Groups";
-"SEARCH_SECTION_MESSAGES" = "Messages";
-"MESSAGE_REQUESTS_TITLE" = "Message Requests";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "No pending message requests";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Clear All";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Are you sure you want to clear all message requests?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Clear";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Are you sure you want to delete this message request?";
+"SEARCH_SECTION_MESSAGES" = "පණිවිඩ";
+"MESSAGE_REQUESTS_TITLE" = "පණිවිඩ ඉල්ලීම්";
+"MESSAGE_REQUESTS_EMPTY_TEXT" = "පොරොත්තු පණිවිඩ ඉල්ලීම් නැත";
+"MESSAGE_REQUESTS_CLEAR_ALL" = "සියල්ල හිස් කරන්න";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "ඔබට සියලු පණිවිඩ ඉල්ලීම් ඉවත් කිරීමට අවශ්‍ය බව විශ්වාසද?";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "පැහැදිලිව";
+"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "ඔබට මෙම පණිවිඩ ඉල්ලීම මැකීමට අවශ්‍ය බව විශ්වාසද?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Are you sure you want to block this contact?";
 "MESSAGE_REQUESTS_INFO" = "Sending a message to this user will automatically accept their message request and reveal your Session ID.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Your message request has been accepted.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "You have a new message request";
-"TXT_HIDE_TITLE" = "Hide";
-"TXT_DELETE_ACCEPT" = "Accept";
+"MESSAGE_REQUESTS_ACCEPTED" = "ඔබගේ පණිවිඩ ඉල්ලීම පිළිගෙන ඇත.";
+"MESSAGE_REQUESTS_NOTIFICATION" = "ඔබට නව පණිවිඩ ඉල්ලීමක් ඇත";
+"TXT_HIDE_TITLE" = "සඟවන්න";
+"TXT_DELETE_ACCEPT" = "පිළිගන්න";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "ALERT_ERROR_TITLE" = "Error";
-"modal_call_permission_request_title" = "Call Permissions Required";
-"modal_call_permission_request_explanation" = "You can enable the 'Voice and video calls' permission in the Privacy Settings.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Oops, an error occurred";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Please try again later";
+"modal_call_permission_request_title" = "ඇමතුම් අවසර අවශ්‍යයි";
+"modal_call_permission_request_explanation" = "ඔබට රහස්‍යතා සැකසීම් තුළ 'හඬ සහ වීඩියෝ ඇමතුම්' අවසරය සබල කළ හැක.";
+"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "අපොයි, දෝෂයක් සිදු විය";
+"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "කරුණාකර පසුව නැවත උත්සාහ කරන්න";
 "LOADING_CONVERSATIONS" = "Loading Conversations...";
 "DATABASE_MIGRATION_FAILED" = "An error occurred when optimising the database\n\nYou can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
 "RECOVERY_PHASE_ERROR_GENERIC" = "Something went wrong. Please check your recovery phrase and try again.";
@@ -532,15 +532,15 @@
 "HELP_FEEDBACK_TITLE" = "We'd love your Feedback";
 "HELP_FAQ_TITLE" = "FAQ";
 "HELP_SUPPORT_TITLE" = "Support";
-"modal_clear_all_data_title" = "Clear All Data";
+"modal_clear_all_data_title" = "සියලුම දත්ත හිස් කරන්න";
 "modal_clear_all_data_explanation" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
 "modal_clear_all_data_explanation_2" = "Are you sure you want to delete your data from the network?   If you continue, you will not be able to restore your messages or contacts.";
 "modal_clear_all_data_device_only_button_title" = "Clear Device Only";
 "modal_clear_all_data_entire_account_button_title" = "Clear Device and Network";
-"dialog_clear_all_data_deletion_failed_1" = "Data not deleted by 1 Service Node. Service Node ID: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Data not deleted by %@ Service Nodes. Service Node IDs: %@.";
+"dialog_clear_all_data_deletion_failed_1" = "1 සේවා නෝඩයකින් දත්ත මකා නැත. සේවා නෝඩ් ID: %@.";
+"dialog_clear_all_data_deletion_failed_2" = "සේවා නෝඩ් %@ කින් දත්ත මකා නැත. සේවා නෝඩ් ID: %@.";
 "modal_clear_all_data_confirm" = "Clear";
-"modal_seed_title" = "Your Recovery Phrase";
+"modal_seed_title" = "ඔබේ ප්‍රතිසාධන වාක්‍ය ඛණ්ඩය";
 "modal_seed_explanation" = "You can use your recovery phrase to restore your account or link a device.";
 "modal_permission_explanation" = "Session needs %@ access to continue. You can enable access in the iOS settings.";
 "modal_permission_settings_title" = "Settings";

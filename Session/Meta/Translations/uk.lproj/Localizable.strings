@@ -60,14 +60,6 @@
 "BUTTON_DONE" = "Готово";
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Обрати";
-/* Alert body */
-"CONFIRM_LEAVE_GROUP_DESCRIPTION" = "Ви більше не зможете надсилати або отримувати повідомлення в цій групі.";
-/* Alert title */
-"CONFIRM_LEAVE_GROUP_TITLE" = "Ви дійсно хочете покинути цю групу?";
-/* Message for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_MESSAGE" = "Цю дію не буде можливо скасувати.";
-/* Title for the 'conversation delete confirmation' alert. */
-"CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "Видалити Бесіду?";
 /* keyboard toolbar label when starting to search with no current results */
 "CONVERSATION_SEARCH_SEARCHING" = "Поиск...";
 /* keyboard toolbar label when no messages match the search string */
@@ -142,8 +134,6 @@
 "LEAVE_GROUP_ACTION" = "Вийти з групи";
 /* nav bar button item */
 "MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Всі медіа";
-/* media picker option to choose from library */
-"MEDIA_FROM_LIBRARY_BUTTON" = "Галерея";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
 "MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Видалити %d повідомлень";
 /* Confirmation button text to delete selected media message from the gallery */
@@ -303,7 +293,6 @@
 "vc_create_closed_group_title" = "Створити групу";
 "vc_create_closed_group_text_field_hint" = "Введіть назву групи";
 "vc_create_closed_group_empty_state_message" = "У вас ще немає жодних контактів";
-"vc_create_closed_group_empty_state_button_title" = "Почати розмову";
 "vc_create_closed_group_group_name_missing_error" = "Будь ласка, введіть назву групи";
 "vc_create_closed_group_group_name_too_long_error" = "Будь ласка, введіть коротшу назву групи";
 "vc_create_closed_group_too_many_group_members_error" = "Закрита група не може мати більше 100 учасників";
@@ -414,7 +403,6 @@
 "MESSAGE_REQUESTS_NOTIFICATION" = "У вас є новий запит на повідомлення";
 "TXT_HIDE_TITLE" = "Приховати";
 "TXT_DELETE_ACCEPT" = "Прийняти";
-"TXT_DECLINE_TITLE" = "Відхилити";
 "TXT_BLOCK_USER_TITLE" = "Заблокувати користувача";
 "ALERT_ERROR_TITLE" = "Помилка";
 "modal_call_permission_request_title" = "Необхідний дозвіл";
@@ -485,8 +473,6 @@
 "PRIVACY_SECTION_SCREEN_SECURITY" = "Безпека екрана";
 "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Заблокувати Session";
 "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Вимагати Touch ID, Face ID або код доступу для розблокування Session.";
-"PRIVACY_SCREEN_SECURITY_SCREENSHOT_NOTIFICATIONS_TITLE" = "Сповіщення про скриншот";
-"PRIVACY_SCREEN_SECURITY_SCREENSHOT_NOTIFICATIONS_DESCRIPTION" = "Отримувати сповіщення, коли контакт робить скриншот особистої бесіди.";
 "PRIVACY_SECTION_READ_RECEIPTS" = "Звіти про перегляд";
 "PRIVACY_READ_RECEIPTS_TITLE" = "Звіти про перегляд";
 "PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Відправляти звіти про прочитання в особистих бесідах.";
@@ -593,5 +579,204 @@
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ встановив, що повідомлення зникають %@ після того, як вони були %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ змінив налаштування таким чином, що повідомлення зникають %@ після того, як вони були %@";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ вимкнув зникнення повідомлень";
-"MESSAGE_STATE_READ" = "Прочитано";
-"MESSAGE_STATE_SENT" = "Надіслано";
+
+/* context_menu_info */
+"context_menu_info" = "Info";
+
+/* An error that is displayed when the application fails for create it's initial connection to the database */
+"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+/* A warning displayed to the user when the application takes too long to launch */
+"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+
+/* The title of a button on a modal shown when the application fails to start, pressing the button closes the application */
+"APP_STARTUP_EXIT" = "Exit";
+
+/* An error which occurs if the user tries to restore the database after an initial failure and it fails to restore */
+"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
+
+/* Text displayed in place of a quoted message when the original message is not on the device */
+"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+
+/* EMOJI_REACTS_SHOW_LESS */
+"EMOJI_REACTS_SHOW_LESS" = "Show less";
+
+/* PRIVACY_SECTION_MESSAGE_REQUESTS */
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+
+/* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
+"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+
+/* State of a message while it's still in the process of being sent */
+"MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+
+/* State of a message once it has been sent */
+"MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+
+/* State of a message after the recipient has read the message */
+"MESSAGE_DELIVERY_STATUS_READ" = "Read";
+
+/* State of a message if it failed to be sent */
+"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+
+/* Title of the message information screen describing the date/time a message was sent */
+"MESSAGE_INFO_SENT" = "Sent";
+
+/* Title of the message information screen describing the date/time a message was received on a specific device */
+"MESSAGE_INFO_RECEIVED" = "Received";
+
+/* Title of the message information screen describing the sender of the message */
+"MESSAGE_INFO_FROM" = "From";
+
+/* Title of the message information screen describing the identifier of the attachment */
+"ATTACHMENT_INFO_FILE_ID" = "File ID";
+
+/* Title of the message information screen describing the file type of the attachment */
+"ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+
+/* Title of the message information screen describing the size of the attachment */
+"ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+
+/* Title on the message information screen describing the resolution of a media attachment */
+"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+
+/* Title on the message information screen describing the duration of a media attachment */
+"ATTACHMENT_INFO_DURATION" = "Duration";
+
+/* State of a message after it failed to sync to the current users other devices */
+"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+
+/* State of a message while it's in the process of being synced to the users other devices */
+"MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to send */
+"MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to sync to the users other devices */
+"MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
+
+/* Action for the modal shown when asking the user whether they want to delete from all of their devices */
+"delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+
+/* Action in the long-press menu to trigger a message to be sent again after it has failed */
+"context_menu_resend" = "Resend";
+
+/* Action in the long-press menu to trigger a message to be synced again after it has failed */
+"context_menu_resync" = "Resync";
+
+/* Title of a modal show the first time a user tries to search for GIFs */
+"GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+
+/* Message of a modal show the first time a user tries to search for GIFs */
+"GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+
+/* Action in the long-press menu to view more information about a specific message */
+"message_info_title" = "Message Info";
+
+/* Action to mute a conversation in the swipe menu */
+"mute_button_text" = "Mute";
+
+/* Action in the swipe menu to unmute a conversation */
+"unmute_button_text" = "Unmute";
+
+/* Action in the swipe menu to mark a conversation as read */
+"MARK_AS_READ" = "Mark read";
+
+/* Action in the swipe menu to mark a conversation as unread */
+"MARK_AS_UNREAD" = "Mark unread";
+
+/* Title of the confirmation modal show when attempting to leave a group conversation */
+"leave_group_confirmation_alert_title" = "Leave Group";
+
+/* Title of the confirmation modal show when attempting to leave a community conversation */
+"leave_community_confirmation_alert_title" = "Leave Community";
+
+/* Message in the confirmation modal when leaving a community conversation */
+"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+
+/* Conversation subtitle while the user in the process of leaving */
+"group_you_leaving" = "Leaving...";
+
+/* Conversation subtitle if the user in the failed to leave */
+"group_leave_error" = "Failed to leave Group!";
+
+/* Message within a conversation indicating the device was unable to leave a group conversation */
+"group_unable_to_leave" = "Unable to leave the Group, please try again";
+
+/* Title in the confirmation modal to delete a group */
+"delete_group_confirmation_alert_title" = "Delete Group";
+
+/* Message in the confirmation modal to delete a group */
+"delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+
+/* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
+"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+
+/* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+
+/* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
+"hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+
+/* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
+"hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+
+/* Title in the modal for updating the users profile display picture */
+"update_profile_modal_title" = "Set Display Picture";
+
+/* Save action in the modal for updating the users profile display picture */
+"update_profile_modal_save" = "Save";
+
+/* Remove action in the modal for updating the users profile display picture */
+"update_profile_modal_remove" = "Remove";
+
+/* Title for the error when failing to remove the users profile display picture */
+"update_profile_modal_remove_error_title" = "Unable to remove avatar image";
+
+/* Title for the error when the user selects a profile display picture that is too large */
+"update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
+
+/* Message for the error when the user selects a profile display picture that is too large */
+"update_profile_modal_max_size_error_message" = "Please select a smaller photo and try again";
+
+/* Title for the error when the user fails to update their profile display picture */
+"update_profile_modal_error_title" = "Couldn't Update Profile";
+
+/* Message for the error when the user fails to update their profile display picture */
+"update_profile_modal_error_message" = "Please check your internet connection and try again";
+
+/* Placeholder when entering a nickname for a contact */
+"CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
+
+/* The separator within a conversation indicating that following messages are unread */
+"UNREAD_MESSAGES" = "Unread Messages";
+
+/* Empty state for a conversation */
+"CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
+
+/* Empty state for a read-only conversation */
+"CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+
+/* Empty state for the 'Note to Self' conversation */
+"CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+
+/* Message to indicate a user has Community Message Requests disabled */
+"COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
+
+/* Warning to indicate one of the users devices is running an old version of Session */
+"USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+
+/* Ann error displayed if the device is unable to retrieve the users recovery password */
+"LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
+
+/* An error displayed when trying to send a message if the device is unable to save it to the database */
+"FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
+
+/* An error indicating that the device was unable to access the database for some reason */
+"database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
