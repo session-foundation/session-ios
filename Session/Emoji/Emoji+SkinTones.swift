@@ -106,6 +106,22 @@ extension Emoji {
                 [.mediumDark]: "🫴🏾",
                 [.dark]: "🫴🏿",
             ]
+        case .leftwardsPushingHand:
+            return [
+                [.light]: "🫷🏻",
+                [.mediumLight]: "🫷🏼",
+                [.medium]: "🫷🏽",
+                [.mediumDark]: "🫷🏾",
+                [.dark]: "🫷🏿",
+            ]
+        case .rightwardsPushingHand:
+            return [
+                [.light]: "🫸🏻",
+                [.mediumLight]: "🫸🏼",
+                [.medium]: "🫸🏽",
+                [.mediumDark]: "🫸🏾",
+                [.dark]: "🫸🏿",
+            ]
         case .okHand:
             return [
                 [.light]: "👌🏻",

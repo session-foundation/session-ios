@@ -13,22 +13,25 @@ PODS:
     - DifferenceKit/Core
   - GRDB.swift/SQLCipher (6.13.0):
     - SQLCipher (>= 3.4.2)
-  - libwebp (1.2.1):
-    - libwebp/demux (= 1.2.1)
-    - libwebp/mux (= 1.2.1)
-    - libwebp/webp (= 1.2.1)
-  - libwebp/demux (1.2.1):
+  - libwebp (1.3.2):
+    - libwebp/demux (= 1.3.2)
+    - libwebp/mux (= 1.3.2)
+    - libwebp/sharpyuv (= 1.3.2)
+    - libwebp/webp (= 1.3.2)
+  - libwebp/demux (1.3.2):
     - libwebp/webp
-  - libwebp/mux (1.2.1):
+  - libwebp/mux (1.3.2):
     - libwebp/demux
-  - libwebp/webp (1.2.1)
-  - Nimble (10.0.0)
+  - libwebp/sharpyuv (1.3.2)
+  - libwebp/webp (1.3.2):
+    - libwebp/sharpyuv
+  - Nimble (12.3.0)
   - NVActivityIndicatorView (5.1.1):
     - NVActivityIndicatorView/Base (= 5.1.1)
   - NVActivityIndicatorView/Base (5.1.1)
   - OpenSSL-Universal (1.1.1300)
   - PureLayout (3.1.9)
-  - Quick (5.0.1)
+  - Quick (7.3.0)
   - Reachability (3.2)
   - SAMKeychain (1.5.3)
   - SignalCoreKit (1.0.0):
@@ -134,18 +137,18 @@ SPEC REPOS:
     - CocoaLumberjack
     - DifferenceKit
     - GRDB.swift
-    - libwebp
-    - Nimble
     - NVActivityIndicatorView
     - OpenSSL-Universal
     - PureLayout
-    - Quick
     - Reachability
     - SAMKeychain
     - SQLCipher
     - SwiftProtobuf
     - WebRTC-lib
   trunk:
+    - libwebp
+    - Nimble
+    - Quick
     - xcbeautify
 
 EXTERNAL SOURCES:
@@ -186,12 +189,12 @@ SPEC CHECKSUMS:
   Curve25519Kit: e63f9859ede02438ae3defc5e1a87e09d1ec7ee6
   DifferenceKit: ab185c4d7f9cef8af3fcf593e5b387fb81e999ca
   GRDB.swift: fe420b1af49ec519c7e96e07887ee44f5dfa2b78
-  libwebp: 98a37e597e40bfdb4c911fc98f2c53d0b12d05fc
-  Nimble: 5316ef81a170ce87baf72dd961f22f89a602ff84
+  libwebp: 1786c9f4ff8a279e4dac1e8f385004d5fc253009
+  Nimble: f8a8219d16f176429b951e8f7e72df5c23ceddc0
   NVActivityIndicatorView: 1f6c5687f1171810aa27a3296814dc2d7dec3667
   OpenSSL-Universal: e7311447fd2419f57420c79524b641537387eff2
   PureLayout: 5fb5e5429519627d60d079ccb1eaa7265ce7cf88
-  Quick: 749aa754fd1e7d984f2000fe051e18a3a9809179
+  Quick: d32871931c05547cb4e0bc9009d66a18b50d8558
   Reachability: 33e18b67625424e47b6cde6d202dce689ad7af96
   SAMKeychain: 483e1c9f32984d50ca961e26818a534283b4cd5c
   SignalCoreKit: 1fbd8732163ef76de16cd1107d1fa3684b607e5d

@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class RoomPollInfoSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a RoomPollInfo
         describe("a RoomPollInfo") {
+            // MARK: -- when initializing with a room
             context("when initializing with a room") {
+                // MARK: ---- copies all the relevant values across
                 it("copies all the relevant values across") {
                     let room: OpenGroupAPI.Room = OpenGroupAPI.Room(
                         token: "testToken",
@@ -60,7 +61,9 @@ class RoomPollInfoSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when decoding
             context("when decoding") {
+                // MARK: ---- defaults admin and moderator values to false if omitted
                 it("defaults admin and moderator values to false if omitted") {
                     let roomPollInfoJson: String = """
                     {
@@ -87,6 +90,7 @@ class RoomPollInfoSpec: QuickSpec {
                     expect(result.globalModerator).to(beFalse())
                 }
                 
+                // MARK: ---- sets the admin and moderator values when provided
                 it("sets the admin and moderator values when provided") {
                     let roomPollInfoJson: String = """
                     {
