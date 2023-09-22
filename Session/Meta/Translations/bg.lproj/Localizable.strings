@@ -808,3 +808,7 @@
 
 /* An error which can occur when a user tries to update from a version that Session no longer supports updating from */
 "DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+"MESSAGE_STATE_READ" = "read";
+
+"MESSAGE_STATE_SENT" = "sent";
