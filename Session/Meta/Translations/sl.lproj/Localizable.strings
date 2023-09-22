@@ -566,8 +566,6 @@
 "COMMUNITY_ERROR_INVALID_URL" = "Please check the URL you entered and try again.";
 "COMMUNITY_ERROR_GENERIC" = "Couldn't Join";
 "DISAPPERING_MESSAGES_TITLE" = "Disappearing Messages";
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
-"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 "DISAPPERING_MESSAGES_TYPE_TITLE" = "Delete Type";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Disappear After Read";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Messages delete after they have been read.";
@@ -576,20 +574,11 @@
 "DISAPPERING_MESSAGES_TIMER_TITLE" = "Timer";
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Set";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "This setting applies to everyone in this conversation.";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to everyone in this conversation.\nOnly group admins can change this setting.";
+"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to everyone in this conversation. Only group admins can change this setting.";
 "DISAPPERING_MESSAGES_SUMMARY" = "Disappear After %@ - %@";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set messages to disappear %@ after they have been %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ has changed messages to disappear %@ after they have been %@";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages";
-"MESSAGE_STATE_READ" = "read";
-"MESSAGE_STATE_SENT" = "sent";
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
-"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
-"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
 
 /* context_menu_info */
 "context_menu_info" = "Info";
@@ -625,7 +614,6 @@
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
 
 /* State of a message while it's still in the process of being sent */
->>>>>>> dev:Session/Meta/Translations/sl.lproj/Localizable.strings
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
 
 /* State of a message once it has been sent */

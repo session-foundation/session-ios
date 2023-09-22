@@ -579,15 +579,6 @@
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ ha impostato che i messaggi scompaiano dopo %@ che sono stati %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ ha cambiato che i messaggi scompaiano dopo %@ che sono stati %@";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ ha disattivato che i messaggi scompaiano";
-"MESSAGE_STATE_READ" = "read";
-"MESSAGE_STATE_SENT" = "sent";
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
-"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
-"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
 
 /* context_menu_info */
 "context_menu_info" = "Info";
@@ -623,7 +614,6 @@
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
 
 /* State of a message while it's still in the process of being sent */
->>>>>>> dev
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
 
 /* State of a message once it has been sent */

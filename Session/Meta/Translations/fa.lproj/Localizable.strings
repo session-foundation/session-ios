@@ -566,8 +566,6 @@
 "COMMUNITY_ERROR_INVALID_URL" = "لطفا لینک وارد شده را بررسی نموده و دوباره تلاش کنید.";
 "COMMUNITY_ERROR_GENERIC" = "نمی‌توانید محلق شوید";
 "DISAPPERING_MESSAGES_TITLE" = "پیام‌ها ناپدید میشوند";
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
-"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 "DISAPPERING_MESSAGES_TYPE_TITLE" = "حذف تایپ";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "ناپدید‌شدن پس از خواندن";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "حذف پیام‌ها بعد از خواندن شان";
@@ -581,17 +579,6 @@
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ تنظیم کرده تا پیام‌ها %@ پس از آنکه %@ شدند، ناپدید شوند.";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ پیام‌ها را تغییر داده تا %@ پس از آنکه %@ شدند، ناپدید شوند.";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ ناپدید‌شدن پیام ها را خاموش کرده است";
-<<<<<<< HEAD
-"MESSAGE_STATE_READ" = "خوانده شد";
-"MESSAGE_STATE_SENT" = "ارسال شد";
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
-"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
-"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
-=======
 
 /* context_menu_info */
 "context_menu_info" = "Info";
@@ -627,7 +614,6 @@
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
 
 /* State of a message while it's still in the process of being sent */
->>>>>>> dev
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
 
 /* State of a message once it has been sent */

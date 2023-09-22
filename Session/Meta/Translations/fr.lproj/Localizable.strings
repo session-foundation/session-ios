@@ -566,64 +566,6 @@
 "COMMUNITY_ERROR_INVALID_URL" = "Veuillez vérifier l'URL que vous avez saisie et réessayer.";
 "COMMUNITY_ERROR_GENERIC" = "Impossible de rejoindre";
 "DISAPPERING_MESSAGES_TITLE" = "Messages éphémères";
-<<<<<<< HEAD
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
-"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
-"DISAPPERING_MESSAGES_TYPE_TITLE" = "Type de suppression";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Disparaît après lecture";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Les messages disparaissent une fois lus.";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "Disparaît après envoi";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "Les messages disparaissent une fois envoyés.";
-"DISAPPERING_MESSAGES_TIMER_TITLE" = "Compteur";
-"DISAPPERING_MESSAGES_SAVE_TITLE" = "Sauver";
-"DISAPPERING_MESSAGES_GROUP_WARNING" = "Ce paramètre s'applique à toutes les personnes de cette conversation.";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Ce paramètre s'applique à toutes les personnes de cette conversation. Seuls les administrateurs du groupe peuvent changer ce paramètre.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Disparaît après %@ - %@";
-"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ a paramétré les messages pour qu'ils disparaissent %@ après avoir été %@";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ a paramétré les messages pour qu'ils disparaissent %@ après avoir été %@";
-"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ a désactivé les messages éphémères.";
-"MESSAGE_STATE_READ" = "Lu";
-"MESSAGE_STATE_SENT" = "Envoyé";
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
-"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "Vous pourrez envoyer des messages et des pièces jointes une fois que le destinataire aura approuvé votre demande.";
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
-"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
-"MESSAGE_DELIVERY_STATUS_SENDING" = "Envoi";
-"MESSAGE_DELIVERY_STATUS_SENT" = "Envoyé";
-"MESSAGE_DELIVERY_STATUS_READ" = "Lu";
-"MESSAGE_DELIVERY_STATUS_FAILED" = "Échec de l'envoi";
-"MESSAGE_INFO_SENT" = "Envoyé";
-"MESSAGE_INFO_RECEIVED" = "Reçu";
-"MESSAGE_INFO_FROM" = "De";
-"ATTACHMENT_INFO_FILE_ID" = "ID Fichier";
-"ATTACHMENT_INFO_FILE_TYPE" = "Type Fichier";
-"ATTACHMENT_INFO_FILE_SIZE" = "Taille Fichier";
-"ATTACHMENT_INFO_RESOLUTION" = "Résolution";
-"ATTACHMENT_INFO_DURATION" = "Durée";
-"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Échec de synchronisation";
-"MESSAGE_DELIVERY_STATUS_SYNCING" = "Synchronisation";
-"MESSAGE_DELIVERY_FAILED_TITLE" = "Échec d'envoi du message";
-"MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Échec de synchronisation vers vos autres appareils";
-"delete_message_for_me_and_my_devices" = "Effacer sur mes autres appareils";
-"context_menu_resend" = "Réenvoyer";
-"context_menu_resync" = "Resynchroniser";
-"GIPHY_PERMISSION_TITLE" = "Rechercher GIFs?";
-"GIPHY_PERMISSION_MESSAGE" = "Session va se connecter à Giphy. Envoyer des GIFs empêchera la protection de vos métadonnées.";
-"message_info_title" = "Info Message";
-"mute_button_text" = "Silence";
-"unmute_button_text" = "Actif";
-"mark_read_button_text" = "Marquer comme lu";
-"mark_unread_button_text" = "Marquer comme non lu";
-"leave_group_confirmation_alert_title" = "Quitter le groupe";
-"leave_community_confirmation_alert_title" = "Quitter la communauté";
-"leave_community_confirmation_alert_message" = "Êtes-vous sûr de vouloir quitter %@?";
-"group_you_leaving" = "Quitter...";
-"group_leave_error" = "Impossible de quitter le groupe!";
-"group_unable_to_leave" = "Impossible de quitter le groupe, veuillez réessayer";
-=======
 "DISAPPERING_MESSAGES_TYPE_TITLE" = "Delete Type";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Disparaît après lecture";
 "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Les messages sont supprimés après avoir été lus.";
@@ -768,7 +710,6 @@
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
 
 /* Title in the confirmation modal to delete a group */
->>>>>>> dev
 "delete_group_confirmation_alert_title" = "Delete Group";
 
 /* Message in the confirmation modal to delete a group */
