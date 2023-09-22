@@ -188,6 +188,10 @@ public final class CallMessage: ControlMessage {
         }
         
         let contentProto = SNProtoContent.builder()
+        
+        // DisappearingMessagesConfiguration
+        setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
+        
         do {
             contentProto.setCallMessage(try callMessageProto.build())
             
@@ -197,9 +201,6 @@ public final class CallMessage: ControlMessage {
             SNLog("Couldn't construct call message proto from: \(self).")
             return nil
         }
-        
-        // DisappearingMessagesConfiguration
-        setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
     }
     
     // MARK: - Description
