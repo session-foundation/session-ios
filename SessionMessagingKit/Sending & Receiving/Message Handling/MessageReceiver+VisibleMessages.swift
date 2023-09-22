@@ -282,7 +282,6 @@ extension MessageReceiver {
         let linkPreview: LinkPreview? = try? LinkPreview(
             db,
             proto: dataMessage,
-            body: message.text,
             sentTimestampMs: (messageSentTimestamp * 1000)
         )?.saved(db)
         

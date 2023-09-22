@@ -553,16 +553,34 @@ extension ConversationVC:
                     let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
                     self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
                     
-                    // If there is a LinkPreview and it doesn't match an existing one then add it now
-                    if
-                        let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft,
-                        (try? insertedInteraction.linkPreview.isEmpty(db)) == true
-                    {
-                        try LinkPreview(
-                            url: linkPreviewDraft.urlString,
-                            title: linkPreviewDraft.title,
-                            attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
-                        ).insert(db)
+                    // If there is a LinkPreview draft then check the state of any existing link previews and
+                    // insert a new one if needed
+                    if let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft {
+                        let invalidLinkPreviewAttachmentStates: [Attachment.State] = [
+                            .failedDownload, .pendingDownload, .downloading, .failedUpload, .invalid
+                        ]
+                        let linkPreviewAttachmentId: String? = try? insertedInteraction.linkPreview
+                            .select(.attachmentId)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        let linkPreviewAttachmentState: Attachment.State = linkPreviewAttachmentId
+                            .map {
+                                try? Attachment
+                                    .filter(id: $0)
+                                    .select(.state)
+                                    .asRequest(of: Attachment.State.self)
+                                    .fetchOne(db)
+                            }
+                            .defaulting(to: .invalid)
+                        
+                        // If we don't have a "valid" existing link preview then upsert a new one
+                        if invalidLinkPreviewAttachmentStates.contains(linkPreviewAttachmentState) {
+                            try LinkPreview(
+                                url: linkPreviewDraft.urlString,
+                                title: linkPreviewDraft.title,
+                                attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
+                            ).save(db)
+                        }
                     }
                     
                     // If there is a Quote the insert it now
