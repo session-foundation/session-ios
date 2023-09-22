@@ -574,7 +574,7 @@
 "DISAPPERING_MESSAGES_TIMER_TITLE" = "Minuteur";
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Appliquer";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "Ce paramètre s'applique à tout le monde dans cette conversation.";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to everyone in this conversation. Only group admins can change this setting.";
+"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to everyone in this conversation.\nOnly group admins can change this setting.";
 "DISAPPERING_MESSAGES_SUMMARY" = "Disappear After %@ - %@";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set messages to disappear %@ after they have been %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ has changed messages to disappear %@ after they have been %@";
@@ -808,6 +808,9 @@
 /* An error which can occur when a user tries to update from a version that Session no longer supports updating from */
 "DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
 
-"MESSAGE_STATE_READ" = "read";
+/* DISAPPEARING_MESSAGE_STATE_READ
+The point that a message will disappear in a disappearing message update message for disappear after read */
+"DISAPPEARING_MESSAGE_STATE_READ" = "read";
 
-"MESSAGE_STATE_SENT" = "sent";
+/* The point that a message will disappear in a disappearing message update message for disappear after send */
+"DISAPPEARING_MESSAGE_STATE_SENT" = "sent";
