@@ -33,7 +33,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _013_SessionUtilChanges.self,
                     _014_GenerateInitialUserConfigDumps.self,
                     _015_BlockCommunityMessageRequests.self,
-                    _016_DisappearingMessagesConfiguration.self
+                    _016_MakeBrokenProfileTimestampsNullable.self,
+                    _017_DisappearingMessagesConfiguration.self
                 ]
             ]
         )

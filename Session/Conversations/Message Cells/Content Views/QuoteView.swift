@@ -105,7 +105,6 @@ final class QuoteView: UIView {
             availableWidth -= cancelButtonSize
         }
         
-        let availableSpace = CGSize(width: availableWidth, height: .greatestFiniteMagnitude)
         var body: String? = quotedText
         
         // Main stack view

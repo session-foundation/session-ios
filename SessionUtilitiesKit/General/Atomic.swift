@@ -81,11 +81,14 @@ extension Atomic where Value: CustomDebugStringConvertible {
 // MARK: - ReadWriteLock
 
 private class ReadWriteLock {
-    private var rwlock: pthread_rwlock_t = {
-        var rwlock = pthread_rwlock_t()
+    private var rwlock: pthread_rwlock_t
+    
+    // Need to do this in a proper init function instead of a lazy variable or it can indefinitely
+    // hang on XCode 15 when trying to retrieve a lock (potentially due to optimisations?)
+    init() {
+        rwlock = pthread_rwlock_t()
         pthread_rwlock_init(&rwlock, nil)
-        return rwlock
-    }()
+    }
     
     func writeLock() {
         pthread_rwlock_wrlock(&rwlock)

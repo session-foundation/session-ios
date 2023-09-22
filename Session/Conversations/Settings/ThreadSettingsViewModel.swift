@@ -151,7 +151,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                    .trimmingCharacters(in: .whitespacesAndNewlines)
                                self?.oldDisplayName = (updatedNickname.isEmpty ? nil : editedDisplayName)
 
-                               dependencies.storage.writeAsync { db in
+                               dependencies.storage.writeAsync(using: dependencies) { db in
                                    try Profile
                                        .filter(id: threadId)
                                        .updateAllAndConfig(

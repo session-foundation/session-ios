@@ -134,8 +134,6 @@
 "LEAVE_GROUP_ACTION" = "Leave Group";
 /* nav bar button item */
 "MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "All Media";
-/* media picker option to choose from library */
-"MEDIA_FROM_LIBRARY_BUTTON" = "Photo Library";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
 "MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Delete %d Messages";
 /* Confirmation button text to delete selected media message from the gallery */
@@ -295,7 +293,6 @@
 "vc_create_closed_group_title" = "Create Group";
 "vc_create_closed_group_text_field_hint" = "Enter a group name";
 "vc_create_closed_group_empty_state_message" = "You don't have any contacts yet";
-"vc_create_closed_group_empty_state_button_title" = "Start a Session";
 "vc_create_closed_group_group_name_missing_error" = "Please enter a group name";
 "vc_create_closed_group_group_name_too_long_error" = "Please enter a shorter group name";
 "vc_create_closed_group_too_many_group_members_error" = "A closed group cannot have more than 100 members";
@@ -366,7 +363,6 @@
 "delete_message_for_me" = "Delete just for me";
 "delete_message_for_everyone" = "Delete for everyone";
 "delete_message_for_me_and_recipient" = "Delete for me and %@";
-"context_menu_info" = "Info";
 "context_menu_reply" = "Reply";
 "context_menu_save" = "Save";
 "context_menu_ban_user" = "Ban User";
@@ -414,10 +410,6 @@
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Oops, an error occurred";
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Please try again later";
 "LOADING_CONVERSATIONS" = "Loading Conversations...";
-"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
-"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
-"APP_STARTUP_EXIT" = "Exit";
-"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
 "DATABASE_MIGRATION_FAILED" = "An error occurred when optimising the database\n\nYou can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
 "RECOVERY_PHASE_ERROR_GENERIC" = "Something went wrong. Please check your recovery phrase and try again.";
 "RECOVERY_PHASE_ERROR_LENGTH" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
@@ -446,7 +438,6 @@
 "SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
 "INVALID_SESSION_ID_MESSAGE" = "Please check the Session ID and try again.";
 "INVALID_RECOVERY_PHRASE_MESSAGE" = "Please check the Recovery Phrase and try again.";
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
 "MEDIA_TAB_TITLE" = "Media";
 "DOCUMENT_TAB_TITLE" = "Documents";
 "DOCUMENT_TILES_EMPTY_DOCUMENT" = "You don't have any document in this conversation.";
@@ -473,7 +464,6 @@
 "EMOJI_REACTS_NOTIFICATION" = "%@ reacts to a message with %@.";
 "EMOJI_REACTS_MORE_REACTORS_ONE" = "And 1 other has reacted %@ to this message.";
 "EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "And %@ others have reacted %@ to this message.";
-"EMOJI_REACTS_SHOW_LESS" = "Show less";
 "EMOJI_REACTS_RATE_LIMIT_TOAST" = "Slow down! You've sent too many emoji reacts. Try again soon.";
 /* New conversation screen*/
 "vc_new_conversation_title" = "New Conversation";
@@ -483,9 +473,6 @@
 "PRIVACY_SECTION_SCREEN_SECURITY" = "Screen Security";
 "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Lock Session";
 "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Require Touch ID, Face ID or your passcode to unlock Session.";
-"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
 "PRIVACY_SECTION_READ_RECEIPTS" = "Read Receipts";
 "PRIVACY_READ_RECEIPTS_TITLE" = "Read Receipts";
 "PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Send read receipts in one-to-one chats.";
@@ -599,6 +586,38 @@
 "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
 "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
 "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+
+/* context_menu_info */
+"context_menu_info" = "Info";
+
+/* An error that is displayed when the application fails for create it's initial connection to the database */
+"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+/* A warning displayed to the user when the application takes too long to launch */
+"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+
+/* The title of a button on a modal shown when the application fails to start, pressing the button closes the application */
+"APP_STARTUP_EXIT" = "Exit";
+
+/* An error which occurs if the user tries to restore the database after an initial failure and it fails to restore */
+"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
+
+/* Text displayed in place of a quoted message when the original message is not on the device */
+"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+
+/* EMOJI_REACTS_SHOW_LESS */
+"EMOJI_REACTS_SHOW_LESS" = "Show less";
+
+/* PRIVACY_SECTION_MESSAGE_REQUESTS */
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+
+>>>>>>> dev
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
@@ -627,8 +646,6 @@
 "message_info_title" = "Message Info";
 "mute_button_text" = "Mute";
 "unmute_button_text" = "Unmute";
-"mark_read_button_text" = "Mark read";
-"mark_unread_button_text" = "Mark unread";
 "leave_group_confirmation_alert_title" = "Leave Group";
 "leave_community_confirmation_alert_title" = "Leave Community";
 "leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";

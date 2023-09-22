@@ -65,7 +65,7 @@ enum _001_InitialSetupMigration: Migration {
             t.column(.variant, .integer).notNull()
             t.column(.creationDateTimestamp, .double).notNull()
             t.column(.shouldBeVisible, .boolean).notNull()
-            t.column(.isPinned, .boolean).notNull()
+            t.deprecatedColumn(name: "isPinned", .boolean).notNull()
             t.column(.messageDraft, .text)
             t.column(.notificationSound, .integer)
             t.column(.mutedUntilTimestamp, .double)

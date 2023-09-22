@@ -13,7 +13,7 @@
 /* Generic filename for an attachment with no known name */
 "ATTACHMENT_DEFAULT_FILENAME" = "添付ファイル";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "添付ファイルの送信でエラー";
+"ATTACHMENT_ERROR_ALERT_TITLE" = "添付ファイルの送信エラー";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "画像を変換できません。";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -25,7 +25,7 @@
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "画像のサイズを変換できません。";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "添付ファイルが大きすぎます。";
+"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "添付ファイルのサイズが大きすぎます。";
 /* Attachment error message for attachments with invalid data */
 "ATTACHMENT_ERROR_INVALID_DATA" = "添付ファイルに無効なコンテンツが含まれています。";
 /* Attachment error message for attachments with an invalid file format */
@@ -61,7 +61,7 @@
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "選択";
 /* keyboard toolbar label when starting to search with no current results */
-"CONVERSATION_SEARCH_SEARCHING" = "Searching...";
+"CONVERSATION_SEARCH_SEARCHING" = "検索中です。。。";
 /* keyboard toolbar label when no messages match the search string */
 "CONVERSATION_SEARCH_NO_RESULTS" = "見つかりません";
 /* keyboard toolbar label when exactly 1 message matches the search string */
@@ -77,7 +77,7 @@
 /* Title for the 'crop/scale image' dialog. */
 "CROP_SCALE_IMAGE_VIEW_TITLE" = "編集";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "数分掛かるかも知れません";
+"DATABASE_VIEW_OVERLAY_SUBTITLE" = "数分かかる可能性があります。";
 /* Title shown while the app is updating its database. */
 "DATABASE_VIEW_OVERLAY_TITLE" = "データベースを更新中";
 /* The present; the current time. */
@@ -107,9 +107,9 @@
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "グループが作成されました";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@がグループに加わりました";
+"GROUP_MEMBER_JOINED" = "%@がグループに加わりました ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@がグループを離れました";
+"GROUP_MEMBER_LEFT" = "%@ がグループを退会しました. ";
 /* No comment provided by engineer. */
 "GROUP_MEMBER_REMOVED" = "%@ はグループから削除されました。 ";
 /* No comment provided by engineer. */
@@ -127,15 +127,13 @@
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "添付ファイルを選択できませんでした";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "不正な音声ファイル";
+"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "無効な音声ファイル";
 /* Confirmation button within contextual alert */
 "LEAVE_BUTTON_TITLE" = "離脱";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "グループを離脱";
 /* nav bar button item */
 "MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "すべてのメディア";
-/* media picker option to choose from library */
-"MEDIA_FROM_LIBRARY_BUTTON" = "写真を選択";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
 "MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "%d個のメッセージを削除";
 /* Confirmation button text to delete selected media message from the gallery */
@@ -165,7 +163,7 @@
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
 "NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "%@の再起動中にメッセージが届いたかもしれません";
 /* No comment provided by engineer. */
-"BUTTON_OK" = "確定";
+"BUTTON_OK" = "OK";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
 "OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@がメッセージの消失をオフにしました";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -183,17 +181,17 @@
 /* Notification action button title */
 "PUSH_MANAGER_REPLY" = "返信";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Sessionを起動するのに認証する";
+"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Sessionの起動認証";
 /* Title for alert indicating that screen lock could not be unlocked. */
 "SCREEN_LOCK_UNLOCK_FAILED" = "認証失敗";
 /* alert title when user attempts to leave the send media flow when they have an in-progress album */
 "SEND_MEDIA_ABANDON_TITLE" = "メディアを破棄しますか？";
 /* alert action, confirming the user wants to exit the media flow and abandon any photos they've taken */
-"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "メディアを破棄します";
+"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "メディアを破棄する";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@（デフォルト）";
 /* Label for settings view that allows user to change the notification sound. */
-"SETTINGS_ITEM_NOTIFICATION_SOUND" = "メッセージ";
+"SETTINGS_ITEM_NOTIFICATION_SOUND" = "メッセージサウンド";
 /* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
 "SOUNDS_NONE" = "音声なし";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
@@ -286,25 +284,24 @@
 "vc_path_service_node_row_title" = "サービスノード";
 "vc_path_destination_row_title" = "目的先";
 "vc_path_learn_more_button_title" = "詳細";
-"vc_create_private_chat_title" = "新しい Session";
+"vc_create_private_chat_title" = "新着メッセージ";
 "vc_create_private_chat_enter_session_id_tab_title" = "Session ID を入力してください";
 "vc_create_private_chat_scan_qr_code_tab_title" = "QR コードをスキャンする";
-"vc_enter_public_key_explanation" = "Start a new conversation by entering someone's Session ID or share your Session ID with them.";
+"vc_enter_public_key_explanation" = "新しい会話を始めるには、セッションIDを入力するか、セッションIDを共有します。";
 "vc_scan_qr_code_camera_access_explanation" = "Session で QR コードをスキャンするにはカメラへのアクセスが必要です";
 "vc_scan_qr_code_grant_camera_access_button_title" = "カメラへのアクセスを許可する";
-"vc_create_closed_group_title" = "新しいクローズドグループ";
+"vc_create_closed_group_title" = "グループを作成";
 "vc_create_closed_group_text_field_hint" = "グループ名を入力してください";
 "vc_create_closed_group_empty_state_message" = "まだ連絡先がありません";
-"vc_create_closed_group_empty_state_button_title" = "Session を開始する";
 "vc_create_closed_group_group_name_missing_error" = "グループ名を入力してください";
 "vc_create_closed_group_group_name_too_long_error" = "短いグループ名を入力してください";
 "vc_create_closed_group_too_many_group_members_error" = "非公開グループは 100 人を超えるメンバーを抱えることはできません";
-"vc_join_public_chat_title" = "公開グループに参加する";
-"vc_join_public_chat_enter_group_url_tab_title" = "グループの URL を開く";
+"vc_join_public_chat_title" = "コミュニティに参加する";
+"vc_join_public_chat_enter_group_url_tab_title" = "コミュニティ URL";
 "vc_join_public_chat_scan_qr_code_tab_title" = "QR コードをスキャンする";
-"vc_enter_chat_url_text_field_hint" = "公開グループの URL を入力する";
+"vc_enter_chat_url_text_field_hint" = "コミュニティ URL を入力してください";
 "vc_settings_title" = "設定";
-"vc_group_settings_title" = "Group Settings";
+"vc_group_settings_title" = "グループ設定";
 "vc_settings_display_name_missing_error" = "表示名を選択してください";
 "vc_settings_display_name_too_long_error" = "短い表示名を選択してください";
 "vc_settings_privacy_button_title" = "プライバシー";
@@ -366,12 +363,11 @@
 "delete_message_for_me" = "自分の端末から削除";
 "delete_message_for_everyone" = "全員の端末から削除";
 "delete_message_for_me_and_recipient" = "自分と %@ の端末から削除する";
-"context_menu_info" = "Info";
 "context_menu_reply" = "返信";
 "context_menu_save" = "保存";
 "context_menu_ban_user" = "ユーザーをBAN";
 "context_menu_ban_and_delete_all" = "BANしてすべてを削除する";
-"context_menu_ban_user_error_alert_message" = "Unable to ban user";
+"context_menu_ban_user_error_alert_message" = "ユーザーをBANできません";
 "accessibility_expanding_attachments_button" = "添付ファイルを追加";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "ドキュメント";
@@ -391,7 +387,7 @@
 "UNPIN_BUTTON_TEXT" = "ピン留めを外す";
 "modal_call_missed_tips_title" = "通話できません";
 "modal_call_missed_tips_explanation" = "プライバシー設定で「音声通話とビデオ通話」を許可していないため、%@から着信できませんでした。";
-"media_saved" = "%@ によって保存されたメディア";
+"media_saved" = "メディアは%@によって保存されました。";
 "screenshot_taken" = "%@はスクリーンショットを撮りました。";
 "SEARCH_SECTION_CONTACTS" = "連絡先とグループ";
 "SEARCH_SECTION_MESSAGES" = "メッセージ";
@@ -401,159 +397,151 @@
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "本当に全てのリクエストを消去しますか？";
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "消去";
 "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "本当にこのリクエストを削除しますか？";
-"MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Are you sure you want to block this contact?";
-"MESSAGE_REQUESTS_INFO" = "このユーザーにメッセージを送信すると、自動的にリクエストが承認されます。";
+"MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "この連絡先をブロックしてもよろしいですか？";
+"MESSAGE_REQUESTS_INFO" = "このユーザーにメッセージを送信すると、自動的にメッセージのリクエストが受け付けられ、あなたのセッションIDが公開されます。";
 "MESSAGE_REQUESTS_ACCEPTED" = "リクエストが承認されました";
 "MESSAGE_REQUESTS_NOTIFICATION" = "新しいリクエストがあります";
 "TXT_HIDE_TITLE" = "非表示";
 "TXT_DELETE_ACCEPT" = "許可";
-"TXT_BLOCK_USER_TITLE" = "Block User";
+"TXT_BLOCK_USER_TITLE" = "ユーザーをブロック";
 "ALERT_ERROR_TITLE" = "エラー";
 "modal_call_permission_request_title" = "許可が必要です";
 "modal_call_permission_request_explanation" = "プライバシー設定から音声とビデオ通話の許可を有効にできます。";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Oops, an error occurred";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Please try again later";
-"LOADING_CONVERSATIONS" = "Loading Conversations...";
-"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
-"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
-"APP_STARTUP_EXIT" = "Exit";
-"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
-"DATABASE_MIGRATION_FAILED" = "An error occurred when optimising the database\n\nYou can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Something went wrong. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "You seem to be missing the last word of your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "There appears to be an invalid word in your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Your recovery phrase couldn't be verified. Please check what you entered and try again.";
+"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "エラーが発生してしまいました！";
+"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "後でもう一度お試しください";
+"LOADING_CONVERSATIONS" = "会話データを読み込んでいます";
+"DATABASE_MIGRATION_FAILED" = "データベースの最適化時にエラーが発生しました\n\nトラブルシューティングのために共有するためにアプリケーションログをエクスポートするか、デバイスを復元することができます。\n\n警告: お使いのデバイスを復元すると、2週間以上のデータが失われます。";
+"RECOVERY_PHASE_ERROR_GENERIC" = "エラーが発生しました。接続を確認してもう一度やり直してください。";
+"RECOVERY_PHASE_ERROR_LENGTH" = "十分な単語を入力していないようです。復元フレーズを確認して、もう一度やり直してください。";
+"RECOVERY_PHASE_ERROR_LAST_WORD" = "復元フレーズの最後の単語が見つかりませんでした。入力したものを確認して、もう一度やり直してください。";
+"RECOVERY_PHASE_ERROR_INVALID_WORD" = "復元フレーズに無効な単語が表示されます。入力した単語を確認して、もう一度お試しください。";
+"RECOVERY_PHASE_ERROR_FAILED" = "復元フレーズを確認できませんでした。入力したものを確認して、もう一度やり直してください。";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Authentication could not be accessed.";
+"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "認証情報にアクセスできませんでした。";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
 "SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "認証に失敗しました。";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "認証失敗が多すぎます。あとで再度試してください。";
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "ログイン試行回数を超えました。しばらくして再度お試しください。";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "画面ロックを使用するには、iOSの設定でパスコードを有効にしてください。";
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "画面ロックを使うにはiOSでパスコードを設定してください。";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "画面ロックを使用するには、iOSの設定でパスコードを有効にしてください。";
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "画面ロックを使うにはiOSでパスコードを設定してください。";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "画面ロックを使用するには、iOSの設定でパスコードを有効にしてください。";
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "画面ロックを使うにはiOSでパスコードを設定してください。";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Send";
+"SEND_BUTTON_TITLE" = "送信";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Retry";
+"RETRY_BUTTON_TEXT" = "再試行";
 /* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Show Chat";
+"SHOW_THREAD_BUTTON_TITLE" = "チャットを表示";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
-"INVALID_SESSION_ID_MESSAGE" = "Please check the Session ID and try again.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Please check the Recovery Phrase and try again.";
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
-"MEDIA_TAB_TITLE" = "Media";
-"DOCUMENT_TAB_TITLE" = "Documents";
-"DOCUMENT_TILES_EMPTY_DOCUMENT" = "You don't have any document in this conversation.";
-"DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL" = "Loading Newer Document…";
-"DOCUMENT_TILES_LOADING_OLDER_LABEL" = "Loading Older Document…";
+"SEND_FAILED_NOTIFICATION_BODY" = "メッセージの送信に失敗しました。";
+"INVALID_SESSION_ID_MESSAGE" = "セッションIDを確認してもう一度やり直してください";
+"INVALID_RECOVERY_PHRASE_MESSAGE" = "リカバリーフレーズを確認してもう一度やり直してください。";
+"MEDIA_TAB_TITLE" = "メディア";
+"DOCUMENT_TAB_TITLE" = "ドキュメント";
+"DOCUMENT_TILES_EMPTY_DOCUMENT" = "この会話にはドキュメントがありません。";
+"DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL" = "新しいドキュメントを読み込んでいます…";
+"DOCUMENT_TILES_LOADING_OLDER_LABEL" = "古いドキュメントを読み込んでいます…";
 /* The name for the emoji category 'Activities' */
-"EMOJI_CATEGORY_ACTIVITIES_NAME" = "Activities";
+"EMOJI_CATEGORY_ACTIVITIES_NAME" = "アクティビティ";
 /* The name for the emoji category 'Animals & Nature' */
-"EMOJI_CATEGORY_ANIMALS_NAME" = "Animals & Nature";
+"EMOJI_CATEGORY_ANIMALS_NAME" = "動物&自然";
 /* The name for the emoji category 'Flags' */
-"EMOJI_CATEGORY_FLAGS_NAME" = "Flags";
+"EMOJI_CATEGORY_FLAGS_NAME" = "フラグ";
 /* The name for the emoji category 'Food & Drink' */
-"EMOJI_CATEGORY_FOOD_NAME" = "Food & Drink";
+"EMOJI_CATEGORY_FOOD_NAME" = "食べ物・飲み物";
 /* The name for the emoji category 'Objects' */
-"EMOJI_CATEGORY_OBJECTS_NAME" = "Objects";
+"EMOJI_CATEGORY_OBJECTS_NAME" = "オブジェクト";
 /* The name for the emoji category 'Recents' */
-"EMOJI_CATEGORY_RECENTS_NAME" = "Recently Used";
+"EMOJI_CATEGORY_RECENTS_NAME" = "最近使用したもの";
 /* The name for the emoji category 'Smileys & People' */
-"EMOJI_CATEGORY_SMILEYSANDPEOPLE_NAME" = "Smileys & People";
+"EMOJI_CATEGORY_SMILEYSANDPEOPLE_NAME" = "絵文字と人";
 /* The name for the emoji category 'Symbols' */
-"EMOJI_CATEGORY_SYMBOLS_NAME" = "Symbols";
+"EMOJI_CATEGORY_SYMBOLS_NAME" = "記号";
 /* The name for the emoji category 'Travel & Places' */
-"EMOJI_CATEGORY_TRAVEL_NAME" = "Travel & Places";
-"EMOJI_REACTS_NOTIFICATION" = "%@ reacts to a message with %@.";
-"EMOJI_REACTS_MORE_REACTORS_ONE" = "And 1 other has reacted %@ to this message.";
-"EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "And %@ others have reacted %@ to this message.";
-"EMOJI_REACTS_SHOW_LESS" = "Show less";
-"EMOJI_REACTS_RATE_LIMIT_TOAST" = "Slow down! You've sent too many emoji reacts. Try again soon.";
+"EMOJI_CATEGORY_TRAVEL_NAME" = "旅行&場所";
+"EMOJI_REACTS_NOTIFICATION" = "%@ がメッセージ %@ に反応.";
+"EMOJI_REACTS_MORE_REACTORS_ONE" = "が %@ をこのメッセージに反応しました.";
+"EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "%@ が %@ をこのメッセージに反応しました.";
+"EMOJI_REACTS_RATE_LIMIT_TOAST" = "スローダウンしました。絵文字リアクターが多すぎます。しばらくしてからもう一度試してください。";
 /* New conversation screen*/
-"vc_new_conversation_title" = "New Conversation";
-"CREATE_GROUP_BUTTON_TITLE" = "Create";
-"JOIN_COMMUNITY_BUTTON_TITLE" = "Join";
+"vc_new_conversation_title" = "新しい会話";
+"CREATE_GROUP_BUTTON_TITLE" = "作成する";
+"JOIN_COMMUNITY_BUTTON_TITLE" = "参加";
 "PRIVACY_TITLE" = "プライバシー";
 "PRIVACY_SECTION_SCREEN_SECURITY" = "スクリーン・セキュリティ";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Lock Session";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Require Touch ID, Face ID or your passcode to unlock Session.";
-"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
-"PRIVACY_SECTION_READ_RECEIPTS" = "既読確認";
-"PRIVACY_READ_RECEIPTS_TITLE" = "既読確認";
-"PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Send read receipts in one-to-one chats.";
+"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Sessionをロック";
+"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "セッションのロックを解除するには、Touch ID、Face ID、またはパスコードが必要です。";
+"PRIVACY_SECTION_READ_RECEIPTS" = "既読通知";
+"PRIVACY_READ_RECEIPTS_TITLE" = "既読通知";
+"PRIVACY_READ_RECEIPTS_DESCRIPTION" = "1対1のチャットで既読通知を送信します。";
 "PRIVACY_SECTION_TYPING_INDICATORS" = "入力中アイコン";
 "PRIVACY_TYPING_INDICATORS_TITLE" = "入力中アイコン";
-"PRIVACY_TYPING_INDICATORS_DESCRIPTION" = "See and share typing indicators in one-to-one conversations.";
-"PRIVACY_SECTION_LINK_PREVIEWS" = "Link Previews";
+"PRIVACY_TYPING_INDICATORS_DESCRIPTION" = "入力中の表示を1対1のチャットで相手に表示します。";
+"PRIVACY_SECTION_LINK_PREVIEWS" = "リンクプレビュー";
 "PRIVACY_LINK_PREVIEWS_TITLE" = "リンクプレビューを送る";
-"PRIVACY_LINK_PREVIEWS_DESCRIPTION" = "Generate link previews for supported URLs.";
-"PRIVACY_SECTION_CALLS" = "Calls (Beta)";
+"PRIVACY_LINK_PREVIEWS_DESCRIPTION" = "サポートされている URL のリンクプレビューを表示します。";
+"PRIVACY_SECTION_CALLS" = "通話 (ベータ版)";
 "PRIVACY_CALLS_TITLE" = "音声とビデオ通話";
-"PRIVACY_CALLS_DESCRIPTION" = "Enables voice and video calls to and from other users.";
-"PRIVACY_CALLS_WARNING_TITLE" = "Voice and Video Calls (Beta)";
-"PRIVACY_CALLS_WARNING_DESCRIPTION" = "Your IP address is visible to your call partner and an Oxen Foundation server while using beta calls. Are you sure you want to enable Voice and Video Calls?";
+"PRIVACY_CALLS_DESCRIPTION" = "他のユーザーとの音声通話やビデオ通話を有効にします。";
+"PRIVACY_CALLS_WARNING_TITLE" = "音声通話とビデオ通話 (ベータ版)";
+"PRIVACY_CALLS_WARNING_DESCRIPTION" = "音声通話とビデオ通話を使用している間、あなたのIPはあなたの通話相手とOxen Foundationサーバーに表示されます。 音声通話とビデオ通話を有効にしてもよろしいですか？";
 "NOTIFICATIONS_TITLE" = "通知";
-"NOTIFICATIONS_SECTION_STRATEGY" = "通知戦略";
+"NOTIFICATIONS_SECTION_STRATEGY" = "通知スタイル";
 "NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE" = "高速モードを使用する";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION" = "You'll be notified of new message reliably and immediately using Apple's notification servers.";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION" = "Go to device notification settings";
-"NOTIFICATIONS_SECTION_STYLE" = "Notification Style";
-"NOTIFICATIONS_STYLE_SOUND_TITLE" = "Sound";
-"NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE" = "Sound When App is Open";
+"NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION" = "Appleの通知サーバーの利用で、すぐかつ確実に新しいメッセージの受信を通知されます。";
+"NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION" = "端末の通知設定に移動";
+"NOTIFICATIONS_SECTION_STYLE" = "通知スタイル";
+"NOTIFICATIONS_STYLE_SOUND_TITLE" = "サウンド";
+"NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE" = "アプリが開いているときの音";
 "NOTIFICATIONS_STYLE_CONTENT_TITLE" = "通知内容";
-"NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION" = "The information shown in notifications.";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT" = "Name & Content";
+"NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION" = "通知に表示される情報";
+"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT" = "名前とメッセージ";
 "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY" = "名前のみ";
 "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT" = "名前もメッセージも無し";
-"CONVERSATION_SETTINGS_TITLE" = "Conversations";
-"CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING" = "Message Trimming";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE" = "Trim Communities";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION" = "Delete messages older than 6 months from Communities that have over 2,000 messages.";
-"CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "Audio Messages";
-"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "Autoplay Audio Messages";
-"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "Autoplay consecutive audio messages.";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE" = "Blocked Contacts";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE" = "You have no blocked contacts.";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK" = "Unblock";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE" = "Are you sure you want to unblock %@?";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "this contact";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1" = "Are you sure you want to unblock %@";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "and %@?";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "and %d others?";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON" = "Unblock";
-"APPEARANCE_TITLE" = "Appearance";
-"APPEARANCE_THEMES_TITLE" = "Themes";
-"APPEARANCE_PRIMARY_COLOR_TITLE" = "Primary colour";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE" = "How are you?";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE" = "I'm good thanks, you?";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE" = "I'm doing great, thanks.";
-"APPEARANCE_NIGHT_MODE_TITLE" = "Auto night-mode";
-"APPEARANCE_NIGHT_MODE_TOGGLE" = "Match system settings";
-"HELP_TITLE" = "Help";
-"HELP_REPORT_BUG_TITLE" = "Report a Bug";
-"HELP_REPORT_BUG_DESCRIPTION" = "Export your logs, then upload the file though Session's Help Desk.";
-"HELP_REPORT_BUG_ACTION_TITLE" = "Export Logs";
-"HELP_TRANSLATE_TITLE" = "Translate Session";
-"HELP_FEEDBACK_TITLE" = "We'd love your Feedback";
+"CONVERSATION_SETTINGS_TITLE" = "会話";
+"CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING" = "メッセージの削減";
+"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE" = "コミュニティをトリムする";
+"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION" = "2,000件以上のメッセージを持つコミュニティから6ヶ月以上のメッセージを削除します。";
+"CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "音声メッセージ";
+"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "音声メッセージの自動再生";
+"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "音声メッセージを自動再生します";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE" = "ブロックされた連絡先";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE" = "ブロックされた連絡先がありません。";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK" = "ブロック解除";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE" = "%@のブロックを解除してもよろしいですか?";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "この連絡先";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1" = "本当に %@ のブロックを解除しますか？";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "と %@?";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "%dとその他";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON" = "ブロック解除";
+"APPEARANCE_TITLE" = "デザイン設定";
+"APPEARANCE_THEMES_TITLE" = "テーマ";
+"APPEARANCE_PRIMARY_COLOR_TITLE" = "プライマリーカラー";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE" = "調子はどうだい?";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE" = "いい感じだよ、貴方はどう？";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE" = "絶好調だよ！";
+"APPEARANCE_NIGHT_MODE_TITLE" = "自動ナイトモード";
+"APPEARANCE_NIGHT_MODE_TOGGLE" = "システム設定に一致する";
+"HELP_TITLE" = "ヘルプ";
+"HELP_REPORT_BUG_TITLE" = "バグを報告";
+"HELP_REPORT_BUG_DESCRIPTION" = "ログをエクスポートし、Sessionのヘルプデスクにてファイルをアップロードします。";
+"HELP_REPORT_BUG_ACTION_TITLE" = "ログのエクスポート";
+"HELP_TRANSLATE_TITLE" = "セッションを翻訳";
+"HELP_FEEDBACK_TITLE" = "ご意見をお聞かせください。";
 "HELP_FAQ_TITLE" = "よくある質問";
-"HELP_SUPPORT_TITLE" = "Support";
+"HELP_SUPPORT_TITLE" = "サポート";
 "modal_clear_all_data_title" = "すべてのデータを消去する";
-"modal_clear_all_data_explanation" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
-"modal_clear_all_data_explanation_2" = "Are you sure you want to delete your data from the network?   If you continue, you will not be able to restore your messages or contacts.";
-"modal_clear_all_data_device_only_button_title" = "Clear Device Only";
-"modal_clear_all_data_entire_account_button_title" = "Clear Device and Network";
+"modal_clear_all_data_explanation" = "これにより、メッセージと連絡先が完全に削除されます。このデバイスのみを消去するか、ネットワークからデータを削除しますか？";
+"modal_clear_all_data_explanation_2" = "ネットワークからデータを削除してもよろしいですか？ 続行すると、メッセージや連絡先を復元することはできません。";
+"modal_clear_all_data_device_only_button_title" = "端末のみ消去";
+"modal_clear_all_data_entire_account_button_title" = "端末とネットワークを消去";
 "dialog_clear_all_data_deletion_failed_1" = "このサービスノードからデータが削除されませんでした。ID: %@";
 "dialog_clear_all_data_deletion_failed_2" = "%@ つのサービスノードからデータが削除されませんでした。ID %@";
-"modal_clear_all_data_confirm" = "Clear";
+"modal_clear_all_data_confirm" = "消去";
 "modal_seed_title" = "あなたのリカバリーフレーズ";
+<<<<<<< HEAD
 "modal_seed_explanation" = "You can use your recovery phrase to restore your account or link a device.";
 "modal_permission_explanation" = "Session needs %@ access to continue. You can enable access in the iOS settings.";
 "modal_permission_settings_title" = "Settings";
@@ -603,61 +591,244 @@
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
 "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
+=======
+"modal_seed_explanation" = "復元フレーズを使用してアカウントを復元したり、デバイスをリンクしたりできます。";
+"modal_permission_explanation" = "セッションを続行するには %@ のアクセスが必要です。iOSの設定でアクセスを有効にできます。";
+"modal_permission_settings_title" = "設定";
+"modal_permission_camera" = "カメラ";
+"modal_permission_microphone" = "マイクロフォン";
+"modal_permission_library" = "ライブラリ";
+"DISAPPEARING_MESSAGES_OFF" = "オフ";
+"DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "オフ";
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "- %@ の後に消えます";
+"COPY_GROUP_URL" = "グループのURLをコピー";
+"NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "連絡先";
+"GROUP_ERROR_NO_MEMBER_SELECTION" = "グループメンバーを少なくとも 2 人選択してください";
+"GROUP_CREATION_PLEASE_WAIT" = "グループが作成されるまでお待ちください...";
+"GROUP_CREATION_ERROR_TITLE" = "グループを作成できませんでした";
+"GROUP_CREATION_ERROR_MESSAGE" = "インターネット接続を確認して、もう一度やり直してください。";
+"GROUP_UPDATE_ERROR_TITLE" = "グループの更新ができませんでした";
+"GROUP_UPDATE_ERROR_MESSAGE" = "他のメンバーを追加または削除中は退出できません。";
+"GROUP_ACTION_REMOVE" = "削除";
+"GROUP_TITLE_MEMBERS" = "メンバー";
+"GROUP_TITLE_FALLBACK" = "グループ";
+"DM_ERROR_DIRECT_BLINDED_ID" = "Blinded IDへのメッセージの送信は、コミュニティ内からのみ可能です。";
+"DM_ERROR_INVALID" = "セッションIDまたはONS名を確認して再度お試しください。";
+"COMMUNITY_ERROR_INVALID_URL" = "入力されたURLをご確認の上、再度お試しください。";
+"COMMUNITY_ERROR_GENERIC" = "参加できませんでした";
+"DISAPPERING_MESSAGES_TITLE" = "消えるメッセージ";
+"DISAPPERING_MESSAGES_TYPE_TITLE" = "削除の種類";
+"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "既読後に消えます";
+"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "メッセージは読み込んだ後に削除されます。";
+"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "送信後に消えます";
+"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "メッセージは送信後に削除されます。";
+"DISAPPERING_MESSAGES_TIMER_TITLE" = "タイマー";
+"DISAPPERING_MESSAGES_SAVE_TITLE" = "セット";
+"DISAPPERING_MESSAGES_GROUP_WARNING" = "この設定は、この会話の全員に適用されます。";
+"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "この設定はこの会話の全員に適用されます。グループ管理者のみがこの設定を変更できます。";
+"DISAPPERING_MESSAGES_SUMMARY" = "%@ - %@ の後に消えます";
+"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ が %@ になった後、 %@消えるようにメッセージを設定しました";
+"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ が %@ になった後、 %@消えるようにメッセージを設定しました";
+"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ は消えているメッセージをオフにしました";
+
+/* context_menu_info */
+"context_menu_info" = "Info";
+
+/* An error that is displayed when the application fails for create it's initial connection to the database */
+"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+/* A warning displayed to the user when the application takes too long to launch */
+"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+
+/* The title of a button on a modal shown when the application fails to start, pressing the button closes the application */
+"APP_STARTUP_EXIT" = "Exit";
+
+/* An error which occurs if the user tries to restore the database after an initial failure and it fails to restore */
+"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
+
+/* Text displayed in place of a quoted message when the original message is not on the device */
+"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+
+/* EMOJI_REACTS_SHOW_LESS */
+"EMOJI_REACTS_SHOW_LESS" = "Show less";
+
+/* PRIVACY_SECTION_MESSAGE_REQUESTS */
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+
+/* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
+"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+
+/* State of a message while it's still in the process of being sent */
+>>>>>>> dev
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+
+/* State of a message once it has been sent */
 "MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+
+/* State of a message after the recipient has read the message */
 "MESSAGE_DELIVERY_STATUS_READ" = "Read";
+
+/* State of a message if it failed to be sent */
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+
+/* Title of the message information screen describing the date/time a message was sent */
 "MESSAGE_INFO_SENT" = "Sent";
+
+/* Title of the message information screen describing the date/time a message was received on a specific device */
 "MESSAGE_INFO_RECEIVED" = "Received";
+
+/* Title of the message information screen describing the sender of the message */
 "MESSAGE_INFO_FROM" = "From";
+
+/* Title of the message information screen describing the identifier of the attachment */
 "ATTACHMENT_INFO_FILE_ID" = "File ID";
+
+/* Title of the message information screen describing the file type of the attachment */
 "ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+
+/* Title of the message information screen describing the size of the attachment */
 "ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+
+/* Title on the message information screen describing the resolution of a media attachment */
 "ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+
+/* Title on the message information screen describing the duration of a media attachment */
 "ATTACHMENT_INFO_DURATION" = "Duration";
+
+/* State of a message after it failed to sync to the current users other devices */
 "MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+
+/* State of a message while it's in the process of being synced to the users other devices */
 "MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to send */
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to sync to the users other devices */
 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
+
+/* Action for the modal shown when asking the user whether they want to delete from all of their devices */
 "delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+
+/* Action in the long-press menu to trigger a message to be sent again after it has failed */
 "context_menu_resend" = "Resend";
+
+/* Action in the long-press menu to trigger a message to be synced again after it has failed */
 "context_menu_resync" = "Resync";
+
+/* Title of a modal show the first time a user tries to search for GIFs */
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+
+/* Message of a modal show the first time a user tries to search for GIFs */
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+
+/* Action in the long-press menu to view more information about a specific message */
 "message_info_title" = "Message Info";
+
+/* Action to mute a conversation in the swipe menu */
 "mute_button_text" = "Mute";
+
+/* Action in the swipe menu to unmute a conversation */
 "unmute_button_text" = "Unmute";
-"mark_read_button_text" = "Mark read";
-"mark_unread_button_text" = "Mark unread";
+
+/* Action in the swipe menu to mark a conversation as read */
+"MARK_AS_READ" = "Mark read";
+
+/* Action in the swipe menu to mark a conversation as unread */
+"MARK_AS_UNREAD" = "Mark unread";
+
+/* Title of the confirmation modal show when attempting to leave a group conversation */
 "leave_group_confirmation_alert_title" = "Leave Group";
+
+/* Title of the confirmation modal show when attempting to leave a community conversation */
 "leave_community_confirmation_alert_title" = "Leave Community";
+
+/* Message in the confirmation modal when leaving a community conversation */
 "leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+
+/* Conversation subtitle while the user in the process of leaving */
 "group_you_leaving" = "Leaving...";
+
+/* Conversation subtitle if the user in the failed to leave */
 "group_leave_error" = "Failed to leave Group!";
+
+/* Message within a conversation indicating the device was unable to leave a group conversation */
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
+
+/* Title in the confirmation modal to delete a group */
 "delete_group_confirmation_alert_title" = "Delete Group";
+
+/* Message in the confirmation modal to delete a group */
 "delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+
+/* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_title" = "Delete Conversation";
+
+/* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+
+/* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+
+/* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+
+/* Title in the modal for updating the users profile display picture */
 "update_profile_modal_title" = "Set Display Picture";
+
+/* Save action in the modal for updating the users profile display picture */
 "update_profile_modal_save" = "Save";
+
+/* Remove action in the modal for updating the users profile display picture */
 "update_profile_modal_remove" = "Remove";
+
+/* Title for the error when failing to remove the users profile display picture */
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
+
+/* Title for the error when the user selects a profile display picture that is too large */
 "update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
+
+/* Message for the error when the user selects a profile display picture that is too large */
 "update_profile_modal_max_size_error_message" = "Please select a smaller photo and try again";
+
+/* Title for the error when the user fails to update their profile display picture */
 "update_profile_modal_error_title" = "Couldn't Update Profile";
+
+/* Message for the error when the user fails to update their profile display picture */
 "update_profile_modal_error_message" = "Please check your internet connection and try again";
+
+/* Placeholder when entering a nickname for a contact */
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
-"MARK_AS_READ" = "Mark Read";
-"MARK_AS_UNREAD" = "Mark Unread";
+
+/* The separator within a conversation indicating that following messages are unread */
 "UNREAD_MESSAGES" = "Unread Messages";
+
+/* Empty state for a conversation */
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
+
+/* Empty state for a read-only conversation */
 "CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+
+/* Empty state for the 'Note to Self' conversation */
 "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+
+/* Message to indicate a user has Community Message Requests disabled */
 "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
+
+/* Warning to indicate one of the users devices is running an old version of Session */
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+
+/* Ann error displayed if the device is unable to retrieve the users recovery password */
 "LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
+
+/* An error displayed when trying to send a message if the device is unable to save it to the database */
 "FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
+
+/* An error indicating that the device was unable to access the database for some reason */
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";

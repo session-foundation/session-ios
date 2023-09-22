@@ -12,13 +12,12 @@ import Quick
 import Nimble
 
 class SessionUtilSpec: QuickSpec {
-    // MARK: - Spec
-    
-    override func spec() {
+    override class func spec() {
+        // MARK: - SessionUtil
         describe("SessionUtil") {
-            // MARK: - Parsing URLs
-            
+            // MARK: -- when parsing a community url
             context("when parsing a community url") {
+                // MARK: ---- handles the example urls correctly
                 it("handles the example urls correctly") {
                     let validUrls: [String] = [
                         [
@@ -82,6 +81,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(processedPublicKeys).to(equal(expectedPublicKeys))
                 }
                 
+                // MARK: ---- handles the r prefix if present
                 it("handles the r prefix if present") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -95,6 +95,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(equal("658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"))
                 }
                 
+                // MARK: ---- fails if no scheme is provided
                 it("fails if no scheme is provided") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -108,6 +109,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: ---- fails if there is no room
                 it("fails if there is no room") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -121,6 +123,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: ---- fails if there is no public key parameter
                 it("fails if there is no public key parameter") {
                     let info = SessionUtil.parseCommunity(
                         url: "https://sessionopengroup.co/r/main"
@@ -131,6 +134,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: ---- fails if the public key parameter is not 64 characters
                 it("fails if the public key parameter is not 64 characters") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -144,6 +148,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: ---- fails if the public key parameter is not a hex string
                 it("fails if the public key parameter is not a hex string") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -157,6 +162,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
+                // MARK: ---- maintains the same TLS
                 it("maintains the same TLS") {
                     let server1 = SessionUtil.parseCommunity(
                         url: [
@@ -175,6 +181,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(server2).to(equal("https://sessionopengroup.co"))
                 }
                 
+                // MARK: ---- maintains the same port
                 it("maintains the same port") {
                     let server1 = SessionUtil.parseCommunity(
                         url: [
@@ -194,14 +201,15 @@ class SessionUtilSpec: QuickSpec {
                 }
             }
             
-            // MARK: - Generating URLs
-            
+            // MARK: -- when generating a url
             context("when generating a url") {
+                // MARK: ---- generates the url correctly
                 it("generates the url correctly") {
                     expect(SessionUtil.communityUrlFor(server: "server", roomToken: "room", publicKey: "f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                         .to(equal("server/room?public_key=f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                 }
                 
+                // MARK: ---- maintains the casing provided
                 it("maintains the casing provided") {
                     expect(SessionUtil.communityUrlFor(server: "SeRVer", roomToken: "RoOM", publicKey: "f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                         .to(equal("SeRVer/RoOM?public_key=f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))

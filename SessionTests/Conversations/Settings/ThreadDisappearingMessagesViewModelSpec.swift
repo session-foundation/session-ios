@@ -11,73 +11,52 @@ import SessionUtilitiesKit
 @testable import Session
 
 class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
-    typealias ParentType = SessionTableViewModel<ThreadDisappearingMessagesSettingsViewModel.NavButton, ThreadDisappearingMessagesSettingsViewModel.Section, ThreadDisappearingMessagesSettingsViewModel.Item>
-    
-    // MARK: - Spec
-
-    override func spec() {
-        var mockStorage: Storage!
-        var cancellables: [AnyCancellable] = []
-        var dependencies: Dependencies!
-        var viewModel: ThreadDisappearingMessagesSettingsViewModel!
+    override class func spec() {
+        // MARK: Configuration
         
+        @TestState var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            customMigrationTargets: [
+                SNUtilitiesKit.self,
+                SNSnodeKit.self,
+                SNMessagingKit.self,
+                SNUIKit.self
+            ],
+            initialData: { db in
+                try SessionThread(
+                    id: "TestId",
+                    variant: .contact
+                ).insert(db)
+            }
+        )
+        @TestState var dependencies: Dependencies! = Dependencies(
+            storage: mockStorage,
+            scheduler: .immediate
+        )
+        @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel! = ThreadDisappearingMessagesSettingsViewModel(
+            threadId: "TestId",
+            threadVariant: .contact,
+            config: DisappearingMessagesConfiguration.defaultWith("TestId"),
+            using: dependencies
+        )
+        
+        @TestState var cancellables: [AnyCancellable]! = [
+            viewModel.observableTableData
+                .receive(on: ImmediateScheduler.shared)
+                .sink(
+                    receiveCompletion: { _ in },
+                    receiveValue: { viewModel.updateTableData($0.0) }
+                )
+        ]
+        
+        // MARK: - a ThreadDisappearingMessagesSettingsViewModel
         describe("a ThreadDisappearingMessagesSettingsViewModel") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNSnodeKit.self,
-                        SNMessagingKit.self,
-                        SNUIKit.self
-                    ]
-                )
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    scheduler: .immediate,
-                    forceSynchronous: true
-                )
-                mockStorage.write { db in
-                    try SessionThread(
-                        id: "TestId",
-                        variant: .contact
-                    ).insert(db)
-                }
-                viewModel = ThreadDisappearingMessagesSettingsViewModel(
-                    threadId: "TestId",
-                    threadVariant: .contact,
-                    currentUserIsClosedGroupMember: nil,
-                    currentUserIsClosedGroupAdmin: nil,
-                    config: DisappearingMessagesConfiguration.defaultWith("TestId"),
-                    using: dependencies
-                )
-                cancellables.append(
-                    viewModel.observableTableData
-                        .receive(on: ImmediateScheduler.shared)
-                        .sink(
-                            receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateTableData($0.0) }
-                        )
-                )
-            }
-            
-            afterEach {
-                cancellables.forEach { $0.cancel() }
-                
-                mockStorage = nil
-                cancellables = []
-                dependencies = nil
-                viewModel = nil
-            }
-            
-            // MARK: - Basic Tests
-            
+            // MARK: -- has the correct title
             it("has the correct title") {
                 expect(viewModel.title).to(equal("DISAPPEARING_MESSAGES".localized()))
             }
             
+            // MARK: -- has the correct number of items
             it("has the correct number of items") {
                 // The default disappearing messages configure is Off
                 // Should only show one section of Disappearing Messages Type
@@ -97,6 +76,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- has the correct default state
             it("has the correct default state") {
                 // First option is always Off
                 expect(viewModel.tableData.first?.elements.first)
@@ -142,6 +122,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     )
             }
             
+            // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
                 // Test config: Disappear After Send - 2 weeks
                 let config: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
@@ -343,8 +324,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 expect(footerButtonInfo).to(beNil())
             }
             
+            // MARK: -- when changed from the previous setting
             context("when changed from the previous setting") {
-                var footerButtonInfo: SessionButton.Info?
+                @TestState var footerButtonInfo: SessionButton.Info?
                 
                 beforeEach {
                     cancellables.append(
@@ -359,6 +341,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
+                // MARK: ---- shows the save button
                 it("shows the set button") {
                     expect(footerButtonInfo)
                         .to(
@@ -378,7 +361,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         )
                 }
 
+                // MARK: ---- and saving
                 context("and saving") {
+                    // MARK: ------ dismisses the screen
                     it("dismisses the screen") {
                         var didDismissScreen: Bool = false
                         
@@ -396,6 +381,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         expect(didDismissScreen).to(beTrue())
                     }
                     
+                    // MARK: ------ saves the updated config
                     it("saves the updated config") {
                         footerButtonInfo?.onTap()
                         

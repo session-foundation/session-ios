@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class UpdateMessageRequestSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        describe("a UpdateMessageRequest") {
+    override class func spec() {
+        // MARK: - an UpdateMessageRequest
+        describe("an UpdateMessageRequest") {
+            // MARK: -- when encoding
             context("when encoding") {
+                // MARK: ---- encodes the data as a base64 string
                 it("encodes the data as a base64 string") {
                     let request: OpenGroupAPI.UpdateMessageRequest = OpenGroupAPI.UpdateMessageRequest(
                         data: "TestData".data(using: .utf8)!,
@@ -26,6 +27,7 @@ class UpdateMessageRequestSpec: QuickSpec {
                     expect(requestDataString).to(contain("VGVzdERhdGE="))
                 }
                 
+                // MARK: ---- encodes the signature as a base64 string
                 it("encodes the signature as a base64 string") {
                     let request: OpenGroupAPI.UpdateMessageRequest = OpenGroupAPI.UpdateMessageRequest(
                         data: "TestData".data(using: .utf8)!,

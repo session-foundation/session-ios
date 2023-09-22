@@ -112,7 +112,6 @@ public final class VoiceMessageView: UIView {
     }
 
     private func setUpViewHierarchy() {
-        let toggleContainerSize = VoiceMessageView.toggleContainerSize
         let inset = VoiceMessageView.inset
         
         // Width & height

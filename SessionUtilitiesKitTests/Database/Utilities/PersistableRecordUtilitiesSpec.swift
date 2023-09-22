@@ -9,113 +9,22 @@ import Nimble
 @testable import SessionUtilitiesKit
 
 class PersistableRecordUtilitiesSpec: QuickSpec {
-    struct TestType: Codable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
-        public static var databaseTableName: String { "TestType" }
+    override class func spec() {
+        // MARK: Configuration
         
-        public typealias Columns = CodingKeys
-        public enum CodingKeys: String, CodingKey, ColumnExpression {
-            case columnA
-            case columnB
-        }
+        @TestState var customWriter: DatabaseQueue! = try! DatabaseQueue()
+        @TestState var mockStorage: Storage! = SynchronousStorage(
+            customWriter: customWriter,
+            customMigrationTargets: [
+                TestTarget.self
+            ]
+        )
         
-        public let columnA: String
-        public let columnB: String?
-    }
-    
-    struct MutableTestType: Codable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
-        public static var databaseTableName: String { "MutableTestType" }
-        
-        public typealias Columns = CodingKeys
-        public enum CodingKeys: String, CodingKey, ColumnExpression {
-            case id
-            case columnA
-            case columnB
-        }
-        
-        public var id: Int64?
-        public let columnA: String
-        public let columnB: String?
-        
-        init(id: Int64? = nil, columnA: String, columnB: String?) {
-            self.id = id
-            self.columnA = columnA
-            self.columnB = columnB
-        }
-        
-        mutating func didInsert(_ inserted: InsertionSuccess) {
-            self.id = inserted.rowID
-        }
-    }
-    
-    enum TestInsertTestTypeMigration: Migration {
-        static let target: TargetMigrations.Identifier = .test
-        static let identifier: String = "TestInsertTestType"
-        static let needsConfigSync: Bool = false
-        static let minExpectedRunDuration: TimeInterval = 0
-        
-        static func migrate(_ db: Database) throws {
-            try db.create(table: TestType.self) { t in
-                t.column(.columnA, .text).primaryKey()
-            }
-            
-            try db.create(table: MutableTestType.self) { t in
-                t.column(.id, .integer).primaryKey(autoincrement: true)
-                t.column(.columnA, .text).unique()
-            }
-        }
-    }
-    
-    enum TestAddColumnMigration: Migration {
-        static let target: TargetMigrations.Identifier = .test
-        static let identifier: String = "TestAddColumn"
-        static let needsConfigSync: Bool = false
-        static let minExpectedRunDuration: TimeInterval = 0
-        
-        static func migrate(_ db: Database) throws {
-            try db.alter(table: TestType.self) { t in
-                t.add(.columnB, .text)
-            }
-            
-            try db.alter(table: MutableTestType.self) { t in
-                t.add(.columnB, .text)
-            }
-        }
-    }
-    
-    private struct TestTarget: MigratableTarget {
-        static func migrations(_ db: Database) -> TargetMigrations {
-            return TargetMigrations(
-                identifier: .test,
-                migrations: (0..<100)
-                    .map { _ in [] }
-                    .appending([TestInsertTestTypeMigration.self])
-            )
-        }
-    }
-    
-    // MARK: - Spec
-
-    override func spec() {
-        var customWriter: DatabaseQueue!
-        var mockStorage: Storage!
-        
+        // MARK: - a PersistableRecord
         describe("a PersistableRecord") {
-            beforeEach {
-                customWriter = try! DatabaseQueue()
-                mockStorage = SynchronousStorage(
-                    customWriter: customWriter,
-                    customMigrationTargets: [
-                        TestTarget.self
-                    ]
-                )
-            }
-            
-            afterEach {
-                customWriter = nil
-                mockStorage = nil
-            }
-            
+            // MARK: -- before running the add column migration
             context("before running the add column migration") {
+                // MARK: ---- fails when using the standard insert
                 it("fails when using the standard insert") {
                     mockStorage.write { db in
                         expect {
@@ -125,6 +34,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- fails when using the standard inserted
                 it("fails when using the standard inserted") {
                     mockStorage.write { db in
                         expect {
@@ -134,6 +44,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- fails when using the standard save and the item does not already exist
                 it("fails when using the standard save and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -143,6 +54,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- fails when using the standard saved and the item does not already exist
                 it("fails when using the standard saved and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -152,6 +64,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- fails when using the standard upsert and the item does not already exist
                 it("fails when using the standard upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -161,6 +74,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- fails when using the standard mutable upsert and the item does not already exist
                 it("fails when using the standard mutable upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -172,6 +86,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- fails when using the standard upsert and the item already exists
                 it("fails when using the standard upsert and the item already exists") {
                     mockStorage.write { db in
                         expect {
@@ -185,6 +100,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- fails when using the standard mutable upsert and the item already exists
                 it("fails when using the standard mutable upsert and the item already exists") {
                     mockStorage.write { db in
                         expect {
@@ -200,6 +116,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe insert
                 it("succeeds when using the migration safe insert") {
                     mockStorage.write { db in
                         expect {
@@ -214,6 +131,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe inserted
                 it("succeeds when using the migration safe inserted") {
                     mockStorage.write { db in
                         expect {
@@ -235,6 +153,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe save and the item does not already exist
                 it("succeeds when using the migration safe save and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -244,6 +163,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe saved and the item does not already exist
                 it("succeeds when using the migration safe saved and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -265,6 +185,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe upsert and the item does not already exist
                 it("succeeds when using the migration safe upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -274,6 +195,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe mutable upsert and the item does not already exist
                 it("succeeds when using the migration safe mutable upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -290,8 +212,9 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // Note: The built-in 'update' method only updates existing columns so this shouldn't fail
+                // MARK: ---- succeeds when using the standard save and the item already exists
                 it("succeeds when using the standard save and the item already exists") {
+                    /// **Note:** The built-in 'update' method only updates existing columns so this shouldn't fail
                     mockStorage.write { db in
                         expect {
                             try db.execute(
@@ -304,10 +227,10 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // Note: The built-in 'update' method only updates existing columns so this won't fail
-                // due to the structure discrepancy but won't update the id as that only happens on
-                // insert
+                // MARK: ---- succeeds when using the standard saved and the item already exists
                 it("succeeds when using the standard saved and the item already exists") {
+                    /// **Note:** The built-in 'update' method only updates existing columns so this won't fail
+                    /// due to the structure discrepancy but won't update the id as that only happens on insert
                     mockStorage.write { db in
                         expect {
                             try db.execute(
@@ -339,6 +262,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- after running the add column migration
             context("after running the add column migration") {
                 beforeEach {
                     var migrator: DatabaseMigrator = DatabaseMigrator()
@@ -352,6 +276,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                         .toNot(throwError())
                 }
                 
+                // MARK: ---- succeeds when using the standard insert
                 it("succeeds when using the standard insert") {
                     mockStorage.write { db in
                         expect {
@@ -366,6 +291,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the standard inserted
                 it("succeeds when using the standard inserted") {
                     mockStorage.write { db in
                         expect {
@@ -380,6 +306,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the standard save and the item does not already exist
                 it("succeeds when using the standard save and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -389,6 +316,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the standard saved and the item does not already exist
                 it("succeeds when using the standard saved and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -398,6 +326,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the standard save and the item already exists
                 it("succeeds when using the standard save and the item already exists") {
                     mockStorage.write { db in
                         expect {
@@ -411,9 +340,9 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // Note: The built-in 'update' method won't update the id as that only happens on
-                // insert
+                // MARK: ---- succeeds when using the standard saved and the item already exists
                 it("succeeds when using the standard saved and the item already exists") {
+                    /// **Note:** The built-in 'update' method won't update the id as that only happens on insert
                     mockStorage.write { db in
                         expect {
                             try db.execute(
@@ -444,6 +373,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the standard upsert and the item does not already exist
                 it("succeeds when using the standard upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -453,6 +383,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the standard mutable upsert and the item does not already exist
                 it("succeeds when using the standard mutable upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -464,6 +395,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the standard upsert and the item already exists
                 it("succeeds when using the standard upsert and the item already exists") {
                     mockStorage.write { db in
                         expect {
@@ -477,9 +409,9 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // Note: The built-in 'update' method won't update the id as that only happens on
-                // insert
+                // MARK: ---- succeeds when using the standard mutable upsert and the item already exists
                 it("succeeds when using the standard mutable upsert and the item already exists") {
+                    /// **Note:** The built-in 'update' method won't update the id as that only happens on insert
                     mockStorage.write { db in
                         expect {
                             try db.execute(
@@ -512,6 +444,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe insert
                 it("succeeds when using the migration safe insert") {
                     mockStorage.write { db in
                         expect {
@@ -526,6 +459,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe inserted
                 it("succeeds when using the migration safe inserted") {
                     mockStorage.write { db in
                         expect {
@@ -547,6 +481,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe save and the item does not already exist
                 it("succeeds when using the migration safe save and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -556,6 +491,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe saved and the item does not already exist
                 it("succeeds when using the migration safe saved and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -565,6 +501,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe save and the item already exists
                 it("succeeds when using the migration safe save and the item already exists") {
                     mockStorage.write { db in
                         expect {
@@ -578,9 +515,9 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // Note: The built-in 'update' method won't update the id as that only happens on
-                // insert
+                // MARK: ---- succeeds when using the migration safe saved and the item already exists
                 it("succeeds when using the migration safe saved and the item already exists") {
+                    /// **Note:** The built-in 'update' method won't update the id as that only happens on insert
                     mockStorage.write { db in
                         expect {
                             try db.execute(
@@ -612,6 +549,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe upsert and the item does not already exist
                 it("succeeds when using the migration safe upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -621,6 +559,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe mutable upsert and the item does not already exist
                 it("succeeds when using the migration safe mutable upsert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
@@ -632,6 +571,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- succeeds when using the migration safe upsert and the item already exists
                 it("succeeds when using the migration safe upsert and the item already exists") {
                     mockStorage.write { db in
                         expect {
@@ -645,9 +585,9 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // Note: The built-in 'update' method won't update the id as that only happens on
-                // insert
+                // MARK: ---- succeeds when using the migration safe mutable upsert and the item already exists
                 it("succeeds when using the migration safe mutable upsert and the item already exists") {
+                    /// **Note:** The built-in 'update' method won't update the id as that only happens on insert
                     mockStorage.write { db in
                         expect {
                             try db.execute(
@@ -681,5 +621,91 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 }
             }
         }
+    }
+}
+
+// MARK: - Test Types
+
+fileprivate struct TestType: Codable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+    public static var databaseTableName: String { "TestType" }
+    
+    public typealias Columns = CodingKeys
+    public enum CodingKeys: String, CodingKey, ColumnExpression {
+        case columnA
+        case columnB
+    }
+    
+    public let columnA: String
+    public let columnB: String?
+}
+
+fileprivate struct MutableTestType: Codable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
+    public static var databaseTableName: String { "MutableTestType" }
+    
+    public typealias Columns = CodingKeys
+    public enum CodingKeys: String, CodingKey, ColumnExpression {
+        case id
+        case columnA
+        case columnB
+    }
+    
+    public var id: Int64?
+    public let columnA: String
+    public let columnB: String?
+    
+    init(id: Int64? = nil, columnA: String, columnB: String?) {
+        self.id = id
+        self.columnA = columnA
+        self.columnB = columnB
+    }
+    
+    mutating func didInsert(_ inserted: InsertionSuccess) {
+        self.id = inserted.rowID
+    }
+}
+
+fileprivate enum TestInsertTestTypeMigration: Migration {
+    static let target: TargetMigrations.Identifier = .test
+    static let identifier: String = "TestInsertTestType"
+    static let needsConfigSync: Bool = false
+    static let minExpectedRunDuration: TimeInterval = 0
+    
+    static func migrate(_ db: Database) throws {
+        try db.create(table: TestType.self) { t in
+            t.column(.columnA, .text).primaryKey()
+        }
+        
+        try db.create(table: MutableTestType.self) { t in
+            t.column(.id, .integer).primaryKey(autoincrement: true)
+            t.column(.columnA, .text).unique()
+        }
+    }
+}
+
+fileprivate enum TestAddColumnMigration: Migration {
+    static let target: TargetMigrations.Identifier = .test
+    static let identifier: String = "TestAddColumn"
+    static let needsConfigSync: Bool = false
+    static let minExpectedRunDuration: TimeInterval = 0
+    
+    static func migrate(_ db: Database) throws {
+        try db.alter(table: TestType.self) { t in
+            t.add(.columnB, .text)
+        }
+        
+        try db.alter(table: MutableTestType.self) { t in
+            t.add(.columnB, .text)
+        }
+    }
+}
+
+fileprivate struct TestTarget: MigratableTarget {
+    static func migrations(_ db: Database) -> TargetMigrations {
+        return TargetMigrations(
+            identifier: .test,
+            migrations: (0..<100)
+                .map { _ in [] }
+                .appending([TestInsertTestTypeMigration.self])
+        )
     }
 }

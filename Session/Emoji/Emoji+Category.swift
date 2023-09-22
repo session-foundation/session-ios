@@ -86,6 +86,7 @@ extension Emoji {
                     .grimacing,
                     .faceExhaling,
                     .lyingFace,
+                    .shakingFace,
                     .relieved,
                     .pensive,
                     .sleepy,
@@ -163,7 +164,6 @@ extension Emoji {
                     .seeNoEvil,
                     .hearNoEvil,
                     .speakNoEvil,
-                    .kiss,
                     .loveLetter,
                     .cupid,
                     .giftHeart,
@@ -178,14 +178,18 @@ extension Emoji {
                     .heartOnFire,
                     .mendingHeart,
                     .heart,
+                    .pinkHeart,
                     .orangeHeart,
                     .yellowHeart,
                     .greenHeart,
                     .blueHeart,
+                    .lightBlueHeart,
                     .purpleHeart,
                     .brownHeart,
                     .blackHeart,
+                    .greyHeart,
                     .whiteHeart,
+                    .kiss,
                     .oneHundred,
                     .anger,
                     .boom,
@@ -193,7 +197,6 @@ extension Emoji {
                     .sweatDrops,
                     .dash,
                     .hole,
-                    .bomb,
                     .speechBalloon,
                     .eyeInSpeechBubble,
                     .leftSpeechBubble,
@@ -209,6 +212,8 @@ extension Emoji {
                     .leftwardsHand,
                     .palmDownHand,
                     .palmUpHand,
+                    .leftwardsPushingHand,
+                    .rightwardsPushingHand,
                     .okHand,
                     .pinchedFingers,
                     .pinchingHand,
@@ -584,6 +589,8 @@ extension Emoji {
                     .tiger2,
                     .leopard,
                     .horse,
+                    .moose,
+                    .donkey,
                     .racehorse,
                     .unicornFace,
                     .zebraFace,
@@ -646,6 +653,9 @@ extension Emoji {
                     .flamingo,
                     .peacock,
                     .parrot,
+                    .wing,
+                    .blackBird,
+                    .goose,
                     .frog,
                     .crocodile,
                     .turtle,
@@ -666,6 +676,7 @@ extension Emoji {
                     .octopus,
                     .shell,
                     .coral,
+                    .jellyfish,
                     .snail,
                     .butterfly,
                     .bug,
@@ -693,6 +704,7 @@ extension Emoji {
                     .sunflower,
                     .blossom,
                     .tulip,
+                    .hyacinth,
                     .seedling,
                     .pottedPlant,
                     .evergreenTree,
@@ -708,6 +720,7 @@ extension Emoji {
                     .leaves,
                     .emptyNest,
                     .nestWithEggs,
+                    .mushroom,
                 ]
             case .food:
                 return [
@@ -742,10 +755,11 @@ extension Emoji {
                     .broccoli,
                     .garlic,
                     .onion,
-                    .mushroom,
                     .peanuts,
                     .beans,
                     .chestnut,
+                    .gingerRoot,
+                    .peaPod,
                     .bread,
                     .croissant,
                     .baguetteBread,
@@ -903,11 +917,10 @@ extension Emoji {
                     .dart,
                     .yoYo,
                     .kite,
+                    .gun,
                     .eightBall,
                     .crystalBall,
                     .magicWand,
-                    .nazarAmulet,
-                    .hamsa,
                     .videoGame,
                     .joystick,
                     .slotMachine,
@@ -1176,6 +1189,7 @@ extension Emoji {
                     .shorts,
                     .bikini,
                     .womansClothes,
+                    .foldingHandFan,
                     .purse,
                     .handbag,
                     .pouch,
@@ -1190,6 +1204,7 @@ extension Emoji {
                     .sandal,
                     .balletShoes,
                     .boot,
+                    .hairPick,
                     .crown,
                     .womansHat,
                     .tophat,
@@ -1228,6 +1243,8 @@ extension Emoji {
                     .banjo,
                     .drumWithDrumsticks,
                     .longDrum,
+                    .maracas,
+                    .flute,
                     .iphone,
                     .calling,
                     .phone,
@@ -1347,7 +1364,7 @@ extension Emoji {
                     .hammerAndWrench,
                     .daggerKnife,
                     .crossedSwords,
-                    .gun,
+                    .bomb,
                     .boomerang,
                     .bowAndArrow,
                     .shield,
@@ -1408,6 +1425,8 @@ extension Emoji {
                     .coffin,
                     .headstone,
                     .funeralUrn,
+                    .nazarAmulet,
+                    .hamsa,
                     .moyai,
                     .placard,
                     .identificationCard,
@@ -1473,6 +1492,7 @@ extension Emoji {
                     .peaceSymbol,
                     .menorahWithNineBranches,
                     .sixPointedStar,
+                    .khanda,
                     .aries,
                     .taurus,
                     .gemini,
@@ -1508,6 +1528,7 @@ extension Emoji {
                     .lowBrightness,
                     .highBrightness,
                     .signalStrength,
+                    .wireless,
                     .vibrationMode,
                     .mobilePhoneOff,
                     .femaleSign,
@@ -1962,6 +1983,7 @@ extension Emoji {
         case .grimacing: return .smileysAndPeople
         case .faceExhaling: return .smileysAndPeople
         case .lyingFace: return .smileysAndPeople
+        case .shakingFace: return .smileysAndPeople
         case .relieved: return .smileysAndPeople
         case .pensive: return .smileysAndPeople
         case .sleepy: return .smileysAndPeople
@@ -2039,7 +2061,6 @@ extension Emoji {
         case .seeNoEvil: return .smileysAndPeople
         case .hearNoEvil: return .smileysAndPeople
         case .speakNoEvil: return .smileysAndPeople
-        case .kiss: return .smileysAndPeople
         case .loveLetter: return .smileysAndPeople
         case .cupid: return .smileysAndPeople
         case .giftHeart: return .smileysAndPeople
@@ -2054,14 +2075,18 @@ extension Emoji {
         case .heartOnFire: return .smileysAndPeople
         case .mendingHeart: return .smileysAndPeople
         case .heart: return .smileysAndPeople
+        case .pinkHeart: return .smileysAndPeople
         case .orangeHeart: return .smileysAndPeople
         case .yellowHeart: return .smileysAndPeople
         case .greenHeart: return .smileysAndPeople
         case .blueHeart: return .smileysAndPeople
+        case .lightBlueHeart: return .smileysAndPeople
         case .purpleHeart: return .smileysAndPeople
         case .brownHeart: return .smileysAndPeople
         case .blackHeart: return .smileysAndPeople
+        case .greyHeart: return .smileysAndPeople
         case .whiteHeart: return .smileysAndPeople
+        case .kiss: return .smileysAndPeople
         case .oneHundred: return .smileysAndPeople
         case .anger: return .smileysAndPeople
         case .boom: return .smileysAndPeople
@@ -2069,7 +2094,6 @@ extension Emoji {
         case .sweatDrops: return .smileysAndPeople
         case .dash: return .smileysAndPeople
         case .hole: return .smileysAndPeople
-        case .bomb: return .smileysAndPeople
         case .speechBalloon: return .smileysAndPeople
         case .eyeInSpeechBubble: return .smileysAndPeople
         case .leftSpeechBubble: return .smileysAndPeople
@@ -2085,6 +2109,8 @@ extension Emoji {
         case .leftwardsHand: return .smileysAndPeople
         case .palmDownHand: return .smileysAndPeople
         case .palmUpHand: return .smileysAndPeople
+        case .leftwardsPushingHand: return .smileysAndPeople
+        case .rightwardsPushingHand: return .smileysAndPeople
         case .okHand: return .smileysAndPeople
         case .pinchedFingers: return .smileysAndPeople
         case .pinchingHand: return .smileysAndPeople
@@ -2457,6 +2483,8 @@ extension Emoji {
         case .tiger2: return .animals
         case .leopard: return .animals
         case .horse: return .animals
+        case .moose: return .animals
+        case .donkey: return .animals
         case .racehorse: return .animals
         case .unicornFace: return .animals
         case .zebraFace: return .animals
@@ -2519,6 +2547,9 @@ extension Emoji {
         case .flamingo: return .animals
         case .peacock: return .animals
         case .parrot: return .animals
+        case .wing: return .animals
+        case .blackBird: return .animals
+        case .goose: return .animals
         case .frog: return .animals
         case .crocodile: return .animals
         case .turtle: return .animals
@@ -2539,6 +2570,7 @@ extension Emoji {
         case .octopus: return .animals
         case .shell: return .animals
         case .coral: return .animals
+        case .jellyfish: return .animals
         case .snail: return .animals
         case .butterfly: return .animals
         case .bug: return .animals
@@ -2566,6 +2598,7 @@ extension Emoji {
         case .sunflower: return .animals
         case .blossom: return .animals
         case .tulip: return .animals
+        case .hyacinth: return .animals
         case .seedling: return .animals
         case .pottedPlant: return .animals
         case .evergreenTree: return .animals
@@ -2581,6 +2614,7 @@ extension Emoji {
         case .leaves: return .animals
         case .emptyNest: return .animals
         case .nestWithEggs: return .animals
+        case .mushroom: return .animals
         case .grapes: return .food
         case .melon: return .food
         case .watermelon: return .food
@@ -2612,10 +2646,11 @@ extension Emoji {
         case .broccoli: return .food
         case .garlic: return .food
         case .onion: return .food
-        case .mushroom: return .food
         case .peanuts: return .food
         case .beans: return .food
         case .chestnut: return .food
+        case .gingerRoot: return .food
+        case .peaPod: return .food
         case .bread: return .food
         case .croissant: return .food
         case .baguetteBread: return .food
@@ -2988,11 +3023,10 @@ extension Emoji {
         case .dart: return .activities
         case .yoYo: return .activities
         case .kite: return .activities
+        case .gun: return .activities
         case .eightBall: return .activities
         case .crystalBall: return .activities
         case .magicWand: return .activities
-        case .nazarAmulet: return .activities
-        case .hamsa: return .activities
         case .videoGame: return .activities
         case .joystick: return .activities
         case .slotMachine: return .activities
@@ -3037,6 +3071,7 @@ extension Emoji {
         case .shorts: return .objects
         case .bikini: return .objects
         case .womansClothes: return .objects
+        case .foldingHandFan: return .objects
         case .purse: return .objects
         case .handbag: return .objects
         case .pouch: return .objects
@@ -3051,6 +3086,7 @@ extension Emoji {
         case .sandal: return .objects
         case .balletShoes: return .objects
         case .boot: return .objects
+        case .hairPick: return .objects
         case .crown: return .objects
         case .womansHat: return .objects
         case .tophat: return .objects
@@ -3089,6 +3125,8 @@ extension Emoji {
         case .banjo: return .objects
         case .drumWithDrumsticks: return .objects
         case .longDrum: return .objects
+        case .maracas: return .objects
+        case .flute: return .objects
         case .iphone: return .objects
         case .calling: return .objects
         case .phone: return .objects
@@ -3208,7 +3246,7 @@ extension Emoji {
         case .hammerAndWrench: return .objects
         case .daggerKnife: return .objects
         case .crossedSwords: return .objects
-        case .gun: return .objects
+        case .bomb: return .objects
         case .boomerang: return .objects
         case .bowAndArrow: return .objects
         case .shield: return .objects
@@ -3269,6 +3307,8 @@ extension Emoji {
         case .coffin: return .objects
         case .headstone: return .objects
         case .funeralUrn: return .objects
+        case .nazarAmulet: return .objects
+        case .hamsa: return .objects
         case .moyai: return .objects
         case .placard: return .objects
         case .identificationCard: return .objects
@@ -3331,6 +3371,7 @@ extension Emoji {
         case .peaceSymbol: return .symbols
         case .menorahWithNineBranches: return .symbols
         case .sixPointedStar: return .symbols
+        case .khanda: return .symbols
         case .aries: return .symbols
         case .taurus: return .symbols
         case .gemini: return .symbols
@@ -3366,6 +3407,7 @@ extension Emoji {
         case .lowBrightness: return .symbols
         case .highBrightness: return .symbols
         case .signalStrength: return .symbols
+        case .wireless: return .symbols
         case .vibrationMode: return .symbols
         case .mobilePhoneOff: return .symbols
         case .femaleSign: return .symbols
