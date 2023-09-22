@@ -8,10 +8,10 @@ import Nimble
 @testable import SessionMessagingKit
 
 class SOGSErrorSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a SOGSError
         describe("a SOGSError") {
+            // MARK: -- generates the error description correctly
             it("generates the error description correctly") {
                 expect(OpenGroupAPIError.decryptionFailed.errorDescription)
                     .to(equal("Couldn't decrypt response."))
