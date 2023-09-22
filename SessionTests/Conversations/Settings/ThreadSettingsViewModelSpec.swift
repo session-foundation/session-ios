@@ -11,97 +11,65 @@ import SessionUtilitiesKit
 @testable import Session
 
 class ThreadSettingsViewModelSpec: QuickSpec {
-    typealias ParentType = SessionTableViewModel<ThreadSettingsViewModel.NavButton, ThreadSettingsViewModel.Section, ThreadSettingsViewModel.Setting>
-    
-    // MARK: - Spec
-    
-    override func spec() {
-        var mockStorage: Storage!
-        var mockCaches: MockCaches!
-        var mockGeneralCache: MockGeneralCache!
-        var disposables: [AnyCancellable] = []
-        var dependencies: Dependencies!
-        var viewModel: ThreadSettingsViewModel!
-        var didTriggerSearchCallbackTriggered: Bool = false
+    override class func spec() {
+        // MARK: Configuration
         
-        describe("a ThreadSettingsViewModel") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNSnodeKit.self,
-                        SNMessagingKit.self,
-                        SNUIKit.self
-                    ]
-                )
-                mockCaches = MockCaches()
-                mockGeneralCache = MockGeneralCache()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    caches: mockCaches,
-                    scheduler: .immediate
-                )
-                mockCaches[.general] = mockGeneralCache
-                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
-                mockStorage.write { db in
-                    try SessionThread(
-                        id: "TestId",
-                        variant: .contact
-                    ).insert(db)
-                    
-                    try Identity(
-                        variant: .x25519PublicKey,
-                        data: Data(hex: TestConstants.publicKey)
-                    ).insert(db)
-                    
-                    try Profile(
-                        id: "05\(TestConstants.publicKey)",
-                        name: "TestMe",
-                        lastNameUpdate: 0,
-                        lastProfilePictureUpdate: 0
-                    ).insert(db)
-                    
-                    try Profile(
-                        id: "TestId",
-                        name: "TestUser",
-                        lastNameUpdate: 0,
-                        lastProfilePictureUpdate: 0
-                    ).insert(db)
-                }
-                viewModel = ThreadSettingsViewModel(
-                    threadId: "TestId",
-                    threadVariant: .contact,
-                    didTriggerSearch: {
-                        didTriggerSearchCallbackTriggered = true
-                    },
-                    using: dependencies
-                )
-                disposables.append(
-                    viewModel.observableTableData
-                        .receive(on: ImmediateScheduler.shared)
-                        .sink(
-                            receiveCompletion: { _ in },
-                            receiveValue: { viewModel.updateTableData($0.0) }
-                        )
-                )
-            }
-            
-            afterEach {
-                disposables.forEach { $0.cancel() }
+        @TestState var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            customMigrationTargets: [
+                SNUtilitiesKit.self,
+                SNSnodeKit.self,
+                SNMessagingKit.self,
+                SNUIKit.self
+            ],
+            initialData: { db in
+                try Identity(
+                    variant: .x25519PublicKey,
+                    data: Data(hex: TestConstants.publicKey)
+                ).insert(db)
                 
-                mockStorage = nil
-                disposables = []
-                dependencies = nil
-                viewModel = nil
-                didTriggerSearchCallbackTriggered = false
+                try SessionThread(id: "TestId",variant: .contact).insert(db)
+                try Profile(id: "05\(TestConstants.publicKey)", name: "TestMe").insert(db)
+                try Profile(id: "TestId", name: "TestUser").insert(db)
             }
-            
-            // MARK: - Basic Tests
-            
+        )
+        @TestState var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
+            initialSetup: { cache in
+                cache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+            }
+        )
+        @TestState var mockCaches: MockCaches! = MockCaches()
+            .setting(cache: .general, to: mockGeneralCache)
+        @TestState var dependencies: Dependencies! = Dependencies(
+            storage: mockStorage,
+            caches: mockCaches,
+            scheduler: .immediate
+        )
+        @TestState var threadVariant: SessionThread.Variant! = .contact
+        @TestState var didTriggerSearchCallbackTriggered: Bool! = false
+        @TestState var viewModel: ThreadSettingsViewModel! = ThreadSettingsViewModel(
+            threadId: "TestId",
+            threadVariant: .contact,
+            didTriggerSearch: {
+                didTriggerSearchCallbackTriggered = true
+            },
+            using: dependencies
+        )
+        
+        @TestState var disposables: [AnyCancellable]! = [
+            viewModel.observableTableData
+                .receive(on: ImmediateScheduler.shared)
+                .sink(
+                    receiveCompletion: { _ in },
+                    receiveValue: { viewModel.updateTableData($0.0) }
+                )
+        ]
+        
+        // MARK: - a ThreadSettingsViewModel
+        describe("a ThreadSettingsViewModel") {
+            // MARK: -- with any conversation type
             context("with any conversation type") {
+                // MARK: ---- triggers the search callback when tapping search
                 it("triggers the search callback when tapping search") {
                     viewModel.tableData
                         .first(where: { $0.model == .content })?
@@ -112,6 +80,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     expect(didTriggerSearchCallbackTriggered).to(beTrue())
                 }
                 
+                // MARK: ---- mutes a conversation
                 it("mutes a conversation") {
                     viewModel.tableData
                         .first(where: { $0.model == .content })?
@@ -127,6 +96,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     .toNot(beNil())
                 }
                 
+                // MARK: ---- unmutes a conversation
                 it("unmutes a conversation") {
                     mockStorage.write { db in
                         try SessionThread
@@ -158,6 +128,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- with a note-to-self conversation
             context("with a note-to-self conversation") {
                 beforeEach {
                     mockStorage.write { db in
@@ -187,10 +158,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                 }
                 
+                // MARK: ---- has the correct title
                 it("has the correct title") {
                     expect(viewModel.title).to(equal("vc_settings_title".localized()))
                 }
                 
+                // MARK: ---- starts in the standard nav state
                 it("starts in the standard nav state") {
                     expect(viewModel.navState.firstValue())
                         .to(equal(.standard))
@@ -206,6 +179,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         ]))
                 }
                 
+                // MARK: ---- has no mute button
                 it("has no mute button") {
                     expect(
                         viewModel.tableData
@@ -215,6 +189,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     ).to(beNil())
                 }
                 
+                // MARK: ---- when entering edit mode
                 context("when entering edit mode") {
                     beforeEach {
                         viewModel.navState.sinkAndStore(in: &disposables)
@@ -222,6 +197,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         viewModel.textChanged("TestNew", for: .nickname)
                     }
                     
+                    // MARK: ------ enters the editing state
                     it("enters the editing state") {
                         expect(viewModel.navState.firstValue())
                             .to(equal(.editing))
@@ -244,11 +220,13 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             ]))
                     }
                     
+                    // MARK: ------ when cancelling edit mode
                     context("when cancelling edit mode") {
                         beforeEach {
                             viewModel.leftNavItems.firstValue()??.first?.action?()
                         }
                         
+                        // MARK: -------- exits editing mode
                         it("exits editing mode") {
                             expect(viewModel.navState.firstValue())
                                 .to(equal(.standard))
@@ -264,6 +242,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ]))
                         }
                         
+                        // MARK: -------- does not update the nickname for the current user
                         it("does not update the nickname for the current user") {
                             expect(
                                 mockStorage
@@ -276,11 +255,13 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         }
                     }
                     
+                    // MARK: ------ when saving edit mode
                     context("when saving edit mode") {
                         beforeEach {
                             viewModel.rightNavItems.firstValue()??.first?.action?()
                         }
                         
+                        // MARK: -------- exits editing mode
                         it("exits editing mode") {
                             expect(viewModel.navState.firstValue())
                                 .to(equal(.standard))
@@ -296,6 +277,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ]))
                         }
                         
+                        // MARK: -------- updates the nickname for the current user
                         it("updates the nickname for the current user") {
                             expect(
                                 mockStorage
@@ -310,6 +292,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- with a one-to-one conversation
             context("with a one-to-one conversation") {
                 beforeEach {
                     mockStorage.write { db in
@@ -322,10 +305,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- has the correct title
                 it("has the correct title") {
                     expect(viewModel.title).to(equal("vc_settings_title".localized()))
                 }
                 
+                // MARK: ---- starts in the standard nav state
                 it("starts in the standard nav state") {
                     expect(viewModel.navState.firstValue())
                         .to(equal(.standard))
@@ -341,6 +326,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         ]))
                 }
                 
+                // MARK: ---- when entering edit mode
                 context("when entering edit mode") {
                     beforeEach {
                         viewModel.navState.sinkAndStore(in: &disposables)
@@ -348,6 +334,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         viewModel.textChanged("TestUserNew", for: .nickname)
                     }
                     
+                    // MARK: ------ enters the editing state
                     it("enters the editing state") {
                         expect(viewModel.navState.firstValue())
                             .to(equal(.editing))
@@ -370,11 +357,13 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             ]))
                     }
                     
+                    // MARK: ------ when cancelling edit mode
                     context("when cancelling edit mode") {
                         beforeEach {
                             viewModel.leftNavItems.firstValue()??.first?.action?()
                         }
                         
+                        // MARK: -------- exits editing mode
                         it("exits editing mode") {
                             expect(viewModel.navState.firstValue())
                                 .to(equal(.standard))
@@ -390,6 +379,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ]))
                         }
                         
+                        // MARK: -------- does not update the nickname for the current user
                         it("does not update the nickname for the current user") {
                             expect(
                                 mockStorage
@@ -400,11 +390,13 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         }
                     }
                     
+                    // MARK: ------ when saving edit mode
                     context("when saving edit mode") {
                         beforeEach {
                             viewModel.rightNavItems.firstValue()??.first?.action?()
                         }
                         
+                        // MARK: -------- exits editing mode
                         it("exits editing mode") {
                             expect(viewModel.navState.firstValue())
                                 .to(equal(.standard))
@@ -420,6 +412,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                                 ]))
                         }
                         
+                        // MARK: -------- updates the nickname for the current user
                         it("updates the nickname for the current user") {
                             expect(
                                 mockStorage
@@ -432,6 +425,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- with a group conversation
             context("with a group conversation") {
                 beforeEach {
                     mockStorage.write { db in
@@ -461,10 +455,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                 }
                 
+                // MARK: ---- has the correct title
                 it("has the correct title") {
                     expect(viewModel.title).to(equal("vc_group_settings_title".localized()))
                 }
                 
+                // MARK: ---- starts in the standard nav state
                 it("starts in the standard nav state") {
                     expect(viewModel.navState.firstValue())
                         .to(equal(.standard))
@@ -474,6 +470,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- with a community conversation
             context("with a community conversation") {
                 beforeEach {
                     mockStorage.write { db in
@@ -503,10 +500,12 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     )
                 }
                 
+                // MARK: ---- has the correct title
                 it("has the correct title") {
                     expect(viewModel.title).to(equal("vc_group_settings_title".localized()))
                 }
                 
+                // MARK: ---- starts in the standard nav state
                 it("starts in the standard nav state") {
                     expect(viewModel.navState.firstValue())
                         .to(equal(.standard))
@@ -518,3 +517,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
         }
     }
 }
+
+// MARK: - Test Types
+
+fileprivate typealias ParentType = SessionTableViewModel<ThreadSettingsViewModel.NavButton, ThreadSettingsViewModel.Section, ThreadSettingsViewModel.Setting>

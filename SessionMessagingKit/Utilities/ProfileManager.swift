@@ -510,7 +510,7 @@ public struct ProfileManager {
         
         // Name
         if let name: String = name, !name.isEmpty, name != profile.name {
-            if sentTimestamp > profile.lastNameUpdate || (isCurrentUser && calledFromConfigHandling) {
+            if sentTimestamp > (profile.lastNameUpdate ?? 0) || (isCurrentUser && calledFromConfigHandling) {
                 profileChanges.append(Profile.Columns.name.set(to: name))
                 profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
             }
@@ -526,7 +526,7 @@ public struct ProfileManager {
         var avatarNeedsDownload: Bool = false
         var targetAvatarUrl: String? = nil
         
-        if sentTimestamp > profile.lastProfilePictureUpdate || (isCurrentUser && calledFromConfigHandling) {
+        if sentTimestamp > (profile.lastProfilePictureUpdate ?? 0) || (isCurrentUser && calledFromConfigHandling) {
             switch avatarUpdate {
                 case .none: break
                 case .uploadImageData: preconditionFailure("Invalid options for this function")

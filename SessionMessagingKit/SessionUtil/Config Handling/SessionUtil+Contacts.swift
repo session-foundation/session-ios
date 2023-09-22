@@ -58,14 +58,14 @@ internal extension SessionUtil {
                 let profileNameShouldBeUpdated: Bool = (
                     !data.profile.name.isEmpty &&
                     profile.name != data.profile.name &&
-                    profile.lastNameUpdate < data.profile.lastNameUpdate
+                    (profile.lastNameUpdate ?? 0) < (data.profile.lastNameUpdate ?? 0)
                 )
                 let profilePictureShouldBeUpdated: Bool = (
                     (
                         profile.profilePictureUrl != data.profile.profilePictureUrl ||
                         profile.profileEncryptionKey != data.profile.profileEncryptionKey
                     ) &&
-                    profile.lastProfilePictureUpdate < data.profile.lastProfilePictureUpdate
+                    (profile.lastProfilePictureUpdate ?? 0) < (data.profile.lastProfilePictureUpdate ?? 0)
                 )
                 
                 if

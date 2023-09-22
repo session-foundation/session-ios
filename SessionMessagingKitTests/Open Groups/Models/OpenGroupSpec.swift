@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class OpenGroupSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - an Open Group
         describe("an Open Group") {
+            // MARK: -- when initializing
             context("when initializing") {
+                // MARK: ---- generates the id
                 it("generates the id") {
                     let openGroup: OpenGroup = OpenGroup(
                         server: "server",
@@ -34,7 +35,9 @@ class OpenGroupSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when describing
             context("when describing") {
+                // MARK: ---- includes relevant information
                 it("includes relevant information") {
                     let openGroup: OpenGroup = OpenGroup(
                         server: "server",
@@ -57,7 +60,9 @@ class OpenGroupSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when describing in debug
             context("when describing in debug") {
+                // MARK: ---- includes relevant information
                 it("includes relevant information") {
                     let openGroup: OpenGroup = OpenGroup(
                         server: "server",
@@ -80,15 +85,19 @@ class OpenGroupSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when generating an id
             context("when generating an id") {
+                // MARK: ---- generates correctly
                 it("generates correctly") {
                     expect(OpenGroup.idFor(roomToken: "room", server: "server")).to(equal("server.room"))
                 }
                 
+                // MARK: ---- converts the server to lowercase
                 it("converts the server to lowercase") {
                     expect(OpenGroup.idFor(roomToken: "room", server: "SeRVeR")).to(equal("server.room"))
                 }
                 
+                // MARK: ---- maintains the casing of the roomToken
                 it("maintains the casing of the roomToken") {
                     expect(OpenGroup.idFor(roomToken: "RoOM", server: "server")).to(equal("server.RoOM"))
                 }

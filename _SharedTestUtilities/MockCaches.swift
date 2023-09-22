@@ -17,6 +17,11 @@ class MockCaches: CachesType {
         set { cacheInstances[cache.key] = newValue.map { cache.mutableInstance($0) } }
     }
     
+    public func setting<M, I>(cache: CacheInfo.Config<M, I>, to value: M?) -> MockCaches {
+        self[cache] = value
+        return self
+    }
+    
     // MARK: - Mutable Access
     
     @discardableResult public func mutate<M, I, R>(
