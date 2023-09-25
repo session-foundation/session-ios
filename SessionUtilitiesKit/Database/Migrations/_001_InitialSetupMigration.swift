@@ -5,7 +5,7 @@ import GRDB
 
 enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
-    static let identifier: String = "initialSetup"
+    static let identifier: String = "initialSetup" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     

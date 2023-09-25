@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 
 enum _004_FlagMessageHashAsDeletedOrInvalid: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
-    static let identifier: String = "FlagMessageHashAsDeletedOrInvalid"
+    static let identifier: String = "FlagMessageHashAsDeletedOrInvalid" // stringlint:disable
     static let needsConfigSync: Bool = false
     
     /// This migration adds a flat to the `SnodeReceivedMessageInfo` so that when deleting interactions we can

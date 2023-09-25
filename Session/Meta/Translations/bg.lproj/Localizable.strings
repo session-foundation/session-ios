@@ -93,8 +93,7 @@
 /* Label indicating loading is in progress */
 "GALLERY_TILES_LOADING_OLDER_LABEL" = "Зареждане на по-стари файлове…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Извличането на посочения GIF е неуспешно.
-Моля, проверете интернет връзката си.";
+"GIF_PICKER_ERROR_FETCH_FAILURE" = "Извличането на посочения GIF е неуспешно. Моля, проверете интернет връзката си.";
 /* Generic error displayed when picking a GIF */
 "GIF_PICKER_ERROR_GENERIC" = "Възникна неизвестна грешка.";
 /* Shown when selected GIF couldn't be fetched */

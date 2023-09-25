@@ -1,3 +1,5 @@
+// stringlint:disable
+
 import Foundation
 
 public struct HTMLMetadata: Equatable {

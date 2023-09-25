@@ -802,6 +802,11 @@
 		FDC438C927BB706500C60D73 /* SendDirectMessageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC438C827BB706500C60D73 /* SendDirectMessageRequest.swift */; };
 		FDC438CB27BB7DB100C60D73 /* UpdateMessageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC438CA27BB7DB100C60D73 /* UpdateMessageRequest.swift */; };
 		FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC438CC27BC641200C60D73 /* Set+Utilities.swift */; };
+		FDC498B72AC15F7D00EDD897 /* AppNotificationCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC498B62AC15F7D00EDD897 /* AppNotificationCategory.swift */; };
+		FDC498B92AC15FE300EDD897 /* AppNotificationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC498B82AC15FE300EDD897 /* AppNotificationAction.swift */; };
+		FDC498BB2AC1606C00EDD897 /* AppNotificationUserInfoKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC498BA2AC1606C00EDD897 /* AppNotificationUserInfoKey.swift */; };
+		FDC498BE2AC1732E00EDD897 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FD9401A32ABD04AC003A4834 /* Localizable.strings */; };
+		FDC498C22AC17BFC00EDD897 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FD9401A32ABD04AC003A4834 /* Localizable.strings */; };
 		FDC6D6F32860607300B04575 /* Environment.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7542807C4BB004C14C5 /* Environment.swift */; };
 		FDC6D7602862B3F600B04575 /* Dependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC6D75F2862B3F600B04575 /* Dependencies.swift */; };
 		FDCD2E032A41294E00964D6A /* LegacyGroupOnlyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */; };
@@ -1940,6 +1945,9 @@
 		FDC438C827BB706500C60D73 /* SendDirectMessageRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendDirectMessageRequest.swift; sourceTree = "<group>"; };
 		FDC438CA27BB7DB100C60D73 /* UpdateMessageRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateMessageRequest.swift; sourceTree = "<group>"; };
 		FDC438CC27BC641200C60D73 /* Set+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Set+Utilities.swift"; sourceTree = "<group>"; };
+		FDC498B62AC15F7D00EDD897 /* AppNotificationCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotificationCategory.swift; sourceTree = "<group>"; };
+		FDC498B82AC15FE300EDD897 /* AppNotificationAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotificationAction.swift; sourceTree = "<group>"; };
+		FDC498BA2AC1606C00EDD897 /* AppNotificationUserInfoKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotificationUserInfoKey.swift; sourceTree = "<group>"; };
 		FDC6D75F2862B3F600B04575 /* Dependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dependencies.swift; sourceTree = "<group>"; };
 		FDCCC6E82ABA7402002BBEF5 /* EmojiGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiGenerator.swift; sourceTree = "<group>"; };
 		FDCD2E022A41294E00964D6A /* LegacyGroupOnlyRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyGroupOnlyRequest.swift; sourceTree = "<group>"; };
@@ -3102,6 +3110,7 @@
 		C36096BB25AD1BBB008B62B2 /* Notifications */ = {
 			isa = PBXGroup;
 			children = (
+				FDC498B52AC15F6D00EDD897 /* Types */,
 				4539B5851F79348F007141FF /* PushRegistrationManager.swift */,
 				45CD81EE1DC030E7004C9430 /* SyncPushTokensJob.swift */,
 				451A13B01E13DED2000A50FD /* AppNotifications.swift */,
@@ -4303,6 +4312,16 @@
 			path = _TestUtilities;
 			sourceTree = "<group>";
 		};
+		FDC498B52AC15F6D00EDD897 /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FDC498B62AC15F7D00EDD897 /* AppNotificationCategory.swift */,
+				FDC498B82AC15FE300EDD897 /* AppNotificationAction.swift */,
+				FDC498BA2AC1606C00EDD897 /* AppNotificationUserInfoKey.swift */,
+			);
+			path = Types;
+			sourceTree = "<group>";
+		};
 		FDDC08F029A300D500BF9681 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
@@ -4527,6 +4546,7 @@
 				453518641FC635DD00210559 /* Sources */,
 				453518651FC635DD00210559 /* Frameworks */,
 				453518661FC635DD00210559 /* Resources */,
+				FDC498C02AC1774500EDD897 /* Ensure Localizable.strings included */,
 			);
 			buildRules = (
 			);
@@ -4550,6 +4570,7 @@
 				7BC01A37241F40AB00BC7C55 /* Sources */,
 				7BC01A38241F40AB00BC7C55 /* Frameworks */,
 				7BC01A39241F40AB00BC7C55 /* Resources */,
+				FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */,
 			);
 			buildRules = (
 			);
@@ -4672,6 +4693,7 @@
 				453518771FC635DD00210559 /* Embed Foundation Extensions */,
 				4535189F1FC63DBF00210559 /* Embed Frameworks */,
 				FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */,
+				FDC498BF2AC1747900EDD897 /* Ensure Localizable.strings included */,
 				90DF4725BB1271EBA2C66A12 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
@@ -4964,6 +4986,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4535186E1FC635DD00210559 /* MainInterface.storyboard in Resources */,
+				FDC498C22AC17BFC00EDD897 /* Localizable.strings in Resources */,
 				B8D07406265C683A00F77E07 /* ElegantIcons.ttf in Resources */,
 				3478504C1FD7496D007B8332 /* Images.xcassets in Resources */,
 			);
@@ -4973,6 +4996,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FDC498BE2AC1732E00EDD897 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5429,6 +5453,66 @@
 			shellScript = "\"${SRCROOT}/Scripts/build_libSession_util.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		FDC498BF2AC1747900EDD897 /* Ensure Localizable.strings included */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Ensure Localizable.strings included";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
+			showEnvVarsInLog = 0;
+		};
+		FDC498C02AC1774500EDD897 /* Ensure Localizable.strings included */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Ensure Localizable.strings included";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
+			showEnvVarsInLog = 0;
+		};
+		FDC498C12AC1775400EDD897 /* Ensure Localizable.strings included */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Ensure Localizable.strings included";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" validate\n";
+			showEnvVarsInLog = 0;
+		};
 		FDD82C422A2085B900425F05 /* Add Commit Hash To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -5468,7 +5552,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\"\n";
+			shellScript = "\"${SRCROOT}/Scripts/LintLocalizableStrings.swift\" lint\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -6083,6 +6167,7 @@
 				FD87DCFE28B7582C00AF0F98 /* BlockedContactsViewModel.swift in Sources */,
 				FD37E9DD28A384EB003AE748 /* PrimaryColorSelectionView.swift in Sources */,
 				B82B408C239A068800A248E7 /* RegisterVC.swift in Sources */,
+				FDC498B72AC15F7D00EDD897 /* AppNotificationCategory.swift in Sources */,
 				FDFDE126282D05380098B17F /* MediaInteractiveDismiss.swift in Sources */,
 				34BECE301F7ABCF800D7438D /* GifPickerLayout.swift in Sources */,
 				C331FFFE2558FF3B00070591 /* FullConversationCell.swift in Sources */,
@@ -6100,6 +6185,7 @@
 				7BBBDC462875600700747E59 /* DocumentTitleViewController.swift in Sources */,
 				FD71163F28E2C82C00B47552 /* SessionHeaderView.swift in Sources */,
 				B877E24226CA12910007970A /* CallVC.swift in Sources */,
+				FDC498B92AC15FE300EDD897 /* AppNotificationAction.swift in Sources */,
 				7BA6890D27325CCC00EFC32F /* SessionCallManager+CXCallController.swift in Sources */,
 				C374EEEB25DA3CA70073A857 /* ConversationTitleView.swift in Sources */,
 				FD716E7128505E5200C96BF4 /* MessageRequestsCell.swift in Sources */,
@@ -6161,6 +6247,7 @@
 				7B9F71D72853100A006DFE7B /* Emoji+Available.swift in Sources */,
 				FD09C5E628260FF9000CE219 /* MediaGalleryViewModel.swift in Sources */,
 				7B9F71D32852EEE2006DFE7B /* Emoji.swift in Sources */,
+				FDC498BB2AC1606C00EDD897 /* AppNotificationUserInfoKey.swift in Sources */,
 				C328250F25CA06020062D0A7 /* VoiceMessageView.swift in Sources */,
 				B82B4090239DD75000A248E7 /* RestoreVC.swift in Sources */,
 				3488F9362191CC4000E524CC /* MediaView.swift in Sources */,
@@ -6507,7 +6594,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 425;
+				CURRENT_PROJECT_VERSION = 426;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6579,7 +6666,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 425;
+				CURRENT_PROJECT_VERSION = 426;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -6644,7 +6731,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 425;
+				CURRENT_PROJECT_VERSION = 426;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6718,7 +6805,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 425;
+				CURRENT_PROJECT_VERSION = 426;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -7678,7 +7765,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 425;
+				CURRENT_PROJECT_VERSION = 426;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7749,7 +7836,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 425;
+				CURRENT_PROJECT_VERSION = 426;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",

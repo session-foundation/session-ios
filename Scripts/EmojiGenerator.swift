@@ -1,5 +1,11 @@
 #!/usr/bin/env xcrun --sdk macosx swift
 
+// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// This script is used to generate/update the set of Emoji used for reactions
+//
+// stringlint:disable
+
 import Foundation
 
 // OWSAssertionError but for this script
@@ -250,6 +256,7 @@ extension EmojiGenerator {
         // e.g. case grinning = "😀"
         writeBlock(fileName: "Emoji.swift") { fileHandle in
             fileHandle.writeLine("// swiftlint:disable all")
+            fileHandle.writeLine("// stringlint:disable")
             fileHandle.writeLine("")
             fileHandle.writeLine("/// A sorted representation of all available emoji")
             fileHandle.writeLine("enum Emoji: String, CaseIterable, Equatable {")
@@ -306,6 +313,9 @@ extension EmojiGenerator {
         // if rawValue == "😀" { self.init(baseEmoji: .grinning, skinTones: nil) }
         // else if rawValue == "🦻🏻" { self.init(baseEmoji: .earWithHearingAid, skinTones: [.light])
         writeBlock(fileName: "EmojiWithSkinTones+String.swift") { fileHandle in
+            fileHandle.writeLine("// swiftlint:disable all")
+            fileHandle.writeLine("// stringlint:disable")
+            fileHandle.writeLine("")
             fileHandle.writeLine("extension EmojiWithSkinTones {")
             fileHandle.indent {
                 switch desiredStructure {
@@ -372,6 +382,7 @@ extension EmojiGenerator {
                 }
             }
             fileHandle.writeLine("}")
+            fileHandle.writeLine("// swiftlint:disable all")
         }
     }
     
@@ -436,6 +447,9 @@ extension EmojiGenerator {
 
     static func writeSkinToneLookupFile(from emojiModel: EmojiModel) {
         writeBlock(fileName: "Emoji+SkinTones.swift") { fileHandle in
+            fileHandle.writeLine("// swiftlint:disable all")
+            fileHandle.writeLine("// stringlint:disable")
+            fileHandle.writeLine("")
             fileHandle.writeLine("extension Emoji {")
             fileHandle.indent {
                 // SkinTone enum
@@ -498,6 +512,7 @@ extension EmojiGenerator {
                 fileHandle.writeLine("}")
             }
             fileHandle.writeLine("}")
+            fileHandle.writeLine("// swiftlint:disable all")
         }
     }
 
@@ -514,6 +529,9 @@ extension EmojiGenerator {
         ]
 
         writeBlock(fileName: "Emoji+Category.swift") { fileHandle in
+            fileHandle.writeLine("// swiftlint:disable all")
+            fileHandle.writeLine("// stringlint:disable")
+            fileHandle.writeLine("")
             fileHandle.writeLine("extension Emoji {")
             fileHandle.indent {
 
@@ -619,6 +637,7 @@ extension EmojiGenerator {
                 fileHandle.writeLine("}")
             }
             fileHandle.writeLine("}")
+            fileHandle.writeLine("// swiftlint:disable all")
         }
     }
 
@@ -626,6 +645,9 @@ extension EmojiGenerator {
         // Name lookup: Create a computed property mapping an Emoji enum element to the raw Emoji name string
         // e.g. case .grinning: return "GRINNING FACE"
         writeBlock(fileName: "Emoji+Name.swift") { fileHandle in
+            fileHandle.writeLine("// swiftlint:disable all")
+            fileHandle.writeLine("// stringlint:disable")
+            fileHandle.writeLine("")
             fileHandle.writeLine("extension Emoji {")
             fileHandle.indent {
                 fileHandle.writeLine("var name: String {")
@@ -639,6 +661,7 @@ extension EmojiGenerator {
                 fileHandle.writeLine("}")
             }
             fileHandle.writeLine("}")
+            fileHandle.writeLine("// swiftlint:disable all")
         }
     }
 }
