@@ -56,32 +56,26 @@ class GiphyRendition: ProxiedContentAssetDescription {
 
     private class func fileExtension(forFormat format: GiphyFormat) -> String {
         switch format {
-        case .gif:
-            return "gif"
-        case .mp4:
-            return "mp4"
-        case .jpg:
-            return "jpg"
+            case .gif: return "gif"      // stringlint:disable
+            case .mp4: return "mp4"      // stringlint:disable
+            case .jpg: return "jpg"      // stringlint:disable
         }
     }
 
     public var utiType: String {
         switch format {
-        case .gif:
-            return kUTTypeGIF as String
-        case .mp4:
-            return kUTTypeMPEG4 as String
-        case .jpg:
-            return kUTTypeJPEG as String
+            case .gif: return kUTTypeGIF as String
+            case .mp4: return kUTTypeMPEG4 as String
+            case .jpg: return kUTTypeJPEG as String
         }
     }
 
     public var isStill: Bool {
-        return name.hasSuffix("_still")
+        return name.hasSuffix("_still")      // stringlint:disable
     }
 
     public var isDownsampled: Bool {
-        return name.hasSuffix("_downsampled")
+        return name.hasSuffix("_downsampled")      // stringlint:disable
     }
 
     public func log() {
@@ -279,11 +273,11 @@ enum GiphyAPI {
     // MARK: - Search
     
     // This is the Signal iOS API key.
-    private static let kGiphyApiKey = "ZsUpUm2L6cVbvei347EQNp7HrROjbOdc"
+    private static let kGiphyApiKey = "ZsUpUm2L6cVbvei347EQNp7HrROjbOdc"      // stringlint:disable
     private static let kGiphyPageSize = 20
     
     public static func trending() -> AnyPublisher<[GiphyImageInfo], Error> {
-        let urlString = "/v1/gifs/trending?api_key=\(kGiphyApiKey)&limit=\(kGiphyPageSize)"
+        let urlString = "/v1/gifs/trending?api_key=\(kGiphyApiKey)&limit=\(kGiphyPageSize)"      // stringlint:disable
         
         guard let url: URL = URL(string: "\(kGiphyBaseURL)\(urlString)") else {
             return Fail(error: HTTPError.invalidURL)
@@ -319,10 +313,10 @@ enum GiphyAPI {
             let url: URL = URL(
                 string: [
                     kGiphyBaseURL,
-                    "/v1/gifs/search?api_key=\(kGiphyApiKey)",
-                    "&offset=\(kGiphyPageOffset)",
-                    "&limit=\(kGiphyPageSize)",
-                    "&q=\(queryEncoded)"
+                    "/v1/gifs/search?api_key=\(kGiphyApiKey)",      // stringlint:disable
+                    "&offset=\(kGiphyPageOffset)",      // stringlint:disable
+                    "&limit=\(kGiphyPageSize)",      // stringlint:disable
+                    "&q=\(queryEncoded)"      // stringlint:disable
                 ].joined()
             )
         else {
@@ -370,7 +364,7 @@ enum GiphyAPI {
             Logger.error("Invalid response.")
             return nil
         }
-        guard let imageDicts = responseDict["data"] as? [[String: Any]] else {
+        guard let imageDicts = responseDict["data"] as? [[String: Any]] else {      // stringlint:disable
             Logger.error("Invalid response data.")
             return nil
         }
@@ -381,7 +375,7 @@ enum GiphyAPI {
 
     // Giphy API results are often incomplete or malformed, so we need to be defensive.
     private static func parseGiphyImage(imageDict: [String: Any]) -> GiphyImageInfo? {
-        guard let giphyId = imageDict["id"] as? String else {
+        guard let giphyId = imageDict["id"] as? String else {      // stringlint:disable
             Logger.warn("Image dict missing id.")
             return nil
         }
@@ -389,7 +383,7 @@ enum GiphyAPI {
             Logger.warn("Image dict has invalid id.")
             return nil
         }
-        guard let renditionDicts = imageDict["images"] as? [String: Any] else {
+        guard let renditionDicts = imageDict["images"] as? [String: Any] else {      // stringlint:disable
             Logger.warn("Image dict missing renditions.")
             return nil
         }
@@ -423,7 +417,7 @@ enum GiphyAPI {
     }
 
     private static func findOriginalRendition(renditions: [GiphyRendition]) -> GiphyRendition? {
-        for rendition in renditions where rendition.name == "original" {
+        for rendition in renditions where rendition.name == "original" {      // stringlint:disable
             return rendition
         }
         return nil
@@ -436,15 +430,15 @@ enum GiphyAPI {
         renditionName: String,
         renditionDict: [String: Any]
     ) -> GiphyRendition? {
-        guard let width = parsePositiveUInt(dict: renditionDict, key: "width", typeName: "rendition") else {
+        guard let width = parsePositiveUInt(dict: renditionDict, key: "width", typeName: "rendition") else {      // stringlint:disable
             return nil
         }
-        guard let height = parsePositiveUInt(dict: renditionDict, key: "height", typeName: "rendition") else {
+        guard let height = parsePositiveUInt(dict: renditionDict, key: "height", typeName: "rendition") else {      // stringlint:disable
             return nil
         }
         // Be lenient when parsing file sizes - we don't require them for stills.
-        let fileSize = parseLenientUInt(dict: renditionDict, key: "size")
-        guard let urlString = renditionDict["url"] as? String else {
+        let fileSize = parseLenientUInt(dict: renditionDict, key: "size")      // stringlint:disable
+        guard let urlString = renditionDict["url"] as? String else {           // stringlint:disable
             return nil
         }
         guard urlString.count > 0 else {
@@ -460,13 +454,13 @@ enum GiphyAPI {
             return nil
         }
         var format = GiphyFormat.gif
-        if fileExtension == "gif" {
+        if fileExtension == "gif" {             // stringlint:disable
             format = .gif
-        } else if fileExtension == "jpg" {
+        } else if fileExtension == "jpg" {      // stringlint:disable
             format = .jpg
-        } else if fileExtension == "mp4" {
+        } else if fileExtension == "mp4" {      // stringlint:disable
             format = .mp4
-        } else if fileExtension == "webp" {
+        } else if fileExtension == "webp" {     // stringlint:disable
             return nil
         } else {
             Logger.warn("Invalid file extension: \(fileExtension).")
