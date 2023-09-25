@@ -456,8 +456,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
-                                    label: "Disappearing messages"
+                                    identifier: "Disappearing messages",
+                                    label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                                 ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
