@@ -45,6 +45,7 @@ extension ProjectState {
         .contains("[UIImage imageNamed:"),
         .contains("UIFont(name:"),
         .contains(".accessibilityLabel ="),
+        .contains(".accessibilityValue ="),
         .contains(".accessibilityIdentifier ="),
         .contains("accessibilityIdentifier:"),
         .contains("accessibilityLabel:"),

@@ -36,6 +36,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel! = ThreadDisappearingMessagesSettingsViewModel(
             threadId: "TestId",
             threadVariant: .contact,
+            currentUserIsClosedGroupMember: nil,
+            currentUserIsClosedGroupAdmin: nil,
             config: DisappearingMessagesConfiguration.defaultWith("TestId"),
             using: dependencies
         )

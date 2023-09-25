@@ -6,69 +6,60 @@ import Quick
 import Nimble
 import SessionSnodeKit
 import SessionUtilitiesKit
-import SessionMessagingKit
 import SessionUIKit
 
-@testable import Session
+@testable import SessionMessagingKit
 
-class MessageReceiverDisappearingMessagesSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var mockStorage: Storage!
-        var mockProto: SNProtoContent!
-        var mockMessage: VisibleMessage!
+class MessageReceiverSpec: QuickSpec {
+    override class func spec() {
+        // MARK: Configuration
         
+        @TestState var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            customMigrationTargets: [
+                SNUtilitiesKit.self,
+                SNSnodeKit.self,
+                SNMessagingKit.self,
+                SNUIKit.self
+            ],
+            initialData: { db in
+                try SessionThread.fetchOrCreate(
+                    db,
+                    id: "TestId",
+                    variant: .contact,
+                    shouldBeVisible: true
+                )
+            }
+        )
+        @TestState var mockProto: SNProtoContent! = {
+            let proto = SNProtoContent.builder()
+            let dataMessage = SNProtoDataMessage.builder()
+            proto.setExpirationType(.deleteAfterRead)
+            proto.setExpirationTimer(UInt32(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds))
+            proto.setLastDisappearingMessageChangeTimestamp((1234567890 - (60 * 10)) * 1000)
+            dataMessage.setBody("Test")
+            proto.setDataMessage(try! dataMessage.build())
+            return try? proto.build()
+        }()
+        @TestState var mockMessage: VisibleMessage! = {
+            let result = VisibleMessage(
+                sender: "TestId",
+                sentTimestamp: ((1234567890 - (60 * 10)) * 1000),
+                recipient: "05\(TestConstants.publicKey)",
+                text: "Test"
+            )
+            result.receivedTimestamp = (1234567890 * 1000)
+            return result
+        }()
+        @TestState var dependencies: Dependencies! = Dependencies(
+            storage: mockStorage
+        )
+        
+        // MARK: - a MessageReceiver
         describe("a MessageReceiver") {
-            
-            // MARK: - Configuration
-            
-            beforeEach {
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNSnodeKit.self,
-                        SNMessagingKit.self,
-                        SNUIKit.self
-                    ]
-                )
-                
-                let proto = SNProtoContent.builder()
-                let dataMessage = SNProtoDataMessage.builder()
-                proto.setExpirationType(.deleteAfterRead)
-                proto.setExpirationTimer(UInt32(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds))
-                proto.setLastDisappearingMessageChangeTimestamp((1234567890 - (60 * 10)) * 1000)
-                dataMessage.setBody("Test")
-                proto.setDataMessage(try! dataMessage.build())
-                mockProto = try? proto.build()
-                
-                mockMessage = VisibleMessage(
-                    sender: "TestId",
-                    sentTimestamp: ((1234567890 - (60 * 10)) * 1000),
-                    recipient: "05\(TestConstants.publicKey)",
-                    text: "Test"
-                )
-                mockMessage.receivedTimestamp = (1234567890 * 1000)
-                
-                mockStorage.write { db in
-                    try SessionThread.fetchOrCreate(
-                        db,
-                        id: "TestId",
-                        variant: .contact,
-                        shouldBeVisible: true
-                    )
-                }
-            }
-            
-            afterEach {
-                mockStorage = nil
-                mockProto = nil
-            }
-            
-            // MARK: - when receiving an outdated disappearing message config update
+            // MARK: -- when receiving an outdated disappearing message config update
             context("when receiving an outdated disappearing message config update") {
-                // MARK: -- does NOT update local config
+                // MARK: ---- does NOT update local config
                 it("does NOT update local config") {
                     let config: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
                         .defaultWith("TestId")
@@ -102,9 +93,9 @@ class MessageReceiverDisappearingMessagesSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when receiving a newer disappearing message config update
+            // MARK: -- when receiving a newer disappearing message config update
             context("when receiving a newer disappearing message config update") {
-                // MARK: -- updates the local config properly
+                // MARK: ---- updates the local config properly
                 it("updates the local config properly") {
                     mockStorage.write { db in
                         do {
