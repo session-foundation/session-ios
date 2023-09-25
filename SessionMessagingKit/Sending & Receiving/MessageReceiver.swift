@@ -154,6 +154,7 @@ public enum MessageReceiver {
         message.sentTimestamp = envelope.timestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         message.openGroupServerMessageId = openGroupMessageServerId.map { UInt64($0) }
+        message.attachDisappearingMessagesConfiguration(from: proto)
         
         // Validate
         var isValid: Bool = message.isValid

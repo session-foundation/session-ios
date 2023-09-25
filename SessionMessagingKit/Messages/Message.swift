@@ -194,10 +194,7 @@ public extension Message {
             .reduce(nil) { prev, variant in
                 guard prev == nil else { return prev }
                 
-                let message: Message? = variant.messageType.fromProto(proto, sender: sender)
-                message?.attachDisappearingMessagesConfiguration(from: proto)
-                
-                return message
+                return variant.messageType.fromProto(proto, sender: sender)
             }
     }
     
