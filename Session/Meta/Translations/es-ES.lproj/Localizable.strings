@@ -486,8 +486,7 @@
 "PRIVACY_CALLS_TITLE" = "Llamadas de voz y video";
 "PRIVACY_CALLS_DESCRIPTION" = "Habilita llamadas de voz y video hacia y desde otros usuarios.";
 "PRIVACY_CALLS_WARNING_TITLE" = "Llamadas de Voz y Video (Beta)";
-"PRIVACY_CALLS_WARNING_DESCRIPTION" = "Su dirección IP es visible para su socio de llamadas y un servidor de Oxen Fundación 
- mientras usas llamadas beta. ¿Está seguro de que desea habilitar las llamadas de voz y videollamadas?";
+"PRIVACY_CALLS_WARNING_DESCRIPTION" = "Su dirección IP es visible para su socio de llamadas y un servidor de Oxen Fundación mientras usas llamadas beta. ¿Está seguro de que desea habilitar las llamadas de voz y videollamadas?";
 "NOTIFICATIONS_TITLE" = "Notificaciones";
 "NOTIFICATIONS_SECTION_STRATEGY" = "Estrategia de notificación";
 "NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE" = "Usar Modo Rápido";

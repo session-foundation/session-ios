@@ -1,3 +1,5 @@
+// stringlint:disable
+
 #import "AppContext.h"
 
 NS_ASSUME_NONNULL_BEGIN

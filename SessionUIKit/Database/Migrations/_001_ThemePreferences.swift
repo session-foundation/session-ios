@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 /// theme preferences
 enum _001_ThemePreferences: Migration {
     static let target: TargetMigrations.Identifier = .uiKit
-    static let identifier: String = "ThemePreferences"
+    static let identifier: String = "ThemePreferences" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
@@ -18,11 +18,11 @@ enum _001_ThemePreferences: Migration {
         let isExistingUser: Bool = Identity.userExists(db)
         let hadCustomLegacyThemeSetting: Bool = UserDefaults.standard.dictionaryRepresentation()
             .keys
-            .contains("appMode")
+            .contains("appMode") // stringlint:disable
         let matchSystemNightModeSetting: Bool = (isExistingUser && !hadCustomLegacyThemeSetting)
         let targetTheme: Theme = (!hadCustomLegacyThemeSetting ?
             Theme.classicDark :
-            (UserDefaults.standard.integer(forKey: "appMode") == 0 ?
+            (UserDefaults.standard.integer(forKey: "appMode") == 0 ? // stringlint:disable
                 Theme.classicLight :
                 Theme.classicDark
             )
