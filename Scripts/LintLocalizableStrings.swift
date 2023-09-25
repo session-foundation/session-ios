@@ -79,7 +79,7 @@ let projectState: ProjectState = ProjectState(
     ),
     loadSourceFiles: targetActions.contains(.lintStrings)
 )
-print("------------ Found \(projectState.localizationFiles.count) Localization File(s) ------------")
+print("------------ Processing \(projectState.localizationFiles.count) Localization File(s) ------------")
 targetActions.forEach { $0.perform(projectState: projectState) }
 
 // MARK: - ScriptAction
@@ -120,8 +120,6 @@ enum ScriptAction: String {
                 guard !projectState.localizationFiles.isEmpty else {
                     return print("------------ Nothing to lint ------------")
                 }
-                
-                print("------------ Processing \(projectState.localizationFiles.count) Localization File(s) ------------")
                 
                 // Add warnings for any duplicate keys
                 projectState.localizationFiles.forEach { file in
