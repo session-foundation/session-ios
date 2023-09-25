@@ -680,7 +680,9 @@ extension MessageReceiver {
             timestampMs: (
                 message.sentTimestamp.map { Int64($0) } ??
                 SnodeAPI.currentOffsetTimestampMs()
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         ).inserted(db)
     }
 }

@@ -18,6 +18,10 @@ public class Message: Codable {
     public var isSelfSendValid: Bool { false }
     
     public var shouldBeRetryable: Bool { false }
+    
+    // MARK: - Disappearing Messages
+    public var expiresInSeconds: TimeInterval?
+    public var expiresStartedAtMs: Double?
 
     // MARK: - Validation
     
@@ -37,7 +41,9 @@ public class Message: Codable {
         sender: String? = nil,
         groupPublicKey: String? = nil,
         openGroupServerMessageId: UInt64? = nil,
-        serverHash: String? = nil
+        serverHash: String? = nil,
+        expiresInSeconds: TimeInterval? = nil,
+        expiresStartedAtMs: Double? = nil
     ) {
         self.id = id
         self.sentTimestamp = sentTimestamp
@@ -46,6 +52,8 @@ public class Message: Codable {
         self.sender = sender
         self.openGroupServerMessageId = openGroupServerMessageId
         self.serverHash = serverHash
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
     }
 
     // MARK: - Proto Conversion
@@ -71,6 +79,19 @@ public class Message: Codable {
         if disappearingMessagesConfiguration.isEnabled, let type = disappearingMessagesConfiguration.type {
             proto.setExpirationType(type.toProto())
         }
+    }
+    
+    public func attachDisappearingMessagesConfiguration(from proto: SNProtoContent) {
+        let expiresInSeconds: TimeInterval? = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : nil
+        let expiresStartedAtMs: Double? = {
+            if proto.expirationType == .deleteAfterSend, let timestamp = self.sentTimestamp {
+                return Double(timestamp)
+            }
+            return nil
+        }()
+        
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
     }
 }
 
@@ -173,7 +194,10 @@ public extension Message {
             .reduce(nil) { prev, variant in
                 guard prev == nil else { return prev }
                 
-                return variant.messageType.fromProto(proto, sender: sender)
+                let message: Message? = variant.messageType.fromProto(proto, sender: sender)
+                message?.attachDisappearingMessagesConfiguration(from: proto)
+                
+                return message
             }
     }
     

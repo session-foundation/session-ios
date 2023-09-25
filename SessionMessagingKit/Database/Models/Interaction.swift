@@ -150,6 +150,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 case .standardIncoming, .standardOutgoing,
                     .infoCall,
                     .infoDisappearingMessagesUpdate,
+                    .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving,
                     .infoScreenshotNotification, .infoMediaSavedNotification:
                     return true
                 
@@ -374,16 +375,19 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         self.wasRead = (self.wasRead || !self.variant.canBeUnread)
         
         // Automatically add disapeparing messages configuration
-        if self.variant.shouldFollowDisappearingMessagesConfiguration {
+        if self.variant.shouldFollowDisappearingMessagesConfiguration,
+           self.expiresInSeconds == nil,
+           self.expiresStartedAtMs == nil
+        {
             guard
                 let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId),
                 disappearingMessagesConfiguration.isEnabled
             else {
-                self.expiresInSeconds = self.expiresInSeconds ?? 0
+                self.expiresInSeconds = 0
                 return
             }
             
-            self.expiresInSeconds = self.expiresInSeconds ?? disappearingMessagesConfiguration.durationSeconds
+            self.expiresInSeconds = disappearingMessagesConfiguration.durationSeconds
             self.expiresStartedAtMs = disappearingMessagesConfiguration.type == .disappearAfterSend ? Double(self.timestampMs) : nil
         }
     }
