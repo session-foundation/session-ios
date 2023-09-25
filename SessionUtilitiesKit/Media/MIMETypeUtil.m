@@ -1,3 +1,5 @@
+// stringlint:disable
+
 #import "MIMETypeUtil.h"
 #import "OWSFileSystem.h"
 

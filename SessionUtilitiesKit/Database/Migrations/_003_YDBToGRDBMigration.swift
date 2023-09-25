@@ -6,7 +6,7 @@ import YapDatabase
 
 enum _003_YDBToGRDBMigration: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
-    static let identifier: String = "YDBToGRDBMigration"
+    static let identifier: String = "YDBToGRDBMigration" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
@@ -28,7 +28,7 @@ enum _003_YDBToGRDBMigration: Migration {
         // Map the Legacy types for the NSKeyedUnarchiver
         NSKeyedUnarchiver.setClass(
             SUKLegacy.KeyPair.self,
-            forClassName: "ECKeyPair"
+            forClassName: "ECKeyPair" // stringlint:disable
         )
         
         dbConnection.read { transaction in

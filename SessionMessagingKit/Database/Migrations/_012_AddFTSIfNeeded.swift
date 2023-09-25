@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 /// This migration adds the FTS table back for internal test users whose FTS table was removed unintentionally
 enum _012_AddFTSIfNeeded: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "AddFTSIfNeeded"
+    static let identifier: String = "AddFTSIfNeeded" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     

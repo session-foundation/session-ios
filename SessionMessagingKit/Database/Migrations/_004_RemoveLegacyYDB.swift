@@ -8,7 +8,7 @@ import SessionSnodeKit
 /// This migration removes the legacy YapDatabase files
 enum _004_RemoveLegacyYDB: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "RemoveLegacyYDB"
+    static let identifier: String = "RemoveLegacyYDB" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
 

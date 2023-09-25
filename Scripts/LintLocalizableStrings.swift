@@ -1,264 +1,554 @@
 #!/usr/bin/xcrun --sdk macosx swift
 
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 //
 // This script is based on https://github.com/ginowu7/CleanSwiftLocalizableExample the main difference
 // is canges to the localized usage regex
+//
+// stringlint:disable
 
 import Foundation
 
-let fileManager = FileManager.default
-let currentPath = (
-    ProcessInfo.processInfo.environment["PROJECT_DIR"] ?? fileManager.currentDirectoryPath
+extension ProjectState {
+    /// Adding `// stringlint:disable` to the top of a source file (before imports) or after a string will mean that file/line gets
+    /// ignored by this script (good for some things like the auto-generated emoji strings or debug strings)
+    static let lintSuppression: String = "stringlint:disable"
+    static let primaryLocalisationFile: String = "en"
+    static let validLocalisationSuffixes: Set<String> = ["Localizable.strings"]
+    static let validSourceSuffixes: Set<String> = [".swift", ".m"]
+    static let excludedPaths: Set<String> = [
+        "build/",                   // Files under the build folder (CI)
+        "Pods/",                    // The pods folder
+        "Protos/",                  // The protobuf files
+        ".xcassets/",               // Asset bundles
+        ".app/",                    // App build directories
+        ".appex/",                  // Extension build directories
+        "tests/",                   // Exclude test directories
+        "_SharedTestUtilities/",    // Exclude shared test directory
+        "external/"                 // External dependencies
+    ]
+    static let excludedPhrases: Set<String> = [ "", " ", ",", ", ", "null" ]
+    static let excludedUnlocalisedStringLineMatching: Set<MatchType> = [
+        .contains(ProjectState.lintSuppression),
+        .prefix("#import"),
+        .prefix("@available("),
+        .contains("fatalError("),
+        .contains("precondition("),
+        .contains("preconditionFailure("),
+        .contains("print("),
+        .contains("NSLog("),
+        .contains("SNLog("),
+        .contains("owsFailDebug("),
+        .contains("#imageLiteral(resourceName:"),
+        .contains("UIImage(named:"),
+        .contains("UIImage(systemName:"),
+        .contains("[UIImage imageNamed:"),
+        .contains("UIFont(name:"),
+        .contains(".accessibilityLabel ="),
+        .contains(".accessibilityIdentifier ="),
+        .contains("accessibilityIdentifier:"),
+        .contains("accessibilityLabel:"),
+        .contains("Accessibility(identifier:"),
+        .contains("Accessibility(label:"),
+        .containsAnd("identifier:", .previousLine(numEarlier: 1, .contains("Accessibility("))),
+        .containsAnd("label:", .previousLine(numEarlier: 1, .contains("Accessibility("))),
+        .containsAnd("label:", .previousLine(numEarlier: 2, .contains("Accessibility("))),
+        .contains("SQL("),
+        .regex(".*static var databaseTableName: String"),
+        .regex("Logger\\..*\\("),
+        .regex("OWSLogger\\..*\\("),
+        .regex("case .* = ")
+    ]
+}
+
+// Execute the desired actions
+let targetActions: Set<ScriptAction> = {
+    let args = CommandLine.arguments
+    
+    // The first argument is the file name
+    guard args.count > 1 else { return [.lintStrings] }
+    
+    return Set(args.suffix(from: 1).map { (ScriptAction(rawValue: $0) ?? .lintStrings) })
+}()
+
+print("------------ Searching Through Files ------------")
+let projectState: ProjectState = ProjectState(
+    path: (
+        ProcessInfo.processInfo.environment["PROJECT_DIR"] ??
+        FileManager.default.currentDirectoryPath
+    ),
+    loadSourceFiles: targetActions.contains(.lintStrings)
 )
+print("------------ Processing \(projectState.localizationFiles.count) Localization File(s) ------------")
+targetActions.forEach { $0.perform(projectState: projectState) }
 
-/// List of files in currentPath - recursive
-var pathFiles: [String] = {
-    guard
-        let enumerator: FileManager.DirectoryEnumerator = fileManager.enumerator(
-            at: URL(fileURLWithPath: currentPath),
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ),
-        let fileUrls: [URL] = enumerator.allObjects as? [URL]
-    else { fatalError("Could not locate files in path directory: \(currentPath)") }
+// MARK: - ScriptAction
+
+enum ScriptAction: String {
+    case validateFilesCopied = "validate"
+    case lintStrings = "lint"
     
-    return fileUrls
-        .filter {
-            ((try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false) && // No directories
-            !$0.path.contains("build/") &&                                // Exclude files under the build folder (CI)
-            !$0.path.contains("Pods/") &&                                 // Exclude files under the pods folder
-            !$0.path.contains(".xcassets") &&                             // Exclude asset bundles
-            !$0.path.contains(".app/") &&                                 // Exclude files in the app build directories
-            !$0.path.contains(".appex/") &&                               // Exclude files in the extension build directories
-            !$0.path.localizedCaseInsensitiveContains("tests/") &&        // Exclude files under test directories
-            !$0.path.localizedCaseInsensitiveContains("external/") && (   // Exclude files under external directories
-                // Only include relevant files
-                $0.path.hasSuffix("Localizable.strings") ||
-                NSString(string: $0.path).pathExtension == "swift" ||
-                NSString(string: $0.path).pathExtension == "m"
-            )
-        }
-        .map { $0.path }
-}()
-
-
-/// List of localizable files - not including Localizable files in the Pods
-var localizableFiles: [String] = {
-    return pathFiles.filter { $0.hasSuffix("Localizable.strings") }
-}()
-
-
-/// List of executable files
-var executableFiles: [String] = {
-    return pathFiles.filter {
-        $0.hasSuffix(".swift") ||
-        $0.hasSuffix(".m")
-    }
-}()
-
-/// Reads contents in path
-///
-/// - Parameter path: path of file
-/// - Returns: content in file
-func contents(atPath path: String) -> String {
-    guard let data = fileManager.contents(atPath: path), let content = String(data: data, encoding: .utf8) else {
-        fatalError("Could not read from path: \(path)")
-    }
-    
-    return content
-}
-
-/// Returns a list of strings that match regex pattern from content
-///
-/// - Parameters:
-///   - pattern: regex pattern
-///   - content: content to match
-/// - Returns: list of results
-func regexFor(_ pattern: String, content: String) -> [String] {
-    guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-        fatalError("Regex not formatted correctly: \(pattern)")
-    }
-    
-    let matches = regex.matches(in: content, options: [], range: NSRange(location: 0, length: content.utf16.count))
-    
-    return matches.map {
-        guard let range = Range($0.range(at: 0), in: content) else {
-            fatalError("Incorrect range match")
-        }
-        
-        return String(content[range])
-    }
-}
-
-func create() -> [LocalizationStringsFile] {
-    return localizableFiles.map(LocalizationStringsFile.init(path:))
-}
-
-///
-///
-/// - Returns: A list of LocalizationCodeFile - contains path of file and all keys in it
-func localizedStringsInCode() -> [LocalizationCodeFile] {
-    return executableFiles.compactMap {
-        let content = contents(atPath: $0)
-        // Note: Need to exclude escaped quotation marks from strings
-        let matchesOld = regexFor("(?<=NSLocalizedString\\()\\s*\"(?!.*?%d)(.*?)\"", content: content)
-        let matchesNew = regexFor("\"(?!.*?%d)([^(\\\")]*?)\"(?=\\s*)(?=\\.localized)", content: content)
-        let allMatches = (matchesOld + matchesNew)
-        
-        return allMatches.isEmpty ? nil : LocalizationCodeFile(path: $0, keys: Set(allMatches))
-    }
-}
-
-/// Throws error if ALL localizable files does not have matching keys
-///
-/// - Parameter files: list of localizable files to validate
-func validateMatchKeys(_ files: [LocalizationStringsFile]) {
-    guard let base = files.first, files.count > 1 else { return }
-    
-    let files = Array(files.dropFirst())
-    
-    files.forEach {
-        guard let extraKey = Set(base.keys).symmetricDifference($0.keys).first else { return }
-        let incorrectFile = $0.keys.contains(extraKey) ? $0 : base
-        printPretty("error: Found extra key: \(extraKey) in file: \(incorrectFile.path)")
-    }
-}
-
-/// Throws error if localizable files are missing keys
-///
-/// - Parameters:
-///   - codeFiles: Array of LocalizationCodeFile
-///   - localizationFiles: Array of LocalizableStringFiles
-func validateMissingKeys(_ codeFiles: [LocalizationCodeFile], localizationFiles: [LocalizationStringsFile]) {
-    guard let baseFile = localizationFiles.first else {
-        fatalError("Could not locate base localization file")
-    }
-    
-    let baseKeys = Set(baseFile.keys)
-    
-    codeFiles.forEach {
-        let extraKeys = $0.keys.subtracting(baseKeys)
-        if !extraKeys.isEmpty {
-            printPretty("error: Found keys in code missing in strings file: \(extraKeys) from \($0.path)")
-        }
-    }
-}
-
-/// Throws warning if keys exist in localizable file but are not being used
-///
-/// - Parameters:
-///   - codeFiles: Array of LocalizationCodeFile
-///   - localizationFiles: Array of LocalizableStringFiles
-func validateDeadKeys(_ codeFiles: [LocalizationCodeFile], localizationFiles: [LocalizationStringsFile]) {
-    guard let baseFile = localizationFiles.first else {
-        fatalError("Could not locate base localization file")
-    }
-    
-    let baseKeys: Set<String> = Set(baseFile.keys)
-    let allCodeFileKeys: [String] = codeFiles.flatMap { $0.keys }
-    let deadKeys: [String] = Array(baseKeys.subtracting(allCodeFileKeys))
-        .sorted()
-        .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
-    
-    if !deadKeys.isEmpty {
-        printPretty("warning: \(deadKeys) - Suggest cleaning dead keys")
-    }
-}
-
-protocol Pathable {
-    var path: String { get }
-}
-
-struct LocalizationStringsFile: Pathable {
-    let path: String
-    let kv: [String: String]
-    let duplicates: [(key: String, path: String)]
-
-    var keys: [String] {
-        return Array(kv.keys)
-    }
-
-    init(path: String) {
-        let result = ContentParser.parse(path)
-        
-        self.path = path
-        self.kv = result.kv
-        self.duplicates = result.duplicates
-    }
-
-    /// Writes back to localizable file with sorted keys and removed whitespaces and new lines
-    func cleanWrite() {
-        print("------------ Sort and remove whitespaces: \(path) ------------")
-        let content = kv.keys.sorted().map { "\($0) = \(kv[$0]!);" }.joined(separator: "\n")
-        try! content.write(toFile: path, atomically: true, encoding: .utf8)
-    }
-
-}
-
-struct LocalizationCodeFile: Pathable {
-    let path: String
-    let keys: Set<String>
-}
-
-struct ContentParser {
-
-    /// Parses contents of a file to localizable keys and values - Throws error if localizable file have duplicated keys
-    ///
-    /// - Parameter path: Localizable file paths
-    /// - Returns: localizable key and value for content at path
-    static func parse(_ path: String) -> (kv: [String: String], duplicates: [(key: String, path: String)]) {
-        let content = contents(atPath: path)
-        let trimmed = content
-            .replacingOccurrences(of: "\n+", with: "", options: .regularExpression, range: nil)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let keys = regexFor("\"([^\"]*?)\"(?= =)", content: trimmed)
-        let values = regexFor("(?<== )\"(.*?)\"(?=;)", content: trimmed)
-        
-        if keys.count != values.count {
-            fatalError("Error parsing contents: Make sure all keys and values are in correct format (this could be due to extra spaces between keys and values)")
-        }
-        
-        var duplicates: [(key: String, path: String)] = []
-        let kv: [String: String] = zip(keys, values)
-            .reduce(into: [:]) { results, keyValue in
-                guard results[keyValue.0] == nil else {
-                    duplicates.append((keyValue.0, path))
-                    return
+    func perform(projectState: ProjectState) {
+        // Perform the action
+        switch self {
+            case .validateFilesCopied:
+                print("------------ Checking Copied Files ------------")
+                guard
+                    let builtProductsPath: String = ProcessInfo.processInfo.environment["BUILT_PRODUCTS_DIR"],
+                    let productName: String = ProcessInfo.processInfo.environment["FULL_PRODUCT_NAME"],
+                    let enumerator: FileManager.DirectoryEnumerator = FileManager.default.enumerator(
+                        at: URL(fileURLWithPath: "\(builtProductsPath)/\(productName)"),
+                        includingPropertiesForKeys: [.isDirectoryKey],
+                        options: [.skipsHiddenFiles]
+                    ),
+                    let fileUrls: [URL] = enumerator.allObjects as? [URL]
+                else { return Output.error("Could not retrieve list of files within built product") }
+                
+                let localizationFiles: Set<String> = Set(fileUrls
+                    .filter { $0.path.hasSuffix(".lproj") }
+                    .map { $0.lastPathComponent.replacingOccurrences(of: ".lproj", with: "") })
+                let missingFiles: Set<String> = Set(projectState.localizationFiles
+                    .map { $0.name })
+                    .subtracting(localizationFiles)
+                
+                guard missingFiles.isEmpty else {
+                    return Output.error("Translations missing from \(productName): \(missingFiles.joined(separator: ", "))")
+                }
+                break
+                
+            case .lintStrings:
+                guard !projectState.localizationFiles.isEmpty else {
+                    return print("------------ Nothing to lint ------------")
                 }
                 
-                results[keyValue.0] = keyValue.1
-            }
+                // Add warnings for any duplicate keys
+                projectState.localizationFiles.forEach { file in
+                    // Show errors for any duplicates
+                    file.duplicates.forEach { phrase, original in Output.duplicate(phrase, original: original) }
+                    
+                    // Show warnings for any phrases missing from the file
+                    let allKeys: Set<String> = Set(file.keyPhrase.keys)
+                    let missingKeysFromOtherFiles: [String: [String]] = projectState.localizationFiles.reduce(into: [:]) { result, otherFile in
+                        guard otherFile.path != file.path else { return }
+                        
+                        let missingKeys: Set<String> = Set(otherFile.keyPhrase.keys)
+                            .subtracting(allKeys)
+                        
+                        missingKeys.forEach { missingKey in
+                            result[missingKey] = ((result[missingKey] ?? []) + [otherFile.name])
+                        }
+                    }
+                    
+                    missingKeysFromOtherFiles.forEach { missingKey, namesOfFilesItWasFound in
+                        Output.warning(file, "Phrase '\(missingKey)' is missing (found in: \(namesOfFilesItWasFound.joined(separator: ", ")))")
+                    }
+                }
+                
+                // Process the source code
+                print("------------ Processing \(projectState.sourceFiles.count) Source File(s) ------------")
+                let allKeys: Set<String> = Set(projectState.primaryLocalizationFile.keyPhrase.keys)
+                
+                projectState.sourceFiles.forEach { file in
+                    // Add logs for unlocalised strings
+                    file.unlocalizedPhrases.forEach { phrase in
+                        Output.warning(phrase, "Found unlocalized string '\(phrase.key)'")
+                    }
+                    
+                    // Add errors for missing localised strings
+                    let missingKeys: Set<String> = Set(file.keyPhrase.keys).subtracting(allKeys)
+                    missingKeys.forEach { key in
+                        switch file.keyPhrase[key] {
+                            case .some(let phrase): Output.error(phrase, "Localized phrase '\(key)' missing from strings files")
+                            case .none: Output.error(file, "Localized phrase '\(key)' missing from strings files")
+                        }
+                    }
+                }
+                break
+        }
         
-        return (kv, duplicates)
+        print("------------ Complete ------------")
     }
 }
 
-func printPretty(_ string: String) {
-    print(string.replacingOccurrences(of: "\\", with: ""))
+// MARK: - Functionality
+
+enum Regex {
+    /// Returns a list of strings that match regex pattern from content
+    ///
+    /// - Parameters:
+    ///   - pattern: regex pattern
+    ///   - content: content to match
+    /// - Returns: list of results
+    static func matches(_ pattern: String, content: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            fatalError("Regex not formatted correctly: \(pattern)")
+        }
+        
+        let matches = regex.matches(in: content, options: [], range: NSRange(location: 0, length: content.utf16.count))
+        
+        return matches.map {
+            guard let range = Range($0.range(at: 0), in: content) else {
+                fatalError("Incorrect range match")
+            }
+            
+            return String(content[range])
+        }
+    }
 }
 
-// MARK: - Processing
+// MARK: - Output
 
-let stringFiles: [LocalizationStringsFile] = create()
-
-if !stringFiles.isEmpty {
-    print("------------ Found \(stringFiles.count) file(s) - checking for duplicate, extra, missing and dead keys ------------")
+enum Output {
+    static func error(_ error: String) {
+        print("error: \(error)")
+    }
     
-    stringFiles.forEach { file in
-        file.duplicates.forEach { key, path in
-            printPretty("error: Found duplicate key: \(key) in file: \(path)")
+    static func error(_ location: Locatable, _ error: String) {
+        print("\(location.location): error: \(error)")
+    }
+    
+    static func warning(_ location: Locatable, _ warning: String) {
+        print("\(location.location): warning: \(warning)")
+    }
+    
+    static func duplicate(
+        _ duplicate: KeyedLocatable,
+        original: KeyedLocatable
+    ) {
+        print("\(duplicate.location): error: duplicate key '\(original.key)'")
+        
+        // Looks like the `note:` doesn't work the same as when XCode does it unfortunately so we can't
+        // currently include the reference to the original entry
+        // print("\(original.location): note: previously found here")
+    }
+}
+
+// MARK: - ProjectState
+
+struct ProjectState {
+    let primaryLocalizationFile: LocalizationStringsFile
+    let localizationFiles: [LocalizationStringsFile]
+    let sourceFiles: [SourceFile]
+    
+    init(path: String, loadSourceFiles: Bool) {
+        guard
+            let enumerator: FileManager.DirectoryEnumerator = FileManager.default.enumerator(
+                at: URL(fileURLWithPath: path),
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            ),
+            let fileUrls: [URL] = enumerator.allObjects as? [URL]
+        else { fatalError("Could not locate files in path directory: \(path)") }
+        
+        // Get a list of valid URLs
+        let lowerCaseExcludedPaths: Set<String> = Set(ProjectState.excludedPaths.map { $0.lowercased() })
+        let validFileUrls: [URL] = fileUrls.filter { fileUrl in
+            ((try? fileUrl.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false) &&
+            !lowerCaseExcludedPaths.contains { fileUrl.path.lowercased().contains($0) }
+        }
+        
+        // Localization files
+        let targetFileSuffixes: Set<String> = Set(ProjectState.validLocalisationSuffixes.map { $0.lowercased() })
+        self.localizationFiles = validFileUrls
+            .filter { fileUrl in targetFileSuffixes.contains { fileUrl.path.lowercased().contains($0) } }
+            .map { LocalizationStringsFile(path: $0.path) }
+        
+        guard let primaryLocalizationFile: LocalizationStringsFile = self.localizationFiles.first(where: { $0.name == ProjectState.primaryLocalisationFile }) else {
+            fatalError("Could not locate primary localization file: \(ProjectState.primaryLocalisationFile)")
+        }
+        self.primaryLocalizationFile = primaryLocalizationFile
+        
+        guard loadSourceFiles else {
+            self.sourceFiles = []
+            return
+        }
+        
+        // Source files
+        let lowerCaseSourceSuffixes: Set<String> = Set(ProjectState.validSourceSuffixes.map { $0.lowercased() })
+        self.sourceFiles = validFileUrls
+            .filter { fileUrl in lowerCaseSourceSuffixes.contains(".\(fileUrl.pathExtension)") }
+            .compactMap { SourceFile(path: $0.path) }
+    }
+}
+
+protocol Locatable {
+    var location: String { get }
+}
+
+protocol KeyedLocatable: Locatable {
+    var key: String { get }
+}
+
+extension ProjectState {
+    // MARK: - LocalizationStringsFile
+    
+    struct LocalizationStringsFile: Locatable {
+        struct Phrase: KeyedLocatable {
+            let key: String
+            let value: String
+            let filePath: String
+            let lineNumber: Int
+            
+            var location: String { "\(filePath):\(lineNumber)" }
+        }
+        
+        let name: String
+        let path: String
+        let keyPhrase: [String: Phrase]
+        let duplicates: [(Phrase, original: Phrase)]
+        
+        var location: String { path }
+        
+        init(path: String) {
+            let result = LocalizationStringsFile.parse(path)
+            
+            self.name = (path
+                .replacingOccurrences(of: "/Localizable.strings", with: "")
+                .replacingOccurrences(of: ".lproj", with: "")
+                .components(separatedBy: "/")
+                .last ?? "Unknown")
+            self.path = path
+            self.keyPhrase = result.keyPhrase
+            self.duplicates = result.duplicates
+        }
+        
+        static func parse(_ path: String) -> (keyPhrase: [String: Phrase], duplicates: [(Phrase, original: Phrase)]) {
+            guard
+                let data: Data = FileManager.default.contents(atPath: path),
+                let content: String = String(data: data, encoding: .utf8)
+            else { fatalError("Could not read from path: \(path)") }
+            
+            let lines: [String] = content.components(separatedBy: .newlines)
+            var duplicates: [(Phrase, original: Phrase)] = []
+            var keyPhrase: [String: Phrase] = [:]
+            
+            lines.enumerated().forEach { lineNumber, line in
+                guard
+                    let key: String = Regex.matches("\"([^\"]*?)\"(?= =)", content: line).first,
+                    let value: String = Regex.matches("(?<== )\"(.*?)\"(?=;)", content: line).first
+                else { return }
+                
+                // Remove the quotation marks around the key
+                let trimmedKey: String = String(key
+                    .prefix(upTo: key.index(before: key.endIndex))
+                    .suffix(from: key.index(after: key.startIndex)))
+                
+                // Files are 1-indexed but arrays are 0-indexed so add 1 to the lineNumber
+                let result: Phrase = Phrase(
+                    key: trimmedKey,
+                    value: value,
+                    filePath: path,
+                    lineNumber: (lineNumber + 1)
+                )
+                
+                switch keyPhrase[trimmedKey] {
+                    case .some(let original): duplicates.append((result, original))
+                    case .none: keyPhrase[trimmedKey] = result
+                }
+            }
+            
+            return (keyPhrase, duplicates)
         }
     }
     
-    validateMatchKeys(stringFiles)
-
-    // Note: Uncomment the below file to clean out all comments from the localizable file (we don't want this because comments make it readable...)
-    // stringFiles.forEach { $0.cleanWrite() }
-
-    let codeFiles: [LocalizationCodeFile] = localizedStringsInCode()
-    validateMissingKeys(codeFiles, localizationFiles: stringFiles)
-    validateDeadKeys(codeFiles, localizationFiles: stringFiles)
+    // MARK: - SourceFile
+    
+    struct SourceFile: Locatable {
+        struct Phrase: KeyedLocatable {
+            let term: String
+            let filePath: String
+            let lineNumber: Int
+            
+            var key: String { term }
+            var location: String { "\(filePath):\(lineNumber)" }
+        }
+        
+        let path: String
+        let keyPhrase: [String: Phrase]
+        let unlocalizedKeyPhrase: [String: Phrase]
+        let phrases: [Phrase]
+        let unlocalizedPhrases: [Phrase]
+        
+        var location: String { path }
+        
+        init?(path: String) {
+            guard let result = SourceFile.parse(path) else { return nil }
+            
+            self.path = path
+            self.keyPhrase = result.keyPhrase
+            self.unlocalizedKeyPhrase = result.unlocalizedKeyPhrase
+            self.phrases = result.phrases
+            self.unlocalizedPhrases = result.unlocalizedPhrases
+        }
+        
+        static func parse(_ path: String) -> (keyPhrase: [String: Phrase], phrases: [Phrase], unlocalizedKeyPhrase: [String: Phrase], unlocalizedPhrases: [Phrase])? {
+            guard
+                let data: Data = FileManager.default.contents(atPath: path),
+                let content: String = String(data: data, encoding: .utf8)
+            else { fatalError("Could not read from path: \(path)") }
+            
+            // If the file has the lint supression before the first import then ignore the file
+            let preImportContent: String = (content.components(separatedBy: "import").first ?? "")
+            
+            guard !preImportContent.contains(ProjectState.lintSuppression) else {
+                print("Explicitly ignoring \(path)")
+                return nil
+            }
+            
+            // Otherwise continue and process the file
+            let lines: [String] = content.components(separatedBy: .newlines)
+            var keyPhrase: [String: Phrase] = [:]
+            var unlocalizedKeyPhrase: [String: Phrase] = [:]
+            var phrases: [Phrase] = []
+            var unlocalizedPhrases: [Phrase] = []
+            
+            lines.enumerated().forEach { lineNumber, line in
+                let trimmedLine: String = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Ignore the line if it doesn't contain a quotation character (optimisation), it's
+                // been suppressed or it's explicitly excluded due to the rules at the top of the file
+                guard
+                    trimmedLine.contains("\"") &&
+                    !ProjectState.excludedUnlocalisedStringLineMatching
+                        .contains(where: { $0.matches(trimmedLine, lineNumber, lines) })
+                else { return }
+                
+                // Split line based on commented out content and exclude the comment from the linting
+                let commentMatches: [String] = Regex.matches(
+                    "//[^\\\"]*(?:\\\"[^\\\"]*\\\"[^\\\"]*)*",
+                    content: line
+                )
+                let targetLine: String = (commentMatches.isEmpty ? line :
+                    line.components(separatedBy: commentMatches[0])[0]
+                )
+                
+                // Use regex to find `NSLocalizedString("", "")`, `"".localised()` and any other `""`
+                // values in the source code
+                //
+                // Note: It's more complex because we need to exclude escaped quotation marks from
+                // strings and also want to ignore any strings that have been commented out, Swift
+                // also doesn't support "lookbehind" in regex so we can use that approach
+                var isUnlocalized: Bool = false
+                var allMatches: Set<String> = Set(
+                    Regex
+                        .matches(
+                            "NSLocalizedString\\(@{0,1}\\\"[^\\\"\\\\]*(?:\\\\.[^\\\"\\\\]*)*(?:\\\")",
+                            content: targetLine
+                        )
+                        .map { match in
+                            match
+                                .removingPrefixIfPresent("NSLocalizedString(@\"")
+                                .removingPrefixIfPresent("NSLocalizedString(\"")
+                                .removingSuffixIfPresent("\")")
+                                .removingSuffixIfPresent("\"")
+                        }
+                )
+                
+                // If we didn't get any matches for the standard `NSLocalizedString` then try our
+                // custom extension `"".localized()`
+                if allMatches.isEmpty {
+                    allMatches = allMatches.union(Set(
+                        Regex
+                            .matches(
+                                "\\\"[^\\\"\\\\]*(?:\\\\.[^\\\"\\\\]*)*\\\"\\.localized",
+                                content: targetLine
+                            )
+                            .map { match in
+                                match
+                                    .removingPrefixIfPresent("\"")
+                                    .removingSuffixIfPresent("\".localized")
+                            }
+                    ))
+                }
+                
+                /// If we still don't have any matches then try to match any strings as unlocalized strings (handling
+                /// nested `"Test\"string\" value"`, empty strings and strings only composed of quotes `"""""""`)
+                ///
+                /// **Note:** While it'd be nice to have the regex automatically exclude the quotes doing so makes it _far_ less
+                /// efficient (approx. by a factor of 8 times) so we remove those ourselves)
+                if allMatches.isEmpty {
+                    // Find strings which are just not localised
+                    let potentialUnlocalizedStrings: [String] = Regex
+                        .matches("\\\"[^\\\"\\\\]*(?:\\\\.[^\\\"\\\\]*)*(?:\\\")", content: targetLine)
+                        // Remove the leading and trailing quotation marks
+                        .map { $0.removingPrefixIfPresent("\"").removingSuffixIfPresent("\"") }
+                        // Remove any empty strings
+                        .filter { !$0.isEmpty }
+                        // Remove any string conversations (ie. `.map { "\($0)" }`
+                        .filter { value in !value.hasPrefix("\\(") || !value.hasSuffix(")") }
+                    
+                    allMatches = allMatches.union(Set(potentialUnlocalizedStrings))
+                    isUnlocalized = true
+                }
+                
+                // Remove any excluded phrases from the matches
+                allMatches = allMatches.subtracting(ProjectState.excludedPhrases.map { "\($0)" })
+                
+                allMatches.forEach { match in
+                    // Files are 1-indexed but arrays are 0-indexed so add 1 to the lineNumber
+                    let result: Phrase = Phrase(
+                        term: match,
+                        filePath: path,
+                        lineNumber: (lineNumber + 1)
+                    )
+                    
+                    if !isUnlocalized {
+                        keyPhrase[match] = result
+                        phrases.append(result)
+                    }
+                    else {
+                        unlocalizedKeyPhrase[match] = result
+                        unlocalizedPhrases.append(result)
+                    }
+                }
+            }
+            
+            return (keyPhrase, phrases, unlocalizedKeyPhrase, unlocalizedPhrases)
+        }
+    }
 }
 
-print("------------ Complete ------------")
+indirect enum MatchType: Hashable {
+    case prefix(String)
+    case contains(String)
+    case containsAnd(String, MatchType)
+    case regex(String)
+    case previousLine(numEarlier: Int, MatchType)
+    
+    func matches(_ value: String, _ index: Int, _ lines: [String]) -> Bool {
+        switch self {
+            case .prefix(let prefix):
+                return value
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .hasPrefix(prefix)
+                
+            case .contains(let other): return value.contains(other)
+            case .containsAnd(let other, let otherMatch):
+                guard value.contains(other) else { return false }
+                
+                return otherMatch.matches(value, index, lines)
+                
+            case .regex(let regex): return !Regex.matches(regex, content: value).isEmpty
+                
+            case .previousLine(let numEarlier, let type):
+                guard index >= numEarlier else { return false }
+                
+                let targetIndex: Int = (index - numEarlier)
+                return type.matches(lines[targetIndex], targetIndex, lines)
+        }
+    }
+}
+
+extension String {
+    func removingPrefixIfPresent(_ value: String) -> String {
+        guard hasPrefix(value) else { return self }
+        
+        return String(self.suffix(from: self.index(self.startIndex, offsetBy: value.count)))
+    }
+    
+    func removingSuffixIfPresent(_ value: String) -> String {
+        guard hasSuffix(value) else { return self }
+        
+        return String(self.prefix(upTo: self.index(self.endIndex, offsetBy: -value.count)))
+    }
+}
