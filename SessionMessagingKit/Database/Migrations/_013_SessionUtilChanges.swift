@@ -22,12 +22,8 @@ enum _013_SessionUtilChanges: Migration {
         
         // Add `lastNameUpdate` and `lastProfilePictureUpdate` columns to the profile table
         try db.alter(table: Profile.self) { t in
-            t.add(.lastNameUpdate, .integer)
-                .notNull()
-                .defaults(to: 0)
-            t.add(.lastProfilePictureUpdate, .integer)
-                .notNull()
-                .defaults(to: 0)
+            t.add(.lastNameUpdate, .integer).defaults(to: 0)
+            t.add(.lastProfilePictureUpdate, .integer).defaults(to: 0)
         }
         
         // SQLite doesn't support adding a new primary key after creation so we need to create a new table with
@@ -180,7 +176,7 @@ enum _013_SessionUtilChanges: Migration {
         
         // Migrate the 'isPinned' value to 'pinnedPriority'
         try SessionThread
-            .filter(SessionThread.Columns.isPinned == true)
+            .filter(sql: "isPinned = true")
             .updateAll(
                 db,
                 SessionThread.Columns.pinnedPriority.set(to: 1)

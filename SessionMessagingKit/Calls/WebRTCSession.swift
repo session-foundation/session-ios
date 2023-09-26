@@ -160,6 +160,7 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
             Future<Void, Error> { [weak self] resolver in
                 self?.peerConnection?.offer(for: mediaConstraints) { sdp, error in
                     guard error == nil else { return }
+
                     guard let sdp: RTCSessionDescription = self?.correctSessionDescription(sdp: sdp) else {
                         preconditionFailure()
                     }

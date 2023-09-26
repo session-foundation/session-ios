@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class SendDirectMessageRequestSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a SendDirectMessageRequest
         describe("a SendDirectMessageRequest") {
+            // MARK: -- when encoding
             context("when encoding") {
+                // MARK: ---- encodes the data as a base64 string
                 it("encodes the data as a base64 string") {
                     let request: OpenGroupAPI.SendDirectMessageRequest = OpenGroupAPI.SendDirectMessageRequest(
                         message: "TestData".data(using: .utf8)!

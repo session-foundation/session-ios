@@ -10,69 +10,34 @@ import Nimble
 @testable import SessionSnodeKit
 
 class PreparedRequestOnionRequestsSpec: QuickSpec {
-    enum TestEndpoint: EndpointType {
-        case endpoint1
-        case endpoint2
+    override class func spec() {
+        // MARK: Configuration
         
-        static var name: String { "TestEndpoint" }
-        static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
-        static var excludedSubRequestHeaders: [HTTPHeader] { [] }
-        
-        var path: String {
-            switch self {
-                case .endpoint1: return "endpoint1"
-                case .endpoint2: return "endpoint2"
-            }
+        @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
+            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
-    }
-    
-    // MARK: - Spec
-    
-    override func spec() {
-        var mockNetwork: MockNetwork!
-        var dependencies: TestDependencies!
-        var disposables: [AnyCancellable] = []
+        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
+        @TestState var preparedRequest: HTTP.PreparedRequest<Int>? = {
+            let request = Request<NoBody, TestEndpoint>(
+                method: .post,
+                server: "https://www.oxen.io",
+                endpoint: TestEndpoint.endpoint1,
+                x25519PublicKey: ""
+            )
+            
+            return HTTP.PreparedRequest(
+                request: request,
+                urlRequest: try! request.generateUrlRequest(using: dependencies),
+                responseType: Int.self,
+                retryCount: 0,
+                timeout: 10
+            )
+        }()
+        @TestState var error: Error?
+        @TestState var disposables: [AnyCancellable]! = []
         
-        var error: Error?
-        var preparedRequest: HTTP.PreparedRequest<Int>?
-        
+        // MARK: - a PreparedRequest sending Onion Requests
         describe("a PreparedRequest sending Onion Requests") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                mockNetwork = MockNetwork()
-                dependencies = TestDependencies(
-                    dateNow: Date(timeIntervalSince1970: 1234567890)
-                )
-                dependencies[singleton: .network] = mockNetwork
-                
-                let request = Request<NoBody, TestEndpoint>(
-                    method: .post,
-                    server: "https://www.oxen.io",
-                    endpoint: TestEndpoint.endpoint1
-                )
-                preparedRequest = HTTP.PreparedRequest(
-                    request: request,
-                    urlRequest: try! request.generateUrlRequest(using: dependencies),
-                    publicKey: TestConstants.publicKey,
-                    responseType: Int.self,
-                    metadata: [:],
-                    retryCount: 0,
-                    timeout: 10
-                )
-            }
-
-            afterEach {
-                disposables.forEach { $0.cancel() }
-                
-                mockNetwork = nil
-                dependencies = nil
-                disposables = []
-                
-                error = nil
-                preparedRequest = nil
-            }
-            
             // MARK: -- when sending
             context("when sending") {
                 beforeEach {
@@ -111,6 +76,24 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                     expect(response).to(beNil())
                 }
             }
+        }
+    }
+}
+
+// MARK: - Test Types
+
+fileprivate enum TestEndpoint: EndpointType {
+    case endpoint1
+    case endpoint2
+    
+    static var name: String { "TestEndpoint" }
+    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var excludedSubRequestHeaders: [HTTPHeader] { [] }
+    
+    var path: String {
+        switch self {
+            case .endpoint1: return "endpoint1"
+            case .endpoint2: return "endpoint2"
         }
     }
 }

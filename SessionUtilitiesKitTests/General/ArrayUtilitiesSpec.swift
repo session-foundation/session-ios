@@ -8,16 +8,12 @@ import Nimble
 @testable import SessionUtilitiesKit
 
 class ArrayUtilitiesSpec: QuickSpec {
-    private struct TestType: Equatable {
-        let stringValue: String
-        let intValue: Int
-    }
-    
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - an Array
         describe("an Array") {
+            // MARK: -- when grouping
             context("when grouping") {
+                // MARK: ---- maintains the original array ordering
                 it("maintains the original array ordering") {
                     let data: [TestType] = [
                         TestType(stringValue: "b", intValue: 5),
@@ -83,4 +79,11 @@ class ArrayUtilitiesSpec: QuickSpec {
             }
         }
     }
+}
+
+// MARK: - Test Types
+
+fileprivate struct TestType: Equatable {
+    let stringValue: String
+    let intValue: Int
 }

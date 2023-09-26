@@ -4,6 +4,11 @@ import Foundation
 import Combine
 
 public enum HTTP {
+    private struct Certificates {
+        let isValid: Bool
+        let certificates: [SecCertificate]
+    }
+    
     private static let seedNodeURLSession = URLSession(configuration: .ephemeral, delegate: seedNodeURLSessionDelegate, delegateQueue: nil)
     private static let seedNodeURLSessionDelegate = SeedNodeURLSessionDelegateImplementation()
     private static let snodeURLSession = URLSession(configuration: .ephemeral, delegate: snodeURLSessionDelegate, delegateQueue: nil)
@@ -14,22 +19,21 @@ public enum HTTP {
     /// **Note:** These certificates will need to be regenerated and replaced at the start of April 2025, iOS has a restriction after iOS 13
     /// where certificates can have a maximum lifetime of 825 days (https://support.apple.com/en-au/HT210176) as a result we
     /// can't use the 10 year certificates that the other platforms use
-    private static let storageSeed1Cert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "seed1-2023-2y", ofType: "der")!
-        let data = try! Data(contentsOf: URL(fileURLWithPath: path))
-        return SecCertificateCreateWithData(nil, data as CFData)!
-    }()
-
-    private static let storageSeed2Cert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "seed2-2023-2y", ofType: "der")!
-        let data = try! Data(contentsOf: URL(fileURLWithPath: path))
-        return SecCertificateCreateWithData(nil, data as CFData)!
-    }()
-
-    private static let storageSeed3Cert: SecCertificate = {
-        let path = Bundle.main.path(forResource: "seed3-2023-2y", ofType: "der")!
-        let data = try! Data(contentsOf: URL(fileURLWithPath: path))
-        return SecCertificateCreateWithData(nil, data as CFData)!
+    private static let storageSeedCertificates: Atomic<Certificates> = {
+        let certFileNames: [String] = [
+            "seed1-2023-2y",
+            "seed2-2023-2y",
+            "seed3-2023-2y"
+        ]
+        let paths: [String] = certFileNames.compactMap { Bundle.main.path(forResource: $0, ofType: "der") }
+        let certData: [Data] = paths.compactMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
+        let certificates: [SecCertificate] = certData.compactMap { SecCertificateCreateWithData(nil, $0 as CFData) }
+        
+        guard certificates.count == certFileNames.count else {
+            return Atomic(Certificates(isValid: false, certificates: []))
+        }
+        
+        return Atomic(Certificates(isValid: true, certificates: certificates))
     }()
     
     // MARK: - Settings
@@ -41,12 +45,15 @@ public enum HTTP {
     private final class SeedNodeURLSessionDelegateImplementation : NSObject, URLSessionDelegate {
 
         func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+            guard HTTP.storageSeedCertificates.wrappedValue.isValid else {
+                SNLog("Failed to set load seed node certificates.")
+                return completionHandler(.cancelAuthenticationChallenge, nil)
+            }
             guard let trust = challenge.protectionSpace.serverTrust else {
                 return completionHandler(.cancelAuthenticationChallenge, nil)
             }
             // Mark the seed node certificates as trusted
-            let certificates = [ storageSeed1Cert, storageSeed2Cert, storageSeed3Cert ]
-            guard SecTrustSetAnchorCertificates(trust, certificates as CFArray) == errSecSuccess else {
+            guard SecTrustSetAnchorCertificates(trust, HTTP.storageSeedCertificates.wrappedValue.certificates as CFArray) == errSecSuccess else {
                 SNLog("Failed to set seed node certificates.")
                 return completionHandler(.cancelAuthenticationChallenge, nil)
             }

@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import GRDB
 import SessionUtilitiesKit
 
 // MARK: - Mocked
@@ -32,6 +33,12 @@ func any() -> Double { 0 }
 func any() -> String { "" }
 func any() -> Data { Data() }
 func any() -> Bool { false }
+func any() -> TestDependencies {
+    TestDependencies { dependencies in
+        dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
+        dependencies.forceSynchronous = true
+    }
+}
 
 func anyAny() -> Any { 0 }              // Unique name for compilation performance reasons
 func anyArray<R>() -> [R] { [] }        // Unique name for compilation performance reasons

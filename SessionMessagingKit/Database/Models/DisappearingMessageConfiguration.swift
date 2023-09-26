@@ -142,14 +142,14 @@ public extension DisappearingMessagesConfiguration {
                     return String(
                         format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE".localized(),
                         floor(durationSeconds).formatted(format: .long),
-                        (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
+                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
                     )
                 }
                 
                 return String(
                     format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
                     floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
+                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
                 )
             }
             
@@ -162,7 +162,7 @@ public extension DisappearingMessagesConfiguration {
                     format: "DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
                     senderName,
                     floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
+                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
                 )
             }
             
@@ -170,7 +170,7 @@ public extension DisappearingMessagesConfiguration {
                 format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
                 senderName,
                 floor(durationSeconds).formatted(format: .long),
-                (type == .disappearAfterRead ? "MESSAGE_STATE_READ".localized() : "MESSAGE_STATE_SENT".localized())
+                (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
             )
         }
         

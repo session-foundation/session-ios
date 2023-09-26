@@ -16,13 +16,13 @@ public extension UserDefaultsStorage {
 // MARK: - UserDefaultsInfo
 
 public enum UserDefaultsInfo {
-    public class Config<U: UserDefaultsType>: UserDefaultsStorage {
+    public class Config: UserDefaultsStorage {
         public let key: Int
-        public let createInstance: (Dependencies) -> U
+        public let createInstance: (Dependencies) -> UserDefaultsType
 
         fileprivate init(
             identifier: String,
-            createInstance: @escaping (Dependencies) -> U
+            createInstance: @escaping (Dependencies) -> UserDefaultsType
         ) {
             self.key = identifier.hashValue
             self.createInstance = createInstance
@@ -31,10 +31,10 @@ public enum UserDefaultsInfo {
 }
 
 public extension UserDefaultsInfo {
-    static func create<U: UserDefaultsType>(
+    static func create(
         identifier: String,
-        createInstance: @escaping (Dependencies) -> U
-    ) -> UserDefaultsInfo.Config<U> {
+        createInstance: @escaping (Dependencies) -> UserDefaultsType
+    ) -> UserDefaultsInfo.Config {
         return UserDefaultsInfo.Config(
             identifier: identifier,
             createInstance: createInstance
@@ -64,6 +64,8 @@ public protocol UserDefaultsType: AnyObject {
     func set(_ value: Double, forKey defaultName: String)
     func set(_ value: Bool, forKey defaultName: String)
     func set(_ url: URL?, forKey defaultName: String)
+    
+    func removeAll()
 }
 
 extension UserDefaults: UserDefaultsType {}
@@ -76,7 +78,7 @@ public extension UserDefaults {
         UserDefaultsStorage.appGroup.createInstance(Dependencies()).removeAll()
     }
     
-    private func removeAll() {
+    func removeAll() {
         let data: [String: Any] = self.dictionaryRepresentation()
         data.forEach { key, _ in self.removeObject(forKey: key) }
         self.synchronize()  // Shouldn't be needed but better safe than sorry

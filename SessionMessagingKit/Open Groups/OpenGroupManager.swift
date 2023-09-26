@@ -14,7 +14,7 @@ public final class OpenGroupManager {
     
     // MARK: - Variables
     
-    public static let shared: OpenGroupManager = OpenGroupManager()    
+    public static let shared: OpenGroupManager = OpenGroupManager()
     
     // MARK: - Polling
 
@@ -83,7 +83,9 @@ public final class OpenGroupManager {
     }
     
     public static func isSessionRunOpenGroup(server: String) -> Bool {
-        guard let serverUrl: URL = URL(string: server.lowercased()) else { return false }
+        guard let serverUrl: URL = (URL(string: server.lowercased()) ?? URL(string: "http://\(server.lowercased())")) else {
+            return false
+        }
         
         let serverPort: String = OpenGroupManager.port(for: server, serverUrl: serverUrl)
         let serverHost: String = serverUrl.host

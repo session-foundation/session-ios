@@ -9,61 +9,44 @@ import SessionUtilitiesKit
 @testable import SessionMessagingKit
 
 class SessionThreadViewModelSpec: QuickSpec {
-    public struct TestMessage: Codable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
-        public static var databaseTableName: String { "testMessage" }
+    override class func spec() {
+        // MARK: Configuration
         
-        public typealias Columns = CodingKeys
-        public enum CodingKeys: String, CodingKey, ColumnExpression {
-            case body
-        }
-        
-        public let body: String
-    }
-    
-    // MARK: - Spec
-
-    override func spec() {
-        describe("a SessionThreadViewModel") {
-            var dependencies: TestDependencies!
-            var mockStorage: Storage!
-            
-            beforeEach {
-                dependencies = TestDependencies()
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    using: dependencies
-                )
-                dependencies[singleton: .storage] = mockStorage
+        @TestState var dependencies: TestDependencies! = TestDependencies()
+        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            using: dependencies,
+            initialData: { db in
+                try db.create(table: TestMessage.self) { t in
+                    t.column(.body, .text).notNull()
+                }
                 
-                mockStorage.write { db in
-                    try db.create(table: TestMessage.self) { t in
-                        t.column(.body, .text).notNull()
-                    }
+                try db.create(virtualTable: TestMessage.fullTextSearchTableName, using: FTS5()) { t in
+                    t.synchronize(withTable: TestMessage.databaseTableName)
+                    t.tokenizer = .porter(wrapping: .unicode61())
                     
-                    try db.create(virtualTable: TestMessage.fullTextSearchTableName, using: FTS5()) { t in
-                        t.synchronize(withTable: TestMessage.databaseTableName)
-                        t.tokenizer = .porter(wrapping: .unicode61())
-                        
-                        t.column(TestMessage.Columns.body.name)
-                    }
+                    t.column(TestMessage.Columns.body.name)
                 }
             }
-            
-            // MARK: - when processing a search term
+        )
+        
+        // MARK: - a SessionThreadViewModel
+        describe("a SessionThreadViewModel") {
+            // MARK: -- when processing a search term
             context("when processing a search term") {
-                // MARK: -- correctly generates a safe search term
+                // MARK: ---- correctly generates a safe search term
                 it("correctly generates a safe search term") {
                     expect(SessionThreadViewModel.searchSafeTerm("Test")).to(equal("\"Test\""))
                 }
                 
-                // MARK: -- standardises odd quote characters
+                // MARK: ---- standardises odd quote characters
                 it("standardises odd quote characters") {
                     expect(SessionThreadViewModel.standardQuotes("\"")).to(equal("\""))
                     expect(SessionThreadViewModel.standardQuotes("”")).to(equal("\""))
                     expect(SessionThreadViewModel.standardQuotes("“")).to(equal("\""))
                 }
                 
-                // MARK: -- splits on the space character
+                // MARK: ---- splits on the space character
                 it("splits on the space character") {
                     expect(SessionThreadViewModel.searchTermParts("Test Message"))
                         .to(equal([
@@ -72,7 +55,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- surrounds each split term with quotes
+                // MARK: ---- surrounds each split term with quotes
                 it("surrounds each split term with quotes") {
                     expect(SessionThreadViewModel.searchTermParts("Test Message"))
                         .to(equal([
@@ -81,7 +64,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- keeps words within quotes together
+                // MARK: ---- keeps words within quotes together
                 it("keeps words within quotes together") {
                     expect(SessionThreadViewModel.searchTermParts("This \"is a Test\" Message"))
                         .to(equal([
@@ -117,7 +100,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- keeps words within weird quotes together
+                // MARK: ---- keeps words within weird quotes together
                 it("keeps words within weird quotes together") {
                     expect(SessionThreadViewModel.searchTermParts("This ”is a Test“ Message"))
                         .to(equal([
@@ -127,7 +110,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- removes extra whitespace
+                // MARK: ---- removes extra whitespace
                 it("removes extra whitespace") {
                     expect(SessionThreadViewModel.searchTermParts("  Test         Message     "))
                         .to(equal([
@@ -137,7 +120,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when searching
+            // MARK: -- when searching
             context("when searching") {
                 beforeEach {
                     mockStorage.write { db in
@@ -160,7 +143,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- returns results
+                // MARK: ---- returns results
                 it("returns results") {
                     let results = mockStorage.read { db in
                         let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
@@ -190,7 +173,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- adds a wildcard to the final part
+                // MARK: ---- adds a wildcard to the final part
                 it("adds a wildcard to the final part") {
                     let results = mockStorage.read { db in
                         let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
@@ -220,7 +203,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- does not add a wildcard to other parts
+                // MARK: ---- does not add a wildcard to other parts
                 it("does not add a wildcard to other parts") {
                     let results = mockStorage.read { db in
                         let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
@@ -243,7 +226,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         .to(beEmpty())
                 }
                 
-                // MARK: -- finds similar words without the wildcard due to the porter tokenizer
+                // MARK: ---- finds similar words without the wildcard due to the porter tokenizer
                 it("finds similar words without the wildcard due to the porter tokenizer") {
                     let results = mockStorage.read { db in
                         let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
@@ -275,7 +258,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- finds results containing the words regardless of the order
+                // MARK: ---- finds results containing the words regardless of the order
                 it("finds results containing the words regardless of the order") {
                     let results = mockStorage.read { db in
                         let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
@@ -307,7 +290,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- does not find quoted parts out of order
+                // MARK: ---- does not find quoted parts out of order
                 it("does not find quoted parts out of order") {
                     let results = mockStorage.read { db in
                         let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
@@ -335,4 +318,17 @@ class SessionThreadViewModelSpec: QuickSpec {
             }
         }
     }
+}
+
+// MARK: - Test Types
+
+fileprivate struct TestMessage: Codable, Equatable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+    public static var databaseTableName: String { "testMessage" }
+    
+    public typealias Columns = CodingKeys
+    public enum CodingKeys: String, CodingKey, ColumnExpression {
+        case body
+    }
+    
+    public let body: String
 }

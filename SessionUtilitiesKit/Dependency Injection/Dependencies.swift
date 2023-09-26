@@ -20,7 +20,7 @@ public class Dependencies {
         getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
     }
     
-    public subscript<U: UserDefaultsType>(defaults defaults: UserDefaultsInfo.Config<U>) -> U {
+    public subscript(defaults defaults: UserDefaultsInfo.Config) -> UserDefaultsType {
         getValueSettingIfNull(defaults: defaults, &Dependencies.userDefaultsInstances)
     }
     
@@ -87,12 +87,12 @@ public class Dependencies {
         return cache.immutableInstance(value)
     }
     
-    @discardableResult private func getValueSettingIfNull<U: UserDefaultsType>(
-        defaults: UserDefaultsInfo.Config<U>,
+    @discardableResult private func getValueSettingIfNull(
+        defaults: UserDefaultsInfo.Config,
         _ store: inout Atomic<[Int: UserDefaultsType]>
-    ) -> U {
-        guard let value: U = (store.wrappedValue[defaults.key] as? U) else {
-            let value: U = defaults.createInstance(self)
+    ) -> UserDefaultsType {
+        guard let value: UserDefaultsType = store.wrappedValue[defaults.key] else {
+            let value: UserDefaultsType = defaults.createInstance(self)
             store.mutate { $0[defaults.key] = value }
             return value
         }
@@ -138,27 +138,27 @@ public extension Dependencies {
 // MARK: - UserDefaults Convenience
 
 public extension Dependencies {
-    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.BoolKey) -> Bool {
+    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.BoolKey) -> Bool {
         get { return self[defaults: defaults].bool(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
 
-    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.DateKey) -> Date? {
+    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.DateKey) -> Date? {
         get { return self[defaults: defaults].object(forKey: key.rawValue) as? Date }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
     
-    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.DoubleKey) -> Double {
+    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.DoubleKey) -> Double {
         get { return self[defaults: defaults].double(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
 
-    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.IntKey) -> Int {
+    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.IntKey) -> Int {
         get { return self[defaults: defaults].integer(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
     
-    subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>, key key: UserDefaultsInfo.StringKey) -> String? {
+    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.StringKey) -> String? {
         get { return self[defaults: defaults].string(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }

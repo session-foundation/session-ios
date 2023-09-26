@@ -17,9 +17,13 @@ public class Mock<T> {
     
     // MARK: - Initialization
     
-    internal required init(functionHandler: MockFunctionHandler? = nil) {
+    internal required init(
+        functionHandler: MockFunctionHandler? = nil,
+        initialSetup: ((Mock<T>) -> ())? = nil
+    ) {
         self.functionConsumer = FunctionConsumer()
         self.functionHandler = (functionHandler ?? self.functionConsumer)
+        initialSetup?(self)
     }
     
     // MARK: - MockFunctionHandler
@@ -143,7 +147,7 @@ internal class MockFunction {
 
 internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     private let callBlock: (inout T) throws -> R
-    private let mockInit: (MockFunctionHandler?) -> Mock<T>
+    private let mockInit: (MockFunctionHandler?, ((Mock<T>) -> ())?) -> Mock<T>
     private var functionName: String?
     private var parameterCount: Int?
     private var parameterSummary: String?
@@ -154,7 +158,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     // MARK: - Initialization
     
-    init(_ callBlock: @escaping (inout T) throws -> R, mockInit: @escaping (MockFunctionHandler?) -> Mock<T>) {
+    init(_ callBlock: @escaping (inout T) throws -> R, mockInit: @escaping (MockFunctionHandler?, ((Mock<T>) -> ())?) -> Mock<T>) {
         self.callBlock = callBlock
         self.mockInit = mockInit
     }
@@ -193,7 +197,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     // MARK: - Build
     
     func build() throws -> MockFunction {
-        var completionMock = mockInit(self) as! T
+        var completionMock = mockInit(self, nil) as! T
         _ = try? callBlock(&completionMock)
         
         guard

@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Quick
 
 @testable import SessionUtilitiesKit
 
@@ -29,24 +30,24 @@ public class TestDependencies: Dependencies {
         set { cacheInstances[cache.key] = newValue.map { cache.mutableInstance($0) } }
     }
     
-    override public subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>) -> U {
+    override public subscript(defaults defaults: UserDefaultsInfo.Config) -> UserDefaultsType {
         return getValueSettingIfNull(defaults: defaults, &defaultsInstances)
     }
     
-    public subscript<U>(defaults defaults: UserDefaultsInfo.Config<U>) -> U? {
-        get { return (defaultsInstances[defaults.key] as? U) }
+    public subscript(defaults defaults: UserDefaultsInfo.Config) -> UserDefaultsType? {
+        get { return defaultsInstances[defaults.key] }
         set { defaultsInstances[defaults.key] = newValue }
     }
     
     // MARK: - Timing and Async Handling
 
-    private var _dateNow: Atomic<Date?>
+    private var _dateNow: Atomic<Date?> = Atomic(nil)
     override public var dateNow: Date {
         get { (_dateNow.wrappedValue ?? Date()) }
         set { _dateNow.mutate { $0 = newValue } }
     }
 
-    private var _fixedTime: Atomic<Int?>
+    private var _fixedTime: Atomic<Int?> = Atomic(nil)
     override public var fixedTime: Int {
         get { (_fixedTime.wrappedValue ?? 0) }
         set { _fixedTime.mutate { $0 = newValue } }
@@ -54,17 +55,10 @@ public class TestDependencies: Dependencies {
 
     // MARK: - Initialization
     
-    public init(
-        dateNow: Date? = nil,
-        fixedTime: Int? = nil,
-        forceSynchronous: Bool = false
-    ) {
-        _dateNow = Atomic(dateNow)
-        _fixedTime = Atomic(fixedTime)
-        
+    public init(initialState: ((TestDependencies) -> ())? = nil) {
         super.init()
         
-        self.forceSynchronous = forceSynchronous
+        initialState?(self)
     }
     
     // MARK: - Functions
@@ -131,16 +125,59 @@ public class TestDependencies: Dependencies {
         return cache.immutableInstance(value)
     }
     
-    @discardableResult private func getValueSettingIfNull<U>(
-        defaults: UserDefaultsInfo.Config<U>,
+    @discardableResult private func getValueSettingIfNull(
+        defaults: UserDefaultsInfo.Config,
         _ store: inout [Int: (any UserDefaultsType)]
-    ) -> U {
-        guard let value: U = (store[defaults.key] as? U) else {
-            let value: U = defaults.createInstance(self)
+    ) -> UserDefaultsType {
+        guard let value: UserDefaultsType = store[defaults.key] else {
+            let value: UserDefaultsType = defaults.createInstance(self)
             store[defaults.key] = value
             return value
         }
 
         return value
+    }
+}
+
+// MARK: - TestState Convenience
+
+internal extension TestState {
+    init<M, I>(
+        wrappedValue: @escaping @autoclosure () -> T?,
+        cache: CacheInfo.Config<M, I>,
+        in dependencies: @escaping @autoclosure () -> TestDependencies?
+    ) where T: MutableCacheType {
+        self.init(wrappedValue: {
+            let value: T? = wrappedValue()
+            dependencies()![cache: cache] = (value as! M)
+            
+            return value
+        }())
+    }
+    
+    init<S>(
+        wrappedValue: @escaping @autoclosure () -> T?,
+        singleton: SingletonInfo.Config<S>,
+        in dependencies: @escaping @autoclosure () -> TestDependencies?
+    ) {
+        self.init(wrappedValue: {
+            let value: T? = wrappedValue()
+            dependencies()![singleton: singleton] = (value as! S)
+            
+            return value
+        }())
+    }
+    
+    init(
+        wrappedValue: @escaping @autoclosure () -> T?,
+        defaults: UserDefaultsInfo.Config,
+        in dependencies: @escaping @autoclosure () -> TestDependencies?
+    ) where T: UserDefaultsType {
+        self.init(wrappedValue: {
+            let value: T? = wrappedValue()
+            dependencies()![defaults: defaults] = value
+            
+            return value
+        }())
     }
 }

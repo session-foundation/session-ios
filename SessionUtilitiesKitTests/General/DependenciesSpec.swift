@@ -7,21 +7,20 @@ import Nimble
 
 @testable import SessionUtilitiesKit
 
+// These tests seem pointless but we want to make sure we don't modify the logic in
+// such a way that the `dateNow` property gets incorrectly fixed as that will result
+// in the `JobRunner` and `Poller` classes breaking
 class DependenciesSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var dependencies: Dependencies!
+    override class func spec() {
+        // MARK: Configuration
         
+        @TestState var dependencies: Dependencies! = Dependencies()
+        
+        // MARK: - Dependencies
         describe("Dependencies") {
-            beforeEach {
-                dependencies = Dependencies()
-            }
-            
-            // These tests seem pointless but we want to make sure we don't modify the logic in
-            // such a way that the `dateNow` property gets incorrectly fixed as that will result
-            // in the `JobRunner` and `Poller` classes breaking
+            // MARK: -- when accessing dateNow
             context("when accessing dateNow") {
+                // MARK: ---- creates a new date every time
                 it("creates a new date every time") {
                     let date1 = dependencies.dateNow
                     Thread.sleep(forTimeInterval: 0.05)
@@ -29,7 +28,7 @@ class DependenciesSpec: QuickSpec {
                     
                     expect(date1.timeIntervalSince1970).toNot(equal(date2.timeIntervalSince1970))
                 }
-                
+            
                 it("only has read access") {
                     // It looks like when reflecting any computed properties will actually be omitted
                     // so we just need to make sure we don't find a 'dateNow' property

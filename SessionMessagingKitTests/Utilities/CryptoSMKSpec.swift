@@ -10,27 +10,18 @@ import Nimble
 @testable import SessionMessagingKit
 
 class CryptoSMKSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var dependencies: TestDependencies!
-        var mockCrypto: MockCrypto!
+    override class func spec() {
+        // MARK: Configuration
         
-        var crypto: Crypto!
+        @TestState var dependencies: TestDependencies! = TestDependencies()
+        @TestState(singleton: .crypto, in: dependencies) var crypto: Crypto! = Crypto()
+        @TestState var mockCrypto: MockCrypto! = MockCrypto()
         
-        beforeEach {
-            dependencies = TestDependencies()
-            mockCrypto = MockCrypto()
-            crypto = Crypto()
-            
-            dependencies[singleton: .crypto] = crypto
-        }
-        
+        // MARK: - Crypto for SessionMessagingKit
         describe("Crypto for SessionMessagingKit") {
-            
-            // MARK: - when extending Sign
+            // MARK: -- when extending Sign
             context("when extending Sign") {
-                // MARK: -- can convert an ed25519 public key into an x25519 public key
+                // MARK: ---- can convert an ed25519 public key into an x25519 public key
                 it("can convert an ed25519 public key into an x25519 public key") {
                     let result = try? crypto.perform(.toX25519(ed25519PublicKey: TestConstants.edPublicKey.bytes))
                     
@@ -38,7 +29,7 @@ class CryptoSMKSpec: QuickSpec {
                         .to(equal("95ffb559d4e804e9b414a5178454c426f616b4a61089b217b41165dbb7c9fe2d"))
                 }
                 
-                // MARK: -- can convert an ed25519 private key into an x25519 private key
+                // MARK: ---- can convert an ed25519 private key into an x25519 private key
                 it("can convert an ed25519 private key into an x25519 private key") {
                     let result = try? crypto.perform(.toX25519(ed25519SecretKey: TestConstants.edSecretKey.bytes))
                     
@@ -47,11 +38,11 @@ class CryptoSMKSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when extending Sodium
+            // MARK: -- when extending Sodium
             context("when extending Sodium") {
-                // MARK: -- and generating a blinding factor
+                // MARK: ---- and generating a blinding factor
                 context("and generating a blinding factor") {
-                    // MARK: --- successfully generates a blinding factor
+                    // MARK: ------ successfully generates a blinding factor
                     it("successfully generates a blinding factor") {
                         let result = try? crypto.perform(
                             .generateBlindingFactor(
@@ -64,7 +55,7 @@ class CryptoSMKSpec: QuickSpec {
                             .to(equal("84e3eb75028a9b73fec031b7448e322a68ca6485fad81ab1bead56f759ebeb0f"))
                     }
                     
-                    // MARK: --- fails if the serverPublicKey is not a hex string
+                    // MARK: ------ fails if the serverPublicKey is not a hex string
                     it("fails if the serverPublicKey is not a hex string") {
                         let result = try? crypto.perform(
                             .generateBlindingFactor(
@@ -76,7 +67,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result).to(beNil())
                     }
                     
-                    // MARK: --- fails if it cannot hash the serverPublicKey bytes
+                    // MARK: ------ fails if it cannot hash the serverPublicKey bytes
                     it("fails if it cannot hash the serverPublicKey bytes") {
                         dependencies[singleton: .crypto] = mockCrypto
                         
@@ -95,9 +86,9 @@ class CryptoSMKSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- and generating a blinded key pair
+                // MARK: ---- and generating a blinded key pair
                 context("and generating a blinded key pair") {
-                    // MARK: --- successfully generates a blinded key pair
+                    // MARK: ------ successfully generates a blinded key pair
                     it("successfully generates a blinded key pair") {
                         let result = crypto.generate(
                             .blindedKeyPair(
@@ -116,7 +107,7 @@ class CryptoSMKSpec: QuickSpec {
                             .to(equal("16663322d6b684e1c9dcc02b9e8642c3affd3bc431a9ea9e63dbbac88ce7a305"))
                     }
                     
-                    // MARK: --- fails if the edKeyPair public key length wrong
+                    // MARK: ------ fails if the edKeyPair public key length wrong
                     it("fails if the edKeyPair public key length wrong") {
                         let result = crypto.generate(
                             .blindedKeyPair(
@@ -132,7 +123,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result).to(beNil())
                     }
                     
-                    // MARK: --- fails if the edKeyPair secret key length wrong
+                    // MARK: ------ fails if the edKeyPair secret key length wrong
                     it("fails if the edKeyPair secret key length wrong") {
                         let result = crypto.generate(
                             .blindedKeyPair(
@@ -148,7 +139,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result).to(beNil())
                     }
                     
-                    // MARK: --- fails if it cannot generate a blinding factor
+                    // MARK: ------ fails if it cannot generate a blinding factor
                     it("fails if it cannot generate a blinding factor") {
                         let result = crypto.generate(
                             .blindedKeyPair(
@@ -165,9 +156,9 @@ class CryptoSMKSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- and generating a sogsSignature
+                // MARK: ---- and generating a sogsSignature
                 context("and generating a sogsSignature") {
-                    // MARK: --- generates a correct signature
+                    // MARK: ------ generates a correct signature
                     it("generates a correct signature") {
                         let result = try? crypto.perform(
                             .sogsSignature(
@@ -186,9 +177,9 @@ class CryptoSMKSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- and combining keys
+                // MARK: ---- and combining keys
                 context("and combining keys") {
-                    // MARK: --- generates a correct combined key
+                    // MARK: ------ generates a correct combined key
                     it("generates a correct combined key") {
                         let result = try? crypto.perform(
                             .combineKeys(
@@ -202,9 +193,9 @@ class CryptoSMKSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- and creating a shared blinded encryption key
+                // MARK: ---- and creating a shared blinded encryption key
                 context("and creating a shared blinded encryption key") {
-                    // MARK: --- generates a correct combined key
+                    // MARK: ------ generates a correct combined key
                     it("generates a correct combined key") {
                         let result = try? crypto.perform(
                             .sharedBlindedEncryptionKey(
@@ -220,7 +211,7 @@ class CryptoSMKSpec: QuickSpec {
                             .to(equal("388ee09e4c356b91f1cce5cc0aa0cf59e8e8cade69af61685d09c2d2731bc99e"))
                     }
                     
-                    // MARK: --- fails if the scalar multiplication fails
+                    // MARK: ------ fails if the scalar multiplication fails
                     it("fails if the scalar multiplication fails") {
                         let result = try? crypto.perform(
                             .sharedBlindedEncryptionKey(
@@ -236,9 +227,9 @@ class CryptoSMKSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- and checking if a session id matches a blinded id
+                // MARK: ---- and checking if a session id matches a blinded id
                 context("and checking if a session id matches a blinded id") {
-                    // MARK: --- returns true when they match
+                    // MARK: ------ returns true when they match
                     it("returns true when they match") {
                         let result = crypto.verify(
                             .sessionId(
@@ -252,7 +243,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result).to(beTrue())
                     }
                     
-                    // MARK: --- returns false if given an invalid session id
+                    // MARK: ------ returns false if given an invalid session id
                     it("returns false if given an invalid session id") {
                         let result = crypto.verify(
                             .sessionId(
@@ -266,7 +257,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result).to(beFalse())
                     }
                     
-                    // MARK: --- returns false if given an invalid blinded id
+                    // MARK: ------ returns false if given an invalid blinded id
                     it("returns false if given an invalid blinded id") {
                         let result = crypto.verify(
                             .sessionId(
@@ -280,7 +271,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result).to(beFalse())
                     }
                     
-                    // MARK: --- returns false if it fails to generate the blinding factor
+                    // MARK: ------ returns false if it fails to generate the blinding factor
                     it("returns false if it fails to generate the blinding factor") {
                         let result = crypto.verify(
                             .sessionId(
@@ -296,11 +287,11 @@ class CryptoSMKSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when extending GenericHash
+            // MARK: -- when extending GenericHash
             describe("when extending GenericHash") {
-                // MARK: -- and generating a hash with salt and personal values
+                // MARK: ---- and generating a hash with salt and personal values
                 context("and generating a hash with salt and personal values") {
-                    // MARK: --- generates a hash correctly
+                    // MARK: ------ generates a hash correctly
                     it("generates a hash correctly") {
                         let result = try? crypto.perform(
                             .hashSaltPersonal(
@@ -316,7 +307,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result?.count).to(equal(32))
                     }
                     
-                    // MARK: --- generates a hash correctly with no key
+                    // MARK: ------ generates a hash correctly with no key
                     it("generates a hash correctly with no key") {
                         let result = try? crypto.perform(
                             .hashSaltPersonal(
@@ -332,7 +323,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result?.count).to(equal(32))
                     }
                     
-                    // MARK: --- fails if given invalid options
+                    // MARK: ------ fails if given invalid options
                     it("fails if given invalid options") {
                         let result = try? crypto.perform(
                             .hashSaltPersonal(
@@ -349,11 +340,11 @@ class CryptoSMKSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when extending AeadXChaCha20Poly1305Ietf
+            // MARK: -- when extending AeadXChaCha20Poly1305Ietf
             context("when extending AeadXChaCha20Poly1305Ietf") {
-                // MARK: -- when encrypting
+                // MARK: ---- when encrypting
                 context("when encrypting") {
-                    // MARK: --- encrypts correctly
+                    // MARK: ------ encrypts correctly
                     it("encrypts correctly") {
                         let result = try? crypto.perform(
                             .encryptAeadXChaCha20(
@@ -369,7 +360,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result?.count).to(equal(27))
                     }
                     
-                    // MARK: --- encrypts correctly with additional data
+                    // MARK: ------ encrypts correctly with additional data
                     it("encrypts correctly with additional data") {
                         let result = try? crypto.perform(
                             .encryptAeadXChaCha20(
@@ -385,7 +376,7 @@ class CryptoSMKSpec: QuickSpec {
                         expect(result?.count).to(equal(27))
                     }
                     
-                    // MARK: --- fails if given an invalid key
+                    // MARK: ------ fails if given an invalid key
                     it("fails if given an invalid key") {
                         let result = try? crypto.perform(
                             .encryptAeadXChaCha20(

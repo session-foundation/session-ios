@@ -2,61 +2,25 @@
 
 import Foundation
 import Combine
+import SessionSnodeKit
 
 import Quick
 import Nimble
 
 @testable import SessionUtilitiesKit
 
-private extension HTTPHeader {
-    static let testHeader: HTTPHeader = "TestHeader"
-}
-
 class BatchRequestSpec: QuickSpec {
-    enum TestEndpoint1: EndpointType {
-        case endpoint1
+    override class func spec() {
+        // MARK: Configuration
         
-        static var name: String { "TestEndpoint1" }
-        static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .sogs }
-        static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
+        @TestState var dependencies: TestDependencies! = TestDependencies()
+        @TestState var request: HTTP.BatchRequest!
         
-        var path: String { return "endpoint1" }
-    }
-    
-    enum TestEndpoint2: EndpointType {
-        case endpoint2
-        
-        static var name: String { "TestEndpoint2" }
-        static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
-        static var excludedSubRequestHeaders: [HTTPHeader] { [] }
-        
-        var path: String { return "endpoint2" }
-    }
-    
-    struct TestType: Codable, Equatable {
-        let stringValue: String
-    }
-    
-    // MARK: - Spec
-
-    override func spec() {
-        var dependencies: TestDependencies!
-        
-        var request: HTTP.BatchRequest!
-        
+        // MARK: - a BatchRequest.Child
         describe("a BatchRequest.Child") {
-            beforeEach {
-                dependencies = TestDependencies()
-            }
-            
-            afterEach {
-                dependencies = nil
-                request = nil
-            }
-            
-            // MARK: - when encoding
+            // MARK: -- when encoding
             context("when encoding") {
-                // MARK: -- correctly strips specified headers from sub requests
+                // MARK: ---- correctly strips specified headers from sub requests
                 it("correctly strips specified headers from sub requests") {
                     let httpRequest: Request<NoBody, TestEndpoint1> = Request<NoBody, TestEndpoint1>(
                         method: .get,
@@ -67,6 +31,7 @@ class BatchRequestSpec: QuickSpec {
                             "TestCustomHeader": "TestCustom",
                             HTTPHeader.testHeader: "Test"
                         ],
+                        x25519PublicKey: "05\(TestConstants.publicKey)",
                         body: nil
                     )
                     request = HTTP.BatchRequest(
@@ -74,7 +39,6 @@ class BatchRequestSpec: QuickSpec {
                             HTTP.PreparedRequest<NoResponse>(
                                 request: httpRequest,
                                 urlRequest: try! httpRequest.generateUrlRequest(using: dependencies),
-                                publicKey: "",
                                 responseType: NoResponse.self,
                                 timeout: 0
                             )
@@ -90,7 +54,7 @@ class BatchRequestSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- does not strip unspecified headers from sub requests
+                // MARK: ---- does not strip unspecified headers from sub requests
                 it("does not strip unspecified headers from sub requests") {
                     let httpRequest: Request<NoBody, TestEndpoint1> = Request<NoBody, TestEndpoint1>(
                         method: .get,
@@ -101,6 +65,7 @@ class BatchRequestSpec: QuickSpec {
                             "TestCustomHeader": "TestCustom",
                             HTTPHeader.testHeader: "Test"
                         ],
+                        x25519PublicKey: "05\(TestConstants.publicKey)",
                         body: nil
                     )
                     request = HTTP.BatchRequest(
@@ -108,7 +73,6 @@ class BatchRequestSpec: QuickSpec {
                             HTTP.PreparedRequest<NoResponse>(
                                 request: httpRequest,
                                 urlRequest: try! httpRequest.generateUrlRequest(using: dependencies),
-                                publicKey: "",
                                 responseType: NoResponse.self,
                                 timeout: 0
                             )
@@ -123,9 +87,9 @@ class BatchRequestSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when encoding a sogs type endpoint
+            // MARK: -- when encoding a sogs type endpoint
             context("when encoding a sogs type endpoint") {
-                // MARK: -- successfully encodes a string body
+                // MARK: ---- successfully encodes a string body
                 it("successfully encodes a string body") {
                     request = HTTP.BatchRequest(
                         requests: [
@@ -136,10 +100,10 @@ class BatchRequestSpec: QuickSpec {
                                     endpoint: .endpoint1,
                                     queryParameters: [:],
                                     headers: [:],
+                                    x25519PublicKey: "05\(TestConstants.publicKey)",
                                     body: "testBody"
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
-                                publicKey: "",
                                 responseType: NoResponse.self,
                                 timeout: 0
                             )
@@ -154,7 +118,7 @@ class BatchRequestSpec: QuickSpec {
                     expect(requestJson?.first?["b64"] as? String).to(equal("testBody"))
                 }
                 
-                // MARK: -- successfully encodes a byte body
+                // MARK: ---- successfully encodes a byte body
                 it("successfully encodes a byte body") {
                     request = HTTP.BatchRequest(
                         requests: [
@@ -165,10 +129,10 @@ class BatchRequestSpec: QuickSpec {
                                     endpoint: .endpoint1,
                                     queryParameters: [:],
                                     headers: [:],
+                                    x25519PublicKey: "05\(TestConstants.publicKey)",
                                     body: [1, 2, 3]
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
-                                publicKey: "",
                                 responseType: NoResponse.self,
                                 timeout: 0
                             )
@@ -183,7 +147,7 @@ class BatchRequestSpec: QuickSpec {
                     expect(requestJson?.first?["bytes"] as? [Int]).to(equal([1, 2, 3]))
                 }
                 
-                // MARK: -- successfully encodes a JSON body
+                // MARK: ---- successfully encodes a JSON body
                 it("successfully encodes a JSON body") {
                     request = HTTP.BatchRequest(
                         requests: [
@@ -194,10 +158,10 @@ class BatchRequestSpec: QuickSpec {
                                     endpoint: .endpoint1,
                                     queryParameters: [:],
                                     headers: [:],
+                                    x25519PublicKey: "05\(TestConstants.publicKey)",
                                     body: TestType(stringValue: "testValue")
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
-                                publicKey: "",
                                 responseType: NoResponse.self,
                                 timeout: 0
                             )
@@ -213,23 +177,27 @@ class BatchRequestSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when encoding a storage server type endpoint
+            // MARK: -- when encoding a storage server type endpoint
             context("when encoding a storage server type endpoint") {
-                // MARK: -- successfully encodes a JSON body
-                it("successfully encodes a JSON body") {
+                // MARK: ---- successfully encodes a SnodeRequest body
+                it("successfully encodes a SnodeRequest body") {
                     request = HTTP.BatchRequest(
+                        requestsKey: .requests,
                         requests: [
                             HTTP.PreparedRequest<NoResponse>(
-                                request: Request<TestType, TestEndpoint2>(
+                                request: Request<SnodeRequest<TestType>, TestEndpoint2>(
                                     method: .get,
                                     server: "testServer",
                                     endpoint: .endpoint2,
                                     queryParameters: [:],
                                     headers: [:],
-                                    body: TestType(stringValue: "testValue")
+                                    x25519PublicKey: "05\(TestConstants.publicKey)",
+                                    body: SnodeRequest<TestType>(
+                                        endpoint: .sendMessage,
+                                        body: TestType(stringValue: "testValue")
+                                    )
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
-                                publicKey: "",
                                 responseType: NoResponse.self,
                                 timeout: 0
                             )
@@ -237,68 +205,43 @@ class BatchRequestSpec: QuickSpec {
                     )
                     
                     let requestData: Data? = try? JSONEncoder().encode(request)
-                    let requestJson: [[String: Any]]? = requestData
-                        .map { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }
-                    expect(requestJson?.first?["method"] as? String).to(equal("GET"))
-                    expect(requestJson?.first?["params"] as? [String: String]).to(equal(["stringValue": "testValue"]))
-                }
-                
-                // MARK: -- ignores a string body
-                it("ignores a string body") {
-                    request = HTTP.BatchRequest(
-                        requests: [
-                            HTTP.PreparedRequest<NoResponse>(
-                                request: Request<String, TestEndpoint2>(
-                                    method: .get,
-                                    server: "testServer",
-                                    endpoint: .endpoint2,
-                                    queryParameters: [:],
-                                    headers: [:],
-                                    body: "testBody"
-                                ),
-                                urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
-                                publicKey: "",
-                                responseType: NoResponse.self,
-                                timeout: 0
-                            )
-                        ]
-                    )
-                    
-                    let requestData: Data? = try? JSONEncoder().encode(request)
-                    let requestJson: [[String: Any]]? = requestData
-                        .map { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }
-                    expect(requestJson?.first?["method"] as? String).to(equal("GET"))
-                    expect(requestJson?.first?["params"]).to(beNil())
-                }
-                
-                // MARK: -- ignores a byte body
-                it("ignores a byte body") {
-                    request = HTTP.BatchRequest(
-                        requests: [
-                            HTTP.PreparedRequest<NoResponse>(
-                                request: Request<[UInt8], TestEndpoint2>(
-                                    method: .get,
-                                    server: "testServer",
-                                    endpoint: .endpoint2,
-                                    queryParameters: [:],
-                                    headers: [:],
-                                    body: [1, 2, 3]
-                                ),
-                                urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
-                                publicKey: "",
-                                responseType: NoResponse.self,
-                                timeout: 0
-                            )
-                        ]
-                    )
-                    
-                    let requestData: Data? = try? JSONEncoder().encode(request)
-                    let requestJson: [[String: Any]]? = requestData
-                        .map { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }
-                    expect(requestJson?.first?["method"] as? String).to(equal("GET"))
-                    expect(requestJson?.first?["params"]).to(beNil())
+                    let requestJson: [String: [[String: Any]]]? = requestData
+                        .map { try? JSONSerialization.jsonObject(with: $0) as? [String: [[String: Any]]] }
+                    let request: [String: Any]? = requestJson?["requests"]?.first
+                    expect(request?["method"] as? String).to(equal("store"))
+                    expect(request?["params"] as? [String: String]).to(equal(["stringValue": "testValue"]))
                 }
             }
         }
     }
+}
+
+// MARK: - Test Types
+
+fileprivate extension HTTPHeader {
+    static let testHeader: HTTPHeader = "TestHeader"
+}
+
+fileprivate enum TestEndpoint1: EndpointType {
+    case endpoint1
+    
+    static var name: String { "TestEndpoint1" }
+    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .sogs }
+    static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
+    
+    var path: String { return "endpoint1" }
+}
+
+fileprivate enum TestEndpoint2: EndpointType {
+    case endpoint2
+    
+    static var name: String { "TestEndpoint2" }
+    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var excludedSubRequestHeaders: [HTTPHeader] { [] }
+    
+    var path: String { return "endpoint2" }
+}
+
+fileprivate struct TestType: Codable, Equatable {
+    let stringValue: String
 }

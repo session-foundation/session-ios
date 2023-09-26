@@ -9,14 +9,15 @@ import Nimble
 @testable import SessionMessagingKit
 
 class SOGSEndpointSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a SOGSEndpoint
         describe("a SOGSEndpoint") {
+            // MARK: -- provides the correct batch request variant
             it("provides the correct batch request variant") {
                 expect(OpenGroupAPI.Endpoint.batchRequestVariant).to(equal(.sogs))
             }
             
+            // MARK: -- excludes the correct headers from batch sub request
             it("excludes the correct headers from batch sub request") {
                 expect(OpenGroupAPI.Endpoint.excludedSubRequestHeaders).to(equal([
                     HTTPHeader.sogsPubKey,
@@ -26,6 +27,7 @@ class SOGSEndpointSpec: QuickSpec {
                 ]))
             }
             
+            // MARK: -- generates the path value correctly
             it("generates the path value correctly") {
                 // Utility
                 

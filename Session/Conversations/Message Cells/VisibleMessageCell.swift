@@ -467,7 +467,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             subview.removeFromSuperview()
         }
         albumView = nil
-        albumView = nil
         bodyTappableLabel = nil
         
         // Handle the deleted state first (it's much simpler than the others)

@@ -8,47 +8,20 @@ import Nimble
 
 @testable import SessionUtilitiesKit
 
-private extension HTTPHeader {
-    static let testHeader: HTTPHeader = "TestHeader"
-}
-
 class PreparedRequestSpec: QuickSpec {
-    enum TestEndpoint: EndpointType {
-        case endpoint
-        
-        static var name: String { "TestEndpoint" }
-        static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
-        static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
-        
-        var path: String { return "endpoint" }
-    }
-    
-    struct TestType: Codable, Equatable {
-        let stringValue: String
-    }
-    
-    // MARK: - Spec
+    override class func spec() {
+        // MARK: Configuration
 
-    override func spec() {
-        var dependencies: TestDependencies!
+        @TestState var dependencies: TestDependencies! = TestDependencies()
+        @TestState var urlRequest: URLRequest?
+        @TestState var request: Request<NoBody, TestEndpoint>!
+        @TestState var responseInfo: ResponseInfoType! = HTTP.ResponseInfo(code: 200, headers: [:])
         
-        var urlRequest: URLRequest?
-        var request: Request<NoBody, TestEndpoint>!
-        
+        // MARK: - a PreparedRequest
         describe("a PreparedRequest") {
-            beforeEach {
-                dependencies = TestDependencies()
-            }
-            
-            afterEach {
-                dependencies = nil
-                urlRequest = nil
-                request = nil
-            }
-            
-            // MARK: - when generating a URLRequest
+            // MARK: -- when generating a URLRequest
             context("when generating a URLRequest") {
-                // MARK: - generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     request = Request<NoBody, TestEndpoint>(
                         method: .post,
@@ -59,6 +32,7 @@ class PreparedRequestSpec: QuickSpec {
                             "TestCustomHeader": "TestCustom",
                             HTTPHeader.testHeader: "Test"
                         ],
+                        x25519PublicKey: "",
                         body: nil
                     )
                     urlRequest = try? request.generateUrlRequest(using: dependencies)
@@ -71,6 +45,7 @@ class PreparedRequestSpec: QuickSpec {
                     ]))
                 }
                 
+                // MARK: ---- does not strip excluded subrequest headers
                 it("does not strip excluded subrequest headers") {
                     request = Request<NoBody, TestEndpoint>(
                         method: .post,
@@ -81,6 +56,7 @@ class PreparedRequestSpec: QuickSpec {
                             "TestCustomHeader": "TestCustom",
                             HTTPHeader.testHeader: "Test"
                         ],
+                        x25519PublicKey: "",
                         body: nil
                     )
                     urlRequest = try? request.generateUrlRequest(using: dependencies)
@@ -90,5 +66,94 @@ class PreparedRequestSpec: QuickSpec {
                 }
             }
         }
+        
+        // MARK: - a Decodable
+        describe("a Decodable") {
+            // MARK: -- decodes correctly
+            it("decodes correctly") {
+                let jsonData: Data = "{\"stringValue\":\"testValue\"}".data(using: .utf8)!
+                let result: TestType? = try? TestType.decoded(from: jsonData)
+                
+                expect(result).to(equal(TestType(stringValue: "testValue")))
+            }
+        }
+        
+        // MARK: - a (ResponseInfoType, Data?) Publisher
+        describe("a (ResponseInfoType, Data?) Publisher") {
+            // MARK: -- decodes valid data correctly
+            it("decodes valid data correctly") {
+                let jsonData: Data = "{\"stringValue\":\"testValue\"}".data(using: .utf8)!
+                var result: (info: ResponseInfoType, response: TestType)?
+                Just((responseInfo, jsonData))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+                    .decoded(as: TestType.self)
+                    .sinkUntilComplete(
+                        receiveValue: { result = $0 }
+                    )
+        
+                expect(result).toNot(beNil())
+                expect(result?.response).to(equal(TestType(stringValue: "testValue")))
+            }
+            
+            // MARK: -- fails if there is no data
+            it("fails if there is no data") {
+                var error: Error?
+                Just((responseInfo, nil))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+                    .decoded(as: [Int].self)
+                    .mapError { error.setting(to: $0) }
+                    .sinkUntilComplete()
+                
+                expect(error).to(matchError(HTTPError.parsingFailed))
+            }
+            
+            // MARK: -- fails if the data is not JSON
+            it("fails if the data is not JSON") {
+                var error: Error?
+                Just((responseInfo, Data([1, 2, 3])))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+                    .decoded(as: [Int].self)
+                    .mapError { error.setting(to: $0) }
+                    .sinkUntilComplete()
+                
+                expect(error).to(matchError(HTTPError.parsingFailed))
+            }
+            
+            // MARK: -- fails if the data is not a JSON array
+            it("fails if the data is not a JSON array") {
+                var error: Error?
+                Just((responseInfo, "{}".data(using: .utf8)))
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+                    .decoded(as: [Int].self)
+                    .mapError { error.setting(to: $0) }
+                    .sinkUntilComplete()
+                
+                expect(error).to(matchError(HTTPError.parsingFailed))
+            }
+        }
     }
+}
+
+// MARK: - Test Types
+
+fileprivate extension HTTPHeader {
+    static let testHeader: HTTPHeader = "TestHeader"
+}
+
+fileprivate enum TestEndpoint: EndpointType {
+    case endpoint
+    
+    static var name: String { "TestEndpoint" }
+    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
+    
+    var path: String { return "endpoint" }
+}
+
+fileprivate struct TestType: Codable, Equatable {
+    let stringValue: String
 }

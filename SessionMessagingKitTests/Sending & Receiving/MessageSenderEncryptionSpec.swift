@@ -11,41 +11,33 @@ import Nimble
 @testable import SessionMessagingKit
 
 class MessageSenderEncryptionSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var mockStorage: Storage!
-        var mockCrypto: MockCrypto!
-        var dependencies: TestDependencies!
+    override class func spec() {
+        // MARK: Configuration
         
-        describe("a MessageSender") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                dependencies = TestDependencies()
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNMessagingKit.self
-                    ],
-                    using: dependencies
-                )
-                mockCrypto = MockCrypto()
-                
-                dependencies[singleton: .storage] = mockStorage
-                dependencies[singleton: .crypto] = mockCrypto
-                
-                mockStorage.write { db in
-                    try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                    try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-                }
-                mockCrypto
+        @TestState var dependencies: TestDependencies! = TestDependencies()
+        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            customMigrationTargets: [
+                SNUtilitiesKit.self,
+                SNMessagingKit.self
+            ],
+            using: dependencies,
+            initialData: { db in
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+            }
+        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
+            initialSetup: { crypto in
+                crypto
                     .when { try $0.perform(.generateNonce24()) }
                     .thenReturn(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!.bytes)
             }
-            
-            // MARK: - when encrypting with the session protocol
+        )
+        
+        // MARK: - a MessageSender
+        describe("a MessageSender") {
+            // MARK: -- when encrypting with the session protocol
             context("when encrypting with the session protocol") {
                 beforeEach {
                     mockCrypto
@@ -56,7 +48,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .thenReturn([])
                 }
                 
-                // MARK: -- can encrypt correctly
+                // MARK: ---- can encrypt correctly
                 it("can encrypt correctly") {
                     let result: Data? = mockStorage.read { db in
                         try? MessageSender.encryptWithSessionProtocol(
@@ -72,7 +64,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     expect(result?.count).to(equal(155))
                 }
                 
-                // MARK: -- returns the correct value when mocked
+                // MARK: ---- returns the correct value when mocked
                 it("returns the correct value when mocked") {
                     let result: Data? = mockStorage.read { db in
                         try? MessageSender.encryptWithSessionProtocol(
@@ -86,7 +78,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     expect(result?.bytes).to(equal([1, 2, 3]))
                 }
                 
-                // MARK: -- throws an error if there is no ed25519 keyPair
+                // MARK: ---- throws an error if there is no ed25519 keyPair
                 it("throws an error if there is no ed25519 keyPair") {
                     mockStorage.write { db in
                         _ = try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
@@ -106,7 +98,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- throws an error if the signature generation fails
+                // MARK: ---- throws an error if the signature generation fails
                 it("throws an error if the signature generation fails") {
                     mockCrypto
                         .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
@@ -125,7 +117,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- throws an error if the encryption fails
+                // MARK: ---- throws an error if the encryption fails
                 it("throws an error if the encryption fails") {
                     mockCrypto
                         .when { try $0.perform(.seal(message: anyArray(), recipientPublicKey: anyArray())) }
@@ -145,7 +137,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when encrypting with the blinded session protocol
+            // MARK: -- when encrypting with the blinded session protocol
             context("when encrypting with the blinded session protocol") {
                 beforeEach {
                     mockCrypto
@@ -186,7 +178,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .thenReturn([2, 3, 4])
                 }
                 
-                // MARK: -- can encrypt correctly
+                // MARK: ---- can encrypt correctly
                 it("can encrypt correctly") {
                     let result: Data? = mockStorage.read { db in
                         try? MessageSender.encryptWithSessionBlindingProtocol(
@@ -203,7 +195,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     expect(result?.count).to(equal(84))
                 }
                 
-                // MARK: -- returns the correct value when mocked
+                // MARK: ---- returns the correct value when mocked
                 it("returns the correct value when mocked") {
                     let result: Data? = mockStorage.read { db in
                         try? MessageSender.encryptWithSessionBlindingProtocol(
@@ -219,7 +211,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .to(equal("00020304a5b4d48b3ade4f4b2a2764762e5a2c7900f254bd91633b43"))
                 }
                 
-                // MARK: -- includes a version at the start of the encrypted value
+                // MARK: ---- includes a version at the start of the encrypted value
                 it("includes a version at the start of the encrypted value") {
                     let result: Data? = mockStorage.read { db in
                         try? MessageSender.encryptWithSessionBlindingProtocol(
@@ -234,7 +226,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     expect(result?.toHexString().prefix(2)).to(equal("00"))
                 }
                 
-                // MARK: -- includes the nonce at the end of the encrypted value
+                // MARK: ---- includes the nonce at the end of the encrypted value
                 it("includes the nonce at the end of the encrypted value") {
                     let maybeResult: Data? = mockStorage.read { db in
                         try? MessageSender.encryptWithSessionBlindingProtocol(
@@ -252,7 +244,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .to(equal("pbTUizreT0sqJ2R2LloseQDyVL2RYztD"))
                 }
                 
-                // MARK: -- throws an error if the recipient isn't a blinded id
+                // MARK: ---- throws an error if the recipient isn't a blinded id
                 it("throws an error if the recipient isn't a blinded id") {
                     mockStorage.read { db in
                         expect {
@@ -268,7 +260,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- throws an error if there is no ed25519 keyPair
+                // MARK: ---- throws an error if there is no ed25519 keyPair
                 it("throws an error if there is no ed25519 keyPair") {
                     mockStorage.write { db in
                         _ = try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
@@ -289,7 +281,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- throws an error if it fails to generate a blinded keyPair
+                // MARK: ---- throws an error if it fails to generate a blinded keyPair
                 it("throws an error if it fails to generate a blinded keyPair") {
                     mockCrypto
                         .when { [dependencies = dependencies!] crypto in
@@ -317,7 +309,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- throws an error if it fails to generate an encryption key
+                // MARK: ---- throws an error if it fails to generate an encryption key
                 it("throws an error if it fails to generate an encryption key") {
                     mockCrypto
                         .when { [dependencies = dependencies!] crypto in
@@ -347,7 +339,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- throws an error if it fails to encrypt
+                // MARK: ---- throws an error if it fails to encrypt
                 it("throws an error if it fails to encrypt") {
                     mockCrypto
                         .when {

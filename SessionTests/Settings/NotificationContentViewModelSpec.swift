@@ -11,59 +11,41 @@ import SessionUtilitiesKit
 @testable import Session
 
 class NotificationContentViewModelSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var dependencies: TestDependencies!
-        var mockStorage: Storage!
-        var dataChangeCancellable: AnyCancellable?
-        var dismissCancellable: AnyCancellable?
-        var viewModel: NotificationContentViewModel!
+    override class func spec() {
+        // MARK: Configuration
         
+        @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
+            dependencies[singleton: .scheduler] = .immediate
+        }
+        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            customMigrationTargets: [
+                SNUtilitiesKit.self,
+                SNSnodeKit.self,
+                SNMessagingKit.self,
+                SNUIKit.self
+            ],
+            using: dependencies
+        )
+        @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
+            using: dependencies
+        )
+        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.observableTableData
+            .receive(on: ImmediateScheduler.shared)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { viewModel.updateTableData($0.0) }
+            )
+        @TestState var dismissCancellable: AnyCancellable?
+        
+        // MARK: - a NotificationContentViewModel
         describe("a NotificationContentViewModel") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                dependencies = TestDependencies()
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNSnodeKit.self,
-                        SNMessagingKit.self,
-                        SNUIKit.self
-                    ],
-                    using: dependencies
-                )
-                dependencies[singleton: .storage] = mockStorage
-                dependencies[singleton: .scheduler] = .immediate
-                
-                viewModel = NotificationContentViewModel(using: dependencies)
-                dataChangeCancellable = viewModel.observableTableData
-                    .receive(on: ImmediateScheduler.shared)
-                    .sink(
-                        receiveCompletion: { _ in },
-                        receiveValue: { viewModel.updateTableData($0.0) }
-                    )
-            }
-            
-            afterEach {
-                dataChangeCancellable?.cancel()
-                dismissCancellable?.cancel()
-                
-                dependencies = nil
-                mockStorage = nil
-                dataChangeCancellable = nil
-                dismissCancellable = nil
-                viewModel = nil
-            }
-            
-            // MARK: - Basic Tests
-            
+            // MARK: -- has the correct title
             it("has the correct title") {
                 expect(viewModel.title).to(equal("NOTIFICATIONS_STYLE_CONTENT_TITLE".localized()))
             }
 
+            // MARK: -- has the correct number of items
             it("has the correct number of items") {
                 expect(viewModel.tableData.count)
                     .to(equal(1))
@@ -71,6 +53,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     .to(equal(3))
             }
             
+            // MARK: -- has the correct default state
             it("has the correct default state") {
                 expect(viewModel.tableData.first?.elements)
                     .to(
@@ -103,6 +86,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     )
             }
             
+            // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
                 mockStorage.write { db in
                     db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
@@ -146,14 +130,17 @@ class NotificationContentViewModelSpec: QuickSpec {
                     )
             }
             
+            // MARK: -- when tapping an item
             context("when tapping an item") {
+                // MARK: ---- updates the saved preference
                 it("updates the saved preference") {
                     viewModel.tableData.first?.elements.last?.onTap?()
                     
-                    expect(mockStorage[.preferencesNotificationPreviewType])
+                    expect(dependencies[singleton: .storage, key: .preferencesNotificationPreviewType])
                         .to(equal(Preferences.NotificationPreviewType.noNameNoPreview))
                 }
                 
+                // MARK: ---- dismisses the screen
                 it("dismisses the screen") {
                     var didDismissScreen: Bool = false
                     

@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class FileUploadResponseSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a FileUploadResponse
         describe("a FileUploadResponse") {
+            // MARK: -- when decoding
             context("when decoding") {
+                // MARK: ---- handles a string id value
                 it("handles a string id value") {
                     let jsonData: Data = "{\"id\":\"123\"}".data(using: .utf8)!
                     let response: FileUploadResponse? = try? JSONDecoder().decode(FileUploadResponse.self, from: jsonData)
@@ -20,6 +21,7 @@ class FileUploadResponseSpec: QuickSpec {
                     expect(response?.id).to(equal("123"))
                 }
                 
+                // MARK: ---- handles an int id value
                 it("handles an int id value") {
                     let jsonData: Data = "{\"id\":124}".data(using: .utf8)!
                     let response: FileUploadResponse? = try? JSONDecoder().decode(FileUploadResponse.self, from: jsonData)

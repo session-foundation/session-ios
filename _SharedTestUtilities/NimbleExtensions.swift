@@ -45,7 +45,7 @@ public func call<M, T, R>(
     matchingParameters: ParameterMatchType = .none,
     exclusive: Bool = false,
     functionBlock: @escaping (inout T) throws -> R
-) -> Predicate<M> where M: Mock<T> {
+) -> Nimble.Predicate<M> where M: Mock<T> {
     return Predicate.define { actualExpression in
         /// First generate the call info
         let callInfo: CallInfo = generateCallInfo(actualExpression, functionBlock)

@@ -77,7 +77,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
 // MARK: - Protobuf
 
 public extension LinkPreview {
-    init?(_ db: Database, proto: SNProtoDataMessage, body: String?, sentTimestampMs: TimeInterval) throws {
+    init?(_ db: Database, proto: SNProtoDataMessage, sentTimestampMs: TimeInterval) throws {
         guard let previewProto = proto.preview.first else { throw LinkPreviewError.noPreview }
         guard URL(string: previewProto.url) != nil else { throw LinkPreviewError.invalidInput }
         guard LinkPreview.isValidLinkUrl(previewProto.url) else { throw LinkPreviewError.invalidInput }
@@ -86,9 +86,7 @@ public extension LinkPreview {
         let timestamp: TimeInterval = LinkPreview.timestampFor(sentTimestampMs: sentTimestampMs)
         let maybeLinkPreview: LinkPreview? = try? LinkPreview
             .filter(LinkPreview.Columns.url == previewProto.url)
-            .filter(LinkPreview.Columns.timestamp == LinkPreview.timestampFor(
-                sentTimestampMs: Double(proto.timestamp)
-            ))
+            .filter(LinkPreview.Columns.timestamp == timestamp)
             .fetchOne(db)
         
         if let linkPreview: LinkPreview = maybeLinkPreview {

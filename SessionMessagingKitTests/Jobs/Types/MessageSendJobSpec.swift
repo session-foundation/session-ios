@@ -10,52 +10,41 @@ import Nimble
 @testable import SessionUtilitiesKit
 
 class MessageSendJobSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var dependencies: TestDependencies!
-        var mockStorage: Storage!
-        var mockJobRunner: MockJobRunner!
-        var job: Job!
-        var interaction: Interaction!
-        var attachment: Attachment!
-        var interactionAttachment: InteractionAttachment!
+    override class func spec() {
+        // MARK: Configuration
         
-        // MARK: - JobRunner
-        
-        describe("a MessageSendJob") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                dependencies = TestDependencies(
-                    dateNow: Date(timeIntervalSince1970: 1234567890)
+        @TestState var job: Job!
+        @TestState var interaction: Interaction!
+        @TestState var attachment: Attachment! = Attachment(
+            id: "200",
+            variant: .standard,
+            state: .failedDownload,
+            contentType: "text/plain",
+            byteCount: 200
+        )
+        @TestState var interactionAttachment: InteractionAttachment!
+        @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
+            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
+        }
+        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            customMigrationTargets: [
+                SNUtilitiesKit.self,
+                SNMessagingKit.self
+            ],
+            using: dependencies,
+            initialData: { db in
+                try SessionThread.fetchOrCreate(
+                    db,
+                    id: "Test1",
+                    variant: .contact,
+                    shouldBeVisible: true
                 )
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNMessagingKit.self
-                    ],
-                    using: dependencies
-                )
-                mockJobRunner = MockJobRunner()
-                
-                dependencies[singleton: .storage] = mockStorage
-                dependencies[singleton: .jobRunner] = mockJobRunner
-                
-                attachment = Attachment(
-                    id: "200",
-                    variant: .standard,
-                    state: .failedDownload,
-                    contentType: "text/plain",
-                    byteCount: 200
-                )
-                
-                mockStorage.write { db in
-                    try SessionThread.fetchOrCreate(db, id: "Test1", variant: .contact, shouldBeVisible: true)
-                }
-                
-                mockJobRunner
+            }
+        )
+        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
+            initialSetup: { jobRunner in
+                jobRunner
                     .when {
                         $0.jobInfoFor(
                             jobs: nil,
@@ -64,7 +53,7 @@ class MessageSendJobSpec: QuickSpec {
                         )
                     }
                     .thenReturn([:])
-                mockJobRunner
+                jobRunner
                     .when { $0.insert(any(), job: any(), before: any()) }
                     .then { args in
                         let db: Database = args[0] as! Database
@@ -75,19 +64,11 @@ class MessageSendJobSpec: QuickSpec {
                     }
                     .thenReturn((1000, Job(variant: .messageSend)))
             }
-            
-            afterEach {
-                dependencies = nil
-                mockStorage = nil
-                mockJobRunner = nil
-                
-                job = nil
-                interaction = nil
-                attachment = nil
-                interactionAttachment = nil
-            }
-            
-            // MARK: - fails when not given any details
+        )
+        
+        // MARK: - a MessageSendJob
+        describe("a MessageSendJob") {
+            // MARK: -- fails when not given any details
             it("fails when not given any details") {
                 job = Job(variant: .messageSend)
                 
@@ -110,11 +91,14 @@ class MessageSendJobSpec: QuickSpec {
                 expect(permanentFailure).to(beTrue())
             }
             
-            // MARK: - fails when given incorrect details
+            // MARK: -- fails when given incorrect details
             it("fails when given incorrect details") {
                 job = Job(
                     variant: .messageSend,
-                    details: MessageReceiveJob.Details(messages: [], calledFromBackgroundPoller: false)
+                    details: MessageReceiveJob.Details(
+                        messages: [MessageReceiveJob.Details.MessageInfo](),
+                        calledFromBackgroundPoller: false
+                    )
                 )
                 
                 var error: Error? = nil
@@ -136,7 +120,7 @@ class MessageSendJobSpec: QuickSpec {
                 expect(permanentFailure).to(beTrue())
             }
             
-            // MARK: - of VisibleMessage
+            // MARK: -- of VisibleMessage
             context("of VisibleMessage") {
                 beforeEach {
                     interaction = Interaction(
@@ -175,7 +159,7 @@ class MessageSendJobSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- fails when there is no job id
+                // MARK: ---- fails when there is no job id
                 it("fails when there is no job id") {
                     job = Job(
                         variant: .messageSend,
@@ -207,7 +191,7 @@ class MessageSendJobSpec: QuickSpec {
                     expect(permanentFailure).to(beTrue())
                 }
                 
-                // MARK: -- fails when there is no interaction id
+                // MARK: ---- fails when there is no interaction id
                 it("fails when there is no interaction id") {
                     job = Job(
                         variant: .messageSend,
@@ -238,7 +222,7 @@ class MessageSendJobSpec: QuickSpec {
                     expect(permanentFailure).to(beTrue())
                 }
                 
-                // MARK: -- fails when there is no interaction for the provided interaction id
+                // MARK: ---- fails when there is no interaction for the provided interaction id
                 it("fails when there is no interaction for the provided interaction id") {
                     job = Job(
                         variant: .messageSend,
@@ -271,7 +255,7 @@ class MessageSendJobSpec: QuickSpec {
                     expect(permanentFailure).to(beTrue())
                 }
                 
-                // MARK: -- with an attachment
+                // MARK: ---- with an attachment
                 context("with an attachment") {
                     beforeEach {
                         interactionAttachment = InteractionAttachment(
@@ -286,7 +270,7 @@ class MessageSendJobSpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- it fails when trying to send with an attachment which previously failed to download
+                    // MARK: ------ it fails when trying to send with an attachment which previously failed to download
                     it("it fails when trying to send with an attachment which previously failed to download") {
                         mockStorage.write { db in
                             try attachment.with(state: .failedDownload).save(db)
@@ -311,7 +295,7 @@ class MessageSendJobSpec: QuickSpec {
                         expect(permanentFailure).to(beTrue())
                     }
                     
-                    // MARK: ---- with a pending upload
+                    // MARK: ------ with a pending upload
                     context("with a pending upload") {
                         beforeEach {
                             mockStorage.write { db in
@@ -319,7 +303,7 @@ class MessageSendJobSpec: QuickSpec {
                             }
                         }
                         
-                        // MARK: ------ it defers when trying to send with an attachment which is still pending upload
+                        // MARK: -------- it defers when trying to send with an attachment which is still pending upload
                         it("it defers when trying to send with an attachment which is still pending upload") {
                             var didDefer: Bool = false
                             
@@ -339,7 +323,7 @@ class MessageSendJobSpec: QuickSpec {
                             expect(didDefer).to(beTrue())
                         }
                         
-                        // MARK: ------ it defers when trying to send with an uploaded attachment that has an invalid downloadUrl
+                        // MARK: -------- it defers when trying to send with an uploaded attachment that has an invalid downloadUrl
                         it("it defers when trying to send with an uploaded attachment that has an invalid downloadUrl") {
                             var didDefer: Bool = false
                             
@@ -364,7 +348,7 @@ class MessageSendJobSpec: QuickSpec {
                             expect(didDefer).to(beTrue())
                         }
                         
-                        // MARK: ------ inserts an attachment upload job before the message send job
+                        // MARK: -------- inserts an attachment upload job before the message send job
                         it("inserts an attachment upload job before the message send job") {
                             mockJobRunner
                                 .when {
@@ -405,7 +389,7 @@ class MessageSendJobSpec: QuickSpec {
                                 })
                         }
                         
-                        // MARK: ------ creates a dependency between the new job and the existing one
+                        // MARK: -------- creates a dependency between the new job and the existing one
                         it("creates a dependency between the new job and the existing one") {
                             MessageSendJob.run(
                                 job,

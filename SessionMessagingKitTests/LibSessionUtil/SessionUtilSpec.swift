@@ -12,61 +12,36 @@ import Nimble
 @testable import SessionMessagingKit
 
 class SessionUtilSpec: QuickSpec {
-    // MARK: - Spec
-    
-    override func spec() {
-        var dependencies: TestDependencies!
-        var mockGeneralCache: MockGeneralCache!
-        var mockStorage: Storage!
-        var mockCrypto: MockCrypto!
-        var mockSessionUtilCache: MockSessionUtilCache!
+    override class func spec() {
+        // MARK: Configuration
         
-        var createGroupOutput: SessionUtil.CreatedGroupInfo!
-        var userGroupsConfig: SessionUtil.Config!
-        
-        describe("SessionUtil") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                dependencies = TestDependencies(
-                    dateNow: Date(timeIntervalSince1970: 1234567890),
-                    forceSynchronous: true
-                )
-                mockGeneralCache = MockGeneralCache()
-                mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
-                dependencies[cache: .general] = mockGeneralCache
-                
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNMessagingKit.self
-                    ],
-                    using: dependencies
-                )
-                mockCrypto = MockCrypto()
-                mockSessionUtilCache = MockSessionUtilCache()
-                
-                dependencies[singleton: .storage] = mockStorage
-                dependencies[singleton: .crypto] = mockCrypto
-                dependencies[cache: .sessionUtil] = mockSessionUtilCache
-                
-                mockStorage.write { db in
-                    try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                    try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                    try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                    try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-                }
-                
-                mockCrypto
-                    .when { [dependencies = dependencies!] crypto in
-                        crypto.generate(
-                            .ed25519KeyPair(
-                                seed: any(),
-                                using: dependencies
-                            )
-                        )
-                    }
+        @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
+            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
+            dependencies.forceSynchronous = true
+        }
+        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
+            initialSetup: { cache in
+                cache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+            }
+        )
+        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            customMigrationTargets: [
+                SNUtilitiesKit.self,
+                SNMessagingKit.self
+            ],
+            using: dependencies,
+            initialData: { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+            }
+        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
+            initialSetup: { crypto in
+                crypto
+                    .when { crypto in crypto.generate(.ed25519KeyPair(seed: any(), using: any())) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data.data(
@@ -78,25 +53,21 @@ class SessionUtilSpec: QuickSpec {
                             )!.bytes
                         )
                     )
-                
-                mockSessionUtilCache
-                    .when { $0.setConfig(for: any(), publicKey: any(), to: any()) }
-                    .thenReturn(())
             }
-
-            afterEach {
-                dependencies = nil
-                mockGeneralCache = nil
-                mockStorage = nil
-                mockCrypto = nil
-                
-                createGroupOutput = nil
-                userGroupsConfig = nil
+        )
+        @TestState(cache: .sessionUtil, in: dependencies) var mockSessionUtilCache: MockSessionUtilCache! = MockSessionUtilCache(
+            initialSetup: { cache in
+                cache.when { $0.setConfig(for: any(), publicKey: any(), to: any()) }.thenReturn(())
             }
-            
-            // MARK: - when parsing a community url
+        )
+        @TestState var createGroupOutput: SessionUtil.CreatedGroupInfo!
+        @TestState var userGroupsConfig: SessionUtil.Config!
+        
+        // MARK: - SessionUtil
+        describe("SessionUtil") {
+            // MARK: -- when parsing a community url
             context("when parsing a community url") {
-                // MARK: -- handles the example urls correctly
+                // MARK: ---- handles the example urls correctly
                 it("handles the example urls correctly") {
                     let validUrls: [String] = [
                         [
@@ -159,8 +130,8 @@ class SessionUtilSpec: QuickSpec {
                     expect(processedServers).to(equal(expectedServers))
                     expect(processedPublicKeys).to(equal(expectedPublicKeys))
                 }
-                
-                // MARK: -- handles the r prefix if present
+
+                // MARK: ---- handles the r prefix if present
                 it("handles the r prefix if present") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -173,8 +144,8 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.server).to(equal("https://sessionopengroup.co"))
                     expect(info?.publicKey).to(equal("658d29b91892a2389505596b135e76a53db6e11d613a51dbd3d0816adffb231c"))
                 }
-                
-                // MARK: -- fails if no scheme is provided
+
+                // MARK: ---- fails if no scheme is provided
                 it("fails if no scheme is provided") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -188,7 +159,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
-                // MARK: -- fails if there is no room
+                // MARK: ---- fails if there is no room
                 it("fails if there is no room") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -202,7 +173,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
-                // MARK: -- fails if there is no public key parameter
+                // MARK: ---- fails if there is no public key parameter
                 it("fails if there is no public key parameter") {
                     let info = SessionUtil.parseCommunity(
                         url: "https://sessionopengroup.co/r/main"
@@ -213,7 +184,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
-                // MARK: -- fails if the public key parameter is not 64 characters
+                // MARK: ---- fails if the public key parameter is not 64 characters
                 it("fails if the public key parameter is not 64 characters") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -227,7 +198,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
-                // MARK: -- fails if the public key parameter is not a hex string
+                // MARK: ---- fails if the public key parameter is not a hex string
                 it("fails if the public key parameter is not a hex string") {
                     let info = SessionUtil.parseCommunity(
                         url: [
@@ -241,7 +212,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(info?.publicKey).to(beNil())
                 }
                 
-                // MARK: -- maintains the same TLS
+                // MARK: ---- maintains the same TLS
                 it("maintains the same TLS") {
                     let server1 = SessionUtil.parseCommunity(
                         url: [
@@ -260,7 +231,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(server2).to(equal("https://sessionopengroup.co"))
                 }
                 
-                // MARK: -- maintains the same port
+                // MARK: ---- maintains the same port
                 it("maintains the same port") {
                     let server1 = SessionUtil.parseCommunity(
                         url: [
@@ -280,15 +251,15 @@ class SessionUtilSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when generating a url
+            // MARK: -- when generating a url
             context("when generating a url") {
-                // MARK: -- generates the url correctly
+                // MARK: ---- generates the url correctly
                 it("generates the url correctly") {
                     expect(SessionUtil.communityUrlFor(server: "server", roomToken: "room", publicKey: "f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                         .to(equal("server/room?public_key=f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                 }
                 
-                // MARK: -- maintains the casing provided
+                // MARK: ---- maintains the casing provided
                 it("maintains the casing provided") {
                     expect(SessionUtil.communityUrlFor(server: "SeRVer", roomToken: "RoOM", publicKey: "f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
                         .to(equal("SeRVer/RoOM?public_key=f8fec9b701000000ffffffff0400008000000000000000000000000000000000"))
@@ -459,7 +430,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(createGroupOutput.group.displayPictureFilename).to(equal("TestFilename"))
                     expect(createGroupOutput.group.displayPictureEncryptionKey).to(equal(Data([1, 2, 3])))
                     expect(createGroupOutput.group.formationTimestamp).to(equal(1234567890))
-                    expect(createGroupOutput.group.approved).to(beTrue())
+                    expect(createGroupOutput.group.invited).to(beFalse())
                 }
                 
                 // MARK: -- returns the members setup correctly
