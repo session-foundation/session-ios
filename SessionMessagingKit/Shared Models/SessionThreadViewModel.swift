@@ -26,7 +26,6 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case threadMemberNames
         
         case threadIsNoteToSelf
-        case contactLastKnownClientVersion
         case threadIsMessageRequest
         case threadRequiresApproval
         case threadShouldBeVisible
