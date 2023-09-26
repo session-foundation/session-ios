@@ -89,7 +89,7 @@ internal enum Theme_ClassicLight: ThemeColors {
         .conversationButton_background: .classicLight6,
         .conversationButton_unreadBackground: .classicLight6,
         .conversationButton_unreadStripBackground: .primary,
-        .conversationButton_unreadBubbleBackground: .classicLight3,
+        .conversationButton_unreadBubbleBackground: .primary,
         .conversationButton_unreadBubbleText: .classicLight0,
         .conversationButton_swipeDestructive: .dangerLight,
         .conversationButton_swipeSecondary: .classicLight1,

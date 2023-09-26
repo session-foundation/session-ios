@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class RoomSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a Room
         describe("a Room") {
+            // MARK: -- when decoding
             context("when decoding") {
+                // MARK: ---- defaults admin and moderator values to false if omitted
                 it("defaults admin and moderator values to false if omitted") {
                     let roomJson: String = """
                     {
@@ -52,6 +53,7 @@ class RoomSpec: QuickSpec {
                     expect(result.globalModerator).to(beFalse())
                 }
                 
+                // MARK: ---- sets the admin and moderator values when provided
                 it("sets the admin and moderator values when provided") {
                     let roomJson: String = """
                     {

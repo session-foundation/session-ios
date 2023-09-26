@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import AVKit
@@ -417,13 +419,10 @@ enum _003_YDBToGRDBMigration: Migration {
                 try Profile(
                     id: legacyContact.sessionID,
                     name: (legacyContact.name ?? legacyContact.sessionID),
-                    lastNameUpdate: 0,
                     nickname: legacyContact.nickname,
                     profilePictureUrl: legacyContact.profilePictureURL,
                     profilePictureFileName: legacyContact.profilePictureFileName,
-                    profileEncryptionKey: legacyContact.profileEncryptionKey?.keyData,
-                    lastProfilePictureUpdate: 0,
-                    lastBlocksCommunityMessageRequests: 0
+                    profileEncryptionKey: legacyContact.profileEncryptionKey?.keyData
                 ).migrationSafeInsert(db)
                 
                 /// **Note:** The blow "shouldForce" flags are here to allow us to avoid having to run legacy migrations they
@@ -644,10 +643,7 @@ enum _003_YDBToGRDBMigration: Migration {
                         // constraint violation
                         try? Profile(
                             id: profileId,
-                            name: profileId,
-                            lastNameUpdate: 0,
-                            lastProfilePictureUpdate: 0,
-                            lastBlocksCommunityMessageRequests: 0
+                            name: profileId
                         ).migrationSafeSave(db)
                     }
                     
@@ -1059,10 +1055,7 @@ enum _003_YDBToGRDBMigration: Migration {
                                 // constraint violation
                                 try Profile(
                                     id: quotedMessage.authorId,
-                                    name: quotedMessage.authorId,
-                                    lastNameUpdate: 0,
-                                    lastProfilePictureUpdate: 0,
-                                    lastBlocksCommunityMessageRequests: 0
+                                    name: quotedMessage.authorId
                                 ).migrationSafeSave(db)
                             }
                             

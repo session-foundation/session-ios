@@ -8,10 +8,10 @@ import Nimble
 @testable import SessionMessagingKit
 
 class PersonalizationSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a Personalization
         describe("a Personalization") {
+            // MARK: -- generates bytes correctly
             it("generates bytes correctly") {
                 expect(OpenGroupAPI.Personalization.sharedKeys.bytes)
                     .to(equal([115, 111, 103, 115, 46, 115, 104, 97, 114, 101, 100, 95, 107, 101, 121, 115]))

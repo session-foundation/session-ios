@@ -86,8 +86,8 @@ internal enum Theme_OceanDark: ThemeColors {
         .toast_background: .oceanDark4,
         
         // ConversationButton
-        .conversationButton_background: .oceanDark3,
-        .conversationButton_unreadBackground: .oceanDark4,
+        .conversationButton_background: .oceanDark2,
+        .conversationButton_unreadBackground: .oceanDark3,
         .conversationButton_unreadStripBackground: .primary,
         .conversationButton_unreadBubbleBackground: .primary,
         .conversationButton_unreadBubbleText: .oceanDark0,

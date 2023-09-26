@@ -569,6 +569,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         let threadId: String = viewModel.threadData.threadId
         
         if
+            (
+                self.navigationController == nil ||
+                self.navigationController?.viewControllers.contains(self) == false
+            ) &&
             viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
             !SessionUtil.conversationInConfig(
@@ -1951,14 +1955,22 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 .sorted()
                 .filter({ $0.section == messagesSection })
                 .compactMap({ indexPath -> (frame: CGRect, cellViewModel: MessageViewModel)? in
-                    guard let cell: VisibleMessageCell = tableView.cellForRow(at: indexPath) as? VisibleMessageCell else {
-                        return nil
-                    }
+                    guard let cell: UITableViewCell = tableView.cellForRow(at: indexPath) else { return nil }
                     
-                    return (
-                        view.convert(cell.frame, from: tableView),
-                        self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
-                    )
+                    switch cell {
+                        case is VisibleMessageCell, is CallMessageCell, is InfoMessageCell:
+                            return (
+                                view.convert(cell.frame, from: tableView),
+                                self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
+                            )
+                            
+                        case is TypingIndicatorCell, is DateHeaderCell, is UnreadMarkerCell:
+                            return nil
+                        
+                        default:
+                            SNLog("[ConversationVC] Warning: Processing unhandled cell type when marking as read, this could result in intermittent failures")
+                            return nil
+                    }
                 })
                 // Exclude messages that are partially off the bottom of the screen
                 .filter({ $0.frame.maxY <= tableVisualBottom })

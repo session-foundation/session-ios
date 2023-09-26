@@ -82,7 +82,7 @@ public struct SessionApp {
             )
         }
         
-        /// The thread should generally exist at the time of calling this method, but on the off change it doesn't then we need to `fetchOrCreate` it and
+        /// The thread should generally exist at the time of calling this method, but on the off chance it doesn't then we need to `fetchOrCreate` it and
         /// should do it on a background thread just in case something is keeping the DBWrite thread busy as in the past this could cause the app to hang
         guard threadInfo?.threadExists == true else {
             DispatchQueue.global(qos: .userInitiated).async {

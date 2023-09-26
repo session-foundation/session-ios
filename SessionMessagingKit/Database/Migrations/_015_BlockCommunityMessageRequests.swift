@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 /// This migration adds a flag indicating whether a profile has indicated it is blocking community message requests
 enum _015_BlockCommunityMessageRequests: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "BlockCommunityMessageRequests"
+    static let identifier: String = "BlockCommunityMessageRequests" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
@@ -16,9 +16,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
         // Add the new 'Profile' properties
         try db.alter(table: Profile.self) { t in
             t.add(.blocksCommunityMessageRequests, .boolean)
-            t.add(.lastBlocksCommunityMessageRequests, .integer)
-                .notNull()
-                .defaults(to: 0)
+            t.add(.lastBlocksCommunityMessageRequests, .integer).defaults(to: 0)
         }
         
         // If the user exists and the 'checkForCommunityMessageRequests' hasn't already been set then default it to "false"

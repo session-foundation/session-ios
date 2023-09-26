@@ -89,7 +89,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
         
         if SessionEnvironment.shared?.callManager.wrappedValue?.currentCall == nil {
-            UserDefaults.sharedLokiProject?.set(false, forKey: "isCallOngoing")
+            UserDefaults.sharedLokiProject?[.isCallOngoing] = false
+            UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
         }
         
         // No point continuing if we are running tests
@@ -416,7 +417,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // Don't offer the 'Restore' option if it was a 'startupFailed' error as a restore is unlikely to
             // resolve it (most likely the database is locked or the key was somehow lost - safer to get them
             // to restart and manually reinstall/restore)
-            case .databaseError(StorageError.startupFailed): break
+            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED): break
                 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
@@ -665,39 +666,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// we don't block user interaction while it's running
             DispatchQueue.global(qos: .default).async {
                 let unreadCount: Int = Storage.shared
-                    .read { db in
-                        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-                        let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
-                        
-                        return try Interaction
-                            .filter(Interaction.Columns.wasRead == false)
-                            .filter(Interaction.Variant.variantsToIncrementUnreadCount.contains(Interaction.Columns.variant))
-                            .filter(
-                                // Only count mentions if 'onlyNotifyForMentions' is set
-                                thread[.onlyNotifyForMentions] == false ||
-                                Interaction.Columns.hasMention == true
-                            )
-                            .joining(
-                                required: Interaction.thread
-                                    .aliased(thread)
-                                    .joining(optional: SessionThread.contact)
-                                    .filter(
-                                        // Ignore muted threads
-                                        SessionThread.Columns.mutedUntilTimestamp == nil ||
-                                        SessionThread.Columns.mutedUntilTimestamp < Date().timeIntervalSince1970
-                                    )
-                                    .filter(
-                                        // Ignore message request threads
-                                        SessionThread.Columns.variant != SessionThread.Variant.contact ||
-                                        !SessionThread.isMessageRequest(userPublicKey: userPublicKey)
-                                    )
-                            )
-                            .fetchCount(db)
-                    }
+                    .read { db in try Interaction.fetchUnreadCount(db) }
                     .defaulting(to: 0)
                 
                 DispatchQueue.main.async {
-                    CurrentAppContext().setMainAppBadgeNumber(unreadCount)
+                    UIApplication.shared.applicationIconBadgeNumber = unreadCount
                 }
             }
         }
@@ -906,7 +879,9 @@ private enum StartupError: Error {
     
     var name: String {
         switch self {
-            case .databaseError(StorageError.startupFailed): return "Database startup failed"
+            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
+                return "Database startup failed"
+                
             case .failedToRestore: return "Failed to restore"
             case .databaseError: return "Database error"
             case .startupTimeout: return "Startup timeout"
@@ -915,7 +890,9 @@ private enum StartupError: Error {
     
     var message: String {
         switch self {
-            case .databaseError(StorageError.startupFailed): return "DATABASE_STARTUP_FAILED".localized()
+            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
+                return "DATABASE_STARTUP_FAILED".localized()
+                
             case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
             case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
             case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()

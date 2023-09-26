@@ -7,7 +7,7 @@
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
 "ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Размер: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Достигнут предел сообщения.";
+"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Достигнут предел сообщений";
 /* Label for 'send' button in the 'attachment approval' dialog. */
 "ATTACHMENT_APPROVAL_SEND_BUTTON" = "Отправить";
 /* Generic filename for an attachment with no known name */
@@ -44,7 +44,7 @@
 "BLOCK_LIST_BLOCK_BUTTON" = "Заблокировать";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
 "BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Заблокировать %@?";
-/* A format for the 'unblock conversation' action sheet title. Embeds the {{conversation title}}. */
+/* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
 "BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Разблокировать %@?";
 /* Button label for the 'unblock' button */
 "BLOCK_LIST_UNBLOCK_BUTTON" = "Разблокировать";
@@ -53,15 +53,15 @@
 /* The title of the 'user blocked' alert. */
 "BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "Пользователь заблокирован";
 /* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ был(-a) разблокирован(-a).";
+"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "Пользователь %@ был разблокирован.";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Заблокированные пользователи не смогут звонить или отправлять сообщения Вам.";
 /* Label for generic done button. */
 "BUTTON_DONE" = "Готово";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Выбор";
+"BUTTON_SELECT" = "Выбрать";
 /* keyboard toolbar label when starting to search with no current results */
-"CONVERSATION_SEARCH_SEARCHING" = "Searching...";
+"CONVERSATION_SEARCH_SEARCHING" = "Поиск...";
 /* keyboard toolbar label when no messages match the search string */
 "CONVERSATION_SEARCH_NO_RESULTS" = "Нет совпадений";
 /* keyboard toolbar label when exactly 1 message matches the search string */
@@ -93,13 +93,13 @@
 /* Label indicating loading is in progress */
 "GALLERY_TILES_LOADING_OLDER_LABEL" = "Загрузка старых медиа…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Не удалось получить запрошенный GIF. Убедитесь, что вы подключены к сети.";
+"GIF_PICKER_ERROR_FETCH_FAILURE" = "Не удалось получить запрошенный GIF-файл. Убедитесь, что вы подключены к сети.";
 /* Generic error displayed when picking a GIF */
 "GIF_PICKER_ERROR_GENERIC" = "Произошла неизвестная ошибка.";
 /* Shown when selected GIF couldn't be fetched */
 "GIF_PICKER_FAILURE_ALERT_TITLE" = "Не удается выбрать GIF";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Пожалуйста, введите ваш поиск.";
+"GIF_PICKER_VIEW_MISSING_QUERY" = "Пожалуйста, введите ваш запрос.";
 /* Indicates that an error occurred while searching. */
 "GIF_VIEW_SEARCH_ERROR" = "Ошибка. Нажмите, чтобы повторить попытку.";
 /* Indicates that the user's search had no results. */
@@ -107,15 +107,15 @@
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Группа создана.";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ присоединился к группе.";
+"GROUP_MEMBER_JOINED" = "%@ вошел в группу. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ покинул группу.";
+"GROUP_MEMBER_LEFT" = "%@ вышел из группы. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ был удален из группы. ";
+"GROUP_MEMBER_REMOVED" = "%@ удален из группы. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ были удалены из группы. ";
+"GROUP_MEMBERS_REMOVED" = "%@ был удален из группы. ";
 /* No comment provided by engineer. */
-"GROUP_TITLE_CHANGED" = "Название изменено на «%@».";
+"GROUP_TITLE_CHANGED" = "Название изменено на «%@». ";
 /* No comment provided by engineer. */
 "GROUP_UPDATED" = "Группа обновлена.";
 /* No comment provided by engineer. */
@@ -134,8 +134,6 @@
 "LEAVE_GROUP_ACTION" = "Покинуть группу";
 /* nav bar button item */
 "MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Все медиа";
-/* media picker option to choose from library */
-"MEDIA_FROM_LIBRARY_BUTTON" = "Библиотека фотографий";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
 "MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Удалить %d сообщений";
 /* Confirmation button text to delete selected media message from the gallery */
@@ -260,7 +258,7 @@
 "vc_register_explanation" = "Ваш Session ID - это уникальный адрес, который другие пользователи могут использовать для связи с вами при помощи Session. Поскольку ваш Session ID никак не связан с вашей настоящей личностью, он по определению является полностью анонимным и конфиденциальным.";
 "vc_restore_title" = "Восстановите свой аккаунт";
 "vc_restore_explanation" = "Для восстановления учетной записи введите секретную фразу, которая была предоставлена вам при регистрации.";
-"vc_restore_seed_text_field_hint" = "Введите секретную фразу";
+"vc_restore_seed_text_field_hint" = "Введите секретную фразу для восстановления";
 "vc_link_device_title" = "Привязать устройство";
 "vc_link_device_scan_qr_code_tab_title" = "Сканировать QR-код";
 "vc_display_name_title_2" = "Выберите ваше отображаемое имя";
@@ -274,9 +272,9 @@
 "vc_home_empty_state_button_title" = "Начать Сессию";
 "vc_seed_title" = "Ваша секретная фраза для восстановления";
 "vc_seed_title_2" = "А вот и ваша секретная фраза для восстановления";
-"vc_seed_explanation" = "Ваша фраза восстановления является главным ключом к вашему Session ID. Храните свою фразу восстановления в надежном месте и никому ее не передавайте.";
+"vc_seed_explanation" = "Ваша секретная фраза для восстановления является главным ключом к вашему Session ID. Храните свою ее в надежном месте и никому не передавайте.";
 "vc_seed_reveal_button_title" = "Удерживайте, чтобы показать";
-"view_seed_reminder_subtitle_1" = "Защитите свой аккаунт, сохранив секретную фразу";
+"view_seed_reminder_subtitle_1" = "Защитите свой аккаунт, сохранив секретную фразу для восстановления";
 "view_seed_reminder_subtitle_2" = "Нажмите и удерживайте сокращенные слова, чтобы открыть секретную фразу, а затем сохраните ее в надежном месте, чтобы защитить свой Session ID.";
 "view_seed_reminder_subtitle_3" = "Обязательно сохраните секретную фразу в надежном месте.";
 "vc_path_title" = "Маршрут";
@@ -286,25 +284,24 @@
 "vc_path_service_node_row_title" = "Служебный узел";
 "vc_path_destination_row_title" = "Место назначения";
 "vc_path_learn_more_button_title" = "Узнать больше";
-"vc_create_private_chat_title" = "Новый Диалог";
+"vc_create_private_chat_title" = "Новое сообщение";
 "vc_create_private_chat_enter_session_id_tab_title" = "Введите Session ID";
 "vc_create_private_chat_scan_qr_code_tab_title" = "Сканировать QR-код";
-"vc_enter_public_key_explanation" = "Start a new conversation by entering someone's Session ID or share your Session ID with them.";
+"vc_enter_public_key_explanation" = "Введите Session ID собеседника или отправьте ему ваш Session ID чтобы начать новую беседу.";
 "vc_scan_qr_code_camera_access_explanation" = "Session нужен доступ к камере для сканирования QR-кодов";
 "vc_scan_qr_code_grant_camera_access_button_title" = "Предоставить доступ к камере";
-"vc_create_closed_group_title" = "Новая закрытая группа";
+"vc_create_closed_group_title" = "Создать группу";
 "vc_create_closed_group_text_field_hint" = "Введите название группы";
 "vc_create_closed_group_empty_state_message" = "У вас еще нет контактов";
-"vc_create_closed_group_empty_state_button_title" = "Начать Сессию";
 "vc_create_closed_group_group_name_missing_error" = "Пожалуйста, введите название группы";
 "vc_create_closed_group_group_name_too_long_error" = "Пожалуйста, введите более короткое имя группы";
 "vc_create_closed_group_too_many_group_members_error" = "В закрытой группе не может быть больше 100 участников";
-"vc_join_public_chat_title" = "Присоединиться к открытой группе";
-"vc_join_public_chat_enter_group_url_tab_title" = "URL открытой группы";
+"vc_join_public_chat_title" = "Присоединиться к сообществу";
+"vc_join_public_chat_enter_group_url_tab_title" = "URL сообщества";
 "vc_join_public_chat_scan_qr_code_tab_title" = "Сканировать QR-код";
-"vc_enter_chat_url_text_field_hint" = "Введите URL открытой группы";
+"vc_enter_chat_url_text_field_hint" = "Введите URL сообщества";
 "vc_settings_title" = "Настройки";
-"vc_group_settings_title" = "Group Settings";
+"vc_group_settings_title" = "Настройки группы";
 "vc_settings_display_name_missing_error" = "Пожалуйста, выберите отображаемое имя";
 "vc_settings_display_name_too_long_error" = "Пожалуйста, выберите более короткое отображаемое имя";
 "vc_settings_privacy_button_title" = "Конфиденциальность";
@@ -325,7 +322,7 @@
 "vc_link_device_recovery_phrase_tab_title" = "Секретная фраза";
 "vc_link_device_scan_qr_code_explanation" = "Перейдите в Настройки → Секретная фраза на другом устройстве, чтобы показать ваш QR-код.";
 "vc_enter_recovery_phrase_title" = "Секретная фраза";
-"vc_enter_recovery_phrase_explanation" = "Чтобы связать ваше устройство, введите фразу восстановления, которая была предоставлена вам при регистрации.";
+"vc_enter_recovery_phrase_explanation" = "Чтобы связать ваше устройство, введите секретную фразу, которая была предоставлена вам при регистрации.";
 "vc_enter_public_key_text_field_hint" = "Введите Session ID или ONS имя";
 "admin_group_leave_warning" = "Так как вы являетесь создателем этой группы, она будет удалена для всех. Это нельзя будет отменить.";
 "vc_join_open_group_suggestions_title" = "Или присоединитесь к одной из этих...";
@@ -353,11 +350,11 @@
 "vc_share_link_previews_unsecure" = "Предпросмотр не загружен для небезопасных ссылок";
 "vc_share_link_previews_error" = "Невозможно загрузить предпросмотр";
 "vc_share_link_previews_disabled_title" = "Ссылка предпросмотра выключена";
-"vc_share_link_previews_disabled_explanation" = "Enabling link previews will show previews for URLs you share. This can be useful, but Session will need to contact linked websites to generate previews.\n\nYou can enable link previews in Session's settings.";
+"vc_share_link_previews_disabled_explanation" = "Включение предпросмотра ссылок покажет превью для отправляемых и получаемых ссылок. Это может быть полезно, но Session нужно будет соединиться с сайтами, на которые ведут ссылки, чтобы сгенерировать предпросмотр. \n\nВы всегда можете отключить предпросмотр ссылок в настройках Session.";
 "view_open_group_invitation_description" = "Открыть приглашение в группу";
 "vc_conversation_settings_invite_button_title" = "Добавить участников";
 "modal_send_seed_title" = "Предупреждение";
-"modal_send_seed_explanation" = "Это ваша фраза для восстановления. Если вы отправите ее кому-то, он получит полный доступ к вашей учетной записи.";
+"modal_send_seed_explanation" = "Это ваша секретная фраза для восстановления. Если вы отправите ее кому-то, он получит полный доступ к вашей учетной записи.";
 "modal_send_seed_send_button_title" = "Отправить";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Уведомлять только об упоминаниях";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "Когда включено, вы будете уведомлены только о сообщениях, упоминающих вас.";
@@ -366,12 +363,11 @@
 "delete_message_for_me" = "Удалить только для меня";
 "delete_message_for_everyone" = "Удалить для всех";
 "delete_message_for_me_and_recipient" = "Удалить для меня и %@";
-"context_menu_info" = "Info";
 "context_menu_reply" = "Ответить";
 "context_menu_save" = "Сохранить";
 "context_menu_ban_user" = "Заблокировать пользователя";
-"context_menu_ban_and_delete_all" = "Забанить и удалить все";
-"context_menu_ban_user_error_alert_message" = "Unable to ban user";
+"context_menu_ban_and_delete_all" = "Заблокировать и удалить всех";
+"context_menu_ban_user_error_alert_message" = "Не удалось заблокировать пользователя";
 "accessibility_expanding_attachments_button" = "Добавить вложения";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "Документ";
@@ -391,7 +387,7 @@
 "UNPIN_BUTTON_TEXT" = "Открепить";
 "modal_call_missed_tips_title" = "Пропущен вызов";
 "modal_call_missed_tips_explanation" = "Вызов от '%@' пропущен, вам необходимо включить разрешение 'Голосовые и видео вызовы' в настройках Конфиденциальности.";
-"media_saved" = "%@ сохранил(а) медиафайл.";
+"media_saved" = "%@ сохранил(а) медиафайл. ";
 "screenshot_taken" = "%@ сделал(а) снимок экрана.";
 "SEARCH_SECTION_CONTACTS" = "Контакты и группы";
 "SEARCH_SECTION_MESSAGES" = "Сообщения";
@@ -401,258 +397,424 @@
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Вы уверены, что хотите очистить все запросы сообщений?";
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Очистить";
 "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Вы уверены, что хотите удалить это сообщение?";
-"MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Are you sure you want to block this contact?";
-"MESSAGE_REQUESTS_INFO" = "Sending a message to this user will automatically accept their message request and reveal your Session ID.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Your message request has been accepted.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "You have a new message request";
+"MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Вы уверены, что хотите заблокировать контакт?";
+"MESSAGE_REQUESTS_INFO" = "Отправив сообщение этому пользователю, вы автоматически примете его запрос на сообщение и отобразите свой идентификатор сеанса.";
+"MESSAGE_REQUESTS_ACCEPTED" = "Ваш запрос на переписку был принят.";
+"MESSAGE_REQUESTS_NOTIFICATION" = "У вас новый запрос на переписку";
 "TXT_HIDE_TITLE" = "Скрыть";
-"TXT_DELETE_ACCEPT" = "Accept";
-"TXT_BLOCK_USER_TITLE" = "Block User";
+"TXT_DELETE_ACCEPT" = "Да";
+"TXT_BLOCK_USER_TITLE" = "Заблокировать пользователя";
 "ALERT_ERROR_TITLE" = "Ошибка";
-"modal_call_permission_request_title" = "Call Permissions Required";
-"modal_call_permission_request_explanation" = "You can enable the 'Voice and video calls' permission in the Privacy Settings.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Oops, an error occurred";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Please try again later";
-"LOADING_CONVERSATIONS" = "Loading Conversations...";
-"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
-"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
-"APP_STARTUP_EXIT" = "Exit";
-"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
-"DATABASE_MIGRATION_FAILED" = "An error occurred when optimising the database\n\nYou can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Something went wrong. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "You seem to be missing the last word of your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "There appears to be an invalid word in your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Your recovery phrase couldn't be verified. Please check what you entered and try again.";
+"modal_call_permission_request_title" = "Требуется разрешение для вызова";
+"modal_call_permission_request_explanation" = "Вы можете включить разрешение 'Звонки и Видеозвонки' в настройках приватности.";
+"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Упс, произошла ошибка";
+"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Пожалуйста, попробуйте позже";
+"LOADING_CONVERSATIONS" = "﻿Загрузка переписок...";
+"DATABASE_MIGRATION_FAILED" = "Произошла ошибка при оптимизации базы данных\n\nВы можете экспортировать журналы приложений, чтобы иметь возможность поделиться для устранения неполадок или вы можете восстановить ваше устройство\n\nПредупреждение: Восстановление вашего устройства приведет к потере данных старше двух недель";
+"RECOVERY_PHASE_ERROR_GENERIC" = "Что-то пошло не так. Пожалуйста, проверьте вашу секретную фразу для восстановления и попробуйте снова.";
+"RECOVERY_PHASE_ERROR_LENGTH" = "Похоже, вы не ввели достаточное количество слов. Пожалуйста, проверьте вашу секретную фразу для восстановления и повторите попытку.";
+"RECOVERY_PHASE_ERROR_LAST_WORD" = "Кажется, вы пропустили последнее слово вашей секретной фразе для восстановления. Пожалуйста, проверьте, что вы ввели и повторите попытку.";
+"RECOVERY_PHASE_ERROR_INVALID_WORD" = "В вашей секретной фразе для восстановления обнаружено неправильное слово. Пожалуйста, проверьте введенные вами слова и повторите попытку.";
+"RECOVERY_PHASE_ERROR_FAILED" = "Ваша секретная фраза для восстановления не может быть проверена. Пожалуйста, проверьте, что вы ввели и повторите попытку.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Authentication could not be accessed.";
+"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Не удалось получить доступ к аутентификации.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
 "SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Ошибка аутентификации.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
 "SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Слишком много неудачных попыток аутентификации. Пожалуйста, повторите попытку позже.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Вы должны включить код доступа в приложении «Настройки», чтобы использовать блокировку экрана.";
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Вы должны включить код доступа в настройках iOS, чтобы использовать блокировку экрана.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Вы должны включить код доступа в приложении «Настройки», чтобы использовать блокировку экрана.";
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Вы должны включить код доступа в настройках iOS, чтобы использовать блокировку экрана.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Вы должны включить код доступа в приложении «Настройки», чтобы использовать блокировку экрана.";
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Вы должны включить код доступа в настройках iOS, чтобы использовать блокировку экрана.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Send";
+"SEND_BUTTON_TITLE" = "Отправить";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Retry";
+"RETRY_BUTTON_TEXT" = "Повторить";
 /* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Show Chat";
+"SHOW_THREAD_BUTTON_TITLE" = "Показать чат";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
-"INVALID_SESSION_ID_MESSAGE" = "Please check the Session ID and try again.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Please check the Recovery Phrase and try again.";
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
-"MEDIA_TAB_TITLE" = "Media";
-"DOCUMENT_TAB_TITLE" = "Documents";
-"DOCUMENT_TILES_EMPTY_DOCUMENT" = "You don't have any document in this conversation.";
-"DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL" = "Loading Newer Document…";
-"DOCUMENT_TILES_LOADING_OLDER_LABEL" = "Loading Older Document…";
+"SEND_FAILED_NOTIFICATION_BODY" = "Ваше сообщение не было отправлено.";
+"INVALID_SESSION_ID_MESSAGE" = "Пожалуйста, проверьте Session ID или ONS имя и попробуйте снова.";
+"INVALID_RECOVERY_PHRASE_MESSAGE" = "Пожалуйста, проверьте секретную фразу для восстановления и повторите попытку.";
+"MEDIA_TAB_TITLE" = "Медиа";
+"DOCUMENT_TAB_TITLE" = "Документы";
+"DOCUMENT_TILES_EMPTY_DOCUMENT" = "В этом разговоре нет документов.";
+"DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL" = "Загрузка нового документа…";
+"DOCUMENT_TILES_LOADING_OLDER_LABEL" = "Загрузка старого документа…";
 /* The name for the emoji category 'Activities' */
-"EMOJI_CATEGORY_ACTIVITIES_NAME" = "Activities";
+"EMOJI_CATEGORY_ACTIVITIES_NAME" = "Активности";
 /* The name for the emoji category 'Animals & Nature' */
-"EMOJI_CATEGORY_ANIMALS_NAME" = "Animals & Nature";
+"EMOJI_CATEGORY_ANIMALS_NAME" = "Животные и природа";
 /* The name for the emoji category 'Flags' */
-"EMOJI_CATEGORY_FLAGS_NAME" = "Flags";
+"EMOJI_CATEGORY_FLAGS_NAME" = "Флаги";
 /* The name for the emoji category 'Food & Drink' */
-"EMOJI_CATEGORY_FOOD_NAME" = "Food & Drink";
+"EMOJI_CATEGORY_FOOD_NAME" = "Еда и напитки";
 /* The name for the emoji category 'Objects' */
-"EMOJI_CATEGORY_OBJECTS_NAME" = "Objects";
+"EMOJI_CATEGORY_OBJECTS_NAME" = "Объекты";
 /* The name for the emoji category 'Recents' */
-"EMOJI_CATEGORY_RECENTS_NAME" = "Recently Used";
+"EMOJI_CATEGORY_RECENTS_NAME" = "Недавние";
 /* The name for the emoji category 'Smileys & People' */
-"EMOJI_CATEGORY_SMILEYSANDPEOPLE_NAME" = "Smileys & People";
+"EMOJI_CATEGORY_SMILEYSANDPEOPLE_NAME" = "Улыбки и люди";
 /* The name for the emoji category 'Symbols' */
-"EMOJI_CATEGORY_SYMBOLS_NAME" = "Symbols";
+"EMOJI_CATEGORY_SYMBOLS_NAME" = "Символы";
 /* The name for the emoji category 'Travel & Places' */
-"EMOJI_CATEGORY_TRAVEL_NAME" = "Travel & Places";
-"EMOJI_REACTS_NOTIFICATION" = "%@ reacts to a message with %@.";
-"EMOJI_REACTS_MORE_REACTORS_ONE" = "And 1 other has reacted %@ to this message.";
-"EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "And %@ others have reacted %@ to this message.";
-"EMOJI_REACTS_SHOW_LESS" = "Show less";
-"EMOJI_REACTS_RATE_LIMIT_TOAST" = "Slow down! You've sent too many emoji reacts. Try again soon.";
+"EMOJI_CATEGORY_TRAVEL_NAME" = "Путешествия и места";
+"EMOJI_REACTS_NOTIFICATION" = "%@ отправил сообщение: %@.";
+"EMOJI_REACTS_MORE_REACTORS_ONE" = "И еще 1 человек отправил %@ этому сообщению.";
+"EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "И %@ других ответили %@ на это сообщение.";
+"EMOJI_REACTS_RATE_LIMIT_TOAST" = "Помедленнее! Вы отправили слишком много эмодзи-реакций. Попробуйте еще раз в ближайшее время.";
 /* New conversation screen*/
-"vc_new_conversation_title" = "New Conversation";
-"CREATE_GROUP_BUTTON_TITLE" = "Create";
-"JOIN_COMMUNITY_BUTTON_TITLE" = "Join";
+"vc_new_conversation_title" = "Новая беседа";
+"CREATE_GROUP_BUTTON_TITLE" = "Создать";
+"JOIN_COMMUNITY_BUTTON_TITLE" = "Присоединиться";
 "PRIVACY_TITLE" = "Конфиденциальность";
 "PRIVACY_SECTION_SCREEN_SECURITY" = "Защита экрана";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Lock Session";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Require Touch ID, Face ID or your passcode to unlock Session.";
-"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Заблокировать Session";
+"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Требовать Touch ID, Face ID или ваш пароль для разблокировки Session.";
 "PRIVACY_SECTION_READ_RECEIPTS" = "Уведомления о прочтении";
 "PRIVACY_READ_RECEIPTS_TITLE" = "Уведомления о прочтении";
-"PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Send read receipts in one-to-one chats.";
-"PRIVACY_SECTION_TYPING_INDICATORS" = "Индикаторы ввода";
-"PRIVACY_TYPING_INDICATORS_TITLE" = "Индикаторы ввода";
-"PRIVACY_TYPING_INDICATORS_DESCRIPTION" = "See and share typing indicators in one-to-one conversations.";
-"PRIVACY_SECTION_LINK_PREVIEWS" = "Link Previews";
+"PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Отправлять уведомления о прочтении в личных беседах.";
+"PRIVACY_SECTION_TYPING_INDICATORS" = "Индикаторы ввода текста";
+"PRIVACY_TYPING_INDICATORS_TITLE" = "Индикаторы ввода текста";
+"PRIVACY_TYPING_INDICATORS_DESCRIPTION" = "Просмотр и передача индикатора о наборе в личных беседах.";
+"PRIVACY_SECTION_LINK_PREVIEWS" = "Предпросмотры ссылок";
 "PRIVACY_LINK_PREVIEWS_TITLE" = "Отправлять предпросмотр ссылки";
-"PRIVACY_LINK_PREVIEWS_DESCRIPTION" = "Generate link previews for supported URLs.";
-"PRIVACY_SECTION_CALLS" = "Calls (Beta)";
+"PRIVACY_LINK_PREVIEWS_DESCRIPTION" = "Генерировать предпросмотр ссылок для поддерживаемых URL.";
+"PRIVACY_SECTION_CALLS" = "Вызовы (бета)";
 "PRIVACY_CALLS_TITLE" = "Голосовые и видео вызовы";
-"PRIVACY_CALLS_DESCRIPTION" = "Enables voice and video calls to and from other users.";
-"PRIVACY_CALLS_WARNING_TITLE" = "Voice and Video Calls (Beta)";
-"PRIVACY_CALLS_WARNING_DESCRIPTION" = "Your IP address is visible to your call partner and an Oxen Foundation server while using beta calls. Are you sure you want to enable Voice and Video Calls?";
+"PRIVACY_CALLS_DESCRIPTION" = "Позволяет осуществлять голосовые и видеовызовы другим пользователям.";
+"PRIVACY_CALLS_WARNING_TITLE" = "Голосовые и видео вызовы (бета)";
+"PRIVACY_CALLS_WARNING_DESCRIPTION" = "IP-адрес виден вашему собеседнику и серверу Oxen Foundation во время бета-вызовов. Вы уверены, что хотите включить голосовые и видео вызовы?";
 "NOTIFICATIONS_TITLE" = "Уведомления";
 "NOTIFICATIONS_SECTION_STRATEGY" = "Метод уведомлений";
 "NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE" = "Использовать быстрый режим";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION" = "You'll be notified of new message reliably and immediately using Apple's notification servers.";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION" = "Go to device notification settings";
-"NOTIFICATIONS_SECTION_STYLE" = "Notification Style";
-"NOTIFICATIONS_STYLE_SOUND_TITLE" = "Sound";
-"NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE" = "Sound When App is Open";
-"NOTIFICATIONS_STYLE_CONTENT_TITLE" = "Содержимое уведомления";
-"NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION" = "The information shown in notifications.";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT" = "Name & Content";
+"NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION" = "Вы будете получать уведомления о новых сообщениях надежно и немедленно с помощью серверов уведомлений Apple.";
+"NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION" = "Перейти в системные настройки уведомлений";
+"NOTIFICATIONS_SECTION_STYLE" = "Стиль уведомлений";
+"NOTIFICATIONS_STYLE_SOUND_TITLE" = "Звук";
+"NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE" = "Звук, когда приложение открыто";
+"NOTIFICATIONS_STYLE_CONTENT_TITLE" = "Содержание уведомления";
+"NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION" = "Информация, отображаемая в уведомлениях.";
+"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT" = "Имя и содержимое";
 "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY" = "Только имя";
 "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT" = "Ни имени, ни содержимого";
-"CONVERSATION_SETTINGS_TITLE" = "Conversations";
-"CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING" = "Message Trimming";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE" = "Trim Communities";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION" = "Delete messages older than 6 months from Communities that have over 2,000 messages.";
-"CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "Audio Messages";
-"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "Autoplay Audio Messages";
-"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "Autoplay consecutive audio messages.";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE" = "Blocked Contacts";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE" = "You have no blocked contacts.";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK" = "Unblock";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE" = "Are you sure you want to unblock %@?";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "this contact";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1" = "Are you sure you want to unblock %@";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "and %@?";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "and %d others?";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON" = "Unblock";
-"APPEARANCE_TITLE" = "Appearance";
-"APPEARANCE_THEMES_TITLE" = "Themes";
-"APPEARANCE_PRIMARY_COLOR_TITLE" = "Primary colour";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE" = "How are you?";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE" = "I'm good thanks, you?";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE" = "I'm doing great, thanks.";
-"APPEARANCE_NIGHT_MODE_TITLE" = "Auto night-mode";
-"APPEARANCE_NIGHT_MODE_TOGGLE" = "Match system settings";
-"HELP_TITLE" = "Help";
-"HELP_REPORT_BUG_TITLE" = "Report a Bug";
-"HELP_REPORT_BUG_DESCRIPTION" = "Export your logs, then upload the file though Session's Help Desk.";
-"HELP_REPORT_BUG_ACTION_TITLE" = "Export Logs";
-"HELP_TRANSLATE_TITLE" = "Translate Session";
-"HELP_FEEDBACK_TITLE" = "We'd love your Feedback";
+"CONVERSATION_SETTINGS_TITLE" = "Беседы";
+"CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING" = "Обрезка сообщений";
+"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE" = "Обрезать Сообщества";
+"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION" = "Удалять сообщения старше 6 месяцев из сообществ, у которых более 2000 сообщений.";
+"CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "Аудиосообщения";
+"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "Автовоспроизведение аудиосообщений";
+"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "Автовоспроизведение последовательных аудиосообщений.";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE" = "Заблокированные контакты";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE" = "У вас нет заблокированных контактов.";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK" = "Разблокировать";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE" = "Вы уверены, что хотите разблокировать %@?";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "этот контакт";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1" = "Вы уверены, что хотите разблокировать %@";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "и %@?";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "и еще %d?";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON" = "Разблокировать";
+"APPEARANCE_TITLE" = "Внешний вид";
+"APPEARANCE_THEMES_TITLE" = "Темы оформления";
+"APPEARANCE_PRIMARY_COLOR_TITLE" = "Основной цвет";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE" = "Как дела?";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE" = "Я в порядке, спасибо, а ты?";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE" = "У меня все отлично, спасибо.";
+"APPEARANCE_NIGHT_MODE_TITLE" = "Автоматический ночной режим";
+"APPEARANCE_NIGHT_MODE_TOGGLE" = "Использовать настройку системы";
+"HELP_TITLE" = "Помощь";
+"HELP_REPORT_BUG_TITLE" = "Сообщить об ошибке";
+"HELP_REPORT_BUG_DESCRIPTION" = "Экспортируйте свои логи, затем загрузите файл через службу поддержки Session.";
+"HELP_REPORT_BUG_ACTION_TITLE" = "Экспортировать логи";
+"HELP_TRANSLATE_TITLE" = "Перевод Session";
+"HELP_FEEDBACK_TITLE" = "Мы будем рады вашим отзывам";
 "HELP_FAQ_TITLE" = "Часто задаваемые вопросы";
-"HELP_SUPPORT_TITLE" = "Support";
+"HELP_SUPPORT_TITLE" = "Поддержка";
 "modal_clear_all_data_title" = "Очистить все данные";
-"modal_clear_all_data_explanation" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
-"modal_clear_all_data_explanation_2" = "Are you sure you want to delete your data from the network?   If you continue, you will not be able to restore your messages or contacts.";
-"modal_clear_all_data_device_only_button_title" = "Clear Device Only";
-"modal_clear_all_data_entire_account_button_title" = "Clear Device and Network";
+"modal_clear_all_data_explanation" = "Это приведет к окончательному удалению сообщений и контактов. Вы хотите очистить только это устройство или также удалить данные из сети?";
+"modal_clear_all_data_explanation_2" = "Вы уверены, что хотите удалить свои данные из сети?   Если вы продолжите, вы не сможете восстановить свои сообщения или контакты.";
+"modal_clear_all_data_device_only_button_title" = "Очистить только устройство";
+"modal_clear_all_data_entire_account_button_title" = "Очистить устройство и сеть";
 "dialog_clear_all_data_deletion_failed_1" = "Данные не удалены 1 узлом сервиса. Номер узла: %@.";
 "dialog_clear_all_data_deletion_failed_2" = "Данные не удалены %@ узлами сервиса. Номера узлов: %@.";
-"modal_clear_all_data_confirm" = "Clear";
+"modal_clear_all_data_confirm" = "Очистить";
 "modal_seed_title" = "Ваша секретная фраза";
-"modal_seed_explanation" = "You can use your recovery phrase to restore your account or link a device.";
-"modal_permission_explanation" = "Session needs %@ access to continue. You can enable access in the iOS settings.";
-"modal_permission_settings_title" = "Settings";
-"modal_permission_camera" = "camera";
-"modal_permission_microphone" = "microphone";
-"modal_permission_library" = "library";
-"DISAPPEARING_MESSAGES_OFF" = "Off";
-"DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Off";
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Disappear After: %@";
-"COPY_GROUP_URL" = "Copy Group URL";
-"NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Contacts";
-"GROUP_ERROR_NO_MEMBER_SELECTION" = "Please pick at least 1 group member";
-"GROUP_CREATION_PLEASE_WAIT" = "Please wait while the group is created...";
-"GROUP_CREATION_ERROR_TITLE" = "Couldn't Create Group";
-"GROUP_CREATION_ERROR_MESSAGE" = "Please check your internet connection and try again.";
-"GROUP_UPDATE_ERROR_TITLE" = "Couldn't Update Group";
-"GROUP_UPDATE_ERROR_MESSAGE" = "Can't leave while adding or removing other members.";
-"GROUP_ACTION_REMOVE" = "Remove";
-"GROUP_TITLE_MEMBERS" = "Members";
-"GROUP_TITLE_FALLBACK" = "Group";
-"DM_ERROR_DIRECT_BLINDED_ID" = "You can only send messages to Blinded IDs from within a Community";
-"DM_ERROR_INVALID" = "Please check the Session ID or ONS name and try again";
-"COMMUNITY_ERROR_INVALID_URL" = "Please check the URL you entered and try again.";
-"COMMUNITY_ERROR_GENERIC" = "Couldn't Join";
-"DISAPPERING_MESSAGES_TITLE" = "Disappearing Messages";
-"DISAPPERING_MESSAGES_TYPE_TITLE" = "Delete Type";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Disappear After Read";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Messages delete after they have been read.";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "Disappear After Send";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "Messages delete after they have been sent.";
-"DISAPPERING_MESSAGES_TIMER_TITLE" = "Timer";
-"DISAPPERING_MESSAGES_SAVE_TITLE" = "Set";
-"DISAPPERING_MESSAGES_GROUP_WARNING" = "This setting applies to everyone in this conversation.";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to everyone in this conversation. Only group admins can change this setting.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Disappear After %@ - %@";
-"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set messages to disappear %@ after they have been %@";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ has changed messages to disappear %@ after they have been %@";
-"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages";
-"MESSAGE_STATE_READ" = "Read";
-"MESSAGE_STATE_SENT" = "Sent";
+"modal_seed_explanation" = "Вы можете использовать вашу секретную фразу для восстановления вашей учетной записи или привязки устройства.";
+"modal_permission_explanation" = "Session необходим доступ к %@ для продолжения. Вы можете включить доступ в настройках iOS.";
+"modal_permission_settings_title" = "Настройки";
+"modal_permission_camera" = "камера";
+"modal_permission_microphone" = "микрофон";
+"modal_permission_library" = "библиотека";
+"DISAPPEARING_MESSAGES_OFF" = "Выключено";
+"DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Выключено";
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Удалить через: %@";
+"COPY_GROUP_URL" = "Скопировать URL-адрес группы";
+"NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Контакты";
+"GROUP_ERROR_NO_MEMBER_SELECTION" = "Пожалуйста, выберите как минимум 1 участника группы";
+"GROUP_CREATION_PLEASE_WAIT" = "Пожалуйста, подождите, пока группа будет создана...";
+"GROUP_CREATION_ERROR_TITLE" = "Не удалось создать группу";
+"GROUP_CREATION_ERROR_MESSAGE" = "Пожалуйста, проверьте подключение к интернету и повторите попытку.";
+"GROUP_UPDATE_ERROR_TITLE" = "Не удалось обновить группу";
+"GROUP_UPDATE_ERROR_MESSAGE" = "Нельзя покинуть, пока добавляются или удаляются другие участники.";
+"GROUP_ACTION_REMOVE" = "Удалить";
+"GROUP_TITLE_MEMBERS" = "Участники";
+"GROUP_TITLE_FALLBACK" = "Группа";
+"DM_ERROR_DIRECT_BLINDED_ID" = "Вы можете отправлять сообщения только тем скрытым идентификаторам, которые находятся внутри сообщества";
+"DM_ERROR_INVALID" = "Пожалуйста, проверьте Session ID или ONS имя и попробуйте снова";
+"COMMUNITY_ERROR_INVALID_URL" = "Пожалуйста, проверьте введенный URL и повторите попытку.";
+"COMMUNITY_ERROR_GENERIC" = "Не удалось подключиться";
+"DISAPPERING_MESSAGES_TITLE" = "Исчезающие сообщения";
+"DISAPPERING_MESSAGES_TYPE_TITLE" = "Тип удаления";
+"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Исчезают после прочтения";
+"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Сообщения удаляются после их прочтения.";
+"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "Исчезают после отправки";
+"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "Сообщения удаляются после их отправки.";
+"DISAPPERING_MESSAGES_TIMER_TITLE" = "Таймер";
+"DISAPPERING_MESSAGES_SAVE_TITLE" = "Задать";
+"DISAPPERING_MESSAGES_GROUP_WARNING" = "Эта настройка применяется ко всем участникам беседы.";
+"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Этот параметр применим ко всем в этой беседе. Только администраторы групп могут изменить этот параметр.";
+"DISAPPERING_MESSAGES_SUMMARY" = "Удалить через %@ - %@";
+"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ поставил сообщения на удаление %@ после того, как они были %@";
+"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ изменил сообщения, чтобы они удалялись %@ после того, как они были %@";
+"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ отключил удаление сообщений";
+
+/* context_menu_info */
+"context_menu_info" = "Info";
+
+/* An error that is displayed when the application fails for create it's initial connection to the database */
+"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+/* A warning displayed to the user when the application takes too long to launch */
+"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+
+/* The title of a button on a modal shown when the application fails to start, pressing the button closes the application */
+"APP_STARTUP_EXIT" = "Exit";
+
+/* An error which occurs if the user tries to restore the database after an initial failure and it fails to restore */
+"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
+
+/* Text displayed in place of a quoted message when the original message is not on the device */
+"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+
+/* EMOJI_REACTS_SHOW_LESS */
+"EMOJI_REACTS_SHOW_LESS" = "Show less";
+
+/* PRIVACY_SECTION_MESSAGE_REQUESTS */
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+
+/* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+
+/* State of a message while it's still in the process of being sent */
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+
+/* State of a message once it has been sent */
 "MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+
+/* State of a message after the recipient has read the message */
 "MESSAGE_DELIVERY_STATUS_READ" = "Read";
+
+/* State of a message if it failed to be sent */
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+
+/* Title of the message information screen describing the date/time a message was sent */
 "MESSAGE_INFO_SENT" = "Sent";
+
+/* Title of the message information screen describing the date/time a message was received on a specific device */
 "MESSAGE_INFO_RECEIVED" = "Received";
+
+/* Title of the message information screen describing the sender of the message */
 "MESSAGE_INFO_FROM" = "From";
+
+/* Title of the message information screen describing the identifier of the attachment */
 "ATTACHMENT_INFO_FILE_ID" = "File ID";
+
+/* Title of the message information screen describing the file type of the attachment */
 "ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+
+/* Title of the message information screen describing the size of the attachment */
 "ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+
+/* Title on the message information screen describing the resolution of a media attachment */
 "ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+
+/* Title on the message information screen describing the duration of a media attachment */
 "ATTACHMENT_INFO_DURATION" = "Duration";
+
+/* State of a message after it failed to sync to the current users other devices */
 "MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+
+/* State of a message while it's in the process of being synced to the users other devices */
 "MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to send */
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to sync to the users other devices */
 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
+
+/* Action for the modal shown when asking the user whether they want to delete from all of their devices */
 "delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+
+/* Action in the long-press menu to trigger a message to be sent again after it has failed */
 "context_menu_resend" = "Resend";
+
+/* Action in the long-press menu to trigger a message to be synced again after it has failed */
 "context_menu_resync" = "Resync";
+
+/* Title of a modal show the first time a user tries to search for GIFs */
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+
+/* Message of a modal show the first time a user tries to search for GIFs */
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+
+/* Action in the long-press menu to view more information about a specific message */
 "message_info_title" = "Message Info";
+
+/* Action to mute a conversation in the swipe menu */
 "mute_button_text" = "Mute";
+
+/* Action in the swipe menu to unmute a conversation */
 "unmute_button_text" = "Unmute";
-"mark_read_button_text" = "Mark read";
-"mark_unread_button_text" = "Mark unread";
+
+/* Action in the swipe menu to mark a conversation as read */
+"MARK_AS_READ" = "Mark read";
+
+/* Action in the swipe menu to mark a conversation as unread */
+"MARK_AS_UNREAD" = "Mark unread";
+
+/* Title of the confirmation modal show when attempting to leave a group conversation */
 "leave_group_confirmation_alert_title" = "Leave Group";
+
+/* Title of the confirmation modal show when attempting to leave a community conversation */
 "leave_community_confirmation_alert_title" = "Leave Community";
+
+/* Message in the confirmation modal when leaving a community conversation */
 "leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+
+/* Conversation subtitle while the user in the process of leaving */
 "group_you_leaving" = "Leaving...";
+
+/* Conversation subtitle if the user in the failed to leave */
 "group_leave_error" = "Failed to leave Group!";
+
+/* Message within a conversation indicating the device was unable to leave a group conversation */
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
+
+/* Title in the confirmation modal to delete a group */
 "delete_group_confirmation_alert_title" = "Delete Group";
+
+/* Message in the confirmation modal to delete a group */
 "delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+
+/* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_title" = "Delete Conversation";
+
+/* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+
+/* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+
+/* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+
+/* Title in the modal for updating the users profile display picture */
 "update_profile_modal_title" = "Set Display Picture";
+
+/* Save action in the modal for updating the users profile display picture */
 "update_profile_modal_save" = "Save";
+
+/* Remove action in the modal for updating the users profile display picture */
 "update_profile_modal_remove" = "Remove";
+
+/* Title for the error when failing to remove the users profile display picture */
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
+
+/* Title for the error when the user selects a profile display picture that is too large */
 "update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
+
+/* Message for the error when the user selects a profile display picture that is too large */
 "update_profile_modal_max_size_error_message" = "Please select a smaller photo and try again";
+
+/* Title for the error when the user fails to update their profile display picture */
 "update_profile_modal_error_title" = "Couldn't Update Profile";
+
+/* Message for the error when the user fails to update their profile display picture */
 "update_profile_modal_error_message" = "Please check your internet connection and try again";
+
+/* Placeholder when entering a nickname for a contact */
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
-"MARK_AS_READ" = "Mark Read";
-"MARK_AS_UNREAD" = "Mark Unread";
+
+/* The separator within a conversation indicating that following messages are unread */
 "UNREAD_MESSAGES" = "Unread Messages";
+
+/* Empty state for a conversation */
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
+
+/* Empty state for a read-only conversation */
 "CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+
+/* Empty state for the 'Note to Self' conversation */
 "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+
+/* Message to indicate a user has Community Message Requests disabled */
 "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
+
+/* Warning to indicate one of the users devices is running an old version of Session */
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+
+/* Ann error displayed if the device is unable to retrieve the users recovery password */
 "LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
+
+/* An error displayed when trying to send a message if the device is unable to save it to the database */
 "FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
+
+/* An error indicating that the device was unable to access the database for some reason */
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
+
+/* A message indicating how the disappearing messages setting applies in a one-to-one conversation */
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+
+/* A message indicating how the disappearing messages setting applies in a group conversation */
+"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
+
+/* A record that appears within the message history to indicate that the current user turned on disappearing messages */
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+
+/* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
+"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
+
+/* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+
+/* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
+
+/* The description for the legacy type of disappearing messages on the disappearing messages configuration screen */
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
+
+/* A warning shown at the top of a conversation to indicate a participant is using an old version of Session which may not support the updated disappearing messages functionality */
+"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
+
+/* An error which can occur when a user tries to update from a version that Session no longer supports updating from */
+"DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+/* DISAPPEARING_MESSAGE_STATE_READ
+The point that a message will disappear in a disappearing message update message for disappear after read */
+"DISAPPEARING_MESSAGE_STATE_READ" = "read";
+
+/* The point that a message will disappear in a disappearing message update message for disappear after send */
+"DISAPPEARING_MESSAGE_STATE_SENT" = "sent";
+
 //Onboarding
 "onboarding_chat_bubble_1" = "Welcome to Session 👋";
 "onboarding_chat_bubble_2" = "Session is engineered to protect your privacy.";
