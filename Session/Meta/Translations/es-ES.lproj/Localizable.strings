@@ -486,8 +486,7 @@
 "PRIVACY_CALLS_TITLE" = "Llamadas de voz y video";
 "PRIVACY_CALLS_DESCRIPTION" = "Habilita llamadas de voz y video hacia y desde otros usuarios.";
 "PRIVACY_CALLS_WARNING_TITLE" = "Llamadas de Voz y Video (Beta)";
-"PRIVACY_CALLS_WARNING_DESCRIPTION" = "Su dirección IP es visible para su socio de llamadas y un servidor de Oxen Fundación 
- mientras usas llamadas beta. ¿Está seguro de que desea habilitar las llamadas de voz y videollamadas?";
+"PRIVACY_CALLS_WARNING_DESCRIPTION" = "Su dirección IP es visible para su socio de llamadas y un servidor de Oxen Fundación mientras usas llamadas beta. ¿Está seguro de que desea habilitar las llamadas de voz y videollamadas?";
 "NOTIFICATIONS_TITLE" = "Notificaciones";
 "NOTIFICATIONS_SECTION_STRATEGY" = "Estrategia de notificación";
 "NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE" = "Usar Modo Rápido";
@@ -808,3 +807,10 @@
 
 /* An error which can occur when a user tries to update from a version that Session no longer supports updating from */
 "DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+/* DISAPPEARING_MESSAGE_STATE_READ
+The point that a message will disappear in a disappearing message update message for disappear after read */
+"DISAPPEARING_MESSAGE_STATE_READ" = "read";
+
+/* The point that a message will disappear in a disappearing message update message for disappear after send */
+"DISAPPEARING_MESSAGE_STATE_SENT" = "sent";

@@ -22,7 +22,6 @@ extension MessageReceiver {
         // seconds to maintain the accuracy)
         let messageSentTimestamp: TimeInterval = (TimeInterval(message.sentTimestamp ?? 0) / 1000)
         let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
-        let expiresInSeconds: TimeInterval? = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : nil
         
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
@@ -168,7 +167,8 @@ extension MessageReceiver {
                     quoteAuthorId: dataMessage.quote?.author,
                     using: dependencies
                 ),
-                expiresInSeconds: expiresInSeconds,
+                expiresInSeconds: message.expiresInSeconds,
+                expiresStartedAtMs: message.expiresStartedAtMs,
                 // OpenGroupInvitations are stored as LinkPreview's in the database
                 linkPreviewUrl: (message.linkPreview?.url ?? message.openGroupInvitation?.url),
                 // Keep track of the open group server message ID ↔ message ID relationship
@@ -216,7 +216,7 @@ extension MessageReceiver {
                         threadId: threadId,
                         variant: variant,
                         serverHash: message.serverHash,
-                        expireInSeconds: expiresInSeconds,
+                        expireInSeconds: message.expiresInSeconds,
                         using: dependencies
                     )
                     
@@ -244,7 +244,7 @@ extension MessageReceiver {
             threadId: threadId,
             variant: variant,
             serverHash: message.serverHash,
-            expireInSeconds: expiresInSeconds,
+            expireInSeconds: message.expiresInSeconds,
             using: dependencies
         )
         

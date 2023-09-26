@@ -100,14 +100,6 @@ internal extension SessionUtil {
                     calledFromConfigHandling: true,
                     using: dependencies
                 )
-
-                // Update old disappearing after read messages to start
-                DisappearingMessagesJob.updateNextRunIfNeeded(
-                    db,
-                    lastReadTimestampMs: lastReadTimestampMs,
-                    threadId: threadId,
-                    using: dependencies
-                )
                 return nil
             }
         

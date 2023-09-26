@@ -41,7 +41,9 @@ extension MessageReceiver {
                 userPublicKey: getUserHexEncodedPublicKey(db),
                 openGroup: nil,
                 using: dependencies
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         ).inserted(db)
     }
 }

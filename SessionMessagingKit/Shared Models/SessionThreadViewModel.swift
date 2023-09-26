@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
@@ -24,6 +26,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case threadMemberNames
         
         case threadIsNoteToSelf
+        case contactLastKnownClientVersion
         case threadIsMessageRequest
         case threadRequiresApproval
         case threadShouldBeVisible
@@ -1083,7 +1086,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileFront.allColumns),
                 \(closedGroupProfileBack.allColumns),
                 \(closedGroupProfileBackFallback.allColumns),
-                
+        
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 
                 EXISTS (

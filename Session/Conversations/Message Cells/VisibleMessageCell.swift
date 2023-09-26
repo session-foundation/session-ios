@@ -345,7 +345,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             lastSearchText: lastSearchText
         )
         
-        bubbleView.accessibilityIdentifier = "Message Body"
+        bubbleView.accessibilityIdentifier = "Message body"
         bubbleView.accessibilityLabel = bodyTappableLabel?.attributedText?.string
         bubbleView.isAccessibilityElement = true
         
@@ -521,6 +521,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                 textColor: bodyLabelTextColor,
                                 isOutgoing: (cellViewModel.variant == .standardOutgoing)
                             )
+                            openGroupInvitationView.isAccessibilityElement = true
+                            openGroupInvitationView.accessibilityIdentifier = "Community invitation"
+                            openGroupInvitationView.accessibilityLabel = cellViewModel.linkPreview?.title
                             bubbleView.addSubview(openGroupInvitationView)
                             bubbleView.pin(to: openGroupInvitationView)
                             snContentView.addArrangedSubview(bubbleBackgroundView)

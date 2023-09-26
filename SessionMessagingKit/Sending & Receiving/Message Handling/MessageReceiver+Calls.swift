@@ -319,7 +319,9 @@ extension MessageReceiver {
                 userPublicKey: currentUserPublicKey,
                 openGroup: nil,
                 using: dependencies
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         ).inserted(db)
     }
 }

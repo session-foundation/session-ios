@@ -7,13 +7,13 @@ import SessionUtilitiesKit
 /// This migration adds an index to the interaction table in order to improve the performance of retrieving the number of unread interactions
 enum _007_HomeQueryOptimisationIndexes: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "HomeQueryOptimisationIndexes"
+    static let identifier: String = "HomeQueryOptimisationIndexes" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.create(
-            index: "interaction_on_wasRead_and_hasMention_and_threadId",
+            index: "interaction_on_wasRead_and_hasMention_and_threadId", // stringlint:disable
             on: Interaction.databaseTableName,
             columns: [
                 Interaction.Columns.wasRead.name,
@@ -23,7 +23,7 @@ enum _007_HomeQueryOptimisationIndexes: Migration {
         )
         
         try db.create(
-            index: "interaction_on_threadId_and_timestampMs_and_variant",
+            index: "interaction_on_threadId_and_timestampMs_and_variant", // stringlint:disable
             on: Interaction.databaseTableName,
             columns: [
                 Interaction.Columns.threadId.name,

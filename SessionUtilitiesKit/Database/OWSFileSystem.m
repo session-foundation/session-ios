@@ -1,3 +1,5 @@
+// stringlint:disable
+
 #import "OWSFileSystem.h"
 #import "AppContext.h"
 

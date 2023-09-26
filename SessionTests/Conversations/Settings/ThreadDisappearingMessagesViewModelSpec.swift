@@ -403,7 +403,3 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         }
     }
 }
-
-// MARK: - Test Types
-
-fileprivate typealias ParentType = SessionTableViewModel<ThreadDisappearingMessagesSettingsViewModel.NavButton, ThreadDisappearingMessagesSettingsViewModel.Section, ThreadDisappearingMessagesSettingsViewModel.Item>

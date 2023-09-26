@@ -1,3 +1,5 @@
+// stringlint:disable
+
 import Foundation
 
 public extension Notification.Name {

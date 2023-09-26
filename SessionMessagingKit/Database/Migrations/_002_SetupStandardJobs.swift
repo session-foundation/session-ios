@@ -9,7 +9,7 @@ import SessionSnodeKit
 /// before running the `YDBToGRDBMigration`
 enum _002_SetupStandardJobs: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "SetupStandardJobs"
+    static let identifier: String = "SetupStandardJobs" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     

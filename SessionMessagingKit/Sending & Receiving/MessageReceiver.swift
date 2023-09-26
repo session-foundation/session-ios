@@ -185,6 +185,7 @@ public enum MessageReceiver {
         message.sentTimestamp = sentTimestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
         message.openGroupServerMessageId = openGroupServerMessageId
+        message.attachDisappearingMessagesConfiguration(from: proto)
         
         // Don't process the envelope any further if the sender is blocked
         guard (try? Contact.fetchOne(db, id: sender))?.isBlocked != true else {

@@ -184,6 +184,6 @@ private func redact(_ string: String) -> String {
 #if DEBUG
     return string
 #else
-    return "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]"
+    return "[ READACTED \(string.prefix(2))...\(string.suffix(2)) ]" // stringlint:disable
 #endif
 }

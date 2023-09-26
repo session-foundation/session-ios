@@ -33,7 +33,18 @@ extension ConversationVC:
     
     @objc func  openSettingsFromTitleView() {
         switch self.titleView.currentLabelType {
-            case .none, .notificationSettings, .userCount:
+            case .userCount:
+                if self.viewModel.threadData.threadVariant == .group || self.viewModel.threadData.threadVariant == .legacyGroup {
+                    let viewController = EditClosedGroupVC(
+                        threadId: self.viewModel.threadData.threadId,
+                        threadVariant: self.viewModel.threadData.threadVariant
+                    )
+                    navigationController?.pushViewController(viewController, animated: true)
+                } else {
+                    openSettings()
+                }
+                break
+            case .none, .notificationSettings:
                 openSettings()
                 break
             

@@ -457,8 +457,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
-                                    label: "Disappearing messages"
+                                    identifier: "Disappearing messages",
+                                    label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                                 ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
@@ -798,6 +798,18 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                     interaction: interaction,
                     threadId: thread.id,
                     threadVariant: thread.variant,
+                    using: dependencies
+                )
+                
+                // Trigger disappear after read
+                dependencies.jobRunner.upsert(
+                    db,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                        db,
+                        interaction: interaction,
+                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                    ),
+                    canStartJob: true,
                     using: dependencies
                 )
             }
