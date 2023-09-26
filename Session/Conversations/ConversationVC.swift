@@ -569,6 +569,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         let threadId: String = viewModel.threadData.threadId
         
         if
+            (
+                self.navigationController == nil ||
+                self.navigationController?.viewControllers.contains(self) == false
+            ) &&
             viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
             !SessionUtil.conversationInConfig(

@@ -6,7 +6,7 @@ import SessionUtilitiesKit
 
 enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "initialSetup"
+    static let identifier: String = "initialSetup" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     
@@ -65,7 +65,7 @@ enum _001_InitialSetupMigration: Migration {
             t.column(.variant, .integer).notNull()
             t.column(.creationDateTimestamp, .double).notNull()
             t.column(.shouldBeVisible, .boolean).notNull()
-            t.column(.isPinned, .boolean).notNull()
+            t.deprecatedColumn(name: "isPinned", .boolean).notNull() // stringlint:disable
             t.column(.messageDraft, .text)
             t.column(.notificationSound, .integer)
             t.column(.mutedUntilTimestamp, .double)

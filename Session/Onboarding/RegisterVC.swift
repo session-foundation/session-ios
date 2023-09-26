@@ -191,7 +191,7 @@ final class RegisterVC : BaseVC {
             for index in indexesToShuffle {
                 let startIndex = mangledHexEncodedPublicKey.index(mangledHexEncodedPublicKey.startIndex, offsetBy: index)
                 let endIndex = mangledHexEncodedPublicKey.index(after: startIndex)
-                mangledHexEncodedPublicKey.replaceSubrange(startIndex..<endIndex, with: "0123456789abcdef__".shuffled()[0..<1])
+                mangledHexEncodedPublicKey.replaceSubrange(startIndex..<endIndex, with: "0123456789abcdef__".shuffled()[0..<1]) // stringlint:disable
             }
             count += 1
             if count < limit {

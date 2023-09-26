@@ -9,22 +9,19 @@ import Quick
 import Nimble
 
 @testable import SessionMessagingKit
-import AVFoundation
 
 class BatchRequestInfoSpec: QuickSpec {
-    struct TestType: Codable, Equatable {
-        let stringValue: String
-    }
-    
-    // MARK: - Spec
-
-    override func spec() {
-        // MARK: - BatchRequest.Child
+    override class func spec() {
+        // MARK: Configuration
+        
+        @TestState var request: OpenGroupAPI.BatchRequest!
+        
+        // MARK: - a BatchRequest.Child
         
         describe("a BatchRequest.Child") {
-            var request: OpenGroupAPI.BatchRequest!
-            
+            // MARK: -- when encoding
             context("when encoding") {
+                // MARK: ---- successfully encodes a string body
                 it("successfully encodes a string body") {
                     request = OpenGroupAPI.BatchRequest(
                         requests: [
@@ -53,6 +50,7 @@ class BatchRequestInfoSpec: QuickSpec {
                     expect(requestJson?.first?["b64"] as? String).to(equal("testBody"))
                 }
                 
+                // MARK: ---- successfully encodes a byte body
                 it("successfully encodes a byte body") {
                     request = OpenGroupAPI.BatchRequest(
                         requests: [
@@ -81,6 +79,7 @@ class BatchRequestInfoSpec: QuickSpec {
                     expect(requestJson?.first?["bytes"] as? [Int]).to(equal([1, 2, 3]))
                 }
                 
+                // MARK: ---- successfully encodes a JSON body
                 it("successfully encodes a JSON body") {
                     request = OpenGroupAPI.BatchRequest(
                         requests: [
@@ -109,6 +108,7 @@ class BatchRequestInfoSpec: QuickSpec {
                     expect(requestJson?.first?["json"] as? [String: String]).to(equal(["stringValue": "testValue"]))
                 }
                 
+                // MARK: ---- strips authentication headers
                 it("strips authentication headers") {
                     let httpRequest: Request<NoBody, OpenGroupAPI.Endpoint> = Request<NoBody, OpenGroupAPI.Endpoint>(
                         method: .get,
@@ -149,6 +149,7 @@ class BatchRequestInfoSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- does not strip non authentication headers
             it("does not strip non authentication headers") {
                 let httpRequest: Request<NoBody, OpenGroupAPI.Endpoint> = Request<NoBody, OpenGroupAPI.Endpoint>(
                     method: .get,
@@ -184,4 +185,10 @@ class BatchRequestInfoSpec: QuickSpec {
             }
         }
     }
+}
+
+// MARK: - Test Types
+
+fileprivate struct TestType: Codable, Equatable {
+    let stringValue: String
 }

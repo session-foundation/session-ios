@@ -9,44 +9,38 @@ import SessionUtilitiesKit
 @testable import SessionMessagingKit
 
 class SOGSMessageSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: Configuration
+        
+        @TestState var messageJson: String! = """
+        {
+            "id": 123,
+            "session_id": "05\(TestConstants.publicKey)",
+            "posted": 234,
+            "seqno": 345,
+            "whisper": false,
+            "whisper_mods": false,
+                    
+            "data": "VGVzdERhdGE=",
+            "signature": "VGVzdFNpZ25hdHVyZQ=="
+        }
+        """
+        @TestState var messageData: Data! = messageJson.data(using: .utf8)!
+        @TestState var mockCrypto: MockCrypto! = MockCrypto()
+        @TestState var dependencies: Dependencies! = Dependencies(
+            crypto: mockCrypto
+        )
+        @TestState var decoder: JSONDecoder! = {
+            let result = JSONDecoder()
+            result.userInfo = [ Dependencies.userInfoKey: dependencies as Any ]
+            return result
+        }()
+        
+        // MARK: - a SOGSMessage
         describe("a SOGSMessage") {
-            var messageJson: String!
-            var messageData: Data!
-            var decoder: JSONDecoder!
-            var mockCrypto: MockCrypto!
-            var dependencies: Dependencies!
-            
-            beforeEach {
-                messageJson = """
-                {
-                    "id": 123,
-                    "session_id": "05\(TestConstants.publicKey)",
-                    "posted": 234,
-                    "seqno": 345,
-                    "whisper": false,
-                    "whisper_mods": false,
-                            
-                    "data": "VGVzdERhdGE=",
-                    "signature": "VGVzdFNpZ25hdHVyZQ=="
-                }
-                """
-                messageData = messageJson.data(using: .utf8)!
-                mockCrypto = MockCrypto()
-                dependencies = Dependencies(
-                    crypto: mockCrypto
-                )
-                decoder = JSONDecoder()
-                decoder.userInfo = [ Dependencies.userInfoKey: dependencies as Any ]
-            }
-            
-            afterEach {
-                mockCrypto = nil
-            }
-            
+            // MARK: -- when decoding
             context("when decoding") {
+                // MARK: ---- defaults the whisper values to false
                 it("defaults the whisper values to false") {
                     messageJson = """
                     {
@@ -63,7 +57,9 @@ class SOGSMessageSpec: QuickSpec {
                     expect(result?.whisperMods).to(beFalse())
                 }
                 
+                // MARK: ---- and there is no content
                 context("and there is no content") {
+                    // MARK: ------ does not need a sender
                     it("does not need a sender") {
                         messageJson = """
                         {
@@ -84,7 +80,9 @@ class SOGSMessageSpec: QuickSpec {
                     }
                 }
                 
+                // MARK: ---- and there is content
                 context("and there is content") {
+                    // MARK: ------ errors if there is no sender
                     it("errors if there is no sender") {
                         messageJson = """
                         {
@@ -106,6 +104,7 @@ class SOGSMessageSpec: QuickSpec {
                         .to(throwError(HTTPError.parsingFailed))
                     }
                     
+                    // MARK: ------ errors if the data is not a base64 encoded string
                     it("errors if the data is not a base64 encoded string") {
                         messageJson = """
                         {
@@ -128,6 +127,7 @@ class SOGSMessageSpec: QuickSpec {
                         .to(throwError(HTTPError.parsingFailed))
                     }
                     
+                    // MARK: ------ errors if the signature is not a base64 encoded string
                     it("errors if the signature is not a base64 encoded string") {
                         messageJson = """
                         {
@@ -150,6 +150,7 @@ class SOGSMessageSpec: QuickSpec {
                         .to(throwError(HTTPError.parsingFailed))
                     }
                     
+                    // MARK: ------ errors if the dependencies are not provided to the JSONDecoder
                     it("errors if the dependencies are not provided to the JSONDecoder") {
                         decoder = JSONDecoder()
                         
@@ -159,6 +160,7 @@ class SOGSMessageSpec: QuickSpec {
                         .to(throwError(HTTPError.parsingFailed))
                     }
                     
+                    // MARK: ------ errors if the session_id value is not valid
                     it("errors if the session_id value is not valid") {
                         messageJson = """
                         {
@@ -181,7 +183,7 @@ class SOGSMessageSpec: QuickSpec {
                         .to(throwError(HTTPError.parsingFailed))
                     }
                     
-                    
+                    // MARK: ------ that is blinded
                     context("that is blinded") {
                         beforeEach {
                             messageJson = """
@@ -200,6 +202,7 @@ class SOGSMessageSpec: QuickSpec {
                             messageData = messageJson.data(using: .utf8)!
                         }
                         
+                        // MARK: -------- succeeds if it succeeds verification
                         it("succeeds if it succeeds verification") {
                             mockCrypto
                                 .when {
@@ -213,6 +216,7 @@ class SOGSMessageSpec: QuickSpec {
                             .toNot(beNil())
                         }
                         
+                        // MARK: -------- provides the correct values as parameters
                         it("provides the correct values as parameters") {
                             mockCrypto
                                 .when {
@@ -234,6 +238,7 @@ class SOGSMessageSpec: QuickSpec {
                                 })
                         }
                         
+                        // MARK: -------- throws if it fails verification
                         it("throws if it fails verification") {
                             mockCrypto
                                 .when {
@@ -248,7 +253,9 @@ class SOGSMessageSpec: QuickSpec {
                         }
                     }
                     
+                    // MARK: ------ that is unblinded
                     context("that is unblinded") {
+                        // MARK: -------- succeeds if it succeeds verification
                         it("succeeds if it succeeds verification") {
                             mockCrypto
                                 .when { $0.verify(.signatureEd25519(any(), publicKey: any(), data: any())) }
@@ -260,6 +267,7 @@ class SOGSMessageSpec: QuickSpec {
                             .toNot(beNil())
                         }
                         
+                        // MARK: -------- provides the correct values as parameters
                         it("provides the correct values as parameters") {
                             mockCrypto
                                 .when { $0.verify(.signatureEd25519(any(), publicKey: any(), data: any())) }
@@ -279,6 +287,7 @@ class SOGSMessageSpec: QuickSpec {
                                 })
                         }
                         
+                        // MARK: -------- throws if it fails verification
                         it("throws if it fails verification") {
                             mockCrypto
                                 .when { $0.verify(.signatureEd25519(any(), publicKey: any(), data: any())) }

@@ -59,8 +59,7 @@ public enum PushRegistrationError: Error {
             .tryFlatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
                 #if targetEnvironment(simulator)
                 throw PushRegistrationError.pushNotSupported(description: "Push not supported on simulators")
-                #endif
-
+                #else
                 return self.registerForVanillaPushToken()
                     .flatMap { vanillaPushToken -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
                         self.registerForVoipPushToken()
@@ -68,6 +67,7 @@ public enum PushRegistrationError: Error {
                             .eraseToAnyPublisher()
                     }
                     .eraseToAnyPublisher()
+                #endif
             }
             .eraseToAnyPublisher()
     }

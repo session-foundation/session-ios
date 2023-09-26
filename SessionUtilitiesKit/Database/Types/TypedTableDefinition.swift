@@ -16,6 +16,10 @@ public class TypedTableDefinition<T> where T: TableRecord, T: ColumnExpressible 
         return definition.column(key.name, type)
     }
     
+    @discardableResult public func deprecatedColumn(name: String, _ type: Database.ColumnType? = nil) -> ColumnDefinition {
+        return definition.column(name, type)
+    }
+    
     public func primaryKey(_ columns: [T.Columns], onConflict: Database.ConflictResolution? = nil) {
         definition.primaryKey(columns.map { $0.name }, onConflict: onConflict)
     }

@@ -6,6 +6,16 @@ import GRDB
 @testable import SessionUtilitiesKit
 
 class SynchronousStorage: Storage {
+    public init(
+        customWriter: DatabaseWriter? = nil,
+        customMigrationTargets: [MigratableTarget.Type]? = nil,
+        initialData: ((Database) throws -> ())? = nil
+    ) {
+        super.init(customWriter: customWriter, customMigrationTargets: customMigrationTargets)
+        
+        write { db in try initialData?(db) }
+    }
+    
     @discardableResult override func write<T>(
         fileName: String = #file,
         functionName: String = #function,

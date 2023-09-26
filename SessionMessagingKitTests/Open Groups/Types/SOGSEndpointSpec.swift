@@ -8,10 +8,10 @@ import Nimble
 @testable import SessionMessagingKit
 
 class SOGSEndpointSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a SOGSEndpoint
         describe("a SOGSEndpoint") {
+            // MARK: -- generates the path value correctly
             it("generates the path value correctly") {
                 // Utility
                 

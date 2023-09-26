@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class SendMessageRequestSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a SendMessageRequest
         describe("a SendMessageRequest") {
+            // MARK: -- when initializing
             context("when initializing") {
+                // MARK: ---- defaults the optional values to nil
                 it("defaults the optional values to nil") {
                     let request: OpenGroupAPI.SendMessageRequest = OpenGroupAPI.SendMessageRequest(
                         data: "TestData".data(using: .utf8)!,
@@ -25,7 +26,9 @@ class SendMessageRequestSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when encoding
             context("when encoding") {
+                // MARK: ---- encodes the data as a base64 string
                 it("encodes the data as a base64 string") {
                     let request: OpenGroupAPI.SendMessageRequest = OpenGroupAPI.SendMessageRequest(
                         data: "TestData".data(using: .utf8)!,
@@ -41,6 +44,7 @@ class SendMessageRequestSpec: QuickSpec {
                     expect(requestDataString).to(contain("VGVzdERhdGE="))
                 }
                 
+                // MARK: ---- encodes the signature as a base64 string
                 it("encodes the signature as a base64 string") {
                     let request: OpenGroupAPI.SendMessageRequest = OpenGroupAPI.SendMessageRequest(
                         data: "TestData".data(using: .utf8)!,

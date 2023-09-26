@@ -83,11 +83,11 @@ internal enum Theme_ClassicDark: ThemeColors {
         .alert_buttonBackground: .classicDark1,
         
         // ConversationButton
-        .conversationButton_background: .classicDark1,
-        .conversationButton_unreadBackground: .classicDark2,
+        .conversationButton_background: .classicDark0,
+        .conversationButton_unreadBackground: .classicDark1,
         .conversationButton_unreadStripBackground: .primary,
-        .conversationButton_unreadBubbleBackground: .classicDark3,
-        .conversationButton_unreadBubbleText: .classicDark6,
+        .conversationButton_unreadBubbleBackground: .primary,
+        .conversationButton_unreadBubbleText: .classicDark0,
         .conversationButton_swipeDestructive: .dangerDark,
         .conversationButton_swipeSecondary: .classicDark2,
         .conversationButton_swipeTertiary: Theme.PrimaryColor.orange.color,
