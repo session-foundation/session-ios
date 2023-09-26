@@ -80,11 +80,18 @@ public enum MessageWrapper {
     }
 
     /// - Note: `data` shouldn't be base 64 encoded.
-    public static func unwrap(data: Data) throws -> SNProtoEnvelope {
+    public static func unwrap(
+        data: Data,
+        includesWebSocketMessage: Bool = true
+    ) throws -> SNProtoEnvelope {
         do {
-            let webSocketMessage = try WebSocketProtoWebSocketMessage.parseData(data)
-            let envelope = webSocketMessage.request!.body!
-            return try SNProtoEnvelope.parseData(envelope)
+            let envelopeData: Data = try {
+                guard includesWebSocketMessage else { return data }
+                
+                let webSocketMessage = try WebSocketProtoWebSocketMessage.parseData(data)
+                return webSocketMessage.request!.body!
+            }()
+            return try SNProtoEnvelope.parseData(envelopeData)
         } catch let error {
             SNLog("Failed to unwrap data: \(error).")
             throw Error.failedToUnwrapData

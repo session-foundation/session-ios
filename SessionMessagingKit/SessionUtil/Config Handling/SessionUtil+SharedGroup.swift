@@ -327,15 +327,23 @@ internal extension SessionUtil {
                 guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
                 
                 var ciphertext: [UInt8] = Array(ciphertext)
+                var cSessionId: [CChar] = [CChar](repeating: 0, count: 67)
                 var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
                 var plaintextLen: Int = 0
-                groups_keys_decrypt_message(
+                let didDecrypt: Bool = groups_keys_decrypt_message(
                     conf,
                     &ciphertext,
                     ciphertext.count,
+                    &cSessionId,
                     &maybePlaintext,
                     &plaintextLen
                 )
+                
+                // If we got a reported failure then just stop here
+                guard didDecrypt else { throw MessageReceiverError.decryptionFailed }
+                
+                // We need to manually free 'maybePlaintext' upon a successful decryption
+                defer { maybePlaintext?.deallocate() }
                 
                 guard
                     plaintextLen > 0,
@@ -343,7 +351,7 @@ internal extension SessionUtil {
                         .map({ Data(bytes: $0, count: plaintextLen) })
                 else { throw MessageReceiverError.decryptionFailed }
                 
-                return (plaintext, "")
+                return (plaintext, String(cString: cSessionId))
             } ?? { throw MessageReceiverError.decryptionFailed }()
     }
 }

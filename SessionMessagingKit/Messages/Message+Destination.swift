@@ -21,6 +21,9 @@ public extension Message {
         public var defaultNamespace: SnodeAPI.Namespace? {
             switch self {
                 case .contact: return .`default`
+                case .closedGroup(let key) where SessionId.Prefix(from: key) == .group:
+                    return .groupMessages
+                    
                 case .closedGroup: return .legacyClosedGroup
                 default: return nil
             }

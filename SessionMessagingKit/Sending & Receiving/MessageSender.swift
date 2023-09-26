@@ -179,11 +179,6 @@ public final class MessageSender {
                     .successOrThrow()
                     .base64EncodedString()
                     
-                // Config messages should be sent directly rather than via this method
-                case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
-                case (.closedGroup(let groupPublicKey), _) where SessionId.Prefix(from: groupPublicKey) == .group:
-                    throw MessageSenderError.invalidConfigMessageHandling
-                    
                 // Updated group messages should be wrapped _before_ encrypting
                 case (.closedGroup(let groupPublicKey), .groupMessages) where SessionId.Prefix(from: groupPublicKey) == .group:
                     return try SessionUtil
@@ -203,6 +198,11 @@ public final class MessageSender {
                             using: dependencies
                         )
                         .base64EncodedString()
+                    
+                // Config messages should be sent directly rather than via this method
+                case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
+                case (.closedGroup(let groupPublicKey), _) where SessionId.Prefix(from: groupPublicKey) == .group:
+                    throw MessageSenderError.invalidConfigMessageHandling
                     
                 // Legacy groups used a `05` prefix
                 case (.closedGroup(let groupPublicKey), _):
@@ -262,6 +262,13 @@ public final class MessageSender {
                         details: NotifyPushServerJob.Details(message: snodeMessage)
                     )
                     let shouldNotify: Bool = {
+                        // New groups only run via the updated push server so don't notify
+                        switch destination {
+                            case .closedGroup(let key) where SessionId.Prefix(from: key) == .group:
+                                return false
+                            default: break
+                        }
+                        
                         switch updatedMessage {
                             case is VisibleMessage, is UnsendRequest: return !isSyncMessage
                             case let callMessage as CallMessage:

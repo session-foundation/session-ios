@@ -36,7 +36,7 @@ public enum MessageReceiver {
                 )
                 
             case (_, .community(let openGroupId, let messageSender, let timestamp, let messageServerId)):
-                plaintext = data
+                plaintext = data.removePadding()   // Remove the padding
                 sender = messageSender
                 sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 openGroupServerMessageId = UInt64(messageServerId)
@@ -62,6 +62,7 @@ public enum MessageReceiver {
                     using: dependencies
                 )
                 
+                plaintext = plaintext.removePadding()   // Remove the padding
                 sentTimestamp = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
                 openGroupServerMessageId = UInt64(messageServerId)
                 threadVariant = .contact
@@ -85,6 +86,7 @@ public enum MessageReceiver {
                             ciphertext: ciphertext,
                             using: userX25519KeyPair
                         )
+                        plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestamp = envelope.timestamp
                         openGroupServerMessageId = nil
                         threadVariant = .contact
@@ -105,13 +107,16 @@ public enum MessageReceiver {
                         )
                         
                         guard
-                            let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(data: plaintextEnvelope),
+                            let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(
+                                data: plaintextEnvelope,
+                                includesWebSocketMessage: false
+                            ),
                             let envelopeContent: Data = envelope.content
                         else {
                             SNLog("Failed to unwrap data for message from 'default' namespace.")
                             throw MessageReceiverError.invalidMessage
                         }
-                        plaintext = envelopeContent
+                        plaintext = envelopeContent // Padding already removed for updated groups
                         sentTimestamp = envelope.timestamp
                         openGroupServerMessageId = nil
                         threadVariant = .group
@@ -158,6 +163,7 @@ public enum MessageReceiver {
                         }
                         
                         (plaintext, sender) = try decrypt(keyPairs: encryptionKeyPairs)
+                        plaintext = plaintext.removePadding()   // Remove the padding
                         sentTimestamp = envelope.timestamp
                         openGroupServerMessageId = nil
                         threadVariant = .legacyGroup
@@ -175,7 +181,7 @@ public enum MessageReceiver {
                 }
         }
         
-        let proto: SNProtoContent = try Result(SNProtoContent.parseData(plaintext.removePadding()))
+        let proto: SNProtoContent = try Result(SNProtoContent.parseData(plaintext))
            .onFailure { SNLog("Couldn't parse proto due to error: \($0).") }
            .successOrThrow()
         let message: Message = try Message.createMessageFrom(proto, sender: sender)

@@ -1805,6 +1805,20 @@ fileprivate extension LibSessionSpec {
 // MARK: - GROUP_INFO
 
 fileprivate extension LibSessionSpec {
+    /// This function can be used to regenerate the hard-coded `keysDump` value if needed due to `libSession` changes
+    /// resulting in the dump changing
+    private static func generateKeysDump(for keysConf: UnsafeMutablePointer<config_group_keys>?) throws -> String {
+        var dumpResult: UnsafeMutablePointer<UInt8>? = nil
+        var dumpResultLen: Int = 0
+        try CExceptionHelper.performSafely {
+            groups_keys_dump(keysConf, &dumpResult, &dumpResultLen)
+        }
+
+        let dumpData: Data = Data(bytes: dumpResult!, count: dumpResultLen)
+        dumpResult?.deallocate()
+        return dumpData.toHexString()
+    }
+    
     class func groupInfoSpec() {
         context("GROUP_INFO") {
             // MARK: -- generates config correctly
@@ -1814,8 +1828,24 @@ fileprivate extension LibSessionSpec {
                     hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"
                 )
                 
+                // Since we can't test the group without encryption keys and the C API doesn't have
+                // a way to manually provide encryption keys we needed to create a dump with valid
+                // key data and load that in so we can test the other cases, this dump contains a
+                // single admin member and a single encryption key
+                let keysDump: Data = Data(hex: "64363a6163746976656c65343a6b6579736c6565")
+                let cachedKeysDump: (data: UnsafePointer<UInt8>, length: Int)? = keysDump.withUnsafeBytes { unsafeBytes in
+                    return unsafeBytes.baseAddress.map {
+                        (
+                            $0.assumingMemoryBound(to: UInt8.self),
+                            unsafeBytes.count
+                        )
+                    }
+                }
+                
                 // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
+                let identity = try! Identity.generate(from: userSeed)
                 let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: seed))!
+                var userEdSK: [UInt8] = identity.ed25519KeyPair.secretKey
                 var edPK: [UInt8] = keyPair.publicKey
                 var edSK: [UInt8] = keyPair.secretKey
                 
@@ -1828,8 +1858,17 @@ fileprivate extension LibSessionSpec {
                 var conf: UnsafeMutablePointer<config_object>? = nil
                 expect(groups_info_init(&conf, &edPK, &edSK, nil, 0, &error)).to(equal(0))
                 
+                var membersConf: UnsafeMutablePointer<config_object>? = nil
+                expect(groups_members_init(&membersConf, &edPK, &edSK, nil, 0, &error)).to(equal(0))
+                
+                var keysConf1: UnsafeMutablePointer<config_group_keys>? = nil
+                expect(groups_keys_init(&keysConf1, &userEdSK, &edPK, &edSK, conf, membersConf, cachedKeysDump?.data, (cachedKeysDump?.length ?? 0), &error)).to(equal(0))
+                
                 var conf2: UnsafeMutablePointer<config_object>? = nil
                 expect(groups_info_init(&conf2, &edPK, &edSK, nil, 0, &error)).to(equal(0))
+                
+                var keysConf2: UnsafeMutablePointer<config_group_keys>? = nil
+                expect(groups_keys_init(&keysConf2, &userEdSK, &edPK, &edSK, conf2, membersConf, cachedKeysDump?.data, (cachedKeysDump?.length ?? 0), &error)).to(equal(0))
                 
                 expect(groups_info_set_name(conf, "GROUP Name")).to(equal(0))
                 expect(config_needs_push(conf)).to(beTrue())
