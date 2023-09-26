@@ -48,7 +48,7 @@ internal extension SessionUtil {
                     )
                 ),
                 lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000),
-                lastBlocksCommunityMessageRequests: 0
+                lastBlocksCommunityMessageRequests: nil
             )
             
             result.append(

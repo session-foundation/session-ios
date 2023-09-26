@@ -1737,7 +1737,7 @@ fileprivate enum TestJob: JobExecutor {
             }
         }
         
-        dependencies.asyncExecutions.appendTo(details.completeTime) {
+        dependencies.async(at: details.completeTime) {
             queue.async(using: dependencies) {
                 completeJob()
             }

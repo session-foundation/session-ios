@@ -9,9 +9,7 @@ import Curve25519Kit
 // MARK: - Singleton
 
 public extension Singleton {
-    static let crypto: SingletonInfo.Config<CryptoType> = SingletonInfo.create { _ in
-        Crypto()
-    }
+    static let crypto: SingletonConfig<CryptoType> = Dependencies.create { _ in Crypto() }
 }
 
 // MARK: - CryptoType

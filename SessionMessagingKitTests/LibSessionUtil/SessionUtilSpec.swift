@@ -57,7 +57,13 @@ class SessionUtilSpec: QuickSpec {
         )
         @TestState(cache: .sessionUtil, in: dependencies) var mockSessionUtilCache: MockSessionUtilCache! = MockSessionUtilCache(
             initialSetup: { cache in
+                var conf: UnsafeMutablePointer<config_object>!
+                var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+                _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+                
                 cache.when { $0.setConfig(for: any(), publicKey: any(), to: any()) }.thenReturn(())
+                cache.when { $0.config(for: .userGroups, publicKey: any()) }
+                    .thenReturn(Atomic(.object(conf)))
             }
         )
         @TestState var createGroupOutput: SessionUtil.CreatedGroupInfo!
@@ -355,10 +361,7 @@ class SessionUtilSpec: QuickSpec {
                                     id: "123456",
                                     profile: Profile(
                                         id: "123456",
-                                        name: "",
-                                        lastNameUpdate: 0,
-                                        lastProfilePictureUpdate: 0,
-                                        lastBlocksCommunityMessageRequests: 0
+                                        name: ""
                                     )
                                 )],
                                 admins: [],
@@ -447,21 +450,15 @@ class SessionUtilSpec: QuickSpec {
                                 profile: Profile(
                                     id: "051111111111111111111111111111111111111111111111111111111111111111",
                                     name: "TestName",
-                                    lastNameUpdate: 0,
                                     profilePictureUrl: "testUrl",
-                                    profileEncryptionKey: Data([1, 2, 3]),
-                                    lastProfilePictureUpdate: 0,
-                                    lastBlocksCommunityMessageRequests: 0
+                                    profileEncryptionKey: Data([1, 2, 3])
                                 )
                             )],
                             admins: [(
                                 id: "05\(TestConstants.publicKey)",
                                 profile: Profile(
                                     id: "05\(TestConstants.publicKey)",
-                                    name: "TestName2",
-                                    lastNameUpdate: 0,
-                                    lastProfilePictureUpdate: 0,
-                                    lastBlocksCommunityMessageRequests: 0
+                                    name: "TestName2"
                                 )
                             )],
                             using: dependencies
@@ -504,10 +501,7 @@ class SessionUtilSpec: QuickSpec {
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 profile: Profile(
                                     id: "051111111111111111111111111111111111111111111111111111111111111111",
-                                    name: "TestName",
-                                    lastNameUpdate: 0,
-                                    lastProfilePictureUpdate: 0,
-                                    lastBlocksCommunityMessageRequests: 0
+                                    name: "TestName"
                                 )
                             )],
                             admins: [],
@@ -594,11 +588,14 @@ class SessionUtilSpec: QuickSpec {
                             )
                         })
                 }
-                
+            }
+            
+            // MARK: - when saving a created a group
+            context("when saving a created a group") {
                 // MARK: -- saves config dumps for the stored configs
                 it("saves config dumps for the stored configs") {
-                    createGroupOutput = mockStorage.write(using: dependencies) { db in
-                        try SessionUtil.createGroup(
+                    mockStorage.write(using: dependencies) { db in
+                        createGroupOutput = try SessionUtil.createGroup(
                             db,
                             name: "Testname",
                             displayPictureUrl: nil,
@@ -611,6 +608,13 @@ class SessionUtilSpec: QuickSpec {
                             admins: [],
                             using: dependencies
                         )
+                        
+                        try SessionUtil.saveCreatedGroup(
+                            db,
+                            group: createGroupOutput.group,
+                            groupState: createGroupOutput.groupState,
+                            using: dependencies
+                        )
                     }
                     
                     let result: [ConfigDump]? = mockStorage.read(using: dependencies) { db in
@@ -618,11 +622,44 @@ class SessionUtilSpec: QuickSpec {
                     }
                     
                     expect(result?.map { $0.variant }.asSet())
-                        .to(equal([.groupInfo, .groupKeys, .groupMembers]))
+                        .to(contain([.groupInfo, .groupKeys, .groupMembers]))
                     expect(result?.map { $0.publicKey }.asSet())
-                        .to(equal(["03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"]))
+                        .to(contain(["03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"]))
                     expect(result?.map { $0.timestampMs }.asSet())
-                        .to(equal([1234567890000]))
+                        .to(contain([1234567890000]))
+                }
+                
+                // MARK: -- adds the group to the user groups config
+                it("adds the group to the user groups config") {
+                    mockStorage.write(using: dependencies) { db in
+                        createGroupOutput = try SessionUtil.createGroup(
+                            db,
+                            name: "Testname",
+                            displayPictureUrl: nil,
+                            displayPictureFilename: nil,
+                            displayPictureEncryptionKey: nil,
+                            members: [(
+                                id: "051111111111111111111111111111111111111111111111111111111111111111",
+                                profile: nil
+                            )],
+                            admins: [],
+                            using: dependencies
+                        )
+                        
+                        try SessionUtil.saveCreatedGroup(
+                            db,
+                            group: createGroupOutput.group,
+                            groupState: createGroupOutput.groupState,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let result: [ConfigDump]? = mockStorage.read(using: dependencies) { db in
+                        try ConfigDump.fetchAll(db)
+                    }
+                    
+                    expect(result?.map { $0.variant }.asSet()).to(contain([.userGroups]))
+                    expect(result?.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
                 }
             }
         }

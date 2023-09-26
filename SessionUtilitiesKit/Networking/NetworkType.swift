@@ -6,9 +6,7 @@ import Combine
 // MARK: - Singleton
 
 public extension Singleton {
-    static let network: SingletonInfo.Config<NetworkType> = SingletonInfo.create { _ in
-        Network()
-    }
+    static let network: SingletonConfig<NetworkType> = Dependencies.create { _ in Network() }
 }
 
 // MARK: - NetworkType

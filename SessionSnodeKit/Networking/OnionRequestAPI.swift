@@ -865,7 +865,7 @@ public extension OnionRequestAPI {
 }
 
 public extension Cache {
-    static let onionRequestAPI: CacheInfo.Config<ORAPICacheType, ORAPIImmutableCacheType> = CacheInfo.create(
+    static let onionRequestAPI: CacheConfig<ORAPICacheType, ORAPIImmutableCacheType> = Dependencies.create(
         createInstance: { dependencies in OnionRequestAPI.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }

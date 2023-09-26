@@ -214,7 +214,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("defaults the time since last open to greatestFiniteMagnitude") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(nil)
                     
@@ -226,7 +226,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("returns the time since the last open") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567880))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
@@ -239,7 +239,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("caches the time since the last open") {
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567770))
                     dependencies.dateNow = Date(timeIntervalSince1970: 1234567780)
@@ -249,7 +249,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                  
@@ -289,7 +289,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                 }
@@ -745,7 +745,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                 }
@@ -890,7 +890,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         
                         mockUserDefaults
                             .when { (defaults: inout any UserDefaultsType) -> Any? in
-                                defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
+                                defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                             }
                             .thenReturn(Date(timeIntervalSince1970: 1234567890))
                     }
@@ -1171,7 +1171,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
-                            defaults.object(forKey: UserDefaultsInfo.DateKey.lastOpen.rawValue)
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
                         }
                         .thenReturn(nil)
                 }
@@ -3207,7 +3207,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .to(call(matchingParameters: .all) {
                             $0.set(
                                 testDate,
-                                forKey: UserDefaultsInfo.DateKey.lastOpenGroupImageUpdate.rawValue
+                                forKey: UserDefaults.DateKey.lastOpenGroupImageUpdate.rawValue
                             )
                         })
                     expect(
@@ -3316,7 +3316,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .toNot(call(matchingParameters: .all) {
                             $0.set(
                                 dependencies.dateNow,
-                                forKey: UserDefaultsInfo.DateKey.lastOpenGroupImageUpdate.rawValue
+                                forKey: UserDefaults.DateKey.lastOpenGroupImageUpdate.rawValue
                             )
                         })
                 }
@@ -3398,7 +3398,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .to(call(matchingParameters: .all) {
                                 $0.set(
                                     dependencies.dateNow,
-                                    forKey: UserDefaultsInfo.DateKey.lastOpenGroupImageUpdate.rawValue
+                                    forKey: UserDefaults.DateKey.lastOpenGroupImageUpdate.rawValue
                                 )
                             })
                     }

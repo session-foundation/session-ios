@@ -175,7 +175,7 @@ public extension Profile {
             profileEncryptionKey: profileKey,
             lastProfilePictureUpdate: sentTimestamp,
             blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil),
-            lastBlocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? sentTimestamp : 0)
+            lastBlocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? sentTimestamp : nil)
         )
     }
 

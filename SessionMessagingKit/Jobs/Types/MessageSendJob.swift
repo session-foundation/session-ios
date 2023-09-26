@@ -107,6 +107,7 @@ public enum MessageSendJob: JobExecutor {
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
             guard attachmentState.error == nil else {
+                SNLog("[MessageSendJob] Failed due to invalid attachment state")
                 return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true, dependencies)
             }
 

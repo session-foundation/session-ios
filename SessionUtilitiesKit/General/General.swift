@@ -13,7 +13,7 @@ public enum General {
 }
 
 public extension Cache {
-    static let general: CacheInfo.Config<GeneralCacheType, ImmutableGeneralCacheType> = CacheInfo.create(
+    static let general: CacheConfig<GeneralCacheType, ImmutableGeneralCacheType> = Dependencies.create(
         createInstance: { _ in General.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }

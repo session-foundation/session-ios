@@ -15,7 +15,7 @@ extension Timer {
         // timeInterval for execution and append it to the execution set so the test can
         // trigger the logic in a synchronous way)
         guard !dependencies.forceSynchronous else {
-            dependencies.asyncExecutions.appendTo(Int(ceil(dependencies.dateNow.timeIntervalSince1970 + timeInterval))) {
+            dependencies.async(at: dependencies.dateNow.timeIntervalSince1970 + timeInterval) {
                 block(timer)
             }
             return timer

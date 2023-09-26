@@ -12,15 +12,15 @@ public class Dependencies {
     
     // MARK: - Subscript Access
     
-    public subscript<S>(singleton singleton: SingletonInfo.Config<S>) -> S {
+    public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
         getValueSettingIfNull(singleton: singleton, &Dependencies.singletonInstances)
     }
     
-    public subscript<M, I>(cache cache: CacheInfo.Config<M, I>) -> I {
+    public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
         getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
     }
     
-    public subscript(defaults defaults: UserDefaultsInfo.Config) -> UserDefaultsType {
+    public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
         getValueSettingIfNull(defaults: defaults, &Dependencies.userDefaultsInstances)
     }
     
@@ -28,9 +28,7 @@ public class Dependencies {
     
     public var dateNow: Date { Date() }
     public var fixedTime: Int { 0 }
-    
-    public var forceSynchronous: Bool = false
-    public var asyncExecutions: [Int: [() -> Void]] = [:]
+    public var forceSynchronous: Bool { false }
     
     // MARK: - Initialization
     
@@ -38,8 +36,14 @@ public class Dependencies {
     
     // MARK: - Functions
     
+    public func async(at fixedTime: Int, closure: @escaping () -> Void) {
+        async(at: TimeInterval(fixedTime), closure: closure)
+    }
+    
+    public func async(at timestamp: TimeInterval, closure: @escaping () -> Void) {}
+    
     @discardableResult public func mutate<M, I, R>(
-        cache: CacheInfo.Config<M, I>,
+        cache: CacheConfig<M, I>,
         _ mutation: (inout M) -> R
     ) -> R {
         return Dependencies.cacheInstances.mutate { caches in
@@ -49,7 +53,7 @@ public class Dependencies {
     }
     
     @discardableResult public func mutate<M, I, R>(
-        cache: CacheInfo.Config<M, I>,
+        cache: CacheConfig<M, I>,
         _ mutation: (inout M) throws -> R
     ) throws -> R {
         return try Dependencies.cacheInstances.mutate { caches in
@@ -61,7 +65,7 @@ public class Dependencies {
     // MARK: - Instance upserting
     
     @discardableResult private func getValueSettingIfNull<S>(
-        singleton: SingletonInfo.Config<S>,
+        singleton: SingletonConfig<S>,
         _ store: inout Atomic<[Int: Any]>
     ) -> S {
         guard let value: S = (store.wrappedValue[singleton.key] as? S) else {
@@ -74,7 +78,7 @@ public class Dependencies {
     }
     
     @discardableResult private func getValueSettingIfNull<M, I>(
-        cache: CacheInfo.Config<M, I>,
+        cache: CacheConfig<M, I>,
         _ store: inout Atomic<[Int: MutableCacheType]>
     ) -> I {
         guard let value: M = (store.wrappedValue[cache.key] as? M) else {
@@ -88,7 +92,7 @@ public class Dependencies {
     }
     
     @discardableResult private func getValueSettingIfNull(
-        defaults: UserDefaultsInfo.Config,
+        defaults: UserDefaultsConfig,
         _ store: inout Atomic<[Int: UserDefaultsType]>
     ) -> UserDefaultsType {
         guard let value: UserDefaultsType = store.wrappedValue[defaults.key] else {
@@ -104,33 +108,33 @@ public class Dependencies {
 // MARK: - Storage Setting Convenience
 
 public extension Dependencies {
-    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.BoolKey) -> Bool {
+    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.BoolKey) -> Bool {
         return self[singleton: singleton]
             .read { db in db[key] }
             .defaulting(to: false)  // Default to false if it doesn't exist
     }
     
-    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.DoubleKey) -> Double? {
+    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.DoubleKey) -> Double? {
         return self[singleton: singleton].read { db in db[key] }
     }
     
-    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.IntKey) -> Int? {
+    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.IntKey) -> Int? {
         return self[singleton: singleton].read { db in db[key] }
     }
     
-    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.StringKey) -> String? {
+    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.StringKey) -> String? {
         return self[singleton: singleton].read { db in db[key] }
     }
     
-    subscript(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.DateKey) -> Date? {
+    subscript(singleton singleton: SingletonConfig<Storage>, key key: Setting.DateKey) -> Date? {
         return self[singleton: singleton].read { db in db[key] }
     }
     
-    subscript<T: EnumIntSetting>(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.EnumKey) -> T? {
+    subscript<T: EnumIntSetting>(singleton singleton: SingletonConfig<Storage>, key key: Setting.EnumKey) -> T? {
         return self[singleton: singleton].read { db in db[key] }
     }
     
-    subscript<T: EnumStringSetting>(singleton singleton: SingletonInfo.Config<Storage>, key key: Setting.EnumKey) -> T? {
+    subscript<T: EnumStringSetting>(singleton singleton: SingletonConfig<Storage>, key key: Setting.EnumKey) -> T? {
         return self[singleton: singleton].read { db in db[key] }
     }
 }
@@ -138,27 +142,27 @@ public extension Dependencies {
 // MARK: - UserDefaults Convenience
 
 public extension Dependencies {
-    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.BoolKey) -> Bool {
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.BoolKey) -> Bool {
         get { return self[defaults: defaults].bool(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
 
-    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.DateKey) -> Date? {
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.DateKey) -> Date? {
         get { return self[defaults: defaults].object(forKey: key.rawValue) as? Date }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
     
-    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.DoubleKey) -> Double {
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.DoubleKey) -> Double {
         get { return self[defaults: defaults].double(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
 
-    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.IntKey) -> Int {
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.IntKey) -> Int {
         get { return self[defaults: defaults].integer(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }
     
-    subscript(defaults defaults: UserDefaultsInfo.Config, key key: UserDefaultsInfo.StringKey) -> String? {
+    subscript(defaults defaults: UserDefaultsConfig, key key: UserDefaults.StringKey) -> String? {
         get { return self[defaults: defaults].string(forKey: key.rawValue) }
         set { self[defaults: defaults].set(newValue, forKey: key.rawValue) }
     }

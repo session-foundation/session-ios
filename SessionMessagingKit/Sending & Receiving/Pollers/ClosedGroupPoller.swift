@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 // MARK: - Singleton
 
 public extension Singleton {
-    static let closedGroupPoller: SingletonInfo.Config<ClosedGroupPoller> = SingletonInfo.create { _ in
+    static let closedGroupPoller: SingletonConfig<ClosedGroupPoller> = Dependencies.create { _ in
         ClosedGroupPoller()
     }
 }

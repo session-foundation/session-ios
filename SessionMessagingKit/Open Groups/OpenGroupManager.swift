@@ -1260,7 +1260,7 @@ public extension OpenGroupManager {
 }
 
 public extension Cache {
-    static let openGroupManager: CacheInfo.Config<OGMCacheType, OGMImmutableCacheType> = CacheInfo.create(
+    static let openGroupManager: CacheConfig<OGMCacheType, OGMImmutableCacheType> = Dependencies.create(
         createInstance: { _ in OpenGroupManager.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }

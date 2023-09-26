@@ -88,14 +88,14 @@ public class AppVersion {
 
 // MARK: - UserDefaults Keys
 
-private extension UserDefaultsInfo.StringKey {
+private extension UserDefaults.StringKey {
     /// The version of the app when it was first launched
-    static let firstAppVersion: UserDefaultsInfo.StringKey = "kNSUserDefaults_FirstAppVersion"
+    static let firstAppVersion: UserDefaults.StringKey = "kNSUserDefaults_FirstAppVersion"
     
     /// The version of the app when it was last launched
-    static let lastAppVersion: UserDefaultsInfo.StringKey = "kNSUserDefaults_LastVersion"
+    static let lastAppVersion: UserDefaults.StringKey = "kNSUserDefaults_LastVersion"
     
-    static let lastCompletedLaunchAppVersion: UserDefaultsInfo.StringKey = "kNSUserDefaults_LastCompletedLaunchAppVersion"
-    static let lastCompletedLaunchMainAppVersion: UserDefaultsInfo.StringKey = "kNSUserDefaults_LastCompletedLaunchAppVersion_MainApp"
-    static let lastCompletedLaunchSAEAppVersion: UserDefaultsInfo.StringKey = "kNSUserDefaults_LastCompletedLaunchAppVersion_SAE"
+    static let lastCompletedLaunchAppVersion: UserDefaults.StringKey = "kNSUserDefaults_LastCompletedLaunchAppVersion"
+    static let lastCompletedLaunchMainAppVersion: UserDefaults.StringKey = "kNSUserDefaults_LastCompletedLaunchAppVersion_MainApp"
+    static let lastCompletedLaunchSAEAppVersion: UserDefaults.StringKey = "kNSUserDefaults_LastCompletedLaunchAppVersion_SAE"
 }

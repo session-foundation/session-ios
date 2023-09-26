@@ -12,29 +12,29 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Subscript Access
     
-    override public subscript<S>(singleton singleton: SingletonInfo.Config<S>) -> S {
+    override public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
         return getValueSettingIfNull(singleton: singleton, &singletonInstances)
     }
     
-    public subscript<S>(singleton singleton: SingletonInfo.Config<S>) -> S? {
+    public subscript<S>(singleton singleton: SingletonConfig<S>) -> S? {
         get { return (singletonInstances[singleton.key] as? S) }
         set { singletonInstances[singleton.key] = newValue }
     }
     
-    override public subscript<M, I>(cache cache: CacheInfo.Config<M, I>) -> I {
+    override public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
         return getValueSettingIfNull(cache: cache, &cacheInstances)
     }
     
-    public subscript<M, I>(cache cache: CacheInfo.Config<M, I>) -> M? {
+    public subscript<M, I>(cache cache: CacheConfig<M, I>) -> M? {
         get { return (cacheInstances[cache.key] as? M) }
         set { cacheInstances[cache.key] = newValue.map { cache.mutableInstance($0) } }
     }
     
-    override public subscript(defaults defaults: UserDefaultsInfo.Config) -> UserDefaultsType {
+    override public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
         return getValueSettingIfNull(defaults: defaults, &defaultsInstances)
     }
     
-    public subscript(defaults defaults: UserDefaultsInfo.Config) -> UserDefaultsType? {
+    public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType? {
         get { return defaultsInstances[defaults.key] }
         set { defaultsInstances[defaults.key] = newValue }
     }
@@ -52,6 +52,14 @@ public class TestDependencies: Dependencies {
         get { (_fixedTime.wrappedValue ?? 0) }
         set { _fixedTime.mutate { $0 = newValue } }
     }
+    
+    public var _forceSynchronous: Bool = false
+    override public var forceSynchronous: Bool {
+        get { _forceSynchronous }
+        set { _forceSynchronous = newValue }
+    }
+    
+    private var asyncExecutions: [Int: [() -> Void]] = [:]
 
     // MARK: - Initialization
     
@@ -63,8 +71,12 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Functions
     
+    override public func async(at timestamp: TimeInterval, closure: @escaping () -> Void) {
+        asyncExecutions.append(closure, toArrayOn: Int(ceil(timestamp)))
+    }
+    
     @discardableResult override public func mutate<M, I, R>(
-        cache: CacheInfo.Config<M, I>,
+        cache: CacheConfig<M, I>,
         _ mutation: (inout M) -> R
     ) -> R {
         var value: M = ((cacheInstances[cache.key] as? M) ?? cache.createInstance(self))
@@ -72,7 +84,7 @@ public class TestDependencies: Dependencies {
     }
     
     @discardableResult override public func mutate<M, I, R>(
-        cache: CacheInfo.Config<M, I>,
+        cache: CacheConfig<M, I>,
         _ mutation: (inout M) throws -> R
     ) throws -> R {
         var value: M = ((cacheInstances[cache.key] as? M) ?? cache.createInstance(self))
@@ -99,7 +111,7 @@ public class TestDependencies: Dependencies {
     // MARK: - Instance upserting
     
     @discardableResult private func getValueSettingIfNull<S>(
-        singleton: SingletonInfo.Config<S>,
+        singleton: SingletonConfig<S>,
         _ store: inout [Int: Any]
     ) -> S {
         guard let value: S = (store[singleton.key] as? S) else {
@@ -112,7 +124,7 @@ public class TestDependencies: Dependencies {
     }
     
     @discardableResult private func getValueSettingIfNull<M, I>(
-        cache: CacheInfo.Config<M, I>,
+        cache: CacheConfig<M, I>,
         _ store: inout [Int: MutableCacheType]
     ) -> I {
         guard let value: M = (store[cache.key] as? M) else {
@@ -126,7 +138,7 @@ public class TestDependencies: Dependencies {
     }
     
     @discardableResult private func getValueSettingIfNull(
-        defaults: UserDefaultsInfo.Config,
+        defaults: UserDefaultsConfig,
         _ store: inout [Int: (any UserDefaultsType)]
     ) -> UserDefaultsType {
         guard let value: UserDefaultsType = store[defaults.key] else {
@@ -144,7 +156,7 @@ public class TestDependencies: Dependencies {
 internal extension TestState {
     init<M, I>(
         wrappedValue: @escaping @autoclosure () -> T?,
-        cache: CacheInfo.Config<M, I>,
+        cache: CacheConfig<M, I>,
         in dependencies: @escaping @autoclosure () -> TestDependencies?
     ) where T: MutableCacheType {
         self.init(wrappedValue: {
@@ -157,7 +169,7 @@ internal extension TestState {
     
     init<S>(
         wrappedValue: @escaping @autoclosure () -> T?,
-        singleton: SingletonInfo.Config<S>,
+        singleton: SingletonConfig<S>,
         in dependencies: @escaping @autoclosure () -> TestDependencies?
     ) {
         self.init(wrappedValue: {
@@ -170,7 +182,7 @@ internal extension TestState {
     
     init(
         wrappedValue: @escaping @autoclosure () -> T?,
-        defaults: UserDefaultsInfo.Config,
+        defaults: UserDefaultsConfig,
         in dependencies: @escaping @autoclosure () -> TestDependencies?
     ) where T: UserDefaultsType {
         self.init(wrappedValue: {

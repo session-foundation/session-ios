@@ -8,7 +8,7 @@ import GRDB
 // MARK: - Singleton
 
 public extension Singleton {
-    static let jobRunner: SingletonInfo.Config<JobRunnerType> = SingletonInfo.create { _ in JobRunner() }
+    static let jobRunner: SingletonConfig<JobRunnerType> = Dependencies.create { _ in JobRunner() }
 }
 
 // MARK: - JobRunnerType

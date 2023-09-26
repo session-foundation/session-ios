@@ -2,7 +2,6 @@
 
 import Foundation
 import Combine
-import SessionSnodeKit
 
 import Quick
 import Nimble
@@ -179,23 +178,20 @@ class BatchRequestSpec: QuickSpec {
             
             // MARK: -- when encoding a storage server type endpoint
             context("when encoding a storage server type endpoint") {
-                // MARK: ---- successfully encodes a SnodeRequest body
-                it("successfully encodes a SnodeRequest body") {
+                // MARK: ---- ignores a string body
+                it("ignores a string body") {
                     request = HTTP.BatchRequest(
                         requestsKey: .requests,
                         requests: [
                             HTTP.PreparedRequest<NoResponse>(
-                                request: Request<SnodeRequest<TestType>, TestEndpoint2>(
+                                request: Request<String, TestEndpoint2>(
                                     method: .get,
                                     server: "testServer",
                                     endpoint: .endpoint2,
                                     queryParameters: [:],
                                     headers: [:],
                                     x25519PublicKey: "05\(TestConstants.publicKey)",
-                                    body: SnodeRequest<TestType>(
-                                        endpoint: .sendMessage,
-                                        body: TestType(stringValue: "testValue")
-                                    )
+                                    body: "testValue"
                                 ),
                                 urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
                                 responseType: NoResponse.self,
@@ -207,9 +203,70 @@ class BatchRequestSpec: QuickSpec {
                     let requestData: Data? = try? JSONEncoder().encode(request)
                     let requestJson: [String: [[String: Any]]]? = requestData
                         .map { try? JSONSerialization.jsonObject(with: $0) as? [String: [[String: Any]]] }
-                    let request: [String: Any]? = requestJson?["requests"]?.first
-                    expect(request?["method"] as? String).to(equal("store"))
-                    expect(request?["params"] as? [String: String]).to(equal(["stringValue": "testValue"]))
+                    let requests: [[String: Any]]? = requestJson?["requests"]
+                    expect(requests?.count).to(equal(1))
+                    expect(requests?.first?.count).to(equal(0))
+                }
+                
+                // MARK: ---- ignores a byte body
+                it("ignores a byte body") {
+                    request = HTTP.BatchRequest(
+                        requestsKey: .requests,
+                        requests: [
+                            HTTP.PreparedRequest<NoResponse>(
+                                request: Request<[UInt8], TestEndpoint2>(
+                                    method: .get,
+                                    server: "testServer",
+                                    endpoint: .endpoint2,
+                                    queryParameters: [:],
+                                    headers: [:],
+                                    x25519PublicKey: "05\(TestConstants.publicKey)",
+                                    body: [1, 2, 3]
+                                ),
+                                urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
+                                responseType: NoResponse.self,
+                                timeout: 0
+                            )
+                        ]
+                    )
+                    
+                    let requestData: Data? = try? JSONEncoder().encode(request)
+                    let requestJson: [String: [[String: Any]]]? = requestData
+                        .map { try? JSONSerialization.jsonObject(with: $0) as? [String: [[String: Any]]] }
+                    let requests: [[String: Any]]? = requestJson?["requests"]
+                    expect(requests?.count).to(equal(1))
+                    expect(requests?.first?.count).to(equal(0))
+                }
+                
+                // MARK: ---- successfully encodes a JSON body
+                it("successfully encodes a JSON body") {
+                    request = HTTP.BatchRequest(
+                        requestsKey: .requests,
+                        requests: [
+                            HTTP.PreparedRequest<NoResponse>(
+                                request: Request<TestType, TestEndpoint2>(
+                                    method: .get,
+                                    server: "testServer",
+                                    endpoint: .endpoint2,
+                                    queryParameters: [:],
+                                    headers: [:],
+                                    x25519PublicKey: "05\(TestConstants.publicKey)",
+                                    body: TestType(stringValue: "testValue")
+                                ),
+                                urlRequest: URLRequest(url: URL(string: "https://www.oxen.io")!),
+                                responseType: NoResponse.self,
+                                timeout: 0
+                            )
+                        ]
+                    )
+                    
+                    let requestData: Data? = try? JSONEncoder().encode(request)
+                    let requestJson: [String: [[String: Any]]]? = requestData
+                        .map { try? JSONSerialization.jsonObject(with: $0) as? [String: [[String: Any]]] }
+                    let requests: [[String: Any]]? = requestJson?["requests"]
+                    expect(requests?.count).to(equal(1))
+                    expect(requests?.first as? [String: String])
+                        .to(equal(["stringValue": "testValue"]))
                 }
             }
         }

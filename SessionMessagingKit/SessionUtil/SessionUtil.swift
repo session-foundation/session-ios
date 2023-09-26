@@ -608,7 +608,7 @@ public extension SessionUtil {
 }
 
 public extension Cache {
-    static let sessionUtil: CacheInfo.Config<SessionUtilCacheType, SessionUtilImmutableCacheType> = CacheInfo.create(
+    static let sessionUtil: CacheConfig<SessionUtilCacheType, SessionUtilImmutableCacheType> = Dependencies.create(
         createInstance: { _ in SessionUtil.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
