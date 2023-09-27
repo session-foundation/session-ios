@@ -3,13 +3,14 @@
 import SwiftUI
 
 public struct ActivityIndicator: View {
-    @State private var isAnimating: Bool = false
-    @State private var trim: Double = 0.9
+    @State private var trimTo: Double = 0.05
+    @State private var shorten: Bool = false
+    @State private var rotation: Double = 0
 
     public var body: some View {
         GeometryReader { (geometry: GeometryProxy) in
             Circle()
-                .trim(from: 0, to: trim)
+                .trim(from: 0, to: trimTo)
                 .stroke(
                     themeColor: .borderSeparator,
                     style: StrokeStyle(
@@ -21,16 +22,38 @@ public struct ActivityIndicator: View {
                     width: geometry.size.width,
                     height: geometry.size.height
                 )
-                .rotationEffect(!self.isAnimating ? .degrees(0) : .degrees(360))
-                .animation(Animation
-                    .timingCurve(0.5, 1, 0.25, 1, duration: 1.5)
-                    .repeatForever(autoreverses: false)
+                .rotationEffect(.degrees(rotation))
+                .animation(
+                    Animation.timingCurve(0.5, 1, 0.25, 1, duration: 1.5),
+                    value: self.shorten
                 )
         }
         .aspectRatio(1, contentMode: .fit)
         .onAppear {
-            self.isAnimating = true
+            Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { _ in
+                if self.shorten {
+                    self.trimTo = 0.05
+                    self.rotation += 540
+                } else {
+                    self.trimTo = 0.95
+                    self.rotation += 180
+                }
+                
+                self.shorten = !self.shorten
+            }
         }
     }
 }
+
+struct ActivityIndicator_Previews: PreviewProvider {
+    static var previews: some View {
+        ActivityIndicator()
+            .foregroundColor(.black)
+            .frame(
+                width: 24,
+                height: 24
+            )
+    }
+}
+
 
