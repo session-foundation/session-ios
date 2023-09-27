@@ -3,14 +3,15 @@
 import SwiftUI
 
 public struct ActivityIndicator: View {
-    @State private var trimTo: Double = 0.05
+    @State private var strokeStart: Double = 0.95
+    @State private var strokeEnd: Double = 1.0
     @State private var shorten: Bool = false
-    @State private var rotation: Double = 0
+    @State private var isRotating: Bool = false
 
     public var body: some View {
         GeometryReader { (geometry: GeometryProxy) in
             Circle()
-                .trim(from: 0, to: trimTo)
+                .trim(from: strokeStart, to: strokeEnd)
                 .stroke(
                     themeColor: .borderSeparator,
                     style: StrokeStyle(
@@ -22,24 +23,41 @@ public struct ActivityIndicator: View {
                     width: geometry.size.width,
                     height: geometry.size.height
                 )
-                .rotationEffect(.degrees(rotation))
-                .animation(
-                    Animation.timingCurve(0.5, 1, 0.25, 1, duration: 1.5),
-                    value: self.shorten
-                )
+                .rotationEffect(!self.isRotating ? .degrees(0) : .degrees(360))
         }
         .aspectRatio(1, contentMode: .fit)
         .onAppear {
+            withAnimation(
+                Animation
+                    .timingCurve(0.4, 0.0, 0.2, 1.0, duration: 1.5)
+                    .repeatForever(autoreverses: false)
+            ) {
+                self.isRotating = true
+            }
+            
+            self.trimStroke()
             Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { _ in
-                if self.shorten {
-                    self.trimTo = 0.05
-                    self.rotation += 540
-                } else {
-                    self.trimTo = 0.95
-                    self.rotation += 180
-                }
-                
-                self.shorten = !self.shorten
+                self.trimStroke()
+            }
+        }
+    }
+    
+    private func trimStroke() {
+        self.shorten = !self.shorten
+        
+        if self.shorten {
+            self.strokeStart = 0.0
+            self.strokeEnd = 1.0
+        } else {
+            self.strokeStart = 0.0
+            self.strokeEnd = 0.0
+        }
+        
+        withAnimation(.linear(duration: 1.5)) {
+            if self.shorten {
+                self.strokeStart = 1.0
+            } else {
+                self.strokeEnd = 1.0
             }
         }
     }
@@ -50,8 +68,8 @@ struct ActivityIndicator_Previews: PreviewProvider {
         ActivityIndicator()
             .foregroundColor(.black)
             .frame(
-                width: 24,
-                height: 24
+                width: 40,
+                height: 40
             )
     }
 }
