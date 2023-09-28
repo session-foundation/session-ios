@@ -179,7 +179,7 @@ internal extension HTTP.BatchResponse {
                 
             case let anyDict as [String: Any]:
                 guard
-                    let resultsArray: [Data] = (anyDict["results"] as? [Any])?
+                    let resultsArray: [Data] = (anyDict["results"] as? [Any])?   // stringlint:disable
                         .compactMap({ try? JSONSerialization.data(withJSONObject: $0) }),
                     (
                         !requireAllResults ||

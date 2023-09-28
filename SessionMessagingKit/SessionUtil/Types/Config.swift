@@ -1,4 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtil
@@ -25,6 +27,7 @@ public extension SessionUtil {
     // MARK: - Config
     
     enum Config {
+        case invalid
         case object(UnsafeMutablePointer<config_object>)
         case groupKeys(
             UnsafeMutablePointer<config_group_keys>,
@@ -36,6 +39,7 @@ public extension SessionUtil {
         
         var needsPush: Bool {
             switch self {
+                case .invalid: return false
                 case .object(let conf): return config_needs_push(conf)
                 
                 case .groupKeys(let conf, _, _):
@@ -48,6 +52,7 @@ public extension SessionUtil {
         
         var needsDump: Bool {
             switch self {
+                case .invalid: return false
                 case .object(let conf): return config_needs_dump(conf)
                 case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
             }
@@ -55,6 +60,7 @@ public extension SessionUtil {
         
         var lastError: String {
             switch self {
+                case .invalid: return "Invalid"
                 case .object(let conf): return String(cString: conf.pointee.last_error)
                 case .groupKeys(let conf, _, _): return String(cString: conf.pointee.last_error)
             }
@@ -87,6 +93,7 @@ public extension SessionUtil {
         
         func push(variant: ConfigDump.Variant) throws -> SessionUtil.PushData {
             switch self {
+                case .invalid: throw SessionUtilError.invalidConfigObject
                 case .object(let conf):
                     var cPushData: UnsafeMutablePointer<config_push_data>!
                     
@@ -142,6 +149,7 @@ public extension SessionUtil {
             var cHash: [CChar] = hash.cArray.nullTerminated()
             
             switch self {
+                case .invalid: return
                 case .object(let conf): return config_confirm_pushed(conf, seqNo, &cHash)
                 case .groupKeys: return // No need to do anything here
             }
@@ -153,6 +161,7 @@ public extension SessionUtil {
             
             try CExceptionHelper.performSafely {
                 switch self {
+                    case .invalid: return
                     case .object(let conf): config_dump(conf, &dumpResult, &dumpResultLen)
                     case .groupKeys(let conf, _, _): groups_keys_dump(conf, &dumpResult, &dumpResultLen)
                 }
@@ -168,6 +177,7 @@ public extension SessionUtil {
         
         func currentHashes() -> [String] {
             switch self {
+                case .invalid: return []
                 case .object(let conf):
                     guard let hashList: UnsafeMutablePointer<config_string_list> = config_current_hashes(conf) else {
                         return []
@@ -200,7 +210,8 @@ public extension SessionUtil {
         
         func merge(_ messages: [ConfigMessageReceiveJob.Details.MessageInfo]) throws -> Int64? {
             switch self {
-                case .object(let conf):    
+                case .invalid: throw SessionUtilError.invalidConfigObject
+                case .object(let conf):
                     var mergeHashes: [UnsafePointer<CChar>?] = messages
                         .map { message in message.serverHash.cArray.nullTerminated() }
                         .unsafeCopy()
@@ -266,6 +277,7 @@ public extension SessionUtil {
             
             try? CExceptionHelper.performSafely {
                 switch self {
+                    case .invalid: return
                     case .object(let conf): result = funcMap[variant].map { "\($0.size(conf)) \($0.info)" }
                     case .groupKeys(let conf, _, _): result = "\(groups_keys_size(conf)) group keys"
                 }
@@ -279,7 +291,7 @@ public extension SessionUtil {
 // MARK: - PushData
 
 public extension SessionUtil {
-    public struct PushData {
+    struct PushData {
         let data: Data
         let seqNo: Int64
         let variant: ConfigDump.Variant

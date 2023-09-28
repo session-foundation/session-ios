@@ -6,7 +6,7 @@ import SessionUtilitiesKit
 
 enum _018_GroupsRebuildChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "GroupsRebuildChanges"
+    static let identifier: String = "GroupsRebuildChanges"  // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]

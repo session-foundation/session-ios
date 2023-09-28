@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 
 public class Dependencies {
-    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!
+    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!  // stringlint:disable
     
     private static var singletonInstances: Atomic<[Int: Any]> = Atomic([:])
     private static var cacheInstances: Atomic<[Int: MutableCacheType]> = Atomic([:])

@@ -210,8 +210,8 @@ typedef struct {
     // This should usually be 1.
     CGFloat depthBytes = (CGFloat)ceil(depthBits / 8.f);
 
-    /* The color model of the image such as "RGB", "CMYK", "Gray", or "Lab".
-     * The value of this key is CFStringRef. */
+    // The color model of the image such as "RGB", "CMYK", "Gray", or "Lab".
+    // The value of this key is CFStringRef.
     NSString *colorModel = imageProperties[(__bridge NSString *)kCGImagePropertyColorModel];
     if (!colorModel) {
         return info;

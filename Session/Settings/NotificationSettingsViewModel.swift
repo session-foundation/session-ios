@@ -115,10 +115,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                                 customPadding: SessionCell.Padding(bottom: Values.verySmallSpacing)
                             ),
                             onTap: { [weak self] in
-                                UserDefaults.standard.set(
-                                    !UserDefaults.standard.bool(forKey: "isUsingFullAPNs"),
-                                    forKey: "isUsingFullAPNs"
-                                )
+                                dependencies[defaults: .standard, key: .isUsingFullAPNs] = !dependencies[defaults: .standard, key: .isUsingFullAPNs]
 
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob.run(uploadOnlyIfStale: false)

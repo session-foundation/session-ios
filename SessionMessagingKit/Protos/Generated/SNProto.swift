@@ -3813,10 +3813,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         case userProfile = 1
         case contacts = 2
         case convoInfoVolatile = 3
-        case userGroups = 4
-        case groupInfo = 5
-        case groupMembers = 6
-        case groupKeys = 7
     }
 
     private class func SNProtoSharedConfigMessageKindWrap(_ value: SessionProtos_SharedConfigMessage.Kind) -> SNProtoSharedConfigMessageKind {
@@ -3824,10 +3820,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         case .userProfile: return .userProfile
         case .contacts: return .contacts
         case .convoInfoVolatile: return .convoInfoVolatile
-        case .userGroups: return .userGroups
-        case .groupInfo: return .groupInfo
-        case .groupMembers: return .groupMembers
-        case .groupKeys: return .groupKeys
         }
     }
 
@@ -3836,10 +3828,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         case .userProfile: return .userProfile
         case .contacts: return .contacts
         case .convoInfoVolatile: return .convoInfoVolatile
-        case .userGroups: return .userGroups
-        case .groupInfo: return .groupInfo
-        case .groupMembers: return .groupMembers
-        case .groupKeys: return .groupKeys
         }
     }
 
@@ -4314,22 +4302,22 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateInviteMessage) throws -> SNProtoGroupUpdateInviteMessage {
         guard proto.hasGroupIdentityPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: groupIdentityPublicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupIdentityPublicKey")
         }
         let groupIdentityPublicKey = proto.groupIdentityPublicKey
 
         guard proto.hasName else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: name")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: name")
         }
         let name = proto.name
 
         guard proto.hasMemberSubkey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: memberSubkey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: memberSubkey")
         }
         let memberSubkey = proto.memberSubkey
 
         guard proto.hasMemberTag else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: memberTag")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: memberTag")
         }
         let memberTag = proto.memberTag
 
@@ -4444,12 +4432,12 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateDeleteMessage) throws -> SNProtoGroupUpdateDeleteMessage {
         guard proto.hasGroupIdentityPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: groupIdentityPublicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupIdentityPublicKey")
         }
         let groupIdentityPublicKey = proto.groupIdentityPublicKey
 
         guard proto.hasEncryptedMemberSubkey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: encryptedMemberSubkey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedMemberSubkey")
         }
         let encryptedMemberSubkey = proto.encryptedMemberSubkey
 
@@ -4602,7 +4590,7 @@ extension SNProtoGroupUpdateDeleteMessage.SNProtoGroupUpdateDeleteMessageBuilder
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateInfoChangeMessage) throws -> SNProtoGroupUpdateInfoChangeMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
         }
         let type = SNProtoGroupUpdateInfoChangeMessageTypeWrap(proto.type)
 
@@ -4738,7 +4726,7 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateMemberChangeMessage) throws -> SNProtoGroupUpdateMemberChangeMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
         }
         let type = SNProtoGroupUpdateMemberChangeMessageTypeWrap(proto.type)
 
@@ -4844,12 +4832,12 @@ extension SNProtoGroupUpdateMemberChangeMessage.SNProtoGroupUpdateMemberChangeMe
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdatePromoteMessage) throws -> SNProtoGroupUpdatePromoteMessage {
         guard proto.hasMemberPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: memberPublicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: memberPublicKey")
         }
         let memberPublicKey = proto.memberPublicKey
 
         guard proto.hasEncryptedGroupIdentityPrivateKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: encryptedGroupIdentityPrivateKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedGroupIdentityPrivateKey")
         }
         let encryptedGroupIdentityPrivateKey = proto.encryptedGroupIdentityPrivateKey
 
@@ -5052,7 +5040,7 @@ extension SNProtoGroupUpdateMemberLeftMessage.SNProtoGroupUpdateMemberLeftMessag
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateInviteResponseMessage) throws -> SNProtoGroupUpdateInviteResponseMessage {
         guard proto.hasIsApproved else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: isApproved")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: isApproved")
         }
         let isApproved = proto.isApproved
 
@@ -5155,7 +5143,7 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdatePromotionResponseMessage) throws -> SNProtoGroupUpdatePromotionResponseMessage {
         guard proto.hasEncryptedMemberPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: encryptedMemberPublicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedMemberPublicKey")
         }
         let encryptedMemberPublicKey = proto.encryptedMemberPublicKey
 

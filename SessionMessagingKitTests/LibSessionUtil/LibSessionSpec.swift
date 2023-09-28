@@ -12,6 +12,31 @@ import Nimble
 @testable import SessionMessagingKit
 
 class LibSessionSpec: QuickSpec {
+    // FIXME: Would be good to move the identity generation into the libSession-util instead of using Sodium separately
+    static let userSeed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
+    static let seed: Data = Data(
+        hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"
+    )
+    static let identity: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) = try! Identity.generate(from: userSeed)
+    static let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: seed))!
+    static let userEdSK: [UInt8] = identity.ed25519KeyPair.secretKey
+    static let edPK: [UInt8] = keyPair.publicKey
+    static let edSK: [UInt8] = keyPair.secretKey
+    
+    // Since we can't test the group without encryption keys and the C API doesn't have
+    // a way to manually provide encryption keys we needed to create a dump with valid
+    // key data and load that in so we can test the other cases, this dump contains a
+    // single admin member and a single encryption key
+    static let groupKeysDump: Data = Data(hex:
+        "64363a6163746976656c65343a6b6579736c65373a70656e64696e6764313a633136373a" +
+        "64313a2332343ae3abc434666653cb7e913a3101b83704e86a7395ac21a026313a476930" +
+        "65313a4b34383a150c55d933f0c44d1e2527590ae8efbb482f17e04e2a6a3a23f7e900ad" +
+        "2f69f9442fcd4e2fc623e63d7ccaf9a79ffcac313a6b6c65313a7e36343a64d960c70ff1" +
+        "2967b677a8a2ce6e624e1da4c8e372c56d8c8e212ea6b420359e4b244efcb3f5cac8a86d" +
+        "4bfe9dcb6fe9bbdfc98180851decf965dc6a6d2dce0865313a67693065313a6b33323a3e" +
+        "c807213e56d2e3ddcf5096ae414db1689d2f436a6e6ec8e9178b4205e65f926565"
+    )
+    
     override class func spec() {
         // MARK: - libSession
         describe("libSession") {
@@ -22,6 +47,21 @@ class LibSessionSpec: QuickSpec {
             groupInfoSpec()
             groupMembersSpec()
             groupKeysSpec()
+            
+            // MARK: -- has correct test seed data
+            it("has correct test seed data") {
+                expect(LibSessionSpec.userEdSK.toHexString().suffix(64))
+                    .to(equal("4cb76fdc6d32278e3f83dbf608360ecc6b65727934b85d2fb86862ff98c46ab7"))
+                expect(LibSessionSpec.identity.x25519KeyPair.publicKey.toHexString())
+                    .to(equal("d2ad010eeb72d72e561d9de7bd7b6989af77dcabffa03a5111a6c859ae5c3a72"))
+                expect(String(LibSessionSpec.userEdSK.toHexString().prefix(32)))
+                    .to(equal(LibSessionSpec.userSeed.toHexString()))
+                
+                expect(LibSessionSpec.edPK.toHexString())
+                    .to(equal("cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"))
+                expect(String(Data(LibSessionSpec.edSK.prefix(32)).toHexString()))
+                    .to(equal(LibSessionSpec.seed.toHexString()))
+            }
             
             // MARK: -- parses community URLs correctly
             it("parses community URLs correctly") {
@@ -113,32 +153,17 @@ fileprivate extension LibSessionSpec {
 
     class func contactsSpec() {
         context("CONTACTS") {
+            @TestState var userEdSK: [UInt8]! = LibSessionSpec.userEdSK
+            @TestState var error: [CChar]! = [CChar](repeating: 0, count: 256)
+            @TestState var conf: UnsafeMutablePointer<config_object>?
+            @TestState var initResult: Int32! = { contacts_init(&conf, &userEdSK, nil, 0, &error) }()
+            @TestState var numRecords: Int! = 0
+            @TestState var randomGenerator: ARC4RandomNumberGenerator! = ARC4RandomNumberGenerator(seed: 1000)
+            
             // MARK: -- when checking error catching
             context("when checking error catching") {
-                var seed: Data!
-                var identity: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair)!
-                var edSK: [UInt8]!
-                var error: UnsafeMutablePointer<CChar>?
-                var conf: UnsafeMutablePointer<config_object>?
-                
-                beforeEach {
-                    seed = Data(hex: "0123456789abcdef0123456789abcdef")
-                    
-                    // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                    identity = try! Identity.generate(from: seed)
-                    edSK = identity.ed25519KeyPair.secretKey
-                    
-                    // Initialize a brand new, empty config because we have no dump data to deal with.
-                    error = nil
-                    conf = nil
-                    _ = contacts_init(&conf, &edSK, nil, 0, error)
-                    error?.deallocate()
-                }
-                
                 // MARK: ---- it can catch size limit errors thrown when pushing
                 it("can catch size limit errors thrown when pushing") {
-                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
-                    
                     try (0..<10000).forEach { index in
                         var contact: contacts_contact = try createContact(
                             for: index,
@@ -162,32 +187,8 @@ fileprivate extension LibSessionSpec {
             
             // MARK: -- when checking size limits
             context("when checking size limits") {
-                var numRecords: Int!
-                var seed: Data!
-                var identity: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair)!
-                var edSK: [UInt8]!
-                var error: UnsafeMutablePointer<CChar>?
-                var conf: UnsafeMutablePointer<config_object>?
-                
-                beforeEach {
-                    numRecords = 0
-                    seed = Data(hex: "0123456789abcdef0123456789abcdef")
-                    
-                    // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                    identity = try! Identity.generate(from: seed)
-                    edSK = identity.ed25519KeyPair.secretKey
-                    
-                    // Initialize a brand new, empty config because we have no dump data to deal with.
-                    error = nil
-                    conf = nil
-                    _ = contacts_init(&conf, &edSK, nil, 0, error)
-                    error?.deallocate()
-                }
-                
                 // MARK: ---- has not changed the max empty records
                 it("has not changed the max empty records") {
-                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
-                    
                     for index in (0..<100000) {
                         var contact: contacts_contact = try createContact(
                             for: index,
@@ -204,13 +205,11 @@ fileprivate extension LibSessionSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(2370))
+                    expect(numRecords).to(equal(2212))
                 }
                 
                 // MARK: ---- has not changed the max name only records
                 it("has not changed the max name only records") {
-                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
-                    
                     for index in (0..<100000) {
                         var contact: contacts_contact = try createContact(
                             for: index,
@@ -228,13 +227,11 @@ fileprivate extension LibSessionSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(796))
+                    expect(numRecords).to(equal(742))
                 }
                 
                 // MARK: ---- has not changed the max name and profile pic only records
                 it("has not changed the max name and profile pic only records") {
-                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
-                    
                     for index in (0..<100000) {
                         var contact: contacts_contact = try createContact(
                             for: index,
@@ -252,13 +249,11 @@ fileprivate extension LibSessionSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(290))
+                    expect(numRecords).to(equal(270))
                 }
                 
                 // MARK: ---- has not changed the max filled records
                 it("has not changed the max filled records") {
-                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
-                    
                     for index in (0..<100000) {
                         var contact: contacts_contact = try createContact(
                             for: index,
@@ -276,7 +271,7 @@ fileprivate extension LibSessionSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(236))
+                    expect(numRecords).to(equal(220))
                 }
             }
             
@@ -285,22 +280,7 @@ fileprivate extension LibSessionSpec {
             it("generates config correctly") {
                 let createdTs: Int64 = 1680064059
                 let nowTs: Int64 = Int64(Date().timeIntervalSince1970)
-                let seed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
-                
-                // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                let identity = try! Identity.generate(from: seed)
-                var edSK: [UInt8] = identity.ed25519KeyPair.secretKey
-                expect(edSK.toHexString().suffix(64))
-                    .to(equal("4cb76fdc6d32278e3f83dbf608360ecc6b65727934b85d2fb86862ff98c46ab7"))
-                expect(identity.x25519KeyPair.publicKey.toHexString())
-                    .to(equal("d2ad010eeb72d72e561d9de7bd7b6989af77dcabffa03a5111a6c859ae5c3a72"))
-                expect(String(edSK.toHexString().prefix(32))).to(equal(seed.toHexString()))
-                
-                // Initialize a brand new, empty config because we have no dump data to deal with.
-                let error: UnsafeMutablePointer<CChar>? = nil
-                var conf: UnsafeMutablePointer<config_object>? = nil
-                expect(contacts_init(&conf, &edSK, nil, 0, error)).to(equal(0))
-                error?.deallocate()
+                expect(initResult).to(equal(0))
                 
                 // Empty contacts shouldn't have an existing contact
                 let definitelyRealId: String = "050000000000000000000000000000000000000000000000000000000000000000"
@@ -385,10 +365,9 @@ fileprivate extension LibSessionSpec {
                 var dump1Len: Int = 0
                 config_dump(conf, &dump1, &dump1Len)
                 
-                let error2: UnsafeMutablePointer<CChar>? = nil
+                var error2: [CChar] = [CChar](repeating: 0, count: 256)
                 var conf2: UnsafeMutablePointer<config_object>? = nil
-                expect(contacts_init(&conf2, &edSK, dump1, dump1Len, error2)).to(equal(0))
-                error2?.deallocate()
+                expect(contacts_init(&conf2, &userEdSK, dump1, dump1Len, &error2)).to(equal(0))
                 dump1?.deallocate()
                 
                 expect(config_needs_push(conf2)).to(beFalse())
@@ -635,24 +614,14 @@ fileprivate extension Array where Element == LibSessionSpec.ContactProperty {
 fileprivate extension LibSessionSpec {
     class func userProfileSpec() {
         context("USER_PROFILE") {
+            @TestState var userEdSK: [UInt8]! = LibSessionSpec.userEdSK
+            @TestState var error: [CChar]! = [CChar](repeating: 0, count: 256)
+            @TestState var conf: UnsafeMutablePointer<config_object>?
+            @TestState var initResult: Int32! = { user_profile_init(&conf, &userEdSK, nil, 0, &error) }()
+            
             // MARK: -- generates config correctly
             it("generates config correctly") {
-                let seed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
-                
-                // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                let identity = try! Identity.generate(from: seed)
-                var edSK: [UInt8] = identity.ed25519KeyPair.secretKey
-                expect(edSK.toHexString().suffix(64))
-                    .to(equal("4cb76fdc6d32278e3f83dbf608360ecc6b65727934b85d2fb86862ff98c46ab7"))
-                expect(identity.x25519KeyPair.publicKey.toHexString())
-                    .to(equal("d2ad010eeb72d72e561d9de7bd7b6989af77dcabffa03a5111a6c859ae5c3a72"))
-                expect(String(edSK.toHexString().prefix(32))).to(equal(seed.toHexString()))
-                
-                // Initialize a brand new, empty config because we have no dump data to deal with.
-                let error: UnsafeMutablePointer<CChar>? = nil
-                var conf: UnsafeMutablePointer<config_object>? = nil
-                expect(user_profile_init(&conf, &edSK, nil, 0, error)).to(equal(0))
-                error?.deallocate()
+                expect(initResult).to(equal(0))
                 
                 // We don't need to push anything, since this is an empty config
                 expect(config_needs_push(conf)).to(beFalse())
@@ -665,10 +634,12 @@ fileprivate extension LibSessionSpec {
                 
                 // We don't need to push since we haven't changed anything, so this call is mainly just for
                 // testing:
+                let PROTOBUF_OVERHEAD: Int = 28  // To be removed once we no longer protobuf wrap this
+                let PROTOBUF_DATA_OFFSET: Int = 26
                 let pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData1.pointee).toNot(beNil())
                 expect(pushData1.pointee.seqno).to(equal(0))
-                expect(pushData1.pointee.config_len).to(equal(256))
+                expect(pushData1.pointee.config_len).to(equal(256 + PROTOBUF_OVERHEAD))
                 
                 let encDomain: [CChar] = "UserProfile"
                     .bytes
@@ -676,7 +647,13 @@ fileprivate extension LibSessionSpec {
                 expect(String(cString: config_encryption_domain(conf))).to(equal("UserProfile"))
                 
                 var toPushDecSize: Int = 0
-                let toPushDecrypted: UnsafeMutablePointer<UInt8>? = config_decrypt(pushData1.pointee.config, pushData1.pointee.config_len, edSK, encDomain, &toPushDecSize)
+                let toPushDecrypted: UnsafeMutablePointer<UInt8>? = config_decrypt(
+                    pushData1.pointee.config.advanced(by: PROTOBUF_DATA_OFFSET),
+                    (pushData1.pointee.config_len - PROTOBUF_OVERHEAD),
+                    userEdSK,
+                    encDomain,
+                    &toPushDecSize
+                )
                 let prefixPadding: String = (0..<193)
                     .map { _ in "\0" }
                     .joined()
@@ -764,16 +741,20 @@ fileprivate extension LibSessionSpec {
                     "49bf122762d7bc1d6d9c02f6d54f8384"
                 ].joined()).bytes
                 
-                let pushData2Str: String = String(pointer: pushData2.pointee.config, length: pushData2.pointee.config_len, encoding: .ascii)!
+                let pushData2Str: String = String(
+                    pointer: pushData2.pointee.config.advanced(by: PROTOBUF_DATA_OFFSET),
+                    length: (pushData2.pointee.config_len - PROTOBUF_OVERHEAD),
+                    encoding: .ascii
+                )!
                 let expPush1EncryptedStr: String = String(pointer: expPush1Encrypted, length: expPush1Encrypted.count, encoding: .ascii)!
                 expect(pushData2Str).to(equal(expPush1EncryptedStr))
                 
                 // Raw decryption doesn't unpad (i.e. the padding is part of the encrypted data)
                 var pushData2DecSize: Int = 0
                 let pushData2Decrypted: UnsafeMutablePointer<UInt8>? = config_decrypt(
-                    pushData2.pointee.config,
-                    pushData2.pointee.config_len,
-                    edSK,
+                    pushData2.pointee.config.advanced(by: PROTOBUF_DATA_OFFSET),
+                    (pushData2.pointee.config_len - PROTOBUF_OVERHEAD),
+                    userEdSK,
                     encDomain,
                     &pushData2DecSize
                 )
@@ -865,11 +846,10 @@ fileprivate extension LibSessionSpec {
                 // another Session client somewhere).
                 
                 // Start with an empty config, as above:
-                let error2: UnsafeMutablePointer<CChar>? = nil
+                var error2: [CChar] = [CChar](repeating: 0, count: 256)
                 var conf2: UnsafeMutablePointer<config_object>? = nil
-                expect(user_profile_init(&conf2, &edSK, nil, 0, error2)).to(equal(0))
+                expect(user_profile_init(&conf2, &userEdSK, nil, 0, &error2)).to(equal(0))
                 expect(config_needs_dump(conf2)).to(beFalse())
-                error2?.deallocate()
                 
                 // Now imagine we just pulled down the `exp_push1` string from the swarm; we merge it into
                 // conf2:
@@ -1039,24 +1019,16 @@ fileprivate extension LibSessionSpec {
 fileprivate extension LibSessionSpec {
     class func convoInfoVolatileSpec() {
         context("CONVO_INFO_VOLATILE") {
+            @TestState var userEdSK: [UInt8]! = LibSessionSpec.userEdSK
+            @TestState var error: [CChar]! = [CChar](repeating: 0, count: 256)
+            @TestState var conf: UnsafeMutablePointer<config_object>?
+            @TestState var initResult: Int32! = {
+                convo_info_volatile_init(&conf, &userEdSK, nil, 0, &error)
+            }()
+            
             // MARK: -- generates config correctly
             it("generates config correctly") {
-                let seed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
-                
-                // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                let identity = try! Identity.generate(from: seed)
-                var edSK: [UInt8] = identity.ed25519KeyPair.secretKey
-                expect(edSK.toHexString().suffix(64))
-                    .to(equal("4cb76fdc6d32278e3f83dbf608360ecc6b65727934b85d2fb86862ff98c46ab7"))
-                expect(identity.x25519KeyPair.publicKey.toHexString())
-                    .to(equal("d2ad010eeb72d72e561d9de7bd7b6989af77dcabffa03a5111a6c859ae5c3a72"))
-                expect(String(edSK.toHexString().prefix(32))).to(equal(seed.toHexString()))
-                
-                // Initialize a brand new, empty config because we have no dump data to deal with.
-                let error: UnsafeMutablePointer<CChar>? = nil
-                var conf: UnsafeMutablePointer<config_object>? = nil
-                expect(convo_info_volatile_init(&conf, &edSK, nil, 0, error)).to(equal(0))
-                error?.deallocate()
+                expect(initResult).to(equal(0))
                 
                 // Empty contacts shouldn't have an existing contact
                 let definitelyRealId: String = "055000000000000000000000000000000000000000000000000000000000000000"
@@ -1139,10 +1111,9 @@ fileprivate extension LibSessionSpec {
                 var dump1Len: Int = 0
                 config_dump(conf, &dump1, &dump1Len)
                 
-                let error2: UnsafeMutablePointer<CChar>? = nil
+                var error2: [CChar] = [CChar](repeating: 0, count: 256)
                 var conf2: UnsafeMutablePointer<config_object>? = nil
-                expect(convo_info_volatile_init(&conf2, &edSK, dump1, dump1Len, error2)).to(equal(0))
-                error2?.deallocate()
+                expect(convo_info_volatile_init(&conf2, &userEdSK, dump1, dump1Len, &error2)).to(equal(0))
                 dump1?.deallocate()
                 
                 expect(config_needs_dump(conf2)).to(beFalse())
@@ -1297,26 +1268,16 @@ fileprivate extension LibSessionSpec {
 fileprivate extension LibSessionSpec {
     class func userGroupsSpec() {
         context("USER_GROUPS") {
+            @TestState var userEdSK: [UInt8]! = LibSessionSpec.userEdSK
+            @TestState var error: [CChar]! = [CChar](repeating: 0, count: 256)
+            @TestState var conf: UnsafeMutablePointer<config_object>?
+            @TestState var initResult: Int32! = { user_groups_init(&conf, &userEdSK, nil, 0, &error) }()
+            
             // MARK: -- generates config correctly
             it("generates config correctly") {
                 let createdTs: Int64 = 1680064059
                 let nowTs: Int64 = Int64(Date().timeIntervalSince1970)
-                let seed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
-                
-                // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                let identity = try! Identity.generate(from: seed)
-                var edSK: [UInt8] = identity.ed25519KeyPair.secretKey
-                expect(edSK.toHexString().suffix(64))
-                    .to(equal("4cb76fdc6d32278e3f83dbf608360ecc6b65727934b85d2fb86862ff98c46ab7"))
-                expect(identity.x25519KeyPair.publicKey.toHexString())
-                    .to(equal("d2ad010eeb72d72e561d9de7bd7b6989af77dcabffa03a5111a6c859ae5c3a72"))
-                expect(String(edSK.toHexString().prefix(32))).to(equal(seed.toHexString()))
-                
-                // Initialize a brand new, empty config because we have no dump data to deal with.
-                let error: UnsafeMutablePointer<CChar>? = nil
-                var conf: UnsafeMutablePointer<config_object>? = nil
-                expect(user_groups_init(&conf, &edSK, nil, 0, error)).to(equal(0))
-                error?.deallocate()
+                expect(initResult).to(equal(0))
                 
                 // Empty contacts shouldn't have an existing contact
                 let definitelyRealId: String = "055000000000000000000000000000000000000000000000000000000000000000"
@@ -1337,6 +1298,7 @@ fileprivate extension LibSessionSpec {
                 expect(legacyGroup2.pointee.joined_at).to(equal(0))
                 expect(legacyGroup2.pointee.notifications).to(equal(CONVO_NOTIFY_DEFAULT))
                 expect(legacyGroup2.pointee.mute_until).to(equal(0))
+                expect(legacyGroup2.pointee.invited).to(beFalse())
                 
                 // Iterate through and make sure we got everything we expected
                 var membersSeen1: [String: Bool] = [:]
@@ -1360,9 +1322,6 @@ fileprivate extension LibSessionSpec {
                 // testing:
                 let pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData1.pointee.seqno).to(equal(0))
-                expect([String](pointer: pushData1.pointee.obsolete, count: pushData1.pointee.obsolete_len))
-                    .to(beEmpty())
-                expect(pushData1.pointee.config_len).to(equal(256))
                 pushData1.deallocate()
                 
                 let users: [String] = [
@@ -1380,6 +1339,7 @@ fileprivate extension LibSessionSpec {
                 legacyGroup2.pointee.joined_at = createdTs
                 legacyGroup2.pointee.notifications = CONVO_NOTIFY_ALL
                 legacyGroup2.pointee.mute_until = (nowTs + 3600)
+                legacyGroup2.pointee.invited = true
                 expect(ugroups_legacy_member_add(legacyGroup2, &cUsers[0], false)).to(beTrue())
                 expect(ugroups_legacy_member_add(legacyGroup2, &cUsers[1], true)).to(beTrue())
                 expect(ugroups_legacy_member_add(legacyGroup2, &cUsers[2], false)).to(beTrue())
@@ -1471,10 +1431,9 @@ fileprivate extension LibSessionSpec {
                 var dump1Len: Int = 0
                 config_dump(conf, &dump1, &dump1Len)
                 
-                let error2: UnsafeMutablePointer<CChar>? = nil
+                var error2: [CChar] = [CChar](repeating: 0, count: 256)
                 var conf2: UnsafeMutablePointer<config_object>? = nil
-                expect(user_groups_init(&conf2, &edSK, dump1, dump1Len, error2)).to(equal(0))
-                error2?.deallocate()
+                expect(user_groups_init(&conf2, &userEdSK, dump1, dump1Len, &error2)).to(equal(0))
                 dump1?.deallocate()
                 
                 expect(config_needs_dump(conf)).to(beFalse())  // Because we just called dump() above, to load up conf2
@@ -1519,8 +1478,9 @@ fileprivate extension LibSessionSpec {
                 expect(legacyGroup4?.pointee.priority).to(equal(3))
                 expect(String(libSessionVal: legacyGroup4?.pointee.name)).to(equal("Englishmen"))
                 expect(legacyGroup4?.pointee.joined_at).to(equal(createdTs))
-                expect(legacyGroup2.pointee.notifications).to(equal(CONVO_NOTIFY_ALL))
-                expect(legacyGroup2.pointee.mute_until).to(equal(nowTs + 3600))
+                expect(legacyGroup4?.pointee.notifications).to(equal(CONVO_NOTIFY_ALL))
+                expect(legacyGroup4?.pointee.mute_until).to(equal(nowTs + 3600))
+                expect(legacyGroup4?.pointee.invited).to(beTrue())
                 
                 var membersSeen3: [String: Bool] = [:]
                 var memberSessionId3: UnsafePointer<CChar>? = nil
@@ -1805,70 +1765,47 @@ fileprivate extension LibSessionSpec {
 // MARK: - GROUP_INFO
 
 fileprivate extension LibSessionSpec {
-    /// This function can be used to regenerate the hard-coded `keysDump` value if needed due to `libSession` changes
-    /// resulting in the dump changing
-    private static func generateKeysDump(for keysConf: UnsafeMutablePointer<config_group_keys>?) throws -> String {
-        var dumpResult: UnsafeMutablePointer<UInt8>? = nil
-        var dumpResultLen: Int = 0
-        try CExceptionHelper.performSafely {
-            groups_keys_dump(keysConf, &dumpResult, &dumpResultLen)
-        }
-
-        let dumpData: Data = Data(bytes: dumpResult!, count: dumpResultLen)
-        dumpResult?.deallocate()
-        return dumpData.toHexString()
-    }
-    
     class func groupInfoSpec() {
         context("GROUP_INFO") {
+            @TestState var userEdSK: [UInt8]! = LibSessionSpec.userEdSK
+            @TestState var edPK: [UInt8]! = LibSessionSpec.edPK
+            @TestState var edSK: [UInt8]! = LibSessionSpec.edSK
+            @TestState var error: [CChar]! = [CChar](repeating: 0, count: 256)
+            @TestState var infoConf: UnsafeMutablePointer<config_object>?
+            @TestState var membersConf: UnsafeMutablePointer<config_object>?
+            @TestState var keysConf: UnsafeMutablePointer<config_group_keys>?
+            @TestState var infoInitResult: Int32! = {
+                groups_info_init(&infoConf, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var membersInitResult: Int32! = {
+                groups_members_init(&membersConf, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var keysInitResult: Int32! = {
+                LibSessionSpec.initKeysConf(&keysConf, &infoConf, &membersConf)
+            }()
+            
+            @TestState var infoConf2: UnsafeMutablePointer<config_object>?
+            @TestState var keysConf2: UnsafeMutablePointer<config_group_keys>?
+            @TestState var infoInitResult2: Int32! = {
+                groups_info_init(&infoConf2, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var keysInitResult2: Int32! = {
+                LibSessionSpec.initKeysConf(&keysConf2, &infoConf2, &membersConf)
+            }()
+            
+            // Convenience
+            var conf: UnsafeMutablePointer<config_object>? { infoConf }
+            var conf2: UnsafeMutablePointer<config_object>? { infoConf2 }
+            
             // MARK: -- generates config correctly
             it("generates config correctly") {
-                let userSeed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
-                let seed: Data = Data(
-                    hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"
-                )
+                expect(infoInitResult).to(equal(0))
+                expect(membersInitResult).to(equal(0))
+                expect(keysInitResult).to(equal(0))
                 
-                // Since we can't test the group without encryption keys and the C API doesn't have
-                // a way to manually provide encryption keys we needed to create a dump with valid
-                // key data and load that in so we can test the other cases, this dump contains a
-                // single admin member and a single encryption key
-                let keysDump: Data = Data(hex: "64363a6163746976656c65343a6b6579736c6565")
-                let cachedKeysDump: (data: UnsafePointer<UInt8>, length: Int)? = keysDump.withUnsafeBytes { unsafeBytes in
-                    return unsafeBytes.baseAddress.map {
-                        (
-                            $0.assumingMemoryBound(to: UInt8.self),
-                            unsafeBytes.count
-                        )
-                    }
-                }
-                
-                // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                let identity = try! Identity.generate(from: userSeed)
-                let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: seed))!
-                var userEdSK: [UInt8] = identity.ed25519KeyPair.secretKey
-                var edPK: [UInt8] = keyPair.publicKey
-                var edSK: [UInt8] = keyPair.secretKey
-                
-                expect(edPK.toHexString())
-                    .to(equal("cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"))
-                expect(String(Data(edSK.prefix(32)).toHexString())).to(equal(seed.toHexString()))
-                
-                // Initialize a brand new, empty config because we have no dump data to deal with.
-                var error: [CChar] = [CChar](repeating: 0, count: 256)
-                var conf: UnsafeMutablePointer<config_object>? = nil
-                expect(groups_info_init(&conf, &edPK, &edSK, nil, 0, &error)).to(equal(0))
-                
-                var membersConf: UnsafeMutablePointer<config_object>? = nil
-                expect(groups_members_init(&membersConf, &edPK, &edSK, nil, 0, &error)).to(equal(0))
-                
-                var keysConf1: UnsafeMutablePointer<config_group_keys>? = nil
-                expect(groups_keys_init(&keysConf1, &userEdSK, &edPK, &edSK, conf, membersConf, cachedKeysDump?.data, (cachedKeysDump?.length ?? 0), &error)).to(equal(0))
-                
-                var conf2: UnsafeMutablePointer<config_object>? = nil
-                expect(groups_info_init(&conf2, &edPK, &edSK, nil, 0, &error)).to(equal(0))
-                
-                var keysConf2: UnsafeMutablePointer<config_group_keys>? = nil
-                expect(groups_keys_init(&keysConf2, &userEdSK, &edPK, &edSK, conf2, membersConf, cachedKeysDump?.data, (cachedKeysDump?.length ?? 0), &error)).to(equal(0))
+                // Create a second conf to test merging
+                expect(infoInitResult2).to(equal(0))
+                expect(keysInitResult2).to(equal(0))
                 
                 expect(groups_info_set_name(conf, "GROUP Name")).to(equal(0))
                 expect(config_needs_push(conf)).to(beTrue())
@@ -1903,12 +1840,13 @@ fileprivate extension LibSessionSpec {
                     key: Data(hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd")
                         .toLibSession()
                 )
-                expect(groups_info_set_pic(conf, pic)).to(equal(0))
-                groups_info_set_expiry_timer(conf, 60 * 60)
-                groups_info_set_created(conf, createTime)
-                groups_info_set_delete_before(conf, createTime + (50 * 86400))
-                groups_info_set_attach_delete_before(conf, createTime + (70 * 86400))
-                groups_info_destroy_group(conf)
+                expect(groups_info_set_pic(conf2, pic)).to(equal(0))
+                expect(groups_info_set_name(conf2, "GROUP Name2")).to(equal(0))
+                groups_info_set_expiry_timer(conf2, 60 * 60)
+                groups_info_set_created(conf2, createTime)
+                groups_info_set_delete_before(conf2, createTime + (50 * 86400))
+                groups_info_set_attach_delete_before(conf2, createTime + (70 * 86400))
+                groups_info_destroy_group(conf2)
                 
                 let pushData2: UnsafeMutablePointer<config_push_data> = config_push(conf2)
                 let obsoleteHashes: [String] = [String](
@@ -1925,14 +1863,79 @@ fileprivate extension LibSessionSpec {
                 config_confirm_pushed(conf2, pushData2.pointee.seqno, &cFakeHash2)
                 
                 expect(groups_info_set_name(conf, "Better name!")).to(equal(0))
-                
-                // This fails because ginfo1 doesn't yet have the new key that ginfo2 used (bbb...)
+
                 var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
                 var mergeSize2: [Int] = [pushData2.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)).to(equal(0))
+                expect(config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)).to(equal(1))
                 mergeHashes2.forEach { $0?.deallocate() }
-                mergeData2.forEach { $0?.deallocate() }
+                
+                expect(config_needs_push(conf)).to(beTrue())
+                
+                let pushData3: UnsafeMutablePointer<config_push_data> = config_push(conf)
+                
+                let namePtr2: UnsafePointer<CChar>? = groups_info_get_name(conf)
+                let pic2: user_profile_pic = groups_info_get_pic(conf)
+                expect(namePtr2).toNot(beNil())
+                expect(String(cString: namePtr2!)).to(equal("Better name!"))
+                expect(String(libSessionVal: pic2.url)).to(equal("http://example.com/12345"))
+                expect(Data(libSessionVal: pic2.key, count: ProfileManager.avatarAES256KeyByteLength))
+                    .to(equal(Data(
+                        hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
+                    )))
+                expect(groups_info_get_expiry_timer(conf)).to(equal(60 * 60))
+                expect(groups_info_get_created(conf)).to(equal(createTime))
+                expect(groups_info_get_delete_before(conf)).to(equal(createTime + (50 * 86400)))
+                expect(groups_info_get_attach_delete_before(conf)).to(equal(createTime + (70 * 86400)))
+                expect(groups_info_is_destroyed(conf)).to(beTrue())
+                
+                let fakeHash3: String = "fakehash3"
+                var cFakeHash3: [CChar] = fakeHash3.cArray.nullTerminated()
+                config_confirm_pushed(conf, pushData3.pointee.seqno, &cFakeHash3)
+                
+                var mergeHashes3: [UnsafePointer<CChar>?] = [cFakeHash3].unsafeCopy()
+                var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
+                var mergeSize3: [Int] = [pushData3.pointee.config_len]
+                expect(config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)).to(equal(1))
+                mergeHashes3.forEach { $0?.deallocate() }
+                pushData3.deallocate()
+                
+                let namePtr3: UnsafePointer<CChar>? = groups_info_get_name(conf2)
+                let pic3: user_profile_pic = groups_info_get_pic(conf2)
+                expect(namePtr3).toNot(beNil())
+                expect(String(cString: namePtr3!)).to(equal("Better name!"))
+                expect(String(libSessionVal: pic3.url)).to(equal("http://example.com/12345"))
+                expect(Data(libSessionVal: pic3.key, count: ProfileManager.avatarAES256KeyByteLength))
+                    .to(equal(Data(
+                        hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
+                    )))
+                expect(groups_info_get_expiry_timer(conf2)).to(equal(60 * 60))
+                expect(groups_info_get_created(conf2)).to(equal(createTime))
+                expect(groups_info_get_delete_before(conf2)).to(equal(createTime + (50 * 86400)))
+                expect(groups_info_get_attach_delete_before(conf2)).to(equal(createTime + (70 * 86400)))
+                expect(groups_info_is_destroyed(conf2)).to(beTrue())
+            }
+            
+            // MARK: -- prevents writes without admin key
+            it("prevents writes without admin key") {
+                let cachedKeysDump: (data: UnsafePointer<UInt8>, length: Int)? = LibSessionSpec.groupKeysDump.withUnsafeBytes { unsafeBytes in
+                    return unsafeBytes.baseAddress.map {
+                        (
+                            $0.assumingMemoryBound(to: UInt8.self),
+                            unsafeBytes.count
+                        )
+                    }
+                }
+                
+                // Initialize a brand new, empty config with a null `edSK` value
+                expect(groups_info_init(&infoConf, &edPK, nil, nil, 0, &error)).to(equal(0))
+                expect(groups_keys_init(&keysConf, &userEdSK, &edPK, nil, infoConf, membersConf, cachedKeysDump?.data, (cachedKeysDump?.length ?? 0), &error)).to(equal(0))
+                
+                expect(groups_info_set_name(conf, "Super Group!")).toNot(equal(0))
+                expect((conf?.pointee.last_error).map { String(cString: $0) })
+                    .to(equal("Unable to make changes to a read-only config object"))
+                expect(config_needs_push(conf)).to(beFalse())
+                expect(config_needs_dump(conf)).to(beFalse())
             }
         }
     }
@@ -1941,36 +1944,652 @@ fileprivate extension LibSessionSpec {
 // MARK: - GROUP_MEMBERS
 
 fileprivate extension LibSessionSpec {
+    enum GroupMemberProperty: CaseIterable {
+        case name
+        case profile_pic
+        case admin
+        case invited
+        case promoted
+    }
+    
     class func groupMembersSpec() {
         context("GROUP_MEMBERS") {
+            @TestState var userEdSK: [UInt8]! = LibSessionSpec.userEdSK
+            @TestState var edPK: [UInt8]! = LibSessionSpec.edPK
+            @TestState var edSK: [UInt8]! = LibSessionSpec.edSK
+            @TestState var error: [CChar]! = [CChar](repeating: 0, count: 256)
+            @TestState var infoConf: UnsafeMutablePointer<config_object>?
+            @TestState var membersConf: UnsafeMutablePointer<config_object>?
+            @TestState var keysConf: UnsafeMutablePointer<config_group_keys>?
+            @TestState var infoInitResult: Int32! = {
+                groups_info_init(&infoConf, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var membersInitResult: Int32! = {
+                groups_members_init(&membersConf, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var keysInitResult: Int32! = {
+                LibSessionSpec.initKeysConf(&keysConf, &infoConf, &membersConf)
+            }()
+            
+            @TestState var membersConf2: UnsafeMutablePointer<config_object>?
+            @TestState var keysConf2: UnsafeMutablePointer<config_group_keys>?
+            @TestState var membersInitResult2: Int32! = {
+                groups_members_init(&membersConf2, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var keysInitResult2: Int32! = {
+                LibSessionSpec.initKeysConf(&keysConf2, &infoConf, &membersConf2)
+            }()
+            @TestState var numRecords: Int! = 0
+            
+            // Convenience
+            var conf: UnsafeMutablePointer<config_object>? { membersConf }
+            var conf2: UnsafeMutablePointer<config_object>? { membersConf2 }
+            
+            // MARK: -- when checking error catching
+            context("when checking error catching") {
+                // MARK: ---- it can catch size limit errors thrown when pushing
+                it("can catch size limit errors thrown when pushing") {
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+
+                    try (0..<10000).forEach { index in
+                        var member: config_group_member = try createMember(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: .allProperties
+                        )
+                        groups_members_set(conf, &member)
+                    }
+
+                    expect(groups_members_size(conf)).to(equal(10000))
+                    expect(config_needs_push(conf)).to(beTrue())
+                    expect(config_needs_dump(conf)).to(beTrue())
+
+                    expect {
+                        try CExceptionHelper.performSafely { config_push(conf).deallocate() }
+                    }
+                    .to(throwError(NSError(domain: "cpp_exception", code: -2, userInfo: ["NSLocalizedDescription": "Config data is too large"])))
+                }
+            }
+
+            // MARK: -- when checking size limits
+            context("when checking size limits") {
+                // MARK: ---- has not changed the max empty records
+                it("has not changed the max empty records") {
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+
+                    for index in (0..<100000) {
+                        var member: config_group_member = try createMember(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator
+                        )
+                        groups_members_set(conf, &member)
+
+                        do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+                        catch { break }
+
+                        // We successfully inserted a contact and didn't hit the limit so increment the counter
+                        numRecords += 1
+                    }
+
+                    // Check that the record count matches the maximum when we last checked
+                    expect(numRecords).to(equal(2369))
+                }
+
+                // MARK: ---- has not changed the max name only records
+                it("has not changed the max name only records") {
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+
+                    for index in (0..<100000) {
+                        var member: config_group_member = try createMember(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: [.name]
+                        )
+                        groups_members_set(conf, &member)
+
+                        do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+                        catch { break }
+
+                        // We successfully inserted a contact and didn't hit the limit so increment the counter
+                        numRecords += 1
+                    }
+
+                    // Check that the record count matches the maximum when we last checked
+                    expect(numRecords).to(equal(795))
+                }
+
+                // MARK: ---- has not changed the max name and profile pic only records
+                it("has not changed the max name and profile pic only records") {
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+
+                    for index in (0..<100000) {
+                        var member: config_group_member = try createMember(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: [.name, .profile_pic]
+                        )
+                        groups_members_set(conf, &member)
+
+                        do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+                        catch { break }
+
+                        // We successfully inserted a contact and didn't hit the limit so increment the counter
+                        numRecords += 1
+                    }
+
+                    // Check that the record count matches the maximum when we last checked
+                    expect(numRecords).to(equal(289))
+                }
+
+                // MARK: ---- has not changed the max filled records
+                it("has not changed the max filled records") {
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+
+                    for index in (0..<100000) {
+                        var member: config_group_member = try createMember(
+                            for: index,
+                            in: conf,
+                            rand: &randomGenerator,
+                            maxing: .allProperties
+                        )
+                        groups_members_set(conf, &member)
+
+                        do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+                        catch { break }
+
+                        // We successfully inserted a contact and didn't hit the limit so increment the counter
+                        numRecords += 1
+                    }
+
+                    // Check that the record count matches the maximum when we last checked
+                    expect(numRecords).to(equal(289))
+                }
+            }
+            
             // MARK: -- generates config correctly
             it("generates config correctly") {
-                let seed: Data = Data(
-                    hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"
+                expect(membersInitResult).to(equal(0))
+                expect(infoInitResult).to(equal(0))
+                expect(keysInitResult).to(equal(0))
+                
+                // Create a second conf to test merging
+                expect(membersInitResult2).to(equal(0))
+                expect(keysInitResult2).to(equal(0))
+                
+                let postPrefixId: String = ("05aa" + (0..<31).map { _ in "00" }.joined())
+                let sids: [String] = (0..<256).map {
+                    (postPrefixId.prefix(postPrefixId.count - "\($0)".count) + "\($0)")
+                }
+                
+                // 10 admins:
+                (0..<10).forEach { index in
+                    var member: config_group_member = config_group_member(
+                        session_id: sids[index].toLibSession(),
+                        name: "Admin \(index)".toLibSession(),
+                        profile_pic: user_profile_pic(
+                            url: "http://example.com/".toLibSession(),
+                            key: Data(hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd")
+                                .toLibSession()
+                        ),
+                        admin: true,
+                        invited: 0,
+                        promoted: 0
+                    )
+                    
+                    groups_members_set(conf, &member)
+                }
+                
+                // 10 members:
+                (10..<20).forEach { index in
+                    var member: config_group_member = config_group_member(
+                        session_id: sids[index].toLibSession(),
+                        name: "Member \(index)".toLibSession(),
+                        profile_pic: user_profile_pic(
+                            url: "http://example.com/".toLibSession(),
+                            key: Data(hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd")
+                                .toLibSession()
+                        ),
+                        admin: false,
+                        invited: 0,
+                        promoted: 0
+                    )
+                    
+                    groups_members_set(conf, &member)
+                }
+                
+                // 5 members with no attributes (not even a name):
+                (20..<25).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    expect(groups_members_get_or_construct(conf, &member, &cSessionId)).to(beTrue())
+                    groups_members_set(conf, &member)
+                }
+                
+                expect(config_needs_push(conf)).to(beTrue())
+                
+                let pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
+                expect(pushData1.pointee.seqno).to(equal(1))
+                expect(pushData1.pointee.config_len).to(equal(512))
+                expect(pushData1.pointee.obsolete_len).to(equal(0))
+                
+                let fakeHash1: String = "fakehash1"
+                var cFakeHash1: [CChar] = fakeHash1.cArray.nullTerminated()
+                config_confirm_pushed(conf, pushData1.pointee.seqno, &cFakeHash1)
+                expect(config_needs_push(conf)).to(beFalse())
+                expect(config_needs_dump(conf)).to(beTrue())
+                
+                var mergeHashes1: [UnsafePointer<CChar>?] = [cFakeHash1].unsafeCopy()
+                var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData1.pointee.config)]
+                var mergeSize1: [Int] = [pushData1.pointee.config_len]
+                expect(config_merge(conf2, &mergeHashes1, &mergeData1, &mergeSize1, 1)).to(equal(1))
+                expect(config_needs_push(conf2)).to(beFalse())
+                mergeHashes1.forEach { $0?.deallocate() }
+                pushData1.deallocate()
+                
+                expect(groups_members_size(conf2)).to(equal(25))
+                
+                (0..<25).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    expect(groups_members_get(conf2, &member, &cSessionId)).to(beTrue())
+                    expect(String(libSessionVal: member.session_id)).to(equal(sids[index]))
+                    expect(member.invited).to(equal(0))
+                    expect(member.promoted).to(equal(0))
+                    
+                    switch index {
+                        case 0..<10:
+                            expect(String(libSessionVal: member.name)).to(equal("Admin \(index)"))
+                            expect(member.admin).to(beTrue())
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
+                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                                .to(equal(Data(
+                                    hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
+                                )))
+                            
+                        case 10..<20:
+                            expect(String(libSessionVal: member.name)).to(equal("Member \(index)"))
+                            expect(member.admin).to(beFalse())
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
+                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                                .to(equal(Data(
+                                    hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
+                                )))
+                            
+                        case 20..<25:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(member.admin).to(beFalse())
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        default: expect(true).to(beFalse())  // All cases covered
+                    }
+                }
+                
+                (22..<50).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    expect(groups_members_get_or_construct(conf2, &member, &cSessionId)).to(beTrue())
+                    member.name = "Member \(index)".toLibSession()
+                    groups_members_set(conf2, &member)
+                }
+                (50..<55).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    expect(groups_members_get_or_construct(conf2, &member, &cSessionId)).to(beTrue())
+                    member.invited = 1  // Invite Sent
+                    groups_members_set(conf2, &member)
+                }
+                (55..<58).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    expect(groups_members_get_or_construct(conf2, &member, &cSessionId)).to(beTrue())
+                    member.invited = 2 // Invite Failed
+                    groups_members_set(conf2, &member)
+                }
+                (58..<62).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    expect(groups_members_get_or_construct(conf2, &member, &cSessionId)).to(beTrue())
+                    member.promoted = (index < 60 ? 1 : 2) // Promotion Sent/Failed
+                    groups_members_set(conf2, &member)
+                }
+                
+                var cSessionId1: [CChar] = sids[23].cArray
+                var member1: config_group_member = config_group_member()
+                expect(groups_members_get(conf2, &member1, &cSessionId1)).to(beTrue())
+                member1.name = "Member 23".toLibSession()
+                groups_members_set(conf2, &member1)
+                
+                let pushData2: UnsafeMutablePointer<config_push_data> = config_push(conf2)
+                let obsoleteHashes: [String] = [String](
+                    pointer: pushData2.pointee.obsolete,
+                    count: pushData2.pointee.obsolete_len,
+                    defaultValue: []
                 )
+                expect(pushData2.pointee.seqno).to(equal(2))
+                expect(pushData2.pointee.config_len).to(equal(768))
+                expect(obsoleteHashes).to(equal(["fakehash1"]))
                 
-                // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: seed))!
-                var edPK: [UInt8] = keyPair.publicKey
-                var edSK: [UInt8] = keyPair.secretKey
+                let fakeHash2: String = "fakehash2"
+                var cFakeHash2: [CChar] = fakeHash2.cArray.nullTerminated()
+                config_confirm_pushed(conf2, pushData2.pointee.seqno, &cFakeHash2)
                 
-                expect(edPK.toHexString())
-                    .to(equal("cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"))
-                expect(String(Data(edSK.prefix(32)).toHexString())).to(equal(seed.toHexString()))
+                var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
+                var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
+                var mergeSize2: [Int] = [pushData2.pointee.config_len]
+                expect(config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)).to(equal(1))
+                mergeHashes2.forEach { $0?.deallocate() }
                 
-                // Initialize a brand new, empty config because we have no dump data to deal with.
-                var error: [CChar] = [CChar](repeating: 0, count: 256)
-                var conf: UnsafeMutablePointer<config_object>? = nil
+                var cSessionId2: [CChar] = sids[23].cArray
+                var member2: config_group_member = config_group_member()
+                expect(groups_members_get(conf, &member2, &cSessionId2)).to(beTrue())
+                expect(String(libSessionVal: member2.name)).to(equal("Member 23"))
                 
-                expect(groups_members_init(&conf, &edPK, &edSK, nil, 0, &error)).to(equal(0))
+                expect(groups_members_size(conf)).to(equal(62))
+                
+                (0..<62).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    expect(groups_members_get(conf, &member, &cSessionId)).to(beTrue())
+                    expect(String(libSessionVal: member.session_id)).to(equal(sids[index]))
+                    
+                    switch index {
+                        case 0..<10:
+                            expect(String(libSessionVal: member.name)).to(equal("Admin \(index)"))
+                            expect(member.admin).to(beTrue())
+                            expect(member.invited).to(equal(0))
+                            expect(member.promoted).to(equal(0))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
+                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                                .to(equal(Data(
+                                    hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
+                                )))
+                            
+                        case 10..<20:
+                            expect(String(libSessionVal: member.name)).to(equal("Member \(index)"))
+                            expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(0))
+                            expect(member.promoted).to(equal(0))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
+                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                                .to(equal(Data(
+                                    hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
+                                )))
+                            
+                        case 22..<50:
+                            expect(String(libSessionVal: member.name)).to(equal("Member \(index)"))
+                            expect(member.admin).to(beFalse())
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        case 50..<55:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(1))
+                            expect(member.promoted).to(equal(0))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        case 55..<58:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(2))
+                            expect(member.promoted).to(equal(0))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        case 58..<60:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(0))
+                            expect(member.promoted).to(equal(1))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                        
+                        case 20, 21:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(0))
+                            expect(member.promoted).to(equal(0))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        case 60..<62:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(0))
+                            expect(member.promoted).to(equal(2))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        default: expect(index).to(equal(-1))  // All cases covered
+                    }
+                }
+                
+                var cSessionId: [CChar] = []
+                var member: config_group_member = config_group_member()
+                
+                (0..<62).forEach { index in
+                    cSessionId = sids[index].cArray
+                    member = config_group_member()
+                    
+                    switch index {
+                        // Prime numbers (rather than writing an 'isPrime' function)
+                        case 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61:
+                            _ = groups_members_erase(conf, &cSessionId)
+                        
+                        case 50..<55:
+                            expect(groups_members_get(conf, &member, &cSessionId)).to(beTrue())
+                            member.invited = 0
+                            groups_members_set(conf, &member)
+                            
+                        case 55, 56:
+                            expect(groups_members_get(conf, &member, &cSessionId)).to(beTrue())
+                            member.invited = 1
+                            groups_members_set(conf, &member)
+                            
+                        case 58:
+                            expect(groups_members_get(conf, &member, &cSessionId)).to(beTrue())
+                            member.admin = true
+                            groups_members_set(conf, &member)
+                            
+                        default: break
+                    }
+                }
+                
+                let pushData3: UnsafeMutablePointer<config_push_data> = config_push(conf)
+                let obsoleteHashes3: [String] = [String](
+                    pointer: pushData3.pointee.obsolete,
+                    count: pushData3.pointee.obsolete_len,
+                    defaultValue: []
+                )
+                expect(pushData3.pointee.seqno).to(equal(3))
+                expect(pushData3.pointee.config_len).to(equal(1024))
+                expect(obsoleteHashes3).to(equal(["fakehash2", "fakehash1"]))
+                
+                let fakeHash3: String = "fakehash3"
+                var cFakeHash3: [CChar] = fakeHash3.cArray.nullTerminated()
+                config_confirm_pushed(conf, pushData3.pointee.seqno, &cFakeHash3)
+                
+                var mergeHashes3: [UnsafePointer<CChar>?] = [cFakeHash3].unsafeCopy()
+                var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
+                var mergeSize3: [Int] = [pushData3.pointee.config_len]
+                expect(config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)).to(equal(1))
+                mergeHashes3.forEach { $0?.deallocate() }
+                
+                expect(groups_members_size(conf2)).to(equal(44))    // 18 deleted earlier
+                
+                (0..<62).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    
+                    // Existence
+                    switch index {
+                        case 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41,
+                            43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97:
+                            expect(groups_members_get(conf2, &member, &cSessionId)).to(beFalse())
+                            return
+                            
+                        default:
+                            expect(groups_members_get(conf2, &member, &cSessionId)).to(beTrue())
+                            expect(String(libSessionVal: member.session_id)).to(equal(sids[index]))
+                            expect(member.profile_pic).toNot(beNil())
+                    }
+                    
+                    // Name & Profile
+                    switch index {
+                        case 0..<10:
+                            expect(String(libSessionVal: member.name)).to(equal("Admin \(index)"))
+                            expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
+                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                                .to(equal(Data(
+                                    hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
+                                )))
+                            
+                        case 10..<20:
+                            expect(String(libSessionVal: member.name)).to(equal("Member \(index)"))
+                            expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
+                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                                .to(equal(Data(
+                                    hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
+                                )))
+                            
+                        case 22..<50:
+                            expect(String(libSessionVal: member.name)).to(equal("Member \(index)"))
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        default:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                    }
+                    
+                    // Admin
+                    switch index {
+                        case 0..<10, 58: expect(member.admin).to(beTrue())
+                        default: expect(member.admin).to(beFalse())
+                    }
+                    
+                    // Invited
+                    switch index {
+                        case 55, 56: expect(member.invited).to(equal(1))
+                        case 57: expect(member.invited).to(equal(2))
+                        default: expect(member.invited).to(equal(0))
+                    }
+                    
+                    // Promoted
+                    switch index {
+                        case 58: expect(member.promoted).to(equal(0))    // Reset by setting `admin = true`
+                        case 60, 61: expect(member.promoted).to(equal(2))
+                        default: expect(member.promoted).to(equal(0))
+                    }
+                }
             }
         }
     }
+    
+    // MARK: - Convenience
+    
+    private static func createMember(
+        for index: Int,
+        in conf: UnsafeMutablePointer<config_object>?,
+        rand: inout ARC4RandomNumberGenerator,
+        maxing properties: [GroupMemberProperty] = []
+    ) throws -> config_group_member {
+        let postPrefixId: String = "05\(rand.nextBytes(count: 32).toHexString())"
+        let sessionId: String = ("05\(index)a" + postPrefixId.suffix(postPrefixId.count - "05\(index)a".count))
+        var cSessionId: [CChar] = sessionId.cArray.nullTerminated()
+        var member: config_group_member = config_group_member()
+        
+        guard groups_members_get_or_construct(conf, &member, &cSessionId) else {
+            throw SessionUtilError.getOrConstructFailedUnexpectedly
+        }
+        
+        // Set the values to the maximum data that can fit
+        properties.forEach { property in
+            switch property {
+                case .admin: member.admin = true
+                case .invited: member.invited = true
+                case .promoted: member.promoted = true
+                
+                case .name:
+                    member.name = rand.nextBytes(count: SessionUtil.libSessionMaxNameByteLength)
+                        .toHexString()
+                        .toLibSession()
+                
+                case .profile_pic:
+                    member.profile_pic = user_profile_pic(
+                        url: rand.nextBytes(count: SessionUtil.libSessionMaxProfileUrlByteLength)
+                            .toHexString()
+                            .toLibSession(),
+                        key: Data(rand.nextBytes(count: 32))
+                            .toLibSession()
+                    )
+            }
+        }
+        
+        return member
+    }
+}
+
+fileprivate extension Array where Element == LibSessionSpec.GroupMemberProperty {
+    static var allProperties: [LibSessionSpec.GroupMemberProperty] = LibSessionSpec.GroupMemberProperty.allCases
 }
 
 // MARK: - GROUP_KEYS
 
 fileprivate extension LibSessionSpec {
+    static func initKeysConf(
+        _ keysConf: inout UnsafeMutablePointer<config_group_keys>?,
+        _ infoConf: inout UnsafeMutablePointer<config_object>?,
+        _ membersConf: inout UnsafeMutablePointer<config_object>?
+    ) -> Int32 {
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
+        var userEdSK: [UInt8] = LibSessionSpec.userEdSK
+        var edPK: [UInt8] = LibSessionSpec.edPK
+        var edSK: [UInt8] = LibSessionSpec.edSK
+        let cachedKeysDump: (data: UnsafePointer<UInt8>, length: Int)? = LibSessionSpec.groupKeysDump.withUnsafeBytes { unsafeBytes in
+            return unsafeBytes.baseAddress.map {
+                (
+                    $0.assumingMemoryBound(to: UInt8.self),
+                    unsafeBytes.count
+                )
+            }
+        }
+        
+        return groups_keys_init(&keysConf, &userEdSK, &edPK, &edSK, infoConf, membersConf, cachedKeysDump?.data, (cachedKeysDump?.length ?? 0), &error)
+    }
+    
+    /// This function can be used to regenerate the hard-coded `keysDump` value if needed due to `libSession` changes
+    /// resulting in the dump changing
+    static func generateKeysDump(for keysConf: UnsafeMutablePointer<config_group_keys>?) throws -> String {
+        var dumpResult: UnsafeMutablePointer<UInt8>? = nil
+        var dumpResultLen: Int = 0
+        try CExceptionHelper.performSafely {
+            groups_keys_dump(keysConf, &dumpResult, &dumpResultLen)
+        }
+
+        let dumpData: Data = Data(bytes: dumpResult!, count: dumpResultLen)
+        dumpResult?.deallocate()
+        return dumpData.toHexString()
+    }
+    
     class func groupKeysSpec() {
         context("GROUP_KEYS") {
             // MARK: -- generates config correctly
