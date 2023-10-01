@@ -37,3 +37,14 @@ public struct SnodeRequest<T: Encodable>: Encodable {
 extension SnodeRequest: BatchRequestChildRetrievable where T: BatchRequestChildRetrievable {
     public var requests: [HTTP.BatchRequest.Child] { body.requests }
 }
+
+// MARK: - UpdatableTimestamp
+
+extension SnodeRequest: UpdatableTimestamp where T: UpdatableTimestamp {
+    public func with(timestampMs: UInt64) -> SnodeRequest<T> {
+        return SnodeRequest(
+            endpoint: self.endpoint,
+            body: self.body.with(timestampMs: timestampMs)
+        )
+    }
+}

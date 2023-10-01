@@ -510,6 +510,8 @@
 		FD17D7CD27F546FF00122BE0 /* Setting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7CC27F546FF00122BE0 /* Setting.swift */; };
 		FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E427F6A09900122BE0 /* Identity.swift */; };
 		FD17D7E727F6A16700122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */; };
+		FD19363A2ACA25BA004BCF0F /* UpdatableTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1936392ACA25BA004BCF0F /* UpdatableTimestamp.swift */; };
+		FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */; };
 		FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */; };
 		FD1A94FE2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */; };
 		FD1C98E4282E3C5B00B76F9E /* UINavigationBar+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */; };
@@ -1735,6 +1737,8 @@
 		FD17D7CC27F546FF00122BE0 /* Setting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Setting.swift; sourceTree = "<group>"; };
 		FD17D7E427F6A09900122BE0 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
+		FD1936392ACA25BA004BCF0F /* UpdatableTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatableTimestamp.swift; sourceTree = "<group>"; };
+		FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ResponseInfo+SnodeAPI.swift"; sourceTree = "<group>"; };
 		FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistableRecord+Utilities.swift"; sourceTree = "<group>"; };
 		FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistableRecordUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UINavigationBar+Utilities.swift"; sourceTree = "<group>"; };
@@ -4611,6 +4615,7 @@
 				FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */,
 				FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */,
 				FD47E0BF2AA83D7300A55E41 /* SwarmDrainBehaviour.swift */,
+				FD1936392ACA25BA004BCF0F /* UpdatableTimestamp.swift */,
 				FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */,
 			);
 			path = Types;
@@ -4622,6 +4627,7 @@
 				FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */,
 				FDF8489329405C1B007DCAE5 /* SnodeAPI.swift */,
 				FD47E0B42AA6D7AA00A55E41 /* Request+SnodeAPI.swift */,
+				FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */,
 				FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */,
 				FDF848E929405E4E007DCAE5 /* OnionRequestAPI+Encryption.swift */,
 				FDF848EA29405E4E007DCAE5 /* Notification+OnionRequestAPI.swift */,
@@ -6008,6 +6014,7 @@
 				FDF848BC29405C5A007DCAE5 /* SnodeRecursiveResponse.swift in Sources */,
 				FDF848C029405C5A007DCAE5 /* ONSResolveResponse.swift in Sources */,
 				FD17D7A427F40F8100122BE0 /* _003_YDBToGRDBMigration.swift in Sources */,
+				FD19363A2ACA25BA004BCF0F /* UpdatableTimestamp.swift in Sources */,
 				FDFC4D9A29F0C51500992FB6 /* String+Trimming.swift in Sources */,
 				FDB5DAF32A96DD4F002C8721 /* PreparedRequest+OnionRequest.swift in Sources */,
 				FDF848C629405C5B007DCAE5 /* DeleteAllMessagesRequest.swift in Sources */,
@@ -6017,6 +6024,7 @@
 				FDF848D129405C5B007DCAE5 /* SnodeSwarmItem.swift in Sources */,
 				FDF848DD29405C5B007DCAE5 /* LegacySendMessageRequest.swift in Sources */,
 				FDF848BD29405C5A007DCAE5 /* GetMessagesRequest.swift in Sources */,
+				FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */,
 				FDF848DB29405C5B007DCAE5 /* DeleteMessagesResponse.swift in Sources */,
 				FDF848E629405D6E007DCAE5 /* OnionRequestAPIDestination.swift in Sources */,
 				FD47E0AB2AA68EEA00A55E41 /* Authentication.swift in Sources */,

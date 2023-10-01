@@ -165,11 +165,17 @@ extension MessageSender {
         groupIdentityPublicKey: String,
         name: String,
         displayPicture: SignalAttachment?,
+        members: [(String, Profile?)],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         guard SessionId.Prefix(from: groupIdentityPublicKey) == .group else {
-            return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
-                .eraseToAnyPublisher()
+            // FIXME: Fail with `MessageSenderError.invalidClosedGroupUpdate` once support for legacy groups is removed
+            return MessageSender.update(
+                legacyGroupPublicKey: groupIdentityPublicKey,
+                with: members.map { $0.0 }.asSet(),
+                name: name,
+                using: dependencies
+            )
         }
         
         return dependencies[singleton: .storage]

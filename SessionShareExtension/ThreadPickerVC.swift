@@ -221,11 +221,17 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             ) :
             messageText
         )
+        let publicKey: String = {
+            switch threadVariant {
+                case .contact, .legacyGroup, .group: return threadId
+                case .community: return getUserHexEncodedPublicKey(using: dependencies)
+            }
+        }()
         
         shareNavController?.dismiss(animated: true, completion: nil)
         
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
-            Storage.resumeDatabaseAccess()
+            Storage.resumeDatabaseAccess(using: dependencies)
             
             /// When we prepare the message we set the timestamp to be the `SnodeAPI.currentOffsetTimestampMs()`
             /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
@@ -246,18 +252,15 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .eraseToAnyPublisher()
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMap { _ in
+                .flatMap { _ -> AnyPublisher<Void, Error> in
                     SnodeAPI
-                        .getSwarm(
-                            for: {
-                                switch threadVariant {
-                                    case .contact, .legacyGroup, .group: return threadId
-                                    case .community: return getUserHexEncodedPublicKey(using: dependencies)
-                                }
-                            }(),
-                            using: dependencies
-                        )
-                        .tryFlatMapWithRandomSnode { SnodeAPI.getNetworkTime(from: $0, using: dependencies) }
+                        .getSwarm(for: publicKey, using: dependencies)
+                        .tryFlatMapWithRandomSnode { snode in
+                            Just(try SnodeAPI.preparedGetNetworkTime(from: snode, using: dependencies))
+                                .setFailureType(to: Error.self)
+                                .eraseToAnyPublisher()
+                        }
+                        .map { $0.send(using: dependencies) }
                         .map { _ in () }
                         .eraseToAnyPublisher()
                 }
@@ -353,7 +356,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
-                        Storage.suspendDatabaseAccess()
+                        Storage.suspendDatabaseAccess(using: dependencies)
                         activityIndicator.dismiss { }
                         
                         switch result {

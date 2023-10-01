@@ -4,7 +4,7 @@ import Foundation
 import SessionUtilitiesKit
 
 extension SnodeAPI {
-    public class DeleteAllBeforeRequest: SnodeAuthenticatedRequestBody {
+    public final class DeleteAllBeforeRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
         enum CodingKeys: String, CodingKey {
             case beforeMs = "before"
             case namespace
@@ -45,6 +45,17 @@ extension SnodeAPI {
             }
             
             try super.encode(to: encoder)
+        }
+        
+        // MARK: - UpdatableTimestamp
+        
+        public func with(timestampMs: UInt64) -> DeleteAllBeforeRequest {
+            return DeleteAllBeforeRequest(
+                beforeMs: self.beforeMs,
+                namespace: self.namespace,
+                authInfo: self.authInfo,
+                timestampMs: timestampMs
+            )
         }
         
         // MARK: - Abstract Methods

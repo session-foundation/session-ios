@@ -168,42 +168,53 @@ final class NukeDataModal: Modal {
         presentedViewController: UIViewController,
         using dependencies: Dependencies = Dependencies()
     ) {
+        typealias PreparedClearRequests = (
+            deleteAll: HTTP.PreparedRequest<[String: Bool]>,
+            inboxRequestInfo: [HTTP.PreparedRequest<String>]
+        )
+        
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
-                Publishers
-                    .MergeMany(
-                        dependencies[singleton: .storage]
-                            .read { db -> [(String, HTTP.PreparedRequest<OpenGroupAPI.DeleteInboxResponse>)] in
-                                return try OpenGroup
-                                    .filter(OpenGroup.Columns.isActive == true)
-                                    .select(.server)
-                                    .distinct()
-                                    .asRequest(of: String.self)
-                                    .fetchSet(db)
-                                    .map { ($0, try OpenGroupAPI.preparedClearInbox(db, on: $0))}
-                            }
-                            .defaulting(to: [])
-                            .compactMap { server, preparedRequest in
-                                preparedRequest
-                                    .send(using: dependencies)
-                                    .map { _ in [server: true] }
-                                    .eraseToAnyPublisher()
-                            }
-                    )
-                    .collect()
+                dependencies[singleton: .storage]
+                    .readPublisher { db -> PreparedClearRequests in
+                        let authInfo: SnodeAPI.AuthenticationInfo = try SnodeAPI.AuthenticationInfo(
+                            db,
+                            threadId: getUserHexEncodedPublicKey(db, using: dependencies),
+                            using: dependencies
+                        )
+                        
+                        return (
+                            try SnodeAPI.preparedDeleteAllMessages(
+                                namespace: .all,
+                                authInfo: authInfo,
+                                using: dependencies
+                            ),
+                            try OpenGroup
+                                .filter(OpenGroup.Columns.isActive == true)
+                                .select(.server)
+                                .distinct()
+                                .asRequest(of: String.self)
+                                .fetchSet(db)
+                                .map { server in
+                                    try OpenGroupAPI.preparedClearInbox(db, on: server)
+                                        .map { _, _ in server }
+                                }
+                        )
+                    }
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .flatMap { results in
-                        dependencies[singleton: .storage]
-                            .readPublisher(using: dependencies) { db in
-                                try SnodeAPI.AuthenticationInfo(
-                                    db,
-                                    threadId: getUserHexEncodedPublicKey(db, using: dependencies),
-                                    using: dependencies
-                                )
-                            }
-                            .flatMap { SnodeAPI.deleteAllMessages(namespace: .all, authInfo: $0) }
-                            .map { results.reduce($0) { result, next in result.updated(with: next) } }
+                    .flatMap { preparedRequests -> AnyPublisher<(HTTP.PreparedRequest<[String: Bool]>, [String]), Error> in
+                        Publishers
+                            .MergeMany(preparedRequests.inboxRequestInfo.map { $0.send(using: dependencies) })
+                            .collect()
+                            .map { response in (preparedRequests.deleteAll, response.map { $0.1 }) }
                             .eraseToAnyPublisher()
+                    }
+                    .flatMap { preparedDeleteAllRequest, clearedServers in
+                        preparedDeleteAllRequest
+                            .send(using: dependencies)
+                            .map { _, data in
+                                clearedServers.reduce(into: data) { result, next in result[next] = true }
+                            }
                     }
                     .receive(on: DispatchQueue.main, using: dependencies)
                     .sinkUntilComplete(

@@ -427,7 +427,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         navigationController?.pushViewController(userSelectionVC, animated: true, completion: nil)
     }
 
-    private func commitChanges() {
+    private func commitChanges(using dependencies: Dependencies = Dependencies()) {
         let popToConversationVC: ((EditClosedGroupVC?) -> ()) = { editVC in
             guard
                 let viewControllers: [UIViewController] = editVC?.navigationController?.viewControllers,
@@ -443,9 +443,9 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let threadId: String = self.threadId
         let updatedName: String = self.name
         let userPublicKey: String = self.userPublicKey
-        let updatedMemberIds: Set<String> = self.membersAndZombies
-            .map { $0.profileId }
-            .asSet()
+        let updatedMembers: [(String, Profile?)] = self.membersAndZombies
+            .map { ($0.profileId, $0.profile) }
+        let updatedMemberIds: Set<String> = updatedMembers.map { $0.0 }.asSet()
         
         guard updatedMemberIds != self.originalMembersAndZombieIds || updatedName != self.originalName else {
             return popToConversationVC(self)
@@ -464,24 +464,43 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         }
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
-            Dependencies()[singleton: .storage]
-                .writePublisher { db in
-                    // If the user is no longer a member then leave the group
-                    guard !updatedMemberIds.contains(userPublicKey) else { return }
+            // If the user is no longer a member then leave the group
+            guard updatedMemberIds.contains(userPublicKey) else {
+                dependencies[singleton: .storage]
+                    .writePublisher { db in
+                        try MessageSender.leave(
+                            db,
+                            groupPublicKey: threadId,
+                            deleteThread: true
+                        )
+                    }
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                    .receive(on: DispatchQueue.main)
+                    .sinkUntilComplete(
+                        receiveCompletion: { [weak self] result in
+                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                            
+                            switch result {
+                                case .finished: popToConversationVC(self)
+                                case .failure(let error):
+                                    self?.showError(
+                                        title: "GROUP_UPDATE_ERROR_TITLE".localized(),
+                                        message: error.localizedDescription
+                                    )
+                            }
+                        }
+                    )
+                return
+            }
 
-                    try MessageSender.leave(
-                        db,
-                        groupPublicKey: threadId,
-                        deleteThread: true
-                    )
-                }
-                .flatMap {
-                    MessageSender.update(
-                        legacyGroupPublicKey: threadId,
-                        with: updatedMemberIds,
-                        name: updatedName
-                    )
-                }
+            // Otherwise update the group details
+            MessageSender
+                .updateGroup(
+                    groupIdentityPublicKey: threadId,
+                    name: updatedName,
+                    displayPicture: nil,
+                    members: updatedMembers
+                )
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(

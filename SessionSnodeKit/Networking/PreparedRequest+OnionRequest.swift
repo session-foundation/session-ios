@@ -36,9 +36,21 @@ public extension HTTP.PreparedRequest {
                                 )
                             )
                         
+                    case let snodeTarget as HTTP.SnodeTarget:
+                        guard let payload: Data = request.httpBody else { throw HTTPError.invalidPreparedRequest }
+
+                        return dependencies[singleton: .network]
+                            .send(
+                                .onionRequest(
+                                    payload,
+                                    to: snodeTarget.snode,
+                                    timeout: timeout
+                                )
+                            )
+                        
                     case let randomSnode as HTTP.RandomSnodeTarget:
                         guard let payload: Data = request.httpBody else { throw HTTPError.invalidPreparedRequest }
-                        
+
                         return SnodeAPI.getSwarm(for: randomSnode.publicKey, using: dependencies)
                             .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount) { snode in
                                 dependencies[singleton: .network]
@@ -49,6 +61,42 @@ public extension HTTP.PreparedRequest {
                                             timeout: timeout
                                         )
                                     )
+                            }
+                        
+                    case let randomSnode as HTTP.RandomSnodeLatestNetworkTimeTarget:
+                        guard request.httpBody != nil else { throw HTTPError.invalidPreparedRequest }
+                        
+                        return SnodeAPI.getSwarm(for: randomSnode.publicKey, using: dependencies)
+                            .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount) { snode in
+                                try SnodeAPI
+                                    .preparedGetNetworkTime(from: snode, using: dependencies)
+                                    .send(using: dependencies)
+                                    .tryFlatMap { _, timestampMs in
+                                        guard
+                                            let updatedRequest: URLRequest = try? randomSnode
+                                                .urlRequestWithUpdatedTimestampMs(timestampMs, dependencies),
+                                            let payload: Data = updatedRequest.httpBody
+                                        else { throw HTTPError.invalidPreparedRequest }
+                                        
+                                        return dependencies[singleton: .network]
+                                            .send(
+                                                .onionRequest(
+                                                    payload,
+                                                    to: snode,
+                                                    timeout: timeout
+                                                )
+                                            )
+                                            .map { info, response -> (ResponseInfoType, Data?) in
+                                                (
+                                                    SnodeAPI.LatestTimestampResponseInfo(
+                                                        code: info.code,
+                                                        headers: info.headers,
+                                                        timestampMs: timestampMs
+                                                    ),
+                                                    response
+                                                )
+                                            }
+                                    }
                             }
                         
                     default: throw HTTPError.invalidPreparedRequest

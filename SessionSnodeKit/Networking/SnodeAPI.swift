@@ -861,110 +861,72 @@ public final class SnodeAPI {
     }
     
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
-    public static func deleteAllMessages(
+    public static func preparedDeleteAllMessages(
         namespace: SnodeAPI.Namespace,
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<[String: Bool], Error> {
-        return getSwarm(for: authInfo.publicKey, using: dependencies)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
-                getNetworkTime(from: snode)
-                    .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
-                        SnodeAPI
-                            .send(
-                                request: SnodeRequest(
-                                    endpoint: .deleteAll,
-                                    body: DeleteAllMessagesRequest(
-                                        namespace: namespace,
-                                        authInfo: authInfo,
-                                        timestampMs: timestampMs
-                                    )
-                                ),
-                                to: snode,
-                                associatedWith: authInfo.publicKey,
-                                using: dependencies
-                            )
-                            .decoded(as: DeleteAllMessagesResponse.self, using: dependencies)
-                            .tryMap { _, response -> [String: Bool] in
-                                try response.validResultMap(
-                                    publicKey: authInfo.publicKey,
-                                    validationData: timestampMs,
-                                    using: dependencies
-                                )
-                            }
-                            .eraseToAnyPublisher()
-                    }
-                    .eraseToAnyPublisher()
+    ) throws -> HTTP.PreparedRequest<[String: Bool]> {
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .deleteAll,
+                    publicKey: authInfo.publicKey,
+                    requiresLatestNetworkTime: true,
+                    body: DeleteAllMessagesRequest(
+                        namespace: namespace,
+                        authInfo: authInfo,
+                        timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+                    )
+                ),
+                responseType: DeleteAllMessagesResponse.self,
+                retryCount: maxRetryCount
+            )
+            .tryMap { info, response -> [String: Bool] in
+                guard let targetInfo: LatestTimestampResponseInfo = info as? LatestTimestampResponseInfo else {
+                    throw HTTPError.invalidResponse
+                }
+                
+                return try response.validResultMap(
+                    publicKey: authInfo.publicKey,
+                    validationData: targetInfo.timestampMs,
+                    using: dependencies
+                )
             }
     }
     
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
-    public static func deleteAllMessages(
+    public static func preparedDeleteAllMessages(
         beforeMs: UInt64,
         namespace: SnodeAPI.Namespace,
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<[String: Bool], Error> {
-        return getSwarm(for: authInfo.publicKey, using: dependencies)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
-                getNetworkTime(from: snode)
-                    .flatMap { timestampMs -> AnyPublisher<[String: Bool], Error> in
-                        SnodeAPI
-                            .send(
-                                request: SnodeRequest(
-                                    endpoint: .deleteAllBefore,
-                                    body: DeleteAllBeforeRequest(
-                                        beforeMs: beforeMs,
-                                        namespace: namespace,
-                                        authInfo: authInfo,
-                                        timestampMs: timestampMs
-                                    )
-                                ),
-                                to: snode,
-                                associatedWith: authInfo.publicKey,
-                                using: dependencies
-                            )
-                            .decoded(as: DeleteAllBeforeResponse.self, using: dependencies)
-                            .tryMap { _, response -> [String: Bool] in
-                                try response.validResultMap(
-                                    publicKey: authInfo.publicKey,
-                                    validationData: beforeMs,
-                                    using: dependencies
-                                )
-                            }
-                            .eraseToAnyPublisher()
-                    }
-                    .eraseToAnyPublisher()
+    ) throws -> HTTP.PreparedRequest<[String: Bool]> {
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .deleteAllBefore,
+                    publicKey: authInfo.publicKey,
+                    requiresLatestNetworkTime: true,
+                    body: DeleteAllBeforeRequest(
+                        beforeMs: beforeMs,
+                        namespace: namespace,
+                        authInfo: authInfo,
+                        timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+                    )
+                ),
+                responseType: DeleteAllMessagesResponse.self,
+                retryCount: maxRetryCount
+            )
+            .tryMap { _, response -> [String: Bool] in
+                try response.validResultMap(
+                    publicKey: authInfo.publicKey,
+                    validationData: beforeMs,
+                    using: dependencies
+                )
             }
     }
     
     // MARK: - Internal API
-    
-    public static func getNetworkTime(
-        from snode: Snode,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<UInt64, Error> {
-        return SnodeAPI
-            .send(
-                request: SnodeRequest<[String: String]>(
-                    endpoint: .getInfo,
-                    body: [:]
-                ),
-                to: snode,
-                associatedWith: nil,
-                using: dependencies
-            )
-            .decoded(as: GetNetworkTimestampResponse.self, using: dependencies)
-            .map { _, response in
-                // Assume we've fetched the networkTime in order to send a message to the specified snode, in
-                // which case we want to update the 'clockOffsetMs' value for subsequent requests
-                let offset = (Int64(response.timestamp) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
-                SnodeAPI.clockOffsetMs.mutate { $0 = offset }
-
-                return response.timestamp
-            }
-            .eraseToAnyPublisher()
-    }
     
     public static func preparedGetNetworkTime(
         from snode: Snode,
@@ -974,7 +936,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request<SnodeRequest<[String: String]>, Endpoint>(
                     endpoint: .getInfo,
-                    publicKey: snode.x25519PublicKey,
+                    snode: snode,
                     body: [:]
                 ),
                 responseType: GetNetworkTimestampResponse.self
@@ -1435,6 +1397,40 @@ private extension Request {
             method: .post,
             endpoint: endpoint,
             publicKey: publicKey,
+            body: SnodeRequest<B>(
+                endpoint: endpoint,
+                body: body
+            )
+        )
+    }
+    
+    init<B: Encodable>(
+        endpoint: SnodeAPI.Endpoint,
+        snode: Snode,
+        body: B
+    ) where T == SnodeRequest<B>, Endpoint == SnodeAPI.Endpoint {
+        self = Request(
+            method: .post,
+            endpoint: endpoint,
+            snode: snode,
+            body: SnodeRequest<B>(
+                endpoint: endpoint,
+                body: body
+            )
+        )
+    }
+    
+    init<B>(
+        endpoint: SnodeAPI.Endpoint,
+        publicKey: String,
+        requiresLatestNetworkTime: Bool,
+        body: B
+    ) where T == SnodeRequest<B>, Endpoint == SnodeAPI.Endpoint, B: Encodable & UpdatableTimestamp {
+        self = Request(
+            method: .post,
+            endpoint: endpoint,
+            publicKey: publicKey,
+            requiresLatestNetworkTime: requiresLatestNetworkTime,
             body: SnodeRequest<B>(
                 endpoint: endpoint,
                 body: body
