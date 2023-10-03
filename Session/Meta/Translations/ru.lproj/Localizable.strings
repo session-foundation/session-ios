@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "Сканировать QR-код";
 "vc_enter_public_key_explanation" = "Введите Session ID собеседника или отправьте ему ваш Session ID чтобы начать новую беседу.";
 "vc_scan_qr_code_camera_access_explanation" = "Session нужен доступ к камере для сканирования QR-кодов";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Предоставить доступ к камере";
 "vc_create_closed_group_title" = "Создать группу";
 "vc_create_closed_group_text_field_hint" = "Введите название группы";
 "vc_create_closed_group_empty_state_message" = "У вас еще нет контактов";
