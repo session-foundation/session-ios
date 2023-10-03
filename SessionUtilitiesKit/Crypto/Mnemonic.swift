@@ -118,7 +118,7 @@ public enum Mnemonic {
     }
     
     public static func decode(mnemonic: String, language: Language = .english) throws -> String {
-        var words: [String] = mnemonic.split(separator: " ").map { String($0) }
+        var words: [String] = mnemonic.components(separatedBy: .whitespacesAndNewlines)
         let truncatedWordSet: [String] = language.loadTruncatedWordSet()
         let prefixLength: Int = language.prefixLength
         var result = ""
