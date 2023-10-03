@@ -5,7 +5,7 @@ import GRDB
 import SessionUtilitiesKit
 
 public enum SNUIKit: MigratableTarget {
-    public static func migrations(_ db: Database) -> TargetMigrations {
+    public static func migrations() -> TargetMigrations {
         return TargetMigrations(
             identifier: .uiKit,
             migrations: [
