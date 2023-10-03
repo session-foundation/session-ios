@@ -6,9 +6,17 @@ import SessionUtilitiesKit
 
 enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "initialSetup"
+    static let identifier: String = "initialSetup" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+        Contact.self, Profile.self, SessionThread.self, DisappearingMessagesConfiguration.self,
+        ClosedGroup.self, ClosedGroupKeyPair.self, OpenGroup.self, Capability.self, BlindedIdLookup.self,
+        GroupMember.self, Interaction.self, RecipientState.self, Attachment.self,
+        InteractionAttachment.self, Quote.self, LinkPreview.self, ControlMessageProcessRecord.self,
+        ThreadTypingIndicator.self
+    ]
     
     public static let fullTextSearchTokenizer: FTS5TokenizerDescriptor = {
         // Define the tokenizer to be used in all the FTS tables
@@ -65,7 +73,7 @@ enum _001_InitialSetupMigration: Migration {
             t.column(.variant, .integer).notNull()
             t.column(.creationDateTimestamp, .double).notNull()
             t.column(.shouldBeVisible, .boolean).notNull()
-            t.column(.isPinned, .boolean).notNull()
+            t.deprecatedColumn(name: "isPinned", .boolean).notNull() // stringlint:disable
             t.column(.messageDraft, .text)
             t.column(.notificationSound, .integer)
             t.column(.mutedUntilTimestamp, .double)

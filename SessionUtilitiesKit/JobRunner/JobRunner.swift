@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
@@ -248,6 +250,19 @@ public final class JobRunner: JobRunnerType {
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [
                     jobVariants.remove(.attachmentDownload)
+                ].compactMap { $0 }
+            ),
+            
+            // MARK: -- Expiration Update Queue
+            
+            JobQueue(
+                type: .expirationUpdate,
+                executionType: .concurrent, // Allow as many jobs to run at once as supported by the device
+                qos: .default,
+                isTestingJobRunner: isTestingJobRunner,
+                jobVariants: [
+                    jobVariants.remove(.expirationUpdate),
+                    jobVariants.remove(.getExpiration)
                 ].compactMap { $0 }
             ),
             
@@ -715,6 +730,7 @@ public final class JobQueue: Hashable {
         case messageSend
         case messageReceive
         case attachmentDownload
+        case expirationUpdate
         
         var name: String {
             switch self {
@@ -723,6 +739,7 @@ public final class JobQueue: Hashable {
                 case .messageSend: return "MessageSend"
                 case .messageReceive: return "MessageReceive"
                 case .attachmentDownload: return "AttachmentDownload"
+                case .expirationUpdate: return "ExpirationUpdate"
             }
         }
     }
@@ -1094,6 +1111,7 @@ public final class JobQueue: Hashable {
         hasStartedAtLeastOnce.mutate { $0 = true }
         
         // Get any pending jobs
+        let jobVariants: [Job.Variant] = self.jobVariants
         let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue
         let jobsAlreadyInQueue: Set<Int64> = pendingJobsQueue.wrappedValue.compactMap { $0.id }.asSet()
         let jobsToRun: [Job] = dependencies.storage.read(using: dependencies) { db in
@@ -1318,6 +1336,7 @@ public final class JobQueue: Hashable {
     }
     
     private func scheduleNextSoonestJob(using dependencies: Dependencies) {
+        let jobVariants: [Job.Variant] = self.jobVariants
         let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue
         let nextJobTimestamp: TimeInterval? = dependencies.storage.read(using: dependencies) { db in
             try Job

@@ -81,7 +81,7 @@ public final class DataExtractionNotification: ControlMessage {
         return DataExtractionNotification(kind: kind)
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         guard let kind = kind else {
             SNLog("Couldn't construct data extraction notification proto from: \(self).")
             return nil
@@ -97,6 +97,8 @@ public final class DataExtractionNotification: ControlMessage {
             }
             let contentProto = SNProtoContent.builder()
             contentProto.setDataExtractionNotification(try dataExtractionNotification.build())
+            // DisappearingMessagesConfiguration
+            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
             return try contentProto.build()
         } catch {
             SNLog("Couldn't construct data extraction notification proto from: \(self).")

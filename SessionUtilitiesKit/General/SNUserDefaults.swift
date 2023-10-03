@@ -42,6 +42,7 @@ public enum SNUserDefaults {
         case lastOpen
         case lastGarbageCollection
         case lastPushNotificationSync
+        case lastCallPreOffer
     }
 
     public enum Double: Swift.String {
@@ -61,7 +62,7 @@ public enum SNUserDefaults {
 }
 
 public extension UserDefaults {
-    public static let applicationGroup: String = "group.com.loki-project.loki-messenger"
+    static let applicationGroup: String = "group.com.loki-project.loki-messenger"
     
     @objc static var sharedLokiProject: UserDefaults? {
         UserDefaults(suiteName: UserDefaults.applicationGroup)

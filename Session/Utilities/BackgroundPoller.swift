@@ -73,7 +73,7 @@ public final class BackgroundPoller {
     private static func pollForMessages(
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
 
         return SnodeAPI.getSwarm(for: userPublicKey)
             .tryFlatMapWithRandomSnode { snode -> AnyPublisher<[Message], Error> in

@@ -6,9 +6,11 @@ import SessionUtilitiesKit
 
 enum _003_YDBToGRDBMigration: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
-    static let identifier: String = "YDBToGRDBMigration"
+    static let identifier: String = "YDBToGRDBMigration" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [Identity.self]
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         guard

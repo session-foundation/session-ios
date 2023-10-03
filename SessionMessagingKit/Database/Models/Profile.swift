@@ -39,7 +39,7 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     public let name: String
     
     /// The timestamp (in seconds since epoch) that the name was last updated
-    public let lastNameUpdate: TimeInterval
+    public let lastNameUpdate: TimeInterval?
     
     /// A custom name for the profile set by the current user
     public let nickname: String?
@@ -54,27 +54,27 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
     public let profileEncryptionKey: Data?
     
     /// The timestamp (in seconds since epoch) that the profile picture was last updated
-    public let lastProfilePictureUpdate: TimeInterval
+    public let lastProfilePictureUpdate: TimeInterval?
     
     /// A flag indicating whether this profile has reported that it blocks community message requests
     public let blocksCommunityMessageRequests: Bool?
     
     /// The timestamp (in seconds since epoch) that the `blocksCommunityMessageRequests` setting was last updated
-    public let lastBlocksCommunityMessageRequests: TimeInterval
+    public let lastBlocksCommunityMessageRequests: TimeInterval?
     
     // MARK: - Initialization
     
     public init(
         id: String,
         name: String,
-        lastNameUpdate: TimeInterval,
+        lastNameUpdate: TimeInterval? = nil,
         nickname: String? = nil,
         profilePictureUrl: String? = nil,
         profilePictureFileName: String? = nil,
         profileEncryptionKey: Data? = nil,
-        lastProfilePictureUpdate: TimeInterval,
+        lastProfilePictureUpdate: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        lastBlocksCommunityMessageRequests: TimeInterval
+        lastBlocksCommunityMessageRequests: TimeInterval? = nil
     ) {
         self.id = id
         self.name = name
@@ -122,14 +122,14 @@ public extension Profile {
         self = Profile(
             id: try container.decode(String.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
-            lastNameUpdate: try container.decode(TimeInterval.self, forKey: .lastNameUpdate),
+            lastNameUpdate: try? container.decode(TimeInterval.self, forKey: .lastNameUpdate),
             nickname: try? container.decode(String.self, forKey: .nickname),
             profilePictureUrl: profilePictureUrl,
             profilePictureFileName: try? container.decode(String.self, forKey: .profilePictureFileName),
             profileEncryptionKey: profileKey,
-            lastProfilePictureUpdate: try container.decode(TimeInterval.self, forKey: .lastProfilePictureUpdate),
+            lastProfilePictureUpdate: try? container.decode(TimeInterval.self, forKey: .lastProfilePictureUpdate),
             blocksCommunityMessageRequests: try? container.decode(Bool.self, forKey: .blocksCommunityMessageRequests),
-            lastBlocksCommunityMessageRequests: try container.decode(TimeInterval.self, forKey: .lastBlocksCommunityMessageRequests)
+            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval.self, forKey: .lastBlocksCommunityMessageRequests)
         )
     }
     
@@ -138,14 +138,14 @@ public extension Profile {
 
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encode(lastNameUpdate, forKey: .lastNameUpdate)
+        try container.encodeIfPresent(lastNameUpdate, forKey: .lastNameUpdate)
         try container.encodeIfPresent(nickname, forKey: .nickname)
         try container.encodeIfPresent(profilePictureUrl, forKey: .profilePictureUrl)
         try container.encodeIfPresent(profilePictureFileName, forKey: .profilePictureFileName)
         try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
-        try container.encode(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
+        try container.encodeIfPresent(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
-        try container.encode(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
+        try container.encodeIfPresent(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
     }
 }
 
@@ -256,14 +256,14 @@ public extension Profile {
         return Profile(
             id: id,
             name: "",
-            lastNameUpdate: 0,
+            lastNameUpdate: nil,
             nickname: nil,
             profilePictureUrl: nil,
             profilePictureFileName: nil,
             profileEncryptionKey: nil,
-            lastProfilePictureUpdate: 0,
+            lastProfilePictureUpdate: nil,
             blocksCommunityMessageRequests: nil,
-            lastBlocksCommunityMessageRequests: 0
+            lastBlocksCommunityMessageRequests: nil
         )
     }
     
@@ -334,9 +334,9 @@ public extension Profile {
         guard id.count > 8 else { return id }
         
         switch truncating {
-            case .start: return "...\(id.suffix(8))"
-            case .middle: return "\(id.prefix(4))...\(id.suffix(4))"
-            case .end: return "\(id.prefix(8))..."
+            case .start: return "...\(id.suffix(8))"                    //stringlint:disable
+            case .middle: return "\(id.prefix(4))...\(id.suffix(4))"    //stringlint:disable
+            case .end: return "\(id.prefix(8))..."                      //stringlint:disable
         }
     }
     

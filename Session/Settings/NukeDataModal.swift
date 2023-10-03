@@ -1,6 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
+import GRDB
 import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
@@ -165,8 +167,34 @@ final class NukeDataModal: Modal {
     private func clearEntireAccount(presentedViewController: UIViewController) {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
-                SnodeAPI.deleteAllMessages(namespace: .all)
+                Publishers
+                    .MergeMany(
+                        Storage.shared
+                            .read { db -> [(String, OpenGroupAPI.PreparedSendData<OpenGroupAPI.DeleteInboxResponse>)] in
+                                return try OpenGroup
+                                    .filter(OpenGroup.Columns.isActive == true)
+                                    .select(.server)
+                                    .distinct()
+                                    .asRequest(of: String.self)
+                                    .fetchSet(db)
+                                    .map { ($0, try OpenGroupAPI.preparedClearInbox(db, on: $0))}
+                            }
+                            .defaulting(to: [])
+                            .compactMap { server, data in
+                                OpenGroupAPI
+                                    .send(data: data)
+                                    .map { _ in [server: true] }
+                                    .eraseToAnyPublisher()
+                            }
+                    )
+                    .collect()
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                    .flatMap { results in
+                        SnodeAPI
+                            .deleteAllMessages(namespace: .all)
+                            .map { results.reduce($0) { result, next in result.updated(with: next) } }
+                            .eraseToAnyPublisher()
+                    }
                     .receive(on: DispatchQueue.main)
                     .sinkUntilComplete(
                         receiveCompletion: { result in
@@ -174,7 +202,7 @@ final class NukeDataModal: Modal {
                                 case .finished: break
                                 case .failure(let error):
                                     self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                                    
+
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
@@ -189,33 +217,34 @@ final class NukeDataModal: Modal {
                         },
                         receiveValue: { confirmations in
                             self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                            
+
                             let potentiallyMaliciousSnodes = confirmations
                                 .compactMap { ($0.value == false ? $0.key : nil) }
-                            
-                            if potentiallyMaliciousSnodes.isEmpty {
+
+                            guard !potentiallyMaliciousSnodes.isEmpty else {
                                 self?.deleteAllLocalData()
+                                return
+                            }
+
+                            let message: String
+
+                            if potentiallyMaliciousSnodes.count == 1 {
+                                message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
                             }
                             else {
-                                let message: String
-                                if potentiallyMaliciousSnodes.count == 1 {
-                                    message = String(format: "dialog_clear_all_data_deletion_failed_1".localized(), potentiallyMaliciousSnodes[0])
-                                }
-                                else {
-                                    message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
-                                }
-                                
-                                let modal: ConfirmationModal = ConfirmationModal(
-                                    targetView: self?.view,
-                                    info: ConfirmationModal.Info(
-                                        title: "ALERT_ERROR_TITLE".localized(),
-                                        body: .text(message),
-                                        cancelTitle: "BUTTON_OK".localized(),
-                                        cancelStyle: .alert_text
-                                    )
-                                )
-                                self?.present(modal, animated: true)
+                                message = String(format: "dialog_clear_all_data_deletion_failed_2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
                             }
+
+                            let modal: ConfirmationModal = ConfirmationModal(
+                                targetView: self?.view,
+                                info: ConfirmationModal.Info(
+                                    title: "ALERT_ERROR_TITLE".localized(),
+                                    body: .text(message),
+                                    cancelTitle: "BUTTON_OK".localized(),
+                                    cancelStyle: .alert_text
+                                )
+                            )
+                            self?.present(modal, animated: true)
                         }
                     )
             }
@@ -240,7 +269,7 @@ final class NukeDataModal: Modal {
         
         // Clear the app badge and notifications
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
-        CurrentAppContext().setMainAppBadgeNumber(0)
+        UIApplication.shared.applicationIconBadgeNumber = 0
         
         // Clear out the user defaults
         UserDefaults.removeAll()

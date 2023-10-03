@@ -151,7 +151,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                    .trimmingCharacters(in: .whitespacesAndNewlines)
                                self?.oldDisplayName = (updatedNickname.isEmpty ? nil : editedDisplayName)
 
-                               dependencies.storage.writeAsync { db in
+                               dependencies.storage.writeAsync(using: dependencies) { db in
                                    try Profile
                                        .filter(id: threadId)
                                        .updateAllAndConfig(
@@ -444,15 +444,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             SessionCell.Info(
                                 id: .disappearingMessages,
                                 leftAccessory: .icon(
-                                    UIImage(
-                                        named: (disappearingMessagesConfig.isEnabled ?
-                                            "ic_timer" :
-                                            "ic_timer_disabled"
-                                        )
-                                    )?.withRenderingMode(.alwaysTemplate),
-                                    accessibility: Accessibility(
-                                        label: "Timer icon"
-                                    )
+                                    UIImage(systemName: "timer")?
+                                        .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "DISAPPEARING_MESSAGES".localized(),
                                 subtitle: (disappearingMessagesConfig.isEnabled ?
@@ -463,15 +456,17 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
                                 ),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
-                                    label: "Disappearing messages"
+                                    identifier: "Disappearing messages",
+                                    label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                                 ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
                                         SessionTableViewController(
                                             viewModel: ThreadDisappearingMessagesSettingsViewModel(
                                                 threadId: threadId,
-                                                threadVariant: threadVariant,
+                                                threadVariant: threadViewModel.threadVariant,
+                                                currentUserIsClosedGroupMember: threadViewModel.currentUserIsClosedGroupMember,
+                                                currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
                                                 config: disappearingMessagesConfig
                                             )
                                         )
@@ -800,6 +795,18 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                     interaction: interaction,
                     threadId: thread.id,
                     threadVariant: thread.variant,
+                    using: dependencies
+                )
+                
+                // Trigger disappear after read
+                dependencies.jobRunner.upsert(
+                    db,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                        db,
+                        interaction: interaction,
+                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                    ),
+                    canStartJob: true,
                     using: dependencies
                 )
             }

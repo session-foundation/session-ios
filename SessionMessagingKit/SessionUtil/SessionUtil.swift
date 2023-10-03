@@ -45,7 +45,7 @@ public enum SessionUtil {
     // MARK: - Variables
     
     internal static func syncDedupeId(_ publicKey: String) -> String {
-        return "EnqueueConfigurationSyncJob-\(publicKey)"
+        return "EnqueueConfigurationSyncJob-\(publicKey)"   // stringlint:disable
     }
     
     /// Returns `true` if there is a config which needs to be pushed, but returns `false` if the configs are all up to date or haven't been
@@ -63,7 +63,7 @@ public enum SessionUtil {
     public static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
     
     internal static func lastError(_ conf: UnsafeMutablePointer<config_object>?) -> String {
-        return (conf?.pointee.last_error.map { String(cString: $0) } ?? "Unknown")
+        return (conf?.pointee.last_error.map { String(cString: $0) } ?? "Unknown")  // stringlint:disable
     }
     
     // MARK: - Loading
@@ -84,7 +84,7 @@ public enum SessionUtil {
         guard
             let secretKey: [UInt8] = ed25519SecretKey,
             SessionUtil.configStore.wrappedValue.isEmpty
-        else { return }
+        else { return SNLog("[SessionUtil] Ignoring loadState for '\(userPublicKey)' due to existing state") }
         
         // If we weren't given a database instance then get one
         guard let db: Database = db else {
@@ -125,6 +125,8 @@ public enum SessionUtil {
                 )
             }
         }
+        
+        SNLog("[SessionUtil] Completed loadState for '\(userPublicKey)'")
     }
     
     private static func loadState(
@@ -134,7 +136,7 @@ public enum SessionUtil {
     ) throws -> UnsafeMutablePointer<config_object>? {
         // Setup initial variables (including getting the memory address for any cached data)
         var conf: UnsafeMutablePointer<config_object>? = nil
-        let error: UnsafeMutablePointer<CChar>? = nil
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
         let cachedDump: (data: UnsafePointer<UInt8>, length: Int)? = cachedData?.withUnsafeBytes { unsafeBytes in
             return unsafeBytes.baseAddress.map {
                 (
@@ -144,33 +146,26 @@ public enum SessionUtil {
             }
         }
         
-        // No need to deallocate the `cachedDump.data` as it'll automatically be cleaned up by
-        // the `cachedDump` lifecycle, but need to deallocate the `error` if it gets set
-        defer {
-            error?.deallocate()
-        }
-        
         // Try to create the object
         var secretKey: [UInt8] = ed25519SecretKey
         let result: Int32 = {
             switch variant {
                 case .userProfile:
-                    return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .contacts:
-                    return contacts_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return contacts_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .convoInfoVolatile:
-                    return convo_info_volatile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return convo_info_volatile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .userGroups:
-                    return user_groups_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return user_groups_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
             }
         }()
         
         guard result == 0 else {
-            let errorString: String = (error.map { String(cString: $0) } ?? "unknown error")
-            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(errorString)")
+            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(String(cString: error))")
             throw SessionUtilError.unableToCreateConfigObject
         }
         
@@ -241,7 +236,7 @@ public enum SessionUtil {
                         
                         var cPushData: UnsafeMutablePointer<config_push_data>!
                         let configCountInfo: String = {
-                            var result: String = "Invalid"
+                            var result: String = "Invalid"  // stringlint:disable
                             
                             try? CExceptionHelper.performSafely {
                                 switch variant {
@@ -261,7 +256,7 @@ public enum SessionUtil {
                             }
                         }
                         catch {
-                            SNLog("[libSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
+                            SNLog("[SessionUtil] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
                             throw error
                         }
                     
@@ -360,6 +355,7 @@ public enum SessionUtil {
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         
         let groupedMessages: [ConfigDump.Variant: [SharedConfigMessage]] = messages
+            .sorted { lhs, rhs in lhs.seqNo < rhs.seqNo }
             .grouped(by: \.kind.configDumpVariant)
         
         let needsPush: Bool = try groupedMessages
@@ -417,7 +413,7 @@ public enum SessionUtil {
                             }
                         }
                         catch {
-                            SNLog("[libSession] Failed to process merge of \(next.key) config data")
+                            SNLog("[SessionUtil] Failed to process merge of \(next.key) config data")
                             throw error
                         }
                         

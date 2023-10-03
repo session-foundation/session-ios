@@ -1,0 +1,816 @@
+/* No comment provided by engineer. */
+"ATTACHMENT" = "Příloha";
+/* Title for 'caption' mode of the attachment approval view. */
+"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Titulek";
+/* Format string for file extension label in call interstitial view */
+"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Typ souboru: %@";
+/* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
+"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Velikost: %@";
+/* One-line label indicating the user can add no more text to the media message field. */
+"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Dosažen limit zprávy";
+/* Label for 'send' button in the 'attachment approval' dialog. */
+"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Odeslat";
+/* Generic filename for an attachment with no known name */
+"ATTACHMENT_DEFAULT_FILENAME" = "Příloha";
+/* The title of the 'attachment error' alert. */
+"ATTACHMENT_ERROR_ALERT_TITLE" = "Chyba při odesílání přílohy";
+/* Attachment error message for image attachments which could not be converted to JPEG */
+"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Obrázek nelze překonvertovat.";
+/* Attachment error message for video attachments which could not be converted to MP4 */
+"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Video nelze zpracovat.";
+/* Attachment error message for image attachments which cannot be parsed */
+"ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Obrázek nelze zpracovat.";
+/* Attachment error message for image attachments in which metadata could not be removed */
+"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Nelze odstranit metadata z obrázku.";
+/* Attachment error message for image attachments which could not be resized */
+"ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Nelze změnit velikost obrázku.";
+/* Attachment error message for attachments whose data exceed file size limits */
+"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Příloha je příliš velká.";
+/* Attachment error message for attachments with invalid data */
+"ATTACHMENT_ERROR_INVALID_DATA" = "Příloha obsahuje neplatný obsah.";
+/* Attachment error message for attachments with an invalid file format */
+"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Příloha má neplatný formát souboru.";
+/* Attachment error message for attachments without any data */
+"ATTACHMENT_ERROR_MISSING_DATA" = "Příloha je prázdná.";
+/* Alert title when picking a document fails for an unknown reason */
+"ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Nepovedlo se vybrat dokument.";
+/* Alert body when picking a document fails because user picked a directory/bundle */
+"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Vytvořte prosím komprimovaný archiv tohoto souboru nebo adresáře a zkuste jej namísto toho odeslat.";
+/* Alert title when picking a document fails because user picked a directory/bundle */
+"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Nepodporovaný soubor";
+/* Short text label for a voice message attachment, used for thread preview and on the lock screen */
+"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Hlasová zpráva";
+/* Button label for the 'block' button */
+"BLOCK_LIST_BLOCK_BUTTON" = "Zablokovat";
+/* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
+"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Zablokovat %@?";
+/* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
+"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Odblokovat %@?";
+/* Button label for the 'unblock' button */
+"BLOCK_LIST_UNBLOCK_BUTTON" = "Odblokovat";
+/* The message format of the 'conversation blocked' alert. Embeds the {{conversation title}}. */
+"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ byl/a zablokován/a.";
+/* The title of the 'user blocked' alert. */
+"BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "Uživatel zablokován";
+/* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
+"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ byl/a odblokován/a.";
+/* An explanation of the consequences of blocking another user. */
+"BLOCK_USER_BEHAVIOR_EXPLANATION" = "Blokovaní uživatelé vám nebudou moci volat ani vám posílat zprávy.";
+/* Label for generic done button. */
+"BUTTON_DONE" = "Hotovo";
+/* Button text to enable batch selection mode */
+"BUTTON_SELECT" = "Vybrat";
+/* keyboard toolbar label when starting to search with no current results */
+"CONVERSATION_SEARCH_SEARCHING" = "Vyhledávání...";
+/* keyboard toolbar label when no messages match the search string */
+"CONVERSATION_SEARCH_NO_RESULTS" = "Žádné shody";
+/* keyboard toolbar label when exactly 1 message matches the search string */
+"CONVERSATION_SEARCH_ONE_RESULT" = "1 shoda";
+/* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
+"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d z %d shod";
+/* table cell label in conversation settings */
+"CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Blokovat tohoto uživatele";
+/* label for 'mute thread' cell in conversation settings */
+"CONVERSATION_SETTINGS_MUTE_LABEL" = "Ztlumit";
+/* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
+"CONVERSATION_SETTINGS_SEARCH" = "Vyhledat konverzaci";
+/* Title for the 'crop/scale image' dialog. */
+"CROP_SCALE_IMAGE_VIEW_TITLE" = "Přesun a měřítko";
+/* Subtitle shown while the app is updating its database. */
+"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Může to trvat několik minut.";
+/* Title shown while the app is updating its database. */
+"DATABASE_VIEW_OVERLAY_TITLE" = "Optimalizace databáze";
+/* The present; the current time. */
+"DATE_NOW" = "Teď";
+/* table cell label in conversation settings */
+"DISAPPEARING_MESSAGES" = "Mizející zprávy";
+/* table cell label in conversation settings */
+"EDIT_GROUP_ACTION" = "Upravit skupinu";
+/* Label indicating media gallery is empty */
+"GALLERY_TILES_EMPTY_GALLERY" = "V této konverzaci nemáte žádná média.";
+/* Label indicating loading is in progress */
+"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Načítání novějších médií…";
+/* Label indicating loading is in progress */
+"GALLERY_TILES_LOADING_OLDER_LABEL" = "Načítání starších médií…";
+/* Error displayed when there is a failure fetching a GIF from the remote service. */
+"GIF_PICKER_ERROR_FETCH_FAILURE" = "Nepodařilo se načíst požadovaný GIF. Zkontrolujte připojení k internetu.";
+/* Generic error displayed when picking a GIF */
+"GIF_PICKER_ERROR_GENERIC" = "Došlo k neznámé chybě.";
+/* Shown when selected GIF couldn't be fetched */
+"GIF_PICKER_FAILURE_ALERT_TITLE" = "Nelze vybrat GIF";
+/* Alert message shown when user tries to search for GIFs without entering any search terms. */
+"GIF_PICKER_VIEW_MISSING_QUERY" = "Zadejte své vyhledávání.";
+/* Indicates that an error occurred while searching. */
+"GIF_VIEW_SEARCH_ERROR" = "Chyba. Klepněte pro opakování.";
+/* Indicates that the user's search had no results. */
+"GIF_VIEW_SEARCH_NO_RESULTS" = "Žádné výsledky.";
+/* No comment provided by engineer. */
+"GROUP_CREATED" = "Skupina vytvořena";
+/* No comment provided by engineer. */
+"GROUP_MEMBER_JOINED" = "%@ se připojil/a ke skupině. ";
+/* No comment provided by engineer. */
+"GROUP_MEMBER_LEFT" = "%@ opustil/a skupinu. ";
+/* No comment provided by engineer. */
+"GROUP_MEMBER_REMOVED" = "%@ byl/a odebrán/a ze skupiny. ";
+/* No comment provided by engineer. */
+"GROUP_MEMBERS_REMOVED" = "%@ byli odebráni ze skupiny. ";
+/* No comment provided by engineer. */
+"GROUP_TITLE_CHANGED" = "Název je nyní %@. ";
+/* No comment provided by engineer. */
+"GROUP_UPDATED" = "Skupina aktualizována.";
+/* No comment provided by engineer. */
+"GROUP_YOU_LEFT" = "Opustil/a jste skupinu.";
+/* No comment provided by engineer. */
+"YOU_WERE_REMOVED" = " Byli jste odebráni ze skupiny. ";
+/* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
+"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Nemůžete sdílet více než %@ položek.";
+/* alert title */
+"IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Nepodařilo se vybrat přílohu.";
+/* Message for the alert indicating that an audio file is invalid. */
+"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Neplatný zvukový soubor.";
+/* Confirmation button within contextual alert */
+"LEAVE_BUTTON_TITLE" = "Opustit";
+/* table cell label in conversation settings */
+"LEAVE_GROUP_ACTION" = "Opustit skupinu";
+/* nav bar button item */
+"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Všechna média";
+/* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
+"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Smazat %d zpráv";
+/* Confirmation button text to delete selected media message from the gallery */
+"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Smazat zprávu";
+/* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
+"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ v %@";
+/* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
+"MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
+/* Short sender label for media sent by you */
+"MEDIA_GALLERY_SENDER_NAME_YOU" = "Vy";
+/* Section header in media gallery collection view */
+"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Tento měsíc";
+/* status message for failed messages */
+"MESSAGE_STATUS_FAILED" = "Odeslání selhalo.";
+/* status message for read messages */
+"MESSAGE_STATUS_READ" = "Přečteno";
+/* message status while message is sending. */
+"MESSAGE_STATUS_SENDING" = "Odesílání…";
+/* status message for sent messages */
+"MESSAGE_STATUS_SENT" = "Odesláno";
+/* status message while attachment is uploading */
+"MESSAGE_STATUS_UPLOADING" = "Nahrávání…";
+/* notification title. Embeds {{author name}} and {{group name}} */
+"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ do %@";
+/* Label for 1:1 conversation with yourself. */
+"NOTE_TO_SELF" = "Poznámka pro mně";
+/* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
+"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Možná jste obdrželi zprávy během restartování aplikace %@.";
+/* No comment provided by engineer. */
+"BUTTON_OK" = "OK";
+/* Info Message when {{other user}} disables or doesn't support disappearing messages */
+"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Uživatel %@ zakázal mizející zprávy.";
+/* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
+"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ nastavil čas pro zmizení zpráv na %@";
+/* alert title, generic error preventing user from capturing a photo */
+"PHOTO_CAPTURE_GENERIC_ERROR" = "Nelze pořídit obrázek.";
+/* alert title */
+"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Nelze pořídit obrázek.";
+/* alert title */
+"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Konfigurace kamery selhala.";
+/* label for system photo collections which have no name. */
+"PHOTO_PICKER_UNNAMED_COLLECTION" = "Nepojmenované album";
+/* Notification action button title */
+"PUSH_MANAGER_MARKREAD" = "Označit jako přečtené";
+/* Notification action button title */
+"PUSH_MANAGER_REPLY" = "Odpověděť";
+/* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
+"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Ověření pro otevření Session.";
+/* Title for alert indicating that screen lock could not be unlocked. */
+"SCREEN_LOCK_UNLOCK_FAILED" = "Ověření se nezdařilo";
+/* alert title when user attempts to leave the send media flow when they have an in-progress album */
+"SEND_MEDIA_ABANDON_TITLE" = "Zahodit média?";
+/* alert action, confirming the user wants to exit the media flow and abandon any photos they've taken */
+"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "Zahodit média";
+/* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
+"SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (výchozí)";
+/* Label for settings view that allows user to change the notification sound. */
+"SETTINGS_ITEM_NOTIFICATION_SOUND" = "Zvuk zprávy";
+/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
+"SOUNDS_NONE" = "Žádný";
+/* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_DAYS" = "%@ dní";
+/* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_DAYS_SHORT_FORMAT" = "%@d";
+/* {{number of hours}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 hours}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_HOURS" = "%@ h";
+/* Label text below navbar button, embeds {{number of hours}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5h' not '5 h'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_HOURS_SHORT_FORMAT" = "%@h";
+/* {{number of minutes}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 minutes}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_MINUTES" = "%@ min";
+/* Label text below navbar button, embeds {{number of minutes}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5m' not '5 m'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_MINUTES_SHORT_FORMAT" = "%@min";
+/* {{number of seconds}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 seconds}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_SECONDS" = "%@ s";
+/* Label text below navbar button, embeds {{number of seconds}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5s' not '5 s'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_SECONDS_SHORT_FORMAT" = "%@s";
+/* {{1 day}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{1 day}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_SINGLE_DAY" = "%@ dní";
+/* {{1 hour}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{1 hour}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_SINGLE_HOUR" = "%@ hodina";
+/* {{1 minute}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{1 minute}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_SINGLE_MINUTE" = "%@ minuta";
+/* {{1 week}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{1 week}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_SINGLE_WEEK" = "%@ týden";
+/* {{number of weeks}}, embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 weeks}}'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_WEEKS" = "%@ týdny";
+/* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
+"TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@td";
+/* Label for the cancel button in an alert or action sheet. */
+"TXT_CANCEL_TITLE" = "Zrušit";
+/* No comment provided by engineer. */
+"TXT_DELETE_TITLE" = "Smazat";
+/* Filename for voice messages. */
+"VOICE_MESSAGE_FILE_NAME" = "Hlasová zpráva";
+/* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
+"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Klepněte a podržte pro nahrání hlasové zprávy.";
+/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
+"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "Hlasová zpráva";
+/* Info Message when you disable disappearing messages */
+"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Zakázali jste mizející zprávy.";
+/* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
+"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Nastavil jste čas pro zmizení zpráv na %@";
+// MARK: - Session
+"continue_2" = "Pokračovat";
+"copy" = "Kopírovat";
+"invalid_url" = "Neplatná URL adresa";
+"next" = "Další";
+"share" = "Sdílet";
+"invalid_session_id" = "Neplatná ID relace";
+"cancel" = "Zrušit";
+"your_session_id" = "Vaše ID relace";
+"vc_landing_title_2" = "Vaše relace začíná zde...";
+"vc_landing_register_button_title" = "Vytvořit ID relaci";
+"vc_landing_restore_button_title" = "Pokračujte v relaci";
+"vc_landing_link_button_title" = "Propojit zařízení";
+"view_fake_chat_bubble_1" = "Co je Session?";
+"view_fake_chat_bubble_2" = "Je to decentralizovaná, šifrovaná aplikace pro zasílání zpráv";
+"view_fake_chat_bubble_3" = "Takže neshromažďuje mé osobní údaje ani metadata konverzace? Jak to funguje?";
+"view_fake_chat_bubble_4" = "Použitím kombinace pokročilých anonymních směrovacích a end-to-end šifrovacích technologií.";
+"view_fake_chat_bubble_5" = "Přátelé nenechávají přátelé používat kompromitované messengery. Není zač.";
+"vc_register_title" = "Seznamte se se svým ID relace";
+"vc_register_explanation" = "Vaše Session ID je jedinečná adresa, kterou mohou lidé použít ke kontaktu s vámi na Session. Vaše Session ID není nijak spojeno s vaší skutečnou identitou a je zcela anonymní a soukromé.";
+"vc_restore_title" = "Obnovit účet";
+"vc_restore_explanation" = "Zadejte frázi pro obnovení, která vám byla vygenerována během registrace účtu.";
+"vc_restore_seed_text_field_hint" = "Zadejte frázi pro obnovení";
+"vc_link_device_title" = "Propojit zařízení";
+"vc_link_device_scan_qr_code_tab_title" = "Skenovat QR kód";
+"vc_display_name_title_2" = "Vaše jméno";
+"vc_display_name_explanation" = "Toto bude váš pseudonym během používání Session. Může to být vaše skutečné jméno, alias, nebo cokoliv jiného, co se vám líbí.";
+"vc_display_name_text_field_hint" = "Zadejte zobrazované jméno";
+"vc_display_name_display_name_missing_error" = "Zadejte prosím zobrazované jméno";
+"vc_display_name_display_name_too_long_error" = "Vyberte prosím kratší zobrazované jméno";
+"vc_pn_mode_recommended_option_tag" = "Doporučeno";
+"vc_pn_mode_no_option_picked_modal_title" = "Vyberte si prosím jednu z možností";
+"vc_home_empty_state_message" = "Zatím nemáte žádné kontakty";
+"vc_home_empty_state_button_title" = "Zahájit relaci";
+"vc_seed_title" = "Vaše fráze pro obnovení";
+"vc_seed_title_2" = "Zadejte frázi pro obnovení";
+"vc_seed_explanation" = "Vaše fráze pro obnovení je hlavním klíčem k vašemu Session ID- můžete ji použít k obnovení vašeho Session ID, pokud ztratíte přístup k zařízení. Uložte frázi pro obnovení na bezpečném místě a nikomu ji nesdělujte.";
+"vc_seed_reveal_button_title" = "Podržte pro zobrazení";
+"view_seed_reminder_subtitle_1" = "Zabezpečte svůj účet uložením fráze pro obnovení";
+"view_seed_reminder_subtitle_2" = "Klepnutím a podržením redigovaných slov zobrazte frázi pro obnovení a poté ji bezpečně uložte, abyste zabezpečili vaše Session ID.";
+"view_seed_reminder_subtitle_3" = "Ujistěte se, že jste frázi pro obnovení uložili na bezpečném místě";
+"vc_path_title" = "Cesta";
+"vc_path_explanation" = "Session skrývá vaši IP adresu tím, že směruje vaše zprávy přes několik provozních uzlů v decentralizované síti Session. Toto jsou země, přes které je vaše připojení aktuálně směrováno:";
+"vc_path_device_row_title" = "Vy";
+"vc_path_guard_node_row_title" = "Vstupní uzel";
+"vc_path_service_node_row_title" = "Provozní uzel";
+"vc_path_destination_row_title" = "Cíl";
+"vc_path_learn_more_button_title" = "Zjistit více";
+"vc_create_private_chat_title" = "Nová zpráva";
+"vc_create_private_chat_enter_session_id_tab_title" = "Zadejte Session ID";
+"vc_create_private_chat_scan_qr_code_tab_title" = "Načíst QR kód";
+"vc_enter_public_key_explanation" = "Začněte novou konverzaci zadáním Session ID jiného uživatele a nebo sdílejte své Session ID s ostatními.";
+"vc_scan_qr_code_camera_access_explanation" = "Session potřebuje ke skenování kódů QR přístup k fotoaparátu";
+"vc_scan_qr_code_grant_camera_access_button_title" = "Povolit přístup k fotoaparátu";
+"vc_create_closed_group_title" = "Vytvořit skupinu";
+"vc_create_closed_group_text_field_hint" = "Zadejte název skupiny";
+"vc_create_closed_group_empty_state_message" = "Zatím nemáte žádné kontakty";
+"vc_create_closed_group_group_name_missing_error" = "Zadejte prosím název skupiny";
+"vc_create_closed_group_group_name_too_long_error" = "Zadejte prosím kratší název skupiny";
+"vc_create_closed_group_too_many_group_members_error" = "Uzavřená skupina nemůže mít více než 100 členů";
+"vc_join_public_chat_title" = "Připojit se ke komunitě";
+"vc_join_public_chat_enter_group_url_tab_title" = "Adresa komunity";
+"vc_join_public_chat_scan_qr_code_tab_title" = "Načíst QR kód";
+"vc_enter_chat_url_text_field_hint" = "Zadejte adresu komunity";
+"vc_settings_title" = "Nastavení";
+"vc_group_settings_title" = "Nastavení skupiny";
+"vc_settings_display_name_missing_error" = "Zadejte prosím zobrazované jméno";
+"vc_settings_display_name_too_long_error" = "Zadejte prosím kratší zobrazované jméno";
+"vc_settings_privacy_button_title" = "Soukromí";
+"vc_settings_notifications_button_title" = "Oznámení";
+"vc_settings_recovery_phrase_button_title" = "Fráze pro obnovení";
+"vc_settings_clear_all_data_button_title" = "Vymazat data";
+"vc_qr_code_title" = "QR kód";
+"vc_qr_code_view_my_qr_code_tab_title" = "Zobrazit můj QR kód";
+"vc_qr_code_view_scan_qr_code_tab_title" = "Naskenovat QR kód";
+"vc_qr_code_view_scan_qr_code_explanation" = "Naskenujte něčí QR kód a začněte s nimi konverzaci";
+"vc_view_my_qr_code_explanation" = "Toto je váš QR kód. Ostatní uživatelé jej mohou naskenovat, aby s vámi mohli začít konverzaci.";
+// MARK: - Not Yet Translated
+"fast_mode_explanation" = "Budete informováni o nových zprávách spolehlivě a okamžitě pomocí oznamovacích serverů společnosti Apple.";
+"fast_mode" = "Rychlý režim";
+"slow_mode_explanation" = "Session občas zkontroluje nové zprávy na pozadí.";
+"slow_mode" = "Pomalý režim";
+"vc_pn_mode_title" = "Oznámení zprávy";
+"vc_link_device_recovery_phrase_tab_title" = "Fráze pro obnovení";
+"vc_link_device_scan_qr_code_explanation" = "Přejděte do Nastavení → Fráze pro obnovení na Vašem dalším zařízení a pro zobrazení QR kódu.";
+"vc_enter_recovery_phrase_title" = "Fráze pro obnovení";
+"vc_enter_recovery_phrase_explanation" = "Pro propojení vašeho zařízení zadejte frázi pro obnovení, která vám byla přidělena při registraci.";
+"vc_enter_public_key_text_field_hint" = "Zadejte Session ID nebo název ONS";
+"admin_group_leave_warning" = "Protože jste tvůrcem této skupiny, bude smazána pro všechny. Tuto akci nelze vrátit zpět.";
+"vc_join_open_group_suggestions_title" = "Nebo se připojte k jedné z těchto...";
+"vc_settings_invite_a_friend_button_title" = "Pozvat přítele";
+"copied" = "Zkopírováno";
+"vc_conversation_settings_copy_session_id_button_title" = "Kopírovat Session ID";
+"vc_conversation_input_prompt" = "Zpráva";
+"vc_conversation_voice_message_cancel_message" = "Pro zrušení přejeďte";
+"modal_download_attachment_title" = "Důvěřovat %@?";
+"modal_download_attachment_explanation" = "Opravdu chcete stáhnout přílohu od %@?";
+"modal_download_button_title" = "Stáhnout";
+"modal_open_url_title" = "Otevřít odkaz?";
+"modal_open_url_explanation" = "Opravdu chcete otevřít %@?";
+"modal_open_url_button_title" = "Otevřít";
+"modal_copy_url_button_title" = "Kopírovat odkaz";
+"modal_blocked_title" = "Odblokovat %@?";
+"modal_blocked_explanation" = "Opravdu chcete odblokovat %@?";
+"modal_blocked_button_title" = "Odblokovat";
+"modal_link_previews_title" = "Umožnit náhledy odkazů?";
+"modal_link_previews_explanation" = "Povolením náhledů odkazů budou zobrazeny náhledy URL adres, které odesíláte a přijímáte. To může být užitečné, ale Session se bude muset spojit s danou webovou stránkou pro generování náhledů. Náhled odkazů můžete kdykoli zakázat v nastavení Session.";
+"modal_link_previews_button_title" = "Povolit";
+"vc_share_title" = "Sdílet na Session";
+"vc_share_loading_message" = "Připravování příloh...";
+"vc_share_sending_message" = "Odesílání...";
+"vc_share_link_previews_unsecure" = "Náhled nebyl načten pro nezabezpečený odkaz";
+"vc_share_link_previews_error" = "Nelze načíst náhled";
+"vc_share_link_previews_disabled_title" = "Náhledy odkazů vypnuty";
+"vc_share_link_previews_disabled_explanation" = "Povolením náhledů odkazů se zobrazí náhledy sdílených adres URL. To může být užitečné, ale Session bude muset kontaktovat propojené webové stránky, aby vygenerovala náhledy.\n\nNáhledy odkazů můžete povolit v nastavení Session.";
+"view_open_group_invitation_description" = "Otevřít pozvánku ke skupině";
+"vc_conversation_settings_invite_button_title" = "Přidat členy";
+"modal_send_seed_title" = "Varování";
+"modal_send_seed_explanation" = "Toto je vaše obnovovací fráze. Pokud ji někomu pošlete, bude mít plný přístup k vašemu účtu.";
+"modal_send_seed_send_button_title" = "Odeslat";
+"vc_conversation_settings_notify_for_mentions_only_title" = "Upozorňovat pouze na zmínky";
+"vc_conversation_settings_notify_for_mentions_only_explanation" = "Pokud je povoleno, budete upozorněni pouze na zprávy, které vás zmiňují.";
+"view_conversation_title_notify_for_mentions_only" = "Upozorňování pouze na zmínky";
+"message_deleted" = "Tato zpráva byla odstraněna";
+"delete_message_for_me" = "Smazat pouze pro mě";
+"delete_message_for_everyone" = "Smazat pro všechny";
+"delete_message_for_me_and_recipient" = "Odstranit pro mě a %@";
+"context_menu_reply" = "Odpověděť";
+"context_menu_save" = "Uložit";
+"context_menu_ban_user" = "Zablokovat uživatele";
+"context_menu_ban_and_delete_all" = "Zablokovat a odstranit vše";
+"context_menu_ban_user_error_alert_message" = "Nelze zablokovat uživatele";
+"accessibility_expanding_attachments_button" = "Přidat přílohy";
+"accessibility_gif_button" = "Gif";
+"accessibility_document_button" = "Dokument";
+"accessibility_library_button" = "Knihovna fotografií";
+"accessibility_camera_button" = "Fotoaparát";
+"accessibility_main_button_collapse" = "Sbalit možnosti přílohy";
+"invalid_recovery_phrase" = "Neplatná fráze pro obnovení";
+"DISMISS_BUTTON_TEXT" = "Odmítnout";
+/* Button text which opens the settings app */
+"OPEN_SETTINGS_BUTTON" = "Nastavení";
+"call_outgoing" = "Volal jste %@";
+"call_incoming" = "%@ vám volal";
+"call_missed" = "Zmeškaný hovor od %@";
+"APN_Message" = "Máte novou zprávu.";
+"APN_Collapsed_Messages" = "Máte %@ nových zpráv.";
+"PIN_BUTTON_TEXT" = "Připnout";
+"UNPIN_BUTTON_TEXT" = "Odepnout";
+"modal_call_missed_tips_title" = "Zmeškaný hovor";
+"modal_call_missed_tips_explanation" = "Zmeškaný hovor od \"%@\", protože musíte povolit oprávnění \"Hlasové a video hovory\" v nastavení soukromí.";
+"media_saved" = "Uživatel %@ uložil média.";
+"screenshot_taken" = "Uživatel %@ pořídil snímek obrazovky.";
+"SEARCH_SECTION_CONTACTS" = "Kontakty a skupiny";
+"SEARCH_SECTION_MESSAGES" = "Zprávy";
+"MESSAGE_REQUESTS_TITLE" = "Žádosti o zprávy";
+"MESSAGE_REQUESTS_EMPTY_TEXT" = "Žádné nevyřízené žádosti o zprávu";
+"MESSAGE_REQUESTS_CLEAR_ALL" = "Smazat vše";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Jste si jisti, že chcete vymazat všechny žádosti o zprávy?";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Smazat";
+"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Jste si jisti, že chcete odstranit tuto žádost o zprávu?";
+"MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Opravdu chcete zablokovat tento kontakt?";
+"MESSAGE_REQUESTS_INFO" = "Odesláním zprávy tomuto uživateli automaticky přijmete jejich požadavek na zprávu a odhalíte jim své Session ID.";
+"MESSAGE_REQUESTS_ACCEPTED" = "Your message request has been accepted.";
+"MESSAGE_REQUESTS_NOTIFICATION" = "Máte novou žádost o zprávu";
+"TXT_HIDE_TITLE" = "Skrýt";
+"TXT_DELETE_ACCEPT" = "Přijmout";
+"TXT_BLOCK_USER_TITLE" = "Blokovat uživatele";
+"ALERT_ERROR_TITLE" = "Chyba";
+"modal_call_permission_request_title" = "Požadovaná oprávnění k volání";
+"modal_call_permission_request_explanation" = "Oprávnění pro hlasové a video hovory můžete povolit v Nastavení soukromí.";
+"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Jejda, došlo k chybě";
+"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Zkuste to prosím znovu později";
+"LOADING_CONVERSATIONS" = "Načítání konverzací...";
+"DATABASE_MIGRATION_FAILED" = "Při optimalizaci databáze došlo k chybě\n\nProtokoly aplikací můžete exportovat, abyste je mohli sdílet při řešení problémů, nebo můžete zařízení obnovit.\n\nVarování: Obnovení zařízení povede ke ztrátě všech dat starších než dva týdny";
+"RECOVERY_PHASE_ERROR_GENERIC" = "Něco se pokazilo. Zkontrolujte prosím frázi pro obnovení a zkuste to znovu.";
+"RECOVERY_PHASE_ERROR_LENGTH" = "Vypadá to, že jste nezadali dostatek slov. Zkontrolujte prosím svou frázi pro obnovení a zkuste to znovu.";
+"RECOVERY_PHASE_ERROR_LAST_WORD" = "Zdá se, že vám chybí poslední slovo k frázi pro obnovení. Zkontrolujte, co jste zadali a zkuste to znovu.";
+"RECOVERY_PHASE_ERROR_INVALID_WORD" = "Zdá se, že ve vaší frázi pro obnovení je neplatné slovo. Zkontrolujte, co jste zadali, a zkuste to znovu.";
+"RECOVERY_PHASE_ERROR_FAILED" = "Vaši frázi pro obnovení se nepodařilo ověřit. Zkontrolujte, co jste zadali a zkuste to znovu.";
+/* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
+"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "K ověření nebylo možné přistoupit.";
+/* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Ověření se nezdařilo.";
+/* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Příliš mnoho neúspěšných pokusů o ověření. Zkuste to prosím později.";
+/* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Chcete-li používat zámek obrazovky, musíte v nastavení iOS povolit přístupový kód.";
+/* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Chcete-li používat zámek obrazovky, musíte v nastavení iOS povolit přístupový kód.";
+/* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
+"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Chcete-li používat zámek obrazovky, musíte v nastavení iOS povolit přístupový kód.";
+/* Label for the button to send a message */
+"SEND_BUTTON_TITLE" = "Odeslat";
+/* Generic text for button that retries whatever the last action was. */
+"RETRY_BUTTON_TEXT" = "Opakovat";
+/* notification action */
+"SHOW_THREAD_BUTTON_TITLE" = "Zobrazit chat";
+/* notification body */
+"SEND_FAILED_NOTIFICATION_BODY" = "Zprávu se nepodařilo odeslat.";
+"INVALID_SESSION_ID_MESSAGE" = "Zkontrolujte prosím Session ID a zkuste to znovu.";
+"INVALID_RECOVERY_PHRASE_MESSAGE" = "Zkontrolujte prosím frázi pro obnovení a zkuste to znovu.";
+"MEDIA_TAB_TITLE" = "Média";
+"DOCUMENT_TAB_TITLE" = "Dokumenty";
+"DOCUMENT_TILES_EMPTY_DOCUMENT" = "V této konverzaci nemáte žádný dokument.";
+"DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL" = "Načítání novějšího dokumentu…";
+"DOCUMENT_TILES_LOADING_OLDER_LABEL" = "Načítání staršího dokumentu…";
+/* The name for the emoji category 'Activities' */
+"EMOJI_CATEGORY_ACTIVITIES_NAME" = "Aktivity";
+/* The name for the emoji category 'Animals & Nature' */
+"EMOJI_CATEGORY_ANIMALS_NAME" = "Zvířata a příroda";
+/* The name for the emoji category 'Flags' */
+"EMOJI_CATEGORY_FLAGS_NAME" = "Vlajky";
+/* The name for the emoji category 'Food & Drink' */
+"EMOJI_CATEGORY_FOOD_NAME" = "Jídlo a pití";
+/* The name for the emoji category 'Objects' */
+"EMOJI_CATEGORY_OBJECTS_NAME" = "Předměty";
+/* The name for the emoji category 'Recents' */
+"EMOJI_CATEGORY_RECENTS_NAME" = "Naposledy použité";
+/* The name for the emoji category 'Smileys & People' */
+"EMOJI_CATEGORY_SMILEYSANDPEOPLE_NAME" = "Smajlíci a lidé";
+/* The name for the emoji category 'Symbols' */
+"EMOJI_CATEGORY_SYMBOLS_NAME" = "Symboly";
+/* The name for the emoji category 'Travel & Places' */
+"EMOJI_CATEGORY_TRAVEL_NAME" = "Cestování a místa";
+"EMOJI_REACTS_NOTIFICATION" = "%@ reaguje na zprávu s %@.";
+"EMOJI_REACTS_MORE_REACTORS_ONE" = "A 1 další reagoval s %@ na tuto zprávu.";
+"EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "A %@ další reagovali s %@ na tuto zprávu.";
+"EMOJI_REACTS_RATE_LIMIT_TOAST" = "Zpomalte! Poslali jste příliš mnoho emoji reakcí. Zkuste to za chvilku.";
+/* New conversation screen*/
+"vc_new_conversation_title" = "Nová konverzace";
+"CREATE_GROUP_BUTTON_TITLE" = "Vytvořit";
+"JOIN_COMMUNITY_BUTTON_TITLE" = "Připojit se k";
+"PRIVACY_TITLE" = "Soukromí";
+"PRIVACY_SECTION_SCREEN_SECURITY" = "Zabezpečení obrazovky";
+"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Zamknout Session";
+"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Požaduje Touch ID, Face ID nebo kód pro odemčení Session.";
+"PRIVACY_SECTION_READ_RECEIPTS" = "Potvrzení o přečtení";
+"PRIVACY_READ_RECEIPTS_TITLE" = "Potvrzení o přečtení";
+"PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Odeslat potvrzení o přečtení při konverzaci s jedním uživatelem.";
+"PRIVACY_SECTION_TYPING_INDICATORS" = "Indikátory psaní";
+"PRIVACY_TYPING_INDICATORS_TITLE" = "Indikátory psaní";
+"PRIVACY_TYPING_INDICATORS_DESCRIPTION" = "Zobrazit a sdílet indikátor psaní v konverzaci s jedním uživatelem.";
+"PRIVACY_SECTION_LINK_PREVIEWS" = "Náhledy odkazů";
+"PRIVACY_LINK_PREVIEWS_TITLE" = "Odesílat náhledy odkazů";
+"PRIVACY_LINK_PREVIEWS_DESCRIPTION" = "Vytvářet náhledy odkazů pro podporované URL adresy.";
+"PRIVACY_SECTION_CALLS" = "Volání (Beta)";
+"PRIVACY_CALLS_TITLE" = "Hlasové hovory a videohovory";
+"PRIVACY_CALLS_DESCRIPTION" = "Zapne hlasové a video hovory k ostatním uživatelům i od nich.";
+"PRIVACY_CALLS_WARNING_TITLE" = "Hlasové a video hovory (Beta)";
+"PRIVACY_CALLS_WARNING_DESCRIPTION" = "Vaše IP adresa je při používání beta hovorů viditelná pro toho s kým si voláte i pro Oxen Foundation server. Jste si jisti, že chcete povolit hlasové a video hovory?";
+"NOTIFICATIONS_TITLE" = "Upozornění";
+"NOTIFICATIONS_SECTION_STRATEGY" = "Styl oznámení";
+"NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE" = "Použít rychlý režim";
+"NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION" = "Budete informováni o nových zprávách spolehlivě a okamžitě pomocí oznamovacích serverů společnosti Apple.";
+"NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION" = "Přejít do nastavení upozornění pro toto zařízení";
+"NOTIFICATIONS_SECTION_STYLE" = "Styl upozornění";
+"NOTIFICATIONS_STYLE_SOUND_TITLE" = "Zvuk";
+"NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE" = "Zvuk při otevření aplikace";
+"NOTIFICATIONS_STYLE_CONTENT_TITLE" = "Obsah oznámení";
+"NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION" = "Informace uvedené v oznámeních.";
+"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT" = "Jméno a obsah";
+"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY" = "Pouze jméno";
+"NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT" = "Ani jméno ani zprávu";
+"CONVERSATION_SETTINGS_TITLE" = "Konverzace";
+"CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING" = "Pročištění zpráv";
+"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE" = "Pročištění komunit";
+"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION" = "Z komunit vymazat zprávy starší než 6 měsíců a ponechat maximálně 2000 nejnovějších zpráv v každé komunitě.";
+"CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "Zvukové zprávy";
+"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "Automaticky přehrát zvukové zprávy";
+"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "Automaticky přehrát po sobě následující zvukové zprávy.";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE" = "Blokované kontakty";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE" = "Nemáte žádné blokované kontakty.";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK" = "Odblokovat";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE" = "Opravdu chcete odblokovat %@?";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "tento kontakt";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1" = "Opravdu si přejete odblokovat %@";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "a %@?";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "a %d dalších?";
+"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON" = "Odblokovat";
+"APPEARANCE_TITLE" = "Vzhled";
+"APPEARANCE_THEMES_TITLE" = "Motivy";
+"APPEARANCE_PRIMARY_COLOR_TITLE" = "Výchozí barva";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE" = "Jak se máte?";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE" = "Dobře, jak vy?";
+"APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE" = "Skvěle, děkuji.";
+"APPEARANCE_NIGHT_MODE_TITLE" = "Automatický noční režim";
+"APPEARANCE_NIGHT_MODE_TOGGLE" = "Použít nastavení systému";
+"HELP_TITLE" = "Nápověda";
+"HELP_REPORT_BUG_TITLE" = "Nahlásit chybu";
+"HELP_REPORT_BUG_DESCRIPTION" = "Exportujte své logy, pak nahrajte soubor přes portál podpory Session.";
+"HELP_REPORT_BUG_ACTION_TITLE" = "Exportovat logy";
+"HELP_TRANSLATE_TITLE" = "Přeložit Session";
+"HELP_FEEDBACK_TITLE" = "Chtěli bychom znát váš názor";
+"HELP_FAQ_TITLE" = "Časté dotazy";
+"HELP_SUPPORT_TITLE" = "Podpora";
+"modal_clear_all_data_title" = "Smazat všechny data";
+"modal_clear_all_data_explanation" = "Tímto trvale smažete vaše zprávy a kontakty. Chcete vymazat data pouze na tomto zařízení, nebo odstranit také data ze sítě?";
+"modal_clear_all_data_explanation_2" = "Jste si jisti, že chcete odstranit svá data ze sítě? Pokud budete pokračovat, nebudete moci obnovit své zprávy nebo kontakty.";
+"modal_clear_all_data_device_only_button_title" = "Vymazat pouze data na zařízení";
+"modal_clear_all_data_entire_account_button_title" = "Vymazat data na zařízení i na síti";
+"dialog_clear_all_data_deletion_failed_1" = "Data nebyly smazány jedním provozním uzlem. ID provozního uzlu: %@.";
+"dialog_clear_all_data_deletion_failed_2" = "Data nebyla odstraněna %@ provozními uzly. ID provozních uzlů: %@.";
+"modal_clear_all_data_confirm" = "Vymazat";
+"modal_seed_title" = "Vaše fráze pro obnovení";
+"modal_seed_explanation" = "Obnovovací frázi můžete použít pro obnovení účtu nebo propojení zařízení.";
+"modal_permission_explanation" = "Session potřebuje %@ přístup pro pokračování. Právo přístupu můžete zapnout v nastavení iOS.";
+"modal_permission_settings_title" = "Nastavení";
+"modal_permission_camera" = "kamera";
+"modal_permission_microphone" = "mikrofon";
+"modal_permission_library" = "knihovna";
+"DISAPPEARING_MESSAGES_OFF" = "Vypnuto";
+"DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Vypnuto";
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Zmizí po: %@";
+"COPY_GROUP_URL" = "Kopírovat adresu skupiny";
+"NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Kontakty";
+"GROUP_ERROR_NO_MEMBER_SELECTION" = "Vyberte prosím alespoň jednoho člena skupiny";
+"GROUP_CREATION_PLEASE_WAIT" = "Počkejte prosím, než se skupina vytvoří...";
+"GROUP_CREATION_ERROR_TITLE" = "Vytvoření skupiny se nezdařilo";
+"GROUP_CREATION_ERROR_MESSAGE" = "Zkontrolujte své připojení k Internetu a zkuste to znovu.";
+"GROUP_UPDATE_ERROR_TITLE" = "Aktualizace skupiny se nezdařila";
+"GROUP_UPDATE_ERROR_MESSAGE" = "Nelze odejít při přidávání nebo odebírání dalších členů.";
+"GROUP_ACTION_REMOVE" = "Odstranit";
+"GROUP_TITLE_MEMBERS" = "Členové";
+"GROUP_TITLE_FALLBACK" = "Skupina";
+"DM_ERROR_DIRECT_BLINDED_ID" = "Zprávy můžete posílat pouze na skryté ID v rámci komunity";
+"DM_ERROR_INVALID" = "Zkontrolujte prosím své Session ID nebo název ONS a zkuste to znovu";
+"COMMUNITY_ERROR_INVALID_URL" = "Zkontrolujte prosím zadanou URL a zkuste to znovu.";
+"COMMUNITY_ERROR_GENERIC" = "Nelze se připojit";
+"DISAPPERING_MESSAGES_TITLE" = "Mizející zprávy";
+"DISAPPERING_MESSAGES_TYPE_TITLE" = "Odstranit typ";
+"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Zmizet po přečtení";
+"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Zprávy se po přečtení smažou.";
+"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "Zmizet po odeslání";
+"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "Zprávy se po odeslání smažou.";
+"DISAPPERING_MESSAGES_TIMER_TITLE" = "Časovač";
+"DISAPPERING_MESSAGES_SAVE_TITLE" = "Nastavit";
+"DISAPPERING_MESSAGES_GROUP_WARNING" = "Toto nastavení se týká všech účastníků této konverzace.";
+"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Toto nastavení se týká všech účastníků této konverzace. Toto nastavení mohou změnit pouze správci skupiny.";
+"DISAPPERING_MESSAGES_SUMMARY" = "Zmizí po: %@ - %@";
+"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ nastavil/a zprávy tak, aby zmizely %@ poté, co byly %@";
+"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ změnil/a zprávy tak, aby zmizely %@ poté, co byly %@";
+"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ vypnul/a mizející zprávy";
+
+/* context_menu_info */
+"context_menu_info" = "Info";
+
+/* An error that is displayed when the application fails for create it's initial connection to the database */
+"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+/* A warning displayed to the user when the application takes too long to launch */
+"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+
+/* The title of a button on a modal shown when the application fails to start, pressing the button closes the application */
+"APP_STARTUP_EXIT" = "Exit";
+
+/* An error which occurs if the user tries to restore the database after an initial failure and it fails to restore */
+"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
+
+/* Text displayed in place of a quoted message when the original message is not on the device */
+"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+
+/* EMOJI_REACTS_SHOW_LESS */
+"EMOJI_REACTS_SHOW_LESS" = "Show less";
+
+/* PRIVACY_SECTION_MESSAGE_REQUESTS */
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+
+/* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+
+/* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
+"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+
+/* State of a message while it's still in the process of being sent */
+"MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+
+/* State of a message once it has been sent */
+"MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+
+/* State of a message after the recipient has read the message */
+"MESSAGE_DELIVERY_STATUS_READ" = "Read";
+
+/* State of a message if it failed to be sent */
+"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+
+/* Title of the message information screen describing the date/time a message was sent */
+"MESSAGE_INFO_SENT" = "Sent";
+
+/* Title of the message information screen describing the date/time a message was received on a specific device */
+"MESSAGE_INFO_RECEIVED" = "Received";
+
+/* Title of the message information screen describing the sender of the message */
+"MESSAGE_INFO_FROM" = "From";
+
+/* Title of the message information screen describing the identifier of the attachment */
+"ATTACHMENT_INFO_FILE_ID" = "File ID";
+
+/* Title of the message information screen describing the file type of the attachment */
+"ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+
+/* Title of the message information screen describing the size of the attachment */
+"ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+
+/* Title on the message information screen describing the resolution of a media attachment */
+"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+
+/* Title on the message information screen describing the duration of a media attachment */
+"ATTACHMENT_INFO_DURATION" = "Duration";
+
+/* State of a message after it failed to sync to the current users other devices */
+"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+
+/* State of a message while it's in the process of being synced to the users other devices */
+"MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to send */
+"MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
+
+/* Title of the modal that appears after a user taps on the state of a message which failed to sync to the users other devices */
+"MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
+
+/* Action for the modal shown when asking the user whether they want to delete from all of their devices */
+"delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+
+/* Action in the long-press menu to trigger a message to be sent again after it has failed */
+"context_menu_resend" = "Resend";
+
+/* Action in the long-press menu to trigger a message to be synced again after it has failed */
+"context_menu_resync" = "Resync";
+
+/* Title of a modal show the first time a user tries to search for GIFs */
+"GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+
+/* Message of a modal show the first time a user tries to search for GIFs */
+"GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+
+/* Action in the long-press menu to view more information about a specific message */
+"message_info_title" = "Message Info";
+
+/* Action to mute a conversation in the swipe menu */
+"mute_button_text" = "Mute";
+
+/* Action in the swipe menu to unmute a conversation */
+"unmute_button_text" = "Unmute";
+
+/* Action in the swipe menu to mark a conversation as read */
+"MARK_AS_READ" = "Mark read";
+
+/* Action in the swipe menu to mark a conversation as unread */
+"MARK_AS_UNREAD" = "Mark unread";
+
+/* Title of the confirmation modal show when attempting to leave a group conversation */
+"leave_group_confirmation_alert_title" = "Leave Group";
+
+/* Title of the confirmation modal show when attempting to leave a community conversation */
+"leave_community_confirmation_alert_title" = "Leave Community";
+
+/* Message in the confirmation modal when leaving a community conversation */
+"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+
+/* Conversation subtitle while the user in the process of leaving */
+"group_you_leaving" = "Leaving...";
+
+/* Conversation subtitle if the user in the failed to leave */
+"group_leave_error" = "Failed to leave Group!";
+
+/* Message within a conversation indicating the device was unable to leave a group conversation */
+"group_unable_to_leave" = "Unable to leave the Group, please try again";
+
+/* Title in the confirmation modal to delete a group */
+"delete_group_confirmation_alert_title" = "Delete Group";
+
+/* Message in the confirmation modal to delete a group */
+"delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+
+/* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
+"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+
+/* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
+"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+
+/* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
+"hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+
+/* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
+"hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+
+/* Title in the modal for updating the users profile display picture */
+"update_profile_modal_title" = "Set Display Picture";
+
+/* Save action in the modal for updating the users profile display picture */
+"update_profile_modal_save" = "Save";
+
+/* Remove action in the modal for updating the users profile display picture */
+"update_profile_modal_remove" = "Remove";
+
+/* Title for the error when failing to remove the users profile display picture */
+"update_profile_modal_remove_error_title" = "Unable to remove avatar image";
+
+/* Title for the error when the user selects a profile display picture that is too large */
+"update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
+
+/* Message for the error when the user selects a profile display picture that is too large */
+"update_profile_modal_max_size_error_message" = "Please select a smaller photo and try again";
+
+/* Title for the error when the user fails to update their profile display picture */
+"update_profile_modal_error_title" = "Couldn't Update Profile";
+
+/* Message for the error when the user fails to update their profile display picture */
+"update_profile_modal_error_message" = "Please check your internet connection and try again";
+
+/* Placeholder when entering a nickname for a contact */
+"CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
+
+/* The separator within a conversation indicating that following messages are unread */
+"UNREAD_MESSAGES" = "Unread Messages";
+
+/* Empty state for a conversation */
+"CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
+
+/* Empty state for a read-only conversation */
+"CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+
+/* Empty state for the 'Note to Self' conversation */
+"CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+
+/* Message to indicate a user has Community Message Requests disabled */
+"COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
+
+/* Warning to indicate one of the users devices is running an old version of Session */
+"USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+
+/* Ann error displayed if the device is unable to retrieve the users recovery password */
+"LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
+
+/* An error displayed when trying to send a message if the device is unable to save it to the database */
+"FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
+
+/* An error indicating that the device was unable to access the database for some reason */
+"database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
+
+/* A message indicating how the disappearing messages setting applies in a one-to-one conversation */
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+
+/* A message indicating how the disappearing messages setting applies in a group conversation */
+"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
+
+/* A record that appears within the message history to indicate that the current user turned on disappearing messages */
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+
+/* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
+"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
+
+/* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+
+/* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
+
+/* The description for the legacy type of disappearing messages on the disappearing messages configuration screen */
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
+
+/* A warning shown at the top of a conversation to indicate a participant is using an old version of Session which may not support the updated disappearing messages functionality */
+"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
+
+/* An error which can occur when a user tries to update from a version that Session no longer supports updating from */
+"DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+
+/* DISAPPEARING_MESSAGE_STATE_READ
+The point that a message will disappear in a disappearing message update message for disappear after read */
+"DISAPPEARING_MESSAGE_STATE_READ" = "read";
+
+/* The point that a message will disappear in a disappearing message update message for disappear after send */
+"DISAPPEARING_MESSAGE_STATE_SENT" = "sent";

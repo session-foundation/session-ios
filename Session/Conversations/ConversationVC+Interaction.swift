@@ -22,16 +22,49 @@ extension ConversationVC:
     AttachmentApprovalViewControllerDelegate,
     GifPickerViewControllerDelegate
 {
+    // MARK: - Open Settings
+    
     @objc func handleTitleViewTapped() {
         // Don't take the user to settings for unapproved threads
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
-        openSettings()
+        openSettingsFromTitleView()
+    }
+    
+    @objc func  openSettingsFromTitleView() {
+        switch self.titleView.currentLabelType {
+            case .userCount:
+                if self.viewModel.threadData.threadVariant == .group || self.viewModel.threadData.threadVariant == .legacyGroup {
+                    let viewController = EditClosedGroupVC(
+                        threadId: self.viewModel.threadData.threadId,
+                        threadVariant: self.viewModel.threadData.threadVariant
+                    )
+                    navigationController?.pushViewController(viewController, animated: true)
+                } else {
+                    openSettings()
+                }
+                break
+            case .none, .notificationSettings:
+                openSettings()
+                break
+            
+            case .disappearingMessageSetting:
+                let viewController = SessionTableViewController(
+                    viewModel: ThreadDisappearingMessagesSettingsViewModel(
+                        threadId: self.viewModel.threadData.threadId,
+                        threadVariant: self.viewModel.threadData.threadVariant,
+                        currentUserIsClosedGroupMember: self.viewModel.threadData.currentUserIsClosedGroupMember,
+                        currentUserIsClosedGroupAdmin: self.viewModel.threadData.currentUserIsClosedGroupAdmin,
+                        config: self.viewModel.threadData.disappearingMessagesConfiguration!
+                    )
+                )
+                navigationController?.pushViewController(viewController, animated: true)
+                break
+        }
     }
 
     @objc func openSettings() {
-        let viewController: SessionTableViewController = SessionTableViewController(
-            viewModel: ThreadSettingsViewModel(
+        let viewController = SessionTableViewController(viewModel: ThreadSettingsViewModel(
                 threadId: self.viewModel.threadData.threadId,
                 threadVariant: self.viewModel.threadData.threadVariant,
                 didTriggerSearch: { [weak self] in
@@ -47,7 +80,6 @@ extension ConversationVC:
                 }
             )
         )
-        
         navigationController?.pushViewController(viewController, animated: true)
     }
     
@@ -532,16 +564,34 @@ extension ConversationVC:
                     let insertedInteraction: Interaction = try optimisticData.interaction.inserted(db)
                     self?.viewModel.associate(optimisticMessageId: optimisticData.id, to: insertedInteraction.id)
                     
-                    // If there is a LinkPreview and it doesn't match an existing one then add it now
-                    if
-                        let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft,
-                        (try? insertedInteraction.linkPreview.isEmpty(db)) == true
-                    {
-                        try LinkPreview(
-                            url: linkPreviewDraft.urlString,
-                            title: linkPreviewDraft.title,
-                            attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
-                        ).insert(db)
+                    // If there is a LinkPreview draft then check the state of any existing link previews and
+                    // insert a new one if needed
+                    if let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft {
+                        let invalidLinkPreviewAttachmentStates: [Attachment.State] = [
+                            .failedDownload, .pendingDownload, .downloading, .failedUpload, .invalid
+                        ]
+                        let linkPreviewAttachmentId: String? = try? insertedInteraction.linkPreview
+                            .select(.attachmentId)
+                            .asRequest(of: String.self)
+                            .fetchOne(db)
+                        let linkPreviewAttachmentState: Attachment.State = linkPreviewAttachmentId
+                            .map {
+                                try? Attachment
+                                    .filter(id: $0)
+                                    .select(.state)
+                                    .asRequest(of: Attachment.State.self)
+                                    .fetchOne(db)
+                            }
+                            .defaulting(to: .invalid)
+                        
+                        // If we don't have a "valid" existing link preview then upsert a new one
+                        if invalidLinkPreviewAttachmentStates.contains(linkPreviewAttachmentState) {
+                            try LinkPreview(
+                                url: linkPreviewDraft.urlString,
+                                title: linkPreviewDraft.title,
+                                attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
+                            ).save(db)
+                        }
                     }
                     
                     // If there is a Quote the insert it now
@@ -567,6 +617,18 @@ extension ConversationVC:
                         interaction: insertedInteraction,
                         threadId: threadId,
                         threadVariant: threadVariant,
+                        using: dependencies
+                    )
+                    
+                    // Trigger disappear after read
+                    dependencies.jobRunner.upsert(
+                        db,
+                        job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                            db,
+                            interaction: insertedInteraction,
+                            startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                        ),
+                        canStartJob: true,
                         using: dependencies
                     )
                 }

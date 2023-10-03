@@ -11,52 +11,38 @@ import SessionUtilitiesKit
 @testable import Session
 
 class NotificationContentViewModelSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var mockStorage: Storage!
-        var dataChangeCancellable: AnyCancellable?
-        var dismissCancellable: AnyCancellable?
-        var viewModel: NotificationContentViewModel!
+    override class func spec() {
+        // MARK: Configuration
+        @TestState var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            migrationTargets: [
+                SNUtilitiesKit.self,
+                SNSnodeKit.self,
+                SNMessagingKit.self,
+                SNUIKit.self
+            ]
+        )
+        @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
+            storage: mockStorage,
+            scheduling: .immediate
+        )
         
+        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.observableTableData
+            .receive(on: ImmediateScheduler.shared)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { viewModel.updateTableData($0.0) }
+            )
+        @TestState var dismissCancellable: AnyCancellable?
+        
+        // MARK: - a NotificationContentViewModel
         describe("a NotificationContentViewModel") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNSnodeKit.self,
-                        SNMessagingKit.self,
-                        SNUIKit.self
-                    ]
-                )
-                viewModel = NotificationContentViewModel(storage: mockStorage, scheduling: .immediate)
-                dataChangeCancellable = viewModel.observableTableData
-                    .receive(on: ImmediateScheduler.shared)
-                    .sink(
-                        receiveCompletion: { _ in },
-                        receiveValue: { viewModel.updateTableData($0.0) }
-                    )
-            }
-            
-            afterEach {
-                dataChangeCancellable?.cancel()
-                dismissCancellable?.cancel()
-                
-                mockStorage = nil
-                dataChangeCancellable = nil
-                dismissCancellable = nil
-                viewModel = nil
-            }
-            
-            // MARK: - Basic Tests
-            
+            // MARK: -- has the correct title
             it("has the correct title") {
                 expect(viewModel.title).to(equal("NOTIFICATIONS_STYLE_CONTENT_TITLE".localized()))
             }
 
+            // MARK: -- has the correct number of items
             it("has the correct number of items") {
                 expect(viewModel.tableData.count)
                     .to(equal(1))
@@ -64,6 +50,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     .to(equal(3))
             }
             
+            // MARK: -- has the correct default state
             it("has the correct default state") {
                 expect(viewModel.tableData.first?.elements)
                     .to(
@@ -96,6 +83,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     )
             }
             
+            // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
                 mockStorage.write { db in
                     db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
@@ -139,7 +127,9 @@ class NotificationContentViewModelSpec: QuickSpec {
                     )
             }
             
+            // MARK: -- when tapping an item
             context("when tapping an item") {
+                // MARK: ---- updates the saved preference
                 it("updates the saved preference") {
                     viewModel.tableData.first?.elements.last?.onTap?()
                     
@@ -147,6 +137,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                         .to(equal(Preferences.NotificationPreviewType.noNameNoPreview))
                 }
                 
+                // MARK: ---- dismisses the screen
                 it("dismisses the screen") {
                     var didDismissScreen: Bool = false
                     

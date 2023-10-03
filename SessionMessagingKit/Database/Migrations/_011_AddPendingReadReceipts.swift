@@ -8,9 +8,11 @@ import SessionUtilitiesKit
 /// message due to how one-to-one conversations work, by storing pending read receipts we should be able to prevent this case)
 enum _011_AddPendingReadReceipts: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "AddPendingReadReceipts"
+    static let identifier: String = "AddPendingReadReceipts" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [PendingReadReceipt.self]
     
     static func migrate(_ db: Database) throws {
         try db.create(table: PendingReadReceipt.self) { t in

@@ -154,6 +154,7 @@ public enum MessageReceiver {
         message.sentTimestamp = envelope.timestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         message.openGroupServerMessageId = openGroupMessageServerId.map { UInt64($0) }
+        message.attachDisappearingMessagesConfiguration(from: proto)
         
         // Validate
         var isValid: Bool = message.isValid
@@ -205,6 +206,18 @@ public enum MessageReceiver {
             threadId: threadId,
             threadVariant: threadVariant,
             using: dependencies
+        )
+        
+        // Update any disappearing messages configuration if needed.
+        // We need to update this before processing the messages, because
+        // the message with the disappearing message config update should
+        // follow the new config.
+        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
+            db,
+            threadId: threadId,
+            threadVariant: threadVariant,
+            message: message,
+            proto: proto
         )
         
         switch message {
@@ -323,6 +336,13 @@ public enum MessageReceiver {
                     .fetchOne(db)
                     .defaulting(to: false)
                 
+                // Start the disappearing messages timer if needed
+                // For disappear after send, this is necessary so the message will disappear even if it is not read
+                JobRunner.upsert(
+                    db,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+                )
+
                 guard !isCurrentlyVisible else { return }
                 
                 try SessionThread

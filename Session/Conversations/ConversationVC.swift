@@ -123,6 +123,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     var scrollButtonMessageRequestsBottomConstraint: NSLayoutConstraint?
     var messageRequestsViewBotomConstraint: NSLayoutConstraint?
     var messageRequestDescriptionLabelBottomConstraint: NSLayoutConstraint?
+    var emptyStateLabelTopConstraint: NSLayoutConstraint?
     
     lazy var titleView: ConversationTitleView = {
         let result: ConversationTitleView = ConversationTitleView()
@@ -192,17 +193,55 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         
         return result
     }()
+    
+    lazy var stateStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [ outdatedClientBanner, emptyStateLabelContainer ])
+        result.axis = .vertical
+        result.spacing = Values.smallSpacing
+        result.alignment = .fill
+        
+        return result
+    }()
+    
+    lazy var outdatedClientBanner: InfoBanner = {
+        let info: InfoBanner.Info = InfoBanner.Info(
+            message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), self.viewModel.threadData.displayName),
+            backgroundColor: .primary,
+            messageFont: .systemFont(ofSize: Values.miniFontSize),
+            messageTintColor: .messageBubble_outgoingText,
+            messageLabelAccessibilityLabel: "Outdated client banner text",
+            height: 40
+        )
+        let result: InfoBanner = InfoBanner(info: info)
+        result.accessibilityLabel = "Outdated client banner"
+        result.isAccessibilityElement = true
+        
+        return result
+    }()
 
     lazy var blockedBanner: InfoBanner = {
-        let result: InfoBanner = InfoBanner(
+        let info: InfoBanner.Info = InfoBanner.Info(
             message: self.viewModel.blockedBannerMessage,
             backgroundColor: .danger,
-            messageLabelAccessibilityLabel: "Blocked banner text"
+            messageFont: .boldSystemFont(ofSize: Values.smallFontSize),
+            messageTintColor: .textPrimary,
+            messageLabelAccessibilityLabel: "Blocked banner text",
+            height: 54
         )
+        let result: InfoBanner = InfoBanner(info: info)
         result.accessibilityLabel = "Blocked banner"
         result.isAccessibilityElement = true
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(unblock))
         result.addGestureRecognizer(tapGestureRecognizer)
+        
+        return result
+    }()
+    
+    private lazy var emptyStateLabelContainer: UIView = {
+        let result: UIView = UIView()
+        result.addSubview(emptyStateLabel)
+        emptyStateLabel.pin(.leading, to: .leading, of: result, withInset: Values.largeSpacing)
+        emptyStateLabel.pin(.trailing, to: .trailing, of: result, withInset: -Values.largeSpacing)
         
         return result
     }()
@@ -409,13 +448,14 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
 
         // Message requests view & scroll to bottom
         view.addSubview(scrollButton)
-        view.addSubview(emptyStateLabel)
+        view.addSubview(stateStackView)
         view.addSubview(messageRequestBackgroundView)
         view.addSubview(messageRequestStackView)
         
-        emptyStateLabel.pin(.top, to: .top, of: view, withInset: Values.largeSpacing)
-        emptyStateLabel.pin(.leading, to: .leading, of: view, withInset: Values.veryLargeSpacing)
-        emptyStateLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.veryLargeSpacing)
+        stateStackView.pin(.top, to: .top, of: view, withInset: 0)
+        stateStackView.pin(.leading, to: .leading, of: view, withInset: 0)
+        stateStackView.pin(.trailing, to: .trailing, of: view, withInset: 0)
+        self.emptyStateLabelTopConstraint = emptyStateLabel.pin(.top, to: .top, of: emptyStateLabelContainer, withInset: Values.largeSpacing)
         
         messageRequestStackView.addArrangedSubview(messageRequestBlockButton)
         messageRequestStackView.addArrangedSubview(messageRequestDescriptionContainerView)
@@ -569,12 +609,16 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         let threadId: String = viewModel.threadData.threadId
         
         if
+            (
+                self.navigationController == nil ||
+                self.navigationController?.viewControllers.contains(self) == false
+            ) &&
             viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
             !SessionUtil.conversationInConfig(
                 threadId: threadId,
                 threadVariant: viewModel.threadData.threadVariant,
-                visibleOnly: true
+                visibleOnly: false
             )
         {
             Storage.shared.writeAsync { db in
@@ -734,7 +778,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             viewModel.threadData.threadIsNoteToSelf != updatedThreadData.threadIsNoteToSelf ||
             viewModel.threadData.threadMutedUntilTimestamp != updatedThreadData.threadMutedUntilTimestamp ||
             viewModel.threadData.threadOnlyNotifyForMentions != updatedThreadData.threadOnlyNotifyForMentions ||
-            viewModel.threadData.userCount != updatedThreadData.userCount
+            viewModel.threadData.userCount != updatedThreadData.userCount ||
+            viewModel.threadData.disappearingMessagesConfiguration != updatedThreadData.disappearingMessagesConfiguration
         {
             titleView.update(
                 with: updatedThreadData.displayName,
@@ -742,7 +787,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 threadVariant: updatedThreadData.threadVariant,
                 mutedUntilTimestamp: updatedThreadData.threadMutedUntilTimestamp,
                 onlyNotifyForMentions: (updatedThreadData.threadOnlyNotifyForMentions == true),
-                userCount: updatedThreadData.userCount
+                userCount: updatedThreadData.userCount,
+                disappearingMessagesConfig: updatedThreadData.disappearingMessagesConfiguration
             )
             
             // Update the empty state
@@ -754,6 +800,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                         .map { NSRange($0, in: text) }
                         .defaulting(to: NSRange(location: 0, length: 0))
                 )
+
+            outdatedClientBanner.update(message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), updatedThreadData.displayName))
         }
         
         if
@@ -817,6 +865,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     )
                 }
             }
+        }
+        
+        if initialLoad || viewModel.threadData.contactLastKnownClientVersion != updatedThreadData.contactLastKnownClientVersion {
+            addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: updatedThreadData.contactLastKnownClientVersion == .legacyDisappearingMessages)
         }
         
         if initialLoad || viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked {
@@ -1199,7 +1251,6 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         else {
             self.scrollToBottom(isAnimated: false)
         }
-
         self.updateScrollToBottom()
         self.hasPerformedInitialScroll = true
         
@@ -1444,6 +1495,33 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }
 
     // MARK: - General
+    
+    func addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: Bool) {
+        // Do not show the banner until the new disappearing messages is enabled
+        guard Features.useNewDisappearingMessagesConfig else {
+            self.outdatedClientBanner.isHidden = true
+            self.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
+            return
+        }
+        
+        guard contactIsUsingOutdatedClient else {
+            UIView.animate(
+                withDuration: 0.25,
+                animations: { [weak self] in
+                    self?.outdatedClientBanner.alpha = 0
+                },
+                completion: { [weak self] _ in
+                    self?.outdatedClientBanner.isHidden = true
+                    self?.outdatedClientBanner.alpha = 1
+                    self?.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
+                }
+            )
+            return
+        }
+
+        self.outdatedClientBanner.isHidden = false
+        self.emptyStateLabelTopConstraint?.constant = 0
+    }
 
     func addOrRemoveBlockedBanner(threadIsBlocked: Bool) {
         guard threadIsBlocked else {
@@ -1951,14 +2029,22 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 .sorted()
                 .filter({ $0.section == messagesSection })
                 .compactMap({ indexPath -> (frame: CGRect, cellViewModel: MessageViewModel)? in
-                    guard let cell: VisibleMessageCell = tableView.cellForRow(at: indexPath) as? VisibleMessageCell else {
-                        return nil
-                    }
+                    guard let cell: UITableViewCell = tableView.cellForRow(at: indexPath) else { return nil }
                     
-                    return (
-                        view.convert(cell.frame, from: tableView),
-                        self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
-                    )
+                    switch cell {
+                        case is VisibleMessageCell, is CallMessageCell, is InfoMessageCell:
+                            return (
+                                view.convert(cell.frame, from: tableView),
+                                self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
+                            )
+                            
+                        case is TypingIndicatorCell, is DateHeaderCell, is UnreadMarkerCell:
+                            return nil
+                        
+                        default:
+                            SNLog("[ConversationVC] Warning: Processing unhandled cell type when marking as read, this could result in intermittent failures")
+                            return nil
+                    }
                 })
                 // Exclude messages that are partially off the bottom of the screen
                 .filter({ $0.frame.maxY <= tableVisualBottom })

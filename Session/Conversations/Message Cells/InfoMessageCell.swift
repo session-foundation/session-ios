@@ -48,9 +48,9 @@ final class InfoMessageCell: MessageCell {
         iconImageViewHeightConstraint.isActive = true
         addSubview(stackView)
         
-        stackView.pin(.left, to: .left, of: self, withInset: InfoMessageCell.inset)
+        stackView.pin(.left, to: .left, of: self, withInset: Values.massiveSpacing)
         stackView.pin(.top, to: .top, of: self, withInset: InfoMessageCell.inset)
-        stackView.pin(.right, to: .right, of: self, withInset: -InfoMessageCell.inset)
+        stackView.pin(.right, to: .right, of: self, withInset: -Values.massiveSpacing)
         stackView.pin(.bottom, to: .bottom, of: self, withInset: -InfoMessageCell.inset)
     }
     
@@ -70,17 +70,14 @@ final class InfoMessageCell: MessageCell {
     ) {
         guard cellViewModel.variant.isInfoMessage else { return }
         
-        self.accessibilityIdentifier = "Configuration message"
+        self.accessibilityIdentifier = "Control message"
         self.isAccessibilityElement = true
         self.viewModel = cellViewModel
         
         let icon: UIImage? = {
             switch cellViewModel.variant {
                 case .infoDisappearingMessagesUpdate:
-                    return (cellViewModel.threadHasDisappearingMessagesEnabled ?
-                        UIImage(named: "ic_timer") :
-                        UIImage(named: "ic_timer_disabled")
-                    )
+                    return UIImage(systemName: "timer")
                     
                 case .infoMediaSavedNotification: return UIImage(named: "ic_download")
                     

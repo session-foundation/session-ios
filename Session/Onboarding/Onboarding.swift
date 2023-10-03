@@ -30,7 +30,7 @@ enum Onboarding {
         _ requestId: UUID,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<String?, Error> {
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
         return SnodeAPI.getSwarm(for: userPublicKey)
             .tryFlatMapWithRandomSnode { snode -> AnyPublisher<[Message], Error> in
@@ -60,7 +60,7 @@ enum Onboarding {
             .eraseToAnyPublisher()
     }
     
-    enum State {
+    enum State: CustomStringConvertible {
         case newUser
         case missingName
         case completed
@@ -77,6 +77,14 @@ enum Onboarding {
             // Otherwise we have enough for a full user and can start the app
             return .completed
         }
+        
+        var description: String {
+            switch self {
+                case .newUser: return "New User"            // stringlint:disable
+                case .missingName: return "Missing Name"    // stringlint:disable
+                case .completed: return "Completed"         // stringlint:disable
+            }
+        }
     }
     
     enum Flow {
@@ -84,7 +92,7 @@ enum Onboarding {
         
         /// If the user returns to an earlier screen during Onboarding we might need to clear out a partially created
         /// account (eg. returning from the PN setting screen to the seed entry screen when linking a device)
-        func unregister() {
+        func unregister(using dependencies: Dependencies = Dependencies()) {
             // Clear the in-memory state from SessionUtil
             SessionUtil.clearMemoryState()
             
@@ -103,6 +111,9 @@ enum Onboarding {
             // Clear the profile name retrieve publisher
             profileNameRetrievalIdentifier.mutate { $0 = nil }
             profileNameRetrievalPublisher.mutate { $0 = nil }
+            
+            // Clear the cached 'encodedPublicKey' if needed
+            dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = nil }
             
             UserDefaults.standard[.hasSyncedInitialConfiguration] = false
         }

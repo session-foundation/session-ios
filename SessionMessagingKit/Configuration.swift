@@ -3,7 +3,7 @@ import GRDB
 import SessionUtilitiesKit
 
 public enum SNMessagingKit: MigratableTarget { // Just to make the external API nice
-    public static func migrations(_ db: Database) -> TargetMigrations {
+    public static func migrations() -> TargetMigrations {
         return TargetMigrations(
             identifier: .messagingKit,
             migrations: [
@@ -32,7 +32,9 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _012_AddFTSIfNeeded.self,
                     _013_SessionUtilChanges.self,
                     _014_GenerateInitialUserConfigDumps.self,
-                    _015_BlockCommunityMessageRequests.self
+                    _015_BlockCommunityMessageRequests.self,
+                    _016_MakeBrokenProfileTimestampsNullable.self,
+                    _017_DisappearingMessagesConfiguration.self
                 ]
             ]
         )
@@ -55,5 +57,7 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
         JobRunner.setExecutor(AttachmentDownloadJob.self, for: .attachmentDownload)
         JobRunner.setExecutor(ConfigurationSyncJob.self, for: .configurationSync)
         JobRunner.setExecutor(ConfigMessageReceiveJob.self, for: .configMessageReceive)
+        JobRunner.setExecutor(ExpirationUpdateJob.self, for: .expirationUpdate)
+        JobRunner.setExecutor(GetExpirationJob.self, for: .getExpiration)
     }
 }

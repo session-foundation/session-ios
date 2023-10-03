@@ -93,7 +93,7 @@ public final class SharedConfigMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         do {
             let sharedConfigMessage: SNProtoSharedConfigMessage.SNProtoSharedConfigMessageBuilder = SNProtoSharedConfigMessage.builder(
                 kind: {

@@ -24,68 +24,6 @@ import SessionSnodeKit
 /// there is no need for an Adapter, and instead the appropriate NotificationActionHandler is
 /// wired directly into the appropriate callback point.
 
-enum AppNotificationCategory: CaseIterable {
-    case incomingMessage
-    case incomingMessageFromNoLongerVerifiedIdentity
-    case errorMessage
-    case threadlessErrorMessage
-}
-
-enum AppNotificationAction: CaseIterable {
-    case markAsRead
-    case reply
-    case showThread
-}
-
-struct AppNotificationUserInfoKey {
-    static let threadId = "Signal.AppNotificationsUserInfoKey.threadId"
-    static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"
-    static let callBackNumber = "Signal.AppNotificationsUserInfoKey.callBackNumber"
-    static let localCallId = "Signal.AppNotificationsUserInfoKey.localCallId"
-    static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"
-}
-
-extension AppNotificationCategory {
-    var identifier: String {
-        switch self {
-        case .incomingMessage:
-            return "Signal.AppNotificationCategory.incomingMessage"
-        case .incomingMessageFromNoLongerVerifiedIdentity:
-            return "Signal.AppNotificationCategory.incomingMessageFromNoLongerVerifiedIdentity"
-        case .errorMessage:
-            return "Signal.AppNotificationCategory.errorMessage"
-        case .threadlessErrorMessage:
-            return "Signal.AppNotificationCategory.threadlessErrorMessage"
-        }
-    }
-
-    var actions: [AppNotificationAction] {
-        switch self {
-        case .incomingMessage:
-            return [.markAsRead, .reply]
-        case .incomingMessageFromNoLongerVerifiedIdentity:
-            return [.markAsRead, .showThread]
-        case .errorMessage:
-            return [.showThread]
-        case .threadlessErrorMessage:
-            return []
-        }
-    }
-}
-
-extension AppNotificationAction {
-    var identifier: String {
-        switch self {
-        case .markAsRead:
-            return "Signal.AppNotifications.Action.markAsRead"
-        case .reply:
-            return "Signal.AppNotifications.Action.reply"
-        case .showThread:
-            return "Signal.AppNotifications.Action.showThread"
-        }
-    }
-}
-
 let kAudioNotificationsThrottleCount = 2
 let kAudioNotificationsThrottleInterval: TimeInterval = 5
 
@@ -576,13 +514,7 @@ class NotificationActionHandler {
                     variant: .standardOutgoing,
                     body: replyText,
                     timestampMs: SnodeAPI.currentOffsetTimestampMs(),
-                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText),
-                    expiresInSeconds: try? DisappearingMessagesConfiguration
-                        .select(.durationSeconds)
-                        .filter(id: threadId)
-                        .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)
-                        .asRequest(of: TimeInterval.self)
-                        .fetchOne(db)
+                    hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText)
                 ).inserted(db)
                 
                 try Interaction.markAsRead(

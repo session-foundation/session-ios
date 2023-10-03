@@ -8,9 +8,14 @@ import SessionUtilitiesKit
 /// This migration goes through the current state of the database and generates config dumps for the user config types
 enum _014_GenerateInitialUserConfigDumps: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "GenerateInitialUserConfigDumps"
+    static let identifier: String = "GenerateInitialUserConfigDumps" // stringlint:disable
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 4.0
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
+        Identity.self, SessionThread.self, Contact.self, Profile.self, ClosedGroup.self,
+        OpenGroup.self, DisappearingMessagesConfiguration.self, GroupMember.self, ConfigDump.self
+    ]
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         // If we have no ed25519 key then there is no need to create cached dump data

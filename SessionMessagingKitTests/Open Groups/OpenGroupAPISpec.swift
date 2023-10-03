@@ -13,66 +13,49 @@ import Nimble
 @testable import SessionMessagingKit
 
 class OpenGroupAPISpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var mockStorage: Storage!
-        var mockNetwork: MockNetwork!
-        var mockCrypto: MockCrypto!
-        var dependencies: Dependencies!
-        var disposables: [AnyCancellable] = []
+    override class func spec() {
+        // MARK: Configuration
         
-        var error: Error?
-        
-        describe("an OpenGroupAPI") {
-            // MARK: - Configuration
-            
-            beforeEach {
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNMessagingKit.self
-                    ]
-                )
-                mockNetwork = MockNetwork()
-                mockCrypto = MockCrypto()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    network: mockNetwork,
-                    crypto: mockCrypto,
-                    dateNow: Date(timeIntervalSince1970: 1234567890)
-                )
+        @TestState var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            migrationTargets: [
+                SNUtilitiesKit.self,
+                SNMessagingKit.self
+            ],
+            initialData: { db in
+                try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
                 
-                mockStorage.write { db in
-                    try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).insert(db)
-                    try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).insert(db)
-                    try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!).insert(db)
-                    try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
-                    
-                    try OpenGroup(
-                        server: "testServer",
-                        roomToken: "testRoom",
-                        publicKey: TestConstants.publicKey,
-                        isActive: true,
-                        name: "Test",
-                        roomDescription: nil,
-                        imageId: nil,
-                        userCount: 0,
-                        infoUpdates: 0,
-                        sequenceNumber: 0,
-                        inboxLatestMessageId: 0,
-                        outboxLatestMessageId: 0
-                    ).insert(db)
-                    try Capability(openGroupServer: "testserver", variant: .sogs, isMissing: false).insert(db)
-                }
-                
-                mockCrypto
+                try OpenGroup(
+                    server: "testServer",
+                    roomToken: "testRoom",
+                    publicKey: TestConstants.publicKey,
+                    isActive: true,
+                    name: "Test",
+                    roomDescription: nil,
+                    imageId: nil,
+                    userCount: 0,
+                    infoUpdates: 0,
+                    sequenceNumber: 0,
+                    inboxLatestMessageId: 0,
+                    outboxLatestMessageId: 0
+                ).insert(db)
+                try Capability(openGroupServer: "testserver", variant: .sogs, isMissing: false).insert(db)
+            }
+        )
+        @TestState var mockNetwork: MockNetwork! = MockNetwork()
+        @TestState var mockCrypto: MockCrypto! = MockCrypto(
+            initialSetup: { crypto in
+                crypto
                     .when { try $0.perform(.hash(message: anyArray(), outputLength: any())) }
                     .thenReturn([])
-                mockCrypto
-                    .when { [dependencies = dependencies!] crypto in
-                        crypto.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: dependencies))
+                crypto
+                    .when { crypto in
+                        crypto.generate(
+                            .blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())
+                        )
                     }
                     .thenReturn(
                         KeyPair(
@@ -80,7 +63,7 @@ class OpenGroupAPISpec: QuickSpec {
                             secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
                         )
                     )
-                mockCrypto
+                crypto
                     .when {
                         try $0.perform(
                             .sogsSignature(
@@ -92,35 +75,34 @@ class OpenGroupAPISpec: QuickSpec {
                         )
                     }
                     .thenReturn("TestSogsSignature".bytes)
-                mockCrypto
+                crypto
                     .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
                     .thenReturn("TestSignature".bytes)
-                mockCrypto
+                crypto
                     .when { try $0.perform(.signEd25519(data: anyArray(), keyPair: any())) }
                     .thenReturn("TestStandardSignature".bytes)
-                mockCrypto
+                crypto
                     .when { try $0.perform(.generateNonce16()) }
                     .thenReturn(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!.bytes)
-                mockCrypto
+                crypto
                     .when { try $0.perform(.generateNonce24()) }
                     .thenReturn(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!.bytes)
             }
-
-            afterEach {
-                disposables.forEach { $0.cancel() }
-                
-                mockStorage = nil
-                mockNetwork = nil
-                mockCrypto = nil
-                dependencies = nil
-                disposables = []
-                
-                error = nil
-            }
-            
-            // MARK: - when preparing a poll request
+        )
+        @TestState var dependencies: Dependencies! = Dependencies(
+            storage: mockStorage,
+            network: mockNetwork,
+            crypto: mockCrypto,
+            dateNow: Date(timeIntervalSince1970: 1234567890)
+        )
+        @TestState var disposables: [AnyCancellable]! = []
+        @TestState var error: Error?
+        
+        // MARK: - an OpenGroupAPI
+        describe("an OpenGroupAPI") {
+            // MARK: -- when preparing a poll request
             context("when preparing a poll request") {
-                // MARK: -- generates the correct request
+                // MARK: ---- generates the correct request
                 it("generates the correct request") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPoll(
@@ -140,7 +122,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.batchEndpoints[test: 2]).to(equal(.roomMessagesRecent("testRoom")))
                 }
                 
-                // MARK: -- retrieves recent messages if there was no last message
+                // MARK: ---- retrieves recent messages if there was no last message
                 it("retrieves recent messages if there was no last message") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPoll(
@@ -155,7 +137,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.batchEndpoints[test: 2]).to(equal(.roomMessagesRecent("testRoom")))
                 }
                 
-                // MARK: -- retrieves recent messages if there was a last message and it has not performed the initial poll and the last message was too long ago
+                // MARK: ---- retrieves recent messages if there was a last message and it has not performed the initial poll and the last message was too long ago
                 it("retrieves recent messages if there was a last message and it has not performed the initial poll and the last message was too long ago") {
                     mockStorage.write { db in
                         try OpenGroup
@@ -175,7 +157,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.batchEndpoints[test: 2]).to(equal(.roomMessagesRecent("testRoom")))
                 }
                 
-                // MARK: -- retrieves recent messages if there was a last message and it has performed an initial poll but it was not too long ago
+                // MARK: ---- retrieves recent messages if there was a last message and it has performed an initial poll but it was not too long ago
                 it("retrieves recent messages if there was a last message and it has performed an initial poll but it was not too long ago") {
                     mockStorage.write { db in
                         try OpenGroup
@@ -196,7 +178,7 @@ class OpenGroupAPISpec: QuickSpec {
                         .to(equal(.roomMessagesSince("testRoom", seqNo: 122)))
                 }
                 
-                // MARK: -- retrieves recent messages if there was a last message and there has already been a poll this session
+                // MARK: ---- retrieves recent messages if there was a last message and there has already been a poll this session
                 it("retrieves recent messages if there was a last message and there has already been a poll this session") {
                     mockStorage.write { db in
                         try OpenGroup
@@ -217,7 +199,7 @@ class OpenGroupAPISpec: QuickSpec {
                         .to(equal(.roomMessagesSince("testRoom", seqNo: 123)))
                 }
                 
-                // MARK: -- when unblinded
+                // MARK: ---- when unblinded
                 context("when unblinded") {
                     beforeEach {
                         mockStorage.write { db in
@@ -226,7 +208,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                 
-                    // MARK: ---- does not call the inbox and outbox endpoints
+                    // MARK: ------ does not call the inbox and outbox endpoints
                     it("does not call the inbox and outbox endpoints") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
@@ -243,7 +225,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- when blinded and checking for message requests
+                // MARK: ---- when blinded and checking for message requests
                 context("when blinded and checking for message requests") {
                     beforeEach {
                         mockStorage.write { db in
@@ -255,7 +237,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                 
-                    // MARK: ---- includes the inbox and outbox endpoints
+                    // MARK: ------ includes the inbox and outbox endpoints
                     it("includes the inbox and outbox endpoints") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
@@ -271,7 +253,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest?.batchEndpoints).to(contain(.outbox))
                     }
                     
-                    // MARK: ---- retrieves recent inbox messages if there was no last message
+                    // MARK: ------ retrieves recent inbox messages if there was no last message
                     it("retrieves recent inbox messages if there was no last message") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
@@ -286,7 +268,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest?.batchEndpoints).to(contain(.inbox))
                     }
                     
-                    // MARK: ---- retrieves inbox messages since the last message if there was one
+                    // MARK: ------ retrieves inbox messages since the last message if there was one
                     it("retrieves inbox messages since the last message if there was one") {
                         mockStorage.write { db in
                             try OpenGroup
@@ -306,7 +288,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest?.batchEndpoints).to(contain(.inboxSince(id: 124)))
                     }
                     
-                    // MARK: ---- retrieves recent outbox messages if there was no last message
+                    // MARK: ------ retrieves recent outbox messages if there was no last message
                     it("retrieves recent outbox messages if there was no last message") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
@@ -321,7 +303,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest?.batchEndpoints).to(contain(.outbox))
                     }
                     
-                    // MARK: ---- retrieves outbox messages since the last message if there was one
+                    // MARK: ------ retrieves outbox messages since the last message if there was one
                     it("retrieves outbox messages since the last message if there was one") {
                         mockStorage.write { db in
                             try OpenGroup
@@ -342,7 +324,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- when blinded and not checking for message requests
+                // MARK: ---- when blinded and not checking for message requests
                 context("when blinded and not checking for message requests") {
                     beforeEach {
                         mockStorage.write { db in
@@ -354,7 +336,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- includes the inbox and outbox endpoints
+                    // MARK: ------ includes the inbox and outbox endpoints
                     it("does not include the inbox endpoint") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
@@ -369,7 +351,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest?.batchEndpoints).toNot(contain(.inbox))
                     }
                     
-                    // MARK: ---- does not retrieve recent inbox messages if there was no last message
+                    // MARK: ------ does not retrieve recent inbox messages if there was no last message
                     it("does not retrieve recent inbox messages if there was no last message") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
@@ -384,7 +366,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest?.batchEndpoints).toNot(contain(.inbox))
                     }
                     
-                    // MARK: ---- does not retrieve inbox messages since the last message if there was one
+                    // MARK: ------ does not retrieve inbox messages since the last message if there was one
                     it("does not retrieve inbox messages since the last message if there was one") {
                         mockStorage.write { db in
                             try OpenGroup
@@ -406,9 +388,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a capabilities request
+            // MARK: -- when preparing a capabilities request
             context("when preparing a capabilities request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request and handles the response correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.Capabilities>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedCapabilities(
@@ -423,10 +405,10 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a rooms request
+            // MARK: -- when preparing a rooms request
             context("when preparing a rooms request") {
                 
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedRooms(
@@ -441,9 +423,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a capabilitiesAndRoom request
+            // MARK: -- when preparing a capabilitiesAndRoom request
             context("when preparing a capabilitiesAndRoom request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.CapabilitiesAndRoomResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedCapabilitiesAndRoom(
@@ -462,7 +444,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.httpMethod).to(equal("POST"))
                 }
                 
-                // MARK: -- processes a valid response correctly
+                // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
                         .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
@@ -488,10 +470,10 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error).to(beNil())
                 }
                 
-                // MARK: -- and given an invalid response
+                // MARK: ---- and given an invalid response
                 
                 context("and given an invalid response") {
-                    // MARK: ---- errors when not given a room response
+                    // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
                             .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
@@ -517,7 +499,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(response).to(beNil())
                     }
                     
-                    // MARK: ---- errors when not given a capabilities response
+                    // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
                             .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
@@ -545,9 +527,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a capabilitiesAndRooms request
+            // MARK: -- when preparing a capabilitiesAndRooms request
             context("when preparing a capabilitiesAndRooms request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.CapabilitiesAndRoomsResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedCapabilitiesAndRooms(
@@ -565,7 +547,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.httpMethod).to(equal("POST"))
                 }
                 
-                // MARK: -- processes a valid response correctly
+                // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
                         .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
@@ -590,10 +572,10 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error).to(beNil())
                 }
                 
-                // MARK: -- and given an invalid response
+                // MARK: ---- and given an invalid response
                 
                 context("and given an invalid response") {
-                    // MARK: ---- errors when not given a room response
+                    // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
                             .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
@@ -618,7 +600,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(response).to(beNil())
                     }
                     
-                    // MARK: ---- errors when not given a capabilities response
+                    // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
                             .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
@@ -645,9 +627,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a send message request
+            // MARK: -- when preparing a send message request
             context("when preparing a send message request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.Message>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedSend(
@@ -666,7 +648,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.httpMethod).to(equal("POST"))
                 }
                 
-                // MARK: -- when unblinded
+                // MARK: ---- when unblinded
                 context("when unblinded") {
                     beforeEach {
                         mockStorage.write { db in
@@ -675,7 +657,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- signs the message correctly
+                    // MARK: ------ signs the message correctly
                     it("signs the message correctly") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.Message>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedSend(
@@ -696,7 +678,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(requestBody?.signature).to(equal("TestStandardSignature".data(using: .utf8)))
                     }
                     
-                    // MARK: ---- fails to sign if there is no open group
+                    // MARK: ------ fails to sign if there is no open group
                     it("fails to sign if there is no open group") {
                         mockStorage.write { db in
                             _ = try OpenGroup.deleteAll(db)
@@ -726,7 +708,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails to sign if there is no user key pair
+                    // MARK: ------ fails to sign if there is no user key pair
                     it("fails to sign if there is no user key pair") {
                         mockStorage.write { db in
                             _ = try Identity.filter(id: .x25519PublicKey).deleteAll(db)
@@ -757,7 +739,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails to sign if no signature is generated
+                    // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
                         mockCrypto.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockCrypto
@@ -789,7 +771,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- when blinded
+                // MARK: ---- when blinded
                 context("when blinded") {
                     beforeEach {
                         mockStorage.write { db in
@@ -799,7 +781,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- signs the message correctly
+                    // MARK: ------ signs the message correctly
                     it("signs the message correctly") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.Message>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedSend(
@@ -820,7 +802,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(requestBody?.signature).to(equal("TestSogsSignature".data(using: .utf8)))
                     }
                     
-                    // MARK: ---- fails to sign if there is no open group
+                    // MARK: ------ fails to sign if there is no open group
                     it("fails to sign if there is no open group") {
                         mockStorage.write { db in
                             _ = try OpenGroup.deleteAll(db)
@@ -850,7 +832,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails to sign if there is no ed key pair key
+                    // MARK: ------ fails to sign if there is no ed key pair key
                     it("fails to sign if there is no ed key pair key") {
                         mockStorage.write { db in
                             _ = try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
@@ -881,7 +863,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails to sign if no signature is generated
+                    // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
                         mockCrypto
                             .when {
@@ -922,9 +904,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing an individual message request
+            // MARK: -- when preparing an individual message request
             context("when preparing an individual message request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.Message>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedMessage(
@@ -941,7 +923,7 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing an update message request
+            // MARK: -- when preparing an update message request
             context("when preparing an update message request") {
                 beforeEach {
                     mockStorage.write { db in
@@ -954,7 +936,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedMessageUpdate(
@@ -972,7 +954,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.httpMethod).to(equal("PUT"))
                 }
                 
-                // MARK: -- when unblinded
+                // MARK: ---- when unblinded
                 context("when unblinded") {
                     beforeEach {
                         mockStorage.write { db in
@@ -981,7 +963,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- signs the message correctly
+                    // MARK: ------ signs the message correctly
                     it("signs the message correctly") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedMessageUpdate(
@@ -1001,7 +983,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(requestBody?.signature).to(equal("TestStandardSignature".data(using: .utf8)))
                     }
                     
-                    // MARK: ---- fails to sign if there is no open group
+                    // MARK: ------ fails to sign if there is no open group
                     it("fails to sign if there is no open group") {
                         mockStorage.write { db in
                             _ = try OpenGroup.deleteAll(db)
@@ -1030,7 +1012,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails to sign if there is no user key pair
+                    // MARK: ------ fails to sign if there is no user key pair
                     it("fails to sign if there is no user key pair") {
                         mockStorage.write { db in
                             _ = try Identity.filter(id: .x25519PublicKey).deleteAll(db)
@@ -1060,7 +1042,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails to sign if no signature is generated
+                    // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
                         mockCrypto.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockCrypto
@@ -1091,7 +1073,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- when blinded
+                // MARK: ---- when blinded
                 context("when blinded") {
                     beforeEach {
                         mockStorage.write { db in
@@ -1101,7 +1083,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- signs the message correctly
+                    // MARK: ------ signs the message correctly
                     it("signs the message correctly") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedMessageUpdate(
@@ -1121,7 +1103,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(requestBody?.signature).to(equal("TestSogsSignature".data(using: .utf8)))
                     }
                     
-                    // MARK: ---- fails to sign if there is no open group
+                    // MARK: ------ fails to sign if there is no open group
                     it("fails to sign if there is no open group") {
                         mockStorage.write { db in
                             _ = try OpenGroup.deleteAll(db)
@@ -1150,7 +1132,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails to sign if there is no ed key pair key
+                    // MARK: ------ fails to sign if there is no ed key pair key
                     it("fails to sign if there is no ed key pair key") {
                         mockStorage.write { db in
                             _ = try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
@@ -1180,7 +1162,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails to sign if no signature is generated
+                    // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
                         mockCrypto
                             .when {
@@ -1220,9 +1202,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a delete message request
+            // MARK: -- when preparing a delete message request
             context("when preparing a delete message request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedMessageDelete(
@@ -1239,9 +1221,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a delete all messages request
+            // MARK: -- when preparing a delete all messages request
             context("when preparing a delete all messages request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedMessagesDeleteAll(
@@ -1258,9 +1240,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a pin message request
+            // MARK: -- when preparing a pin message request
             context("when preparing a pin message request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPinMessage(
@@ -1277,9 +1259,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing an unpin message request
+            // MARK: -- when preparing an unpin message request
             context("when preparing an unpin message request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUnpinMessage(
@@ -1296,9 +1278,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing an unpin all request
+            // MARK: -- when preparing an unpin all request
             context("when preparing an unpin all request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUnpinAll(
@@ -1314,9 +1296,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing an upload file request
+            // MARK: -- when preparing an upload file request
             context("when preparing an upload file request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<FileUploadResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUploadFile(
@@ -1332,7 +1314,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.httpMethod).to(equal("POST"))
                 }
                 
-                // MARK: -- doesn't add a fileName to the content-disposition header when not provided
+                // MARK: ---- doesn't add a fileName to the content-disposition header when not provided
                 it("doesn't add a fileName to the content-disposition header when not provided") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<FileUploadResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUploadFile(
@@ -1348,7 +1330,7 @@ class OpenGroupAPISpec: QuickSpec {
                         .toNot(contain("filename"))
                 }
                 
-                // MARK: -- adds the fileName to the content-disposition header when provided
+                // MARK: ---- adds the fileName to the content-disposition header when provided
                 it("adds the fileName to the content-disposition header when provided") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<FileUploadResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUploadFile(
@@ -1366,9 +1348,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a download file request
+            // MARK: -- when preparing a download file request
             context("when preparing a download file request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<Data>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedDownloadFile(
@@ -1385,9 +1367,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a send direct message request
+            // MARK: -- when preparing a send direct message request
             context("when preparing a send direct message request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.SendDirectMessageResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedSend(
@@ -1404,9 +1386,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a ban user request
+            // MARK: -- when preparing a ban user request
             context("when preparing a ban user request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserBan(
@@ -1423,7 +1405,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.httpMethod).to(equal("POST"))
                 }
                 
-                // MARK: -- does a global ban if no room tokens are provided
+                // MARK: ---- does a global ban if no room tokens are provided
                 it("does a global ban if no room tokens are provided") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserBan(
@@ -1442,7 +1424,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(requestBody?.rooms).to(beNil())
                 }
                 
-                // MARK: -- does room specific bans if room tokens are provided
+                // MARK: ---- does room specific bans if room tokens are provided
                 it("does room specific bans if room tokens are provided") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserBan(
@@ -1462,9 +1444,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing an unban user request
+            // MARK: -- when preparing an unban user request
             context("when preparing an unban user request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserUnban(
@@ -1480,7 +1462,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.httpMethod).to(equal("POST"))
                 }
                 
-                // MARK: -- does a global unban if no room tokens are provided
+                // MARK: ---- does a global unban if no room tokens are provided
                 it("does a global unban if no room tokens are provided") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserUnban(
@@ -1498,7 +1480,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(requestBody?.rooms).to(beNil())
                 }
                 
-                // MARK: -- does room specific unbans if room tokens are provided
+                // MARK: ---- does room specific unbans if room tokens are provided
                 it("does room specific unbans if room tokens are provided") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserUnban(
@@ -1517,9 +1499,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a user permissions request
+            // MARK: -- when preparing a user permissions request
             context("when preparing a user permissions request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserModeratorUpdate(
@@ -1538,7 +1520,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.httpMethod).to(equal("POST"))
                 }
                 
-                // MARK: -- does a global update if no room tokens are provided
+                // MARK: ---- does a global update if no room tokens are provided
                 it("does a global update if no room tokens are provided") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserModeratorUpdate(
@@ -1559,7 +1541,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(requestBody?.rooms).to(beNil())
                 }
                 
-                // MARK: -- does room specific updates if room tokens are provided
+                // MARK: ---- does room specific updates if room tokens are provided
                 it("does room specific updates if room tokens are provided") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserModeratorUpdate(
@@ -1580,7 +1562,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(requestBody?.rooms).to(equal(["testRoom"]))
                 }
                 
-                // MARK: -- fails if neither moderator or admin are set
+                // MARK: ---- fails if neither moderator or admin are set
                 it("fails if neither moderator or admin are set") {
                     var preparationError: Error?
                     let preparedRequest: OpenGroupAPI.PreparedSendData<NoResponse>? = mockStorage.read { db in
@@ -1607,9 +1589,9 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: - when preparing a ban and delete all request
+            // MARK: -- when preparing a ban and delete all request
             context("when preparing a ban and delete all request") {
-                // MARK: -- generates the request correctly
+                // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
                     let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
@@ -1629,7 +1611,7 @@ class OpenGroupAPISpec: QuickSpec {
                         .to(equal(.roomDeleteMessages("testRoom", sessionId: "testUserId")))
                 }
                 
-//                // MARK: -- bans the user from the specified room rather than globally
+//                // MARK: ---- bans the user from the specified room rather than globally
 //                it("bans the user from the specified room rather than globally") {
 //                    let preparedRequest: OpenGroupAPI.PreparedSendData<OpenGroupAPI.BatchResponse>? = mockStorage.read { db in
 //                        try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
@@ -1648,9 +1630,9 @@ class OpenGroupAPISpec: QuickSpec {
 //                }
             }
             
-            // MARK: - when signing
+            // MARK: -- when signing
             context("when signing") {
-                // MARK: -- fails when there is no serverPublicKey
+                // MARK: ---- fails when there is no serverPublicKey
                 it("fails when there is no serverPublicKey") {
                     mockStorage.write { db in
                         _ = try OpenGroup.deleteAll(db)
@@ -1675,7 +1657,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest).to(beNil())
                 }
                 
-                // MARK: -- fails when there is no userEdKeyPair
+                // MARK: ---- fails when there is no userEdKeyPair
                 it("fails when there is no userEdKeyPair") {
                     mockStorage.write { db in
                         _ = try Identity.filter(id: .ed25519PublicKey).deleteAll(db)
@@ -1701,7 +1683,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest).to(beNil())
                 }
                 
-                // MARK: -- fails when the serverPublicKey is not a hex string
+                // MARK: ---- fails when the serverPublicKey is not a hex string
                 it("fails when the serverPublicKey is not a hex string") {
                     mockStorage.write { db in
                         _ = try OpenGroup.updateAll(db, OpenGroup.Columns.publicKey.set(to: "TestString!!!"))
@@ -1726,7 +1708,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest).to(beNil())
                 }
                 
-                // MARK: -- when unblinded
+                // MARK: ---- when unblinded
                 context("when unblinded") {
                     beforeEach {
                         mockStorage.write { db in
@@ -1735,7 +1717,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- signs correctly
+                    // MARK: ------ signs correctly
                     it("signs correctly") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedRooms(
@@ -1759,7 +1741,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .to(equal("TestSignature".bytes.toBase64()))
                     }
                     
-                    // MARK: ---- fails when the signature is not generated
+                    // MARK: ------ fails when the signature is not generated
                     it("fails when the signature is not generated") {
                         mockCrypto
                             .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
@@ -1785,7 +1767,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- when blinded
+                // MARK: ---- when blinded
                 context("when blinded") {
                     beforeEach {
                         mockStorage.write { db in
@@ -1795,7 +1777,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: ---- signs correctly
+                    // MARK: ------ signs correctly
                     it("signs correctly") {
                         let preparedRequest: OpenGroupAPI.PreparedSendData<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedRooms(
@@ -1819,7 +1801,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .to(equal("TestSogsSignature".bytes.toBase64()))
                     }
                     
-                    // MARK: ---- fails when the blindedKeyPair is not generated
+                    // MARK: ------ fails when the blindedKeyPair is not generated
                     it("fails when the blindedKeyPair is not generated") {
                         mockCrypto
                             .when { [dependencies = dependencies!] in
@@ -1852,7 +1834,7 @@ class OpenGroupAPISpec: QuickSpec {
                         expect(preparedRequest).to(beNil())
                     }
                     
-                    // MARK: ---- fails when the sogsSignature is not generated
+                    // MARK: ------ fails when the sogsSignature is not generated
                     it("fails when the sogsSignature is not generated") {
                         mockCrypto
                             .when { [dependencies = dependencies!] in
@@ -1887,7 +1869,7 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: -- when sending
+            // MARK: ---- when sending
             context("when sending") {
                 beforeEach {
                     mockNetwork
@@ -1895,7 +1877,7 @@ class OpenGroupAPISpec: QuickSpec {
                         .thenReturn(MockNetwork.response(type: [OpenGroupAPI.Room].self))
                 }
                 
-                // MARK: -- triggers sending correctly
+                // MARK: ---- triggers sending correctly
                 it("triggers sending correctly") {
                     var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
                     
@@ -1916,7 +1898,7 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(error).to(beNil())
                 }
                 
-                // MARK: -- fails when not given prepared data
+                // MARK: ---- fails when not given prepared data
                 it("fails when not given prepared data") {
                     var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
                     

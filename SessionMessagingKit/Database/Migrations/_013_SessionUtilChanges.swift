@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import CryptoKit
@@ -12,6 +14,12 @@ enum _013_SessionUtilChanges: Migration {
     static let identifier: String = "SessionUtilChanges"
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 0.4
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
+        GroupMember.self, ClosedGroupKeyPair.self, SessionThread.self
+    ]
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+        SessionThread.self, Profile.self, GroupMember.self, ClosedGroupKeyPair.self, ConfigDump.self
+    ]
     
     static func migrate(_ db: Database) throws {
         // Add `markedAsUnread` to the thread table
@@ -22,12 +30,8 @@ enum _013_SessionUtilChanges: Migration {
         
         // Add `lastNameUpdate` and `lastProfilePictureUpdate` columns to the profile table
         try db.alter(table: Profile.self) { t in
-            t.add(.lastNameUpdate, .integer)
-                .notNull()
-                .defaults(to: 0)
-            t.add(.lastProfilePictureUpdate, .integer)
-                .notNull()
-                .defaults(to: 0)
+            t.add(.lastNameUpdate, .integer).defaults(to: 0)
+            t.add(.lastProfilePictureUpdate, .integer).defaults(to: 0)
         }
         
         // SQLite doesn't support adding a new primary key after creation so we need to create a new table with
@@ -180,7 +184,7 @@ enum _013_SessionUtilChanges: Migration {
         
         // Migrate the 'isPinned' value to 'pinnedPriority'
         try SessionThread
-            .filter(SessionThread.Columns.isPinned == true)
+            .filter(sql: "isPinned = true")
             .updateAll(
                 db,
                 SessionThread.Columns.pinnedPriority.set(to: 1)

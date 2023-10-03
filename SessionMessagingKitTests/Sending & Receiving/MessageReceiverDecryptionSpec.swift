@@ -11,45 +11,35 @@ import Nimble
 @testable import SessionMessagingKit
 
 class MessageReceiverDecryptionSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var mockStorage: Storage!
-        var mockCrypto: MockCrypto!
-        var dependencies: Dependencies!
+    override class func spec() {
+        // MARK: Configuration
         
-        describe("a MessageReceiver") {
-            beforeEach {
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNMessagingKit.self
-                    ]
-                )
-                mockCrypto = MockCrypto()
-                dependencies = Dependencies(
-                    storage: mockStorage,
-                    crypto: mockCrypto
-                )
-                
-                mockStorage.write { db in
-                    try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                    try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-                }
-                mockCrypto
-                    .when { [dependencies = dependencies!] crypto in
+        @TestState var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            migrationTargets: [
+                SNUtilitiesKit.self,
+                SNMessagingKit.self
+            ],
+            initialData: { db in
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+            }
+        )
+        @TestState var mockCrypto: MockCrypto! = MockCrypto(
+            initialSetup: { crypto in
+                crypto
+                    .when { crypto in
                         try crypto.perform(
                             .encryptAeadXChaCha20(
                                 message: anyArray(),
                                 secretKey: anyArray(),
                                 nonce: anyArray(),
-                                using: dependencies
+                                using: any()
                             )
                         )
                     }
                     .thenReturn(nil)
-                mockCrypto
+                crypto
                     .when {
                         try $0.perform(
                             .open(
@@ -60,13 +50,13 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         )
                     }
                     .thenReturn([UInt8](repeating: 0, count: 100))
-                mockCrypto
-                    .when { [dependencies = dependencies!] crypto in
+                crypto
+                    .when { crypto in
                         crypto.generate(
                             .blindedKeyPair(
                                 serverPublicKey: any(),
                                 edKeyPair: any(),
-                                using: dependencies
+                                using: any()
                             )
                         )
                     }
@@ -76,34 +66,36 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                             secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         )
                     )
-                mockCrypto
-                    .when { [dependencies = dependencies!] crypto in
+                crypto
+                    .when { crypto in
                         try crypto.perform(
                             .sharedBlindedEncryptionKey(
                                 secretKey: anyArray(),
                                 otherBlindedPublicKey: anyArray(),
                                 fromBlindedPublicKey: anyArray(),
                                 toBlindedPublicKey: anyArray(),
-                                using: dependencies
+                                using: any()
                             )
                         )
                     }
                     .thenReturn([])
-                mockCrypto
-                    .when { [dependencies = dependencies!] crypto in
-                        try crypto.perform(.generateBlindingFactor(serverPublicKey: any(), using: dependencies))
+                crypto
+                    .when { crypto in
+                        try crypto.perform(
+                            .generateBlindingFactor(serverPublicKey: any(), using: any())
+                        )
                     }
                     .thenReturn([])
-                mockCrypto
+                crypto
                     .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
                     .thenReturn(Data(hex: TestConstants.blindedPublicKey).bytes)
-                mockCrypto
+                crypto
                     .when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }
                     .thenReturn(Data(hex: TestConstants.publicKey).bytes)
-                mockCrypto
+                crypto
                     .when { $0.verify(.signature(message: anyArray(), publicKey: anyArray(), signature: anyArray())) }
                     .thenReturn(true)
-                mockCrypto
+                crypto
                     .when {
                         try $0.perform(
                             .decryptAeadXChaCha20(
@@ -114,15 +106,24 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         )
                     }
                     .thenReturn("TestMessage".data(using: .utf8)!.bytes + [UInt8](repeating: 0, count: 32))
-                mockCrypto.when { $0.size(.nonce24) }.thenReturn(24)
-                mockCrypto.when { $0.size(.publicKey) }.thenReturn(32)
-                mockCrypto.when { $0.size(.signature) }.thenReturn(64)
-                mockCrypto
+                crypto.when { $0.size(.nonce24) }.thenReturn(24)
+                crypto.when { $0.size(.publicKey) }.thenReturn(32)
+                crypto.when { $0.size(.signature) }.thenReturn(64)
+                crypto
                     .when { try $0.perform(.generateNonce24()) }
                     .thenReturn(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!.bytes)
             }
-            
+        )
+        @TestState var dependencies: Dependencies! = Dependencies(
+            storage: mockStorage,
+            crypto: mockCrypto
+        )
+        
+        // MARK: - a MessageReceiver
+        describe("a MessageReceiver") {
+            // MARK: -- when decrypting with the session protocol
             context("when decrypting with the session protocol") {
+                // MARK: ---- successfully decrypts a message
                 it("successfully decrypts a message") {
                     let result = try? MessageReceiver.decryptWithSessionProtocol(
                         ciphertext: Data(
@@ -142,6 +143,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         .to(equal("0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                 }
                 
+                // MARK: ---- throws an error if it cannot open the message
                 it("throws an error if it cannot open the message") {
                     mockCrypto
                         .when {
@@ -168,6 +170,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
+                // MARK: ---- throws an error if the open message is too short
                 it("throws an error if the open message is too short") {
                     mockCrypto
                         .when {
@@ -194,6 +197,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
+                // MARK: ---- throws an error if it cannot verify the message
                 it("throws an error if it cannot verify the message") {
                     mockCrypto
                         .when { $0.verify(.signature(message: anyArray(), publicKey: anyArray(), signature: anyArray())) }
@@ -212,6 +216,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.invalidSignature))
                 }
                 
+                // MARK: ---- throws an error if it cannot get the senders x25519 public key
                 it("throws an error if it cannot get the senders x25519 public key") {
                     mockCrypto.when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }.thenReturn(nil)
                     
@@ -229,7 +234,9 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when decrypting with the blinded session protocol
             context("when decrypting with the blinded session protocol") {
+                // MARK: ---- successfully decrypts a message
                 it("successfully decrypts a message") {
                     let result = try? MessageReceiver.decryptWithSessionBlindingProtocol(
                         data: Data(
@@ -252,6 +259,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         .to(equal("0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                 }
                 
+                // MARK: ---- successfully decrypts a mocked incoming message
                 it("successfully decrypts a mocked incoming message") {
                     let result = try? MessageReceiver.decryptWithSessionBlindingProtocol(
                         data: (
@@ -274,6 +282,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                         .to(equal("0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                 }
                 
+                // MARK: ---- throws an error if the data is too short
                 it("throws an error if the data is too short") {
                     expect {
                         try MessageReceiver.decryptWithSessionBlindingProtocol(
@@ -291,6 +300,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
+                // MARK: ---- throws an error if it cannot get the blinded keyPair
                 it("throws an error if it cannot get the blinded keyPair") {
                     mockCrypto
                         .when { [dependencies = dependencies!] crypto in
@@ -324,6 +334,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
+                // MARK: ---- throws an error if it cannot get the decryption key
                 it("throws an error if it cannot get the decryption key") {
                     mockCrypto
                         .when { [dependencies = dependencies!] crypto in
@@ -359,6 +370,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
+                // MARK: ---- throws an error if the data version is not 0
                 it("throws an error if the data version is not 0") {
                     expect {
                         try MessageReceiver.decryptWithSessionBlindingProtocol(
@@ -380,6 +392,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
+                // MARK: ---- throws an error if it cannot decrypt the data
                 it("throws an error if it cannot decrypt the data") {
                     mockCrypto
                         .when {
@@ -413,6 +426,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
+                // MARK: ---- throws an error if the inner bytes are too short
                 it("throws an error if the inner bytes are too short") {
                     mockCrypto
                         .when {
@@ -446,6 +460,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.decryptionFailed))
                 }
                 
+                // MARK: ---- throws an error if it cannot generate the blinding factor
                 it("throws an error if it cannot generate the blinding factor") {
                     mockCrypto
                         .when { [dependencies = dependencies!] crypto in
@@ -473,6 +488,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.invalidSignature))
                 }
                 
+                // MARK: ---- throws an error if it cannot generate the combined key
                 it("throws an error if it cannot generate the combined key") {
                     mockCrypto
                         .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
@@ -498,6 +514,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.invalidSignature))
                 }
                 
+                // MARK: ---- throws an error if the combined key does not match kA
                 it("throws an error if the combined key does not match kA") {
                     mockCrypto
                         .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
@@ -523,6 +540,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .to(throwError(MessageReceiverError.invalidSignature))
                 }
                 
+                // MARK: ---- throws an error if it cannot get the senders x25519 public key
                 it("throws an error if it cannot get the senders x25519 public key") {
                     mockCrypto
                         .when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }

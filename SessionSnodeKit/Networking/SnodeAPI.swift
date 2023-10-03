@@ -456,14 +456,16 @@ public final class SnodeAPI {
                                 .first(where: { $0 is HTTP.BatchSubResponse<UpdateExpiryResponse> })
                                 .asType(HTTP.BatchSubResponse<UpdateExpiryResponse>.self),
                             let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
-                            let validResults: [String: [(hash: String, expiry: UInt64)]] = try? refreshTTLResponse.validResultMap(
+                            let validResults: [String: UpdateExpiryResponseResult] = try? refreshTTLResponse.validResultMap(
                                 sodium: sodium.wrappedValue,
                                 userX25519PublicKey: getUserHexEncodedPublicKey(),
                                 validationData: refreshingConfigHashes
                             ),
-                            let groupedExpiryResult: [UInt64: [String]] = validResults[snode.ed25519PublicKey]?
-                                .grouped(by: \.expiry)
-                                .mapValues({ groupedResults in groupedResults.map { $0.hash } })
+                            let targetResult: UpdateExpiryResponseResult = validResults[snode.ed25519PublicKey],
+                            let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
+                                .updated(with: targetResult.unchanged)
+                                .groupedByValue()
+                                .nullIfEmpty()
                         {
                             dependencies.storage.writeAsync { db in
                                 try groupedExpiryResult.forEach { updatedExpiry, hashes in
@@ -607,6 +609,43 @@ public final class SnodeAPI {
             )
         }
         .eraseToAnyPublisher()
+    }
+    
+    public static func getExpiries(
+        from snode: Snode,
+        associatedWith publicKey: String,
+        of serverHashes: [String],
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> {
+        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
+            return Fail(error: SnodeAPIError.noKeyPair)
+                .eraseToAnyPublisher()
+        }
+        
+        let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs())
+        
+        // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
+        let serverHashes: [String] = serverHashes.appending("fakehash")
+        
+        return SnodeAPI
+            .send(
+                request: SnodeRequest(
+                    endpoint: .getExpiries,
+                    body: GetExpiriesRequest(
+                        messageHashes: serverHashes,
+                        pubkey: publicKey,
+                        subkey: nil,
+                        timestampMs: sendTimestamp,
+                        ed25519PublicKey: userED25519KeyPair.publicKey,
+                        ed25519SecretKey: userED25519KeyPair.secretKey
+                    )
+                ),
+                to: snode,
+                associatedWith: publicKey,
+                using: dependencies
+            )
+            .decoded(as: GetExpiriesResponse.self, using: dependencies)
+            .eraseToAnyPublisher()
     }
     
     // MARK: - Store
@@ -776,23 +815,33 @@ public final class SnodeAPI {
     public static func updateExpiry(
         publicKey: String,
         serverHashes: [String],
-        updatedExpiryMs: UInt64,
+        updatedExpiryMs: Int64,
+        shortenOnly: Bool? = nil,
+        extendOnly: Bool? = nil,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<[String: [(hash: String, expiry: UInt64)]], Error> {
+    ) -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> {
         guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair() else {
             return Fail(error: SnodeAPIError.noKeyPair)
                 .eraseToAnyPublisher()
         }
         
+        // ShortenOnly and extendOnly cannot be true at the same time
+        guard shortenOnly == nil || extendOnly == nil else {
+            return Fail(error: SnodeAPIError.generic)
+                .eraseToAnyPublisher()
+        }
+        
         return getSwarm(for: publicKey)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: [(hash: String, expiry: UInt64)]], Error> in
+            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
                 SnodeAPI
                     .send(
                         request: SnodeRequest(
                             endpoint: .expire,
                             body: UpdateExpiryRequest(
                                 messageHashes: serverHashes,
-                                expiryMs: updatedExpiryMs,
+                                expiryMs: UInt64(updatedExpiryMs),
+                                shorten: shortenOnly,
+                                extend: extendOnly,
                                 pubkey: publicKey,
                                 ed25519PublicKey: userED25519KeyPair.publicKey,
                                 ed25519SecretKey: userED25519KeyPair.secretKey,
@@ -804,7 +853,7 @@ public final class SnodeAPI {
                         using: dependencies
                     )
                     .decoded(as: UpdateExpiryResponse.self, using: dependencies)
-                    .tryMap { _, response -> [String: [(hash: String, expiry: UInt64)]] in
+                    .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
                         try response.validResultMap(
                             sodium: sodium.wrappedValue,
                             userX25519PublicKey: getUserHexEncodedPublicKey(),
@@ -1345,7 +1394,13 @@ public final class SnodeAPI {
                 
             default:
                 handleBadSnode()
-                SNLog("Unhandled response code: \(statusCode).")
+                let message: String = {
+                    if let data: Data = data, let stringFromData = String(data: data, encoding: .utf8) {
+                        return stringFromData
+                    }
+                    return "Empty data."
+                }()
+                SNLog("Unhandled response code: \(statusCode), messasge: \(message)")
         }
         
         return nil

@@ -4,10 +4,53 @@ import UIKit
 import SessionUIKit
 
 final class InfoBanner: UIView {
-    init(message: String, backgroundColor: ThemeValue, messageLabelAccessibilityLabel: String? = nil) {
-        super.init(frame: CGRect.zero)
+    public struct Info: Equatable, Hashable {
+        let message: String
+        let backgroundColor: ThemeValue
+        let messageFont: UIFont
+        let messageTintColor: ThemeValue
+        let messageLabelAccessibilityLabel: String?
+        let height: CGFloat
         
-        setUpViewHierarchy(message: message, backgroundColor: backgroundColor, messageLabelAccessibilityLabel: messageLabelAccessibilityLabel)
+        func with(
+            message: String? = nil,
+            backgroundColor: ThemeValue? = nil,
+            messageFont: UIFont? = nil,
+            messageTintColor: ThemeValue? = nil,
+            messageLabelAccessibilityLabel: String? = nil,
+            height: CGFloat? = nil
+        ) -> Info {
+            return Info(
+                message: message ?? self.message,
+                backgroundColor: backgroundColor ?? self.backgroundColor,
+                messageFont: messageFont ?? self.messageFont,
+                messageTintColor: messageTintColor ?? self.messageTintColor,
+                messageLabelAccessibilityLabel: messageLabelAccessibilityLabel ?? self.messageLabelAccessibilityLabel,
+                height: height ?? self.height
+            )
+        }
+    }
+    
+    private lazy var label: UILabel = {
+        let result: UILabel = UILabel()
+        result.textAlignment = .center
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        result.isAccessibilityElement = true
+        
+        return result
+    }()
+    
+    public var info: Info?
+    
+    // MARK: - Initialization
+    
+    init(info: Info) {
+        super.init(frame: CGRect.zero)
+        addSubview(label)
+        label.pin(to: self)
+        self.set(.height, to: info.height)
+        self.update(info)
     }
     
     override init(frame: CGRect) {
@@ -18,19 +61,36 @@ final class InfoBanner: UIView {
         preconditionFailure("Use init(coder:) instead.")
     }
     
-    private func setUpViewHierarchy(message: String, backgroundColor: ThemeValue, messageLabelAccessibilityLabel: String?) {
-        themeBackgroundColor = backgroundColor
+    // MARK: Update
+    
+    private func update(_ info: InfoBanner.Info) {
+        self.info = info
         
-        let label: UILabel = UILabel()
-        label.accessibilityLabel = messageLabelAccessibilityLabel
-        label.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        label.text = message
-        label.themeTextColor = .textPrimary
-        label.textAlignment = .center
-        label.lineBreakMode = .byWordWrapping
-        label.numberOfLines = 0
-        addSubview(label)
+        themeBackgroundColor = info.backgroundColor
         
-        label.pin(to: self, withInset: Values.mediumSpacing)
+        label.font = info.messageFont
+        label.text = info.message
+        label.themeTextColor = info.messageTintColor
+        label.accessibilityLabel = info.messageLabelAccessibilityLabel
+    }
+    
+    public func update(
+        message: String? = nil,
+        backgroundColor: ThemeValue? = nil,
+        messageFont: UIFont? = nil,
+        messageTintColor: ThemeValue? = nil,
+        messageLabelAccessibilityLabel: String? = nil,
+        height: CGFloat? = nil
+    ) {
+        if let updatedInfo = self.info?.with(
+            message: message,
+            backgroundColor: backgroundColor,
+            messageFont: messageFont,
+            messageTintColor: messageTintColor,
+            messageLabelAccessibilityLabel: messageLabelAccessibilityLabel,
+            height: height
+        ) {
+            self.update(updatedInfo)
+        }
     }
 }

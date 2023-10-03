@@ -293,7 +293,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
         }
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         guard let kind = kind else {
             SNLog("Couldn't construct closed group update proto from: \(self).")
             return nil
@@ -338,6 +338,10 @@ public final class ClosedGroupControlMessage: ControlMessage {
             let contentProto = SNProtoContent.builder()
             let dataMessageProto = SNProtoDataMessage.builder()
             dataMessageProto.setClosedGroupControlMessage(try closedGroupControlMessage.build())
+            
+            // DisappearingMessagesConfiguration
+            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
+            
             contentProto.setDataMessage(try dataMessageProto.build())
             return try contentProto.build()
         } catch {

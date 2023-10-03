@@ -45,7 +45,7 @@ public extension Dictionary {
         
         var updatedDictionary: [Key: Value] = self
         updatedDictionary[key] = value
-
+        
         return updatedDictionary
     }
     
@@ -55,7 +55,7 @@ public extension Dictionary {
         other.forEach { key, value in
             updatedDictionary[key] = value
         }
-
+        
         return updatedDictionary
     }
     
@@ -64,14 +64,28 @@ public extension Dictionary {
         
         var updatedDictionary: [Key: Value] = self
         updatedDictionary.removeValue(forKey: key)
-
+        
         return updatedDictionary
     }
     
+    func nullIfEmpty() -> [Key: Value]? {
+        guard !isEmpty else { return nil }
+        
+        return self
+    }
+
     mutating func append<T>(_ value: T?, toArrayOn key: Key?) where Value == [T] {
         guard let key: Key = key, let value: T = value else { return }
         
         self[key] = (self[key] ?? []).appending(value)
+    }
+}
+
+public extension Dictionary where Value: Hashable {
+    func groupedByValue() -> [Value: [Key]] {
+        return self.reduce(into: [:]) { result, next in
+            result[next.value, default: []].append(next.key)
+        }
     }
 }
 

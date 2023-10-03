@@ -59,7 +59,7 @@ public final class MessageRequestResponse: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let messageRequestResponseProto: SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder
         
         // Profile
@@ -74,6 +74,8 @@ public final class MessageRequestResponse: ControlMessage {
         
         do {
             contentProto.setMessageRequestResponse(try messageRequestResponseProto.build())
+            // DisappearingMessagesConfiguration
+            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
             return try contentProto.build()
         } catch {
             SNLog("Couldn't construct unsend request proto from: \(self).")

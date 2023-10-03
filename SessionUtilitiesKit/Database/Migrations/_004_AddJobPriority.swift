@@ -5,9 +5,11 @@ import GRDB
 
 enum _004_AddJobPriority: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
-    static let identifier: String = "AddJobPriority"
+    static let identifier: String = "AddJobPriority" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Job.self]
     
     static func migrate(_ db: Database) throws {
         // Add `priority` to the job table

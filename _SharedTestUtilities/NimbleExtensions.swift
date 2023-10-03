@@ -29,7 +29,7 @@ public func call<M, T, R>(
     matchingParameters: Bool = false,
     exclusive: Bool = false,
     functionBlock: @escaping (inout T) throws -> R
-) -> Predicate<M> where M: Mock<T> {
+) -> Nimble.Predicate<M> where M: Mock<T> {
     return Predicate.define { actualExpression in
         let callInfo: CallInfo = generateCallInfo(actualExpression, functionBlock)
         let matchingParameterRecords: [String] = callInfo.desiredFunctionCalls

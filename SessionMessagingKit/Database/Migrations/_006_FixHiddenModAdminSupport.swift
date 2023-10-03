@@ -8,9 +8,11 @@ import SessionUtilitiesKit
 /// for open groups so they will fully re-fetch their mod/admin lists
 enum _006_FixHiddenModAdminSupport: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "FixHiddenModAdminSupport"
+    static let identifier: String = "FixHiddenModAdminSupport" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [GroupMember.self]
     
     static func migrate(_ db: Database) throws {
         try db.alter(table: GroupMember.self) { t in

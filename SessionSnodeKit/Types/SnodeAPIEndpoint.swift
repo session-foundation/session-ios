@@ -12,6 +12,7 @@ public extension SnodeAPI {
         case revokeSubkey = "revoke_subkey"
         case expire = "expire"
         case expireAll = "expire_all"
+        case getExpiries = "get_expiries"
         case batch = "batch"
         case sequence = "sequence"
         

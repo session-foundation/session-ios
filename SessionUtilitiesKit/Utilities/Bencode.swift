@@ -1,13 +1,8 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
-
-public protocol BencodableType {
-    associatedtype ValueType: BencodableType
-    
-    static var isCollection: Bool { get }
-    static var isDictionary: Bool { get }
-}
 
 public struct BencodeResponse<T: Codable> {
     public let info: T
@@ -58,23 +53,61 @@ public enum Bencode {
         using dependencies: Dependencies = Dependencies()
     ) throws -> BencodeResponse<T> where T: Decodable {
         guard
-            let result: [Data] = try? decode([Data].self, from: data),
-            let responseData: Data = result.first
+            let decodedData: (value: Any, remainingData: Data) = decodeData(data),
+            decodedData.remainingData.isEmpty == true,  // Ensure there is no left over data
+            let resultArray: [Any] = decodedData.value as? [Any],
+            resultArray.count > 0
         else { throw HTTPError.parsingFailed }
         
         return BencodeResponse(
-            info: try responseData.decoded(as: T.self, using: dependencies),
-            data: (result.count > 1 ? result.last : nil)
+            info: try Bencode.decode(T.self, decodedValue: resultArray[0], using: dependencies),
+            data: {
+                guard resultArray.count > 1 else { return nil }
+                
+                switch resultArray.last {
+                    case let bencodeString as BencodeString: return bencodeString.rawValue
+                    default: return resultArray.last as? Data
+                }
+            }()
         )
     }
     
-    public static func decode<T: BencodableType>(_ type: T.Type, from data: Data) throws -> T {
+    public static func decode<T: Decodable>(
+        _ type: T.Type,
+        from data: Data,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> T {
         guard
             let decodedData: (value: Any, remainingData: Data) = decodeData(data),
             decodedData.remainingData.isEmpty == true  // Ensure there is no left over data
         else { throw HTTPError.parsingFailed }
         
-        return try recursiveCast(type, from: decodedData.value)
+        return try Bencode.decode(T.self, decodedValue: decodedData.value, using: dependencies)
+    }
+    
+    private static func decode<T: Decodable>(
+        _ type: T.Type,
+        decodedValue: Any,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> T {
+        switch (decodedValue, T.self) {
+            case (let directResult as T, _): return directResult
+            case
+                (let bencodeString as BencodeString, is String.Type),
+                (let bencodeString as BencodeString, is Optional<String>.Type):
+                return try (bencodeString.value as? T ?? { throw HTTPError.parsingFailed }())
+                
+            case (let bencodeString as BencodeString, _):
+                return try bencodeString.rawValue.decoded(as: T.self, using: dependencies)
+                
+            default:
+                guard
+                    let jsonifiedInfo: Any = try? jsonify(decodedValue),
+                    let infoData: Data = try? JSONSerialization.data(withJSONObject: jsonifiedInfo)
+                else { throw HTTPError.parsingFailed }
+                
+                return try infoData.decoded(as: T.self, using: dependencies)
+        }
     }
     
     // MARK: - Logic
@@ -190,74 +223,12 @@ public enum Bencode {
     
     // MARK: - Internal Functions
     
-    private static func recursiveCast<T: BencodableType>(_ type: T.Type, from value: Any) throws -> T {
-        switch (type.isCollection, type.isDictionary) {
-            case (_, true):
-                guard let dictValue: [String: Any] = value as? [String: Any] else { throw HTTPError.parsingFailed }
-                
-                return try (
-                    dictValue.mapValues { try recursiveCast(type.ValueType.self, from: $0) } as? T ??
-                    { throw HTTPError.parsingFailed }()
-                )
-                
-            case (true, _):
-                guard let arrayValue: [Any] = value as? [Any] else { throw HTTPError.parsingFailed }
-                
-                return try (
-                    arrayValue.map { try recursiveCast(type.ValueType.self, from: $0) } as? T ??
-                    { throw HTTPError.parsingFailed }()
-                )
-                
-            default:
-                switch (value, type) {
-                    case (let bencodeString as BencodeString, is String.Type):
-                        return try (bencodeString.value as? T ?? { throw HTTPError.parsingFailed }())
-                        
-                    case (let bencodeString as BencodeString, is Optional<String>.Type):
-                        return try (bencodeString.value as? T ?? { throw HTTPError.parsingFailed }())
-                        
-                    case (let bencodeString as BencodeString, _):
-                        return try (bencodeString.rawValue as? T ?? { throw HTTPError.parsingFailed }())
-                        
-                    default: return try (value as? T ?? { throw HTTPError.parsingFailed }())
-                }
+    private static func jsonify(_ value: Any) throws -> Any {
+        switch value {
+            case let arrayValue as [Any]: return try arrayValue.map { try jsonify($0) } as Any
+            case let dictValue as [String: Any]: return try dictValue.mapValues { try jsonify($0) } as Any
+            case let bencodeString as BencodeString: return bencodeString.value as Any
+            default: return value
         }
     }
-}
-
-// MARK: - BencodableType Extensions
-
-extension Data: BencodableType {
-    public typealias ValueType = Data
-    
-    public static var isCollection: Bool { false }
-    public static var isDictionary: Bool { false }
-}
-
-extension Int: BencodableType {
-    public typealias ValueType = Int
-    
-    public static var isCollection: Bool { false }
-    public static var isDictionary: Bool { false }
-}
-
-extension String: BencodableType {
-    public typealias ValueType = String
-    
-    public static var isCollection: Bool { false }
-    public static var isDictionary: Bool { false }
-}
-
-extension Array: BencodableType where Element: BencodableType {
-    public typealias ValueType = Element
-    
-    public static var isCollection: Bool { true }
-    public static var isDictionary: Bool { false }
-}
-
-extension Dictionary: BencodableType where Key == String, Value: BencodableType {
-    public typealias ValueType = Value
-    
-    public static var isCollection: Bool { false }
-    public static var isDictionary: Bool { true }
 }

@@ -9,21 +9,40 @@ import Nimble
 @testable import SessionUtilitiesKit
 
 class BatchResponseSpec: QuickSpec {
-    struct TestType: Codable, Equatable {
-        let stringValue: String
-    }
-    struct TestType2: Codable, Equatable {
-        let intValue: Int
-        let stringValue2: String
-    }
-    
-    // MARK: - Spec
-
-    override func spec() {
-        // MARK: - HTTP.BatchSubResponse<T>
+    override class func spec() {
+        // MARK: Configuration
         
+        @TestState var responseInfo: ResponseInfoType! = HTTP.ResponseInfo(code: 200, headers: [:])
+        @TestState var testType: TestType! = TestType(stringValue: "test1")
+        @TestState var testType2: TestType2! = TestType2(intValue: 123, stringValue2: "test2")
+        @TestState var data: Data! = """
+            [\([
+                try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
+                    HTTP.BatchSubResponse(
+                        code: 200,
+                        headers: [:],
+                        body: testType,
+                        failedToParseBody: false
+                    )
+                ),
+                try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
+                    HTTP.BatchSubResponse(
+                        code: 200,
+                        headers: [:],
+                        body: testType2,
+                        failedToParseBody: false
+                    )
+                )
+            ]
+            .map { String(data: $0, encoding: .utf8)! }
+            .joined(separator: ","))]
+            """.data(using: .utf8)!
+        
+        // MARK: - an HTTP.BatchSubResponse<T>
         describe("an HTTP.BatchSubResponse<T>") {
+            // MARK: -- when decoding
             context("when decoding") {
+                // MARK: ---- decodes correctly
                 it("decodes correctly") {
                     let jsonString: String = """
                     {
@@ -45,6 +64,7 @@ class BatchResponseSpec: QuickSpec {
                     expect(subResponse?.body).toNot(beNil())
                 }
                 
+                // MARK: ---- decodes with invalid body data
                 it("decodes with invalid body data") {
                     let jsonString: String = """
                     {
@@ -63,6 +83,7 @@ class BatchResponseSpec: QuickSpec {
                     expect(subResponse).toNot(beNil())
                 }
                 
+                // MARK: ---- flags invalid body data as invalid
                 it("flags invalid body data as invalid") {
                     let jsonString: String = """
                     {
@@ -83,6 +104,7 @@ class BatchResponseSpec: QuickSpec {
                     expect(subResponse?.failedToParseBody).to(beTrue())
                 }
                 
+                // MARK: ---- does not flag a missing or invalid optional body as invalid
                 it("does not flag a missing or invalid optional body as invalid") {
                     let jsonString: String = """
                     {
@@ -102,6 +124,7 @@ class BatchResponseSpec: QuickSpec {
                     expect(subResponse?.failedToParseBody).to(beFalse())
                 }
                 
+                // MARK: ---- does not flag a NoResponse body as invalid
                 it("does not flag a NoResponse body as invalid") {
                     let jsonString: String = """
                     {
@@ -123,10 +146,9 @@ class BatchResponseSpec: QuickSpec {
             }
         }
         
-        // MARK: - Convenience
-        // MARK: --Decodable
-        
+        // MARK: - a Decodable
         describe("a Decodable") {
+            // MARK: -- decodes correctly
             it("decodes correctly") {
                 let jsonData: Data = "{\"stringValue\":\"testValue\"}".data(using: .utf8)!
                 let result: TestType? = try? TestType.decoded(from: jsonData)
@@ -135,42 +157,9 @@ class BatchResponseSpec: QuickSpec {
             }
         }
         
-        // MARK: - --Combine
-        
+        // MARK: - a (ResponseInfoType, Data?) Publisher
         describe("a (ResponseInfoType, Data?) Publisher") {
-            var responseInfo: ResponseInfoType!
-            var testType: TestType!
-            var testType2: TestType2!
-            var data: Data!
-            
-            beforeEach {
-                responseInfo = HTTP.ResponseInfo(code: 200, headers: [:])
-                testType = TestType(stringValue: "test1")
-                testType2 = TestType2(intValue: 123, stringValue2: "test2")
-                data = """
-                [\([
-                    try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
-                        HTTP.BatchSubResponse(
-                            code: 200,
-                            headers: [:],
-                            body: testType,
-                            failedToParseBody: false
-                        )
-                    ),
-                    try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
-                        HTTP.BatchSubResponse(
-                            code: 200,
-                            headers: [:],
-                            body: testType2,
-                            failedToParseBody: false
-                        )
-                    )
-                ]
-                .map { String(data: $0, encoding: .utf8)! }
-                .joined(separator: ","))]
-                """.data(using: .utf8)!
-            }
-            
+            // MARK: -- decodes valid data correctly
             it("decodes valid data correctly") {
                 var result: HTTP.BatchResponse?
                 Just((responseInfo, data))
@@ -191,6 +180,7 @@ class BatchResponseSpec: QuickSpec {
                     .to(equal(testType2))
             }
             
+            // MARK: -- fails if there is no data
             it("fails if there is no data") {
                 var error: Error?
                 Just((responseInfo, nil))
@@ -203,6 +193,7 @@ class BatchResponseSpec: QuickSpec {
                 expect(error).to(matchError(HTTPError.parsingFailed))
             }
             
+            // MARK: -- fails if the data is not JSON
             it("fails if the data is not JSON") {
                 var error: Error?
                 Just((responseInfo, Data([1, 2, 3])))
@@ -215,6 +206,7 @@ class BatchResponseSpec: QuickSpec {
                 expect(error).to(matchError(HTTPError.parsingFailed))
             }
             
+            // MARK: -- fails if the data is not a JSON array
             it("fails if the data is not a JSON array") {
                 var error: Error?
                 Just((responseInfo, "{}".data(using: .utf8)))
@@ -227,6 +219,7 @@ class BatchResponseSpec: QuickSpec {
                 expect(error).to(matchError(HTTPError.parsingFailed))
             }
             
+            // MARK: -- fails if the JSON array does not have the same number of items as the expected types
             it("fails if the JSON array does not have the same number of items as the expected types") {
                 var error: Error?
                 Just((responseInfo, data))
@@ -243,6 +236,7 @@ class BatchResponseSpec: QuickSpec {
                 expect(error).to(matchError(HTTPError.parsingFailed))
             }
             
+            // MARK: -- fails if one of the JSON array values fails to decode
             it("fails if one of the JSON array values fails to decode") {
                 data = """
                 [\([
@@ -274,4 +268,14 @@ class BatchResponseSpec: QuickSpec {
             }
         }
     }
+}
+
+// MARK: - Test Types
+
+fileprivate struct TestType: Codable, Equatable {
+    let stringValue: String
+}
+fileprivate struct TestType2: Codable, Equatable {
+    let intValue: Int
+    let stringValue2: String
 }

@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class BlindedIdLookupSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - a BlindedIdLookup
         describe("a BlindedIdLookup") {
+            // MARK: -- when initializing
             context("when initializing") {
+                // MARK: ---- sets the values correctly
                 it("sets the values correctly") {
                     let lookup: BlindedIdLookup = BlindedIdLookup(
                         blindedId: "testBlindedId",

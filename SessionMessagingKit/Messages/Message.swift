@@ -14,11 +14,14 @@ public class Message: Codable {
     public var sender: String?
     public var openGroupServerMessageId: UInt64?
     public var serverHash: String?
-
     public var ttl: UInt64 { 14 * 24 * 60 * 60 * 1000 }
     public var isSelfSendValid: Bool { false }
     
     public var shouldBeRetryable: Bool { false }
+    
+    // MARK: - Disappearing Messages
+    public var expiresInSeconds: TimeInterval?
+    public var expiresStartedAtMs: Double?
 
     // MARK: - Validation
     
@@ -38,7 +41,9 @@ public class Message: Codable {
         sender: String? = nil,
         groupPublicKey: String? = nil,
         openGroupServerMessageId: UInt64? = nil,
-        serverHash: String? = nil
+        serverHash: String? = nil,
+        expiresInSeconds: TimeInterval? = nil,
+        expiresStartedAtMs: Double? = nil
     ) {
         self.id = id
         self.sentTimestamp = sentTimestamp
@@ -47,6 +52,8 @@ public class Message: Codable {
         self.sender = sender
         self.openGroupServerMessageId = openGroupServerMessageId
         self.serverHash = serverHash
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
     }
 
     // MARK: - Proto Conversion
@@ -55,8 +62,36 @@ public class Message: Codable {
         preconditionFailure("fromProto(_:sender:) is abstract and must be overridden.")
     }
 
-    public func toProto(_ db: Database) -> SNProtoContent? {
+    public func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         preconditionFailure("toProto(_:) is abstract and must be overridden.")
+    }
+    
+    public func setDisappearingMessagesConfigurationIfNeeded(_ db: Database, on proto: SNProtoContent.SNProtoContentBuilder, threadId: String) {
+        guard let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId) else {
+            proto.setExpirationTimer(0)
+            return
+        }
+        
+        let expireTimer: UInt32 = disappearingMessagesConfiguration.isEnabled ? UInt32(disappearingMessagesConfiguration.durationSeconds) : 0
+        proto.setExpirationTimer(expireTimer)
+        proto.setLastDisappearingMessageChangeTimestamp(UInt64(disappearingMessagesConfiguration.lastChangeTimestampMs ?? 0))
+        
+        if disappearingMessagesConfiguration.isEnabled, let type = disappearingMessagesConfiguration.type {
+            proto.setExpirationType(type.toProto())
+        }
+    }
+    
+    public func attachDisappearingMessagesConfiguration(from proto: SNProtoContent) {
+        let expiresInSeconds: TimeInterval? = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : nil
+        let expiresStartedAtMs: Double? = {
+            if proto.expirationType == .deleteAfterSend, let timestamp = self.sentTimestamp {
+                return Double(timestamp)
+            }
+            return nil
+        }()
+        
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
     }
 }
 

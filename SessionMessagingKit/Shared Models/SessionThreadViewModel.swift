@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
@@ -24,6 +26,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case threadMemberNames
         
         case threadIsNoteToSelf
+        case contactLastKnownClientVersion
         case threadIsMessageRequest
         case threadRequiresApproval
         case threadShouldBeVisible
@@ -37,6 +40,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case threadWasMarkedUnread
         case threadUnreadCount
         case threadUnreadMentionCount
+        case threadHasUnreadMessagesOfAnyKind
         
         // Thread display info
         
@@ -90,6 +94,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     
     public let threadIsNoteToSelf: Bool
     
+    public let contactLastKnownClientVersion: FeatureVersion?
+    
     /// This flag indicates whether the thread is an outgoing message request
     public let threadIsMessageRequest: Bool?
     
@@ -106,6 +112,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let threadWasMarkedUnread: Bool?
     public let threadUnreadCount: UInt?
     public let threadUnreadMentionCount: UInt?
+    public let threadHasUnreadMessagesOfAnyKind: Bool?
     
     public var canWrite: Bool {
         switch threadVariant {
@@ -291,7 +298,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             // We want to mark both the thread and interactions as read
             case .threadAndInteractions(let interactionId):
                 guard
-                    (self.threadUnreadCount ?? 0) > 0,
+                    self.threadHasUnreadMessagesOfAnyKind == true,
                     let targetInteractionId: Int64 = (interactionId ?? self.interactionId)
                 else {
                     // No unread interactions so just mark the thread as read if needed
@@ -358,6 +365,7 @@ public extension SessionThreadViewModel {
         currentUserIsClosedGroupMember: Bool? = nil,
         openGroupPermissions: OpenGroup.Permissions? = nil,
         unreadCount: UInt = 0,
+        hasUnreadMessagesOfAnyKind: Bool = false,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil
     ) {
         self.rowId = -1
@@ -367,6 +375,7 @@ public extension SessionThreadViewModel {
         self.threadMemberNames = nil
         
         self.threadIsNoteToSelf = threadIsNoteToSelf
+        self.contactLastKnownClientVersion = nil
         self.threadIsMessageRequest = false
         self.threadRequiresApproval = false
         self.threadShouldBeVisible = false
@@ -380,6 +389,7 @@ public extension SessionThreadViewModel {
         self.threadWasMarkedUnread = nil
         self.threadUnreadCount = unreadCount
         self.threadUnreadMentionCount = nil
+        self.threadHasUnreadMessagesOfAnyKind = hasUnreadMessagesOfAnyKind
         
         // Thread display info
         
@@ -436,6 +446,7 @@ public extension SessionThreadViewModel {
             threadCreationDateTimestamp: self.threadCreationDateTimestamp,
             threadMemberNames: self.threadMemberNames,
             threadIsNoteToSelf: self.threadIsNoteToSelf,
+            contactLastKnownClientVersion: self.contactLastKnownClientVersion,
             threadIsMessageRequest: self.threadIsMessageRequest,
             threadRequiresApproval: self.threadRequiresApproval,
             threadShouldBeVisible: self.threadShouldBeVisible,
@@ -448,6 +459,7 @@ public extension SessionThreadViewModel {
             threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
@@ -495,6 +507,7 @@ public extension SessionThreadViewModel {
             threadCreationDateTimestamp: self.threadCreationDateTimestamp,
             threadMemberNames: self.threadMemberNames,
             threadIsNoteToSelf: self.threadIsNoteToSelf,
+            contactLastKnownClientVersion: self.contactLastKnownClientVersion,
             threadIsMessageRequest: self.threadIsMessageRequest,
             threadRequiresApproval: self.threadRequiresApproval,
             threadShouldBeVisible: self.threadShouldBeVisible,
@@ -507,6 +520,7 @@ public extension SessionThreadViewModel {
             threadWasMarkedUnread: self.threadWasMarkedUnread,
             threadUnreadCount: self.threadUnreadCount,
             threadUnreadMentionCount: self.threadUnreadMentionCount,
+            threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
@@ -569,6 +583,7 @@ private struct AggregateInteraction: Decodable, ColumnExpressible {
         case interactionTimestampMs
         case threadUnreadCount
         case threadUnreadMentionCount
+        case threadHasUnreadMessagesOfAnyKind
     }
     
     let interactionId: Int64
@@ -576,6 +591,7 @@ private struct AggregateInteraction: Decodable, ColumnExpressible {
     let interactionTimestampMs: Int64
     let threadUnreadCount: UInt?
     let threadUnreadMentionCount: UInt?
+    let threadHasUnreadMessagesOfAnyKind: Bool
 }
 
 // MARK: - ClosedGroupUserCount
@@ -641,7 +657,7 @@ public extension SessionThreadViewModel {
             /// the `contactProfile` entry below otherwise the query will fail to parse and might throw
             ///
             /// Explicitly set default values for the fields ignored for search results
-            let numColumnsBeforeProfiles: Int = 14
+            let numColumnsBeforeProfiles: Int = 15
             let numColumnsBetweenProfilesAndAttachmentInfo: Int = 12 // The attachment info columns will be combined
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -665,6 +681,7 @@ public extension SessionThreadViewModel {
                     \(thread[.markedAsUnread]) AS \(ViewModel.Columns.threadWasMarkedUnread),
                     \(aggregateInteraction[.threadUnreadCount]),
                     \(aggregateInteraction[.threadUnreadMentionCount]),
+                    \(aggregateInteraction[.threadHasUnreadMessagesOfAnyKind]),
 
                     \(contactProfile.allColumns),
                     \(closedGroupProfileFront.allColumns),
@@ -737,7 +754,8 @@ public extension SessionThreadViewModel {
                         \(interaction[.threadId]) AS \(AggregateInteraction.Columns.threadId),
                         MAX(\(interaction[.timestampMs])) AS \(AggregateInteraction.Columns.interactionTimestampMs),
                         SUM(\(interaction[.wasRead]) = false) AS \(AggregateInteraction.Columns.threadUnreadCount),
-                        SUM(\(interaction[.wasRead]) = false AND \(interaction[.hasMention]) = true) AS \(AggregateInteraction.Columns.threadUnreadMentionCount)
+                        SUM(\(interaction[.wasRead]) = false AND \(interaction[.hasMention]) = true) AS \(AggregateInteraction.Columns.threadUnreadMentionCount),
+                        (SUM(\(interaction[.wasRead]) = false) > 0) AS \(AggregateInteraction.Columns.threadHasUnreadMessagesOfAnyKind)
                     FROM \(Interaction.self)
                     WHERE \(SQL("\(interaction[.variant]) != \(Interaction.Variant.standardIncomingDeleted)"))
                     GROUP BY \(interaction[.threadId])
@@ -922,7 +940,7 @@ public extension SessionThreadViewModel {
         /// the `disappearingMessageSConfiguration` entry below otherwise the query will fail to parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 15
+        let numColumnsBeforeProfiles: Int = 17
         let request: SQLRequest<ViewModel> = """
             SELECT
                 \(thread[.rowId]) AS \(ViewModel.Columns.rowId),
@@ -931,6 +949,7 @@ public extension SessionThreadViewModel {
                 \(thread[.creationDateTimestamp]) AS \(ViewModel.Columns.threadCreationDateTimestamp),
                 
                 (\(SQL("\(thread[.id]) = \(userPublicKey)"))) AS \(ViewModel.Columns.threadIsNoteToSelf),
+                \(contact[.lastKnownClientVersion]) AS \(ViewModel.Columns.contactLastKnownClientVersion),
                 (
                     \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
                     \(SQL("\(thread[.id]) != \(userPublicKey)")) AND
@@ -950,6 +969,7 @@ public extension SessionThreadViewModel {
                 
                 \(thread[.markedAsUnread]) AS \(ViewModel.Columns.threadWasMarkedUnread),
                 \(aggregateInteraction[.threadUnreadCount]),
+                \(aggregateInteraction[.threadHasUnreadMessagesOfAnyKind]),
         
                 \(disappearingMessagesConfiguration.allColumns),
             
@@ -988,7 +1008,8 @@ public extension SessionThreadViewModel {
                     \(interaction[.threadId]) AS \(AggregateInteraction.Columns.threadId),
                     MAX(\(interaction[.timestampMs])) AS \(AggregateInteraction.Columns.interactionTimestampMs),
                     SUM(\(interaction[.wasRead]) = false) AS \(AggregateInteraction.Columns.threadUnreadCount),
-                    0 AS \(AggregateInteraction.Columns.threadUnreadMentionCount)
+                    0 AS \(AggregateInteraction.Columns.threadUnreadMentionCount),
+                    (SUM(\(interaction[.wasRead]) = false) > 0) AS \(AggregateInteraction.Columns.threadHasUnreadMessagesOfAnyKind)
                 FROM \(Interaction.self)
                 WHERE (
                     \(SQL("\(interaction[.threadId]) = \(threadId)")) AND
@@ -1062,7 +1083,6 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileFront.allColumns),
                 \(closedGroupProfileBack.allColumns),
                 \(closedGroupProfileBackFallback.allColumns),
-                
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 
                 EXISTS (

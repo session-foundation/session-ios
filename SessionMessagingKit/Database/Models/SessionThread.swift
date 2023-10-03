@@ -27,7 +27,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         case variant
         case creationDateTimestamp
         case shouldBeVisible
-        case isPinned
+        @available(*, deprecated, message: "use 'pinnedPriority > 0' instead") case isPinned
         case messageDraft
         case notificationSound
         case mutedUntilTimestamp
@@ -61,8 +61,8 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
     public let shouldBeVisible: Bool
     
     /// A flag indicating whether the thread is pinned
-    @available(*, unavailable, message: "use 'pinnedPriority' instead")
-    public let isPinned: Bool = false
+    @available(*, deprecated, message: "use 'pinnedPriority > 0' instead")
+    private let isPinned: Bool = false
     
     /// The value the user started entering into the input field before they left the conversation screen
     public let messageDraft: String?
@@ -296,31 +296,44 @@ public extension SessionThread {
         calledFromConfigHandling: Bool
     ) throws {
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
-        let remainingThreadIds: [String] = threadIds.filter { $0 != currentUserPublicKey }
+        let remainingThreadIds: Set<String> = threadIds.asSet().removing(currentUserPublicKey)
         
         switch (threadVariant, groupLeaveType) {
-            case (.contact, _):
+            case (.contact, .standard), (.contact, .silent):
+                // Clear any interactions for the deleted thread
+                _ = try Interaction
+                    .filter(threadIds.contains(Interaction.Columns.threadId))
+                    .deleteAll(db)
+                
                 // We need to custom handle the 'Note to Self' conversation (it should just be
-                // hidden rather than deleted
+                // hidden locally rather than deleted)
                 if threadIds.contains(currentUserPublicKey) {
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == currentUserPublicKey)
-                        .deleteAll(db)
-                    
                     _ = try SessionThread
                         .filter(id: currentUserPublicKey)
                         .updateAllAndConfig(
                             db,
+                            calledFromConfig: calledFromConfigHandling,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
                             SessionThread.Columns.shouldBeVisible.set(to: false)
                         )
-                    return
                 }
                 
+                // Update any other threads to be hidden (don't want to actually delete the thread
+                // record in case it's settings get changed while it's not visible)
+                _ = try SessionThread
+                    .filter(ids: remainingThreadIds)
+                    .updateAllAndConfig(
+                        db,
+                        calledFromConfig: calledFromConfigHandling,
+                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.hiddenPriority),
+                        SessionThread.Columns.shouldBeVisible.set(to: false)
+                    )
+                
+            case (.contact, .forced):
                 // If this wasn't called from config handling then we need to hide the conversation
                 if !calledFromConfigHandling {
                     try SessionUtil
-                        .hide(db, contactIds: threadIds)
+                        .remove(db, contactIds: Array(remainingThreadIds))
                 }
                 
                 _ = try SessionThread

@@ -6,9 +6,11 @@ import SessionUtilitiesKit
 
 enum _009_OpenGroupPermission: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "OpenGroupPermission"
+    static let identifier: String = "OpenGroupPermission" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [OpenGroup.self]
     
     static func migrate(_ db: GRDB.Database) throws {
         try db.alter(table: OpenGroup.self) { t in

@@ -9,21 +9,19 @@ import Nimble
 @testable import SessionUtilitiesKit
 
 class IdentitySpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
-        var mockStorage: Storage!
+    override class func spec() {
+        // MARK: Configuration
         
+        @TestState var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            migrationTargets: [
+                SNUtilitiesKit.self
+            ]
+        )
+        
+        // MARK: - an Identity
         describe("an Identity") {
-            beforeEach {
-                mockStorage = SynchronousStorage(
-                    customWriter: try! DatabaseQueue(),
-                    customMigrationTargets: [
-                        SNUtilitiesKit.self
-                    ]
-                )
-            }
-            
+            // MARK: -- correctly retrieves the user user public key
             it("correctly retrieves the user user public key") {
                 mockStorage.write { db in
                     try Identity(variant: .x25519PublicKey, data: "Test1".data(using: .utf8)!).insert(db)
@@ -35,6 +33,7 @@ class IdentitySpec: QuickSpec {
                 }
             }
             
+            // MARK: -- correctly retrieves the user private key
             it("correctly retrieves the user private key") {
                 mockStorage.write { db in
                     try Identity(variant: .x25519PrivateKey, data: "Test2".data(using: .utf8)!).insert(db)
@@ -46,6 +45,7 @@ class IdentitySpec: QuickSpec {
                 }
             }
             
+            // MARK: -- correctly retrieves the user key pair
             it("correctly retrieves the user key pair") {
                 mockStorage.write { db in
                     try Identity(variant: .x25519PublicKey, data: "Test3".data(using: .utf8)!).insert(db)
@@ -62,6 +62,7 @@ class IdentitySpec: QuickSpec {
                 }
             }
             
+            // MARK: -- correctly determines if the user exists
             it("correctly determines if the user exists") {
                 mockStorage.write { db in
                     try Identity(variant: .x25519PublicKey, data: "Test3".data(using: .utf8)!).insert(db)
@@ -74,6 +75,7 @@ class IdentitySpec: QuickSpec {
                 }
             }
             
+            // MARK: -- correctly retrieves the user ED25519 key pair
             it("correctly retrieves the user ED25519 key pair") {
                 mockStorage.write { db in
                     try Identity(variant: .ed25519PublicKey, data: "Test5".data(using: .utf8)!).insert(db)
@@ -90,6 +92,7 @@ class IdentitySpec: QuickSpec {
                 }
             }
             
+            // MARK: -- correctly retrieves the hex encoded seed
             it("correctly retrieves the hex encoded seed") {
                 mockStorage.write { db in
                     try Identity(variant: .seed, data: "Test7".data(using: .utf8)!).insert(db)

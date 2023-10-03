@@ -266,6 +266,24 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         .filter { $0 != .wasRead }
                 ),
                 PagedData.ObservedChanges(
+                    table: Attachment.self,
+                    columns: [.state],
+                    joinToPagedType: {
+                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+                        let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
+                        let linkPreviewAttachment: TypedTableAlias<Attachment> = TypedTableAlias()
+                        
+                        return SQL("""
+                               LEFT JOIN \(LinkPreview.self) ON (
+                                   \(linkPreview[.url]) = \(interaction[.linkPreviewUrl]) AND
+                                   \(Interaction.linkPreviewFilterLiteral())
+                               )
+                               LEFT JOIN \(linkPreviewAttachment) ON \(linkPreviewAttachment[.id]) = \(linkPreview[.attachmentId])
+                            """
+                        )
+                    }()
+                ),
+                PagedData.ObservedChanges(
                     table: Contact.self,
                     columns: [.isTrusted],
                     joinToPagedType: {
@@ -495,12 +513,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 ].compactMap { $0 },
                 body: text
             ),
-            expiresInSeconds: threadData.disappearingMessagesConfiguration
-                .map { disappearingConfig in
-                    guard disappearingConfig.isEnabled else { return nil }
-
-                    return disappearingConfig.durationSeconds
-                },
             linkPreviewUrl: linkPreviewDraft?.urlString
         )
         let optimisticAttachments: Attachment.PreparedData? = attachments

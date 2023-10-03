@@ -23,7 +23,10 @@ internal extension SessionUtil {
         Profile.Columns.name,
         Profile.Columns.nickname,
         Profile.Columns.profilePictureUrl,
-        Profile.Columns.profileEncryptionKey
+        Profile.Columns.profileEncryptionKey,
+        DisappearingMessagesConfiguration.Columns.isEnabled,
+        DisappearingMessagesConfiguration.Columns.type,
+        DisappearingMessagesConfiguration.Columns.durationSeconds
     ]
     
     // MARK: - Incoming Changes
@@ -58,14 +61,14 @@ internal extension SessionUtil {
                 let profileNameShouldBeUpdated: Bool = (
                     !data.profile.name.isEmpty &&
                     profile.name != data.profile.name &&
-                    profile.lastNameUpdate < data.profile.lastNameUpdate
+                    (profile.lastNameUpdate ?? 0) < (data.profile.lastNameUpdate ?? 0)
                 )
                 let profilePictureShouldBeUpdated: Bool = (
                     (
                         profile.profilePictureUrl != data.profile.profilePictureUrl ||
                         profile.profileEncryptionKey != data.profile.profileEncryptionKey
                     ) &&
-                    profile.lastProfilePictureUpdate < data.profile.lastProfilePictureUpdate
+                    (profile.lastProfilePictureUpdate ?? 0) < (data.profile.lastProfilePictureUpdate ?? 0)
                 )
                 
                 if
@@ -138,46 +141,61 @@ internal extension SessionUtil {
                 let threadExists: Bool = (threadInfo != nil)
                 let updatedShouldBeVisible: Bool = SessionUtil.shouldBeVisible(priority: data.priority)
 
-                switch (updatedShouldBeVisible, threadExists) {
-                    case (false, true):
-                        SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
-                        
-                        try SessionThread
-                            .deleteOrLeave(
-                                db,
-                                threadId: sessionId,
-                                threadVariant: .contact,
-                                groupLeaveType: .forced,
-                                calledFromConfigHandling: true
-                            )
-                        
-                    case (true, false):
-                        try SessionThread(
-                            id: sessionId,
-                            variant: .contact,
-                            creationDateTimestamp: data.created,
-                            shouldBeVisible: true,
-                            pinnedPriority: data.priority
-                        ).save(db)
-                        
-                    case (true, true):
-                        let changes: [ConfigColumnAssignment] = [
-                            (threadInfo?.shouldBeVisible == updatedShouldBeVisible ? nil :
-                                SessionThread.Columns.shouldBeVisible.set(to: updatedShouldBeVisible)
-                            ),
-                            (threadInfo?.pinnedPriority == data.priority ? nil :
-                                SessionThread.Columns.pinnedPriority.set(to: data.priority)
-                            )
-                        ].compactMap { $0 }
-                        
-                        try SessionThread
-                            .filter(id: sessionId)
-                            .updateAll( // Handling a config update so don't use `updateAllAndConfig`
-                                db,
-                                changes
-                            )
-                        
-                    case (false, false): break
+                /// If we are hiding the conversation then kick the user from it if it's currently open
+                if !updatedShouldBeVisible {
+                    SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
+                }
+                
+                /// Create the thread if it doesn't exist, otherwise just update it's state
+                if !threadExists {
+                    try SessionThread(
+                        id: sessionId,
+                        variant: .contact,
+                        creationDateTimestamp: data.created,
+                        shouldBeVisible: updatedShouldBeVisible,
+                        pinnedPriority: data.priority
+                    ).save(db)
+                }
+                else {
+                    let changes: [ConfigColumnAssignment] = [
+                        (threadInfo?.shouldBeVisible == updatedShouldBeVisible ? nil :
+                            SessionThread.Columns.shouldBeVisible.set(to: updatedShouldBeVisible)
+                        ),
+                        (threadInfo?.pinnedPriority == data.priority ? nil :
+                            SessionThread.Columns.pinnedPriority.set(to: data.priority)
+                        )
+                    ].compactMap { $0 }
+                    
+                    try SessionThread
+                        .filter(id: sessionId)
+                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                            db,
+                            changes
+                        )
+                }
+                
+                // Update disappearing messages configuration if needed
+                let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+                    .fetchOne(db, id: sessionId)
+                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
+                
+                if
+                    let remoteLastChangeTimestampMs = data.config.lastChangeTimestampMs,
+                    let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
+                    remoteLastChangeTimestampMs > localLastChangeTimestampMs
+                {
+                    _ = try localConfig.with(
+                        isEnabled: data.config.isEnabled,
+                        durationSeconds: data.config.durationSeconds,
+                        type: data.config.type,
+                        lastChangeTimestampMs: data.config.lastChangeTimestampMs
+                    ).save(db)
+                    
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == sessionId)
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                        .filter(Interaction.Columns.timestampMs <= (remoteLastChangeTimestampMs - Int64(data.config.durationSeconds * 1000)))
+                        .deleteAll(db)
                 }
             }
         
@@ -328,6 +346,15 @@ internal extension SessionUtil {
                     contacts_set(conf, &contact)
                 }
                 
+                // Assign all properties to match the updated disappearing messages configuration (if there is one)
+                if
+                    let updatedConfig: DisappearingMessagesConfiguration = info.config,
+                    let exp_mode: CONVO_EXPIRATION_MODE = updatedConfig.type?.toLibSession()
+                {
+                    contact.exp_mode = exp_mode
+                    contact.exp_seconds = Int32(updatedConfig.durationSeconds)
+                }
+                
                 // Store the updated contact (can't be sure if we made any changes above)
                 contact.priority = (info.priority ?? contact.priority)
                 contacts_set(conf, &contact)
@@ -412,7 +439,7 @@ internal extension SessionUtil {
         // to do a config sync)
         guard !existingContactIds.isEmpty else { return updated }
         
-        // Get the user public key (updating their profile is handled separately
+        // Get the user public key (updating their profile is handled separately)
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let targetProfiles: [Profile] = updatedProfiles
             .filter {
@@ -444,6 +471,60 @@ internal extension SessionUtil {
                 .upsert(
                     contactData: targetProfiles
                         .map { SyncedContactInfo(id: $0.id, profile: $0) },
+                    in: conf
+                )
+        }
+        
+        return updated
+    }
+    
+    static func updatingDisappearingConfigs<T>(_ db: Database, _ updated: [T]) throws -> [T] {
+        guard let updatedDisappearingConfigs: [DisappearingMessagesConfiguration] = updated as? [DisappearingMessagesConfiguration] else { throw StorageError.generic }
+        
+        // We should only sync disappearing messages configs which are associated to existing contacts
+        let existingContactIds: [String] = (try? Contact
+            .filter(ids: updatedDisappearingConfigs.map { $0.id })
+            .select(.id)
+            .asRequest(of: String.self)
+            .fetchAll(db))
+            .defaulting(to: [])
+        
+        // If none of the disappearing messages configs are associated with existing contacts then ignore
+        // the changes (no need to do a config sync)
+        guard !existingContactIds.isEmpty else { return updated }
+        
+        // Get the user public key (updating note to self is handled separately)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
+            .filter {
+                $0.id != userPublicKey &&
+                SessionId(from: $0.id)?.prefix == .standard &&
+                existingContactIds.contains($0.id)
+            }
+        
+        // Update the note to self disappearing messages config first (if needed)
+        if let updatedUserDisappearingConfig: DisappearingMessagesConfiguration = updatedDisappearingConfigs.first(where: { $0.id == userPublicKey }) {
+            try SessionUtil.performAndPushChange(
+                db,
+                for: .userProfile,
+                publicKey: userPublicKey
+            ) { conf in
+                try SessionUtil.updateNoteToSelf(
+                    disappearingMessagesConfig: updatedUserDisappearingConfig,
+                    in: conf
+                )
+            }
+        }
+        
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .contacts,
+            publicKey: userPublicKey
+        ) { conf in
+            try SessionUtil
+                .upsert(
+                    contactData: targetDisappearingConfigs
+                        .map { SyncedContactInfo(id: $0.id, disappearingMessagesConfig: $0) },
                     in: conf
                 )
         }
@@ -491,6 +572,46 @@ public extension SessionUtil {
             }
         }
     }
+    
+    static func update(
+        _ db: Database,
+        sessionId: String,
+        disappearingMessagesConfig: DisappearingMessagesConfiguration
+    ) throws {
+        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        
+        switch sessionId {
+            case userPublicKey:
+                try SessionUtil.performAndPushChange(
+                    db,
+                    for: .userProfile,
+                    publicKey: userPublicKey
+                ) { conf in
+                    try SessionUtil.updateNoteToSelf(
+                        disappearingMessagesConfig: disappearingMessagesConfig,
+                        in: conf
+                    )
+                }
+                
+            default:
+                try SessionUtil.performAndPushChange(
+                    db,
+                    for: .contacts,
+                    publicKey: userPublicKey
+                ) { conf in
+                    try SessionUtil
+                        .upsert(
+                            contactData: [
+                                SyncedContactInfo(
+                                    id: sessionId,
+                                    disappearingMessagesConfig: disappearingMessagesConfig
+                                )
+                            ],
+                            in: conf
+                        )
+                }
+        }
+    }
 }
 
 // MARK: - SyncedContactInfo
@@ -500,6 +621,7 @@ extension SessionUtil {
         let id: String
         let contact: Contact?
         let profile: Profile?
+        let config: DisappearingMessagesConfiguration?
         let priority: Int32?
         let created: TimeInterval?
         
@@ -507,12 +629,14 @@ extension SessionUtil {
             id: String,
             contact: Contact? = nil,
             profile: Profile? = nil,
+            disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
             priority: Int32? = nil,
             created: TimeInterval? = nil
         ) {
             self.id = id
             self.contact = contact
             self.profile = profile
+            self.config = disappearingMessagesConfig
             self.priority = priority
             self.created = created
         }
@@ -524,6 +648,7 @@ extension SessionUtil {
 private struct ContactData {
     let contact: Contact
     let profile: Profile
+    let config: DisappearingMessagesConfiguration
     let priority: Int32
     let created: TimeInterval
 }
@@ -573,13 +698,20 @@ private extension SessionUtil {
                         count: ProfileManager.avatarAES256KeyByteLength
                     )
                 ),
-                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000),
-                lastBlocksCommunityMessageRequests: 0
+                lastProfilePictureUpdate: (TimeInterval(latestConfigSentTimestampMs) / 1000)
+            )
+            let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
+                threadId: contactId,
+                isEnabled: contact.exp_seconds > 0,
+                durationSeconds: TimeInterval(contact.exp_seconds),
+                type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode),
+                lastChangeTimestampMs: latestConfigSentTimestampMs
             )
             
             result[contactId] = ContactData(
                 contact: contactResult,
                 profile: profileResult,
+                config: configResult,
                 priority: contact.priority,
                 created: TimeInterval(contact.created)
             )

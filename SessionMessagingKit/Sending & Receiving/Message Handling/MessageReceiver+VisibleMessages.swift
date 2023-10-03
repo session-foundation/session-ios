@@ -88,11 +88,9 @@ extension MessageReceiver {
             // Need to check if the blinded id matches for open groups
             switch senderSessionId.prefix {
                 case .blinded15, .blinded25:
-                    let sodium: Sodium = Sodium()
-                    
                     guard
                         let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
-                        let blindedKeyPair: KeyPair = try? dependencies.crypto.generate(
+                        let blindedKeyPair: KeyPair = dependencies.crypto.generate(
                             .blindedKeyPair(
                                 serverPublicKey: openGroup.publicKey,
                                 edKeyPair: userEdKeyPair,
@@ -135,12 +133,6 @@ extension MessageReceiver {
         ) {
             return interactionId
         }
-        
-        // Retrieve the disappearing messages config to set the 'expiresInSeconds' value
-        // accoring to the config
-        let disappearingMessagesConfiguration: DisappearingMessagesConfiguration = (try? thread.disappearingMessagesConfiguration.fetchOne(db))
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
-        
         // Try to insert the interaction
         //
         // Note: There are now a number of unique constraints on the database which
@@ -174,12 +166,8 @@ extension MessageReceiver {
                     quoteAuthorId: dataMessage.quote?.author,
                     using: dependencies
                 ),
-                // Note: Ensure we don't ever expire open group messages
-                expiresInSeconds: (disappearingMessagesConfiguration.isEnabled && message.openGroupServerMessageId == nil ?
-                    disappearingMessagesConfiguration.durationSeconds :
-                    nil
-                ),
-                expiresStartedAtMs: nil,
+                expiresInSeconds: message.expiresInSeconds,
+                expiresStartedAtMs: message.expiresStartedAtMs,
                 // OpenGroupInvitations are stored as LinkPreview's in the database
                 linkPreviewUrl: (message.linkPreview?.url ?? message.openGroupInvitation?.url),
                 // Keep track of the open group server message ID ↔ message ID relationship
@@ -210,7 +198,7 @@ extension MessageReceiver {
                     else { break }
                     
                     // If we receive an outgoing message that already exists in the database
-                    // then we still need up update the recipient and read states for the
+                    // then we still need to update the recipient and read states for the
                     // message (even if we don't need to do anything else)
                     try updateRecipientAndReadStatesForOutgoingInteraction(
                         db,
@@ -219,6 +207,14 @@ extension MessageReceiver {
                         messageSentTimestamp: messageSentTimestamp,
                         variant: variant,
                         syncTarget: message.syncTarget
+                    )
+                    
+                    getExpirationForOutgoingDisappearingMessages(
+                        db,
+                        threadId: threadId,
+                        variant: variant,
+                        serverHash: message.serverHash,
+                        expireInSeconds: message.expiresInSeconds
                     )
                     
                 default: break
@@ -237,6 +233,14 @@ extension MessageReceiver {
             messageSentTimestamp: messageSentTimestamp,
             variant: variant,
             syncTarget: message.syncTarget
+        )
+        
+        getExpirationForOutgoingDisappearingMessages(
+            db,
+            threadId: threadId,
+            variant: variant,
+            serverHash: message.serverHash,
+            expireInSeconds: message.expiresInSeconds
         )
         
         // Parse & persist attachments
@@ -276,7 +280,6 @@ extension MessageReceiver {
         let linkPreview: LinkPreview? = try? LinkPreview(
             db,
             proto: dataMessage,
-            body: message.text,
             sentTimestampMs: (messageSentTimestamp * 1000)
         )?.saved(db)
         
@@ -507,5 +510,37 @@ extension MessageReceiver {
             
             _ = try pendingReadReceipt.delete(db)
         }
+    }
+    
+    private static func getExpirationForOutgoingDisappearingMessages(
+        _ db: Database,
+        threadId: String,
+        variant: Interaction.Variant,
+        serverHash: String?,
+        expireInSeconds: TimeInterval?
+    ) {
+        guard
+            variant == .standardOutgoing,
+            let serverHash: String = serverHash,
+            let expireInSeconds: TimeInterval = expireInSeconds,
+            expireInSeconds > 0
+        else {
+            return
+        }
+        
+        let startedAtTimestampMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
+        
+        JobRunner.add(
+            db,
+            job: Job(
+                variant: .getExpiration,
+                behaviour: .runOnce,
+                threadId: threadId,
+                details: GetExpirationJob.Details(
+                    expirationInfo: [serverHash: expireInSeconds],
+                    startedAtTimestampMs: startedAtTimestampMs
+                )
+            )
+        )
     }
 }

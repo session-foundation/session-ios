@@ -8,11 +8,12 @@ import Nimble
 @testable import SessionMessagingKit
 
 class CapabilitiesSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
+        // MARK: - Capabilities
         describe("Capabilities") {
+            // MARK: -- when initializing
             context("when initializing") {
+                // MARK: ---- assigns values correctly
                 it("assigns values correctly") {
                     let capabilities: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(
                         capabilities: [.sogs],
@@ -34,8 +35,11 @@ class CapabilitiesSpec: QuickSpec {
             }
         }
         
+        // MARK: - a Capability
         describe("a Capability") {
+            // MARK: -- when initializing
             context("when initializing") {
+                // MARK: ---- succeeeds with a valid case
                 it("succeeeds with a valid case") {
                     let capability: Capability.Variant = Capability.Variant(
                         from: "sogs"
@@ -44,6 +48,7 @@ class CapabilitiesSpec: QuickSpec {
                     expect(capability).to(equal(.sogs))
                 }
                 
+                // MARK: ---- wraps an unknown value in the unsupported case
                 it("wraps an unknown value in the unsupported case") {
                     let capability: Capability.Variant = Capability.Variant(
                         from: "test"
@@ -53,18 +58,23 @@ class CapabilitiesSpec: QuickSpec {
                 }
             }
             
+            // MARK: -- when accessing the rawValue
             context("when accessing the rawValue") {
+                // MARK: ---- provides known cases exactly
                 it("provides known cases exactly") {
                     expect(Capability.Variant.sogs.rawValue).to(equal("sogs"))
                     expect(Capability.Variant.blind.rawValue).to(equal("blind"))
                 }
                 
+                // MARK: ---- provides the wrapped value for unsupported cases
                 it("provides the wrapped value for unsupported cases") {
                     expect(Capability.Variant.unsupported("test").rawValue).to(equal("test"))
                 }
             }
             
+            // MARK: -- when Decoding
             context("when Decoding") {
+                // MARK: ---- decodes known cases exactly
                 it("decodes known cases exactly") {
                     expect(
                         try? JSONDecoder().decode(
@@ -82,6 +92,7 @@ class CapabilitiesSpec: QuickSpec {
                     .to(equal(.blind))
                 }
                 
+                // MARK: ---- decodes unknown cases into the unsupported case
                 it("decodes unknown cases into the unsupported case") {
                     expect(
                         try? JSONDecoder().decode(

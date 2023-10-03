@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -910,6 +912,25 @@ public enum OpenGroupAPI {
                     endpoint: .inboxSince(id: id)
                 ),
                 responseType: [DirectMessage]?.self,
+                using: dependencies
+            )
+    }
+    
+    /// Remove all message requests from inbox, this methrod will return the number of messages deleted
+    public static func preparedClearInbox(
+        _ db: Database,
+        on server: String,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> PreparedSendData<DeleteInboxResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
+                db,
+                request: Request<NoBody, Endpoint>(
+                    method: .delete,
+                    server: server,
+                    endpoint: .inbox
+                ),
+                responseType: DeleteInboxResponse.self,
                 using: dependencies
             )
     }

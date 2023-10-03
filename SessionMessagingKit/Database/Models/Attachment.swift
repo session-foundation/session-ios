@@ -284,19 +284,19 @@ extension Attachment: CustomStringConvertible {
     
     public static func emoji(for contentType: String) -> String {
         if MIMETypeUtil.isImage(contentType) {
-            return "📷"
+            return "📷"     // stringlint:disable
         }
         else if MIMETypeUtil.isVideo(contentType) {
-            return "🎥"
+            return "🎥"     // stringlint:disable
         }
         else if MIMETypeUtil.isAudio(contentType) {
-            return "🎧"
+            return "🎧"     // stringlint:disable
         }
         else if MIMETypeUtil.isAnimated(contentType) {
-            return "🎡"
+            return "🎡"     // stringlint:disable
         }
         
-        return "📎"
+        return "📎"         // stringlint:disable
     }
     
     public var description: String {

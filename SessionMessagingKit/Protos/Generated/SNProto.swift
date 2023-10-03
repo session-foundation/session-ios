@@ -165,12 +165,12 @@ public enum SNProtoError: Error {
 
     fileprivate class func parseProto(_ proto: SessionProtos_Envelope) throws -> SNProtoEnvelope {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
         }
         let type = SNProtoEnvelopeTypeWrap(proto.type)
 
         guard proto.hasTimestamp else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: timestamp")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: timestamp")
         }
         let timestamp = proto.timestamp
 
@@ -298,12 +298,12 @@ extension SNProtoEnvelope.SNProtoEnvelopeBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_TypingMessage) throws -> SNProtoTypingMessage {
         guard proto.hasTimestamp else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: timestamp")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: timestamp")
         }
         let timestamp = proto.timestamp
 
         guard proto.hasAction else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: action")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: action")
         }
         let action = SNProtoTypingMessageActionWrap(proto.action)
 
@@ -410,12 +410,12 @@ extension SNProtoTypingMessage.SNProtoTypingMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_UnsendRequest) throws -> SNProtoUnsendRequest {
         guard proto.hasTimestamp else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: timestamp")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: timestamp")
         }
         let timestamp = proto.timestamp
 
         guard proto.hasAuthor else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: author")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: author")
         }
         let author = proto.author
 
@@ -541,7 +541,7 @@ extension SNProtoUnsendRequest.SNProtoUnsendRequestBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_MessageRequestResponse) throws -> SNProtoMessageRequestResponse {
         guard proto.hasIsApproved else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: isApproved")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: isApproved")
         }
         let isApproved = proto.isApproved
 
@@ -585,6 +585,30 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
 
 @objc public class SNProtoContent: NSObject {
 
+    // MARK: - SNProtoContentExpirationType
+
+    @objc public enum SNProtoContentExpirationType: Int32 {
+        case unknown = 0
+        case deleteAfterRead = 1
+        case deleteAfterSend = 2
+    }
+
+    private class func SNProtoContentExpirationTypeWrap(_ value: SessionProtos_Content.ExpirationType) -> SNProtoContentExpirationType {
+        switch value {
+        case .unknown: return .unknown
+        case .deleteAfterRead: return .deleteAfterRead
+        case .deleteAfterSend: return .deleteAfterSend
+        }
+    }
+
+    private class func SNProtoContentExpirationTypeUnwrap(_ value: SNProtoContentExpirationType) -> SessionProtos_Content.ExpirationType {
+        switch value {
+        case .unknown: return .unknown
+        case .deleteAfterRead: return .deleteAfterRead
+        case .deleteAfterSend: return .deleteAfterSend
+        }
+    }
+
     // MARK: - SNProtoContentBuilder
 
     @objc public class func builder() -> SNProtoContentBuilder {
@@ -620,6 +644,15 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         }
         if let _value = sharedConfigMessage {
             builder.setSharedConfigMessage(_value)
+        }
+        if hasExpirationType {
+            builder.setExpirationType(expirationType)
+        }
+        if hasExpirationTimer {
+            builder.setExpirationTimer(expirationTimer)
+        }
+        if hasLastDisappearingMessageChangeTimestamp {
+            builder.setLastDisappearingMessageChangeTimestamp(lastDisappearingMessageChangeTimestamp)
         }
         return builder
     }
@@ -666,6 +699,18 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             proto.sharedConfigMessage = valueParam.proto
         }
 
+        @objc public func setExpirationType(_ valueParam: SNProtoContentExpirationType) {
+            proto.expirationType = SNProtoContentExpirationTypeUnwrap(valueParam)
+        }
+
+        @objc public func setExpirationTimer(_ valueParam: UInt32) {
+            proto.expirationTimer = valueParam
+        }
+
+        @objc public func setLastDisappearingMessageChangeTimestamp(_ valueParam: UInt64) {
+            proto.lastDisappearingMessageChangeTimestamp = valueParam
+        }
+
         @objc public func build() throws -> SNProtoContent {
             return try SNProtoContent.parseProto(proto)
         }
@@ -694,6 +739,27 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
     @objc public let messageRequestResponse: SNProtoMessageRequestResponse?
 
     @objc public let sharedConfigMessage: SNProtoSharedConfigMessage?
+
+    @objc public var expirationType: SNProtoContentExpirationType {
+        return SNProtoContent.SNProtoContentExpirationTypeWrap(proto.expirationType)
+    }
+    @objc public var hasExpirationType: Bool {
+        return proto.hasExpirationType
+    }
+
+    @objc public var expirationTimer: UInt32 {
+        return proto.expirationTimer
+    }
+    @objc public var hasExpirationTimer: Bool {
+        return proto.hasExpirationTimer
+    }
+
+    @objc public var lastDisappearingMessageChangeTimestamp: UInt64 {
+        return proto.lastDisappearingMessageChangeTimestamp
+    }
+    @objc public var hasLastDisappearingMessageChangeTimestamp: Bool {
+        return proto.hasLastDisappearingMessageChangeTimestamp
+    }
 
     private init(proto: SessionProtos_Content,
                  dataMessage: SNProtoDataMessage?,
@@ -961,12 +1027,12 @@ extension SNProtoContent.SNProtoContentBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_CallMessage) throws -> SNProtoCallMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
         }
         let type = SNProtoCallMessageTypeWrap(proto.type)
 
         guard proto.hasUuid else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: uuid")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: uuid")
         }
         let uuid = proto.uuid
 
@@ -1073,12 +1139,12 @@ extension SNProtoCallMessage.SNProtoCallMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_KeyPair) throws -> SNProtoKeyPair {
         guard proto.hasPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: publicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: publicKey")
         }
         let publicKey = proto.publicKey
 
         guard proto.hasPrivateKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: privateKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: privateKey")
         }
         let privateKey = proto.privateKey
 
@@ -1211,7 +1277,7 @@ extension SNProtoKeyPair.SNProtoKeyPairBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataExtractionNotification) throws -> SNProtoDataExtractionNotification {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
         }
         let type = SNProtoDataExtractionNotificationTypeWrap(proto.type)
 
@@ -1620,12 +1686,12 @@ extension SNProtoDataMessageQuoteQuotedAttachment.SNProtoDataMessageQuoteQuotedA
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.Quote) throws -> SNProtoDataMessageQuote {
         guard proto.hasID else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: id")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: id")
         }
         let id = proto.id
 
         guard proto.hasAuthor else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: author")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: author")
         }
         let author = proto.author
 
@@ -1755,7 +1821,7 @@ extension SNProtoDataMessageQuote.SNProtoDataMessageQuoteBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.Preview) throws -> SNProtoDataMessagePreview {
         guard proto.hasURL else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: url")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: url")
         }
         let url = proto.url
 
@@ -1914,17 +1980,17 @@ extension SNProtoDataMessagePreview.SNProtoDataMessagePreviewBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.Reaction) throws -> SNProtoDataMessageReaction {
         guard proto.hasID else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: id")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: id")
         }
         let id = proto.id
 
         guard proto.hasAuthor else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: author")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: author")
         }
         let author = proto.author
 
         guard proto.hasAction else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: action")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: action")
         }
         let action = SNProtoDataMessageReactionActionWrap(proto.action)
 
@@ -2032,12 +2098,12 @@ extension SNProtoDataMessageReaction.SNProtoDataMessageReactionBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.OpenGroupInvitation) throws -> SNProtoDataMessageOpenGroupInvitation {
         guard proto.hasURL else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: url")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: url")
         }
         let url = proto.url
 
         guard proto.hasName else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: name")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: name")
         }
         let name = proto.name
 
@@ -2144,12 +2210,12 @@ extension SNProtoDataMessageOpenGroupInvitation.SNProtoDataMessageOpenGroupInvit
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.ClosedGroupControlMessage.KeyPairWrapper) throws -> SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper {
         guard proto.hasPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: publicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: publicKey")
         }
         let publicKey = proto.publicKey
 
         guard proto.hasEncryptedKeyPair else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: encryptedKeyPair")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedKeyPair")
         }
         let encryptedKeyPair = proto.encryptedKeyPair
 
@@ -2387,7 +2453,7 @@ extension SNProtoDataMessageClosedGroupControlMessageKeyPairWrapper.SNProtoDataM
 
     fileprivate class func parseProto(_ proto: SessionProtos_DataMessage.ClosedGroupControlMessage) throws -> SNProtoDataMessageClosedGroupControlMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
         }
         let type = SNProtoDataMessageClosedGroupControlMessageTypeWrap(proto.type)
 
@@ -3076,12 +3142,12 @@ extension SNProtoConfigurationMessageClosedGroup.SNProtoConfigurationMessageClos
 
     fileprivate class func parseProto(_ proto: SessionProtos_ConfigurationMessage.Contact) throws -> SNProtoConfigurationMessageContact {
         guard proto.hasPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: publicKey")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: publicKey")
         }
         let publicKey = proto.publicKey
 
         guard proto.hasName else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: name")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: name")
         }
         let name = proto.name
 
@@ -3396,7 +3462,7 @@ extension SNProtoConfigurationMessage.SNProtoConfigurationMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_ReceiptMessage) throws -> SNProtoReceiptMessage {
         guard proto.hasType else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: type")
         }
         let type = SNProtoReceiptMessageTypeWrap(proto.type)
 
@@ -3686,7 +3752,7 @@ extension SNProtoReceiptMessage.SNProtoReceiptMessageBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_AttachmentPointer) throws -> SNProtoAttachmentPointer {
         guard proto.hasID else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: id")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: id")
         }
         let id = proto.id
 
@@ -3828,17 +3894,17 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
 
     fileprivate class func parseProto(_ proto: SessionProtos_SharedConfigMessage) throws -> SNProtoSharedConfigMessage {
         guard proto.hasKind else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: kind")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: kind")
         }
         let kind = SNProtoSharedConfigMessageKindWrap(proto.kind)
 
         guard proto.hasSeqno else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: seqno")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: seqno")
         }
         let seqno = proto.seqno
 
         guard proto.hasData else {
-            throw SNProtoError.invalidProtobuf(description: "\(logTag) missing required field: data")
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: data")
         }
         let data = proto.data
 

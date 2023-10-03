@@ -73,9 +73,6 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 // Should be a NOOP if isMainApp is NO.
 - (void)ensureSleepBlocking:(BOOL)shouldBeBlocking blockingObjects:(NSArray<id> *)blockingObjects;
 
-// Should only be called if isMainApp is YES.
-- (void)setMainAppBadgeNumber:(NSInteger)value;
-
 - (void)setStatusBarHidden:(BOOL)isHidden animated:(BOOL)isAnimated;
 
 @property (nonatomic, readonly) CGFloat statusBarHeight;

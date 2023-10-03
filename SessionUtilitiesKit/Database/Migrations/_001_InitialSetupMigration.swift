@@ -5,9 +5,13 @@ import GRDB
 
 enum _001_InitialSetupMigration: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
-    static let identifier: String = "initialSetup"
+    static let identifier: String = "initialSetup" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+        Identity.self, Job.self, JobDependencies.self, Setting.self
+    ]
     
     static func migrate(_ db: Database) throws {
         try db.create(table: Identity.self) { t in

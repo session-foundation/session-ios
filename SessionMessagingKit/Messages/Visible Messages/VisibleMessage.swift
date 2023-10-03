@@ -123,7 +123,7 @@ public final class VisibleMessage: Message {
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let proto = SNProtoContent.builder()
         var attachmentIds = self.attachmentIds
         let dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder
@@ -183,6 +183,9 @@ public final class VisibleMessage: Message {
         if let reaction = reaction, let reactionProto = reaction.toProto() {
             dataMessage.setReaction(reactionProto)
         }
+        
+        // DisappearingMessagesConfiguration
+        setDisappearingMessagesConfigurationIfNeeded(db, on: proto, threadId: threadId)
         
         // Sync target
         if let syncTarget = syncTarget {
