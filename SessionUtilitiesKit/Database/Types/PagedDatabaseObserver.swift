@@ -11,7 +11,7 @@ import DifferenceKit
 /// **Note:** We **MUST** have accurate `filterSQL` and `orderSQL` values otherwise the indexing won't work
 public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where ObservedTable: TableRecord & ColumnExpressible & Identifiable, T: FetchableRecordWithRowId & Identifiable {
     private let commitProcessingQueue: DispatchQueue = DispatchQueue(
-        label: "PagedDatabaseObserver.commitProcessingQueue",
+        label: "PagedDatabaseObserver.commitProcessingQueue",   // stringlint:disable
         qos: .userInitiated,
         attributes: [] // Must be serial in order to avoid updates getting processed in the wrong order
     )

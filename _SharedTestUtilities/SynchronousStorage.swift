@@ -43,8 +43,11 @@ class SynchronousStorage: Storage {
     }
     
     @discardableResult override func read<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
         using dependencies: Dependencies = Dependencies(),
-        _ value: (Database) throws -> T?
+        _ value: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
@@ -56,16 +59,25 @@ class SynchronousStorage: Storage {
             return try? dbWriter.unsafeReentrantRead(value)
         }
         
-        return super.read(using: dependencies, value)
+        return super.read(
+            fileName: fileName,
+            functionName: functionName,
+            lineNumber: lineNumber,
+            using: dependencies,
+            value
+        )
     }
     
     // MARK: - Async Methods
     
     override func readPublisher<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
         using dependencies: Dependencies = Dependencies(),
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
-        guard let result: T = self.read(using: dependencies, value) else {
+        guard let result: T = self.read(fileName: fileName, functionName: functionName, lineNumber: lineNumber, using: dependencies, value) else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()
         }
