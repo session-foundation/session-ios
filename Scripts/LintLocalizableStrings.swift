@@ -38,18 +38,25 @@ extension ProjectState {
         .contains("print("),
         .contains("NSLog("),
         .contains("SNLog("),
+        .contains("SNLogNotTests("),
         .contains("owsFailDebug("),
         .contains("#imageLiteral(resourceName:"),
         .contains("UIImage(named:"),
         .contains("UIImage(systemName:"),
         .contains("[UIImage imageNamed:"),
         .contains("UIFont(name:"),
+        .contains(".dateFormat ="),
         .contains(".accessibilityLabel ="),
+        .contains(".accessibilityValue ="),
         .contains(".accessibilityIdentifier ="),
         .contains("accessibilityIdentifier:"),
         .contains("accessibilityLabel:"),
         .contains("Accessibility(identifier:"),
         .contains("Accessibility(label:"),
+        .contains("NSAttributedString.Key("),
+        .contains("Notification.Name("),
+        .contains("Notification.Key("),
+        .contains("DispatchQueue("),
         .containsAnd("identifier:", .previousLine(numEarlier: 1, .contains("Accessibility("))),
         .containsAnd("label:", .previousLine(numEarlier: 1, .contains("Accessibility("))),
         .containsAnd("label:", .previousLine(numEarlier: 2, .contains("Accessibility("))),
@@ -57,7 +64,8 @@ extension ProjectState {
         .regex(".*static var databaseTableName: String"),
         .regex("Logger\\..*\\("),
         .regex("OWSLogger\\..*\\("),
-        .regex("case .* = ")
+        .regex("case .* = "),
+        .regex("Error.*\\(")
     ]
 }
 

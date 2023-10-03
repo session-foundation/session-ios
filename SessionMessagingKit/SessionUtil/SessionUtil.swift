@@ -136,7 +136,7 @@ public enum SessionUtil {
     ) throws -> UnsafeMutablePointer<config_object>? {
         // Setup initial variables (including getting the memory address for any cached data)
         var conf: UnsafeMutablePointer<config_object>? = nil
-        let error: UnsafeMutablePointer<CChar>? = nil
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
         let cachedDump: (data: UnsafePointer<UInt8>, length: Int)? = cachedData?.withUnsafeBytes { unsafeBytes in
             return unsafeBytes.baseAddress.map {
                 (
@@ -146,33 +146,26 @@ public enum SessionUtil {
             }
         }
         
-        // No need to deallocate the `cachedDump.data` as it'll automatically be cleaned up by
-        // the `cachedDump` lifecycle, but need to deallocate the `error` if it gets set
-        defer {
-            error?.deallocate()
-        }
-        
         // Try to create the object
         var secretKey: [UInt8] = ed25519SecretKey
         let result: Int32 = {
             switch variant {
                 case .userProfile:
-                    return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .contacts:
-                    return contacts_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return contacts_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .convoInfoVolatile:
-                    return convo_info_volatile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return convo_info_volatile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
                 case .userGroups:
-                    return user_groups_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), error)
+                    return user_groups_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
             }
         }()
         
         guard result == 0 else {
-            let errorString: String = (error.map { String(cString: $0) } ?? "unknown error")    // stringlint:disable
-            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(errorString)")
+            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(String(cString: error))")
             throw SessionUtilError.unableToCreateConfigObject
         }
         

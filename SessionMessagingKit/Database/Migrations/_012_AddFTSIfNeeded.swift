@@ -10,6 +10,8 @@ enum _012_AddFTSIfNeeded: Migration {
     static let identifier: String = "AddFTSIfNeeded" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         // Fix an issue that the fullTextSearchTable was dropped unintentionally and global search won't work.

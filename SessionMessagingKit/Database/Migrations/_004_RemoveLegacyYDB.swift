@@ -11,6 +11,8 @@ enum _004_RemoveLegacyYDB: Migration {
     static let identifier: String = "RemoveLegacyYDB" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
 
     static func migrate(_ db: Database) throws {
         try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()

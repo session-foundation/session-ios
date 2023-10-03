@@ -8,10 +8,33 @@ import GRDB
 class SynchronousStorage: Storage {
     public init(
         customWriter: DatabaseWriter? = nil,
-        customMigrationTargets: [MigratableTarget.Type]? = nil,
+        migrationTargets: [MigratableTarget.Type]? = nil,
+        migrations: [Storage.KeyedMigration]? = nil,
         initialData: ((Database) throws -> ())? = nil
     ) {
-        super.init(customWriter: customWriter, customMigrationTargets: customMigrationTargets)
+        super.init(customWriter: customWriter)
+        
+        // Process any migration targets first
+        if let migrationTargets: [MigratableTarget.Type] = migrationTargets {
+            perform(
+                migrationTargets: migrationTargets,
+                async: false,
+                onProgressUpdate: nil,
+                onMigrationRequirement: { _, _ in },
+                onComplete: { _, _ in }
+            )
+        }
+        
+        // Then process any provided migration info
+        if let migrations: [Storage.KeyedMigration] = migrations {
+            perform(
+                sortedMigrations: migrations,
+                async: false,
+                onProgressUpdate: nil,
+                onMigrationRequirement: { _, _ in },
+                onComplete: { _, _ in }
+            )
+        }
         
         write { db in try initialData?(db) }
     }
