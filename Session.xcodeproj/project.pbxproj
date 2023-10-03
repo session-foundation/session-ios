@@ -512,7 +512,6 @@
 		FD17D7CD27F546FF00122BE0 /* Setting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7CC27F546FF00122BE0 /* Setting.swift */; };
 		FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E427F6A09900122BE0 /* Identity.swift */; };
 		FD17D7E727F6A16700122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */; };
-		FD17D7EA27F6A1C600122BE0 /* SUKLegacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E927F6A1C600122BE0 /* SUKLegacy.swift */; };
 		FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */; };
 		FD1936412ACA7BD8004BCF0F /* Result+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1936402ACA7BD8004BCF0F /* Result+Utilities.swift */; };
 		FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */; };
@@ -1672,7 +1671,6 @@
 		FD17D7CC27F546FF00122BE0 /* Setting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Setting.swift; sourceTree = "<group>"; };
 		FD17D7E427F6A09900122BE0 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
-		FD17D7E927F6A1C600122BE0 /* SUKLegacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SUKLegacy.swift; sourceTree = "<group>"; };
 		FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseSpec.swift; sourceTree = "<group>"; };
 		FD1936402ACA7BD8004BCF0F /* Result+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Result+Utilities.swift"; sourceTree = "<group>"; };
 		FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistableRecord+Utilities.swift"; sourceTree = "<group>"; };
@@ -3761,14 +3759,6 @@
 				FD17D7CC27F546FF00122BE0 /* Setting.swift */,
 			);
 			path = Models;
-			sourceTree = "<group>";
-		};
-		FD17D7E827F6A1B800122BE0 /* LegacyDatabase */ = {
-			isa = PBXGroup;
-			children = (
-				FD17D7E927F6A1C600122BE0 /* SUKLegacy.swift */,
-			);
-			path = LegacyDatabase;
 			sourceTree = "<group>";
 		};
 		FD19363D2ACA66CF004BCF0F /* Database */ = {
