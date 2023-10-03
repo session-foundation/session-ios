@@ -6418,6 +6418,7 @@
 				FD245C56285065EA00B966DD /* SNProto.swift in Sources */,
 				FD09798B27FD1CFE00936362 /* Capability.swift in Sources */,
 				C3BBE0C72554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift in Sources */,
+				FD1D732A2A85AA2000E3F410 /* Setting+Utilities.swift in Sources */,
 				FD09798127FCFEE800936362 /* SessionThread.swift in Sources */,
 				FD09C5EA282A1BB2000CE219 /* ThreadTypingIndicator.swift in Sources */,
 				FDB5DADA2A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift in Sources */,
