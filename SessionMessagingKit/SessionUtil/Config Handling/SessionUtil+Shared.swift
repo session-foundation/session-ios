@@ -77,7 +77,7 @@ internal extension SessionUtil {
                 }
         }
         catch {
-            SNLog("[libSession] Failed to update/dump updated \(variant) config data due to error: \(error)")
+            SNLog("[SessionUtil] Failed to update/dump updated \(variant) config data due to error: \(error)")
             throw error
         }
         
@@ -368,7 +368,7 @@ internal extension SessionUtil {
         loopCounter += 1
         
         guard loopCounter < maxLoopCount else {
-            SNLog("[libSession] Got stuck in infinite loop processing '\(variant.configMessageKind.description)' data")
+            SNLog("[SessionUtil] Got stuck in infinite loop processing '\(variant.configMessageKind.description)' data")
             throw SessionUtilError.processingLoopLimitReached
         }
     }

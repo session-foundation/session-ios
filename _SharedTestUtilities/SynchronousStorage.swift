@@ -8,10 +8,33 @@ import GRDB
 class SynchronousStorage: Storage {
     public init(
         customWriter: DatabaseWriter? = nil,
-        customMigrationTargets: [MigratableTarget.Type]? = nil,
+        migrationTargets: [MigratableTarget.Type]? = nil,
+        migrations: [Storage.KeyedMigration]? = nil,
         initialData: ((Database) throws -> ())? = nil
     ) {
-        super.init(customWriter: customWriter, customMigrationTargets: customMigrationTargets)
+        super.init(customWriter: customWriter)
+        
+        // Process any migration targets first
+        if let migrationTargets: [MigratableTarget.Type] = migrationTargets {
+            perform(
+                migrationTargets: migrationTargets,
+                async: false,
+                onProgressUpdate: nil,
+                onMigrationRequirement: { _, _ in },
+                onComplete: { _, _ in }
+            )
+        }
+        
+        // Then process any provided migration info
+        if let migrations: [Storage.KeyedMigration] = migrations {
+            perform(
+                sortedMigrations: migrations,
+                async: false,
+                onProgressUpdate: nil,
+                onMigrationRequirement: { _, _ in },
+                onComplete: { _, _ in }
+            )
+        }
         
         write { db in try initialData?(db) }
     }
@@ -43,8 +66,11 @@ class SynchronousStorage: Storage {
     }
     
     @discardableResult override func read<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
         using dependencies: Dependencies = Dependencies(),
-        _ value: (Database) throws -> T?
+        _ value: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = testDbWriter else { return nil }
         
@@ -56,16 +82,25 @@ class SynchronousStorage: Storage {
             return try? dbWriter.unsafeReentrantRead(value)
         }
         
-        return super.read(using: dependencies, value)
+        return super.read(
+            fileName: fileName,
+            functionName: functionName,
+            lineNumber: lineNumber,
+            using: dependencies,
+            value
+        )
     }
     
     // MARK: - Async Methods
     
     override func readPublisher<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
         using dependencies: Dependencies = Dependencies(),
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
-        guard let result: T = self.read(using: dependencies, value) else {
+        guard let result: T = self.read(fileName: fileName, functionName: functionName, lineNumber: lineNumber, using: dependencies, value) else {
             return Fail(error: StorageError.generic)
                 .eraseToAnyPublisher()
         }

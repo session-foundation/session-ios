@@ -16,6 +16,8 @@ enum _003_YDBToGRDBMigration: Migration {
     static let identifier: String = "YDBToGRDBMigration"
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 20
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [Identity.self]
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         guard let dbConnection: YapDatabaseConnection = SUKLegacy.newDatabaseConnection() else {

@@ -38,7 +38,7 @@ class JobRunnerSpec: QuickSpec {
         )
         @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            customMigrationTargets: [
+            migrationTargets: [
                 SNUtilitiesKit.self
             ],
             initialData: { db in

@@ -9,6 +9,8 @@ enum _004_FlagMessageHashAsDeletedOrInvalid: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "FlagMessageHashAsDeletedOrInvalid" // stringlint:disable
     static let needsConfigSync: Bool = false
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]
     
     /// This migration adds a flat to the `SnodeReceivedMessageInfo` so that when deleting interactions we can
     /// ignore their hashes when subsequently trying to fetch new messages (which results in the storage server returning

@@ -130,10 +130,6 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
     
     // MARK: - Interaction
     
-    @objc private func close() {
-        dismiss(animated: true, completion: nil)
-    }
-    
     func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
         let seed = Data(hex: string)
         continueWithSeed(seed, onError: onError)
