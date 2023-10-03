@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "Načíst QR kód";
 "vc_enter_public_key_explanation" = "Začněte novou konverzaci zadáním Session ID jiného uživatele a nebo sdílejte své Session ID s ostatními.";
 "vc_scan_qr_code_camera_access_explanation" = "Session potřebuje ke skenování kódů QR přístup k fotoaparátu";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Povolit přístup k fotoaparátu";
 "vc_create_closed_group_title" = "Vytvořit skupinu";
 "vc_create_closed_group_text_field_hint" = "Zadejte název skupiny";
 "vc_create_closed_group_empty_state_message" = "Zatím nemáte žádné kontakty";
@@ -584,233 +583,233 @@
 "context_menu_info" = "Info";
 
 /* An error that is displayed when the application fails for create it's initial connection to the database */
-"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"DATABASE_STARTUP_FAILED" = "Při otevření databáze došlo k chybě\n\nProtokoly aplikací můžete exportovat, abyste je mohli sdílet při řešení problémů, nebo můžete zařízení obnovit.\n\nVarování: Obnovení zařízení povede ke ztrátě všech dat starších než dva týdny";
 
 /* A warning displayed to the user when the application takes too long to launch */
-"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+"APP_STARTUP_TIMEOUT" = "Spouštění aplikace trvá dlouho\n\nMůžete pokračovat v čekání na spuštění aplikace, exportovat protokoly aplikace a sdílet je pro řešení problémů nebo můžete zkusit aplikaci otevřít znovu";
 
 /* The title of a button on a modal shown when the application fails to start, pressing the button closes the application */
-"APP_STARTUP_EXIT" = "Exit";
+"APP_STARTUP_EXIT" = "Ukončit";
 
 /* An error which occurs if the user tries to restore the database after an initial failure and it fails to restore */
-"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
+"DATABASE_RESTORE_FAILED" = "Při otevírání obnovené databáze došlo k chybě\n\nProtokoly aplikace můžete exportovat do sdílené složky za účelem řešení problémů, ale abyste mohli relaci Session používat i nadále, bude možná nutné ji znovu nainstalovat";
 
 /* Text displayed in place of a quoted message when the original message is not on the device */
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+"QUOTED_MESSAGE_NOT_FOUND" = "Původní zpráva nebyla nalezena.";
 
 /* EMOJI_REACTS_SHOW_LESS */
-"EMOJI_REACTS_SHOW_LESS" = "Show less";
+"EMOJI_REACTS_SHOW_LESS" = "Zobrazit méně";
 
 /* PRIVACY_SECTION_MESSAGE_REQUESTS */
-"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Žádosti o zprávy";
 
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Požadavky na zprávy komunity";
 
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Povolit požadavky na zprávy z konverzací komunity.";
 
 /* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "Budete moci posílat hlasové zprávy a přílohy, jakmile příjemce schválí tuto žádost o zprávu";
 
 /* State of a message while it's still in the process of being sent */
-"MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+"MESSAGE_DELIVERY_STATUS_SENDING" = "Odesílání";
 
 /* State of a message once it has been sent */
-"MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+"MESSAGE_DELIVERY_STATUS_SENT" = "Odesláno";
 
 /* State of a message after the recipient has read the message */
-"MESSAGE_DELIVERY_STATUS_READ" = "Read";
+"MESSAGE_DELIVERY_STATUS_READ" = "Přečteno";
 
 /* State of a message if it failed to be sent */
-"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"MESSAGE_DELIVERY_STATUS_FAILED" = "Odeslání se nezdařilo";
 
 /* Title of the message information screen describing the date/time a message was sent */
-"MESSAGE_INFO_SENT" = "Sent";
+"MESSAGE_INFO_SENT" = "Odesláno";
 
 /* Title of the message information screen describing the date/time a message was received on a specific device */
-"MESSAGE_INFO_RECEIVED" = "Received";
+"MESSAGE_INFO_RECEIVED" = "Přijato";
 
 /* Title of the message information screen describing the sender of the message */
-"MESSAGE_INFO_FROM" = "From";
+"MESSAGE_INFO_FROM" = "Od";
 
 /* Title of the message information screen describing the identifier of the attachment */
-"ATTACHMENT_INFO_FILE_ID" = "File ID";
+"ATTACHMENT_INFO_FILE_ID" = "ID souboru";
 
 /* Title of the message information screen describing the file type of the attachment */
-"ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+"ATTACHMENT_INFO_FILE_TYPE" = "Typ souboru";
 
 /* Title of the message information screen describing the size of the attachment */
-"ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+"ATTACHMENT_INFO_FILE_SIZE" = "Velikost souboru";
 
 /* Title on the message information screen describing the resolution of a media attachment */
-"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+"ATTACHMENT_INFO_RESOLUTION" = "Rozlišení";
 
 /* Title on the message information screen describing the duration of a media attachment */
-"ATTACHMENT_INFO_DURATION" = "Duration";
+"ATTACHMENT_INFO_DURATION" = "Doba trvání";
 
 /* State of a message after it failed to sync to the current users other devices */
-"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Synchronizace se nezdařila";
 
 /* State of a message while it's in the process of being synced to the users other devices */
-"MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+"MESSAGE_DELIVERY_STATUS_SYNCING" = "Synchronizace";
 
 /* Title of the modal that appears after a user taps on the state of a message which failed to send */
-"MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
+"MESSAGE_DELIVERY_FAILED_TITLE" = "Odeslání zprávy se nezdařilo";
 
 /* Title of the modal that appears after a user taps on the state of a message which failed to sync to the users other devices */
-"MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
+"MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Nepodařilo se synchronizovat zprávu s ostatními zařízeními";
 
 /* Action for the modal shown when asking the user whether they want to delete from all of their devices */
-"delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+"delete_message_for_me_and_my_devices" = "Smazat ze všech mých zařízení";
 
 /* Action in the long-press menu to trigger a message to be sent again after it has failed */
-"context_menu_resend" = "Resend";
+"context_menu_resend" = "Odeslat znovu";
 
 /* Action in the long-press menu to trigger a message to be synced again after it has failed */
-"context_menu_resync" = "Resync";
+"context_menu_resync" = "Znovu synchronizovat";
 
 /* Title of a modal show the first time a user tries to search for GIFs */
-"GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+"GIPHY_PERMISSION_TITLE" = "Hledat GIFy?";
 
 /* Message of a modal show the first time a user tries to search for GIFs */
-"GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+"GIPHY_PERMISSION_MESSAGE" = "Session se připojí k Giphy pro poskytnutí výsledků vyhledávání. Při odesílání GIFů nebudete mít úplnou ochranu metadat.";
 
 /* Action in the long-press menu to view more information about a specific message */
-"message_info_title" = "Message Info";
+"message_info_title" = "Informace o zprávě";
 
 /* Action to mute a conversation in the swipe menu */
-"mute_button_text" = "Mute";
+"mute_button_text" = "Ztlumit";
 
 /* Action in the swipe menu to unmute a conversation */
-"unmute_button_text" = "Unmute";
+"unmute_button_text" = "Zrušit ztlumení";
 
 /* Action in the swipe menu to mark a conversation as read */
-"MARK_AS_READ" = "Mark read";
+"MARK_AS_READ" = "Označit jako přečtené";
 
 /* Action in the swipe menu to mark a conversation as unread */
-"MARK_AS_UNREAD" = "Mark unread";
+"MARK_AS_UNREAD" = "Označit jako nepřečtené";
 
 /* Title of the confirmation modal show when attempting to leave a group conversation */
-"leave_group_confirmation_alert_title" = "Leave Group";
+"leave_group_confirmation_alert_title" = "Opustit skupinu";
 
 /* Title of the confirmation modal show when attempting to leave a community conversation */
-"leave_community_confirmation_alert_title" = "Leave Community";
+"leave_community_confirmation_alert_title" = "Opustit komunitu";
 
 /* Message in the confirmation modal when leaving a community conversation */
-"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"leave_community_confirmation_alert_message" = "Opravdu chcete opustit %@?";
 
 /* Conversation subtitle while the user in the process of leaving */
-"group_you_leaving" = "Leaving...";
+"group_you_leaving" = "Opouštění...";
 
 /* Conversation subtitle if the user in the failed to leave */
-"group_leave_error" = "Failed to leave Group!";
+"group_leave_error" = "Nepodařilo se opustit skupinu!";
 
 /* Message within a conversation indicating the device was unable to leave a group conversation */
-"group_unable_to_leave" = "Unable to leave the Group, please try again";
+"group_unable_to_leave" = "Nelze opustit skupinu, zkuste to prosím znovu";
 
 /* Title in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_title" = "Delete Group";
+"delete_group_confirmation_alert_title" = "Smazat skupinu";
 
 /* Message in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+"delete_group_confirmation_alert_message" = "Opravdu chcete smazat %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"delete_conversation_confirmation_alert_title" = "Smazat konverzaci";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"delete_conversation_confirmation_alert_message" = "Opravdu chcete smazat konverzaci s %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+"hide_note_to_self_confirmation_alert_title" = "Skrýt Poznámku pro mně";
 
 /* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+"hide_note_to_self_confirmation_alert_message" = "Opravdu chcete skrýt %@?";
 
 /* Title in the modal for updating the users profile display picture */
-"update_profile_modal_title" = "Set Display Picture";
+"update_profile_modal_title" = "Nastavit zobrazovaný obrázek";
 
 /* Save action in the modal for updating the users profile display picture */
-"update_profile_modal_save" = "Save";
+"update_profile_modal_save" = "Uložit";
 
 /* Remove action in the modal for updating the users profile display picture */
-"update_profile_modal_remove" = "Remove";
+"update_profile_modal_remove" = "Odstranit";
 
 /* Title for the error when failing to remove the users profile display picture */
-"update_profile_modal_remove_error_title" = "Unable to remove avatar image";
+"update_profile_modal_remove_error_title" = "Nelze odstranit obrázek avataru";
 
 /* Title for the error when the user selects a profile display picture that is too large */
-"update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
+"update_profile_modal_max_size_error_title" = "Překročena maximální velikost souboru";
 
 /* Message for the error when the user selects a profile display picture that is too large */
-"update_profile_modal_max_size_error_message" = "Please select a smaller photo and try again";
+"update_profile_modal_max_size_error_message" = "Vyberte prosím menší fotografii a zkuste to znovu";
 
 /* Title for the error when the user fails to update their profile display picture */
-"update_profile_modal_error_title" = "Couldn't Update Profile";
+"update_profile_modal_error_title" = "Nepodařilo se aktualizovat profil";
 
 /* Message for the error when the user fails to update their profile display picture */
-"update_profile_modal_error_message" = "Please check your internet connection and try again";
+"update_profile_modal_error_message" = "Zkontrolujte prosím připojení k internetu a zkuste to znovu";
 
 /* Placeholder when entering a nickname for a contact */
-"CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
+"CONTACT_NICKNAME_PLACEHOLDER" = "Zadejte jméno";
 
 /* The separator within a conversation indicating that following messages are unread */
-"UNREAD_MESSAGES" = "Unread Messages";
+"UNREAD_MESSAGES" = "Nepřečtené zprávy";
 
 /* Empty state for a conversation */
-"CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
+"CONVERSATION_EMPTY_STATE" = "Nemáte žádné zprávy od %@. Pošlete zprávu pro zahájení konverzace!";
 
 /* Empty state for a read-only conversation */
-"CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+"CONVERSATION_EMPTY_STATE_READ_ONLY" = "V %@ nejsou žádné zprávy.";
 
 /* Empty state for the 'Note to Self' conversation */
-"CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+"CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "V %@ nemáte žádné zprávy.";
 
 /* Message to indicate a user has Community Message Requests disabled */
-"COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
+"COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ má vypnuté žádosti o chat pocházející z komunit. Odeslání zprávy tedy není možné.";
 
 /* Warning to indicate one of the users devices is running an old version of Session */
-"USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
+"USER_CONFIG_OUTDATED_WARNING" = "Některá z vašich zařízení používají zastaralé verze. Synchronizace může být nespolehlivá, dokud nebudou aktualizovány.";
 
 /* Ann error displayed if the device is unable to retrieve the users recovery password */
-"LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
+"LOAD_RECOVERY_PASSWORD_ERROR" = "Došlo k chybě při pokusu o načtení hesla pro obnovení.\n\nPro vyřešení problému prosím exportujte své logy a soubor nahrajte pomocí Session Help Desku.";
 
 /* An error displayed when trying to send a message if the device is unable to save it to the database */
-"FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
+"FAILED_TO_STORE_OUTGOING_MESSAGE" = "Došlo k chybě při ukládání odchozí zprávy pro odesílání, možná budete muset restartovat aplikaci, než budete moci odesílat zprávy.";
 
 /* An error indicating that the device was unable to access the database for some reason */
-"database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
+"database_inaccessible_error" = "Při otevírání databáze se vyskytl problém. Prosím, restartujte aplikaci a zkuste to znovu.";
 
 /* A message indicating how the disappearing messages setting applies in a one-to-one conversation */
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "Toto nastavení se týká všech účastníků této konverzace.";
 
 /* A message indicating how the disappearing messages setting applies in a group conversation */
-"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
+"DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Zprávy zmizí po odeslání.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "Nastavili jste mizení zpráv %@ po odeslání %@";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
-"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "Nastavili jste mizení zpráv %@ po jejich %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "Zakázali jste mizející zprávy";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Zastaralé";
 
 /* The description for the legacy type of disappearing messages on the disappearing messages configuration screen */
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Původní verze mizejících zpráv.";
 
 /* A warning shown at the top of a conversation to indicate a participant is using an old version of Session which may not support the updated disappearing messages functionality */
-"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
+"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ používá zastaralého klienta. Mizející zprávy nemusí fungovat podle očekávání.";
 
 /* An error which can occur when a user tries to update from a version that Session no longer supports updating from */
-"DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"DATABASE_UNSUPPORTED_MIGRATION" = "Pokoušíte se aktualizovat z verze, která již nepodporuje aktualizaci\n\nChcete-li nadále používat Session, je potřeba obnovit zařízení\n\nVarování: Obnovení zařízení bude mít za následek ztrátu jakýchkoli dat starších než dva týdny";
 
 /* DISAPPEARING_MESSAGE_STATE_READ
 The point that a message will disappear in a disappearing message update message for disappear after read */
-"DISAPPEARING_MESSAGE_STATE_READ" = "read";
+"DISAPPEARING_MESSAGE_STATE_READ" = "přečteno";
 
 /* The point that a message will disappear in a disappearing message update message for disappear after send */
-"DISAPPEARING_MESSAGE_STATE_SENT" = "sent";
+"DISAPPEARING_MESSAGE_STATE_SENT" = "odesláno";

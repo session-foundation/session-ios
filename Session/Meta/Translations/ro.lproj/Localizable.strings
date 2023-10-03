@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "Scanează cod QR";
 "vc_enter_public_key_explanation" = "Începe o conversație nouă introducând ID-ul sesiunii cuiva sau partajează-ți ID-ul sesiunii cu el.";
 "vc_scan_qr_code_camera_access_explanation" = "Session are nevoie de permisiunea de acces la camera pentru a scana coduri QR";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Acordați acces la camera";
 "vc_create_closed_group_title" = "Creează grup";
 "vc_create_closed_group_text_field_hint" = "Introduceți un nume de grup";
 "vc_create_closed_group_empty_state_message" = "Încă nu aveți persoane de contact";
