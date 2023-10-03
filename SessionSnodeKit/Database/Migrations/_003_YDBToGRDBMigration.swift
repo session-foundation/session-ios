@@ -11,6 +11,8 @@ enum _003_YDBToGRDBMigration: Migration {
     static let target: TargetMigrations.Identifier = .snodeKit
     static let identifier: String = "YDBToGRDBMigration"
     static let needsConfigSync: Bool = false
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     /// This migration can take a while if it's a very large database or there are lots of closed groups (want this to account
     /// for about 10% of the progress bar so we intentionally have a higher `minExpectedRunDuration` so show more

@@ -50,23 +50,16 @@ open class Storage {
     fileprivate var dbWriter: DatabaseWriter?
     internal var testDbWriter: DatabaseWriter? { dbWriter }
     private var unprocessedMigrationRequirements: Atomic<[MigrationRequirement]> = Atomic(MigrationRequirement.allCases)
-    private var migrator: DatabaseMigrator?
     private var migrationProgressUpdater: Atomic<((String, CGFloat) -> ())>?
     private var migrationRequirementProcesser: Atomic<(Database?, MigrationRequirement) -> ()>?
     
     // MARK: - Initialization
     
-    public init(
-        customWriter: DatabaseWriter? = nil,
-        customMigrationTargets: [MigratableTarget.Type]? = nil
-    ) {
-        configureDatabase(customWriter: customWriter, customMigrationTargets: customMigrationTargets)
+    public init(customWriter: DatabaseWriter? = nil) {
+        configureDatabase(customWriter: customWriter)
     }
     
-    private func configureDatabase(
-        customWriter: DatabaseWriter? = nil,
-        customMigrationTargets: [MigratableTarget.Type]? = nil
-    ) {
+    private func configureDatabase(customWriter: DatabaseWriter? = nil) {
         // Create the database directory if needed and ensure it's protection level is set before attempting to
         // create the database KeySpec or the database itself
         OWSFileSystem.ensureDirectoryExists(Storage.sharedDatabaseDirectoryPath)
@@ -77,13 +70,6 @@ open class Storage {
             dbWriter = customWriter
             isValid = true
             Storage.internalHasCreatedValidInstance.mutate { $0 = true }
-            perform(
-                migrationTargets: (customMigrationTargets ?? []),
-                async: false,
-                onProgressUpdate: nil,
-                onMigrationRequirement: { _, _ in },
-                onComplete: { _, _ in }
-            )
             return
         }
         
@@ -142,6 +128,8 @@ open class Storage {
     
     // MARK: - Migrations
     
+    public typealias KeyedMigration = (key: String, identifier: TargetMigrations.Identifier, migration: Migration.Type)
+    
     public static func appliedMigrationIdentifiers(_ db: Database) -> Set<String> {
         let migrator: DatabaseMigrator = DatabaseMigrator()
         
@@ -149,9 +137,47 @@ open class Storage {
             .defaulting(to: [])
     }
     
+    public static func sortedMigrationInfo(migrationTargets: [MigratableTarget.Type]) -> [KeyedMigration] {
+        typealias MigrationInfo = (identifier: TargetMigrations.Identifier, migrations: TargetMigrations.MigrationSet)
+        
+        return migrationTargets
+            .map { target -> TargetMigrations in target.migrations() }
+            .sorted()
+            .reduce(into: [[MigrationInfo]]()) { result, next in
+                next.migrations.enumerated().forEach { index, migrationSet in
+                    if result.count <= index {
+                        result.append([])
+                    }
+
+                    result[index] = (result[index] + [(next.identifier, migrationSet)])
+                }
+            }
+            .reduce(into: []) { result, next in
+                next.forEach { identifier, migrations in
+                    result.append(contentsOf: migrations.map { (identifier.key(with: $0), identifier, $0) })
+                }
+            }
+    }
+    
     public func perform(
         migrationTargets: [MigratableTarget.Type],
         async: Bool = true,
+        onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
+        onMigrationRequirement: @escaping (Database?, MigrationRequirement) -> (),
+        onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
+    ) {
+        perform(
+            sortedMigrations: Storage.sortedMigrationInfo(migrationTargets: migrationTargets),
+            async: async,
+            onProgressUpdate: onProgressUpdate,
+            onMigrationRequirement: onMigrationRequirement,
+            onComplete: onComplete
+        )
+    }
+    
+    internal func perform(
+        sortedMigrations: [KeyedMigration],
+        async: Bool,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
         onMigrationRequirement: @escaping (Database?, MigrationRequirement) -> (),
         onComplete: @escaping (Swift.Result<Void, Error>, Bool) -> ()
@@ -163,68 +189,34 @@ open class Storage {
             return
         }
         
-        typealias MigrationInfo = (identifier: TargetMigrations.Identifier, migrations: TargetMigrations.MigrationSet)
-        let maybeSortedMigrationInfo: [MigrationInfo]? = try? dbWriter
-            .read { db -> [MigrationInfo] in
-                migrationTargets
-                    .map { target -> TargetMigrations in target.migrations(db) }
-                    .sorted()
-                    .reduce(into: [[MigrationInfo]]()) { result, next in
-                        next.migrations.enumerated().forEach { index, migrationSet in
-                            if result.count <= index {
-                                result.append([])
-                            }
-
-                            result[index] = (result[index] + [(next.identifier, migrationSet)])
-                        }
-                    }
-                    .reduce(into: []) { result, next in result.append(contentsOf: next) }
-            }
-        
-        guard let sortedMigrationInfo: [MigrationInfo] = maybeSortedMigrationInfo else {
-            SNLog("[Database Error] Statup failed with error: Unable to prepare migrations")
-            onComplete(.failure(StorageError.startupFailed), false)
-            return
-        }
-        
         // Setup and run any required migrations
-        migrator = { [weak self] in
-            var migrator: DatabaseMigrator = DatabaseMigrator()
-            sortedMigrationInfo.forEach { migrationInfo in
-                migrationInfo.migrations.forEach { migration in
-                    migrator.registerMigration(self, targetIdentifier: migrationInfo.identifier, migration: migration)
-                }
-            }
-            
-            return migrator
-        }()
+        var migrator: DatabaseMigrator = DatabaseMigrator()
+        sortedMigrations.forEach { _, identifier, migration in
+            migrator.registerMigration(self, targetIdentifier: identifier, migration: migration)
+        }
         
         // Determine which migrations need to be performed and gather the relevant settings needed to
         // inform the app of progress/states
-        let completedMigrations: [String] = (try? dbWriter.read { db in try migrator?.completedMigrations(db) })
+        let completedMigrations: [String] = (try? dbWriter.read { db in try migrator.completedMigrations(db) })
             .defaulting(to: [])
-        let unperformedMigrations: [(key: String, migration: Migration.Type)] = sortedMigrationInfo
+        let unperformedMigrations: [KeyedMigration] = sortedMigrations
             .reduce(into: []) { result, next in
-                next.migrations.forEach { migration in
-                    let key: String = next.identifier.key(with: migration)
-                    
-                    guard !completedMigrations.contains(key) else { return }
-                    
-                    result.append((key, migration))
-                }
+                guard !completedMigrations.contains(next.key) else { return }
+                
+                result.append(next)
             }
         let migrationToDurationMap: [String: TimeInterval] = unperformedMigrations
             .reduce(into: [:]) { result, next in
                 result[next.key] = next.migration.minExpectedRunDuration
             }
         let unperformedMigrationDurations: [TimeInterval] = unperformedMigrations
-            .map { _, migration in migration.minExpectedRunDuration }
+            .map { _, _, migration in migration.minExpectedRunDuration }
         let totalMinExpectedDuration: TimeInterval = migrationToDurationMap.values.reduce(0, +)
         let needsConfigSync: Bool = unperformedMigrations
-            .contains(where: { _, migration in migration.needsConfigSync })
+            .contains(where: { _, _, migration in migration.needsConfigSync })
         
         self.migrationProgressUpdater = Atomic({ targetKey, progress in
-            guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { key, _ in key == targetKey }) else {
+            guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { key, _, _ in key == targetKey }) else {
                 return
             }
             
@@ -244,13 +236,21 @@ open class Storage {
         let migrationCompleted: (Swift.Result<Void, Error>) -> () = { [weak self] result in
             // Process any unprocessed requirements which need to be processed before completion
             // then clear out the state
-            self?.unprocessedMigrationRequirements.wrappedValue
-                .filter { $0.shouldProcessAtCompletionIfNotRequired }
-                .forEach { self?.migrationRequirementProcesser?.wrappedValue(nil, $0) }
+            let requirementProcessor: ((Database?, MigrationRequirement) -> ())? = self?.migrationRequirementProcesser?.wrappedValue
+            let remainingMigrationRequirements: [MigrationRequirement] = (self?.unprocessedMigrationRequirements.wrappedValue
+                .filter { $0.shouldProcessAtCompletionIfNotRequired })
+                .defaulting(to: [])
             self?.migrationsCompleted.mutate { $0 = true }
             self?.migrationProgressUpdater = nil
             self?.migrationRequirementProcesser = nil
             SUKLegacy.clearLegacyDatabaseInstance()
+            
+            // Process any remaining migration requirements
+            if !remainingMigrationRequirements.isEmpty {
+                self?.write { db in
+                    remainingMigrationRequirements.forEach { requirementProcessor?(db, $0) }
+                }
+            }
             
             // Reset in case there is a requirement on a migration which runs when returning from
             // the background
@@ -283,13 +283,9 @@ open class Storage {
         }
         
         // Note: The non-async migration should only be used for unit tests
-        guard async else {
-            do { try self.migrator?.migrate(dbWriter) }
-            catch { migrationCompleted(Swift.Result<Void, Error>.failure(error)) }
-            return
-        }
+        guard async else { return migrationCompleted(Result(try migrator.migrate(dbWriter))) }
         
-        self.migrator?.asyncMigrate(dbWriter) { result in
+        migrator.asyncMigrate(dbWriter) { result in
             let finalResult: Swift.Result<Void, Error> = {
                 switch result {
                     case .failure(let error): return .failure(error)
