@@ -1128,9 +1128,9 @@ extension SessionUtil {
                         \(lastKeyPair[.secretKey]),
                         MAX(\(lastKeyPair[.receivedTimestamp])) AS \(ClosedGroupKeyPair.Columns.receivedTimestamp),
                         \(lastKeyPair[.threadKeyPairHash])
-                    FROM \(ClosedGroupKeyPair.self)
+                    FROM \(lastKeyPair)
                     GROUP BY \(lastKeyPair[.threadId])
-                ) AS \(lastKeyPair) ON \(lastKeyPair[.threadId]) = \(closedGroup[.threadId])
+                ) \(lastKeyPair, asSubquery: true) ON \(lastKeyPair[.threadId]) = \(closedGroup[.threadId])
                 LEFT JOIN \(disappearingConfig) ON \(disappearingConfig[.threadId]) = \(closedGroup[.threadId])
                 
                 WHERE \(SQL("\(closedGroup[.threadId]) LIKE '\(SessionId.Prefix.standard)%'"))

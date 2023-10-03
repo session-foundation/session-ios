@@ -28,7 +28,7 @@ public enum SessionUtil {
     // MARK: - Variables
     
     internal static func syncDedupeId(_ publicKey: String) -> String {
-        return "EnqueueConfigurationSyncJob-\(publicKey)"
+        return "EnqueueConfigurationSyncJob-\(publicKey)"   // stringlint:disable
     }
     
     public static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
@@ -47,7 +47,7 @@ public enum SessionUtil {
         guard
             let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db, using: dependencies)?.secretKey,
             dependencies[cache: .sessionUtil].isEmpty
-        else { return }
+        else { return SNLog("[SessionUtil] Ignoring loadState due to existing state") }
         
         // Retrieve the existing dumps from the database
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
@@ -100,6 +100,8 @@ public enum SessionUtil {
                 )
             }
         }
+        
+        SNLog("[SessionUtil] Completed loadState")
     }
     
     private static func loadState(
@@ -293,7 +295,7 @@ public enum SessionUtil {
                             .onFailure { error in
                                 let configCountInfo: String = config.count(for: variant)
                                 
-                                SNLog("[libSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
+                                SNLog("[SessionUtil] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
                             }
                             .successOrThrow()
                     }
@@ -444,7 +446,7 @@ public enum SessionUtil {
                             }
                         }
                         catch {
-                            SNLog("[libSession] Failed to process merge of \(next.key) config data")
+                            SNLog("[SessionUtil] Failed to process merge of \(next.key) config data")
                             throw error
                         }
                         

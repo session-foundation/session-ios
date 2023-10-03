@@ -11,6 +11,8 @@ enum _004_RemoveLegacyYDB: Migration {
     static let identifier: String = "RemoveLegacyYDB" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
 
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         Storage.update(progress: 1, for: self, in: target, using: dependencies)

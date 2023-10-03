@@ -15,5 +15,5 @@ public final class LegacyConfigurationMessage: ControlMessage {
     }
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? { return nil }
-    public var description: String { "LegacyConfigurationMessage()" }
+    public var description: String { "LegacyConfigurationMessage()" }   // stringlint:disable
 }

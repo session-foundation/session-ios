@@ -512,6 +512,9 @@
 		FD17D7E727F6A16700122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */; };
 		FD19363A2ACA25BA004BCF0F /* UpdatableTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1936392ACA25BA004BCF0F /* UpdatableTimestamp.swift */; };
 		FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */; };
+		FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */; };
+		FD1936422ACBE084004BCF0F /* MockSessionUtilCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB947162A9D69A8001F271A /* MockSessionUtilCache.swift */; };
+		FD1936432ACBE11F004BCF0F /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB9471A2A9D70A6001F271A /* CommonSMKMockExtensions.swift */; };
 		FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */; };
 		FD1A94FE2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */; };
 		FD1C98E4282E3C5B00B76F9E /* UINavigationBar+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */; };
@@ -1739,6 +1742,7 @@
 		FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
 		FD1936392ACA25BA004BCF0F /* UpdatableTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatableTimestamp.swift; sourceTree = "<group>"; };
 		FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ResponseInfo+SnodeAPI.swift"; sourceTree = "<group>"; };
+		FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseSpec.swift; sourceTree = "<group>"; };
 		FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistableRecord+Utilities.swift"; sourceTree = "<group>"; };
 		FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistableRecordUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UINavigationBar+Utilities.swift"; sourceTree = "<group>"; };
@@ -3893,6 +3897,14 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		FD19363D2ACA66CF004BCF0F /* Database */ = {
+			isa = PBXGroup;
+			children = (
+				FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */,
+			);
+			path = Database;
+			sourceTree = "<group>";
+		};
 		FD1A94FC2900D2DB000D73D3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
@@ -4073,6 +4085,7 @@
 			isa = PBXGroup;
 			children = (
 				FD71161228D00D5300B47552 /* Conversations */,
+				FD19363D2ACA66CF004BCF0F /* Database */,
 				FD71161828D00E0100B47552 /* Settings */,
 			);
 			path = SessionTests;
@@ -6642,13 +6655,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
+				FD1936422ACBE084004BCF0F /* MockSessionUtilCache.swift in Sources */,
 				FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FD23CE292A6775650000B97C /* MockCrypto.swift in Sources */,
+				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
 				FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */,
 				FD23EA5E28ED00FD0058676E /* NimbleExtensions.swift in Sources */,
 				FD23EA5F28ED00FF0058676E /* CommonMockedExtensions.swift in Sources */,
 				FD23EA5D28ED00FA0058676E /* TestConstants.swift in Sources */,
+				FD1936432ACBE11F004BCF0F /* CommonSMKMockExtensions.swift in Sources */,
 				FD71161A28D00E1100B47552 /* NotificationContentViewModelSpec.swift in Sources */,
 				FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */,
 				FD0969FA2A6A00B000C5C365 /* Mocked.swift in Sources */,
@@ -6966,7 +6982,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 426;
+				CURRENT_PROJECT_VERSION = 427;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6990,7 +7006,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.2;
+				MARKETING_VERSION = 2.4.3;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.ShareExtension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -7038,7 +7054,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 426;
+				CURRENT_PROJECT_VERSION = 427;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -7067,7 +7083,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.2;
+				MARKETING_VERSION = 2.4.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.ShareExtension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -7103,7 +7119,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 426;
+				CURRENT_PROJECT_VERSION = 427;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -7126,7 +7142,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.2;
+				MARKETING_VERSION = 2.4.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.NotificationServiceExtension";
@@ -7177,7 +7193,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 426;
+				CURRENT_PROJECT_VERSION = 427;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -7205,7 +7221,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.2;
+				MARKETING_VERSION = 2.4.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.NotificationServiceExtension";
@@ -8137,7 +8153,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 426;
+				CURRENT_PROJECT_VERSION = 427;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -8175,7 +8191,7 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.4.2;
+				MARKETING_VERSION = 2.4.3;
 				OTHER_LDFLAGS = "$(inherited)";
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
@@ -8208,7 +8224,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 426;
+				CURRENT_PROJECT_VERSION = 427;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -8246,7 +8262,7 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.4.2;
+				MARKETING_VERSION = 2.4.3;
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
 				PRODUCT_NAME = Session;

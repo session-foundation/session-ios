@@ -1121,6 +1121,7 @@ public final class JobQueue: Hashable {
         hasStartedAtLeastOnce.mutate { $0 = true }
         
         // Get any pending jobs
+        let jobVariants: [Job.Variant] = self.jobVariants
         let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue
         let jobsAlreadyInQueue: Set<Int64> = pendingJobsQueue.wrappedValue.compactMap { $0.id }.asSet()
         let jobsToRun: [Job] = dependencies[singleton: .storage].read(using: dependencies) { db in
@@ -1345,6 +1346,7 @@ public final class JobQueue: Hashable {
     }
     
     private func scheduleNextSoonestJob(using dependencies: Dependencies) {
+        let jobVariants: [Job.Variant] = self.jobVariants
         let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue
         let nextJobTimestamp: TimeInterval? = dependencies[singleton: .storage].read(using: dependencies) { db in
             try Job

@@ -16,7 +16,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
         @TestState var customWriter: DatabaseQueue! = try! DatabaseQueue()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: customWriter,
-            customMigrationTargets: [
+            migrationTargets: [
                 TestTarget.self
             ],
             using: dependencies
@@ -672,6 +672,8 @@ fileprivate enum TestInsertTestTypeMigration: Migration {
     static let identifier: String = "TestInsertTestType"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(FetchableRecord & TableRecord).Type] = [TestType.self, MutableTestType.self]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.create(table: TestType.self) { t in
@@ -690,6 +692,8 @@ fileprivate enum TestAddColumnMigration: Migration {
     static let identifier: String = "TestAddColumn"
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(FetchableRecord & TableRecord).Type] = [TestType.self, MutableTestType.self]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: TestType.self) { t in
@@ -703,7 +707,7 @@ fileprivate enum TestAddColumnMigration: Migration {
 }
 
 fileprivate struct TestTarget: MigratableTarget {
-    static func migrations(_ db: Database) -> TargetMigrations {
+    static func migrations() -> TargetMigrations {
         return TargetMigrations(
             identifier: .test,
             migrations: (0..<100)

@@ -12,6 +12,8 @@ enum _002_SetupStandardJobs: Migration {
     static let identifier: String = "SetupStandardJobs" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Start by adding the jobs that don't have collections (in the jobs like these

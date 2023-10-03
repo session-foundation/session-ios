@@ -5,7 +5,7 @@ import GRDB
 import SessionUtilitiesKit
 
 public enum SNSnodeKit: MigratableTarget { // Just to make the external API nice
-    public static func migrations(_ db: Database) -> TargetMigrations {
+    public static func migrations() -> TargetMigrations {
         return TargetMigrations(
             identifier: .snodeKit,
             migrations: [

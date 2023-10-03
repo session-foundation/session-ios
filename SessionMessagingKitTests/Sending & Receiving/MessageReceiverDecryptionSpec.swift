@@ -17,7 +17,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            customMigrationTargets: [
+            migrationTargets: [
                 SNUtilitiesKit.self,
                 SNMessagingKit.self
             ],

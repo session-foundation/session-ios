@@ -32,7 +32,7 @@ internal extension SessionUtil {
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let profileName: String = String(cString: profileNamePtr)
         let profilePic: user_profile_pic = user_profile_get_pic(conf)
         let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)

@@ -11,6 +11,11 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
     static let identifier: String = "GenerateInitialUserConfigDumps" // stringlint:disable
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 4.0
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
+        Identity.self, SessionThread.self, Contact.self, Profile.self, ClosedGroup.self,
+        OpenGroup.self, DisappearingMessagesConfiguration.self, GroupMember.self, ConfigDump.self
+    ]
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // If we have no ed25519 key then there is no need to create cached dump data
@@ -20,7 +25,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         }
         
         // Create the initial config state
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
         
         SessionUtil.loadState(db, using: dependencies)

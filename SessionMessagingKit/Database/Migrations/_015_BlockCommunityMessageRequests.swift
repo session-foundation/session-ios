@@ -11,6 +11,10 @@ enum _015_BlockCommunityMessageRequests: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
+        Identity.self, Setting.self
+    ]
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Profile.self]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Add the new 'Profile' properties
@@ -25,7 +29,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
             (try Setting.exists(db, id: Setting.BoolKey.checkForCommunityMessageRequests.rawValue)) == false
         {
             let rawBlindedMessageRequestValue: Int32 = try dependencies[cache: .sessionUtil]
-                .config(for: .userProfile, publicKey: getUserHexEncodedPublicKey(db))
+                .config(for: .userProfile, publicKey: getUserHexEncodedPublicKey(db, using: dependencies))
                 .wrappedValue
                 .map { config -> Int32 in try SessionUtil.rawBlindedMessageRequestValue(in: config) }
                 .defaulting(to: -1)

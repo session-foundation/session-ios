@@ -14,6 +14,12 @@ enum _013_SessionUtilChanges: Migration {
     static let identifier: String = "SessionUtilChanges"
     static let needsConfigSync: Bool = true
     static let minExpectedRunDuration: TimeInterval = 0.4
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
+        GroupMember.self, ClosedGroupKeyPair.self, SessionThread.self
+    ]
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+        SessionThread.self, Profile.self, GroupMember.self, ClosedGroupKeyPair.self, ConfigDump.self
+    ]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Add `markedAsUnread` to the thread table

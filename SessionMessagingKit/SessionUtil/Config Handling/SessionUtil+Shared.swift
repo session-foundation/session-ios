@@ -88,7 +88,7 @@ internal extension SessionUtil {
                 }
         }
         catch {
-            SNLog("[libSession] Failed to update/dump updated \(variant) config data due to error: \(error)")
+            SNLog("[SessionUtil] Failed to update/dump updated \(variant) config data due to error: \(error)")
             throw error
         }
         
@@ -112,7 +112,7 @@ internal extension SessionUtil {
         // If we have no updated threads then no need to continue
         guard !updatedThreads.isEmpty else { return updated }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let groupedThreads: [SessionThread.Variant: [SessionThread]] = updatedThreads
             .grouped(by: \.variant)
         let urlInfo: [String: OpenGroupUrlInfo] = try OpenGroupUrlInfo
@@ -252,7 +252,7 @@ internal extension SessionUtil {
         forKey key: String,
         using dependencies: Dependencies
     ) throws -> Bool {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch key {
@@ -275,7 +275,7 @@ internal extension SessionUtil {
         // Don't current support any nullable settings
         guard let updatedSetting: Setting = updated else { return }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch updatedSetting.id {
@@ -388,11 +388,14 @@ internal extension SessionUtil {
         _ db: Database,
         threadId: String,
         targetConfig: ConfigDump.Variant,
-        changeTimestampMs: Int64
+        changeTimestampMs: Int64,
+        using dependencies: Dependencies = Dependencies()
     ) -> Bool {
         let targetPublicKey: String = {
             switch targetConfig {
-                case .userProfile, .contacts, .convoInfoVolatile, .userGroups: return getUserHexEncodedPublicKey(db)
+                case .userProfile, .contacts, .convoInfoVolatile, .userGroups:
+                    return getUserHexEncodedPublicKey(db, using: dependencies)
+                    
                 case .groupInfo, .groupMembers, .groupKeys: return threadId
                 case .invalid: return ""
             }
@@ -416,7 +419,7 @@ internal extension SessionUtil {
         loopCounter += 1
         
         guard loopCounter < maxLoopCount else {
-            SNLog("[libSession] Got stuck in infinite loop processing '\(variant.description)' data")
+            SNLog("[SessionUtil] Got stuck in infinite loop processing '\(variant.description)' data")
             throw SessionUtilError.processingLoopLimitReached
         }
     }
@@ -432,7 +435,7 @@ public extension SessionUtil {
         visibleOnly: Bool,
         using dependencies: Dependencies = Dependencies()
     ) -> Bool {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {
                 case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)

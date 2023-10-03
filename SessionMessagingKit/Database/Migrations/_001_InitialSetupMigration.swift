@@ -9,6 +9,14 @@ enum _001_InitialSetupMigration: Migration {
     static let identifier: String = "initialSetup" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+        Contact.self, Profile.self, SessionThread.self, DisappearingMessagesConfiguration.self,
+        ClosedGroup.self, ClosedGroupKeyPair.self, OpenGroup.self, Capability.self, BlindedIdLookup.self,
+        GroupMember.self, Interaction.self, RecipientState.self, Attachment.self,
+        InteractionAttachment.self, Quote.self, LinkPreview.self, ControlMessageProcessRecord.self,
+        ThreadTypingIndicator.self
+    ]
     
     public static let fullTextSearchTokenizer: FTS5TokenizerDescriptor = {
         // Define the tokenizer to be used in all the FTS tables

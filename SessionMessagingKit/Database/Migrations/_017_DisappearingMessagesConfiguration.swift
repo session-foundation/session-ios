@@ -6,10 +6,16 @@ import SessionUtilitiesKit
 
 enum _017_DisappearingMessagesConfiguration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "DisappearingMessagesWithTypes"  // stringlint:disable
+    static let identifier: String = "DisappearingMessagesWithTypes" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
+        Identity.self, DisappearingMessagesConfiguration.self
+    ]
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+        DisappearingMessagesConfiguration.self, Contact.self
+    ]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: DisappearingMessagesConfiguration.self) { t in

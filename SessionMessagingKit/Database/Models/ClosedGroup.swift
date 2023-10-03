@@ -52,7 +52,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     public let displayPictureEncryptionKey: Data?
     
     /// The timestamp (in seconds since epoch) that the display picture was last updated
-    public let lastDisplayPictureUpdate: TimeInterval
+    public let lastDisplayPictureUpdate: TimeInterval?
     
     /// The private key for performing admin actions on this group
     public let groupIdentityPrivateKey: Data?
@@ -63,7 +63,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     public let authData: Data?
     
     /// A flag indicating whether this group is in the "invite" state
-    public let invited: Bool
+    public let invited: Bool?
     
     // MARK: - Relationships
     
@@ -108,10 +108,10 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         displayPictureUrl: String? = nil,
         displayPictureFilename: String? = nil,
         displayPictureEncryptionKey: Data? = nil,
-        lastDisplayPictureUpdate: TimeInterval = 0,
+        lastDisplayPictureUpdate: TimeInterval? = nil,
         groupIdentityPrivateKey: Data? = nil,
         authData: Data? = nil,
-        invited: Bool
+        invited: Bool?
     ) {
         self.threadId = threadId
         self.name = name
@@ -188,7 +188,8 @@ public extension ClosedGroup {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
             throw MessageReceiverError.noUserED25519KeyPair
         }
-        if !group.invited {
+        
+        if group.invited == false {
             try ClosedGroup
                 .filter(id: group.id)
                 .updateAllAndConfig(

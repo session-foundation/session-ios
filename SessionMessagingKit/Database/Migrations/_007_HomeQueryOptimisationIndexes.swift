@@ -10,6 +10,8 @@ enum _007_HomeQueryOptimisationIndexes: Migration {
     static let identifier: String = "HomeQueryOptimisationIndexes" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.create(

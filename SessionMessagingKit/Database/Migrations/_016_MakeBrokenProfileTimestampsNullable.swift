@@ -12,6 +12,8 @@ enum _016_MakeBrokenProfileTimestampsNullable: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Profile.self]
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         /// SQLite doesn't support altering columns after creation so we need to create a new table with the setup we

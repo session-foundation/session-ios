@@ -210,7 +210,7 @@ internal extension SessionUtil {
             name: group.name,
             authData: group.authData,
             joinedAt: Int64(floor(group.formationTimestamp)),
-            invited: group.invited,
+            invited: (group.invited == true),
             using: dependencies
         )
     }

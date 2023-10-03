@@ -351,7 +351,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // the user is in an invalid state (and should have already been shown a modal)
             guard success else { return }
             
-            SNLog("RootViewController ready, readying remaining processes")
+            SNLog("RootViewController ready for state: \(Onboarding.State.current), readying remaining processes")
             self?.initialLaunchFailed = false
             
             /// Trigger any launch-specific jobs and start the JobRunner with `jobRunner.appDidFinishLaunching(using:)` some
@@ -927,7 +927,7 @@ private enum StartupError: Error {
         switch self {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
                 return "Database startup failed"
-                
+            
             case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version"
             case .failedToRestore: return "Failed to restore"
             case .databaseError: return "Database error"
@@ -942,7 +942,7 @@ private enum StartupError: Error {
                 
             case .databaseError(StorageError.migrationNoLongerSupported):
                 return "DATABASE_UNSUPPORTED_MIGRATION".localized()
-
+            
             case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
             case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
             case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()
