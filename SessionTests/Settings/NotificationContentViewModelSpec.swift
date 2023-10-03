@@ -15,7 +15,7 @@ class NotificationContentViewModelSpec: QuickSpec {
         // MARK: Configuration
         @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            customMigrationTargets: [
+            migrationTargets: [
                 SNUtilitiesKit.self,
                 SNSnodeKit.self,
                 SNMessagingKit.self,

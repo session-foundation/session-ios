@@ -11,6 +11,8 @@ enum _010_AddThreadIdToFTS: Migration {
     static let identifier: String = "AddThreadIdToFTS" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 3
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         // Can't actually alter a virtual table in SQLite so we need to drop and recreate it,

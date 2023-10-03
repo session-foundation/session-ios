@@ -11,7 +11,7 @@ import DifferenceKit
 /// **Note:** We **MUST** have accurate `filterSQL` and `orderSQL` values otherwise the indexing won't work
 public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where ObservedTable: TableRecord & ColumnExpressible & Identifiable, T: FetchableRecordWithRowId & Identifiable {
     private let commitProcessingQueue: DispatchQueue = DispatchQueue(
-        label: "PagedDatabaseObserver.commitProcessingQueue",
+        label: "PagedDatabaseObserver.commitProcessingQueue",   // stringlint:disable
         qos: .userInitiated,
         attributes: [] // Must be serial in order to avoid updates getting processed in the wrong order
     )
@@ -131,6 +131,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             
             // Retrieve the pagedRowId for the related value that is
             // getting deleted
+            let pagedTableName: String = self.pagedTableName
             let pagedRowIds: [Int64] = Storage.shared
                 .read { db in
                     PagedData.pagedRowIdsForRelatedRowIds(
@@ -183,10 +184,13 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         // Store the instance variables locally to avoid unwrapping
         let dataCache: DataCache<T> = self.dataCache.wrappedValue
         let pageInfo: PagedData.PageInfo = self.pageInfo.wrappedValue
+        let pagedTableName: String = self.pagedTableName
         let joinSQL: SQL? = self.joinSQL
         let orderSQL: SQL = self.orderSQL
         let filterSQL: SQL = self.filterSQL
+        let dataQuery: ([Int64]) -> any FetchRequest<T> = self.dataQuery
         let associatedRecords: [ErasedAssociatedRecord] = self.associatedRecords
+        let observedTableChangeTypes: [String: PagedData.ObservedChanges] = self.observedTableChangeTypes
         let getAssociatedDataInfo: (Database, PagedData.PageInfo) -> AssociatedDataInfo = { db, updatedPageInfo in
             associatedRecords.map { associatedRecord in
                 let hasChanges: Bool = associatedRecord.tryUpdateForDatabaseCommit(

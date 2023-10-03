@@ -5,10 +5,10 @@ import GRDB
 
 public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API nice
     public static var isRunningTests: Bool {
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil   // stringlint:disable
     }
 
-    public static func migrations(_ db: Database) -> TargetMigrations {
+    public static func migrations() -> TargetMigrations {
         return TargetMigrations(
             identifier: .utilitiesKit,
             migrations: [
