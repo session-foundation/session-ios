@@ -104,8 +104,19 @@ enum ScriptAction: String {
                 guard
                     let builtProductsPath: String = ProcessInfo.processInfo.environment["BUILT_PRODUCTS_DIR"],
                     let productName: String = ProcessInfo.processInfo.environment["FULL_PRODUCT_NAME"],
+                    let productPathInfo = try? URL(fileURLWithPath: "\(builtProductsPath)/\(productName)")
+                        .resourceValues(forKeys: [.isSymbolicLinkKey, .isAliasFileKey]),
+                    let finalProductUrl: URL = try? { () -> URL in
+                        let possibleAliasUrl: URL = URL(fileURLWithPath: "\(builtProductsPath)/\(productName)")
+                        
+                        guard productPathInfo.isSymbolicLink == true || productPathInfo.isAliasFile == true else {
+                            return possibleAliasUrl
+                        }
+                        
+                        return try URL(resolvingAliasFileAt: possibleAliasUrl, options: URL.BookmarkResolutionOptions())
+                    }(),
                     let enumerator: FileManager.DirectoryEnumerator = FileManager.default.enumerator(
-                        at: URL(fileURLWithPath: "\(builtProductsPath)/\(productName)"),
+                        at: finalProductUrl,
                         includingPropertiesForKeys: [.isDirectoryKey],
                         options: [.skipsHiddenFiles]
                     ),
