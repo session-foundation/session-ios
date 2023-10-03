@@ -41,6 +41,12 @@ open class Storage {
     /// this should be taken into consideration when used
     public private(set) var isSuspendedUnsafe: Bool = false
     
+    /// This property gets set the first time we successfully read from the database
+    public private(set) var hasSuccessfullyRead: Bool = false
+    
+    /// This property gets set the first time we successfully write to the database
+    public private(set) var hasSuccessfullyWritten: Bool = false
+    
     public var hasCompletedMigrations: Bool { migrationsCompleted.wrappedValue }
     public var currentlyRunningMigration: (identifier: TargetMigrations.Identifier, migration: Migration.Type)? {
         internalCurrentlyRunningMigration.wrappedValue
@@ -452,37 +458,60 @@ open class Storage {
     
     // MARK: - Logging Functions
     
-    typealias CallInfo = (file: String, function: String, line: Int)
-
-    private static func logSlowWrites<T>(
+    private enum Action {
+        case read
+        case write
+        case logIfSlow
+    }
+    
+    private typealias CallInfo = (storage: Storage?, actions: [Action], file: String, function: String, line: Int)
+    
+    private static func perform<T>(
         info: CallInfo,
         updates: @escaping (Database) throws -> T
     ) -> (Database) throws -> T {
         return { db in
             let start: CFTimeInterval = CACurrentMediaTime()
+            let actionName: String = (info.actions.contains(.write) ? "write" : "read")
             let fileName: String = (info.file.components(separatedBy: "/").last.map { " \($0):\(info.line)" } ?? "")
-            let timeout: Timer = Timer.scheduledTimerOnMainThread(withTimeInterval: writeWarningThreadshold) {
-                $0.invalidate()
+            let timeout: Timer? = {
+                guard info.actions.contains(.logIfSlow) else { return nil }
                 
-                // Don't want to log on the main thread as to avoid confusion when debugging issues
-                DispatchQueue.global(qos: .default).async {
-                    SNLog("[Storage\(fileName)] Slow write taking longer than \(writeWarningThreadshold, format: ".2", omitZeroDecimal: true)s - \(info.function)")
+                return Timer.scheduledTimerOnMainThread(withTimeInterval: Storage.writeWarningThreadshold) {
+                    $0.invalidate()
+                    
+                    // Don't want to log on the main thread as to avoid confusion when debugging issues
+                    DispatchQueue.global(qos: .default).async {
+                        SNLog("[Storage\(fileName)] Slow \(actionName) taking longer than \(Storage.writeWarningThreadshold, format: ".2", omitZeroDecimal: true)s - \(info.function)")
+                    }
                 }
-            }
+            }()
+            
+            // If we timed out and are logging slow actions then log the actual duration to help us
+            // prioritise performance issues
             defer {
-                // If we timed out then log the actual duration to help us prioritise performance issues
-                if !timeout.isValid {
+                if timeout != nil && timeout?.isValid == false {
                     let end: CFTimeInterval = CACurrentMediaTime()
                     
                     DispatchQueue.global(qos: .default).async {
-                        SNLog("[Storage\(fileName)] Slow write completed after \(end - start, format: ".2", omitZeroDecimal: true)s")
+                        SNLog("[Storage\(fileName)] Slow \(actionName) completed after \(end - start, format: ".2", omitZeroDecimal: true)s")
                     }
                 }
                 
-                timeout.invalidate()
+                timeout?.invalidate()
             }
             
-            return try updates(db)
+            // Get the result
+            let result: T = try updates(db)
+            
+            // Update the state flags
+            switch info.actions {
+                case [.write], [.write, .logIfSlow]: info.storage?.hasSuccessfullyWritten = true
+                case [.read], [.read, .logIfSlow]: info.storage?.hasSuccessfullyRead = true
+                default: break
+            }
+            
+            return result
         }
     }
     
@@ -512,9 +541,8 @@ open class Storage {
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
-        let info: CallInfo = (fileName, functionName, lineNumber)
-        
-        do { return try dbWriter.write(Storage.logSlowWrites(info: info, updates: updates)) }
+        let info: CallInfo = { [weak self] in (self, [.write, .logIfSlow], fileName, functionName, lineNumber) }()
+        do { return try dbWriter.write(Storage.perform(info: info, updates: updates)) }
         catch { return Storage.logIfNeeded(error, isWrite: true) }
     }
     
@@ -545,10 +573,10 @@ open class Storage {
     ) {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return }
         
-        let info: CallInfo = (fileName, functionName, lineNumber)
+        let info: CallInfo = { [weak self] in (self, [.write, .logIfSlow], fileName, functionName, lineNumber) }()
         
         dbWriter.asyncWrite(
-            Storage.logSlowWrites(info: info, updates: updates),
+            Storage.perform(info: info, updates: updates),
             completion: { db, result in
                 switch result {
                     case .failure(let error): Storage.logIfNeeded(error, isWrite: true)
@@ -572,7 +600,7 @@ open class Storage {
                 .eraseToAnyPublisher()
         }
         
-        let info: CallInfo = (fileName, functionName, lineNumber)
+        let info: CallInfo = { [weak self] in (self, [.write, .logIfSlow], fileName, functionName, lineNumber) }()
         
         /// **Note:** GRDB does have a `writePublisher` method but it appears to asynchronously trigger
         /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
@@ -583,7 +611,7 @@ open class Storage {
         /// which behaves in a much more expected way than the GRDB `writePublisher` does
         return Deferred {
             Future { resolver in
-                do { resolver(Result.success(try dbWriter.write(Storage.logSlowWrites(info: info, updates: updates)))) }
+                do { resolver(Result.success(try dbWriter.write(Storage.perform(info: info, updates: updates)))) }
                 catch {
                     Storage.logIfNeeded(error, isWrite: true)
                     resolver(Result.failure(error))
@@ -593,6 +621,9 @@ open class Storage {
     }
     
     open func readPublisher<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
         using dependencies: Dependencies = Dependencies(),
         value: @escaping (Database) throws -> T
     ) -> AnyPublisher<T, Error> {
@@ -600,6 +631,8 @@ open class Storage {
             return Fail<T, Error>(error: StorageError.databaseInvalid)
                 .eraseToAnyPublisher()
         }
+        
+        let info: CallInfo = { [weak self] in (self, [.read], fileName, functionName, lineNumber) }()
         
         /// **Note:** GRDB does have a `readPublisher` method but it appears to asynchronously trigger
         /// both the `output` and `complete` closures at the same time which causes a lot of unexpected
@@ -610,7 +643,7 @@ open class Storage {
         /// which behaves in a much more expected way than the GRDB `readPublisher` does
         return Deferred {
             Future { resolver in
-                do { resolver(Result.success(try dbWriter.read(value))) }
+                do { resolver(Result.success(try dbWriter.read(Storage.perform(info: info, updates: value)))) }
                 catch {
                     Storage.logIfNeeded(error, isWrite: false)
                     resolver(Result.failure(error))
@@ -620,12 +653,16 @@ open class Storage {
     }
     
     @discardableResult public func read<T>(
+        fileName: String = #file,
+        functionName: String = #function,
+        lineNumber: Int = #line,
         using dependencies: Dependencies = Dependencies(),
-        _ value: (Database) throws -> T?
+        _ value: @escaping (Database) throws -> T?
     ) -> T? {
         guard isValid, let dbWriter: DatabaseWriter = dbWriter else { return nil }
         
-        do { return try dbWriter.read(value) }
+        let info: CallInfo = { [weak self] in (self, [.read], fileName, functionName, lineNumber) }()
+        do { return try dbWriter.read(Storage.perform(info: info, updates: value)) }
         catch { return Storage.logIfNeeded(error, isWrite: false) }
     }
     
