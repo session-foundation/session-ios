@@ -50,16 +50,16 @@ internal extension SessionUtil {
     static func pushChangesIfNeeded(
         _ db: Database,
         for variant: ConfigDump.Variant,
-        publicKey: String,
+        sessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
-        try performAndPushChange(db, for: variant, publicKey: publicKey, using: dependencies) { _ in }
+        try performAndPushChange(db, for: variant, sessionId: sessionId, using: dependencies) { _ in }
     }
     
     static func performAndPushChange(
         _ db: Database,
         for variant: ConfigDump.Variant,
-        publicKey: String,
+        sessionId: SessionId,
         using dependencies: Dependencies,
         change: (Config?) throws -> ()
     ) throws {
@@ -69,7 +69,7 @@ internal extension SessionUtil {
         
         do {
             needsPush = try dependencies[cache: .sessionUtil]
-                .config(for: variant, publicKey: publicKey)
+                .config(for: variant, sessionId: sessionId)
                 .mutate { config in
                     // Peform the change
                     try change(config)
@@ -80,7 +80,7 @@ internal extension SessionUtil {
                     try SessionUtil.createDump(
                         config: config,
                         for: variant,
-                        publicKey: publicKey,
+                        sessionId: sessionId,
                         timestampMs: SnodeAPI.currentOffsetTimestampMs()
                     )?.save(db)
 
@@ -95,8 +95,8 @@ internal extension SessionUtil {
         // Make sure we need a push before scheduling one
         guard needsPush else { return }
         
-        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(publicKey)) { db in
-            ConfigurationSyncJob.enqueue(db, publicKey: publicKey)
+        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(sessionId.hexString)) { db in
+            ConfigurationSyncJob.enqueue(db, sessionIdHexString: sessionId.hexString)
         }
     }
     
@@ -112,7 +112,7 @@ internal extension SessionUtil {
         // If we have no updated threads then no need to continue
         guard !updatedThreads.isEmpty else { return updated }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let groupedThreads: [SessionThread.Variant: [SessionThread]] = updatedThreads
             .grouped(by: \.variant)
         let urlInfo: [String: OpenGroupUrlInfo] = try OpenGroupUrlInfo
@@ -128,11 +128,11 @@ internal extension SessionUtil {
                 case .contact:
                     // If the 'Note to Self' conversation is pinned then we need to custom handle it
                     // first as it's part of the UserProfile config
-                    if let noteToSelf: SessionThread = threads.first(where: { $0.id == userPublicKey }) {
+                    if let noteToSelf: SessionThread = threads.first(where: { $0.id == userSessionId.hexString }) {
                         try SessionUtil.performAndPushChange(
                             db,
                             for: .userProfile,
-                            publicKey: userPublicKey,
+                            sessionId: userSessionId,
                             using: dependencies
                         ) { config in
                             try SessionUtil.updateNoteToSelf(
@@ -149,14 +149,14 @@ internal extension SessionUtil {
                     }
                     
                     // Remove the 'Note to Self' convo from the list for updating contact priorities
-                    let remainingThreads: [SessionThread] = threads.filter { $0.id != userPublicKey }
+                    let remainingThreads: [SessionThread] = threads.filter { $0.id != userSessionId.hexString }
                     
                     guard !remainingThreads.isEmpty else { return }
                     
                     try SessionUtil.performAndPushChange(
                         db,
                         for: .contacts,
-                        publicKey: userPublicKey,
+                        sessionId: userSessionId,
                         using: dependencies
                     ) { config in
                         try SessionUtil.upsert(
@@ -181,7 +181,7 @@ internal extension SessionUtil {
                     try SessionUtil.performAndPushChange(
                         db,
                         for: .userGroups,
-                        publicKey: userPublicKey,
+                        sessionId: userSessionId,
                         using: dependencies
                     ) { config in
                         try SessionUtil.upsert(
@@ -204,7 +204,7 @@ internal extension SessionUtil {
                     try SessionUtil.performAndPushChange(
                         db,
                         for: .userGroups,
-                        publicKey: userPublicKey,
+                        sessionId: userSessionId,
                         using: dependencies
                     ) { config in
                         try SessionUtil.upsert(
@@ -225,14 +225,14 @@ internal extension SessionUtil {
                     try SessionUtil.performAndPushChange(
                         db,
                         for: .userGroups,
-                        publicKey: userPublicKey,
+                        sessionId: userSessionId,
                         using: dependencies
                     ) { config in
                         try SessionUtil.upsert(
                             groups: threads
                                 .map { thread in
                                     GroupInfo(
-                                        groupIdentityPublicKey: thread.id,
+                                        groupSessionId: thread.id,
                                         priority: thread.pinnedPriority
                                             .map { Int32($0 == 0 ? SessionUtil.visiblePriority : max($0, 1)) }
                                             .defaulting(to: SessionUtil.visiblePriority)
@@ -252,13 +252,13 @@ internal extension SessionUtil {
         forKey key: String,
         using dependencies: Dependencies
     ) throws -> Bool {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch key {
             case Setting.BoolKey.checkForCommunityMessageRequests.rawValue:
                 return try dependencies[cache: .sessionUtil]
-                    .config(for: .userProfile, publicKey: userPublicKey)
+                    .config(for: .userProfile, sessionId: userSessionId)
                     .wrappedValue
                     .map { config -> Bool in (try SessionUtil.rawBlindedMessageRequestValue(in: config) >= 0) }
                     .defaulting(to: false)
@@ -275,7 +275,7 @@ internal extension SessionUtil {
         // Don't current support any nullable settings
         guard let updatedSetting: Setting = updated else { return }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         
         // Currently the only synced setting is 'checkForCommunityMessageRequests'
         switch updatedSetting.id {
@@ -283,7 +283,7 @@ internal extension SessionUtil {
                 try SessionUtil.performAndPushChange(
                     db,
                     for: .userProfile,
-                    publicKey: userPublicKey,
+                    sessionId: userSessionId,
                     using: dependencies
                 ) { config in
                     try SessionUtil.updateSettings(
@@ -391,10 +391,10 @@ internal extension SessionUtil {
         changeTimestampMs: Int64,
         using dependencies: Dependencies = Dependencies()
     ) -> Bool {
-        let targetPublicKey: String = {
+        let targetSessionId: String = {
             switch targetConfig {
                 case .userProfile, .contacts, .convoInfoVolatile, .userGroups:
-                    return getUserHexEncodedPublicKey(db, using: dependencies)
+                    return getUserSessionId(db, using: dependencies).hexString
                     
                 case .groupInfo, .groupMembers, .groupKeys: return threadId
                 case .invalid: return ""
@@ -404,7 +404,7 @@ internal extension SessionUtil {
         let configDumpTimestampMs: Int64 = (try? ConfigDump
             .filter(
                 ConfigDump.Columns.variant == targetConfig &&
-                ConfigDump.Columns.publicKey == targetPublicKey
+                ConfigDump.Columns.sessionId == targetSessionId
             )
             .select(.timestampMs)
             .asRequest(of: Int64.self)
@@ -435,16 +435,16 @@ public extension SessionUtil {
         visibleOnly: Bool,
         using dependencies: Dependencies = Dependencies()
     ) -> Bool {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {
-                case .contact: return (threadId == userPublicKey ? .userProfile : .contacts)
+                case .contact: return (threadId == userSessionId.hexString ? .userProfile : .contacts)
                 case .legacyGroup, .group, .community: return .userGroups
             }
         }()
         
         return dependencies[cache: .sessionUtil]
-            .config(for: configVariant, publicKey: userPublicKey)
+            .config(for: configVariant, sessionId: userSessionId)
             .wrappedValue
             .map { config in
                 guard case .object(let conf) = config else { return false }
@@ -454,7 +454,7 @@ public extension SessionUtil {
                 switch threadVariant {
                     case .contact:
                         // The 'Note to Self' conversation is stored in the 'userProfile' config
-                        guard threadId != userPublicKey else {
+                        guard threadId != userSessionId.hexString else {
                             return (
                                 !visibleOnly ||
                                 SessionUtil.shouldBeVisible(priority: user_profile_get_nts_priority(conf))

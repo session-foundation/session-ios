@@ -38,7 +38,7 @@ extension MessageReceiver {
                 threadId: threadId,
                 threadVariant: threadVariant,
                 timestampMs: (timestampMs * 1000),
-                userPublicKey: getUserHexEncodedPublicKey(db),
+                userSessionId: getUserSessionId(db, using: dependencies),
                 openGroup: nil,
                 using: dependencies
             ),

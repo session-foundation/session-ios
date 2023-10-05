@@ -7,7 +7,7 @@ import GRDB
 
 public enum General {
     public class Cache: GeneralCacheType {
-        public var encodedPublicKey: String? = nil
+        public var sessionId: SessionId? = nil
         public var recentReactionTimestamps: [Int64] = []
     }
 }
@@ -30,18 +30,18 @@ public enum GeneralError: Error {
 
 // MARK: - Convenience
 
-public func getUserHexEncodedPublicKey(_ db: Database? = nil, using dependencies: Dependencies = Dependencies()) -> String {
-    if let cachedKey: String = dependencies[cache: .general].encodedPublicKey { return cachedKey }
+public func getUserSessionId(_ db: Database? = nil, using dependencies: Dependencies = Dependencies()) -> SessionId {
+    if let cachedSessionId: SessionId = dependencies[cache: .general].sessionId { return cachedSessionId }
     
     // Can be nil under some circumstances
     if let publicKey: Data = Identity.fetchUserPublicKey(db, using: dependencies) {
         let sessionId: SessionId = SessionId(.standard, publicKey: publicKey.bytes)
         
-        dependencies.mutate(cache: .general) { $0.encodedPublicKey = sessionId.hexString }
-        return sessionId.hexString
+        dependencies.mutate(cache: .general) { $0.sessionId = sessionId }
+        return sessionId
     }
     
-    return ""
+    return SessionId.invalid
 }
 
 // MARK: - GeneralCacheType
@@ -49,11 +49,11 @@ public func getUserHexEncodedPublicKey(_ db: Database? = nil, using dependencies
 /// This is a read-only version of the `General.Cache` designed to avoid unintentionally mutating the instance in a
 /// non-thread-safe way
 public protocol ImmutableGeneralCacheType: ImmutableCacheType {
-    var encodedPublicKey: String? { get }
+    var sessionId: SessionId? { get }
     var recentReactionTimestamps: [Int64] { get }
 }
 
 public protocol GeneralCacheType: ImmutableGeneralCacheType, MutableCacheType {
-    var encodedPublicKey: String? { get set }
+    var sessionId: SessionId? { get set }
     var recentReactionTimestamps: [Int64] { get set }
 }

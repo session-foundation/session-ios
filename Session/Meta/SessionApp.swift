@@ -51,7 +51,7 @@ public struct SessionApp {
                             .isMessageRequest(
                                 id: threadId,
                                 variant: .contact,
-                                currentUserPublicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+                                userSessionId: getUserSessionId(db, using: dependencies),
                                 shouldBeVisible: nil,
                                 contactIsApproved: (try? Contact
                                     .filter(id: threadId)

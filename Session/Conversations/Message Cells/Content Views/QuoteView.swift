@@ -29,9 +29,9 @@ final class QuoteView: UIView {
         authorId: String,
         quotedText: String?,
         threadVariant: SessionThread.Variant,
-        currentUserPublicKey: String?,
-        currentUserBlinded15PublicKey: String?,
-        currentUserBlinded25PublicKey: String?,
+        currentUserSessionId: String?,
+        currentUserBlinded15SessionId: String?,
+        currentUserBlinded25SessionId: String?,
         direction: Direction,
         attachment: Attachment?,
         hInset: CGFloat,
@@ -47,9 +47,9 @@ final class QuoteView: UIView {
             authorId: authorId,
             quotedText: quotedText,
             threadVariant: threadVariant,
-            currentUserPublicKey: currentUserPublicKey,
-            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
-            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey,
+            currentUserSessionId: currentUserSessionId,
+            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: currentUserBlinded25SessionId,
             direction: direction,
             attachment: attachment,
             hInset: hInset,
@@ -70,9 +70,9 @@ final class QuoteView: UIView {
         authorId: String,
         quotedText: String?,
         threadVariant: SessionThread.Variant,
-        currentUserPublicKey: String?,
-        currentUserBlinded15PublicKey: String?,
-        currentUserBlinded25PublicKey: String?,
+        currentUserSessionId: String?,
+        currentUserBlinded15SessionId: String?,
+        currentUserBlinded25SessionId: String?,
         direction: Direction,
         attachment: Attachment?,
         hInset: CGFloat,
@@ -211,9 +211,9 @@ final class QuoteView: UIView {
                     MentionUtilities.highlightMentions(
                         in: $0,
                         threadVariant: threadVariant,
-                        currentUserPublicKey: currentUserPublicKey,
-                        currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
-                        currentUserBlinded25PublicKey: currentUserBlinded25PublicKey,
+                        currentUserSessionId: currentUserSessionId,
+                        currentUserBlinded15SessionId: currentUserBlinded15SessionId,
+                        currentUserBlinded25SessionId: currentUserBlinded25SessionId,
                         isOutgoingMessage: (direction == .outgoing),
                         textColor: textColor,
                         theme: theme,
@@ -233,9 +233,9 @@ final class QuoteView: UIView {
         
         // Label stack view
         let isCurrentUser: Bool = [
-            currentUserPublicKey,
-            currentUserBlinded15PublicKey,
-            currentUserBlinded25PublicKey
+            currentUserSessionId,
+            currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId
         ]
         .compactMap { $0 }
         .asSet()

@@ -38,7 +38,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         }
         
         guard
-            let publicKey: String = job.threadId,
+            let sessionIdHexString: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
@@ -52,7 +52,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             do {
                 try SessionUtil.handleConfigMessages(
                     db,
-                    publicKey: publicKey,
+                    sessionIdHexString: sessionIdHexString,
                     messages: details.messages,
                     using: dependencies
                 )

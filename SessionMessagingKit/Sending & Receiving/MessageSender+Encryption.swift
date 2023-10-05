@@ -16,7 +16,7 @@ extension MessageSender {
             throw MessageSenderError.noUserED25519KeyPair
         }
         
-        let recipientX25519PublicKey = Data(hex: recipientHexEncodedX25519PublicKey.removingIdPrefixIfNeeded())
+        let recipientX25519PublicKey: Data = Data(SessionId(.standard, hex: recipientHexEncodedX25519PublicKey).publicKey)
         
         let verificationData = plaintext + Data(userEd25519KeyPair.publicKey) + recipientX25519PublicKey
         guard
@@ -46,8 +46,8 @@ extension MessageSender {
         using dependencies: Dependencies
     ) throws -> Data {
         guard
-            SessionId.Prefix(from: recipientBlindedId) == .blinded15 ||
-            SessionId.Prefix(from: recipientBlindedId) == .blinded25
+            let recipientSessionId: SessionId = try? SessionId(from: recipientBlindedId),
+            (recipientSessionId.prefix == .blinded15 || recipientSessionId.prefix == .blinded25)
         else { throw MessageSenderError.signingFailed }
         guard let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
             throw MessageSenderError.noUserED25519KeyPair
@@ -58,16 +58,14 @@ extension MessageSender {
             )
         else { throw MessageSenderError.signingFailed }
         
-        let recipientBlindedPublicKey = Data(hex: recipientBlindedId.removingIdPrefixIfNeeded())
-        
         /// Step one: calculate the shared encryption key, sending from A to B
         guard
             let enc_key: Bytes = try? dependencies[singleton: .crypto].perform(
                 .sharedBlindedEncryptionKey(
                     secretKey: userEd25519KeyPair.secretKey,
-                    otherBlindedPublicKey: recipientBlindedPublicKey.bytes,
+                    otherBlindedPublicKey: recipientSessionId.publicKey,
                     fromBlindedPublicKey: blindedKeyPair.publicKey,
-                    toBlindedPublicKey: recipientBlindedPublicKey.bytes,
+                    toBlindedPublicKey: recipientSessionId.publicKey,
                     using: dependencies
                 )
             ),

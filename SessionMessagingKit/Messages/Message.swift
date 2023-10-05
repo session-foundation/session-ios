@@ -430,17 +430,17 @@ public extension Message {
     ) -> [Reaction] {
         guard let reactions: [String: OpenGroupAPI.Message.Reaction] = message.reactions else { return [] }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        let blinded15UserPublicKey: String? = SessionThread
-            .getUserHexEncodedBlindedKey(
+        let currentUserSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let blinded15SessionId: SessionId? = SessionThread
+            .getCurrentUserBlindedSessionId(
                 db,
                 threadId: openGroupId,
                 threadVariant: .community,
                 blindingPrefix: .blinded15,
                 using: dependencies
             )
-        let blinded25UserPublicKey: String? = SessionThread
-            .getUserHexEncodedBlindedKey(
+        let blinded25SessionId: SessionId? = SessionThread
+            .getCurrentUserBlindedSessionId(
                 db,
                 threadId: openGroupId,
                 threadVariant: .community,
@@ -490,8 +490,10 @@ public extension Message {
                     return action == .add
                 }()
                 let shouldAddSelfReaction: Bool = (
-                    pendingChangeSelfReaction ??
-                    ((next.value.you || reactors.contains(userPublicKey)) && !pendingChangeRemoveAllReaction)
+                    pendingChangeSelfReaction ?? (
+                        (next.value.you || reactors.contains(currentUserSessionId.hexString)) &&
+                        !pendingChangeRemoveAllReaction
+                    )
                 )
                 
                 let count: Int64 = (next.value.you ? next.value.count - 1 : next.value.count)
@@ -499,9 +501,9 @@ public extension Message {
                 let maxLength: Int = shouldAddSelfReaction ? 4 : 5
                 let desiredReactorIds: [String] = reactors
                     .filter { id -> Bool in
-                        id != blinded15UserPublicKey &&
-                        id != blinded25UserPublicKey &&
-                        id != userPublicKey
+                        id != blinded15SessionId?.hexString &&
+                        id != blinded25SessionId?.hexString &&
+                        id != currentUserSessionId.hexString
                     } // Remove current user for now, will add back if needed
                     .prefix(maxLength)
                     .map { $0 }
@@ -547,7 +549,7 @@ public extension Message {
                             interactionId: message.id,
                             serverHash: nil,
                             timestampMs: timestampMs,
-                            authorId: userPublicKey,
+                            authorId: currentUserSessionId.hexString,
                             emoji: decodedEmoji,
                             count: 1,
                             sortId: next.value.index

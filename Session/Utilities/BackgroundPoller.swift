@@ -76,7 +76,7 @@ public final class BackgroundPoller {
         return CurrentUserPoller
             .poll(
                 namespaces: CurrentUserPoller.namespaces,
-                for: getUserHexEncodedPublicKey(using: dependencies),
+                for: getUserSessionId(using: dependencies).hexString,
                 calledFromBackgroundPoller: true,
                 isBackgroundPollValid: { BackgroundPoller.isValid },
                 drainBehaviour: .alwaysRandom,
@@ -92,12 +92,12 @@ public final class BackgroundPoller {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber as the user is no longer a member of those)
         return dependencies[singleton: .storage]
-            .read { db in
+            .read { [dependencies] db in
                 try ClosedGroup
                     .select(.threadId)
                     .joining(
                         required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db))
+                            .filter(GroupMember.Columns.profileId == getUserSessionId(db, using: dependencies).hexString)
                     )
                     .asRequest(of: String.self)
                     .fetchAll(db)

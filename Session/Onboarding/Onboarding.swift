@@ -30,12 +30,12 @@ enum Onboarding {
         _ requestId: UUID,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<String?, Error> {
-        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(using: dependencies)
         
         return CurrentUserPoller
             .poll(
                 namespaces: [.configUserProfile],
-                for: userPublicKey,
+                for: userSessionId.hexString,
                 // Note: These values mean the received messages will be
                 // processed immediately rather than async as part of a Job
                 calledFromBackgroundPoller: true,
@@ -48,7 +48,7 @@ enum Onboarding {
                 
                 return dependencies[singleton: .storage].read { db in
                     try Profile
-                        .filter(id: userPublicKey)
+                        .filter(id: userSessionId.hexString)
                         .select(.name)
                         .asRequest(of: String.self)
                         .fetchOne(db)
@@ -111,7 +111,7 @@ enum Onboarding {
             profileNameRetrievalPublisher.mutate { $0 = nil }
             
             // Clear the cached 'encodedPublicKey' if needed
-            dependencies.mutate(cache: .general) { $0.encodedPublicKey = nil }
+            dependencies.mutate(cache: .general) { $0.sessionId = nil }
             
             dependencies[defaults: .standard, key: .hasSyncedInitialConfiguration] = false
         }
@@ -122,7 +122,7 @@ enum Onboarding {
             x25519KeyPair: KeyPair,
             using dependencies: Dependencies = Dependencies()
         ) {
-            let x25519PublicKey = x25519KeyPair.hexEncodedPublicKey
+            let sessionId: SessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
             
             // Store the user identity information
             dependencies[singleton: .storage].write { db in
@@ -143,10 +143,10 @@ enum Onboarding {
                 // Create a contact for the current user and set their approval/trusted statuses so
                 // they don't get weird behaviours
                 try Contact
-                    .fetchOrCreate(db, id: x25519PublicKey)
+                    .fetchOrCreate(db, id: sessionId.hexString)
                     .save(db)
                 try Contact
-                    .filter(id: x25519PublicKey)
+                    .filter(id: sessionId.hexString)
                     .updateAllAndConfig(
                         db,
                         Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
@@ -160,10 +160,10 @@ enum Onboarding {
                 /// **Note:** We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false`
                 /// otherwise it won't actually get synced correctly
                 try SessionThread
-                    .fetchOrCreate(db, id: x25519PublicKey, variant: .contact, shouldBeVisible: false)
+                    .fetchOrCreate(db, id: sessionId.hexString, variant: .contact, shouldBeVisible: false)
                 
                 try SessionThread
-                    .filter(id: x25519PublicKey)
+                    .filter(id: sessionId.hexString)
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.shouldBeVisible.set(to: false),
@@ -193,7 +193,7 @@ enum Onboarding {
             // overwritten due to the config request running slow)
             dependencies[singleton: .storage].write { db in
                 try Profile
-                    .filter(id: getUserHexEncodedPublicKey(db))
+                    .filter(id: getUserSessionId(db, using: dependencies).hexString)
                     .updateAllAndConfig(
                         db,
                         Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970),

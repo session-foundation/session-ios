@@ -199,9 +199,9 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { [weak self, dependencies, threadId = self.threadId, threadVariant = self.threadVariant] db -> [SectionModel] in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
             let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
-                .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
+                .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
                 .fetchOne(db)
             
             // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted

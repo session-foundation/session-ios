@@ -292,7 +292,7 @@ public enum PushRegistrationError: Error {
         
         let maybeCall: SessionCall? = dependencies[singleton: .storage].write { db in
             let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
-                state: (caller == getUserHexEncodedPublicKey(db, using: dependencies) ?
+                state: (caller == getUserSessionId(db, using: dependencies).hexString ?
                     .outgoing :
                     .incoming
                 )

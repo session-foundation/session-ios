@@ -230,7 +230,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         let interaction: Interaction? = try? Interaction(
             messageUuid: self.uuid,
             threadId: sessionId,
-            authorId: getUserHexEncodedPublicKey(db),
+            authorId: getUserSessionId(db).hexString,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: timestampMs

@@ -224,7 +224,7 @@ public extension Profile {
                 try Profile
                     .allContactProfiles(
                         excluding: excluding
-                            .inserting(excludeCurrentUser ? getUserHexEncodedPublicKey(db) : nil)
+                            .inserting(excludeCurrentUser ? getUserSessionId(db).hexString : nil)
                     )
                     .fetchAll(db)
                     .sorted(by: { lhs, rhs -> Bool in lhs.displayName() < rhs.displayName() })
@@ -300,17 +300,17 @@ public extension Profile {
         _ db: Database? = nil,
         using dependencies: Dependencies = Dependencies()
     ) -> Profile {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionid: SessionId = getUserSessionId(db, using: dependencies)
         
         guard let db: Database = db else {
             return dependencies[singleton: .storage]
                 .read { db in fetchOrCreateCurrentUser(db, using: dependencies) }
-                .defaulting(to: defaultFor(userPublicKey))
+                .defaulting(to: defaultFor(userSessionid.hexString))
         }
         
         return (
-            (try? Profile.fetchOne(db, id: userPublicKey)) ??
-            defaultFor(userPublicKey)
+            (try? Profile.fetchOne(db, id: userSessionid.hexString)) ??
+            defaultFor(userSessionid.hexString)
         )
     }
     

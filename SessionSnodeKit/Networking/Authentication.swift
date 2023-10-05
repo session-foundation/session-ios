@@ -7,20 +7,20 @@ import SessionUtilitiesKit
 public extension SnodeAPI {
     enum AuthenticationInfo: Equatable {
         /// Used for when interacting as the current user
-        case standard(pubkey: String, ed25519KeyPair: KeyPair)
+        case standard(sessionId: SessionId, ed25519KeyPair: KeyPair)
         
         /// Used for when interacting as a group admin
-        case groupAdmin(pubkey: String, ed25519SecretKey: [UInt8])
+        case groupAdmin(groupSessionId: SessionId, ed25519SecretKey: [UInt8])
         
         /// Used for when interacting as a group member
-        case groupMember(pubkey: String, authData: Data)
+        case groupMember(groupSessionId: SessionId, authData: Data)
         
         // MARK: - Variables
         
-        public var publicKey: String {
+        public var sessionId: SessionId {
             switch self {
-                case .standard(let pubkey, _), .groupAdmin(let pubkey, _), .groupMember(let pubkey, _):
-                    return pubkey
+                case .standard(let sessionId, _), .groupAdmin(let sessionId, _), .groupMember(let sessionId, _):
+                    return sessionId
             }
         }
         

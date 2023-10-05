@@ -666,8 +666,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     guard
                         let sessionId: String = self?.viewModel.threadData.threadId,
                         (
-                            SessionId.Prefix(from: sessionId) == .blinded15 ||
-                            SessionId.Prefix(from: sessionId) == .blinded25
+                            (try? SessionId.Prefix(from: sessionId)) == .blinded15 ||
+                            (try? SessionId.Prefix(from: sessionId)) == .blinded25
                         ),
                         let blindedLookup: BlindedIdLookup = Dependencies()[singleton: .storage].read({ db in
                             try BlindedIdLookup

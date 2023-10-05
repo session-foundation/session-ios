@@ -65,15 +65,15 @@ extension PushNotificationAPI {
             try container.encode(serviceInfo, forKey: .serviceInfo)
             
             switch authInfo {
-                case .standard(let pubkey, let ed25519KeyPair):
-                    try container.encode(pubkey, forKey: .pubkey)
+                case .standard(let sessionId, let ed25519KeyPair):
+                    try container.encode(sessionId.hexString, forKey: .pubkey)
                     try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
                     
-                case .groupAdmin(let pubkey, _):
-                    try container.encode(pubkey, forKey: .pubkey)
+                case .groupAdmin(let sessionId, _):
+                    try container.encode(sessionId.hexString, forKey: .pubkey)
                     
-                case .groupMember(let pubkey, let authData):
-                    try container.encode(pubkey, forKey: .pubkey)
+                case .groupMember(let sessionId, let authData):
+                    try container.encode(sessionId.hexString, forKey: .pubkey)
             }
         }
         
@@ -86,7 +86,7 @@ extension PushNotificationAPI {
             ///
             /// Where `SIG_TS` is the `sig_ts` value as a base-10 string and must be within 24 hours of the current time.
             let verificationBytes: [UInt8] = "UNSUBSCRIBE".bytes
-                .appending(contentsOf: authInfo.publicKey.bytes)
+                .appending(contentsOf: authInfo.sessionId.hexString.bytes)
                 .appending(contentsOf: "\(timestamp)".data(using: .ascii)?.bytes)
             
             return try authInfo.generateSignature(with: verificationBytes, using: dependencies)

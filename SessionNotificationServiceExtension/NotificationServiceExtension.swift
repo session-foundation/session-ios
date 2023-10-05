@@ -112,7 +112,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         case .config(let publicKey, let namespace, let serverHash, let serverTimestampMs, let data):
                             try SessionUtil.handleConfigMessages(
                                 db,
-                                publicKey: publicKey,
+                                sessionIdHexString: publicKey,
                                 messages: [
                                     ConfigMessageReceiveJob.Details.MessageInfo(
                                         namespace: namespace,
@@ -291,7 +291,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // If we need a config sync then trigger it now
         if needsConfigSync {
             dependencies[singleton: .storage].write { db in
-                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db, using: dependencies))
+                ConfigurationSyncJob.enqueue(
+                    db,
+                    sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
+                    using: dependencies
+                )
             }
         }
 

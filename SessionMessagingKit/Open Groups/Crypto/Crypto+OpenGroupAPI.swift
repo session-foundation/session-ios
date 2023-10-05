@@ -300,9 +300,9 @@ public extension Crypto.Verification {
         ) {
             // Only support generating blinded keys for standard session ids
             guard
-                let sessionId: SessionId = SessionId(from: standardSessionId),
+                let sessionId: SessionId = try? SessionId(from: standardSessionId),
                 sessionId.prefix == .standard,
-                let blindedId: SessionId = SessionId(from: blindedSessionId),
+                let blindedId: SessionId = try? SessionId(from: blindedSessionId),
                 (
                     blindedId.prefix == .blinded15 ||
                     blindedId.prefix == .blinded25
@@ -317,7 +317,9 @@ public extension Crypto.Verification {
             ///
             /// Note: The below method is code we have exposed from the `curve25519_verify` method within the Curve25519 library
             /// rather than custom code we have written
-            guard let xEd25519Key: Data = try? Ed25519.publicKey(from: Data(hex: sessionId.publicKey)) else { return false }
+            guard let xEd25519Key: Data = try? Ed25519.publicKey(from: Data(sessionId.publicKey)) else {
+                return false
+            }
             
             /// Blind the positive public key
             guard

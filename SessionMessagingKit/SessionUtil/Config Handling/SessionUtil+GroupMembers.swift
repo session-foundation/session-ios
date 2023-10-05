@@ -15,7 +15,7 @@ internal extension SessionUtil {
     static func handleGroupMembersUpdate(
         _ db: Database,
         in config: Config?,
-        groupIdentityPublicKey: String,
+        groupSessionId: SessionId,
         serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
@@ -67,13 +67,13 @@ internal extension SessionUtil {
         
         // Get the two member sets
         let existingMembers: Set<GroupMember> = (try? GroupMember
-            .filter(GroupMember.Columns.groupId == groupIdentityPublicKey)
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
             .fetchSet(db))
             .defaulting(to: [])
         let updatedMembers: Set<GroupMember> = result
             .map {
                 GroupMember(
-                    groupId: groupIdentityPublicKey,
+                    groupId: groupSessionId.hexString,
                     profileId: $0.memberId,
                     role: ($0.admin ? .admin : .standard),
                     // TODO: Other properties
@@ -97,7 +97,7 @@ internal extension SessionUtil {
         
         try GroupMember
             .filter(
-                GroupMember.Columns.groupId == groupIdentityPublicKey && (
+                GroupMember.Columns.groupId == groupSessionId.hexString && (
                     GroupMember.Columns.role == GroupMember.Role.standard &&
                     !updatedStandardMemberIds.contains(GroupMember.Columns.profileId)
                 ) || (

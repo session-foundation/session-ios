@@ -19,13 +19,15 @@ extension MessageReceiver {
             let sender: String = message.sender
         else { throw MessageReceiverError.invalidMessage }
         
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        
         // Generate an updated configuration
         //
         // Note: Messages which had been sent during the previous configuration will still
         // use it's settings (so if you enable, send a message and then disable disappearing
         // message then the message you had sent will still disappear)
         let maybeDefaultType: DisappearingMessagesConfiguration.DisappearingMessageType? = {
-            switch (threadVariant, threadId == getUserHexEncodedPublicKey(db)) {
+            switch (threadVariant, threadId == userSessionId.hexString) {
                 case (.contact, false): return .disappearAfterRead
                 case (.legacyGroup, _), (.group, _), (_, true): return .disappearAfterSend
                 case (.community, _): return nil // Shouldn't happen
@@ -66,11 +68,7 @@ extension MessageReceiver {
             threadId: threadId,
             targetConfig: {
                 switch threadVariant {
-                    case .contact:
-                        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
-                        
-                        return (threadId == currentUserPublicKey ? .userProfile : .contacts)
-                        
+                    case .contact: return (threadId == userSessionId.hexString ? .userProfile : .contacts)
                     default: return .userGroups
                 }
             }(),
@@ -94,7 +92,7 @@ extension MessageReceiver {
                     try SessionUtil
                         .update(
                             db,
-                            legacyGroupPublicKey: threadId,
+                            legacyGroupSessionId: threadId,
                             disappearingConfig: remoteConfig,
                             using: dependencies
                         )
@@ -117,14 +115,13 @@ extension MessageReceiver {
             .deleteAll(db)
         
         // Add an info message for the user
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
             threadId: threadId,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
             body: remoteConfig.messageInfoString(
-                with: (sender != currentUserPublicKey ?
+                with: (sender != userSessionId.hexString ?
                     Profile.displayName(db, id: sender) :
                     nil
                 ),
@@ -135,7 +132,7 @@ extension MessageReceiver {
                 threadId: threadId,
                 threadVariant: threadVariant,
                 timestampMs: (timestampMs * 1000),
-                userPublicKey: currentUserPublicKey,
+                userSessionId: userSessionId,
                 openGroup: nil,
                 using: dependencies
             ),
@@ -202,7 +199,7 @@ extension MessageReceiver {
                 authorId: sender,
                 variant: .infoDisappearingMessagesUpdate,
                 body: remoteConfig.messageInfoString(
-                    with: (sender != getUserHexEncodedPublicKey(db) ?
+                    with: (sender != getUserSessionId(db, using: dependencies).hexString ?
                         Profile.displayName(db, id: sender) :
                         nil
                     ),
@@ -244,7 +241,7 @@ extension MessageReceiver {
                     try SessionUtil
                         .update(
                             db,
-                            legacyGroupPublicKey: threadId,
+                            legacyGroupSessionId: threadId,
                             disappearingConfig: remoteConfig,
                             using: dependencies
                         )
@@ -253,7 +250,7 @@ extension MessageReceiver {
                     try SessionUtil
                         .update(
                             db,
-                            groupIdentityPublicKey: threadId,
+                            groupSessionId: SessionId(.group, hex: threadId),
                             disappearingConfig: remoteConfig,
                             using: dependencies
                         )

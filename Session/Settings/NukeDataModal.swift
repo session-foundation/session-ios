@@ -152,7 +152,7 @@ final class NukeDataModal: Modal {
     
     private func clearDeviceOnly() {
         ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self] _ in
-            ConfigurationSyncJob.run(publicKey: getUserHexEncodedPublicKey())
+            ConfigurationSyncJob.run(sessionIdHexString: getUserSessionId().hexString)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
@@ -179,7 +179,7 @@ final class NukeDataModal: Modal {
                     .readPublisher { db -> PreparedClearRequests in
                         let authInfo: SnodeAPI.AuthenticationInfo = try SnodeAPI.AuthenticationInfo(
                             db,
-                            threadId: getUserHexEncodedPublicKey(db, using: dependencies),
+                            sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
                             using: dependencies
                         )
                         
@@ -297,7 +297,7 @@ final class NukeDataModal: Modal {
         
         // Remove the cached key so it gets re-cached on next access
         dependencies.mutate(cache: .general) {
-            $0.encodedPublicKey = nil
+            $0.sessionId = nil
             $0.recentReactionTimestamps = []
         }
         

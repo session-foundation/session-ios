@@ -16,7 +16,7 @@ public enum MessageReceiver {
         origin: Message.Origin,
         using dependencies: Dependencies = Dependencies()
     ) throws -> ProcessedMessage {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         var plaintext: Data
         let sender: String
         let sentTimestamp: UInt64
@@ -102,7 +102,7 @@ public enum MessageReceiver {
                         let plaintextEnvelope: Data
                         (plaintextEnvelope, sender) = try SessionUtil.decrypt(
                             ciphertext: data,
-                            groupIdentityPublicKey: publicKey,
+                            groupSessionId: SessionId(.group, hex: publicKey),
                             using: dependencies
                         )
                         
@@ -186,7 +186,7 @@ public enum MessageReceiver {
            .successOrThrow()
         let message: Message = try Message.createMessageFrom(proto, sender: sender)
         message.sender = sender
-        message.recipient = userPublicKey
+        message.recipient = userSessionId.hexString
         message.serverHash = origin.serverHash
         message.sentTimestamp = sentTimestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
@@ -199,7 +199,7 @@ public enum MessageReceiver {
         }
         
         // Ignore self sends if needed
-        guard message.isSelfSendValid || sender != userPublicKey else {
+        guard message.isSelfSendValid || sender != userSessionId.hexString else {
             throw MessageReceiverError.selfSend
         }
         
@@ -278,7 +278,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    using: dependencies
                 )
                 
             case let message as ClosedGroupControlMessage:
@@ -450,7 +451,7 @@ public enum MessageReceiver {
         }
         
         // Determine the state of the conversation and the validity of the message
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let conversationVisibleInConfig: Bool = SessionUtil.conversationInConfig(
             db,
             threadId: threadId,
@@ -463,7 +464,7 @@ public enum MessageReceiver {
             threadId: threadId,
             targetConfig: {
                 switch threadVariant {
-                    case .contact: return (threadId == currentUserPublicKey ? .userProfile : .contacts)
+                    case .contact: return (threadId == userSessionId.hexString ? .userProfile : .contacts)
                     default: return .userGroups
                 }
             }(),

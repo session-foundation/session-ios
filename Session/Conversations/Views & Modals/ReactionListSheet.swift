@@ -225,7 +225,7 @@ final class ReactionListSheet: BaseVC {
                     return
                 }
                 
-                if reactionInfo.reaction.authorId == cellViewModel.currentUserPublicKey {
+                if reactionInfo.reaction.authorId == cellViewModel.currentUserSessionId {
                     updatedValue.insert(reactionInfo, at: 0)
                 }
                 else {
@@ -443,7 +443,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                         threadVariant: self.messageViewModel.threadVariant
                     )
                 ),
-                rightAccessory: (authorId != self.messageViewModel.currentUserPublicKey ? nil :
+                rightAccessory: (authorId != self.messageViewModel.currentUserSessionId ? nil :
                     .icon(
                         UIImage(named: "X")?
                             .withRenderingMode(.alwaysTemplate),
@@ -451,7 +451,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                     )
                 ),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
-                isEnabled: (authorId == self.messageViewModel.currentUserPublicKey)
+                isEnabled: (authorId == self.messageViewModel.currentUserSessionId)
             )
         )
         
@@ -470,7 +470,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                 .first(where: { $0.isSelected })?
                 .emoji,
             selectedReaction.rawValue == cellViewModel.reaction.emoji,
-            cellViewModel.reaction.authorId == self.messageViewModel.currentUserPublicKey
+            cellViewModel.reaction.authorId == self.messageViewModel.currentUserSessionId
         else { return }
         
         delegate?.removeReact(self.messageViewModel, for: selectedReaction)

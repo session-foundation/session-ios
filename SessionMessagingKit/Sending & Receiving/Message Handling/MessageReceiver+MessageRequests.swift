@@ -14,12 +14,12 @@ extension MessageReceiver {
         message: MessageRequestResponse,
         using dependencies: Dependencies
     ) throws {
-        let userPublicKey = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId = getUserSessionId(db, using: dependencies)
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
         guard
-            message.sender != userPublicKey,
+            message.sender != userSessionId.hexString,
             let senderId: String = message.sender
         else { throw MessageReceiverError.invalidMessage }
         
@@ -117,7 +117,8 @@ extension MessageReceiver {
         try updateContactApprovalStatusIfNeeded(
             db,
             senderSessionId: senderId,
-            threadId: nil
+            threadId: nil,
+            using: dependencies
         )
         
         // If there were blinded contacts which have now been resolved to this contact then we should remove
@@ -130,8 +131,9 @@ extension MessageReceiver {
             
             try updateContactApprovalStatusIfNeeded(
                 db,
-                senderSessionId: userPublicKey,
-                threadId: unblindedThread.id
+                senderSessionId: userSessionId.hexString,
+                threadId: unblindedThread.id,
+                using: dependencies
             )
         }
         
@@ -155,12 +157,13 @@ extension MessageReceiver {
     internal static func updateContactApprovalStatusIfNeeded(
         _ db: Database,
         senderSessionId: String,
-        threadId: String?
+        threadId: String?,
+        using dependencies: Dependencies
     ) throws {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         
         // If the sender of the message was the current user
-        if senderSessionId == userPublicKey {
+        if senderSessionId == userSessionId.hexString {
             // Retrieve the contact for the thread the message was sent to (excluding 'NoteToSelf'
             // threads) and if the contact isn't flagged as approved then do so
             guard

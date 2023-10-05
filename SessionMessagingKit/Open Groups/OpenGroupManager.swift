@@ -931,15 +931,15 @@ public final class OpenGroupManager {
                 
                 // Otherwise we need to check if it's a variant of the current users key and if so we want
                 // to check if any of those have mod/admin entries
-                guard let sessionId: SessionId = SessionId(from: publicKey) else { return false }
+                guard let sessionId: SessionId = try? SessionId(from: publicKey) else { return false }
                 
                 // Conveniently the logic for these different cases works in order so we can fallthrough each
                 // case with only minor efficiency losses
-                let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 
                 switch sessionId.prefix {
                     case .standard:
-                        guard publicKey == userPublicKey else { return false }
+                        guard publicKey == userSessionId.hexString else { return false }
                         fallthrough
                         
                     case .unblinded:
@@ -980,7 +980,7 @@ public final class OpenGroupManager {
                         // users 'standard', 'unblinded' or 'blinded' keys and as such we should check if any
                         // of them exist in the `modsAndAminKeys` Set
                         let possibleKeys: Set<String> = Set([
-                            userPublicKey,
+                            userSessionId.hexString,
                             SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString,
                             SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString,
                             SessionId(.blinded25, publicKey: blindedKeyPair.publicKey).hexString

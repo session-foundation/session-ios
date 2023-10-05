@@ -119,7 +119,11 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         // If we need a config sync then trigger it now
         if needsConfigSync {
             dependencies[singleton: .storage].write { db in
-                ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db, using: dependencies))
+                ConfigurationSyncJob.enqueue(
+                    db,
+                    sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
+                    using: dependencies
+                )
             }
         }
 

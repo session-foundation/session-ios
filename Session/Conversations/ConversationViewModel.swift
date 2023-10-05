@@ -72,19 +72,19 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         using dependencies: Dependencies = Dependencies()
     ) {
         typealias InitialData = (
-            currentUserPublicKey: String,
+            userSessionId: SessionId,
             initialUnreadInteractionInfo: Interaction.TimestampInfo?,
             threadIsBlocked: Bool,
             currentUserIsClosedGroupMember: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
-            blinded15Key: String?,
-            blinded25Key: String?
+            blinded15SessionId: SessionId?,
+            blinded25SessionId: SessionId?
         )
         
         let initialData: InitialData? = dependencies[singleton: .storage].read { db -> InitialData in
             let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
             let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
-            let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
             
             // If we have a specified 'focusedInteractionInfo' then use that, otherwise retrieve the oldest
             // unread interaction and start focused around that one
@@ -106,7 +106,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             let currentUserIsClosedGroupMember: Bool? = (![.legacyGroup, .group].contains(threadVariant) ? nil :
                 GroupMember
                     .filter(groupMember[.groupId] == threadId)
-                    .filter(groupMember[.profileId] == currentUserPublicKey)
+                    .filter(groupMember[.profileId] == userSessionId.hexString)
                     .filter(groupMember[.role] == GroupMember.Role.standard)
                     .isNotEmpty(db)
             )
@@ -117,13 +117,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .asRequest(of: OpenGroup.Permissions.self)
                     .fetchOne(db)
             )
-            let blinded15Key: String? = SessionThread.getUserHexEncodedBlindedKey(
+            let blinded15SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,
                 blindingPrefix: .blinded15
             )
-            let blinded25Key: String? = SessionThread.getUserHexEncodedBlindedKey(
+            let blinded25SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,
@@ -131,13 +131,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             )
             
             return (
-                currentUserPublicKey,
+                userSessionId,
                 initialUnreadInteractionInfo,
                 threadIsBlocked,
                 currentUserIsClosedGroupMember,
                 openGroupPermissions,
-                blinded15Key,
-                blinded25Key
+                blinded15SessionId,
+                blinded25SessionId
             )
         }
         
@@ -149,13 +149,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.threadData = SessionThreadViewModel(
             threadId: threadId,
             threadVariant: threadVariant,
-            threadIsNoteToSelf: (initialData?.currentUserPublicKey == threadId),
+            threadIsNoteToSelf: (initialData?.userSessionId.hexString == threadId),
             threadIsBlocked: initialData?.threadIsBlocked,
             currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
             openGroupPermissions: initialData?.openGroupPermissions
-        ).populatingCurrentUserBlindedKeys(
-            currentUserBlinded15PublicKeyForThisThread: initialData?.blinded15Key,
-            currentUserBlinded25PublicKeyForThisThread: initialData?.blinded25Key
+        ).populatingCurrentUserBlindedIds(
+            currentUserBlinded15SessionIdForThisThread: initialData?.blinded15SessionId?.hexString,
+            currentUserBlinded25SessionIdForThisThread: initialData?.blinded25SessionId?.hexString
         )
         self.pagedDataObserver = nil
         self.dependencies = dependencies
@@ -166,9 +166,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         // distinct stutter)
         self.pagedDataObserver = self.setupPagedObserver(
             for: threadId,
-            userPublicKey: (initialData?.currentUserPublicKey ?? getUserHexEncodedPublicKey()),
-            blinded15PublicKey: initialData?.blinded15Key,
-            blinded25PublicKey: initialData?.blinded25Key,
+            userSessionId: (initialData?.userSessionId ?? getUserSessionId()),
+            blinded15SessionId: initialData?.blinded15SessionId,
+            blinded25SessionId: initialData?.blinded25SessionId,
             using: dependencies
         )
         
@@ -205,20 +205,20 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     private func setupObservableThreadData(for threadId: String) -> ThreadObservation {
         return ValueObservation
-            .trackingConstantRegion { [weak self] db -> SessionThreadViewModel? in
-                let userPublicKey: String = getUserHexEncodedPublicKey(db)
+            .trackingConstantRegion { [weak self, dependencies] db -> SessionThreadViewModel? in
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
-                    .conversationQuery(threadId: threadId, userPublicKey: userPublicKey)
+                    .conversationQuery(threadId: threadId, userSessionId: userSessionId)
                     .fetchOne(db)
                 
                 return threadViewModel
                     .map { $0.with(recentReactionEmoji: recentReactionEmoji) }
                     .map { viewModel -> SessionThreadViewModel in
-                        viewModel.populatingCurrentUserBlindedKeys(
+                        viewModel.populatingCurrentUserBlindedIds(
                             db,
-                            currentUserBlinded15PublicKeyForThisThread: self?.threadData.currentUserBlinded15PublicKey,
-                            currentUserBlinded25PublicKeyForThisThread: self?.threadData.currentUserBlinded25PublicKey
+                            currentUserBlinded15SessionIdForThisThread: self?.threadData.currentUserBlinded15SessionId,
+                            currentUserBlinded25SessionIdForThisThread: self?.threadData.currentUserBlinded25SessionId
                         )
                     }
             }
@@ -258,9 +258,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     private func setupPagedObserver(
         for threadId: String,
-        userPublicKey: String,
-        blinded15PublicKey: String?,
-        blinded25PublicKey: String?,
+        userSessionId: SessionId,
+        blinded15SessionId: SessionId?,
+        blinded25SessionId: SessionId?,
         using dependencies: Dependencies
     ) -> PagedDatabaseObserver<Interaction, MessageViewModel> {
         return PagedDatabaseObserver(
@@ -327,9 +327,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             groupSQL: MessageViewModel.groupSQL,
             orderSQL: MessageViewModel.orderSQL,
             dataQuery: MessageViewModel.baseQuery(
-                userPublicKey: userPublicKey,
-                blinded15PublicKey: blinded15PublicKey,
-                blinded25PublicKey: blinded25PublicKey,
+                userSessionId: userSessionId,
+                blinded15SessionId: blinded15SessionId,
+                blinded25SessionId: blinded25SessionId,
                 orderSQL: MessageViewModel.orderSQL,
                 groupSQL: MessageViewModel.groupSQL
             ),
@@ -436,15 +436,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                 isLastOutgoing: (
                                     cellViewModel.id == sortedData
                                         .filter {
-                                            $0.authorId == threadData.currentUserPublicKey ||
-                                            $0.authorId == threadData.currentUserBlinded15PublicKey ||
-                                            $0.authorId == threadData.currentUserBlinded25PublicKey
+                                            $0.authorId == threadData.currentUserSessionId ||
+                                            $0.authorId == threadData.currentUserBlinded15SessionId ||
+                                            $0.authorId == threadData.currentUserBlinded25SessionId
                                         }
                                         .last?
                                         .id
                                 ),
-                                currentUserBlinded15PublicKey: threadData.currentUserBlinded15PublicKey,
-                                currentUserBlinded25PublicKey: threadData.currentUserBlinded25PublicKey
+                                currentUserBlinded15SessionId: threadData.currentUserBlinded15SessionId,
+                                currentUserBlinded25SessionId: threadData.currentUserBlinded25SessionId
                             )
                         }
                         .reduce([]) { result, message in
@@ -511,15 +511,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser()
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
-            authorId: (threadData.currentUserBlinded15PublicKey ?? threadData.currentUserPublicKey),
+            authorId: (threadData.currentUserBlinded15SessionId ?? threadData.currentUserSessionId),
             variant: .standardOutgoing,
             body: text,
             timestampMs: sentTimestampMs,
             hasMention: Interaction.isUserMentioned(
                 publicKeysToCheck: [
-                    threadData.currentUserPublicKey,
-                    threadData.currentUserBlinded15PublicKey,
-                    threadData.currentUserBlinded25PublicKey
+                    threadData.currentUserSessionId,
+                    threadData.currentUserBlinded15SessionId,
+                    threadData.currentUserBlinded25SessionId
                 ].compactMap { $0 },
                 body: text
             ),
@@ -551,7 +551,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             expiresStartedAtMs: interaction.expiresStartedAtMs,
             expiresInSeconds: interaction.expiresInSeconds,
             isSenderOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
-                threadData.currentUserPublicKey,
+                threadData.currentUserSessionId,
                 for: threadData.openGroupRoomToken,
                 on: threadData.openGroupServer
             ),
@@ -669,7 +669,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         
         return dependencies[singleton: .storage]
             .read { db -> [MentionInfo] in
-                let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let pattern: FTS5Pattern? = try? SessionThreadViewModel.pattern(db, searchTerm: query, forTable: Profile.self)
                 let capabilities: Set<Capability.Variant> = (threadData.threadVariant != .community ?
                     nil :
@@ -687,7 +687,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 
                 return (try MentionInfo
                     .query(
-                        userPublicKey: userPublicKey,
+                        userPublicKey: userSessionId.hexString,
                         threadId: threadData.threadId,
                         threadVariant: threadData.threadVariant,
                         targetPrefixes: targetPrefixes,
@@ -787,9 +787,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.observableThreadData = self.setupObservableThreadData(for: updatedThreadId)
         self.pagedDataObserver = self.setupPagedObserver(
             for: updatedThreadId,
-            userPublicKey: getUserHexEncodedPublicKey(),
-            blinded15PublicKey: nil,
-            blinded25PublicKey: nil,
+            userSessionId: getUserSessionId(using: dependencies),
+            blinded15SessionId: nil,
+            blinded25SessionId: nil,
             using: dependencies
         )
         

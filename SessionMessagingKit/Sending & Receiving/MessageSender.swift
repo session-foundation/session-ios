@@ -21,7 +21,7 @@ public final class MessageSender {
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<Void> {
         // Common logic for all destinations
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
         let updatedMessage: Message = message
         
@@ -41,7 +41,7 @@ public final class MessageSender {
                         namespace: namespace,
                         interactionId: interactionId,
                         fileIds: fileIds,
-                        userPublicKey: currentUserPublicKey,
+                        userSessionId: userSessionId,
                         messageSendTimestamp: messageSendTimestamp,
                         isSyncMessage: isSyncMessage,
                         using: dependencies
@@ -66,7 +66,7 @@ public final class MessageSender {
                         to: destination,
                         interactionId: interactionId,
                         fileIds: fileIds,
-                        userPublicKey: currentUserPublicKey,
+                        userSessionId: userSessionId,
                         messageSendTimestamp: messageSendTimestamp,
                         using: dependencies
                     )
@@ -91,7 +91,7 @@ public final class MessageSender {
         namespace: SnodeAPI.Namespace?,
         interactionId: Int64?,
         fileIds: [String],
-        userPublicKey: String,
+        userSessionId: SessionId,
         messageSendTimestamp: Int64,
         isSyncMessage: Bool = false,
         using dependencies: Dependencies
@@ -110,7 +110,7 @@ public final class MessageSender {
                 case .openGroup, .openGroupInbox: preconditionFailure()
             }
         }()
-        message.sender = userPublicKey
+        message.sender = userSessionId.hexString
         message.recipient = recipient
         message.sentTimestamp = sentTimestamp
         
@@ -119,7 +119,7 @@ public final class MessageSender {
         
         // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync
         // messages as they will be managed by the user config handling
-        let isSelfSend: Bool = (recipient == userPublicKey)
+        let isSelfSend: Bool = (recipient == userSessionId.hexString)
 
         if !isSelfSend, !isSyncMessage, var messageWithProfile: MessageWithProfile = message as? MessageWithProfile {
             let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
@@ -150,7 +150,9 @@ public final class MessageSender {
         let plaintext: Data = try Result(proto.serializedData())
             .map { serialisedData -> Data in
                 switch destination {
-                    case .closedGroup(let key) where SessionId.Prefix(from: key) == .group: return serialisedData
+                    case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
+                        return serialisedData
+                        
                     default: return serialisedData.paddedMessageBody()
                 }
             }
@@ -180,28 +182,28 @@ public final class MessageSender {
                     .base64EncodedString()
                     
                 // Updated group messages should be wrapped _before_ encrypting
-                case (.closedGroup(let groupPublicKey), .groupMessages) where SessionId.Prefix(from: groupPublicKey) == .group:
+                case (.closedGroup(let groupId), .groupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
                     return try SessionUtil
                         .encrypt(
                             message: try Result(
                                 MessageWrapper.wrap(
                                     type: .closedGroupMessage,
                                     timestamp: sentTimestamp,
-                                    senderPublicKey: groupPublicKey,
+                                    senderPublicKey: groupId,
                                     base64EncodedContent: plaintext.base64EncodedString(),
                                     wrapInWebSocketMessage: false
                                 )
                             )
                             .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
                             .successOrThrow(),
-                            groupIdentityPublicKey: groupPublicKey,
+                            groupSessionId: SessionId(.group, hex: groupId),
                             using: dependencies
                         )
                         .base64EncodedString()
                     
                 // Config messages should be sent directly rather than via this method
                 case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
-                case (.closedGroup(let groupPublicKey), _) where SessionId.Prefix(from: groupPublicKey) == .group:
+                case (.closedGroup(let groupId), _) where (try? SessionId.Prefix(from: groupId)) == .group:
                     throw MessageSenderError.invalidConfigMessageHandling
                     
                 // Legacy groups used a `05` prefix
@@ -248,7 +250,7 @@ public final class MessageSender {
                 db,
                 message: snodeMessage,
                 in: namespace,
-                authInfo: try SnodeAPI.AuthenticationInfo(db, threadId: threadId, using: dependencies),
+                authInfo: try SnodeAPI.AuthenticationInfo(db, sessionIdHexString: threadId, using: dependencies),
                 using: dependencies
             )
             .handleEvents(
@@ -264,7 +266,7 @@ public final class MessageSender {
                     let shouldNotify: Bool = {
                         // New groups only run via the updated push server so don't notify
                         switch destination {
-                            case .closedGroup(let key) where SessionId.Prefix(from: key) == .group:
+                            case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
                                 return false
                             default: break
                         }
@@ -475,7 +477,7 @@ public final class MessageSender {
         to destination: Message.Destination,
         interactionId: Int64?,
         fileIds: [String],
-        userPublicKey: String,
+        userSessionId: SessionId,
         messageSendTimestamp: Int64,
         using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<Void> {
@@ -485,7 +487,7 @@ public final class MessageSender {
             case .openGroupInbox(let server, let openGroupPublicKey, let recipientBlindedPublicKey) = destination
         else { throw MessageSenderError.invalidMessage }
         
-        message.sender = userPublicKey
+        message.sender = userSessionId.hexString
         message.recipient = recipientBlindedPublicKey
         
         // Attach the user's profile if needed
@@ -809,12 +811,12 @@ public final class MessageSender {
     ) {
         // Sync the message if it's not a sync message, wasn't already sent to the current user and
         // it's a message type which should be synced
-        let currentUserPublicKey = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId = getUserSessionId(db, using: dependencies)
         
         if
             case .contact(let publicKey) = destination,
             !isAlreadySyncMessage,
-            publicKey != currentUserPublicKey,
+            publicKey != userSessionId.hexString,
             Message.shouldSync(message: message)
         {
             if let message = message as? VisibleMessage { message.syncTarget = publicKey }
@@ -827,7 +829,7 @@ public final class MessageSender {
                     threadId: threadId,
                     interactionId: interactionId,
                     details: MessageSendJob.Details(
-                        destination: .contact(publicKey: currentUserPublicKey),
+                        destination: .contact(publicKey: userSessionId.hexString),
                         message: message,
                         isSyncMessage: true
                     )

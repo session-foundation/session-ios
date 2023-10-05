@@ -67,19 +67,20 @@ extension MessageReceiver {
             data.count > (dependencies[singleton: .crypto].size(.nonce24) + 2),
             let blindedKeyPair = dependencies[singleton: .crypto].generate(
                 .blindedKeyPair(serverPublicKey: openGroupPublicKey, edKeyPair: userEd25519KeyPair, using: dependencies)
-            )
+            ),
+            let otherSessionId: SessionId = try? SessionId(from: otherBlindedPublicKey),
+            (otherSessionId.prefix == .blinded15 || otherSessionId.prefix == .blinded25)
         else { throw MessageReceiverError.decryptionFailed }
 
         /// Step one: calculate the shared encryption key, receiving from A to B
-        let otherKeyBytes: Bytes = Data(hex: otherBlindedPublicKey.removingIdPrefixIfNeeded()).bytes
-        let kA: Bytes = (isOutgoing ? blindedKeyPair.publicKey : otherKeyBytes)
+        let kA: Bytes = (isOutgoing ? blindedKeyPair.publicKey : otherSessionId.publicKey)
         guard
             let dec_key: Bytes = try? dependencies[singleton: .crypto].perform(
                 .sharedBlindedEncryptionKey(
                     secretKey: userEd25519KeyPair.secretKey,
-                    otherBlindedPublicKey: otherKeyBytes,
+                    otherBlindedPublicKey: otherSessionId.publicKey,
                     fromBlindedPublicKey: kA,
-                    toBlindedPublicKey: (isOutgoing ? otherKeyBytes : blindedKeyPair.publicKey),
+                    toBlindedPublicKey: (isOutgoing ? otherSessionId.publicKey : blindedKeyPair.publicKey),
                     using: dependencies
                 )
             )

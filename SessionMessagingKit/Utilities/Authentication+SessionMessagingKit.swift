@@ -8,34 +8,36 @@ import SessionUtilitiesKit
 public extension SnodeAPI.AuthenticationInfo {
     init(
         _ db: Database,
-        threadId: String,
+        sessionIdHexString: String,
         using dependencies: Dependencies
     ) throws {
-        switch SessionId.Prefix(from: threadId) {
-            case .standard:
+        switch try? SessionId(from: sessionIdHexString) {
+            case .some(let sessionId) where sessionId.prefix == .standard:
                 guard let keyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
                     throw SnodeAPIError.noKeyPair
                 }
                 
-                self = .standard(pubkey: threadId, ed25519KeyPair: keyPair)
+                self = .standard(sessionId: sessionId, ed25519KeyPair: keyPair)
                 
-            case .group:
+            case .some(let sessionId) where sessionId.prefix == .group:
                 struct GroupAuthData: Codable, FetchableRecord {
                     let groupIdentityPrivateKey: Data?
                     let authData: Data?
                 }
                 
                 let authData: GroupAuthData? = try? ClosedGroup
-                    .filter(id: threadId)
+                    .filter(id: sessionIdHexString)
                     .select(.authData, .groupIdentityPrivateKey)
                     .asRequest(of: GroupAuthData.self)
                     .fetchOne(db)
                 
                 switch (authData?.groupIdentityPrivateKey, authData?.authData) {
                     case (.some(let privateKey), _):
-                        self = .groupAdmin(pubkey: threadId, ed25519SecretKey: Array(privateKey))
+                        self = .groupAdmin(groupSessionId: sessionId, ed25519SecretKey: Array(privateKey))
                         
-                    case (_, .some(let authData)): self = .groupMember(pubkey: threadId, authData: authData)
+                    case (_, .some(let authData)):
+                        self = .groupMember(groupSessionId: sessionId, authData: authData)
+                        
                     default: throw SnodeAPIError.invalidAuthentication
                 }
                 

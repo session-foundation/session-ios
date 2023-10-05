@@ -74,7 +74,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
         self.dependencies = dependencies
         self.threadId = threadId
         self.threadVariant = threadVariant
-        self.isNoteToSelf = (threadId == getUserHexEncodedPublicKey(using: dependencies))
+        self.isNoteToSelf = (threadId == getUserSessionId(using: dependencies).hexString)
         self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
         self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
         self.config = config
@@ -495,7 +495,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
             
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
-                authorId: getUserHexEncodedPublicKey(db),
+                authorId: getUserSessionId(db, using: dependencies).hexString,
                 variant: .infoDisappearingMessagesUpdate,
                 body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
                 timestampMs: currentOffsetTimestampMs,
@@ -538,7 +538,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                     try SessionUtil
                         .update(
                             db,
-                            legacyGroupPublicKey: threadId,
+                            legacyGroupSessionId: threadId,
                             disappearingConfig: updatedConfig,
                             using: dependencies
                         )
@@ -547,7 +547,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                     try SessionUtil
                         .update(
                             db,
-                            groupIdentityPublicKey: threadId,
+                            groupSessionId: SessionId(.group, hex: threadId),
                             disappearingConfig: updatedConfig,
                             using: dependencies
                         )

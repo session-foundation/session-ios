@@ -15,7 +15,7 @@ internal extension SessionUtil {
     static func handleGroupKeysUpdate(
         _ db: Database,
         in config: Config?,
-        groupIdentityPublicKey: String,
+        groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
         guard config.needsDump else { return }

@@ -101,10 +101,10 @@ public enum GroupLeavingJob: JobExecutor {
                         guard shouldSucceed else { return }
                         
                         // Update the group (if the admin leaves the group is disbanded)
-                        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+                        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                         let wasAdminUser: Bool = GroupMember
                             .filter(GroupMember.Columns.groupId == threadId)
-                            .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
                             .filter(GroupMember.Columns.role == GroupMember.Role.admin)
                             .isNotEmpty(db)
                         
@@ -116,7 +116,7 @@ public enum GroupLeavingJob: JobExecutor {
                         else {
                             try GroupMember
                                 .filter(GroupMember.Columns.groupId == threadId)
-                                .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                                .filter(GroupMember.Columns.profileId == userSessionId.hexString)
                                 .deleteAll(db)
                         }
                         

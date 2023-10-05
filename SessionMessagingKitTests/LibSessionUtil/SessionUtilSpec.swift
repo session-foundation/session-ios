@@ -21,7 +21,7 @@ class SessionUtilSpec: QuickSpec {
         }
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
-                cache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
             }
         )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
@@ -61,8 +61,8 @@ class SessionUtilSpec: QuickSpec {
                 var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
                 _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
                 
-                cache.when { $0.setConfig(for: any(), publicKey: any(), to: any()) }.thenReturn(())
-                cache.when { $0.config(for: .userGroups, publicKey: any()) }
+                cache.when { $0.setConfig(for: any(), sessionId: any(), to: any()) }.thenReturn(())
+                cache.when { $0.config(for: .userGroups, sessionId: any()) }
                     .thenReturn(Atomic(.object(conf)))
             }
         )
@@ -281,7 +281,7 @@ class SessionUtilSpec: QuickSpec {
                     userGroupsConfig = .object(userGroupsConf)
                     
                     mockSessionUtilCache
-                        .when { $0.config(for: .userGroups, publicKey: any()) }
+                        .when { $0.config(for: .userGroups, sessionId: any()) }
                         .thenReturn(Atomic(userGroupsConfig))
                 }
                 
@@ -561,13 +561,16 @@ class SessionUtilSpec: QuickSpec {
                     }
                     
                     expect(mockSessionUtilCache).to(call(.exactly(times: 3)) {
-                        $0.setConfig(for: any(), publicKey: any(), to: any())
+                        $0.setConfig(for: any(), sessionId: any(), to: any())
                     })
                     expect(mockSessionUtilCache)
                         .to(call(matchingParameters: .atLeast(2)) {
                             $0.setConfig(
                                 for: .groupInfo,
-                                publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                sessionId: SessionId(
+                                    .group,
+                                    hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                                ),
                                 to: any()
                             )
                         })
@@ -575,7 +578,10 @@ class SessionUtilSpec: QuickSpec {
                         .to(call(matchingParameters: .atLeast(2)) {
                             $0.setConfig(
                                 for: .groupMembers,
-                                publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                sessionId: SessionId(
+                                    .group,
+                                    hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                                ),
                                 to: any()
                             )
                         })
@@ -583,7 +589,10 @@ class SessionUtilSpec: QuickSpec {
                         .to(call(matchingParameters: .atLeast(2)) {
                             $0.setConfig(
                                 for: .groupKeys,
-                                publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                sessionId: SessionId(
+                                    .group,
+                                    hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                                ),
                                 to: any()
                             )
                         })
@@ -623,8 +632,13 @@ class SessionUtilSpec: QuickSpec {
                     
                     expect(result?.map { $0.variant }.asSet())
                         .to(contain([.groupInfo, .groupKeys, .groupMembers]))
-                    expect(result?.map { $0.publicKey }.asSet())
-                        .to(contain(["03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"]))
+                    expect(result?.map { $0.sessionId }.asSet())
+                        .to(contain([
+                            SessionId(
+                                .group,
+                                hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                            )
+                        ]))
                     expect(result?.map { $0.timestampMs }.asSet())
                         .to(contain([1234567890000]))
                 }

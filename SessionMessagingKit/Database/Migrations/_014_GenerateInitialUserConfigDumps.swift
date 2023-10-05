@@ -25,7 +25,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         }
         
         // Create the initial config state
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
         
         SessionUtil.loadState(db, using: dependencies)
@@ -39,7 +39,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         // MARK: - UserProfile Config Dump
         
         try dependencies[cache: .sessionUtil]
-            .config(for: .userProfile, publicKey: userPublicKey)
+            .config(for: .userProfile, sessionId: userSessionId)
             .mutate { config in
                 try SessionUtil.update(
                     profile: Profile.fetchOrCreateCurrentUser(db),
@@ -48,9 +48,9 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 
                 try SessionUtil.updateNoteToSelf(
                     priority: {
-                        guard allThreads[userPublicKey]?.shouldBeVisible == true else { return SessionUtil.hiddenPriority }
+                        guard allThreads[userSessionId.hexString]?.shouldBeVisible == true else { return SessionUtil.hiddenPriority }
                         
-                        return Int32(allThreads[userPublicKey]?.pinnedPriority ?? 0)
+                        return Int32(allThreads[userSessionId.hexString]?.pinnedPriority ?? 0)
                     }(),
                     in: config
                 )
@@ -60,7 +60,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         .createDump(
                             config: config,
                             for: .userProfile,
-                            publicKey: userPublicKey,
+                            sessionId: userSessionId,
                             timestampMs: timestampMs
                         )?
                         .save(db)
@@ -70,15 +70,15 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         // MARK: - Contact Config Dump
         
         try dependencies[cache: .sessionUtil]
-            .config(for: .contacts, publicKey: userPublicKey)
+            .config(for: .contacts, sessionId: userSessionId)
             .mutate { config in
                 // Exclude Note to Self, community, group and outgoing blinded message requests
                 let validContactIds: [String] = allThreads
                     .values
                     .filter { thread in
                         thread.variant == .contact &&
-                        thread.id != userPublicKey &&
-                        SessionId(from: thread.id)?.prefix == .standard
+                        thread.id != userSessionId.hexString &&
+                        (try? SessionId(from: thread.id))?.prefix == .standard
                     }
                     .map { $0.id }
                 let contactsData: [ContactInfo] = try Contact
@@ -126,7 +126,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         .createDump(
                             config: config,
                             for: .contacts,
-                            publicKey: userPublicKey,
+                            sessionId: userSessionId,
                             timestampMs: timestampMs
                         )?
                         .save(db)
@@ -136,7 +136,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         // MARK: - ConvoInfoVolatile Config Dump
         
         try dependencies[cache: .sessionUtil]
-            .config(for: .convoInfoVolatile, publicKey: userPublicKey)
+            .config(for: .convoInfoVolatile, sessionId: userSessionId)
             .mutate { config in
                 let volatileThreadInfo: [SessionUtil.VolatileThreadInfo] = SessionUtil.VolatileThreadInfo
                     .fetchAll(db, ids: Array(allThreads.keys))
@@ -151,7 +151,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         .createDump(
                             config: config,
                             for: .convoInfoVolatile,
-                            publicKey: userPublicKey,
+                            sessionId: userSessionId,
                             timestampMs: timestampMs
                         )?
                         .save(db)
@@ -161,7 +161,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         // MARK: - UserGroups Config Dump
         
         try dependencies[cache: .sessionUtil]
-            .config(for: .userGroups, publicKey: userPublicKey)
+            .config(for: .userGroups, sessionId: userSessionId)
             .mutate { config in
                 let legacyGroupData: [SessionUtil.LegacyGroupInfo] = try SessionUtil.LegacyGroupInfo.fetchAll(db)
                 let communityData: [SessionUtil.OpenGroupUrlInfo] = try SessionUtil.OpenGroupUrlInfo
@@ -187,7 +187,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                         .createDump(
                             config: config,
                             for: .userGroups,
-                            publicKey: userPublicKey,
+                            sessionId: userSessionId,
                             timestampMs: timestampMs
                         )?
                         .save(db)
@@ -201,8 +201,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         // MARK: - Syncing
         
         // Enqueue a config sync job to ensure the generated configs get synced
-        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userPublicKey)) { db in
-            ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
+        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userSessionId.hexString)) { db in
+            ConfigurationSyncJob.enqueue(db, sessionIdHexString: userSessionId.hexString)
         }
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)

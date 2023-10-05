@@ -65,7 +65,7 @@ extension MessageReceiver {
         }
         
         // Store the message variant so we can run variant-specific behaviours
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let thread: SessionThread = try SessionThread
             .fetchOrCreate(db, id: threadId, variant: threadVariant, shouldBeVisible: nil)
         let maybeOpenGroup: OpenGroup? = {
@@ -75,10 +75,10 @@ extension MessageReceiver {
         }()
         let variant: Interaction.Variant = try {
             guard
-                let senderSessionId: SessionId = SessionId(from: sender),
+                let senderSessionId: SessionId = try? SessionId(from: sender),
                 let openGroup: OpenGroup = maybeOpenGroup
             else {
-                return (sender == currentUserPublicKey ?
+                return (sender == userSessionId.hexString ?
                     .standardOutgoing :
                     .standardIncoming
                 )
@@ -109,7 +109,7 @@ extension MessageReceiver {
                     )
                     
                 case .standard, .unblinded:
-                    return (sender == currentUserPublicKey ?
+                    return (sender == userSessionId.hexString ?
                         .standardOutgoing :
                         .standardIncoming
                     )
@@ -155,7 +155,7 @@ extension MessageReceiver {
                         threadId: thread.id,
                         threadVariant: thread.variant,
                         timestampMs: Int64(messageSentTimestamp * 1000),
-                        userPublicKey: currentUserPublicKey,
+                        userSessionId: userSessionId,
                         openGroup: maybeOpenGroup,
                         using: dependencies
                     )
@@ -342,7 +342,8 @@ extension MessageReceiver {
             try MessageReceiver.updateContactApprovalStatusIfNeeded(
                 db,
                 senderSessionId: sender,
-                threadId: thread.id
+                threadId: thread.id,
+                using: dependencies
             )
         }
         
@@ -401,7 +402,7 @@ extension MessageReceiver {
                 // requiring main-thread execution
                 let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
                 let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
-                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let reaction: Reaction = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
@@ -415,14 +416,14 @@ extension MessageReceiver {
                     threadId: thread.id,
                     threadVariant: thread.variant,
                     timestampMs: timestampMs,
-                    userPublicKey: currentUserPublicKey,
+                    userSessionId: userSessionId,
                     openGroup: openGroup,
                     using: dependencies
                 )
                 
                 // Don't notify if the reaction was added before the lastest read timestamp for
                 // the conversation
-                if sender != currentUserPublicKey && !timestampAlreadyRead {
+                if sender != userSessionId.hexString && !timestampAlreadyRead {
                     Environment.shared?.notificationsManager.wrappedValue?
                         .notifyUser(
                             db,

@@ -43,11 +43,11 @@ public enum PushNotificationAPI {
         
         return dependencies[singleton: .storage]
             .readPublisher(using: dependencies) { db -> SubscribeAllPreparedRequests in
-                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let preparedUserRequest = try PushNotificationAPI
                     .preparedSubscribe(
                         db,
-                        publicKey: currentUserPublicKey,
+                        sessionId: userSessionId,
                         using: dependencies
                     )
                     .handleEvents(
@@ -63,13 +63,13 @@ public enum PushNotificationAPI {
                     .preparedSubscribeToLegacyGroups(
                         forced: true,
                         token: hexEncodedToken,
-                        currentUserPublicKey: currentUserPublicKey,
+                        userSessionId: userSessionId,
                         legacyGroupIds: try ClosedGroup
                             .select(.threadId)
                             .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
                             .joining(
                                 required: ClosedGroup.members
-                                    .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
                             )
                             .asRequest(of: String.self)
                             .fetchSet(db),
@@ -118,12 +118,12 @@ public enum PushNotificationAPI {
                     throw SnodeAPIError.noKeyPair
                 }
                 
-                let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let preparedUserRequest = try PushNotificationAPI
                     .preparedUnsubscribe(
                         db,
                         token: token,
-                        publicKey: currentUserPublicKey,
+                        sessionId: userSessionId,
                         subkey: nil,
                         ed25519KeyPair: userED25519KeyPair
                     )
@@ -145,7 +145,7 @@ public enum PushNotificationAPI {
                     .compactMap { legacyGroupId in
                         try? PushNotificationAPI.preparedUnsubscribeFromLegacyGroup(
                             legacyGroupId: legacyGroupId,
-                            currentUserPublicKey: currentUserPublicKey
+                            userSessionId: userSessionId
                         )
                     }
                 
@@ -171,7 +171,7 @@ public enum PushNotificationAPI {
     
     public static func preparedSubscribe(
         _ db: Database,
-        publicKey: String,
+        sessionId: SessionId,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<SubscribeResponse> {
         guard
@@ -191,7 +191,7 @@ public enum PushNotificationAPI {
                     endpoint: .subscribe,
                     body: SubscribeRequest(
                         namespaces: {
-                            switch SessionId.Prefix(from: publicKey) {
+                            switch sessionId.prefix {
                                 case .group: return [.default]
                                 default: return [.default, .configConvoInfoVolatile]
                             }
@@ -204,7 +204,11 @@ public enum PushNotificationAPI {
                             token: token
                         ),
                         notificationsEncryptionKey: notificationsEncryptionKey,
-                        authInfo: try SnodeAPI.AuthenticationInfo(db, threadId: publicKey, using: dependencies),
+                        authInfo: try SnodeAPI.AuthenticationInfo(
+                            db,
+                            sessionIdHexString: sessionId.hexString,
+                            using: dependencies
+                        ),
                         timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)  // Seconds
                     )
                 ),
@@ -214,13 +218,13 @@ public enum PushNotificationAPI {
             .handleEvents(
                 receiveOutput: { _, response in
                     guard response.success == true else {
-                        return SNLog("Couldn't subscribe for push notifications for: \(publicKey) due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
+                        return SNLog("Couldn't subscribe for push notifications for: \(sessionId) due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
                     }
                 },
                 receiveCompletion: { result in
                     switch result {
                         case .finished: break
-                        case .failure: SNLog("Couldn't subscribe for push notifications for: \(publicKey).")
+                        case .failure: SNLog("Couldn't subscribe for push notifications for: \(sessionId).")
                     }
                 }
             )
@@ -229,7 +233,7 @@ public enum PushNotificationAPI {
     public static func preparedUnsubscribe(
         _ db: Database,
         token: Data,
-        publicKey: String,
+        sessionId: SessionId,
         subkey: String?,
         ed25519KeyPair: KeyPair,
         using dependencies: Dependencies = Dependencies()
@@ -243,7 +247,11 @@ public enum PushNotificationAPI {
                         serviceInfo: UnsubscribeRequest.ServiceInfo(
                             token: token.toHexString()
                         ),
-                        authInfo: try SnodeAPI.AuthenticationInfo(db, threadId: publicKey, using: dependencies),
+                        authInfo: try SnodeAPI.AuthenticationInfo(
+                            db,
+                            sessionIdHexString: sessionId.hexString,
+                            using: dependencies
+                        ),
                         timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)  // Seconds
                     )
                 ),
@@ -253,13 +261,13 @@ public enum PushNotificationAPI {
             .handleEvents(
                 receiveOutput: { _, response in
                     guard response.success == true else {
-                        return SNLog("Couldn't unsubscribe for push notifications for: \(publicKey) due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
+                        return SNLog("Couldn't unsubscribe for push notifications for: \(sessionId) due to error (\(response.error ?? -1)): \(response.message ?? "nil").")
                     }
                 },
                 receiveCompletion: { result in
                     switch result {
                         case .finished: break
-                        case .failure: SNLog("Couldn't unsubscribe for push notifications for: \(publicKey).")
+                        case .failure: SNLog("Couldn't unsubscribe for push notifications for: \(sessionId).")
                     }
                 }
             )
@@ -308,7 +316,7 @@ public enum PushNotificationAPI {
     public static func preparedSubscribeToLegacyGroups(
         forced: Bool = false,
         token: String? = nil,
-        currentUserPublicKey: String,
+        userSessionId: SessionId,
         legacyGroupIds: Set<String>,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse>? {
@@ -328,7 +336,7 @@ public enum PushNotificationAPI {
                     endpoint: .legacyGroupsOnlySubscribe,
                     body: LegacyGroupOnlyRequest(
                         token: deviceToken,
-                        pubKey: currentUserPublicKey,
+                        pubKey: userSessionId.hexString,
                         device: "ios",
                         legacyGroupPublicKeys: legacyGroupIds
                     )
@@ -354,7 +362,7 @@ public enum PushNotificationAPI {
     // FIXME: Remove this once legacy groups are deprecated
     public static func preparedUnsubscribeFromLegacyGroup(
         legacyGroupId: String,
-        currentUserPublicKey: String,
+        userSessionId: SessionId,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse> {
         return try PushNotificationAPI
@@ -363,7 +371,7 @@ public enum PushNotificationAPI {
                     method: .post,
                     endpoint: .legacyGroupUnsubscribe,
                     body: LegacyGroupRequest(
-                        pubKey: currentUserPublicKey,
+                        pubKey: userSessionId.hexString,
                         closedGroupPublicKey: legacyGroupId
                     )
                 ),

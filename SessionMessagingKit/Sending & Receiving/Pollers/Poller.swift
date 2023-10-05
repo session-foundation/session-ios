@@ -182,7 +182,11 @@ public class Poller {
                             namespaces: namespaces,
                             refreshingConfigHashes: configHashes,
                             from: snode,
-                            authInfo: try SnodeAPI.AuthenticationInfo(db, threadId: publicKey, using: dependencies),
+                            authInfo: try SnodeAPI.AuthenticationInfo(
+                                db,
+                                sessionIdHexString: publicKey,
+                                using: dependencies
+                            ),
                             using: dependencies
                         )
                     }

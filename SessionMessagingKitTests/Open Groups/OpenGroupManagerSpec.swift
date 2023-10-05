@@ -175,7 +175,7 @@ class OpenGroupManagerSpec: QuickSpec {
         @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults()
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
-                cache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
             }
         )
         @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
@@ -2261,7 +2261,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     beforeEach {
                         mockCrypto
                             .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
-                            .thenReturn(Data(hex: testDirectMessage.sender.removingIdPrefixIfNeeded()).bytes)
+                            .thenReturn(SessionId(.standard, hex: testDirectMessage.sender).publicKey)
                         mockCrypto
                             .when { [dependencies = dependencies!] crypto in
                                 crypto.verify(
@@ -2368,7 +2368,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     beforeEach {
                         mockCrypto
                             .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
-                            .thenReturn(Data(hex: testDirectMessage.recipient.removingIdPrefixIfNeeded()).bytes)
+                            .thenReturn(SessionId(.standard, hex: testDirectMessage.recipient).publicKey)
                         mockCrypto
                             .when { [dependencies = dependencies!] crypto in
                                 crypto.verify(
@@ -2780,7 +2780,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ returns true if the key is the current users and the users session id is a moderator or admin
                     it("returns true if the key is the current users and the users session id is a moderator or admin") {
                         let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                        mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(otherKey)")
+                        mockGeneralCache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: otherKey))
                         mockStorage.write { db in
                             try GroupMember(
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
@@ -2925,7 +2925,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ returns true if the key is the current users and the users session id is a moderator or admin
                     it("returns true if the key is the current users and the users session id is a moderator or admin") {
                         let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
-                        mockGeneralCache.when { $0.encodedPublicKey }.thenReturn("05\(otherKey)")
+                        mockGeneralCache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: otherKey))
                         mockCrypto
                             .when { [dependencies = dependencies!] crypto in
                                 crypto.generate(

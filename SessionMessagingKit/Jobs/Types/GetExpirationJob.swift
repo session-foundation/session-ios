@@ -42,14 +42,18 @@ public enum GetExpirationJob: JobExecutor {
             return
         }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(using: dependencies)
         SnodeAPI
-            .getSwarm(for: userPublicKey, using: dependencies)
+            .getSwarm(for: userSessionId.hexString, using: dependencies)
             .tryFlatMap { swarm -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> in
                 guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
                 return dependencies[singleton: .storage]
                     .readPublisher(using: dependencies) { db in
-                        try SnodeAPI.AuthenticationInfo(db, threadId: userPublicKey, using: dependencies)
+                        try SnodeAPI.AuthenticationInfo(
+                            db,
+                            sessionIdHexString: userSessionId.hexString,
+                            using: dependencies
+                        )
                     }
                     .flatMap { authInfo in
                         SnodeAPI.getExpiries(

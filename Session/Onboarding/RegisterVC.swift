@@ -177,30 +177,30 @@ final class RegisterVC : BaseVC {
     }
     
     private func updatePublicKeyLabel() {
-        let hexEncodedPublicKey = x25519KeyPair.hexEncodedPublicKey
-        publicKeyLabel.accessibilityLabel = hexEncodedPublicKey
+        let sessionId: SessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
+        publicKeyLabel.accessibilityLabel = sessionId.hexString
         publicKeyLabel.accessibilityIdentifier = "Session ID"
         publicKeyLabel.isAccessibilityElement = true
-        let characterCount = hexEncodedPublicKey.count
+        let characterCount = sessionId.hexString.count
         var count = 0
         let limit = 32
         func animate() {
             let numberOfIndexesToShuffle = 32 - count
             let indexesToShuffle = (0..<characterCount).shuffled()[0..<numberOfIndexesToShuffle]
-            var mangledHexEncodedPublicKey = hexEncodedPublicKey
+            var mangledSessionId = sessionId.hexString
             for index in indexesToShuffle {
-                let startIndex = mangledHexEncodedPublicKey.index(mangledHexEncodedPublicKey.startIndex, offsetBy: index)
-                let endIndex = mangledHexEncodedPublicKey.index(after: startIndex)
-                mangledHexEncodedPublicKey.replaceSubrange(startIndex..<endIndex, with: "0123456789abcdef__".shuffled()[0..<1]) // stringlint:disable
+                let startIndex = mangledSessionId.index(mangledSessionId.startIndex, offsetBy: index)
+                let endIndex = mangledSessionId.index(after: startIndex)
+                mangledSessionId.replaceSubrange(startIndex..<endIndex, with: "0123456789abcdef__".shuffled()[0..<1]) // stringlint:disable
             }
             count += 1
             if count < limit {
-                publicKeyLabel.text = mangledHexEncodedPublicKey
+                publicKeyLabel.text = mangledSessionId
                 Timer.scheduledTimer(withTimeInterval: 0.032, repeats: false) { _ in
                     animate()
                 }
             } else {
-                publicKeyLabel.text = hexEncodedPublicKey
+                publicKeyLabel.text = sessionId.hexString
             }
         }
         animate()
@@ -221,7 +221,7 @@ final class RegisterVC : BaseVC {
     }
     
     @objc private func copyPublicKey() {
-        UIPasteboard.general.string = x25519KeyPair.hexEncodedPublicKey
+        UIPasteboard.general.string = SessionId(.standard, publicKey: x25519KeyPair.publicKey).hexString
         copyPublicKeyButton.isUserInteractionEnabled = false
         copyPublicKeyButton.accessibilityLabel = "Copy session id"
         copyPublicKeyButton.isAccessibilityElement = true

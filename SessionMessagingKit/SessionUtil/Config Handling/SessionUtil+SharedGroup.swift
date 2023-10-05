@@ -11,6 +11,7 @@ import SessionUtilitiesKit
 
 internal extension SessionUtil {
     typealias CreatedGroupInfo = (
+        groupSessionId: SessionId,
         identityKeyPair: KeyPair,
         groupState: [ConfigDump.Variant: Config],
         group: ClosedGroup,
@@ -37,11 +38,11 @@ internal extension SessionUtil {
         var secretKey: [UInt8] = userED25519KeyPair.secretKey
         var groupIdentityPublicKey: [UInt8] = groupIdentityKeyPair.publicKey
         var groupIdentityPrivateKey: [UInt8] = groupIdentityKeyPair.secretKey
-        let groupId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
+        let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         let creationTimestamp: TimeInterval = TimeInterval(
             SnodeAPI.currentOffsetTimestampMs(using: dependencies) / 1000
         )
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let currentUserProfile: Profile? = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
         
         // Create the new config objects
@@ -105,7 +106,7 @@ internal extension SessionUtil {
         let finalMembers: [String: (profile: Profile?, isAdmin: Bool)] = members
             .map { ($0.id, $0.profile, false) }
             .appending(contentsOf: admins.map { ($0.id, $0.profile, true) })
-            .appending((currentUserPublicKey, currentUserProfile, true))
+            .appending((userSessionId.hexString, currentUserProfile, true))
             .reduce(into: [:]) { result, next in result[next.0] = (profile: next.1, isAdmin: next.2)}
         
         try finalMembers.forEach { memberId, info in
@@ -141,15 +142,16 @@ internal extension SessionUtil {
         
         dependencies.mutate(cache: .sessionUtil) { cache in
             groupState.forEach { variant, config in
-                cache.setConfig(for: variant, publicKey: groupId.hexString, to: config)
+                cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
             }
         }
         
         return (
+            SessionId(.group, publicKey: groupIdentityPublicKey),
             groupIdentityKeyPair,
             groupState,
             ClosedGroup(
-                threadId: groupId.hexString,
+                threadId: groupSessionId.hexString,
                 name: name,
                 formationTimestamp: creationTimestamp,
                 displayPictureUrl: displayPictureUrl,
@@ -161,7 +163,7 @@ internal extension SessionUtil {
             ),
             finalMembers.map { memberId, info -> GroupMember in
                 GroupMember(
-                    groupId: groupId.hexString,
+                    groupId: groupSessionId.hexString,
                     profileId: memberId,
                     role: (info.isAdmin ? .admin : .standard),
                     isHidden: false
@@ -172,17 +174,17 @@ internal extension SessionUtil {
     
     static func removeGroupStateIfNeeded(
         _ db: Database,
-        groupIdentityPublicKey: String,
+        groupSessionId: SessionId,
         using dependencies: Dependencies
     ) {
         dependencies.mutate(cache: .sessionUtil) { cache in
-            cache.setConfig(for: .groupKeys, publicKey: groupIdentityPublicKey, to: nil)
-            cache.setConfig(for: .groupInfo, publicKey: groupIdentityPublicKey, to: nil)
-            cache.setConfig(for: .groupMembers, publicKey: groupIdentityPublicKey, to: nil)
+            cache.setConfig(for: .groupKeys, sessionId: groupSessionId, to: nil)
+            cache.setConfig(for: .groupInfo, sessionId: groupSessionId, to: nil)
+            cache.setConfig(for: .groupMembers, sessionId: groupSessionId, to: nil)
         }
         
         _ = try? ConfigDump
-            .filter(ConfigDump.Columns.publicKey == groupIdentityPublicKey)
+            .filter(ConfigDump.Columns.sessionId == groupSessionId.hexString)
             .deleteAll(db)
     }
     
@@ -197,7 +199,7 @@ internal extension SessionUtil {
             try SessionUtil.createDump(
                 config: config,
                 for: variant,
-                publicKey: group.id,
+                sessionId: SessionId(.group, hex: group.id),
                 timestampMs: Int64(floor(group.formationTimestamp * 1000))
             )?.save(db)
         }
@@ -205,7 +207,7 @@ internal extension SessionUtil {
         // Add the new group to the USER_GROUPS config message
         try SessionUtil.add(
             db,
-            groupIdentityPublicKey: group.id,
+            groupSessionId: group.id,
             groupIdentityPrivateKey: group.groupIdentityPrivateKey,
             name: group.name,
             authData: group.authData,
@@ -216,14 +218,14 @@ internal extension SessionUtil {
     }
     
     @discardableResult static func createGroupState(
-        groupId: String,
+        groupSessionId: SessionId,
         userED25519KeyPair: KeyPair,
         groupIdentityPrivateKey: Data?,
         authData: Data?,
         using dependencies: Dependencies
     ) throws -> [ConfigDump.Variant: Config] {
         var secretKey: [UInt8] = userED25519KeyPair.secretKey
-        var groupIdentityPublicKey: [UInt8] = Array(Data(hex: groupId.removingIdPrefixIfNeeded()))
+        var groupIdentityPublicKey: [UInt8] = groupSessionId.publicKey
         var groupIdentityPrivateKey: [UInt8] = Array(groupIdentityPrivateKey!)
         
         // Create the new config objects
@@ -277,7 +279,7 @@ internal extension SessionUtil {
         
         dependencies.mutate(cache: .sessionUtil) { cache in
             groupState.forEach { variant, config in
-                cache.setConfig(for: variant, publicKey: groupId, to: config)
+                cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
             }
         }
         
@@ -286,11 +288,11 @@ internal extension SessionUtil {
     
     static func encrypt(
         message: Data,
-        groupIdentityPublicKey: String,
+        groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> Data {
         return try dependencies[cache: .sessionUtil]
-            .config(for: .groupKeys, publicKey: groupIdentityPublicKey)
+            .config(for: .groupKeys, sessionId: groupSessionId)
             .wrappedValue
             .map { config in
                 guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
@@ -317,11 +319,11 @@ internal extension SessionUtil {
     
     static func decrypt(
         ciphertext: Data,
-        groupIdentityPublicKey: String,
+        groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws -> (plaintext: Data, sender: String) {
         return try dependencies[cache: .sessionUtil]
-            .config(for: .groupKeys, publicKey: groupIdentityPublicKey)
+            .config(for: .groupKeys, sessionId: groupSessionId)
             .wrappedValue
             .map { config -> (Data, String) in
                 guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }

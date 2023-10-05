@@ -29,12 +29,12 @@ public final class CurrentUserPoller: Poller {
     // MARK: - Convenience Functions
     
     public func start(using dependencies: Dependencies = Dependencies()) {
-        let publicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(using: dependencies)
         
-        guard isPolling.wrappedValue[publicKey] != true else { return }
+        guard isPolling.wrappedValue[userSessionId.hexString] != true else { return }
         
         SNLog("Started polling.")
-        super.startIfNeeded(for: publicKey, using: dependencies)
+        super.startIfNeeded(for: userSessionId.hexString, using: dependencies)
     }
     
     public func stop() {

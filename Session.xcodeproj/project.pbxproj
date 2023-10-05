@@ -413,7 +413,6 @@
 		C3C2A74D2553A39700C340D1 /* VisibleMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A74C2553A39700C340D1 /* VisibleMessage.swift */; };
 		C3C2A75F2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A75E2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift */; };
 		C3C2A7852553AAF300C340D1 /* SessionProtos.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A7832553AAF300C340D1 /* SessionProtos.pb.swift */; };
-		C3C2AC2E2553CBEB00C340D1 /* String+Trimming.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2AC2D2553CBEB00C340D1 /* String+Trimming.swift */; };
 		C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */ = {isa = PBXBuildFile; fileRef = C3CA3AA1255CDADA00F4C6D4 /* english.txt */; };
 		C3CA3AB4255CDAE600F4C6D4 /* japanese.txt in Resources */ = {isa = PBXBuildFile; fileRef = C3CA3AB3255CDAE600F4C6D4 /* japanese.txt */; };
 		C3CA3ABE255CDB0D00F4C6D4 /* portuguese.txt in Resources */ = {isa = PBXBuildFile; fileRef = C3CA3ABD255CDB0D00F4C6D4 /* portuguese.txt */; };
@@ -1653,7 +1652,6 @@
 		C3C2A7702553A41E00C340D1 /* ControlMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlMessage.swift; sourceTree = "<group>"; };
 		C3C2A7822553AAF200C340D1 /* SNProto.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SNProto.swift; sourceTree = "<group>"; };
 		C3C2A7832553AAF300C340D1 /* SessionProtos.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SessionProtos.pb.swift; sourceTree = "<group>"; };
-		C3C2AC2D2553CBEB00C340D1 /* String+Trimming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Trimming.swift"; sourceTree = "<group>"; };
 		C3C3CF8824D8EED300E1CCE7 /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
 		C3CA3AA1255CDADA00F4C6D4 /* english.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = english.txt; sourceTree = "<group>"; };
 		C3CA3AB3255CDAE600F4C6D4 /* japanese.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = japanese.txt; sourceTree = "<group>"; };
@@ -2796,7 +2794,6 @@
 				FD17D7AF27F4225C00122BE0 /* Set+Utilities.swift */,
 				FD77289D284EF1C50018502F /* Sodium+Utilities.swift */,
 				C33FDB3F255A580C00E217F9 /* String+SSK.swift */,
-				C3C2AC2D2553CBEB00C340D1 /* String+Trimming.swift */,
 				FD7728952849E7E90018502F /* String+Utilities.swift */,
 				FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */,
 				C38EF237255B6D65007E1867 /* UIDevice+featureSupport.swift */,
@@ -6131,7 +6128,6 @@
 				FD09797D27FBDB2000936362 /* Notification+Utilities.swift in Sources */,
 				FD1F9C9F2A862BE60050F671 /* MigrationRequirement.swift in Sources */,
 				FDC6D7602862B3F600B04575 /* Dependencies.swift in Sources */,
-				C3C2AC2E2553CBEB00C340D1 /* String+Trimming.swift in Sources */,
 				FD17D7C727F5207C00122BE0 /* DatabaseMigrator+Utilities.swift in Sources */,
 				FD848B9328420164000E298B /* UnicodeScalar+Utilities.swift in Sources */,
 				FD09796B27F6C67500936362 /* Failable.swift in Sources */,
@@ -6418,7 +6414,6 @@
 				FD245C56285065EA00B966DD /* SNProto.swift in Sources */,
 				FD09798B27FD1CFE00936362 /* Capability.swift in Sources */,
 				C3BBE0C72554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift in Sources */,
-				FD1D732A2A85AA2000E3F410 /* Setting+Utilities.swift in Sources */,
 				FD09798127FCFEE800936362 /* SessionThread.swift in Sources */,
 				FD09C5EA282A1BB2000CE219 /* ThreadTypingIndicator.swift in Sources */,
 				FDB5DADA2A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift in Sources */,

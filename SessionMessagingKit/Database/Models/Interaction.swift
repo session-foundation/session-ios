@@ -433,9 +433,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                         
                         // Exclude the current user when creating recipient states (as they will never
                         // receive the message resulting in the message getting flagged as failed)
-                        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                        let userSessionId: SessionId = getUserSessionId(db)
                         try closedGroupMemberIds
-                            .filter { memberId -> Bool in memberId != userPublicKey }
+                            .filter { memberId -> Bool in memberId != userSessionId.hexString }
                             .forEach { memberId in
                                 try RecipientState(
                                     interactionId: success.rowID,
@@ -524,7 +524,7 @@ public extension Interaction {
         _ db: Database,
         using dependencies: Dependencies = Dependencies()
     ) throws -> Int {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         
         return try Interaction
@@ -547,7 +547,7 @@ public extension Interaction {
                     .filter(
                         // Ignore message request threads
                         SessionThread.Columns.variant != SessionThread.Variant.contact ||
-                        !SessionThread.isMessageRequest(userPublicKey: userPublicKey)
+                        !SessionThread.isMessageRequest(userSessionId: userSessionId)
                     )
             )
             .fetchCount(db)
@@ -926,7 +926,7 @@ public extension Interaction {
         using dependencies: Dependencies = Dependencies()
     ) -> Bool {
         var publicKeysToCheck: [String] = [
-            getUserHexEncodedPublicKey(db, using: dependencies)
+            getUserSessionId(db, using: dependencies).hexString
         ]
         
         // If the thread is an open group then add the blinded id as a key to check

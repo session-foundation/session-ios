@@ -118,10 +118,10 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             // If we changed a column that requires a config update then we may as well automatically
             // enqueue a new config sync job once the transaction completes (but only enqueue it once
             // per transaction - doing it more than once is pointless)
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
+            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
             
-            db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userPublicKey)) { db in
-                ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
+            db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userSessionId.hexString)) { db in
+                ConfigurationSyncJob.enqueue(db, sessionIdHexString: userSessionId.hexString)
             }
         }
         

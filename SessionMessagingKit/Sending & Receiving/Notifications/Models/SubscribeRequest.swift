@@ -88,15 +88,15 @@ extension PushNotificationAPI {
             try container.encode(notificationsEncryptionKey.toHexString(), forKey: .notificationsEncryptionKey)
             
             switch authInfo {
-                case .standard(let pubkey, let ed25519KeyPair):
-                    try container.encode(pubkey, forKey: .pubkey)
+                case .standard(let sessionId, let ed25519KeyPair):
+                    try container.encode(sessionId.hexString, forKey: .pubkey)
                     try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
                     
-                case .groupAdmin(let pubkey, _):
-                    try container.encode(pubkey, forKey: .pubkey)
+                case .groupAdmin(let sessionId, _):
+                    try container.encode(sessionId.hexString, forKey: .pubkey)
                     
-                case .groupMember(let pubkey, let authData):
-                    try container.encode(pubkey, forKey: .pubkey)
+                case .groupMember(let sessionId, let authData):
+                    try container.encode(sessionId.hexString, forKey: .pubkey)
             }
         }
         
@@ -119,7 +119,7 @@ extension PushNotificationAPI {
             /// comma-delimited list of namespaces that should be subscribed to, in the same sorted order as
             /// the `namespaces` parameter.
             let verificationBytes: [UInt8] = "MONITOR".bytes
-                .appending(contentsOf: authInfo.publicKey.bytes)
+                .appending(contentsOf: authInfo.sessionId.hexString.bytes)
                 .appending(contentsOf: "\(timestamp)".bytes)
                 .appending(contentsOf: (includeMessageData ? "1" : "0").bytes)
                 .appending(

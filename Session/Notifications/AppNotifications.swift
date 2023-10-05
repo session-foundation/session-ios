@@ -178,14 +178,14 @@ public class NotificationPresenter: NotificationsProtocol {
             AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
-        let userBlinded15Key: String? = SessionThread.getUserHexEncodedBlindedKey(
+        let userSessionId: SessionId = getUserSessionId(db)
+        let userBlinded15SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
             db,
             threadId: thread.id,
             threadVariant: thread.variant,
             blindingPrefix: .blinded15
         )
-        let userBlinded25Key: String? = SessionThread.getUserHexEncodedBlindedKey(
+        let userBlinded25SessionId: SessionId? = SessionThread.getCurrentUserBlindedSessionId(
             db,
             threadId: thread.id,
             threadVariant: thread.variant,
@@ -203,9 +203,9 @@ public class NotificationPresenter: NotificationsProtocol {
         notificationBody = MentionUtilities.highlightMentionsNoAttributes(
             in: (notificationBody ?? ""),
             threadVariant: thread.variant,
-            currentUserPublicKey: userPublicKey,
-            currentUserBlinded15PublicKey: userBlinded15Key,
-            currentUserBlinded25PublicKey: userBlinded25Key
+            currentUserSessionId: userSessionId.hexString,
+            currentUserBlinded15SessionId: userBlinded15SessionId?.hexString,
+            currentUserBlinded25SessionId: userBlinded25SessionId?.hexString
         )
         
         self.adaptee.notify(
@@ -510,10 +510,10 @@ class NotificationActionHandler {
             .writePublisher { db -> HTTP.PreparedRequest<Void> in
                 let interaction: Interaction = try Interaction(
                     threadId: threadId,
-                    authorId: getUserHexEncodedPublicKey(db),
+                    authorId: getUserSessionId(db, using: dependencies).hexString,
                     variant: .standardOutgoing,
                     body: replyText,
-                    timestampMs: SnodeAPI.currentOffsetTimestampMs(),
+                    timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies),
                     hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: replyText)
                 ).inserted(db)
                 

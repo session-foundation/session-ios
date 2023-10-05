@@ -54,7 +54,7 @@ public class PlaceholderIcon {
                 text
         )
 
-        if content.count > 2 && SessionId.Prefix(from: content) != nil {
+        if content.count > 2 && (try? SessionId.Prefix(from: content)) != nil {
             content.removeFirst(2)
         }
         

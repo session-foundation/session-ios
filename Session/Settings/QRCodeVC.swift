@@ -170,7 +170,7 @@ private final class ViewMyQRCodeVC : UIViewController {
         
         // Set up QR code image view
         let qrCodeImageView = UIImageView(
-            image: QRCode.generate(for: getUserHexEncodedPublicKey(), hasBackground: false)
+            image: QRCode.generate(for: getUserSessionId().hexString, hasBackground: false)
                 .withRenderingMode(.alwaysTemplate)
         )
         qrCodeImageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
@@ -272,7 +272,7 @@ private final class ViewMyQRCodeVC : UIViewController {
     // MARK: - Interaction
     
     @objc private func shareQRCode() {
-        let qrCode = QRCode.generate(for: getUserHexEncodedPublicKey(), hasBackground: true)
+        let qrCode = QRCode.generate(for: getUserSessionId().hexString, hasBackground: true)
         let shareVC = UIActivityViewController(activityItems: [ qrCode ], applicationActivities: nil)
         if UIDevice.current.isIPad {
             shareVC.excludedActivityTypes = []

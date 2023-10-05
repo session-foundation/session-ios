@@ -16,30 +16,30 @@ extension MessageSender {
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
         dependencies[singleton: .storage]
-            .writePublisher { db -> (String, SessionThread, [HTTP.PreparedRequest<Void>], Set<String>) in
+            .writePublisher { db -> (SessionId, SessionThread, [HTTP.PreparedRequest<Void>], Set<String>) in
                 // Generate the group's two keys
                 guard
                     let groupKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair()),
                     let encryptionKeyPair: KeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair())
                 else { throw MessageSenderError.noKeyPair }
                 
-                // Includes the 'SessionId.Prefix.standard' prefix
-                let legacyGroupPublicKey: String = groupKeyPair.hexEncodedPublicKey
-                let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                // Legacy group ids have the 'SessionId.Prefix.standard' prefix
+                let legacyGroupSessionId: String = SessionId(.standard, publicKey: groupKeyPair.publicKey).hexString
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 var members: Set<String> = members
                 
                 // Create the group
-                members.insert(userPublicKey) // Ensure the current user is included in the member list
+                members.insert(userSessionId.hexString) // Ensure the current user is included in the member list
                 let membersAsData: [Data] = members.map { Data(hex: $0) }
-                let admins: Set<String> = [ userPublicKey ]
+                let admins: Set<String> = [ userSessionId.hexString ]
                 let adminsAsData: [Data] = admins.map { Data(hex: $0) }
                 let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 
                 // Create the relevant objects in the database
                 let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: legacyGroupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+                    .fetchOrCreate(db, id: legacyGroupSessionId, variant: .legacyGroup, shouldBeVisible: true)
                 try ClosedGroup(
-                    threadId: legacyGroupPublicKey,
+                    threadId: legacyGroupSessionId,
                     name: name,
                     formationTimestamp: formationTimestamp,
                     invited: false // Legacy groups are never in the "invite" state
@@ -48,7 +48,7 @@ extension MessageSender {
                 // Store the key pair
                 let latestKeyPairReceivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 try ClosedGroupKeyPair(
-                    threadId: legacyGroupPublicKey,
+                    threadId: legacyGroupSessionId,
                     publicKey: Data(encryptionKeyPair.publicKey),
                     secretKey: Data(encryptionKeyPair.secretKey),
                     receivedTimestamp: latestKeyPairReceivedTimestamp
@@ -57,7 +57,7 @@ extension MessageSender {
                 // Create the member objects
                 try admins.forEach { adminId in
                     try GroupMember(
-                        groupId: legacyGroupPublicKey,
+                        groupId: legacyGroupSessionId,
                         profileId: adminId,
                         role: .admin,
                         isHidden: false
@@ -66,7 +66,7 @@ extension MessageSender {
                 
                 try members.forEach { memberId in
                     try GroupMember(
-                        groupId: legacyGroupPublicKey,
+                        groupId: legacyGroupSessionId,
                         profileId: memberId,
                         role: .standard,
                         isHidden: false
@@ -76,12 +76,12 @@ extension MessageSender {
                 // Update libSession
                 try SessionUtil.add(
                     db,
-                    legacyGroupPublicKey: legacyGroupPublicKey,
+                    legacyGroupSessionId: legacyGroupSessionId,
                     name: name,
                     latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                     latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
                     latestKeyPairReceivedTimestamp: latestKeyPairReceivedTimestamp,
-                    disappearingConfig: DisappearingMessagesConfiguration.defaultWith(legacyGroupPublicKey),
+                    disappearingConfig: DisappearingMessagesConfiguration.defaultWith(legacyGroupSessionId),
                     members: members,
                     admins: admins,
                     formationTimestamp: formationTimestamp,
@@ -94,7 +94,7 @@ extension MessageSender {
                             db,
                             message: ClosedGroupControlMessage(
                                 kind: .new(
-                                    publicKey: Data(hex: legacyGroupPublicKey),
+                                    publicKey: Data(hex: legacyGroupSessionId),
                                     name: name,
                                     encryptionKeyPair: encryptionKeyPair,
                                     members: membersAsData,
@@ -117,15 +117,15 @@ extension MessageSender {
                     .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
                     .joining(
                         required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == userPublicKey)
+                            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
                     )
                     .asRequest(of: String.self)
                     .fetchSet(db)
-                    .inserting(legacyGroupPublicKey)  // Insert the new key just to be sure
+                    .inserting(legacyGroupSessionId)  // Insert the new key just to be sure
                 
-                return (userPublicKey, thread, memberSendData, allActiveLegacyGroupIds)
+                return (userSessionId, thread, memberSendData, allActiveLegacyGroupIds)
             }
-            .flatMap { userPublicKey, thread, memberSendData, allActiveLegacyGroupIds in
+            .flatMap { userSessionId, thread, memberSendData, allActiveLegacyGroupIds in
                 Publishers
                     .MergeMany(
                         // Send a closed group update message to all members individually
@@ -134,7 +134,7 @@ extension MessageSender {
                                 // Resubscribe to all legacy groups
                                 try? PushNotificationAPI
                                     .preparedSubscribeToLegacyGroups(
-                                        currentUserPublicKey: userPublicKey,
+                                        userSessionId: userSessionId,
                                         legacyGroupIds: allActiveLegacyGroupIds
                                     )?
                                     .map { _, _ in () }
@@ -161,12 +161,12 @@ extension MessageSender {
     /// The returned promise is fulfilled when the message has been sent to the group.
     private static func generateAndSendNewEncryptionKeyPair(
         targetMembers: Set<String>,
-        userPublicKey: String,
+        userSessionId: SessionId,
         allGroupMembers: [GroupMember],
         closedGroup: ClosedGroup,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
-        guard allGroupMembers.contains(where: { $0.role == .admin && $0.profileId == userPublicKey }) else {
+        guard allGroupMembers.contains(where: { $0.role == .admin && $0.profileId == userSessionId.hexString }) else {
             return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
                 .eraseToAnyPublisher()
         }
@@ -242,7 +242,7 @@ extension MessageSender {
                         // Update libSession
                         try? SessionUtil.update(
                             db,
-                            legacyGroupPublicKey: closedGroup.threadId,
+                            legacyGroupSessionId: closedGroup.threadId,
                             latestKeyPair: newKeyPair,
                             members: allGroupMembers
                                 .filter { $0.role == .standard || $0.role == .zombie }
@@ -269,21 +269,21 @@ extension MessageSender {
     }
     
     public static func update(
-        legacyGroupPublicKey: String,
+        legacyGroupSessionId: String,
         with members: Set<String>,
         name: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         return dependencies[singleton: .storage]
-            .writePublisher { db -> (String, ClosedGroup, [GroupMember], Set<String>) in
-                let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+            .writePublisher { db -> (SessionId, ClosedGroup, [GroupMember], Set<String>) in
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 
                 // Get the group, check preconditions & prepare
-                guard (try? SessionThread.exists(db, id: legacyGroupPublicKey)) == true else {
+                guard (try? SessionThread.exists(db, id: legacyGroupSessionId)) == true else {
                     SNLog("Can't update nonexistent closed group.")
                     throw MessageSenderError.noThread
                 }
-                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: legacyGroupPublicKey) else {
+                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: legacyGroupSessionId) else {
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
@@ -296,12 +296,12 @@ extension MessageSender {
                     
                     // Notify the user
                     let interaction: Interaction = try Interaction(
-                        threadId: legacyGroupPublicKey,
-                        authorId: userPublicKey,
+                        threadId: legacyGroupSessionId,
+                        authorId: userSessionId.hexString,
                         variant: .infoClosedGroupUpdated,
                         body: ClosedGroupControlMessage.Kind
                             .nameChange(name: name)
-                            .infoMessage(db, sender: userPublicKey),
+                            .infoMessage(db, sender: userSessionId.hexString),
                         timestampMs: SnodeAPI.currentOffsetTimestampMs()
                     ).inserted(db)
                     
@@ -312,7 +312,7 @@ extension MessageSender {
                         db,
                         message: ClosedGroupControlMessage(kind: .nameChange(name: name)),
                         interactionId: interactionId,
-                        threadId: legacyGroupPublicKey,
+                        threadId: legacyGroupSessionId,
                         threadVariant: .legacyGroup,
                         using: dependencies
                     )
@@ -320,7 +320,7 @@ extension MessageSender {
                     // Update libSession
                     try? SessionUtil.update(
                         db,
-                        legacyGroupPublicKey: closedGroup.threadId,
+                        legacyGroupSessionId: closedGroup.threadId,
                         name: name,
                         using: dependencies
                     )
@@ -342,7 +342,7 @@ extension MessageSender {
                         try addMembers(
                             db,
                             addedMembers: addedMembers,
-                            userPublicKey: userPublicKey,
+                            userSessionId: userSessionId,
                             allGroupMembers: allGroupMembers,
                             closedGroup: closedGroup,
                             using: dependencies
@@ -355,13 +355,13 @@ extension MessageSender {
                 
                 // Remove members if needed
                 return (
-                    userPublicKey,
+                    userSessionId,
                     closedGroup,
                     allGroupMembers,
                     Set(standardAndZombieMemberIds).subtracting(members)
                 )
             }
-            .flatMap { userPublicKey, closedGroup, allGroupMembers, removedMembers -> AnyPublisher<Void, Error> in
+            .flatMap { userSessionId, closedGroup, allGroupMembers, removedMembers -> AnyPublisher<Void, Error> in
                 guard !removedMembers.isEmpty else {
                     return Just(())
                         .setFailureType(to: Error.self)
@@ -370,7 +370,7 @@ extension MessageSender {
                 
                 return removeMembers(
                     removedMembers: removedMembers,
-                    userPublicKey: userPublicKey,
+                    userSessionId: userSessionId,
                     allGroupMembers: allGroupMembers,
                     closedGroup: closedGroup,
                     using: dependencies
@@ -387,7 +387,7 @@ extension MessageSender {
     private static func addMembers(
         _ db: Database,
         addedMembers: Set<String>,
-        userPublicKey: String,
+        userSessionId: SessionId,
         allGroupMembers: [GroupMember],
         closedGroup: ClosedGroup,
         using dependencies: Dependencies
@@ -412,11 +412,11 @@ extension MessageSender {
         // Notify the user
         let interaction: Interaction = try Interaction(
             threadId: closedGroup.threadId,
-            authorId: userPublicKey,
+            authorId: userSessionId.hexString,
             variant: .infoClosedGroupUpdated,
             body: ClosedGroupControlMessage.Kind
                 .membersAdded(members: addedMembers.map { Data(hex: $0) })
-                .infoMessage(db, sender: userPublicKey),
+                .infoMessage(db, sender: userSessionId.hexString),
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         
@@ -425,7 +425,7 @@ extension MessageSender {
         // Update libSession
         try? SessionUtil.update(
             db,
-            legacyGroupPublicKey: closedGroup.threadId,
+            legacyGroupSessionId: closedGroup.threadId,
             members: allGroupMembers
                 .filter { $0.role == .standard || $0.role == .zombie }
                 .map { $0.profileId }
@@ -496,17 +496,17 @@ extension MessageSender {
     /// generated and distributed.
     private static func removeMembers(
         removedMembers: Set<String>,
-        userPublicKey: String,
+        userSessionId: SessionId,
         allGroupMembers: [GroupMember],
         closedGroup: ClosedGroup,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        guard !removedMembers.contains(userPublicKey) else {
+        guard !removedMembers.contains(userSessionId.hexString) else {
             SNLog("Invalid closed group update.")
             return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
                 .eraseToAnyPublisher()
         }
-        guard allGroupMembers.contains(where: { $0.role == .admin && $0.profileId == userPublicKey }) else {
+        guard allGroupMembers.contains(where: { $0.role == .admin && $0.profileId == userSessionId.hexString }) else {
             SNLog("Only an admin can remove members from a group.")
             return Fail(error: MessageSenderError.invalidClosedGroupUpdate)
                 .eraseToAnyPublisher()
@@ -535,11 +535,11 @@ extension MessageSender {
                 if !removedMembers.subtracting(groupZombieIds).isEmpty {
                     let interaction: Interaction = try Interaction(
                         threadId: closedGroup.threadId,
-                        authorId: userPublicKey,
+                        authorId: userSessionId.hexString,
                         variant: .infoClosedGroupUpdated,
                         body: ClosedGroupControlMessage.Kind
                             .membersRemoved(members: removedMembers.map { Data(hex: $0) })
-                            .infoMessage(db, sender: userPublicKey),
+                            .infoMessage(db, sender: userSessionId.hexString),
                         timestampMs: SnodeAPI.currentOffsetTimestampMs()
                     ).inserted(db)
                     
@@ -574,7 +574,7 @@ extension MessageSender {
             .flatMap { _ -> AnyPublisher<Void, Error> in
                 MessageSender.generateAndSendNewEncryptionKeyPair(
                     targetMembers: members,
-                    userPublicKey: userPublicKey,
+                    userSessionId: userSessionId,
                     allGroupMembers: allGroupMembers,
                     closedGroup: closedGroup,
                     using: dependencies
@@ -597,12 +597,12 @@ extension MessageSender {
         deleteThread: Bool,
         using dependencies: Dependencies = Dependencies()
     ) throws {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         
         // Notify the user
         let interaction: Interaction = try Interaction(
             threadId: groupPublicKey,
-            authorId: userPublicKey,
+            authorId: userSessionId.hexString,
             variant: .infoClosedGroupCurrentUserLeaving,
             body: "group_you_leaving".localized(),
             timestampMs: SnodeAPI.currentOffsetTimestampMs()

@@ -843,11 +843,11 @@ extension ConversationVC:
             let actions: [ContextMenuVC.Action] = ContextMenuVC.actions(
                 for: cellViewModel,
                 recentEmojis: (self.viewModel.threadData.recentReactionEmoji ?? []).compactMap { EmojiWithSkinTones(rawValue: $0) },
-                currentUserPublicKey: self.viewModel.threadData.currentUserPublicKey,
-                currentUserBlinded15PublicKey: self.viewModel.threadData.currentUserBlinded15PublicKey,
-                currentUserBlinded25PublicKey: self.viewModel.threadData.currentUserBlinded25PublicKey,
+                currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
+                currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
+                currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId,
                 currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
-                    self.viewModel.threadData.currentUserPublicKey,
+                    self.viewModel.threadData.currentUserSessionId,
                     for: self.viewModel.threadData.openGroupRoomToken,
                     on: self.viewModel.threadData.openGroupServer
                 ),
@@ -1131,8 +1131,8 @@ extension ConversationVC:
     func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?) {
         guard viewModel.threadData.canWrite else { return }
         // FIXME: Add in support for starting a thread with a 'blinded25' id
-        guard SessionId.Prefix(from: sessionId) != .blinded25 else { return }
-        guard SessionId.Prefix(from: sessionId) == .blinded15 else {
+        guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
+        guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {
             Dependencies()[singleton: .storage].write { db in
                 try SessionThread
                     .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
@@ -1198,7 +1198,7 @@ extension ConversationVC:
             selectedReaction: selectedReaction,
             initialLoad: true,
             shouldShowClearAllButton: OpenGroupManager.isUserModeratorOrAdmin(
-                self.viewModel.threadData.currentUserPublicKey,
+                self.viewModel.threadData.currentUserSessionId,
                 for: self.viewModel.threadData.openGroupRoomToken,
                 on: self.viewModel.threadData.openGroupServer
             )
@@ -1390,7 +1390,7 @@ extension ConversationVC:
                     guard !remove else {
                         return try? Reaction
                             .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                            .filter(Reaction.Columns.authorId == cellViewModel.currentUserPublicKey)
+                            .filter(Reaction.Columns.authorId == cellViewModel.currentUserSessionId)
                             .filter(Reaction.Columns.emoji == emoji)
                             .fetchOne(db)
                     }
@@ -1405,7 +1405,7 @@ extension ConversationVC:
                         interactionId: cellViewModel.id,
                         serverHash: nil,
                         timestampMs: sentTimestamp,
-                        authorId: cellViewModel.currentUserPublicKey,
+                        authorId: cellViewModel.currentUserSessionId,
                         emoji: emoji,
                         count: 1,
                         sortId: sortId
@@ -1416,7 +1416,7 @@ extension ConversationVC:
                 if remove {
                     try Reaction
                         .filter(Reaction.Columns.interactionId == cellViewModel.id)
-                        .filter(Reaction.Columns.authorId == cellViewModel.currentUserPublicKey)
+                        .filter(Reaction.Columns.authorId == cellViewModel.currentUserSessionId)
                         .filter(Reaction.Columns.emoji == emoji)
                         .deleteAll(db)
                 }
@@ -1488,7 +1488,7 @@ extension ConversationVC:
                                     timestamp: UInt64(cellViewModel.timestampMs),
                                     publicKey: {
                                         guard cellViewModel.variant == .standardIncoming else {
-                                            return cellViewModel.currentUserPublicKey
+                                            return cellViewModel.currentUserSessionId
                                         }
                                         
                                         return cellViewModel.authorId
@@ -1785,9 +1785,9 @@ extension ConversationVC:
             timestampMs: cellViewModel.timestampMs,
             attachments: cellViewModel.attachments,
             linkPreviewAttachment: cellViewModel.linkPreviewAttachment,
-            currentUserPublicKey: cellViewModel.currentUserPublicKey,
-            currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-            currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey
+            currentUserSessionId: cellViewModel.currentUserSessionId,
+            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId
         )
         
         guard let quoteDraft: QuotedReplyModel = maybeQuoteDraft else { return }
@@ -1858,8 +1858,8 @@ extension ConversationVC:
         }
         
         let threadName: String = self.viewModel.threadData.displayName
-        let userPublicKey: String = getUserHexEncodedPublicKey()
         
+        let userSessionId: SessionId = getUserSessionId(using: dependencies)
         // Remote deletion logic
         func deleteRemotely(from viewController: UIViewController?, request: AnyPublisher<Void, Error>, onComplete: (() -> ())?) {
             // Show a loading indicator
@@ -1919,7 +1919,7 @@ extension ConversationVC:
                     let openGroupServerMessageId: Int64 = result?.openGroupServerMessageId, (
                         cellViewModel.variant != .standardIncoming ||
                         OpenGroupManager.isUserModeratorOrAdmin(
-                            userPublicKey,
+                            userSessionId.hexString,
                             for: openGroup.roomToken,
                             on: openGroup.server
                         )
@@ -2000,7 +2000,7 @@ extension ConversationVC:
                 
             case .contact, .legacyGroup, .group:
                 let targetPublicKey: String = (cellViewModel.threadVariant == .contact ?
-                    userPublicKey :
+                    userSessionId.hexString :
                     cellViewModel.threadId
                 )
                 let serverHash: String? = dependencies[singleton: .storage].read { db -> String? in
@@ -2013,7 +2013,7 @@ extension ConversationVC:
                 let unsendRequest: UnsendRequest = UnsendRequest(
                     timestamp: UInt64(cellViewModel.timestampMs),
                     author: (cellViewModel.variant == .standardOutgoing ?
-                        userPublicKey :
+                        userSessionId.hexString :
                         cellViewModel.authorId
                     )
                 )
@@ -2035,7 +2035,7 @@ extension ConversationVC:
                                 message: unsendRequest,
                                 threadId: cellViewModel.threadId,
                                 interactionId: nil,
-                                to: .contact(publicKey: userPublicKey),
+                                to: .contact(publicKey: userSessionId.hexString),
                                 using: dependencies
                             )
                     }
@@ -2059,7 +2059,7 @@ extension ConversationVC:
                                 message: unsendRequest,
                                 threadId: cellViewModel.threadId,
                                 interactionId: nil,
-                                to: .contact(publicKey: userPublicKey),
+                                to: .contact(publicKey: userSessionId.hexString),
                                 using: dependencies
                             )
                     }
@@ -2071,7 +2071,7 @@ extension ConversationVC:
                         switch cellViewModel.threadVariant {
                             case .legacyGroup, .group: return "delete_message_for_everyone".localized()
                             default:
-                                return (cellViewModel.threadId == userPublicKey ?
+                                return (cellViewModel.threadId == userSessionId.hexString ?
                                     "delete_message_for_me_and_my_devices".localized() :
                                     String(format: "delete_message_for_me_and_recipient".localized(), threadName)
                                 )
@@ -2105,7 +2105,11 @@ extension ConversationVC:
                         from: self,
                         request: dependencies[singleton: .storage]
                             .readPublisher(using: dependencies) { db in
-                                try SnodeAPI.AuthenticationInfo(db, threadId: targetPublicKey, using: dependencies)
+                                try SnodeAPI.AuthenticationInfo(
+                                    db,
+                                    sessionIdHexString: targetPublicKey,
+                                    using: dependencies
+                                )
                             }
                             .flatMap { authInfo in
                                 SnodeAPI

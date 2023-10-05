@@ -37,7 +37,7 @@ enum MockDataGenerator {
         let stringContent: [String] = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 ".map { String($0) }
         let wordContent: [String] = ["alias", "consequatur", "aut", "perferendis", "sit", "voluptatem", "accusantium", "doloremque", "aperiam", "eaque", "ipsa", "quae", "ab", "illo", "inventore", "veritatis", "et", "quasi", "architecto", "beatae", "vitae", "dicta", "sunt", "explicabo", "aspernatur", "aut", "odit", "aut", "fugit", "sed", "quia", "consequuntur", "magni", "dolores", "eos", "qui", "ratione", "voluptatem", "sequi", "nesciunt", "neque", "dolorem", "ipsum", "quia", "dolor", "sit", "amet", "consectetur", "adipisci", "velit", "sed", "quia", "non", "numquam", "eius", "modi", "tempora", "incidunt", "ut", "labore", "et", "dolore", "magnam", "aliquam", "quaerat", "voluptatem", "ut", "enim", "ad", "minima", "veniam", "quis", "nostrum", "exercitationem", "ullam", "corporis", "nemo", "enim", "ipsam", "voluptatem", "quia", "voluptas", "sit", "suscipit", "laboriosam", "nisi", "ut", "aliquid", "ex", "ea", "commodi", "consequatur", "quis", "autem", "vel", "eum", "iure", "reprehenderit", "qui", "in", "ea", "voluptate", "velit", "esse", "quam", "nihil", "molestiae", "et", "iusto", "odio", "dignissimos", "ducimus", "qui", "blanditiis", "praesentium", "laudantium", "totam", "rem", "voluptatum", "deleniti", "atque", "corrupti", "quos", "dolores", "et", "quas", "molestias", "excepturi", "sint", "occaecati", "cupiditate", "non", "provident", "sed", "ut", "perspiciatis", "unde", "omnis", "iste", "natus", "error", "similique", "sunt", "in", "culpa", "qui", "officia", "deserunt", "mollitia", "animi", "id", "est", "laborum", "et", "dolorum", "fuga", "et", "harum", "quidem", "rerum", "facilis", "est", "et", "expedita", "distinctio", "nam", "libero", "tempore", "cum", "soluta", "nobis", "est", "eligendi", "optio", "cumque", "nihil", "impedit", "quo", "porro", "quisquam", "est", "qui", "minus", "id", "quod", "maxime", "placeat", "facere", "possimus", "omnis", "voluptas", "assumenda", "est", "omnis", "dolor", "repellendus", "temporibus", "autem", "quibusdam", "et", "aut", "consequatur", "vel", "illum", "qui", "dolorem", "eum", "fugiat", "quo", "voluptas", "nulla", "pariatur", "at", "vero", "eos", "et", "accusamus", "officiis", "debitis", "aut", "rerum", "necessitatibus", "saepe", "eveniet", "ut", "et", "voluptates", "repudiandae", "sint", "et", "molestiae", "non", "recusandae", "itaque", "earum", "rerum", "hic", "tenetur", "a", "sapiente", "delectus", "ut", "aut", "reiciendis", "voluptatibus", "maiores", "doloribus", "asperiores", "repellat"]
         let timestampNow: TimeInterval = Date().timeIntervalSince1970
-        let userSessionId: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = getUserSessionId(db)
         let logProgress: (String, String) -> () = { title, event in
             guard printProgress else { return }
             
@@ -68,7 +68,7 @@ enum MockDataGenerator {
                 logProgress("DM Thread \(threadIndex)", "Start")
             
                 let data: Data = Data(dmThreadRandomGenerator.nextBytes(count: 16))
-                let randomSessionId: String = try! Identity.generate(from: data).x25519KeyPair.hexEncodedPublicKey
+                let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: data).x25519KeyPair.publicKey).hexString
                 let isMessageRequest: Bool = Bool.random(using: &dmThreadRandomGenerator)
                 let contactNameLength: Int = ((5..<20).randomElement(using: &dmThreadRandomGenerator) ?? 0)
                 let numMessages: Int = (messageRangePerThread[threadIndex % messageRangePerThread.count]
@@ -115,7 +115,7 @@ enum MockDataGenerator {
                     
                     _ = try! Interaction(
                         threadId: thread.id,
-                        authorId: (isIncoming ? randomSessionId : userSessionId),
+                        authorId: (isIncoming ? randomSessionId : userSessionId.hexString),
                         variant: (isIncoming ? .standardIncoming : .standardOutgoing),
                         body: (0..<messageWords)
                             .compactMap { _ in wordContent.randomElement(using: &dmThreadRandomGenerator) }
@@ -148,7 +148,7 @@ enum MockDataGenerator {
                 logProgress("Closed Group Thread \(threadIndex)", "Start")
                 
                 let data: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
-                let randomGroupPublicKey: String = try! Identity.generate(from: data).x25519KeyPair.hexEncodedPublicKey
+                let randomLegacyGroupPublicKey: String = SessionId(.standard, publicKey: try! Identity.generate(from: data).x25519KeyPair.publicKey).hexString
                 let groupNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                 let groupName: String = (0..<groupNameLength)
                     .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
@@ -158,12 +158,12 @@ enum MockDataGenerator {
                     .randomElement(using: &cgThreadRandomGenerator) ?? 0)
                 
                 // Generate the Contacts in the group
-                var members: [String] = [userSessionId]
+                var members: [String] = [userSessionId.hexString]
                 logProgress("Closed Group Thread \(threadIndex)", "Generate \(numGroupMembers) Contacts")
                 
                 (0..<numGroupMembers).forEach { _ in
                     let contactData: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
-                    let randomSessionId: String = try! Identity.generate(from: contactData).x25519KeyPair.hexEncodedPublicKey
+                    let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData).x25519KeyPair.publicKey).hexString
                     let contactNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                     
                     _ = try! Contact(
@@ -189,12 +189,12 @@ enum MockDataGenerator {
                 let thread: SessionThread = try! SessionThread
                     .fetchOrCreate(
                         db,
-                        id: randomGroupPublicKey,
+                        id: randomLegacyGroupPublicKey,
                         variant: .legacyGroup,
                         shouldBeVisible: true
                     )
                 _ = try! ClosedGroup(
-                    threadId: randomGroupPublicKey,
+                    threadId: randomLegacyGroupPublicKey,
                     name: groupName,
                     formationTimestamp: timestampNow,
                     invited: false
@@ -203,16 +203,16 @@ enum MockDataGenerator {
                 
                 members.forEach { memberId in
                     try! GroupMember(
-                        groupId: randomGroupPublicKey,
+                        groupId: randomLegacyGroupPublicKey,
                         profileId: memberId,
                         role: .standard,
                         isHidden: false
                     )
                     .save(db)
                 }
-                [members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId].forEach { adminId in
+                [members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId.hexString].forEach { adminId in
                     try! GroupMember(
-                        groupId: randomGroupPublicKey,
+                        groupId: randomLegacyGroupPublicKey,
                         profileId: adminId,
                         role: .admin,
                         isHidden: false
@@ -223,7 +223,7 @@ enum MockDataGenerator {
                 // Add the group to the user's set of public keys to poll for and store the key pair
                 let encryptionKeyPair = Curve25519.generateKeyPair()
                 try! ClosedGroupKeyPair(
-                    threadId: randomGroupPublicKey,
+                    threadId: randomLegacyGroupPublicKey,
                     publicKey: encryptionKeyPair.publicKey,
                     secretKey: encryptionKeyPair.privateKey,
                     receivedTimestamp: timestampNow
@@ -235,12 +235,12 @@ enum MockDataGenerator {
                 
                 (0..<numMessages).forEach { index in
                     let messageWords: Int = ((1..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
-                    let senderId: String = (members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId)
+                    let senderId: String = (members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId.hexString)
                     
                     _ = try! Interaction(
                         threadId: thread.id,
                         authorId: senderId,
-                        variant: (senderId != userSessionId ? .standardIncoming : .standardOutgoing),
+                        variant: (senderId != userSessionId.hexString ? .standardIncoming : .standardOutgoing),
                         body: (0..<messageWords)
                             .compactMap { _ in wordContent.randomElement(using: &cgThreadRandomGenerator) }
                             .joined(separator: " "),
@@ -288,12 +288,12 @@ enum MockDataGenerator {
                     .randomElement(using: &ogThreadRandomGenerator) ?? 0)
                 
                 // Generate the Contacts in the group
-                var members: [String] = [userSessionId]
+                var members: [String] = [userSessionId.hexString]
                 logProgress("Open Group Thread \(threadIndex)", "Generate \(numGroupMembers) Contacts")
 
                 (0..<numGroupMembers).forEach { _ in
                     let contactData: Data = Data(ogThreadRandomGenerator.nextBytes(count: 16))
-                    let randomSessionId: String = try! Identity.generate(from: contactData).x25519KeyPair.hexEncodedPublicKey
+                    let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData).x25519KeyPair.publicKey).hexString
                     let contactNameLength: Int = ((5..<20).randomElement(using: &ogThreadRandomGenerator) ?? 0)
                     _ = try! Contact(
                         id: randomSessionId,
@@ -360,12 +360,12 @@ enum MockDataGenerator {
 
                 (0..<numMessages).forEach { index in
                     let messageWords: Int = ((1..<20).randomElement(using: &ogThreadRandomGenerator) ?? 0)
-                    let senderId: String = (members.randomElement(using: &ogThreadRandomGenerator) ?? userSessionId)
+                    let senderId: String = (members.randomElement(using: &ogThreadRandomGenerator) ?? userSessionId.hexString)
                     
                     _ = try! Interaction(
                         threadId: thread.id,
                         authorId: senderId,
-                        variant: (senderId != userSessionId ? .standardIncoming : .standardOutgoing),
+                        variant: (senderId != userSessionId.hexString ? .standardIncoming : .standardOutgoing),
                         body: (0..<messageWords)
                             .compactMap { _ in wordContent.randomElement(using: &ogThreadRandomGenerator) }
                             .joined(separator: " "),

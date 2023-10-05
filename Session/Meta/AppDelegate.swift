@@ -397,7 +397,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             AppVersion.shared.lastAppVersion != AppVersion.shared.currentAppVersion
                         )
                     {
-                        ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
+                        ConfigurationSyncJob.enqueue(
+                            db,
+                            sessionIdHexString: getUserSessionId(db, using: dependencies).hexString
+                        )
                     }
                 }
             }

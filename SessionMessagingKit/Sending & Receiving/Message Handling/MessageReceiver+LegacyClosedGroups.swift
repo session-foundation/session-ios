@@ -93,17 +93,17 @@ extension MessageReceiver {
             // the last two weeks and the key has been rotated - unfortunately if the user was added more than
             // two weeks ago and the keys were rotated within the last two weeks then we won't be able to decrypt
             // messages received before the key rotation)
-            let groupPublicKey: String = publicKeyAsData.toHexString()
+            let legacyGroupId: String = publicKeyAsData.toHexString()
             let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
             let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
-                threadId: groupPublicKey,
+                threadId: legacyGroupId,
                 publicKey: Data(encryptionKeyPair.publicKey),
                 secretKey: Data(encryptionKeyPair.secretKey),
                 receivedTimestamp: receivedTimestamp
             )
             
             guard
-                ClosedGroup.filter(id: groupPublicKey).isNotEmpty(db),
+                ClosedGroup.filter(id: legacyGroupId).isNotEmpty(db),
                 !ClosedGroupKeyPair
                     .filter(ClosedGroupKeyPair.Columns.threadKeyPairHash == newKeyPair.threadKeyPairHash)
                     .isNotEmpty(db)
@@ -115,7 +115,7 @@ extension MessageReceiver {
         
         try handleNewLegacyClosedGroup(
             db,
-            groupPublicKey: publicKeyAsData.toHexString(),
+            legacyGroupSessionId: publicKeyAsData.toHexString(),
             name: name,
             encryptionKeyPair: encryptionKeyPair,
             members: membersAsData.map { $0.toHexString() },
@@ -129,7 +129,7 @@ extension MessageReceiver {
 
     internal static func handleNewLegacyClosedGroup(
         _ db: Database,
-        groupPublicKey: String,
+        legacyGroupSessionId: String,
         name: String,
         encryptionKeyPair: KeyPair,
         members: [String],
@@ -158,9 +158,9 @@ extension MessageReceiver {
         
         // Create the group
         let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: groupPublicKey, variant: .legacyGroup, shouldBeVisible: true)
+            .fetchOrCreate(db, id: legacyGroupSessionId, variant: .legacyGroup, shouldBeVisible: true)
         let closedGroup: ClosedGroup = try ClosedGroup(
-            threadId: groupPublicKey,
+            threadId: legacyGroupSessionId,
             name: name,
             formationTimestamp: (TimeInterval(formationTimestampMs) / 1000),
             invited: false // Legacy groups are never in the "invite" state
@@ -174,7 +174,7 @@ extension MessageReceiver {
         // Create the GroupMember records if needed
         try members.forEach { memberId in
             try GroupMember(
-                groupId: groupPublicKey,
+                groupId: legacyGroupSessionId,
                 profileId: memberId,
                 role: .standard,
                 isHidden: false
@@ -183,7 +183,7 @@ extension MessageReceiver {
         
         try admins.forEach { adminId in
             try GroupMember(
-                groupId: groupPublicKey,
+                groupId: legacyGroupSessionId,
                 profileId: adminId,
                 role: .admin,
                 isHidden: false
@@ -206,7 +206,7 @@ extension MessageReceiver {
         // Store the key pair if it doesn't already exist
         let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
-            threadId: groupPublicKey,
+            threadId: legacyGroupSessionId,
             publicKey: Data(encryptionKeyPair.publicKey),
             secretKey: Data(encryptionKeyPair.secretKey),
             receivedTimestamp: receivedTimestamp
@@ -223,7 +223,7 @@ extension MessageReceiver {
             // Update libSession
             try? SessionUtil.add(
                 db,
-                legacyGroupPublicKey: groupPublicKey,
+                legacyGroupSessionId: legacyGroupSessionId,
                 name: name,
                 latestKeyPairPublicKey: Data(encryptionKeyPair.publicKey),
                 latestKeyPairSecretKey: Data(encryptionKeyPair.secretKey),
@@ -237,24 +237,24 @@ extension MessageReceiver {
         }
         
         // Start polling
-        ClosedGroupPoller.shared.startIfNeeded(for: groupPublicKey, using: dependencies)
+        ClosedGroupPoller.shared.startIfNeeded(for: legacyGroupSessionId, using: dependencies)
         
         // Resubscribe for group push notifications
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         
         try? PushNotificationAPI
             .preparedSubscribeToLegacyGroups(
-                currentUserPublicKey: currentUserPublicKey,
+                userSessionId: userSessionId,
                 legacyGroupIds: try ClosedGroup
                     .select(.threadId)
                     .filter(!ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
                     .joining(
                         required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == currentUserPublicKey)
+                            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
                     )
                     .asRequest(of: String.self)
                     .fetchSet(db)
-                    .inserting(groupPublicKey)  // Insert the new key just to be sure
+                    .inserting(legacyGroupSessionId)  // Insert the new key just to be sure
             )?
             .send(using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
@@ -274,12 +274,12 @@ extension MessageReceiver {
             return
         }
         
-        let groupPublicKey: String = (explicitGroupPublicKey?.toHexString() ?? threadId)
+        let legacyGroupId: String = (explicitGroupPublicKey?.toHexString() ?? threadId)
         
         guard let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db) else {
             return SNLog("Couldn't find user X25519 key pair.")
         }
-        guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupPublicKey) else {
+        guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: legacyGroupId) else {
             return SNLog("Ignoring closed group encryption key pair for nonexistent group.")
         }
         guard let groupAdmins: [GroupMember] = try? closedGroup.admins.fetchAll(db) else { return }
@@ -316,8 +316,8 @@ extension MessageReceiver {
         
         do {
             let keyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
-                threadId: groupPublicKey,
-                publicKey: proto.publicKey.removingIdPrefixIfNeeded(),
+                threadId: legacyGroupId,
+                publicKey: Data(SessionId(.standard, publicKey: Array(proto.publicKey)).publicKey),
                 secretKey: proto.privateKey,
                 receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
             )
@@ -326,7 +326,7 @@ extension MessageReceiver {
             // Update libSession
             try? SessionUtil.update(
                 db,
-                legacyGroupPublicKey: groupPublicKey,
+                legacyGroupSessionId: legacyGroupId,
                 latestKeyPair: keyPair,
                 using: dependencies
             )
@@ -365,7 +365,7 @@ extension MessageReceiver {
                 // Update libSession
                 try? SessionUtil.update(
                     db,
-                    legacyGroupPublicKey: threadId,
+                    legacyGroupSessionId: threadId,
                     name: name,
                     using: dependencies
                 )
@@ -410,7 +410,7 @@ extension MessageReceiver {
                 // Update libSession
                 try? SessionUtil.update(
                     db,
-                    legacyGroupPublicKey: threadId,
+                    legacyGroupSessionId: threadId,
                     members: allMembers
                         .filter { $0.role == .standard || $0.role == .zombie }
                         .map { $0.profileId }
@@ -448,9 +448,9 @@ extension MessageReceiver {
                 //
                 // Without the code below, the added member(s) would never get the key pair that was
                 // generated by the admin when they saw the member removed message.
-                let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 
-                if allMembers.contains(where: { $0.role == .admin && $0.profileId == userPublicKey }) {
+                if allMembers.contains(where: { $0.role == .admin && $0.profileId == userSessionId.hexString }) {
                     addedMembers.forEach { memberId in
                         MessageSender.sendLatestEncryptionKeyPair(db, to: memberId, for: threadId)
                     }
@@ -483,7 +483,7 @@ extension MessageReceiver {
             case let .membersRemoved(membersAsData) = messageKind
         else { return }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let removedMemberIds: [String] = membersAsData.map { $0.toHexString() }
         
         try processIfValid(
@@ -492,7 +492,7 @@ extension MessageReceiver {
             threadVariant: threadVariant,
             message: message,
             messageKind: messageKind,
-            infoMessageVariant: (removedMemberIds.contains(userPublicKey) ?
+            infoMessageVariant: (removedMemberIds.contains(userSessionId.hexString) ?
                 .infoClosedGroupCurrentUserLeft :
                 .infoClosedGroupUpdated
             ),
@@ -519,7 +519,7 @@ extension MessageReceiver {
                 // Update libSession
                 try? SessionUtil.update(
                     db,
-                    legacyGroupPublicKey: threadId,
+                    legacyGroupSessionId: threadId,
                     members: allMembers
                         .filter { $0.role == .standard || $0.role == .zombie }
                         .map { $0.profileId }
@@ -543,7 +543,7 @@ extension MessageReceiver {
                 // • Stop polling for the group
                 // • Remove the key pairs associated with the group
                 // • Notify the PN server
-                let wasCurrentUserRemoved: Bool = !members.contains(userPublicKey)
+                let wasCurrentUserRemoved: Bool = !members.contains(userSessionId.hexString)
                 
                 if wasCurrentUserRemoved {
                     try ClosedGroup.removeKeysAndUnsubscribe(
@@ -583,7 +583,7 @@ extension MessageReceiver {
             messageKind: messageKind,
             infoMessageVariant: .infoClosedGroupUpdated,
             legacyGroupChanges: { sender, closedGroup, allMembers in
-                let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let didAdminLeave: Bool = allMembers.contains(where: { member in
                     member.role == .admin && member.profileId == sender
                 })
@@ -598,7 +598,7 @@ extension MessageReceiver {
                 // Update libSession
                 try? SessionUtil.update(
                     db,
-                    legacyGroupPublicKey: threadId,
+                    legacyGroupSessionId: threadId,
                     members: allMembers
                         .filter { $0.role == .standard || $0.role == .zombie }
                         .map { $0.profileId }
@@ -617,11 +617,11 @@ extension MessageReceiver {
                     .filter(memberIdsToRemove.contains(GroupMember.Columns.profileId))
                     .deleteAll(db)
                 
-                if didAdminLeave || sender == userPublicKey {
+                if didAdminLeave || sender == userSessionId.hexString {
                     try ClosedGroup.removeKeysAndUnsubscribe(
                         db,
                         threadId: threadId,
-                        removeGroupData: (sender == userPublicKey),
+                        removeGroupData: (sender == userSessionId.hexString),
                         calledFromConfigHandling: false
                     )
                 }

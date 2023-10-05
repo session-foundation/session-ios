@@ -308,7 +308,7 @@ public struct ProfileManager {
         failure: ((ProfileManagerError) -> ())? = nil,
         using dependencies: Dependencies = Dependencies()
     ) {
-        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(using: dependencies)
         let isRemovingAvatar: Bool = {
             switch avatarUpdate {
                 case .remove: return true
@@ -321,12 +321,12 @@ public struct ProfileManager {
                 dependencies[singleton: .storage].writeAsync { db in
                     if isRemovingAvatar {
                         let existingProfileUrl: String? = try Profile
-                            .filter(id: userPublicKey)
+                            .filter(id: userSessionId.hexString)
                             .select(.profilePictureUrl)
                             .asRequest(of: String.self)
                             .fetchOne(db)
                         let existingProfileFileName: String? = try Profile
-                            .filter(id: userPublicKey)
+                            .filter(id: userSessionId.hexString)
                             .select(.profilePictureFileName)
                             .asRequest(of: String.self)
                             .fetchOne(db)
@@ -344,7 +344,7 @@ public struct ProfileManager {
                     
                     try ProfileManager.updateProfileIfNeeded(
                         db,
-                        publicKey: userPublicKey,
+                        publicKey: userSessionId.hexString,
                         name: profileName,
                         avatarUpdate: avatarUpdate,
                         sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
@@ -363,7 +363,7 @@ public struct ProfileManager {
                         dependencies[singleton: .storage].writeAsync { db in
                             try ProfileManager.updateProfileIfNeeded(
                                 db,
-                                publicKey: userPublicKey,
+                                publicKey: userSessionId.hexString,
                                 name: profileName,
                                 avatarUpdate: .updateTo(url: downloadUrl, key: newProfileKey, fileName: fileName),
                                 sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
@@ -525,7 +525,7 @@ public struct ProfileManager {
         calledFromConfigHandling: Bool = false,
         using dependencies: Dependencies
     ) throws {
-        let isCurrentUser = (publicKey == getUserHexEncodedPublicKey(db, using: dependencies))
+        let isCurrentUser = (publicKey == getUserSessionId(db, using: dependencies).hexString)
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         

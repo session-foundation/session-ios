@@ -22,7 +22,7 @@ internal extension SessionUtil {
     static func handleGroupInfoUpdate(
         _ db: Database,
         in config: Config?,
-        groupIdentityPublicKey: String,
+        groupSessionId: SessionId,
         serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
@@ -51,7 +51,7 @@ internal extension SessionUtil {
 
         // Update the group name
         let existingGroup: ClosedGroup? = try? ClosedGroup
-            .filter(id: groupIdentityPublicKey)
+            .filter(id: groupSessionId.hexString)
             .fetchOne(db)
         let needsDisplayPictureUpdate: Bool = (
             existingGroup?.displayPictureUrl != displayPictureUrl ||
@@ -82,7 +82,7 @@ internal extension SessionUtil {
 
         if !groupChanges.isEmpty {
             try ClosedGroup
-                .filter(id: groupIdentityPublicKey)
+                .filter(id: groupSessionId.hexString)
                 .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                     db,
                     groupChanges
@@ -95,15 +95,15 @@ internal extension SessionUtil {
         let targetExpiry: Int32 = groups_info_get_expiry_timer(conf)
         let targetIsEnable: Bool = (targetExpiry > 0)
         let targetConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
-            threadId: groupIdentityPublicKey,
+            threadId: groupSessionId.hexString,
             isEnabled: targetIsEnable,
             durationSeconds: TimeInterval(targetExpiry),
             type: (targetIsEnable ? .disappearAfterSend : .unknown),
             lastChangeTimestampMs: serverTimestampMs
         )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-            .fetchOne(db, id: groupIdentityPublicKey)
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(groupIdentityPublicKey))
+            .fetchOne(db, id: groupSessionId.hexString)
+            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(groupSessionId.hexString))
 
         if
             let remoteLastChangeTimestampMs = targetConfig.lastChangeTimestampMs,
@@ -132,7 +132,7 @@ internal extension SessionUtil {
         
         // Exclude legacy groups as they aren't managed via SessionUtil
         let targetGroups: [ClosedGroup] = updatedGroups
-            .filter { SessionId(from: $0.id)?.prefix == .group }
+            .filter { (try? SessionId(from: $0.id))?.prefix == .group }
         
         // If we only updated the current user contact then no need to continue
         guard !targetGroups.isEmpty else { return updated }
@@ -142,7 +142,7 @@ internal extension SessionUtil {
             try SessionUtil.performAndPushChange(
                 db,
                 for: .groupInfo,
-                publicKey: group.threadId,
+                sessionId: SessionId(.group, hex: group.threadId),
                 using: dependencies
             ) { config in
                 guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
@@ -174,7 +174,7 @@ internal extension SessionUtil {
         
         // Filter out any disappearing config changes not related to updated groups
         let targetUpdatedConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
-            .filter { SessionId.Prefix(from: $0.id) == .group }
+            .filter { (try? SessionId.Prefix(from: $0.id)) == .group }
         
         guard !targetUpdatedConfigs.isEmpty else { return updated }
         
@@ -193,18 +193,18 @@ internal extension SessionUtil {
         // Loop through each of the groups and update their settings
         try existingGroupIds
             .compactMap { groupId in targetUpdatedConfigs.first(where: { $0.id == groupId }).map { (groupId, $0) } }
-            .forEach { groupIdentityPublicKey, updatedConfig in
-            try SessionUtil.performAndPushChange(
-                db,
-                for: .groupInfo,
-                publicKey: groupIdentityPublicKey,
-                using: dependencies
-            ) { config in
-                guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
-                
-                groups_info_set_expiry_timer(conf, Int32(updatedConfig.durationSeconds))
+            .forEach { groupId, updatedConfig in
+                try SessionUtil.performAndPushChange(
+                    db,
+                    for: .groupInfo,
+                    sessionId: SessionId(.group, hex: groupId),
+                    using: dependencies
+                ) { config in
+                    guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+                    
+                    groups_info_set_expiry_timer(conf, Int32(updatedConfig.durationSeconds))
+                }
             }
-        }
         
         return updated
     }
@@ -215,7 +215,7 @@ internal extension SessionUtil {
 public extension SessionUtil {
     static func update(
         _ db: Database,
-        groupIdentityPublicKey: String,
+        groupSessionId: SessionId,
         name: String? = nil,
         disappearingConfig: DisappearingMessagesConfiguration? = nil,
         using dependencies: Dependencies
@@ -223,7 +223,7 @@ public extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .groupInfo,
-            publicKey: groupIdentityPublicKey,
+            sessionId: groupSessionId,
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }

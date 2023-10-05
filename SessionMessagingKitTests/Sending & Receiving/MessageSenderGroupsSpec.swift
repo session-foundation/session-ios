@@ -53,13 +53,13 @@ class MessageSenderGroupsSpec: QuickSpec {
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
-                cache.when { $0.encodedPublicKey }.thenReturn("05\(TestConstants.publicKey)")
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
             }
         )
         @TestState(cache: .sessionUtil, in: dependencies) var mockSessionUtilCache: MockSessionUtilCache! = MockSessionUtilCache(
             initialSetup: { cache in
                 cache
-                    .when { $0.setConfig(for: any(), publicKey: any(), to: any()) }
+                    .when { $0.setConfig(for: any(), sessionId: any(), to: any()) }
                     .thenReturn(())
             }
         )
@@ -78,7 +78,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     let userGroupsConfig: SessionUtil.Config = .object(userGroupsConf)
                     
                     mockSessionUtilCache
-                        .when { $0.config(for: .userGroups, publicKey: any()) }
+                        .when { $0.config(for: .userGroups, sessionId: any()) }
                         .thenReturn(Atomic(userGroupsConfig))
                 }
                 

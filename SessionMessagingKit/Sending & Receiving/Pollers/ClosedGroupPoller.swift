@@ -25,7 +25,9 @@ public final class ClosedGroupPoller: Poller {
     // MARK: - Settings
     
     override func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] {
-        guard SessionId.Prefix(from: publicKey) == .group else { return ClosedGroupPoller.legacyNamespaces }
+        guard (try? SessionId.Prefix(from: publicKey)) == .group else {
+            return ClosedGroupPoller.legacyNamespaces
+        }
         
         return ClosedGroupPoller.namespaces
     }
@@ -51,7 +53,7 @@ public final class ClosedGroupPoller: Poller {
                     .filter(ClosedGroup.Columns.invited == false)
                     .joining(
                         required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == getUserHexEncodedPublicKey(db, using: dependencies))
+                            .filter(GroupMember.Columns.profileId == getUserSessionId(db, using: dependencies).hexString)
                     )
                     .asRequest(of: String.self)
                     .fetchSet(db)

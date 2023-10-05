@@ -24,7 +24,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     private var originalMembersAndZombieIds: Set<String> = []
     private var name: String = ""
     private var hasContactsToAdd: Bool = false
-    private var userPublicKey: String = ""
+    private var userSessionId: SessionId = .invalid
     private var membersAndZombies: [GroupMemberDisplayInfo] = []
     private var adminIds: Set<String> = []
     private var isEditingGroupName = false { didSet { handleIsEditingGroupNameChanged() } }
@@ -103,8 +103,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let threadId: String = self.threadId
         
         Dependencies()[singleton: .storage].read { [weak self] db in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
-            self?.userPublicKey = userPublicKey
+            let userSessionId: SessionId = getUserSessionId(db)
+            self?.userSessionId = userSessionId
             self?.name = try ClosedGroup
                 .select(.name)
                 .filter(id: threadId)
@@ -138,7 +138,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             self?.originalMembersAndZombieIds = uniqueGroupMemberIds
             self?.hasContactsToAdd = ((try? Profile
                 .allContactProfiles(
-                    excluding: uniqueGroupMemberIds.inserting(userPublicKey)
+                    excluding: uniqueGroupMemberIds.inserting(userSessionId.hexString)
                 )
                 .fetchCount(db))
                 .defaulting(to: 0) > 0)
@@ -229,7 +229,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                     displayInfo.profile?.displayName() ??
                     Profile.truncated(id: displayInfo.profileId, threadVariant: .contact)
                 ),
-                rightAccessory: (adminIds.contains(userPublicKey) ? nil :
+                rightAccessory: (adminIds.contains(userSessionId.hexString) ? nil :
                     .icon(
                         UIImage(named: "ic_lock_outline")?
                             .withRenderingMode(.alwaysTemplate),
@@ -244,7 +244,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     }
 
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        return adminIds.contains(userPublicKey)
+        return adminIds.contains(userSessionId.hexString)
     }
     
     func tableView(_ tableView: UITableView, willBeginEditingRowAt indexPath: IndexPath) {
@@ -361,7 +361,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     @objc private func addMembers() {
         let title: String = "vc_conversation_settings_invite_button_title".localized()
         
-        let userPublicKey: String = self.userPublicKey
+        let userSessionId: SessionId = self.userSessionId
         let userSelectionVC: UserSelectionVC = UserSelectionVC(
             with: title,
             excluding: membersAndZombies
@@ -414,7 +414,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                     .inserting(contentsOf: self?.adminIds)
                 self?.hasContactsToAdd = ((try? Profile
                     .allContactProfiles(
-                        excluding: uniqueGroupMemberIds.inserting(userPublicKey)
+                        excluding: uniqueGroupMemberIds.inserting(userSessionId.hexString)
                     )
                     .fetchCount(db))
                     .defaulting(to: 0) > 0)
@@ -442,7 +442,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         
         let threadId: String = self.threadId
         let updatedName: String = self.name
-        let userPublicKey: String = self.userPublicKey
+        let userSessionId: SessionId = self.userSessionId
         let updatedMembers: [(String, Profile?)] = self.membersAndZombies
             .map { ($0.profileId, $0.profile) }
         let updatedMemberIds: Set<String> = updatedMembers.map { $0.0 }.asSet()
@@ -451,8 +451,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             return popToConversationVC(self)
         }
         
-        if !updatedMemberIds.contains(userPublicKey) {
-            guard self.originalMembersAndZombieIds.removing(userPublicKey) == updatedMemberIds else {
+        if !updatedMemberIds.contains(userSessionId.hexString) {
+            guard self.originalMembersAndZombieIds.removing(userSessionId.hexString) == updatedMemberIds else {
                 return showError(
                     title: "GROUP_UPDATE_ERROR_TITLE".localized(),
                     message: "GROUP_UPDATE_ERROR_MESSAGE".localized()
@@ -465,7 +465,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
             // If the user is no longer a member then leave the group
-            guard updatedMemberIds.contains(userPublicKey) else {
+            guard updatedMemberIds.contains(userSessionId.hexString) else {
                 dependencies[singleton: .storage]
                     .writePublisher { db in
                         try MessageSender.leave(
@@ -496,7 +496,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             // Otherwise update the group details
             MessageSender
                 .updateGroup(
-                    groupIdentityPublicKey: threadId,
+                    groupSessionId: threadId,
                     name: updatedName,
                     displayPicture: nil,
                     members: updatedMembers

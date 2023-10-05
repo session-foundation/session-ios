@@ -20,7 +20,7 @@ extension MessageReceiver {
     
     internal static func handleNewGroup(
         _ db: Database,
-        groupIdentityPublicKey: String,
+        groupSessionId: String,
         groupIdentityPrivateKey: Data?,
         name: String?,
         authData: Data?,
@@ -32,9 +32,9 @@ extension MessageReceiver {
         
         // Create the group
         let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: groupIdentityPublicKey, variant: .group, shouldBeVisible: true)
+            .fetchOrCreate(db, id: groupSessionId, variant: .group, shouldBeVisible: true)
         let closedGroup: ClosedGroup = try ClosedGroup(
-            threadId: groupIdentityPublicKey,
+            threadId: groupSessionId,
             name: (name ?? "GROUP_TITLE_FALLBACK".localized()),
             formationTimestamp: TimeInterval(created),
             groupIdentityPrivateKey: groupIdentityPrivateKey,
@@ -46,7 +46,7 @@ extension MessageReceiver {
             // Update libSession
             try? SessionUtil.add(
                 db,
-                groupIdentityPublicKey: groupIdentityPublicKey,
+                groupSessionId: groupSessionId,
                 groupIdentityPrivateKey: groupIdentityPrivateKey,
                 name: name,
                 authData: authData,

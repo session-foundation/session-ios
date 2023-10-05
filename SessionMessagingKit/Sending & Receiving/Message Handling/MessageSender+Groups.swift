@@ -9,6 +9,7 @@ import SessionSnodeKit
 
 extension MessageSender {
     private typealias PreparedGroupData = (
+        groupSessionId: SessionId,
         groupState: [ConfigDump.Variant: SessionUtil.Config],
         thread: SessionThread,
         group: ClosedGroup,
@@ -38,7 +39,7 @@ extension MessageSender {
             .flatMap { displayPictureInfo -> AnyPublisher<PreparedGroupData, Error> in
                 dependencies[singleton: .storage].writePublisher(using: dependencies) { db -> PreparedGroupData in
                     // Create and cache the libSession entries
-                    let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                    let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                     let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
                     let createdInfo: SessionUtil.CreatedGroupInfo = try SessionUtil.createGroup(
                         db,
@@ -47,7 +48,7 @@ extension MessageSender {
                         displayPictureFilename: displayPictureInfo?.filename,
                         displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
                         members: members,
-                        admins: [(currentUserPublicKey, currentUserProfile)],
+                        admins: [(userSessionId.hexString, currentUserProfile)],
                         using: dependencies
                     )
                     
@@ -67,11 +68,12 @@ extension MessageSender {
                     let preparedNotificationSubscription = try? PushNotificationAPI
                         .preparedSubscribe(
                             db,
-                            publicKey: createdInfo.group.id,
+                            sessionId: createdInfo.groupSessionId,
                             using: dependencies
                         )
                     
                     return (
+                        createdInfo.groupSessionId,
                         createdInfo.groupState,
                         thread,
                         createdInfo.group,
@@ -82,7 +84,7 @@ extension MessageSender {
             }
             .flatMap { preparedGroupData -> AnyPublisher<PreparedGroupData, Error> in
                 ConfigurationSyncJob
-                    .run(publicKey: preparedGroupData.group.id, using: dependencies)
+                    .run(sessionIdHexString: preparedGroupData.groupSessionId.hexString, using: dependencies)
                     .flatMap { _ in
                         dependencies[singleton: .storage].writePublisher(using: dependencies) { db in
                             // Save the successfully created group and add to the user config
@@ -105,7 +107,7 @@ extension MessageSender {
                                     dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
                                         SessionUtil.removeGroupStateIfNeeded(
                                             db,
-                                            groupIdentityPublicKey: preparedGroupData.group.id,
+                                            groupSessionId: preparedGroupData.groupSessionId,
                                             using: dependencies
                                         )
                                         
@@ -119,7 +121,7 @@ extension MessageSender {
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { _, thread, _, members, preparedNotificationSubscription in
+                receiveOutput: { _, _, thread, _, members, preparedNotificationSubscription in
                     // Start polling
                     dependencies[singleton: .closedGroupPoller].startIfNeeded(for: thread.id, using: dependencies)
                     
@@ -131,10 +133,10 @@ extension MessageSender {
                     
                     // Save jobs for sending group member invitations
                     dependencies[singleton: .storage].write(using: dependencies) { db in
-                        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+                        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                         
                         members
-                            .filter { $0.profileId != currentUserPublicKey }
+                            .filter { $0.profileId != userSessionId.hexString }
                             .forEach { member in
                                 dependencies[singleton: .jobRunner].add(
                                     db,
@@ -157,21 +159,21 @@ extension MessageSender {
                     }
                 }
             )
-            .map { _, thread, _, _, _ in thread }
+            .map { _, _, thread, _, _, _ in thread }
             .eraseToAnyPublisher()
     }
     
     public static func updateGroup(
-        groupIdentityPublicKey: String,
+        groupSessionId: String,
         name: String,
         displayPicture: SignalAttachment?,
         members: [(String, Profile?)],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        guard SessionId.Prefix(from: groupIdentityPublicKey) == .group else {
+        guard (try? SessionId.Prefix(from: groupSessionId)) == .group else {
             // FIXME: Fail with `MessageSenderError.invalidClosedGroupUpdate` once support for legacy groups is removed
             return MessageSender.update(
-                legacyGroupPublicKey: groupIdentityPublicKey,
+                legacyGroupSessionId: groupSessionId,
                 with: members.map { $0.0 }.asSet(),
                 name: name,
                 using: dependencies
@@ -180,7 +182,8 @@ extension MessageSender {
         
         return dependencies[singleton: .storage]
             .writePublisher { db in
-                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupIdentityPublicKey) else {
+                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupId) else {
+                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupSessionId) else {
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
@@ -188,7 +191,7 @@ extension MessageSender {
                 if name != closedGroup.name {
                     // Update the group
                     _ = try ClosedGroup
-                        .filter(id: groupIdentityPublicKey)
+                        .filter(id: groupSessionId)
                         .updateAllAndConfig(db, ClosedGroup.Columns.name.set(to: name), using: dependencies)
                 }
             }

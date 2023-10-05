@@ -4,8 +4,8 @@ import Foundation
 import SessionUtilitiesKit
 
 class MockGeneralCache: Mock<GeneralCacheType>, GeneralCacheType {
-    var encodedPublicKey: String? {
-        get { return accept() as? String }
+    var sessionId: SessionId? {
+        get { return accept() as? SessionId }
         set { accept(args: [newValue]) }
     }
     

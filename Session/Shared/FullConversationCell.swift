@@ -306,13 +306,13 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     attachmentCount: cellViewModel.interactionAttachmentCount,
                     isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true)
                 ),
-                authorName: (cellViewModel.authorId != cellViewModel.currentUserPublicKey ?
+                authorName: (cellViewModel.authorId != cellViewModel.currentUserSessionId ?
                     cellViewModel.authorName(for: .contact) :
                     nil
                 ),
-                currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
+                currentUserSessionId: cellViewModel.currentUserSessionId,
+                currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                 searchText: searchText.lowercased(),
                 fontSize: Values.smallFontSize,
                 textColor: textColor
@@ -340,9 +340,9 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             
             displayNameLabel?.attributedText = self?.getHighlightedSnippet(
                 content: cellViewModel.displayName,
-                currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
+                currentUserSessionId: cellViewModel.currentUserSessionId,
+                currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                 searchText: searchText.lowercased(),
                 fontSize: Values.mediumFontSize,
                 textColor: textColor
@@ -360,9 +360,9 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     if cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group {
                         snippetLabel?.attributedText = self?.getHighlightedSnippet(
                             content: (cellViewModel.threadMemberNames ?? ""),
-                            currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                            currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-                            currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
+                            currentUserSessionId: cellViewModel.currentUserSessionId,
+                            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                             searchText: searchText.lowercased(),
                             fontSize: Values.smallFontSize,
                             textColor: textColor
@@ -601,9 +601,9 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             string: MentionUtilities.highlightMentionsNoAttributes(
                 in: previewText,
                 threadVariant: cellViewModel.threadVariant,
-                currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey
+                currentUserSessionId: cellViewModel.currentUserSessionId,
+                currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId
             ),
             attributes: [ .foregroundColor: textColor ]
         ))
@@ -614,9 +614,9 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     private func getHighlightedSnippet(
         content: String,
         authorName: String? = nil,
-        currentUserPublicKey: String,
-        currentUserBlinded15PublicKey: String?,
-        currentUserBlinded25PublicKey: String?,
+        currentUserSessionId: String,
+        currentUserBlinded15SessionId: String?,
+        currentUserBlinded25SessionId: String?,
         searchText: String,
         fontSize: CGFloat,
         textColor: UIColor
@@ -638,9 +638,9 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         let mentionReplacedContent: String = MentionUtilities.highlightMentionsNoAttributes(
             in: content,
             threadVariant: .contact,
-            currentUserPublicKey: currentUserPublicKey,
-            currentUserBlinded15PublicKey: currentUserBlinded15PublicKey,
-            currentUserBlinded25PublicKey: currentUserBlinded25PublicKey
+            currentUserSessionId: currentUserSessionId,
+            currentUserBlinded15SessionId: currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: currentUserBlinded25SessionId
         )
         let result: NSMutableAttributedString = NSMutableAttributedString(
             string: mentionReplacedContent,

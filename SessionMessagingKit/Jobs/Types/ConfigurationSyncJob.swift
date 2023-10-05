@@ -54,10 +54,10 @@ public enum ConfigurationSyncJob: JobExecutor {
         // as the user doesn't exist yet (this will get triggered on the first launch of a
         // fresh install due to the migrations getting run)
         guard
-            let publicKey: String = job.threadId,
+            let sessionIdHexString: String = job.threadId,
             let pendingConfigChanges: [SessionUtil.PushData] = dependencies[singleton: .storage]
                 .read(using: dependencies, { db in
-                    try SessionUtil.pendingChanges(db, publicKey: publicKey, using: dependencies)
+                    try SessionUtil.pendingChanges(db, sessionIdHexString: sessionIdHexString, using: dependencies)
                 })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
@@ -67,7 +67,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
         guard !pendingConfigChanges.isEmpty else {
-            SNLog("[ConfigurationSyncJob] For \(publicKey) completed with no pending changes")
+            SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) completed with no pending changes")
             return success(job, true, dependencies)
         }
         
@@ -79,8 +79,8 @@ public enum ConfigurationSyncJob: JobExecutor {
             .asSet()
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
-        SNLog("[ConfigurationSyncJob] For \(publicKey) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
         
+        SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
         dependencies[singleton: .storage]
             .readPublisher { db -> HTTP.PreparedRequest<HTTP.BatchResponse> in
                 try SnodeAPI.preparedSequence(
@@ -91,7 +91,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                                 .preparedSendMessage(
                                     db,
                                     message: SnodeMessage(
-                                        recipient: publicKey,
+                                        recipient: sessionIdHexString,
                                         data: pushData.data.base64EncodedString(),
                                         ttl: pushData.variant.ttl,
                                         timestampMs: UInt64(messageSendTimestamp)
@@ -99,7 +99,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                                     in: pushData.variant.namespace,
                                     authInfo: try SnodeAPI.AuthenticationInfo(
                                         db,
-                                        threadId: publicKey,
+                                        sessionIdHexString: sessionIdHexString,
                                         using: dependencies
                                     ),
                                     using: dependencies
@@ -114,7 +114,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                                     requireSuccessfulDeletion: false,
                                     authInfo: try SnodeAPI.AuthenticationInfo(
                                         db,
-                                        threadId: publicKey,
+                                        sessionIdHexString: sessionIdHexString,
                                         using: dependencies
                                     ),
                                     using: dependencies
@@ -122,7 +122,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             }
                         ),
                     requireAllBatchResponses: false,
-                    associatedWith: publicKey,
+                    associatedWith: sessionIdHexString,
                     using: dependencies
                 )
             }
@@ -151,7 +151,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             serverHash: sendMessageResponse.hash,
                             sentTimestamp: messageSendTimestamp,
                             variant: pushData.variant,
-                            publicKey: publicKey,
+                            sessionIdHexString: sessionIdHexString,
                             using: dependencies
                         )
                     }
@@ -159,9 +159,9 @@ public enum ConfigurationSyncJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: SNLog("[ConfigurationSyncJob] For \(publicKey) completed")
+                        case .finished: SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) completed")
                         case .failure(let error):
-                            SNLog("[ConfigurationSyncJob] For \(publicKey) failed due to error: \(error)")
+                            SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) failed due to error: \(error)")
                             failure(job, error, false, dependencies)
                     }
                 },
@@ -185,7 +185,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             let existingJob: Job = try? Job
                                 .filter(Job.Columns.id != job.id)
                                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
-                                .filter(Job.Columns.threadId == publicKey)
+                                .filter(Job.Columns.threadId == sessionIdHexString)
                                 .order(Job.Columns.nextRunTimestamp.asc)
                                 .fetchOne(db)
                         {
@@ -218,13 +218,13 @@ public enum ConfigurationSyncJob: JobExecutor {
 public extension ConfigurationSyncJob {
     static func enqueue(
         _ db: Database,
-        publicKey: String,
-        dependencies: Dependencies = Dependencies()
+        sessionIdHexString: String,
+        using dependencies: Dependencies = Dependencies()
     ) {
         // Upsert a config sync job if needed
         dependencies[singleton: .jobRunner].upsert(
             db,
-            job: ConfigurationSyncJob.createIfNeeded(db, publicKey: publicKey, using: dependencies),
+            job: ConfigurationSyncJob.createIfNeeded(db, sessionIdHexString: sessionIdHexString, using: dependencies),
             canStartJob: true,
             using: dependencies
         )
@@ -232,7 +232,7 @@ public extension ConfigurationSyncJob {
     
     @discardableResult static func createIfNeeded(
         _ db: Database,
-        publicKey: String,
+        sessionIdHexString: String,
         using dependencies: Dependencies = Dependencies()
     ) -> Job? {
         /// The ConfigurationSyncJob will automatically reschedule itself to run again after 3 seconds so if there is an existing
@@ -242,11 +242,11 @@ public extension ConfigurationSyncJob {
         guard
             dependencies[singleton: .jobRunner]
                 .jobInfoFor(state: .running, variant: .configurationSync)
-                .filter({ _, info in info.threadId == publicKey })
+                .filter({ _, info in info.threadId == sessionIdHexString })
                 .isEmpty,
             (try? Job
                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
-                .filter(Job.Columns.threadId == publicKey)
+                .filter(Job.Columns.threadId == sessionIdHexString)
                 .isEmpty(db))
                 .defaulting(to: false)
         else { return nil }
@@ -255,19 +255,19 @@ public extension ConfigurationSyncJob {
         return Job(
             variant: .configurationSync,
             behaviour: .recurring,
-            threadId: publicKey
+            threadId: sessionIdHexString
         )
     }
     
     static func run(
-        publicKey: String,
+        sessionIdHexString: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         // Trigger the job emitting the result when completed
         return Deferred {
             Future { resolver in
                 ConfigurationSyncJob.run(
-                    Job(variant: .configurationSync, threadId: publicKey),
+                    Job(variant: .configurationSync, threadId: sessionIdHexString),
                     queue: .global(qos: .userInitiated),
                     success: { _, _, _ in resolver(Result.success(())) },
                     failure: { _, error, _, _ in resolver(Result.failure(error ?? HTTPError.generic)) },

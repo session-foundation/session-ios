@@ -124,7 +124,7 @@ internal extension SessionUtil {
                 switch info.variant {
                     case .contact:
                         // FIXME: libSession V1 doesn't sync volatileThreadInfo for blinded message requests
-                        guard SessionId(from: info.threadId)?.prefix == .standard else { return false }
+                        guard (try? SessionId(from: info.threadId))?.prefix == .standard else { return false }
                         
                         return true
                         
@@ -254,7 +254,7 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            sessionId: getUserSessionId(db, using: dependencies),
             using: dependencies
         ) { config in
             try upsert(
@@ -272,7 +272,7 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            sessionId: getUserSessionId(db, using: dependencies),
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
@@ -294,7 +294,7 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            sessionId: getUserSessionId(db, using: dependencies),
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
@@ -310,22 +310,22 @@ internal extension SessionUtil {
     
     static func remove(
         _ db: Database,
-        volatileGroupIds: [String],
+        volatileGroupSessionIds: [String],
         using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            sessionId: getUserSessionId(db, using: dependencies),
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
             
-            volatileGroupIds.forEach { groupId in
-                var cGroupId: [CChar] = groupId.cArray.nullTerminated()
+            volatileGroupSessionIds.forEach { groupSessionId in
+                var cGroupSessionId: [CChar] = groupSessionId.cArray.nullTerminated()
 
                 // Don't care if the data doesn't exist
-                convo_info_volatile_erase_group(conf, &cGroupId)
+                convo_info_volatile_erase_group(conf, &cGroupSessionId)
             }
         }
     }
@@ -338,7 +338,7 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            sessionId: getUserSessionId(db, using: dependencies),
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
@@ -367,7 +367,7 @@ public extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .convoInfoVolatile,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            sessionId: getUserSessionId(db, using: dependencies),
             using: dependencies
         ) { config in
             try upsert(
@@ -390,12 +390,12 @@ public extension SessionUtil {
         threadId: String,
         threadVariant: SessionThread.Variant,
         timestampMs: Int64,
-        userPublicKey: String,
+        userSessionId: SessionId,
         openGroup: OpenGroup?,
         using dependencies: Dependencies
     ) -> Bool {
         return dependencies[cache: .sessionUtil]
-            .config(for: .convoInfoVolatile, publicKey: userPublicKey)
+            .config(for: .convoInfoVolatile, sessionId: userSessionId)
             .wrappedValue
             .map { config in
                 guard case .object(let conf) = config else { return false }

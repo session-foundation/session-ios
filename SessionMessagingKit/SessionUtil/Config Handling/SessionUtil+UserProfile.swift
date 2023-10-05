@@ -32,7 +32,7 @@ internal extension SessionUtil {
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let profileName: String = String(cString: profileNamePtr)
         let profilePic: user_profile_pic = user_profile_get_pic(conf)
         let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
@@ -40,7 +40,7 @@ internal extension SessionUtil {
         // Handle user profile changes
         try ProfileManager.updateProfileIfNeeded(
             db,
-            publicKey: userPublicKey,
+            publicKey: userSessionId.hexString,
             name: profileName,
             avatarUpdate: {
                 guard let profilePictureUrl: String = profilePictureUrl else { return .remove }
@@ -61,7 +61,7 @@ internal extension SessionUtil {
         
         // Update the 'Note to Self' visibility and priority
         let threadInfo: PriorityVisibilityInfo? = try? SessionThread
-            .filter(id: userPublicKey)
+            .filter(id: userSessionId.hexString)
             .select(.id, .variant, .pinnedPriority, .shouldBeVisible)
             .asRequest(of: PriorityVisibilityInfo.self)
             .fetchOne(db)
@@ -80,7 +80,7 @@ internal extension SessionUtil {
             
             if !threadChanges.isEmpty {
                 try SessionThread
-                    .filter(id: userPublicKey)
+                    .filter(id: userSessionId.hexString)
                     .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                         db,
                         threadChanges
@@ -91,13 +91,13 @@ internal extension SessionUtil {
             try SessionThread
                 .fetchOrCreate(
                     db,
-                    id: userPublicKey,
+                    id: userSessionId.hexString,
                     variant: .contact,
                     shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority)
                 )
             
             try SessionThread
-                .filter(id: userPublicKey)
+                .filter(id: userSessionId.hexString)
                 .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                     db,
                     SessionThread.Columns.pinnedPriority.set(to: targetPriority)
@@ -110,7 +110,7 @@ internal extension SessionUtil {
                 try SessionThread
                     .deleteOrLeave(
                         db,
-                        threadId: userPublicKey,
+                        threadId: userSessionId.hexString,
                         threadVariant: .contact,
                         groupLeaveType: .silent,
                         calledFromConfigHandling: true,
@@ -123,15 +123,15 @@ internal extension SessionUtil {
         let targetExpiry: Int32 = user_profile_get_nts_expiry(conf)
         let targetIsEnable: Bool = targetExpiry > 0
         let targetConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
-            threadId: userPublicKey,
+            threadId: userSessionId.hexString,
             isEnabled: targetIsEnable,
             durationSeconds: TimeInterval(targetExpiry),
             type: targetIsEnable ? .disappearAfterSend : .unknown,
             lastChangeTimestampMs: serverTimestampMs
         )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-            .fetchOne(db, id: userPublicKey)
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userPublicKey))
+            .fetchOne(db, id: userSessionId.hexString)
+            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userSessionId.hexString))
         
         if
             let remoteLastChangeTimestampMs = targetConfig.lastChangeTimestampMs,
@@ -159,12 +159,12 @@ internal extension SessionUtil {
         
         // Create a contact for the current user if needed (also force-approve the current user
         // in case the account got into a weird state or restored directly from a migration)
-        let userContact: Contact = Contact.fetchOrCreate(db, id: userPublicKey)
+        let userContact: Contact = Contact.fetchOrCreate(db, id: userSessionId.hexString)
         
         if !userContact.isTrusted || !userContact.isApproved || !userContact.didApproveMe {
             try userContact.save(db)
             try Contact
-                .filter(id: userPublicKey)
+                .filter(id: userSessionId.hexString)
                 .updateAll( // Handling a config update so don't use `updateAllAndConfig`
                     db,
                     Contact.Columns.isTrusted.set(to: true),    // Always trust the current user

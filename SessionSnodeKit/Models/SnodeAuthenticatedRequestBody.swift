@@ -36,15 +36,15 @@ public class SnodeAuthenticatedRequestBody: Encodable {
         try container.encode(signatureBase64, forKey: .signatureBase64)
         
         switch authInfo {
-            case .standard(let pubkey, let ed25519KeyPair):
-                try container.encode(pubkey, forKey: .pubkey)
+            case .standard(let sessionId, let ed25519KeyPair):
+                try container.encode(sessionId.hexString, forKey: .pubkey)
                 try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
                 
-            case .groupAdmin(let pubkey, _):
-                try container.encode(pubkey, forKey: .pubkey)
+            case .groupAdmin(let sessionId, _):
+                try container.encode(sessionId.hexString, forKey: .pubkey)
                 
-            case .groupMember(let pubkey, let authData):
-                try container.encode(pubkey, forKey: .pubkey)
+            case .groupMember(let sessionId, let authData):
+                try container.encode(sessionId.hexString, forKey: .pubkey)
         }
     }
     

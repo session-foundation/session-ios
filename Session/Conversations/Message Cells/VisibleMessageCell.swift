@@ -543,9 +543,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             authorId: quote.authorId,
                             quotedText: quote.body,
                             threadVariant: cellViewModel.threadVariant,
-                            currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                            currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-                            currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
+                            currentUserSessionId: cellViewModel.currentUserSessionId,
+                            currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                            currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                             direction: (cellViewModel.variant == .standardOutgoing ?
                                 .outgoing :
                                 .incoming
@@ -685,7 +685,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     return
                 }
                 
-                let isSelfSend: Bool = (reactionInfo.reaction.authorId == cellViewModel.currentUserPublicKey)
+                let isSelfSend: Bool = (reactionInfo.reaction.authorId == cellViewModel.currentUserSessionId)
                 
                 if let value: ReactionViewModel = result.value(forKey: emoji) {
                     result.replace(
@@ -874,7 +874,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             // For open groups only attempt to start a conversation if the author has a blinded id
             guard cellViewModel.threadVariant != .community else {
                 // FIXME: Add in support for opening a conversation with a 'blinded25' id
-                guard SessionId.Prefix(from: cellViewModel.authorId) == .blinded15 else { return }
+                guard (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15 else { return }
                 
                 delegate?.startThread(
                     with: cellViewModel.authorId,
@@ -1123,9 +1123,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 attributedString: MentionUtilities.highlightMentions(
                     in: (cellViewModel.body ?? ""),
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                    currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-                    currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
+                    currentUserSessionId: cellViewModel.currentUserSessionId,
+                    currentUserBlinded15SessionId: cellViewModel.currentUserBlinded15SessionId,
+                    currentUserBlinded25SessionId: cellViewModel.currentUserBlinded25SessionId,
                     isOutgoingMessage: isOutgoing,
                     textColor: actualTextColor,
                     theme: theme,

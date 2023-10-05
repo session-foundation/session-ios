@@ -28,10 +28,13 @@ public enum ExpirationUpdateJob: JobExecutor {
             return
         }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         dependencies[singleton: .storage]
             .readPublisher(using: dependencies) { db in
-                try SnodeAPI.AuthenticationInfo(db, threadId: userPublicKey, using: dependencies)
+                try SnodeAPI.AuthenticationInfo(
+                    db,
+                    sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
+                    using: dependencies
+                )
             }
             .flatMap { authInfo in
                 SnodeAPI

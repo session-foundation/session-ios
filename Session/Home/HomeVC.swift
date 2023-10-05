@@ -656,7 +656,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 // Cannot properly sync outgoing blinded message requests so don't provide the option
                 guard
                     threadViewModel.threadVariant != .contact ||
-                    SessionId(from: section.elements[indexPath.row].threadId)?.prefix == .standard
+                    (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
                 else { return nil }
                 
                 return UIContextualAction.configuration(
@@ -692,7 +692,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 )
                 
             case .threads:
-                let sessionIdPrefix: SessionId.Prefix? = SessionId(from: threadViewModel.threadId)?.prefix
+                let sessionIdPrefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadViewModel.threadId)
                 
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
                 let shouldHavePinAction: Bool = (

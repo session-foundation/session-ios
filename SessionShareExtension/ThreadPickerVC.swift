@@ -224,7 +224,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         let publicKey: String = {
             switch threadVariant {
                 case .contact, .legacyGroup, .group: return threadId
-                case .community: return getUserHexEncodedPublicKey(using: dependencies)
+                case .community: return getUserSessionId(using: dependencies).hexString
             }
         }()
         
@@ -273,7 +273,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         // Create the interaction
                         let interaction: Interaction = try Interaction(
                             threadId: threadId,
-                            authorId: getUserHexEncodedPublicKey(db),
+                            authorId: getUserSessionId(db, using: dependencies).hexString,
                             variant: .standardOutgoing,
                             body: body,
                             timestampMs: SnodeAPI.currentOffsetTimestampMs(),

@@ -27,8 +27,8 @@ public enum SessionUtil {
     
     // MARK: - Variables
     
-    internal static func syncDedupeId(_ publicKey: String) -> String {
-        return "EnqueueConfigurationSyncJob-\(publicKey)"   // stringlint:disable
+    internal static func syncDedupeId(_ sessionIdHexString: String) -> String {
+        return "EnqueueConfigurationSyncJob-\(sessionIdHexString)"   // stringlint:disable
     }
     
     public static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
@@ -50,7 +50,7 @@ public enum SessionUtil {
         else { return SNLog("[SessionUtil] Ignoring loadState due to existing state") }
         
         // Retrieve the existing dumps from the database
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let existingDumps: [ConfigDump] = ((try? ConfigDump.fetchSet(db)) ?? [])
             .sorted { lhs, rhs in lhs.variant.loadOrder < rhs.variant.loadOrder }
         let existingDumpVariants: Set<ConfigDump.Variant> = existingDumps
@@ -59,7 +59,7 @@ public enum SessionUtil {
         let missingRequiredVariants: Set<ConfigDump.Variant> = ConfigDump.Variant.userVariants
             .subtracting(existingDumpVariants)
         let groupsByKey: [String: Data] = (try? ClosedGroup
-            .filter(ids: existingDumps.map { $0.publicKey })
+            .filter(ids: existingDumps.map { $0.sessionId.hexString })
             .fetchAll(db)
             .reduce(into: [:]) { result, next in result[next.threadId] = next.groupIdentityPrivateKey })
             .defaulting(to: [:])
@@ -69,13 +69,13 @@ public enum SessionUtil {
             existingDumps.forEach { dump in
                 cache.setConfig(
                     for: dump.variant,
-                    publicKey: dump.publicKey,
+                    sessionId: dump.sessionId,
                     to: try? SessionUtil
                         .loadState(
                             for: dump.variant,
-                            publicKey: dump.publicKey,
+                            sessionId: dump.sessionId,
                             userEd25519SecretKey: ed25519SecretKey,
-                            groupEd25519SecretKey: groupsByKey[dump.publicKey].map { Array($0) },
+                            groupEd25519SecretKey: groupsByKey[dump.sessionId.hexString].map { Array($0) },
                             cachedData: dump.data,
                             cache: cache
                         )
@@ -86,11 +86,11 @@ public enum SessionUtil {
             missingRequiredVariants.forEach { variant in
                 cache.setConfig(
                     for: variant,
-                    publicKey: currentUserPublicKey,
+                    sessionId: userSessionId,
                     to: try? SessionUtil
                         .loadState(
                             for: variant,
-                            publicKey: currentUserPublicKey,
+                            sessionId: userSessionId,
                             userEd25519SecretKey: ed25519SecretKey,
                             groupEd25519SecretKey: nil,
                             cachedData: nil,
@@ -106,7 +106,7 @@ public enum SessionUtil {
     
     private static func loadState(
         for variant: ConfigDump.Variant,
-        publicKey: String,
+        sessionId: SessionId,
         userEd25519SecretKey: [UInt8],
         groupEd25519SecretKey: [UInt8]?,
         cachedData: Data?,
@@ -152,7 +152,7 @@ public enum SessionUtil {
                 .toConfig(conf, variant: variant, error: error)
                 
             case (.groupInfo, .some(var adminSecretKey)), (.groupMembers, .some(var adminSecretKey)):
-                var identityPublicKey: [UInt8] = Array(Data(hex: publicKey.removingIdPrefixIfNeeded()))
+                var identityPublicKey: [UInt8] = sessionId.publicKey
                 
                 return try (groupConfigInitCalls[variant]?(
                     &conf,
@@ -165,12 +165,9 @@ public enum SessionUtil {
                 .toConfig(conf, variant: variant, error: error)
                 
             case (.groupKeys, .some(var adminSecretKey)):
-                var identityPublicKey: [UInt8] = Array(Data(hex: publicKey.removingIdPrefixIfNeeded()))
-                let infoConfig: Config? = cache.config(for: .groupInfo, publicKey: publicKey)
-                    .wrappedValue
-                let membersConfig: Config? = cache
-                    .config(for: .groupMembers, publicKey: publicKey)
-                    .wrappedValue
+                var identityPublicKey: [UInt8] = sessionId.publicKey
+                let infoConfig: Config? = cache.config(for: .groupInfo, sessionId: sessionId).wrappedValue
+                let membersConfig: Config? = cache.config(for: .groupMembers, sessionId: sessionId).wrappedValue
                 
                 guard
                     case .object(let infoConf) = infoConfig,
@@ -196,7 +193,7 @@ public enum SessionUtil {
             // It looks like C doesn't deal will passing pointers to null variables well so we need
             // to explicitly pass 'nil' for the admin key in this case
             case (.groupInfo, .none), (.groupMembers, .none):
-                var identityPublicKey: [UInt8] = Array(Data(hex: publicKey.removingIdPrefixIfNeeded()))
+                var identityPublicKey: [UInt8] = sessionId.publicKey
                 
                 return try (groupConfigInitCalls[variant]?(
                     &conf,
@@ -211,12 +208,9 @@ public enum SessionUtil {
             // It looks like C doesn't deal will passing pointers to null variables well so we need
             // to explicitly pass 'nil' for the admin key in this case
             case (.groupKeys, .none):
-                var identityPublicKey: [UInt8] = Array(Data(hex: publicKey.removingIdPrefixIfNeeded()))
-                let infoConfig: Config? = cache.config(for: .groupInfo, publicKey: publicKey)
-                    .wrappedValue
-                let membersConfig: Config? = cache
-                    .config(for: .groupMembers, publicKey: publicKey)
-                    .wrappedValue
+                var identityPublicKey: [UInt8] = sessionId.publicKey
+                let infoConfig: Config? = cache.config(for: .groupInfo, sessionId: sessionId).wrappedValue
+                let membersConfig: Config? = cache.config(for: .groupMembers, sessionId: sessionId).wrappedValue
                 
                 guard
                     case .object(let infoConf) = infoConfig,
@@ -244,7 +238,7 @@ public enum SessionUtil {
     internal static func createDump(
         config: Config?,
         for variant: ConfigDump.Variant,
-        publicKey: String,
+        sessionId: SessionId,
         timestampMs: Int64
     ) throws -> ConfigDump? {
         // If it doesn't need a dump then do nothing
@@ -255,7 +249,7 @@ public enum SessionUtil {
         
         return ConfigDump(
             variant: variant,
-            publicKey: publicKey,
+            sessionId: sessionId.hexString,
             data: dumpData,
             timestampMs: timestampMs
         )
@@ -265,27 +259,33 @@ public enum SessionUtil {
     
     public static func pendingChanges(
         _ db: Database,
-        publicKey: String,
+        sessionIdHexString: String,
         using dependencies: Dependencies
     ) throws -> [PushData] {
         guard Identity.userExists(db, using: dependencies) else { throw SessionUtilError.userDoesNotExist }
         
         // Get a list of the different config variants for the provided publicKey
-        let currenUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        let targetVariants: Set<ConfigDump.Variant> = {
-            switch (publicKey, SessionId.Prefix(from: publicKey)) {
-                case (currenUserPublicKey, _): return ConfigDump.Variant.userVariants
-                case (_, .group): return ConfigDump.Variant.groupVariants
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let targetVariants: [(sessionId: SessionId, variant: ConfigDump.Variant)] = {
+            switch (sessionIdHexString, try? SessionId(from: sessionIdHexString)) {
+                case (userSessionId.hexString, _):
+                    return ConfigDump.Variant.userVariants.map { (userSessionId, $0) }
+                    
+                case (_, .some(let sessionId)) where sessionId.prefix == .group:
+                    return ConfigDump.Variant.groupVariants.map { (sessionId, $0) }
+                    
                 default: return []
             }
         }()
         
         // Extract any pending changes from the cached config entry for each variant
         return try targetVariants
-            .sorted { (lhs: ConfigDump.Variant, rhs: ConfigDump.Variant) in lhs.sendOrder < rhs.sendOrder }
-            .compactMap { variant -> PushData? in
+            .sorted { (lhs: (SessionId, ConfigDump.Variant), rhs: (SessionId, ConfigDump.Variant)) in
+                lhs.1.sendOrder < rhs.1.sendOrder
+            }
+            .compactMap { sessionId, variant -> PushData? in
                 try dependencies[cache: .sessionUtil]
-                    .config(for: variant, publicKey: publicKey)
+                    .config(for: variant, sessionId: sessionId)
                     .wrappedValue
                     .map { config -> PushData? in
                         // Check if the config needs to be pushed
@@ -307,11 +307,13 @@ public enum SessionUtil {
         serverHash: String,
         sentTimestamp: Int64,
         variant: ConfigDump.Variant,
-        publicKey: String,
+        sessionIdHexString: String,
         using dependencies: Dependencies
     ) -> ConfigDump? {
+        let sessionId: SessionId = SessionId(hex: sessionIdHexString, dumpVariant: variant)
+        
         return dependencies[cache: .sessionUtil]
-            .config(for: variant, publicKey: publicKey)
+            .config(for: variant, sessionId: sessionId)
             .mutate { config -> ConfigDump? in
                 guard config != nil else { return nil }
                 
@@ -324,14 +326,14 @@ public enum SessionUtil {
                 return try? SessionUtil.createDump(
                     config: config,
                     for: variant,
-                    publicKey: publicKey,
+                    sessionId: sessionId,
                     timestampMs: sentTimestamp
                 )
             }
     }
     
     public static func configHashes(
-        for publicKey: String,
+        for sessionIdHexString: String,
         using dependencies: Dependencies
     ) -> [String] {
         return dependencies[singleton: .storage]
@@ -340,15 +342,15 @@ public enum SessionUtil {
                 
                 return try ConfigDump
                     .select(.variant)
-                    .filter(ConfigDump.Columns.publicKey == publicKey)
+                    .filter(ConfigDump.Columns.publicKey == sessionIdHexString)
                     .asRequest(of: ConfigDump.Variant.self)
                     .fetchSet(db)
             }
             .defaulting(to: [])
             .map { variant -> [String] in
-                /// Extract all existing hashes for any dumps associated with the given `publicKey`
+                /// Extract all existing hashes for any dumps associated with the given `sessionIdHexString`
                 dependencies[cache: .sessionUtil]
-                    .config(for: variant, publicKey: publicKey)
+                    .config(for: variant, sessionId: SessionId(hex: sessionIdHexString, dumpVariant: variant))
                     .wrappedValue
                     .map { $0.currentHashes() }
                     .defaulting(to: [])
@@ -360,7 +362,7 @@ public enum SessionUtil {
     
     public static func handleConfigMessages(
         _ db: Database,
-        publicKey: String,
+        sessionIdHexString: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo],
         using dependencies: Dependencies = Dependencies()
     ) throws {
@@ -372,8 +374,9 @@ public enum SessionUtil {
         let needsPush: Bool = try groupedMessages
             .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
             .reduce(false) { prevNeedsPush, next -> Bool in
+                let sessionId: SessionId = SessionId(hex: sessionIdHexString, dumpVariant: next.key)
                 let needsPush: Bool = try dependencies[cache: .sessionUtil]
-                    .config(for: next.key, publicKey: publicKey)
+                    .config(for: next.key, sessionId: sessionId)
                     .mutate { config in
                         // Merge the messages (if it doesn't merge anything then don't bother trying
                         // to handle the result)
@@ -419,7 +422,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleGroupInfoUpdate(
                                         db,
                                         in: config,
-                                        groupIdentityPublicKey: publicKey,
+                                        groupSessionId: sessionId,
                                         serverTimestampMs: latestServerTimestampMs,
                                         using: dependencies
                                     )
@@ -428,7 +431,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleGroupMembersUpdate(
                                         db,
                                         in: config,
-                                        groupIdentityPublicKey: publicKey,
+                                        groupSessionId: sessionId,
                                         serverTimestampMs: latestServerTimestampMs,
                                         using: dependencies
                                     )
@@ -437,7 +440,7 @@ public enum SessionUtil {
                                     try SessionUtil.handleGroupKeysUpdate(
                                         db,
                                         in: config,
-                                        groupIdentityPublicKey: publicKey,
+                                        groupSessionId: sessionId,
                                         using: dependencies
                                     )
                                     
@@ -456,7 +459,7 @@ public enum SessionUtil {
                             try ConfigDump
                                 .filter(
                                     ConfigDump.Columns.variant == next.key &&
-                                    ConfigDump.Columns.publicKey == publicKey
+                                    ConfigDump.Columns.publicKey == sessionId.hexString
                                 )
                                 .updateAll(
                                     db,
@@ -469,7 +472,7 @@ public enum SessionUtil {
                         try SessionUtil.createDump(
                             config: config,
                             for: next.key,
-                            publicKey: publicKey,
+                            sessionId: sessionId,
                             timestampMs: latestServerTimestampMs
                         )?.save(db)
                 
@@ -484,8 +487,8 @@ public enum SessionUtil {
         // push any pending updates and properly update the state)
         guard needsPush else { return }
         
-        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(publicKey)) { db in
-            ConfigurationSyncJob.enqueue(db, publicKey: publicKey)
+        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(sessionIdHexString)) { db in
+            ConfigurationSyncJob.enqueue(db, sessionIdHexString: sessionIdHexString)
         }
     }
 }
@@ -570,13 +573,28 @@ private extension Int32 {
     }
 }
 
+private extension SessionId {
+    init(hex: String, dumpVariant: ConfigDump.Variant) {
+        switch (try? SessionId(from: hex), dumpVariant) {
+            case (.some(let sessionId), _): self = sessionId
+            case (_, .userProfile), (_, .contacts), (_, .convoInfoVolatile), (_, .userGroups):
+                self = SessionId(.standard, hex: hex)
+                
+            case (_, .groupInfo), (_, .groupMembers), (_, .groupKeys):
+                self = SessionId(.group, hex: hex)
+                
+            case (_, .invalid): self = SessionId.invalid
+        }
+    }
+}
+
 // MARK: - SessionUtil Cache
 
 public extension SessionUtil {
     class Cache: SessionUtilCacheType {
         public struct Key: Hashable {
             let variant: ConfigDump.Variant
-            let publicKey: String
+            let sessionId: SessionId
         }
         
         private var configStore: [SessionUtil.Cache.Key: Atomic<SessionUtil.Config?>] = [:]
@@ -589,16 +607,16 @@ public extension SessionUtil {
         
         // MARK: - Functions
         
-        public func setConfig(for variant: ConfigDump.Variant, publicKey: String, to config: SessionUtil.Config?) {
-            configStore[Key(variant: variant, publicKey: publicKey)] = config.map { Atomic($0) }
+        public func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: SessionUtil.Config?) {
+            configStore[Key(variant: variant, sessionId: sessionId)] = config.map { Atomic($0) }
         }
         
         public func config(
             for variant: ConfigDump.Variant,
-            publicKey: String
+            sessionId: SessionId
         ) -> Atomic<Config?> {
             return (
-                configStore[Key(variant: variant, publicKey: publicKey)] ??
+                configStore[Key(variant: variant, sessionId: sessionId)] ??
                 Atomic(nil)
             )
         }
@@ -625,14 +643,14 @@ public protocol SessionUtilImmutableCacheType: ImmutableCacheType {
     var isEmpty: Bool { get }
     var needsSync: Bool { get }
     
-    func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<SessionUtil.Config?>
+    func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> Atomic<SessionUtil.Config?>
 }
 
 public protocol SessionUtilCacheType: SessionUtilImmutableCacheType, MutableCacheType {
     var isEmpty: Bool { get }
     var needsSync: Bool { get }
     
-    func setConfig(for variant: ConfigDump.Variant, publicKey: String, to config: SessionUtil.Config?)
-    func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<SessionUtil.Config?>
+    func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: SessionUtil.Config?)
+    func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> Atomic<SessionUtil.Config?>
     func removeAll()
 }

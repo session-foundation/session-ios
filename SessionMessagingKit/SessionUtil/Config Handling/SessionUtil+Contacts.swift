@@ -42,11 +42,11 @@ internal extension SessionUtil {
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let targetContactData: [String: ContactData] = try extractContacts(
             from: conf,
             serverTimestampMs: serverTimestampMs
-        ).filter { $0.key != userPublicKey }
+        ).filter { $0.key != userSessionId.hexString }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -202,7 +202,7 @@ internal extension SessionUtil {
         /// Delete any contact/thread records which aren't in the config message
         let syncedContactIds: [String] = targetContactData
             .map { $0.key }
-            .appending(userPublicKey)
+            .appending(userSessionId.hexString)
         let contactIdsToRemove: [String] = try Contact
             .filter(!syncedContactIds.contains(Contact.Columns.id))
             .select(.id)
@@ -279,11 +279,11 @@ internal extension SessionUtil {
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
         // blinded message requests so exclude those as well
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userSessionId: SessionId = getUserSessionId()
         let targetContacts: [SyncedContactInfo] = contactData
             .filter {
-                $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard
+                $0.id != userSessionId.hexString &&
+                (try? SessionId(from: $0.id))?.prefix == .standard
             }
         
         // If we only updated the current user contact then no need to continue
@@ -375,11 +375,11 @@ internal extension SessionUtil {
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
         // blinded message requests so exclude those as well
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let targetContacts: [Contact] = updatedContacts
             .filter {
-                $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard
+                $0.id != userSessionId.hexString &&
+                (try? SessionId(from: $0.id))?.prefix == .standard
             }
         
         // If we only updated the current user contact then no need to continue
@@ -388,7 +388,7 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey,
+            sessionId: userSessionId,
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
@@ -452,20 +452,20 @@ internal extension SessionUtil {
         guard !existingContactIds.isEmpty else { return updated }
         
         // Get the user public key (updating their profile is handled separately)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let targetProfiles: [Profile] = updatedProfiles
             .filter {
-                $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard &&
+                $0.id != userSessionId.hexString &&
+                (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         
         // Update the user profile first (if needed)
-        if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userPublicKey }) {
+        if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userSessionId.hexString }) {
             try SessionUtil.performAndPushChange(
                 db,
                 for: .userProfile,
-                publicKey: userPublicKey,
+                sessionId: userSessionId,
                 using: dependencies
             ) { config in
                 try SessionUtil.update(
@@ -478,7 +478,7 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey,
+            sessionId: userSessionId,
             using: dependencies
         ) { config in
             try SessionUtil
@@ -501,7 +501,7 @@ internal extension SessionUtil {
         
         // Filter out any disappearing config changes related to groups
         let targetUpdatedConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
-            .filter { SessionId.Prefix(from: $0.id) != .group }
+            .filter { (try? SessionId.Prefix(from: $0.id)) != .group }
         
         guard !targetUpdatedConfigs.isEmpty else { return updated }
         
@@ -518,20 +518,20 @@ internal extension SessionUtil {
         guard !existingContactIds.isEmpty else { return updated }
         
         // Get the user public key (updating note to self is handled separately)
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = targetUpdatedConfigs
             .filter {
-                $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard &&
+                $0.id != userSessionId.hexString &&
+                (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         
         // Update the note to self disappearing messages config first (if needed)
-        if let updatedUserDisappearingConfig: DisappearingMessagesConfiguration = targetUpdatedConfigs.first(where: { $0.id == userPublicKey }) {
+        if let updatedUserDisappearingConfig: DisappearingMessagesConfiguration = targetUpdatedConfigs.first(where: { $0.id == userSessionId.hexString }) {
             try SessionUtil.performAndPushChange(
                 db,
                 for: .userProfile,
-                publicKey: userPublicKey,
+                sessionId: userSessionId,
                 using: dependencies
             ) { config in
                 try SessionUtil.updateNoteToSelf(
@@ -544,7 +544,7 @@ internal extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: userPublicKey,
+            sessionId: userSessionId,
             using: dependencies
         ) { config in
             try SessionUtil
@@ -570,7 +570,7 @@ public extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            sessionId: getUserSessionId(db, using: dependencies),
             using: dependencies
         ) { config in
             // Mark the contacts as hidden
@@ -597,7 +597,7 @@ public extension SessionUtil {
         try SessionUtil.performAndPushChange(
             db,
             for: .contacts,
-            publicKey: getUserHexEncodedPublicKey(db, using: dependencies),
+            sessionId: getUserSessionId(db, using: dependencies),
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
@@ -617,14 +617,14 @@ public extension SessionUtil {
         disappearingMessagesConfig: DisappearingMessagesConfiguration,
         using dependencies: Dependencies
     ) throws {
-        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         
         switch sessionId {
-            case userPublicKey:
+            case userSessionId.hexString:
                 try SessionUtil.performAndPushChange(
                     db,
                     for: .userProfile,
-                    publicKey: userPublicKey,
+                    sessionId: userSessionId,
                     using: dependencies
                 ) { config in
                     try SessionUtil.updateNoteToSelf(
@@ -637,7 +637,7 @@ public extension SessionUtil {
                 try SessionUtil.performAndPushChange(
                     db,
                     for: .contacts,
-                    publicKey: userPublicKey,
+                    sessionId: userSessionId,
                     using: dependencies
                 ) { config in
                     try SessionUtil

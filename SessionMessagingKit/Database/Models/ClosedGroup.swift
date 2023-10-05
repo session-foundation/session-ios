@@ -201,7 +201,7 @@ public extension ClosedGroup {
         }
         
         try SessionUtil.createGroupState(
-            groupId: group.id,
+            groupSessionId: SessionId(.group, hex: group.id),
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: group.groupIdentityPrivateKey,
             authData: group.authData,
@@ -248,7 +248,7 @@ public extension ClosedGroup {
         }
         
         // Remove the group from the database and unsubscribe from PNs
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         
         threadIds.forEach { threadId in
             dependencies[singleton: .closedGroupPoller].stopPolling(for: threadId)
@@ -256,7 +256,7 @@ public extension ClosedGroup {
             try? PushNotificationAPI
                 .preparedUnsubscribeFromLegacyGroup(
                     legacyGroupId: threadId,
-                    currentUserPublicKey: userPublicKey
+                    userSessionId: userSessionId
                 )
                 .send(using: dependencies)
                 .sinkUntilComplete()
@@ -306,7 +306,7 @@ public extension ClosedGroup {
             
             try SessionUtil.remove(
                 db,
-                groupIds: threadVariants
+                groupSessionIds: threadVariants
                     .filter { $0.variant == .group }
                     .map { $0.id },
                 using: dependencies
@@ -318,7 +318,7 @@ public extension ClosedGroup {
                 .forEach { threadIdVariant in
                     SessionUtil.removeGroupStateIfNeeded(
                         db,
-                        groupIdentityPublicKey: threadIdVariant.id,
+                        groupSessionId: SessionId(.group, hex: threadIdVariant.id),
                         using: dependencies
                     )
                 }

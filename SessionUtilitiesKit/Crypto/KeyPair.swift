@@ -6,10 +6,6 @@ public struct KeyPair: Equatable {
     public let publicKey: [UInt8]
     public let secretKey: [UInt8]
     
-    public var hexEncodedPublicKey: String {
-        return SessionId(.standard, publicKey: publicKey).hexString
-    }
-    
     // MARK: - Initialization
 
     public init(publicKey: [UInt8], secretKey: [UInt8]) {

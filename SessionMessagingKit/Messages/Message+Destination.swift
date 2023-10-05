@@ -7,7 +7,11 @@ import SessionUtilitiesKit
 
 public extension Message {
     enum Destination: Codable, Hashable {
+        /// A one-to-one destination where `publicKey` is a `standard` `SessionId`
         case contact(publicKey: String)
+        
+        /// A one-to-one destination where `groupPublicKey` is a `standard` `SessionId` for legacy groups
+        /// and a `group` `SessionId` for updated groups
         case closedGroup(groupPublicKey: String)
         case openGroup(
             roomToken: String,
@@ -21,7 +25,7 @@ public extension Message {
         public var defaultNamespace: SnodeAPI.Namespace? {
             switch self {
                 case .contact: return .`default`
-                case .closedGroup(let key) where SessionId.Prefix(from: key) == .group:
+                case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
                     return .groupMessages
                     
                 case .closedGroup: return .legacyClosedGroup
@@ -37,7 +41,7 @@ public extension Message {
         ) throws -> Message.Destination {
             switch threadVariant {
                 case .contact:
-                    let prefix: SessionId.Prefix? = SessionId.Prefix(from: threadId)
+                    let prefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadId)
                     
                     if prefix == .blinded15 || prefix == .blinded25 {
                         guard let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: threadId) else {

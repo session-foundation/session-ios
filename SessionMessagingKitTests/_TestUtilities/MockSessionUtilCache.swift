@@ -10,12 +10,12 @@ class MockSessionUtilCache: Mock<SessionUtilCacheType>, SessionUtilCacheType {
     var isEmpty: Bool { return accept() as! Bool }
     var needsSync: Bool { return accept() as! Bool }
     
-    func setConfig(for variant: ConfigDump.Variant, publicKey: String, to config: SessionUtil.Config?) {
-        accept(args: [variant, publicKey, config])
+    func setConfig(for variant: ConfigDump.Variant, sessionId: SessionId, to config: SessionUtil.Config?) {
+        accept(args: [variant, sessionId, config])
     }
     
-    func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<SessionUtil.Config?> {
-        return accept(args: [variant, publicKey]) as! Atomic<SessionUtil.Config?>
+    func config(for variant: ConfigDump.Variant, sessionId: SessionId) -> Atomic<SessionUtil.Config?> {
+        return accept(args: [variant, sessionId]) as! Atomic<SessionUtil.Config?>
     }
     
     func removeAll() {

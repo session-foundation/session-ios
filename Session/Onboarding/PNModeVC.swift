@@ -157,9 +157,9 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         
         // Check if we already have a profile name (ie. profile retrieval completed while waiting on
         // this screen)
-        let existingProfileName: String? = dependencies[singleton: .storage].read { db in
+        let existingProfileName: String? = dependencies[singleton: .storage].read { [dependencies] db in
             try Profile
-                .filter(id: getUserHexEncodedPublicKey(db))
+                .filter(id: getUserSessionId(db, using: dependencies).hexString)
                 .select(.name)
                 .asRequest(of: String.self)
                 .fetchOne(db)

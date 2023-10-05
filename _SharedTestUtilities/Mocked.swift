@@ -33,6 +33,7 @@ func any() -> Double { 0 }
 func any() -> String { "" }
 func any() -> Data { Data() }
 func any() -> Bool { false }
+func any() -> SessionId { SessionId.invalid }
 func any() -> TestDependencies {
     TestDependencies { dependencies in
         dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)

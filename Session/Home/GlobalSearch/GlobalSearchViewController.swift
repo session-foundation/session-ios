@@ -34,7 +34,7 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
     private lazy var defaultSearchResults: [SectionModel] = {
         let result: SessionThreadViewModel? = Dependencies()[singleton: .storage].read { db -> SessionThreadViewModel? in
             try SessionThreadViewModel
-                .noteToSelfOnlyQuery(userPublicKey: getUserHexEncodedPublicKey(db))
+                .noteToSelfOnlyQuery(userSessionId: getUserSessionId(db))
                 .fetchOne(db)
         }
         
@@ -186,17 +186,17 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
                 self?.readConnection.mutate { $0 = db }
                 
                 do {
-                    let userPublicKey: String = getUserHexEncodedPublicKey(db)
+                    let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                     let contactsAndGroupsResults: [SessionThreadViewModel] = try SessionThreadViewModel
                         .contactsAndGroupsQuery(
-                            userPublicKey: userPublicKey,
+                            userSessionId: userSessionId,
                             pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText),
                             searchTerm: searchText
                         )
                         .fetchAll(db)
                     let messageResults: [SessionThreadViewModel] = try SessionThreadViewModel
                         .messagesQuery(
-                            userPublicKey: userPublicKey,
+                            userSessionId: userSessionId,
                             pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText)
                         )
                         .fetchAll(db)

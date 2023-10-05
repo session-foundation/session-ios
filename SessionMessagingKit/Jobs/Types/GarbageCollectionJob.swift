@@ -60,6 +60,8 @@ public enum GarbageCollectionJob: JobExecutor {
         
         dependencies[singleton: .storage].writeAsync(
             updates: { db in
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                
                 /// Remove any typing indicators
                 if finalTypesToCollect.contains(.threadTypingIndicators) {
                     _ = try ThreadTypingIndicator
@@ -330,7 +332,7 @@ public enum GarbageCollectionJob: JobExecutor {
                                 \(openGroup[.threadId]) IS NULL AND
                                 \(closedGroup[.threadId]) IS NULL AND
                                 \(thread[.shouldBeVisible]) = false AND
-                                \(SQL("\(thread[.id]) != \(getUserHexEncodedPublicKey(db))"))
+                                \(SQL("\(thread[.id]) != \(userSessionId.hexString)"))
                             )
                         )
                     """)

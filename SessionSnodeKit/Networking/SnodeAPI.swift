@@ -230,8 +230,8 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        SNLog("Getting swarm for: \((publicKey == currentUserPublicKey) ? "self" : publicKey).")
+        let currentUserSessionId: SessionId = getUserSessionId(using: dependencies)
+        SNLog("Getting swarm for: \((publicKey == currentUserSessionId.hexString) ? "self" : publicKey).")
         
         return getRandomSnode(using: dependencies)
             .flatMap { snode in
@@ -277,7 +277,7 @@ public final class SnodeAPI {
                 try SnodeAPI.prepareRequest(
                     request: Request(
                         endpoint: .expire,
-                        publicKey: authInfo.publicKey,
+                        publicKey: authInfo.sessionId.hexString,
                         body: UpdateExpiryRequest(
                             messageHashes: refreshingConfigHashes,
                             expiryMs: UInt64(
@@ -312,7 +312,7 @@ public final class SnodeAPI {
             db,
             requests: requests,
             requireAllBatchResponses: true,
-            associatedWith: authInfo.publicKey,
+            associatedWith: authInfo.sessionId.hexString,
             using: dependencies
         )
         .map { (_: ResponseInfoType, batchResponse: HTTP.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)] in
@@ -329,7 +329,7 @@ public final class SnodeAPI {
                     .asType(HTTP.BatchSubResponse<UpdateExpiryResponse>.self),
                 let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
                 let validResults: [String: UpdateExpiryResponseResult] = try? refreshTTLResponse.validResultMap(
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     validationData: refreshingConfigHashes,
                     using: dependencies
                 ),
@@ -418,7 +418,7 @@ public final class SnodeAPI {
             db,
             for: snode,
             namespace: namespace,
-            associatedWith: authInfo.publicKey,
+            associatedWith: authInfo.sessionId.hexString,
             using: dependencies
         )
 
@@ -427,7 +427,7 @@ public final class SnodeAPI {
                 db,
                 for: snode,
                 namespace: namespace,
-                associatedWith: authInfo.publicKey,
+                associatedWith: authInfo.sessionId.hexString,
                 using: dependencies
             )?
             .hash
@@ -437,9 +437,9 @@ public final class SnodeAPI {
                 return try SnodeAPI.prepareRequest(
                     request: Request(
                         endpoint: .getMessages,
-                        publicKey: authInfo.publicKey,
+                        publicKey: authInfo.sessionId.hexString,
                         body: LegacyGetMessagesRequest(
-                            pubkey: authInfo.publicKey,
+                            pubkey: authInfo.sessionId.hexString,
                             lastHash: (maybeLastHash ?? ""),
                             namespace: namespace,
                             maxCount: nil,
@@ -453,7 +453,7 @@ public final class SnodeAPI {
             return try SnodeAPI.prepareRequest(
                 request: Request(
                     endpoint: .getMessages,
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     body: GetMessagesRequest(
                         lastHash: (maybeLastHash ?? ""),
                         namespace: namespace,
@@ -472,7 +472,7 @@ public final class SnodeAPI {
                     response.messages.compactMap { rawMessage -> SnodeReceivedMessage? in
                         SnodeReceivedMessage(
                             snode: snode,
-                            publicKey: authInfo.publicKey,
+                            publicKey: authInfo.sessionId.hexString,
                             namespace: namespace,
                             rawMessage: rawMessage
                         )
@@ -571,7 +571,7 @@ public final class SnodeAPI {
                     )
                 ),
                 to: snode,
-                associatedWith: authInfo.publicKey,
+                associatedWith: authInfo.sessionId.hexString,
                 using: dependencies
             )
             .decoded(as: GetExpiriesResponse.self, using: dependencies)
@@ -601,7 +601,7 @@ public final class SnodeAPI {
                             )
                         ),
                         to: snode,
-                        associatedWith: authInfo.publicKey,
+                        associatedWith: authInfo.sessionId.hexString,
                         using: dependencies
                     )
                     .decoded(as: SendMessagesResponse.self, using: dependencies)
@@ -620,19 +620,19 @@ public final class SnodeAPI {
                         )
                     ),
                     to: snode,
-                    associatedWith: authInfo.publicKey,
+                    associatedWith: authInfo.sessionId.hexString,
                     using: dependencies
                 )
                 .decoded(as: SendMessagesResponse.self, using: dependencies)
                 .eraseToAnyPublisher()
         }
         
-        return getSwarm(for: authInfo.publicKey)
+        return getSwarm(for: authInfo.sessionId.hexString)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> in
                 try sendMessage(to: snode)
                     .tryMap { info, response -> (ResponseInfoType, SendMessagesResponse) in
                         try response.validateResultMap(
-                            publicKey: authInfo.publicKey,
+                            publicKey: authInfo.sessionId.hexString,
                             using: dependencies
                         )
                         
@@ -655,7 +655,7 @@ public final class SnodeAPI {
                 return try SnodeAPI.prepareRequest(
                     request: Request(
                         endpoint: .sendMessage,
-                        publicKey: authInfo.publicKey,
+                        publicKey: authInfo.sessionId.hexString,
                         body: LegacySendMessagesRequest(
                             message: message,
                             namespace: namespace
@@ -668,7 +668,7 @@ public final class SnodeAPI {
             return try SnodeAPI.prepareRequest(
                 request: Request(
                     endpoint: .sendMessage,
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     body: SendMessageRequest(
                         message: message,
                         namespace: namespace,
@@ -683,7 +683,7 @@ public final class SnodeAPI {
         return request
             .tryMap { _, response -> SendMessagesResponse in
                 try response.validateResultMap(
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     using: dependencies
                 )
 
@@ -707,7 +707,7 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        return getSwarm(for: authInfo.publicKey)
+        return getSwarm(for: authInfo.sessionId.hexString)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
                 SnodeAPI
                     .send(
@@ -722,13 +722,13 @@ public final class SnodeAPI {
                             )
                         ),
                         to: snode,
-                        associatedWith: authInfo.publicKey,
+                        associatedWith: authInfo.sessionId.hexString,
                         using: dependencies
                     )
                     .decoded(as: UpdateExpiryResponse.self, using: dependencies)
                     .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
                         try response.validResultMap(
-                            publicKey: authInfo.publicKey,
+                            publicKey: authInfo.sessionId.hexString,
                             validationData: serverHashes,
                             using: dependencies
                         )
@@ -742,7 +742,7 @@ public final class SnodeAPI {
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        return getSwarm(for: authInfo.publicKey)
+        return getSwarm(for: authInfo.sessionId.hexString)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<Void, Error> in
                 SnodeAPI
                     .send(
@@ -754,13 +754,13 @@ public final class SnodeAPI {
                             )
                         ),
                         to: snode,
-                        associatedWith: authInfo.publicKey,
+                        associatedWith: authInfo.sessionId.hexString,
                         using: dependencies
                     )
                     .decoded(as: RevokeSubkeyResponse.self, using: dependencies)
                     .tryMap { _, response -> Void in
                         try response.validateResultMap(
-                            publicKey: authInfo.publicKey,
+                            publicKey: authInfo.sessionId.hexString,
                             validationData: subkeyToRevoke,
                             using: dependencies
                         )
@@ -778,7 +778,7 @@ public final class SnodeAPI {
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<[String: Bool], Error> {
-        return getSwarm(for: authInfo.publicKey, using: dependencies)
+        return getSwarm(for: authInfo.sessionId.hexString, using: dependencies)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
                 SnodeAPI
                     .send(
@@ -791,13 +791,13 @@ public final class SnodeAPI {
                             )
                         ),
                         to: snode,
-                        associatedWith: authInfo.publicKey,
+                        associatedWith: authInfo.sessionId.hexString,
                         using: dependencies
                     )
                     .decoded(as: DeleteMessagesResponse.self, using: dependencies)
                     .tryMap { _, response -> [String: Bool] in
                         let validResultMap: [String: Bool] = try response.validResultMap(
-                            publicKey: authInfo.publicKey,
+                            publicKey: authInfo.sessionId.hexString,
                             validationData: serverHashes,
                             using: dependencies
                         )
@@ -829,7 +829,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteMessages,
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     body: DeleteMessagesRequest(
                         messageHashes: serverHashes,
                         requireSuccessfulDeletion: requireSuccessfulDeletion,
@@ -840,7 +840,7 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> [String: Bool] in
                 let validResultMap: [String: Bool] = try response.validResultMap(
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     validationData: serverHashes,
                     using: dependencies
                 )
@@ -870,7 +870,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteAll,
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     requiresLatestNetworkTime: true,
                     body: DeleteAllMessagesRequest(
                         namespace: namespace,
@@ -887,7 +887,7 @@ public final class SnodeAPI {
                 }
                 
                 return try response.validResultMap(
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     validationData: targetInfo.timestampMs,
                     using: dependencies
                 )
@@ -905,7 +905,7 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteAllBefore,
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     requiresLatestNetworkTime: true,
                     body: DeleteAllBeforeRequest(
                         beforeMs: beforeMs,
@@ -919,7 +919,7 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> [String: Bool] in
                 try response.validResultMap(
-                    publicKey: authInfo.publicKey,
+                    publicKey: authInfo.sessionId.hexString,
                     validationData: beforeMs,
                     using: dependencies
                 )

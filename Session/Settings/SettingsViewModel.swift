@@ -68,7 +68,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     
     // MARK: - Variables
     
-    private let userSessionId: String
+    private let userSessionId: SessionId
     private let dependencies: Dependencies
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
@@ -91,7 +91,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     init(
         using dependencies: Dependencies = Dependencies()
     ) {
-        self.userSessionId = getUserHexEncodedPublicKey(using: dependencies)
+        self.userSessionId = getUserSessionId(using: dependencies)
         self.oldDisplayName = Profile.fetchOrCreateCurrentUser(using: dependencies).name
         self.dependencies = dependencies
         
@@ -234,7 +234,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     private lazy var _observableTableData: ObservableData = ValueObservation
         .trackingConstantRegion { [weak self] db -> [SectionModel] in
-            let userPublicKey: String = getUserHexEncodedPublicKey(db)
+            let userSessionId: SessionId = getUserSessionId(db)
             let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
             
             return [
@@ -499,7 +499,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
     private func updateProfilePicture(currentFileName: String?) {
         let existingDisplayName: String = self.oldDisplayName
         let existingImageData: Data? = ProfileManager
-            .profileAvatar(id: self.userSessionId)
+            .profileAvatar(id: self.userSessionId.hexString)
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
             title: "update_profile_modal_title".localized(),
             body: .image(

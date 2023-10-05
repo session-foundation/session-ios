@@ -16,6 +16,9 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
         case publicKey
         case data
         case timestampMs
+        
+        /// Renamed accessor for `publicKey` column to reduce ambiguity
+        static var sessionId: CodingKeys { publicKey }
     }
     
     public enum Variant: String, Codable, DatabaseValueConvertible {
@@ -34,10 +37,24 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
     /// The type of config this dump is for
     public let variant: Variant
     
-    /// The public key for the swarm this dump is for
+    /// This has been renamed to `sessionId` to reduce ambiguity
+    private let publicKey: String
+    
+    /// The sessionId for the swarm this dump is for
     ///
     /// **Note:** For user config items this will be an empty string
-    public let publicKey: String
+    public var sessionId: SessionId {
+        switch variant {
+            case .userProfile, .contacts, .convoInfoVolatile, .userGroups:
+                return SessionId(.standard, hex: publicKey)
+                
+            case .groupInfo, .groupMembers, .groupKeys:
+                return SessionId(.group, hex: publicKey)
+                
+            case .invalid:
+                return SessionId(((try? SessionId.Prefix(from: publicKey)) ?? .standard), hex: publicKey)
+        }
+    }
     
     /// The data for this dump
     public let data: Data
@@ -47,12 +64,12 @@ public struct ConfigDump: Codable, Equatable, Hashable, FetchableRecord, Persist
     
     internal init(
         variant: Variant,
-        publicKey: String,
+        sessionId: String,
         data: Data,
         timestampMs: Int64
     ) {
         self.variant = variant
-        self.publicKey = publicKey
+        self.publicKey = sessionId
         self.data = data
         self.timestampMs = timestampMs
     }
@@ -135,6 +152,8 @@ public extension ConfigDump.Variant {
         }
     }
 }
+
+// MARK: - CustomStringConvertible
 
 extension ConfigDump.Variant: CustomStringConvertible {
     public var description: String {

@@ -7,12 +7,6 @@ public extension Data {
         do { return try JSONDecoder(using: dependencies).decode(type, from: self) }
         catch { throw HTTPError.parsingFailed }
     }
-
-    func removingIdPrefixIfNeeded() -> Data {
-        var result = self
-        if result.count == 33 && SessionId.Prefix(from: result.toHexString()) != nil { result.removeFirst() }
-        return result
-    }
     
     func appending(_ other: Data) -> Data {
         var mutableData: Data = Data()
@@ -28,14 +22,5 @@ public extension Data {
         mutableData.append(contentsOf: other)
         
         return mutableData
-    }
-}
-
-@objc public extension NSData {
-    
-    @objc func removingIdPrefixIfNeeded() -> NSData {
-        var result = self as Data
-        if result.count == 33 && SessionId.Prefix(from: result.toHexString()) != nil { result.removeFirst() }
-        return result as NSData
     }
 }

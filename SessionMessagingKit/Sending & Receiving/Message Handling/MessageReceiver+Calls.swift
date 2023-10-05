@@ -166,7 +166,7 @@ extension MessageReceiver {
             let sender: String = message.sender
         else { return }
         
-        guard sender != getUserHexEncodedPublicKey(db) else {
+        guard sender != getUserSessionId(db, using: dependencies).hexString else {
             guard !currentCall.hasStartedConnecting else { return }
             
             callManager.dismissAllCallUI()
@@ -198,7 +198,7 @@ extension MessageReceiver {
         
         callManager.dismissAllCallUI()
         callManager.reportCurrentCallEnded(
-            reason: (sender == getUserHexEncodedPublicKey(db) ?
+            reason: (sender == getUserSessionId(db, using: dependencies).hexString ?
                 .declinedElsewhere :
                 .remoteEnded
             ),
@@ -240,7 +240,7 @@ extension MessageReceiver {
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 timestampMs: (messageSentTimestamp * 1000),
-                userPublicKey: getUserHexEncodedPublicKey(db),
+                userSessionId: getUserSessionId(db, using: dependencies),
                 openGroup: nil,
                 using: dependencies
             )
@@ -286,10 +286,10 @@ extension MessageReceiver {
             !thread.isMessageRequest(db)
         else { return nil }
         
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
             state: state.defaulting(
-                to: (sender == currentUserPublicKey ?
+                to: (sender == userSessionId.hexString ?
                     .outgoing :
                     .incoming
                 )
@@ -316,7 +316,7 @@ extension MessageReceiver {
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 timestampMs: (timestampMs * 1000),
-                userPublicKey: currentUserPublicKey,
+                userSessionId: userSessionId,
                 openGroup: nil,
                 using: dependencies
             ),

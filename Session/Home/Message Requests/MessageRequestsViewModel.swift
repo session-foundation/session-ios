@@ -31,7 +31,7 @@ public class MessageRequestsViewModel {
         // also want to skip the initial query and trigger it async so that the push animation
         // doesn't stutter (it should load basically immediately but without this there is a
         // distinct stutter)
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userSessionId: SessionId = getUserSessionId()
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         self.pagedDataObserver = PagedDatabaseObserver(
             pagedTable: SessionThread.self,
@@ -92,11 +92,11 @@ public class MessageRequestsViewModel {
             /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed for the query but differs
             /// from the JOINs that are actually used for performance reasons as the basic logic can be simpler for where it's used
             joinSQL: SessionThreadViewModel.optimisedJoinSQL,
-            filterSQL: SessionThreadViewModel.messageRequestsFilterSQL(userPublicKey: userPublicKey),
+            filterSQL: SessionThreadViewModel.messageRequestsFilterSQL(userSessionId: userSessionId),
             groupSQL: SessionThreadViewModel.groupSQL,
             orderSQL: SessionThreadViewModel.messageRequetsOrderSQL,
             dataQuery: SessionThreadViewModel.baseQuery(
-                userPublicKey: userPublicKey,
+                userSessionId: userSessionId,
                 groupSQL: SessionThreadViewModel.groupSQL,
                 orderSQL: SessionThreadViewModel.messageRequetsOrderSQL
             ),
@@ -159,13 +159,13 @@ public class MessageRequestsViewModel {
                     elements: data
                         .sorted { lhs, rhs -> Bool in lhs.lastInteractionDate > rhs.lastInteractionDate }
                         .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingCurrentUserBlindedKeys(
-                                currentUserBlinded15PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                            viewModel.populatingCurrentUserBlindedIds(
+                                currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
-                                    .currentUserBlinded15PublicKey,
-                                currentUserBlinded25PublicKeyForThisThread: groupedOldData[viewModel.threadId]?
+                                    .currentUserBlinded15SessionId,
+                                currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
                                     .first?
-                                    .currentUserBlinded25PublicKey
+                                    .currentUserBlinded25SessionId
                             )
                         }
                 )

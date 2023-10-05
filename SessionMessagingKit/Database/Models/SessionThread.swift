@@ -233,7 +233,7 @@ public extension SessionThread {
             .filter(id: threadId)
             .filter(
                 SessionThread.isMessageRequest(
-                    userPublicKey: getUserHexEncodedPublicKey(db),
+                    userSessionId: getUserSessionId(db),
                     includeNonVisible: true
                 )
             )
@@ -309,8 +309,8 @@ public extension SessionThread {
         calledFromConfigHandling: Bool,
         using dependencies: Dependencies = Dependencies()
     ) throws {
-        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        let remainingThreadIds: Set<String> = threadIds.asSet().removing(currentUserPublicKey)
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let remainingThreadIds: Set<String> = threadIds.asSet().removing(userSessionId.hexString)
         
         switch (threadVariant, groupLeaveType) {
             case (.contact, .standard), (.contact, .silent):
@@ -321,9 +321,9 @@ public extension SessionThread {
                 
                 // We need to custom handle the 'Note to Self' conversation (it should just be
                 // hidden locally rather than deleted)
-                if threadIds.contains(currentUserPublicKey) {
+                if threadIds.contains(userSessionId.hexString) {
                     _ = try SessionThread
-                        .filter(id: currentUserPublicKey)
+                        .filter(id: userSessionId.hexString)
                         .updateAllAndConfig(
                             db,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
@@ -392,7 +392,7 @@ public extension SessionThread {
 // MARK: - Convenience
 
 public extension SessionThread {
-    static func messageRequestsQuery(userPublicKey: String, includeNonVisible: Bool = false) -> SQLRequest<SessionThread> {
+    static func messageRequestsQuery(userSessionId: SessionId, includeNonVisible: Bool = false) -> SQLRequest<SessionThread> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         
@@ -401,12 +401,12 @@ public extension SessionThread {
             FROM \(SessionThread.self)
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
             WHERE (
-                \(SessionThread.isMessageRequest(userPublicKey: userPublicKey, includeNonVisible: includeNonVisible))
+                \(SessionThread.isMessageRequest(userSessionId: userSessionId, includeNonVisible: includeNonVisible))
             )
         """
     }
     
-    static func unreadMessageRequestsCountQuery(userPublicKey: String, includeNonVisible: Bool = false) -> SQLRequest<Int> {
+    static func unreadMessageRequestsCountQuery(userSessionId: SessionId, includeNonVisible: Bool = false) -> SQLRequest<Int> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
@@ -421,7 +421,7 @@ public extension SessionThread {
                 )
                 LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
                 WHERE (
-                    \(SessionThread.isMessageRequest(userPublicKey: userPublicKey, includeNonVisible: includeNonVisible))
+                    \(SessionThread.isMessageRequest(userSessionId: userSessionId, includeNonVisible: includeNonVisible))
                 )
             )
         """
@@ -431,7 +431,10 @@ public extension SessionThread {
     ///
     /// **Note:** In order to use this filter you **MUST** have a `joining(required/optional:)` to the
     /// `SessionThread.contact` association or it won't work
-    static func isMessageRequest(userPublicKey: String, includeNonVisible: Bool = false) -> SQLExpression {
+    static func isMessageRequest(
+        userSessionId: SessionId,
+        includeNonVisible: Bool = false
+    ) -> SQLExpression {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let shouldBeVisibleSQL: SQL = (includeNonVisible ?
@@ -443,7 +446,7 @@ public extension SessionThread {
             """
                 \(shouldBeVisibleSQL) AND
                 \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
-                \(SQL("\(thread[.id]) != \(userPublicKey)")) AND
+                \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
                 IFNULL(\(contact[.isApproved]), false) = false
             """
         ).sqlExpression
@@ -453,7 +456,7 @@ public extension SessionThread {
         return SessionThread.isMessageRequest(
             id: id,
             variant: variant,
-            currentUserPublicKey: getUserHexEncodedPublicKey(db),
+            userSessionId: getUserSessionId(db),
             shouldBeVisible: shouldBeVisible,
             contactIsApproved: (try? Contact
                 .filter(id: id)
@@ -468,7 +471,7 @@ public extension SessionThread {
     static func isMessageRequest(
         id: String,
         variant: SessionThread.Variant?,
-        currentUserPublicKey: String,
+        userSessionId: SessionId,
         shouldBeVisible: Bool?,
         contactIsApproved: Bool?,
         includeNonVisible: Bool = false
@@ -476,7 +479,7 @@ public extension SessionThread {
         return (
             (includeNonVisible || shouldBeVisible == true) &&
             variant == .contact &&
-            id != currentUserPublicKey && // Note to self
+            id != userSessionId.hexString && // Note to self
             ((contactIsApproved ?? false) == false)
         )
     }
@@ -484,7 +487,7 @@ public extension SessionThread {
     func isNoteToSelf(_ db: Database? = nil) -> Bool {
         return (
             variant == .contact &&
-            id == getUserHexEncodedPublicKey(db)
+            id == getUserSessionId(db).hexString
         )
     }
     
@@ -500,10 +503,10 @@ public extension SessionThread {
             )
         else { return false }
         
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userSessionId: SessionId = getUserSessionId(db)
         
         // No need to notify the user for self-send messages
-        guard interaction.authorId != userPublicKey else { return false }
+        guard interaction.authorId != userSessionId.hexString else { return false }
         
         // If the thread is a message request then we only want to notify for the first message
         if self.variant == .contact && isMessageRequest {
@@ -513,7 +516,7 @@ public extension SessionThread {
             // all the other message request threads have been read
             if !hasHiddenMessageRequests {
                 let numUnreadMessageRequestThreads: Int = (try? SessionThread
-                    .unreadMessageRequestsCountQuery(userPublicKey: userPublicKey, includeNonVisible: true)
+                    .unreadMessageRequestsCountQuery(userSessionId: userSessionId, includeNonVisible: true)
                     .fetchOne(db))
                     .defaulting(to: 1)
                 
@@ -553,17 +556,17 @@ public extension SessionThread {
         }
     }
     
-    static func getUserHexEncodedBlindedKey(
+    static func getCurrentUserBlindedSessionId(
         _ db: Database? = nil,
         threadId: String,
         threadVariant: Variant,
         blindingPrefix: SessionId.Prefix,
         using dependencies: Dependencies = Dependencies()
-    ) -> String? {
+    ) -> SessionId? {
         guard threadVariant == .community else { return nil }
         guard let db: Database = db else {
             return dependencies[singleton: .storage].read { db in
-                getUserHexEncodedBlindedKey(
+                getCurrentUserBlindedSessionId(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
@@ -602,8 +605,8 @@ public extension SessionThread {
             .blindedKeyPair(serverPublicKey: openGroupInfo.publicKey, edKeyPair: userEdKeyPair, using: dependencies)
         )
         
-        return blindedKeyPair.map { keyPair -> String in
-            SessionId(blindingPrefix, publicKey: keyPair.publicKey).hexString
+        return blindedKeyPair.map { keyPair -> SessionId in
+            SessionId(blindingPrefix, publicKey: keyPair.publicKey)
         }
     }
 }
