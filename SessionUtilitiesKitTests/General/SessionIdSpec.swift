@@ -98,8 +98,7 @@ class SessionIdSpec: QuickSpec {
                     
                     // MARK: ------ throws with the wrong length
                     it("throws with the wrong length") {
-                        expect(try SessionId.Prefix(from: "05\(String(TestConstants.publicKey.prefix(10)))"))
-                            .to(throwError(SessionIdError.invalidLength))
+                        expect(try SessionId.Prefix(from: "0")).to(throwError(SessionIdError.invalidLength))
                     }
                     
                     // MARK: ------ throws with an invalid prefix

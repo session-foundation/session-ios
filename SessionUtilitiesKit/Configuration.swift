@@ -23,7 +23,8 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
                 [], // Other DB migrations
                 [], // Legacy DB removal
                 [
-                    _004_AddJobPriority.self
+                    _004_AddJobPriority.self,
+                    _005_AddJobUniqueHash.self
                 ]
             ]
         )

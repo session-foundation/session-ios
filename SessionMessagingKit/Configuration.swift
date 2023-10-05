@@ -60,6 +60,7 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
             .configurationSync: ConfigurationSyncJob.self,
             .configMessageReceive: ConfigMessageReceiveJob.self,
             .expirationUpdate: ExpirationUpdateJob.self,
+            .displayPictureDownload: DisplayPictureDownloadJob.self,
             .getExpiration: GetExpirationJob.self
         ]
         

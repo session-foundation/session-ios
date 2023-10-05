@@ -93,7 +93,7 @@ public enum AttachmentUploadJob: JobExecutor {
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: details.message,
-                                    with: .other("[AttachmentUploadJob] Failed", error),
+                                    with: MessageSenderError.other("[AttachmentUploadJob] Failed", error),
                                     interactionId: interactionId,
                                     isSyncMessage: details.isSyncMessage,
                                     using: dependencies

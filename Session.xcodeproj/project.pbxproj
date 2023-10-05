@@ -514,6 +514,8 @@
 		FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */; };
 		FD1936422ACBE084004BCF0F /* MockSessionUtilCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB947162A9D69A8001F271A /* MockSessionUtilCache.swift */; };
 		FD1936432ACBE11F004BCF0F /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB9471A2A9D70A6001F271A /* CommonSMKMockExtensions.swift */; };
+		FD1936452ACE6B4D004BCF0F /* DisplayPictureDownloadJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1936442ACE6B4D004BCF0F /* DisplayPictureDownloadJob.swift */; };
+		FD1936472ACE752F004BCF0F /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1936462ACE752F004BCF0F /* _005_AddJobUniqueHash.swift */; };
 		FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */; };
 		FD1A94FE2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */; };
 		FD1C98E4282E3C5B00B76F9E /* UINavigationBar+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */; };
@@ -1741,6 +1743,8 @@
 		FD1936392ACA25BA004BCF0F /* UpdatableTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatableTimestamp.swift; sourceTree = "<group>"; };
 		FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ResponseInfo+SnodeAPI.swift"; sourceTree = "<group>"; };
 		FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseSpec.swift; sourceTree = "<group>"; };
+		FD1936442ACE6B4D004BCF0F /* DisplayPictureDownloadJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayPictureDownloadJob.swift; sourceTree = "<group>"; };
+		FD1936462ACE752F004BCF0F /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
 		FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistableRecord+Utilities.swift"; sourceTree = "<group>"; };
 		FD1A94FD2900D2EA000D73D3 /* PersistableRecordUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistableRecordUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UINavigationBar+Utilities.swift"; sourceTree = "<group>"; };
@@ -3879,6 +3883,7 @@
 				FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */,
 				FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */,
 				FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */,
+				FD1936462ACE752F004BCF0F /* _005_AddJobUniqueHash.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -4593,6 +4598,7 @@
 				7B7E5B512A4D024C00A8208E /* ExpirationUpdateJob.swift */,
 				7B7AD41E2A5512CA00469FB1 /* GetExpirationJob.swift */,
 				FDB5DAD02A94838C002C8721 /* GroupInviteMemberJob.swift */,
+				FD1936442ACE6B4D004BCF0F /* DisplayPictureDownloadJob.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -6117,6 +6123,7 @@
 				C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */,
 				FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */,
 				FD37EA1128AB34B3003AE748 /* TypedTableAlteration.swift in Sources */,
+				FD1936472ACE752F004BCF0F /* _005_AddJobUniqueHash.swift in Sources */,
 				FD30036E2A3AE26000B5A5FB /* CExceptionHelper.mm in Sources */,
 				FD9AECA72AAAF5B0009B3406 /* Crypto+SessionUtilitiesKit.swift in Sources */,
 				C3D9E4DA256778410040E4F3 /* UIImage+OWS.m in Sources */,
@@ -6239,6 +6246,7 @@
 				FD245C58285065F700B966DD /* OpenGroupServerIdLookup.swift in Sources */,
 				FD245C5A2850660100B966DD /* LinkPreviewDraft.swift in Sources */,
 				FDD250702837199200198BDA /* GarbageCollectionJob.swift in Sources */,
+				FD1936452ACE6B4D004BCF0F /* DisplayPictureDownloadJob.swift in Sources */,
 				FD6A7A6B2818C17C00035AC1 /* UpdateProfilePictureJob.swift in Sources */,
 				FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */,
 				FD716E6A2850327900C96BF4 /* EndCallMode.swift in Sources */,

@@ -5,6 +5,7 @@ import CryptoKit
 import Combine
 import GRDB
 import SignalCoreKit
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 public struct ProfileManager {
@@ -13,6 +14,11 @@ public struct ProfileManager {
         case remove
         case uploadImageData(Data)
         case updateTo(url: String, key: Data, fileName: String?)
+    }
+    
+    private struct DownloadInfo: Hashable {
+        let profile: Profile
+        let currentFileInvalid: Bool
     }
     
     // The max bytes for a user's profile name, encoded in UTF8.
@@ -25,6 +31,10 @@ public struct ProfileManager {
     
     private static var profileAvatarCache: Atomic<[String: Data]> = Atomic([:])
     private static var currentAvatarDownloads: Atomic<Set<String>> = Atomic([])
+    
+    private static var downloadsToSchedule: Atomic<Set<DownloadInfo>> = Atomic([])
+    private static var scheduleDownloadsPublisher: AnyPublisher<Void, Never>?
+    private static let scheduleDownloadsTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
     
     // MARK: - Functions
     
@@ -49,7 +59,7 @@ public struct ProfileManager {
         return profileAvatar(profile: profile)
     }
     
-    public static func profileAvatar(
+    @discardableResult public static func profileAvatar(
         profile: Profile,
         using dependencies: Dependencies = Dependencies()
     ) -> Data? {
@@ -58,10 +68,7 @@ public struct ProfileManager {
         }
         
         if let profilePictureUrl: String = profile.profilePictureUrl, !profilePictureUrl.isEmpty {
-            // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
-            dependencies[singleton: .jobRunner].afterBlockingQueue {
-                ProfileManager.downloadAvatar(for: profile)
-            }
+            scheduleDownload(for: profile, currentFileInvalid: false, using: dependencies)
         }
         
         return nil
@@ -81,24 +88,8 @@ public struct ProfileManager {
             let data: Data = loadProfileData(with: fileName),
             data.isValidImage
         else {
-            // If we can't load the avatar or it's an invalid/corrupted image then clear out
-            // the 'profilePictureFileName' and try to re-download
-            dependencies[singleton: .storage].writeAsync(
-                updates: { db in
-                    _ = try? Profile
-                        .filter(id: profile.id)
-                        .updateAll(db, Profile.Columns.profilePictureFileName.set(to: nil))
-                },
-                completion: { _, _ in
-                    // Try to re-download the avatar if it has a URL
-                    if let profilePictureUrl: String = profile.profilePictureUrl, !profilePictureUrl.isEmpty {
-                        // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
-                        dependencies[singleton: .jobRunner].afterBlockingQueue {
-                            ProfileManager.downloadAvatar(for: profile)
-                        }
-                    }
-                }
-            )
+            // If we can't load the avatar or it's an invalid/corrupted image then clear it out and re-download
+            scheduleDownload(for: profile, currentFileInvalid: true, using: dependencies)
             return nil
         }
     
@@ -119,9 +110,66 @@ public struct ProfileManager {
         return try? Data(contentsOf: URL(fileURLWithPath: filePath))
     }
     
+    public static func cache(fileName: String, avatarData: Data) {
+        profileAvatarCache.mutate { $0[fileName] = avatarData }
+    }
+    
+    private static func scheduleDownload(
+        for profile: Profile,
+        currentFileInvalid invalid: Bool,
+        using dependencies: Dependencies
+    ) {
+        downloadsToSchedule.mutate { $0 = $0.inserting(DownloadInfo(profile: profile, currentFileInvalid: invalid)) }
+        
+        /// This method can be triggered very frequently when processing messages so we want to throttle the updates to 250ms (it's for starting
+        /// avatar downloads so that should definitely be fast enough)
+        if scheduleDownloadsPublisher == nil {
+            scheduleDownloadsPublisher = scheduleDownloadsTrigger
+                .throttle(for: .milliseconds(250), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
+                .handleEvents(
+                    receiveOutput: { _ in
+                        let pendingInfo: Set<DownloadInfo> = downloadsToSchedule.mutate {
+                            let result: Set<DownloadInfo> = $0
+                            $0.removeAll()
+                            return result
+                        }
+                        
+                        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                            pendingInfo.forEach { info in
+                                // If the current file is invalid then clear out the 'profilePictureFileName'
+                                // and try to re-download the file
+                                if info.currentFileInvalid {
+                                    _ = try? Profile
+                                        .filter(id: profile.id)
+                                        .updateAll(db, Profile.Columns.profilePictureFileName.set(to: nil))
+                                }
+                                
+                                dependencies[singleton: .jobRunner].add(
+                                    db,
+                                    job: Job(
+                                        variant: .displayPictureDownload,
+                                        shouldBeUnique: true,
+                                        details: DisplayPictureDownloadJob.Details(profile: info.profile)
+                                    ),
+                                    canStartJob: true,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                    }
+                )
+                .map { _ in () }
+                .eraseToAnyPublisher()
+            
+            scheduleDownloadsPublisher?.sinkUntilComplete()
+        }
+        
+        scheduleDownloadsTrigger.send(())
+    }
+    
     // MARK: - Profile Encryption
     
-    private static func encryptData(data: Data, key: Data) -> Data? {
+    internal static func encryptData(data: Data, key: Data) -> Data? {
         // The key structure is: nonce || ciphertext || authTag
         guard
             key.count == ProfileManager.avatarAES256KeyByteLength,
@@ -138,7 +186,7 @@ public struct ProfileManager {
         return encryptedContent
     }
     
-    private static func decryptData(data: Data, key: Data) -> Data? {
+    internal static func decryptData(data: Data, key: Data) -> Data? {
         guard key.count == ProfileManager.avatarAES256KeyByteLength else { return nil }
         
         // The key structure is: nonce || ciphertext || authTag
@@ -203,99 +251,6 @@ public struct ProfileManager {
     
     public static func resetProfileStorage() {
         try? FileManager.default.removeItem(atPath: ProfileManager.profileAvatarsDirPath)
-    }
-    
-    // MARK: - Other Users' Profiles
-    
-    public static func downloadAvatar(
-        for profile: Profile,
-        funcName: String = #function,
-        using dependencies: Dependencies = Dependencies()
-    ) {
-        guard !currentAvatarDownloads.wrappedValue.contains(profile.id) else {
-            // Download already in flight; ignore
-            return
-        }
-        guard let profileUrlStringAtStart: String = profile.profilePictureUrl else {
-            SNLog("Skipping downloading avatar for \(profile.id) because url is not set")
-            return
-        }
-        guard
-            let fileId: String = Attachment.fileId(for: profileUrlStringAtStart),
-            let profileKeyAtStart: Data = profile.profileEncryptionKey,
-            profileKeyAtStart.count > 0
-        else {
-            return
-        }
-        
-        let fileName: String = UUID().uuidString.appendingFileExtension("jpg")
-        let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
-        var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: funcName)
-        
-        OWSLogger.verbose("downloading profile avatar: \(profile.id)")
-        currentAvatarDownloads.mutate { $0.insert(profile.id) }
-        
-        let useOldServer: Bool = (profileUrlStringAtStart.contains(FileServerAPI.oldServer))
-        
-        FileServerAPI
-            .download(fileId, useOldServer: useOldServer)
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .receive(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { _ in
-                    currentAvatarDownloads.mutate { $0.remove(profile.id) }
-                    
-                    // Redundant but without reading 'backgroundTask' it will warn that the variable
-                    // isn't used
-                    if backgroundTask != nil { backgroundTask = nil }
-                },
-                receiveValue: { data in
-                    guard let latestProfile: Profile = dependencies[singleton: .storage].read({ db in try Profile.fetchOne(db, id: profile.id) }) else {
-                        return
-                    }
-                    
-                    guard
-                        let latestProfileKey: Data = latestProfile.profileEncryptionKey,
-                        !latestProfileKey.isEmpty,
-                        latestProfileKey == profileKeyAtStart
-                    else {
-                        OWSLogger.warn("Ignoring avatar download for obsolete user profile.")
-                        return
-                    }
-                    
-                    guard profileUrlStringAtStart == latestProfile.profilePictureUrl else {
-                        OWSLogger.warn("Avatar url has changed during download.")
-                        
-                        if latestProfile.profilePictureUrl?.isEmpty == false {
-                            self.downloadAvatar(for: latestProfile)
-                        }
-                        return
-                    }
-                    
-                    guard let decryptedData: Data = decryptData(data: data, key: profileKeyAtStart) else {
-                        OWSLogger.warn("Avatar data for \(profile.id) could not be decrypted.")
-                        return
-                    }
-                    
-                    try? decryptedData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
-                    
-                    guard UIImage(contentsOfFile: filePath) != nil else {
-                        OWSLogger.warn("Avatar image for \(profile.id) could not be loaded.")
-                        return
-                    }
-                    
-                    // Update the cache first (in case the DBWrite thread is blocked, this way other threads
-                    // can retrieve from the cache and avoid triggering a download)
-                    profileAvatarCache.mutate { $0[fileName] = decryptedData }
-                    
-                    // Store the updated 'profilePictureFileName'
-                    dependencies[singleton: .storage].write { db in
-                        _ = try? Profile
-                            .filter(id: profile.id)
-                            .updateAll(db, Profile.Columns.profilePictureFileName.set(to: fileName))
-                    }
-                }
-            )
     }
     
     // MARK: - Current User Profile
@@ -483,8 +438,14 @@ public struct ProfileManager {
             }
             
             // Upload the avatar to the FileServer
-            FileServerAPI
-                .upload(encryptedAvatarData)
+            guard let preparedUpload: HTTP.PreparedRequest<FileUploadResponse> = try? FileServerAPI.preparedUpload(encryptedAvatarData, using: dependencies) else {
+                SNLog("Updating service with profile failed.")
+                failure?(.avatarUploadFailed)
+                return
+            }
+            
+            preparedUpload
+                .send(using: dependencies)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: queue)
                 .sinkUntilComplete(
@@ -501,7 +462,7 @@ public struct ProfileManager {
                                 )
                         }
                     },
-                    receiveValue: { fileUploadResponse in
+                    receiveValue: { _, fileUploadResponse in
                         let downloadUrl: String = "\(FileServerAPI.server)/file/\(fileUploadResponse.id)"
                         
                         // Update the cached avatar image value
@@ -544,9 +505,6 @@ public struct ProfileManager {
         }
         
         // Profile picture & profile key
-        var avatarNeedsDownload: Bool = false
-        var targetAvatarUrl: String? = nil
-        
         if sentTimestamp > (profile.lastProfilePictureUpdate ?? 0) || (isCurrentUser && calledFromConfigHandling) {
             switch avatarUpdate {
                 case .none: break
@@ -558,30 +516,33 @@ public struct ProfileManager {
                     profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
                     profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
                     
-                case .updateTo(let url, let key, let fileName):
+                case .updateTo(let url, let key, .some(let fileName)) where ProfileManager.hasProfileImageData(with: fileName):
+                    // Update the 'lastProfilePictureUpdate' timestamp for either external or local changes
+                    profileChanges.append(Profile.Columns.profilePictureFileName.set(to: fileName))
+                    profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
+                    
                     if url != profile.profilePictureUrl {
                         profileChanges.append(Profile.Columns.profilePictureUrl.set(to: url))
-                        avatarNeedsDownload = true
-                        targetAvatarUrl = url
                     }
                     
                     if key != profile.profileEncryptionKey && key.count == ProfileManager.avatarAES256KeyByteLength {
                         profileChanges.append(Profile.Columns.profileEncryptionKey.set(to: key))
                     }
                     
-                    // Profile filename (this isn't synchronized between devices)
-                    if let fileName: String = fileName {
-                        profileChanges.append(Profile.Columns.profilePictureFileName.set(to: fileName))
-                        
-                        // If we have already downloaded the image then no need to download it again
-                        avatarNeedsDownload = (
-                            avatarNeedsDownload &&
-                            !ProfileManager.hasProfileImageData(with: fileName)
-                        )
-                    }
-                    
-                    // Update the 'lastProfilePictureUpdate' timestamp for either external or local changes
-                    profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
+                case .updateTo(let url, let key, _):
+                    dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .displayPictureDownload,
+                            shouldBeUnique: true,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .profile(id: profile.id, url: url, encryptionKey: key),
+                                timestamp: sentTimestamp
+                            )
+                        ),
+                        canStartJob: true,
+                        using: dependencies
+                    )
             }
         }
         
@@ -589,39 +550,14 @@ public struct ProfileManager {
         if !profileChanges.isEmpty {
             try profile.save(db)
             
-            if calledFromConfigHandling {
-                try Profile
-                    .filter(id: publicKey)
-                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
-                        db,
-                        profileChanges
-                    )
-            }
-            else {
-                try Profile
-                    .filter(id: publicKey)
-                    .updateAllAndConfig(
-                        db,
-                        profileChanges,
-                        calledFromConfig: calledFromConfigHandling,
-                        using: dependencies
-                    )
-            }
-        }
-        
-        // Download the profile picture if needed
-        guard avatarNeedsDownload else { return }
-        
-        let dedupeIdentifier: String = "AvatarDownload-\(publicKey)-\(targetAvatarUrl ?? "remove")"
-        
-        db.afterNextTransactionNestedOnce(dedupeId: dedupeIdentifier) { db in
-            // Need to refetch to ensure the db changes have occurred
-            let targetProfile: Profile = Profile.fetchOrCreate(db, id: publicKey)
-            
-            // FIXME: Refactor avatar downloading to be a proper Job so we can avoid this
-            dependencies[singleton: .jobRunner].afterBlockingQueue {
-                ProfileManager.downloadAvatar(for: targetProfile)
-            }
+            try Profile
+                .filter(id: publicKey)
+                .updateAllAndConfig(
+                    db,
+                    profileChanges,
+                    calledFromConfig: calledFromConfigHandling,
+                    using: dependencies
+                )
         }
     }
 }

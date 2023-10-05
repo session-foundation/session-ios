@@ -141,7 +141,7 @@ extension MessageSender {
                                 dependencies[singleton: .jobRunner].add(
                                     db,
                                     job: Job(
-                                        variant: .groupInviteMemberJob,
+                                        variant: .groupInviteMember,
                                         threadId: thread.id,
                                         details: GroupInviteMemberJob.Details(
                                             memberSubkey: Data(),

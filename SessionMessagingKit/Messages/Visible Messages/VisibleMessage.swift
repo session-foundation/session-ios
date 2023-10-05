@@ -48,7 +48,7 @@ public final class VisibleMessage: Message {
         // default logic, otherwise we want to check
         guard !isValid || attachmentIds.isEmpty else { return isValid }
         
-        return (dataMessageHasAttachments == false)
+        return (dataMessageHasAttachments == true)
     }
     
     // MARK: - Initialization

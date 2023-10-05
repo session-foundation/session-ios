@@ -152,6 +152,7 @@ public final class JobRunner: JobRunnerType {
         public let threadId: String?
         public let interactionId: Int64?
         public let detailsData: Data?
+        public let uniqueHashValue: Int?
         
         public var debugDescription: String {
             let dataDescription: String = detailsData
@@ -163,10 +164,16 @@ public final class JobRunner: JobRunnerType {
                 "variant: \(variant),",
                 " threadId: \(threadId ?? "nil"),",
                 " interactionId: \(interactionId.map { "\($0)" } ?? "nil"),",
-                " detailsData: \(dataDescription)",
+                " detailsData: \(dataDescription),",
+                " uniqueHashValue: \(uniqueHashValue.map { "\($0)" } ?? "nil")",
                 ")"
             ].joined()
         }
+    }
+    
+    private enum Validation {
+        case enqueueOnly
+        case persist
     }
     
     // MARK: - Variables
@@ -276,6 +283,18 @@ public final class JobRunner: JobRunnerType {
                 ].compactMap { $0 }
             ),
             
+            // MARK: -- Display Picture Download Queue
+            
+            JobQueue(
+                type: .displayPictureDownload,
+                executionType: .serial,
+                qos: .utility,
+                isTestingJobRunner: isTestingJobRunner,
+                jobVariants: [
+                    jobVariants.remove(.displayPictureDownload)
+                ].compactMap { $0 }
+            ),
+            
             // MARK: -- General Queue
             
             JobQueue(
@@ -369,7 +388,8 @@ public final class JobRunner: JobRunnerType {
                                 variant: job.variant,
                                 threadId: job.threadId,
                                 interactionId: job.interactionId,
-                                detailsData: job.details
+                                detailsData: job.details,
+                                uniqueHashValue: job.uniqueHashValue
                             )
                         )
                     })
@@ -609,15 +629,7 @@ public final class JobRunner: JobRunnerType {
         canStartJob: Bool,
         using dependencies: Dependencies
     ) -> Job? {
-        // Store the job into the database (getting an id for it)
-        guard let updatedJob: Job = try? job?.inserted(db) else {
-            SNLog("[JobRunner] Unable to add \(job.map { "\($0.variant)" } ?? "unknown") job")
-            return nil
-        }
-        guard !canStartJob || updatedJob.id != nil else {
-            SNLog("[JobRunner] Not starting \(job.map { "\($0.variant)" } ?? "unknown") job due to missing id")
-            return nil
-        }
+        guard let updatedJob: Job = validatedJob(db, job: job, validation: .persist) else { return nil }
         
         // Don't add to the queue if the JobRunner isn't ready (it's been saved to the db so it'll be loaded
         // once the queue actually get started later)
@@ -647,20 +659,21 @@ public final class JobRunner: JobRunnerType {
             add(db, job: job, canStartJob: canStartJob, using: dependencies)
             return
         }
+        guard let updatedJob: Job = validatedJob(db, job: job, validation: .enqueueOnly) else { return }
         
         // Don't add to the queue if the JobRunner isn't ready (it's been saved to the db so it'll be loaded
         // once the queue actually get started later)
-        guard canAddToQueue(job) else { return }
+        guard canAddToQueue(updatedJob) else { return }
         
-        queues.wrappedValue[job.variant]?.upsert(db, job: job, canStartJob: canStartJob, using: dependencies)
+        queues.wrappedValue[updatedJob.variant]?
+            .upsert(db, job: updatedJob, canStartJob: canStartJob, using: dependencies)
         
         // Don't start the queue if the job can't be started
         guard canStartJob else { return }
         
         // Start the job runner if needed
-        
-        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Start: \(job.variant)") { [weak self] _ in
-            self?.queues.wrappedValue[job.variant]?.start(using: dependencies)
+        db.afterNextTransactionNestedOnce(dedupeId: "JobRunner-Start: \(updatedJob.variant)") { [weak self] _ in
+            self?.queues.wrappedValue[updatedJob.variant]?.start(using: dependencies)
         }
     }
     
@@ -671,21 +684,16 @@ public final class JobRunner: JobRunnerType {
     ) -> (Int64, Job)? {
         switch job?.behaviour {
             case .recurringOnActive, .recurringOnLaunch, .runOnceNextLaunch:
-                SNLog("[JobRunner] Attempted to insert \(job.map { "\($0.variant)" } ?? "unknown") job before the current one even though it's behaviour is \(job.map { "\($0.behaviour)" } ?? "unknown")")
+                SNLog("[JobRunner] Attempted to insert \(job?.variant) job before the current one even though it's behaviour is \(job?.behaviour)")
                 return nil
                 
             default: break
         }
         
-        // Store the job into the database (getting an id for it)
-        guard let updatedJob: Job = try? job?.inserted(db) else {
-            SNLog("[JobRunner] Unable to add \(job.map { "\($0.variant)" } ?? "unknown") job")
-            return nil
-        }
-        guard let jobId: Int64 = updatedJob.id else {
-            SNLog("[JobRunner] Unable to add \(job.map { "\($0.variant)" } ?? "unknown") job due to missing id")
-            return nil
-        }
+        guard
+            let updatedJob: Job = validatedJob(db, job: job, validation: .persist),
+            let jobId: Int64 = updatedJob.id
+        else { return nil }
         
         queues.wrappedValue[updatedJob.variant]?.insert(updatedJob, before: otherJob)
         
@@ -729,6 +737,43 @@ public final class JobRunner: JobRunnerType {
             appHasBecomeActive.wrappedValue
         )
     }
+    
+    private func validatedJob(_ db: Database, job: Job?, validation: Validation) -> Job? {
+        guard let job: Job = job else { return nil }
+        
+        switch (validation, job.uniqueHashValue) {
+            case (.enqueueOnly, .none): return job
+            case (.enqueueOnly, .some(let uniqueHashValue)):
+                // Nothing currently running or sitting in a JobQueue
+                guard !allJobInfo().contains(where: { _, info -> Bool in info.uniqueHashValue == uniqueHashValue }) else {
+                    SNLog("[JobRunner] Unable to add \(job.variant) job due to unique constraint")
+                    return nil
+                }
+                
+                return job
+                
+            case (.persist, .some(let uniqueHashValue)):
+                guard
+                    // Nothing currently running or sitting in a JobQueue
+                    !allJobInfo().contains(where: { _, info -> Bool in info.uniqueHashValue == uniqueHashValue }) &&
+                    // Nothing in the database
+                    !Job.filter(Job.Columns.uniqueHashValue == uniqueHashValue).isNotEmpty(db)
+                else {
+                    SNLog("[JobRunner] Unable to add \(job.variant) job due to unique constraint")
+                    return nil
+                }
+                
+                fallthrough // Validation passed so try to persist the job
+                
+            case (.persist, .none):
+                guard let updatedJob: Job = try? job.inserted(db), updatedJob.id != nil else {
+                    SNLog("[JobRunner] Unable to add \(job.variant) job\(job.id == nil ? " due to missing id" : "")")
+                    return nil
+                }
+                
+                return updatedJob
+        }
+    }
 }
 
 // MARK: - JobQueue
@@ -740,6 +785,7 @@ public final class JobQueue: Hashable {
         case messageSend
         case messageReceive
         case attachmentDownload
+        case displayPictureDownload
         case expirationUpdate
         
         var name: String {
@@ -749,6 +795,7 @@ public final class JobQueue: Hashable {
                 case .messageSend: return "MessageSend"
                 case .messageReceive: return "MessageReceive"
                 case .attachmentDownload: return "AttachmentDownload"
+                case .displayPictureDownload: return "DisplayPictureDownload"
                 case .expirationUpdate: return "ExpirationUpdate"
             }
         }
@@ -1303,7 +1350,8 @@ public final class JobQueue: Hashable {
                     variant: nextJob.variant,
                     threadId: nextJob.threadId,
                     interactionId: nextJob.interactionId,
-                    detailsData: nextJob.details
+                    detailsData: nextJob.details,
+                    uniqueHashValue: nextJob.uniqueHashValue
                 )
             )
         }
@@ -1705,5 +1753,17 @@ public final class JobQueue: Hashable {
         DispatchQueue.global(qos: .default).async(using: dependencies) {
             jobCallbacksToRun.forEach { $0(result) }
         }
+    }
+}
+
+// MARK: - Formatting
+
+extension String.StringInterpolation {
+    mutating func appendInterpolation(_ variant: Job.Variant?) {
+        appendLiteral(variant.map { "\($0)" } ?? "unknown") // stringlint:disable
+    }
+    
+    mutating func appendInterpolation(_ behaviour: Job.Behaviour?) {
+        appendLiteral(behaviour.map { "\($0)" } ?? "unknown") // stringlint:disable
     }
 }

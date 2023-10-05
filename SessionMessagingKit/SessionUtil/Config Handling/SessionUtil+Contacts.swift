@@ -331,16 +331,13 @@ internal extension SessionUtil {
                     contact.profile_pic.url = updatedProfile.profilePictureUrl.toLibSession()
                     contact.profile_pic.key = updatedProfile.profileEncryptionKey.toLibSession()
                     
-                    // Download the profile picture if needed (this can be triggered within
-                    // database reads/writes so dispatch the download to a separate queue to
-                    // prevent blocking)
+                    // Attempts retrieval of the profile picture (will schedule a download if
+                    // needed via a throttled subscription on another thread to prevent blocking)
                     if
                         oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
                         oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: ProfileManager.avatarAES256KeyByteLength))
                     {
-                        DispatchQueue.global(qos: .background).async {
-                            ProfileManager.downloadAvatar(for: updatedProfile)
-                        }
+                        ProfileManager.profileAvatar(profile: updatedProfile)
                     }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)

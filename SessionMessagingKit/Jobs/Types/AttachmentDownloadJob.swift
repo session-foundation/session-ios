@@ -95,32 +95,28 @@ public enum AttachmentDownloadJob: JobExecutor {
                 else { throw AttachmentDownloadError.invalidUrl }
                 
                 return dependencies[singleton: .storage]
-                    .readPublisher { db -> HTTP.PreparedRequest<Data>? in
-                        try OpenGroup.fetchOne(db, id: threadId)
-                            .map { openGroup in
-                                try OpenGroupAPI
+                    .readPublisher { db -> HTTP.PreparedRequest<Data> in
+                        switch try OpenGroup.fetchOne(db, id: threadId) {
+                            case .some(let openGroup):
+                                return try OpenGroupAPI
                                     .preparedDownloadFile(
                                         db,
                                         fileId: fileId,
                                         from: openGroup.roomToken,
                                         on: openGroup.server
                                     )
-                            }
-                    }
-                    .flatMap { maybePreparedRequest -> AnyPublisher<Data, Error> in
-                        guard let preparedRequest: HTTP.PreparedRequest<Data> = maybePreparedRequest else {
-                            return FileServerAPI
-                                .download(
-                                    fileId,
-                                    useOldServer: downloadUrl.contains(FileServerAPI.oldServer)
-                                )
-                                .eraseToAnyPublisher()
+                                
+                            case .none:
+                                return try FileServerAPI
+                                    .preparedDownload(
+                                        fileId: fileId,
+                                        useOldServer: downloadUrl.contains(FileServerAPI.oldServer),
+                                        using: dependencies
+                                    )
                         }
-                        
-                        return preparedRequest.send(using: dependencies)
-                            .map { _, data in data }
-                            .eraseToAnyPublisher()
                     }
+                    .flatMap { $0.send(using: dependencies) }
+                    .map { _, data in data }
                     .eraseToAnyPublisher()
             }
             .subscribe(on: queue)
