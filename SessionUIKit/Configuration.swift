@@ -13,10 +13,12 @@ public enum SNUIKit: MigratableTarget {
                 // SNUIKit migrations
                 [], // Initial DB Creation
                 [], // YDB to GRDB Migration
-                [], // YDB Removal
+                [], // Legacy DB removal
                 [
                     _001_ThemePreferences.self
-                ]   // Add job priorities
+                ],  // Add job priorities
+                [], // Fix thread FTS
+                []
             ]
         )
     }

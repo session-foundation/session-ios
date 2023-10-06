@@ -9,16 +9,11 @@ public struct SnodeReceivedMessageInfo: Codable, FetchableRecord, MutablePersist
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
-        case id
         case key
         case hash
         case expirationDateMs
         case wasDeletedOrInvalid
     }
-    
-    /// The `id` value is auto incremented by the database, if the `Job` hasn't been inserted into
-    /// the database yet this value will be `nil`
-    public var id: Int64? = nil
     
     /// The key this message hash is associated to
     ///
@@ -41,12 +36,6 @@ public struct SnodeReceivedMessageInfo: Codable, FetchableRecord, MutablePersist
     ///
     /// **Note:** When retrieving the `lastNotExpired` we will ignore any entries where this flag is true
     public var wasDeletedOrInvalid: Bool?
-    
-    // MARK: - Custom Database Interaction
-    
-    public mutating func didInsert(_ inserted: InsertionSuccess) {
-        self.id = inserted.rowID
-    }
 }
 
 // MARK: - Convenience
@@ -133,7 +122,7 @@ public extension SnodeReceivedMessageInfo {
                 )
                 .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, publicKey: publicKey, namespace: namespace))
                 .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs > SnodeAPI.currentOffsetTimestampMs())
-                .order(SnodeReceivedMessageInfo.Columns.id.desc)
+                .order(Column.rowID.desc)
                 .fetchOne(db)
             
             // If we have a non-legacy hash then return it immediately (legacy hashes had a different
@@ -146,7 +135,7 @@ public extension SnodeReceivedMessageInfo {
                     SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == false
                 )
                 .filter(SnodeReceivedMessageInfo.Columns.key == publicKey)
-                .order(SnodeReceivedMessageInfo.Columns.id.desc)
+                .order(Column.rowID.desc)
                 .fetchOne(db)
         }
     }

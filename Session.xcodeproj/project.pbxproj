@@ -648,6 +648,7 @@
 		FD6A7A692818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A682818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift */; };
 		FD6A7A6B2818C17C00035AC1 /* UpdateProfilePictureJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6A2818C17C00035AC1 /* UpdateProfilePictureJob.swift */; };
 		FD6A7A6D2818C61500035AC1 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */; };
+		FD6DF00B2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6DF00A2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift */; };
 		FD6E4C8A2A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */; };
 		FD705A92278D051200F16121 /* ReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD705A91278D051200F16121 /* ReusableView.swift */; };
 		FD7115EB28C5D78E00B47552 /* ThreadSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7115EA28C5D78E00B47552 /* ThreadSettingsViewModel.swift */; };
@@ -1759,6 +1760,7 @@
 		FD6A7A682818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrieveDefaultOpenGroupRoomsJob.swift; sourceTree = "<group>"; };
 		FD6A7A6A2818C17C00035AC1 /* UpdateProfilePictureJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateProfilePictureJob.swift; sourceTree = "<group>"; };
 		FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
+		FD6DF00A2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddSnodeReveivedMessageInfoPrimaryKey.swift; sourceTree = "<group>"; };
 		FD6E4C892A1AEE4700C7C243 /* LegacyUnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyUnsubscribeRequest.swift; sourceTree = "<group>"; };
 		FD705A91278D051200F16121 /* ReusableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReusableView.swift; sourceTree = "<group>"; };
 		FD7115EA28C5D78E00B47552 /* ThreadSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSettingsViewModel.swift; sourceTree = "<group>"; };
@@ -3670,6 +3672,7 @@
 				FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */,
 				FD17D7A327F40F8100122BE0 /* _003_YDBToGRDBMigration.swift */,
 				FD39353528F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift */,
+				FD6DF00A2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -5765,6 +5768,7 @@
 				FD39353628F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift in Sources */,
 				FDF8489429405C1B007DCAE5 /* SnodeAPI.swift in Sources */,
 				FDF848C829405C5B007DCAE5 /* ONSResolveRequest.swift in Sources */,
+				FD6DF00B2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift in Sources */,
 				C3C2A5C2255385EE00C340D1 /* Configuration.swift in Sources */,
 				FDF848C929405C5B007DCAE5 /* SnodeRequest.swift in Sources */,
 				FDF848CF29405C5B007DCAE5 /* SendMessageRequest.swift in Sources */,
