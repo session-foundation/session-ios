@@ -47,8 +47,14 @@ final class InfoBanner: UIView {
     
     init(info: Info) {
         super.init(frame: CGRect.zero)
+        
         addSubview(label)
-        label.pin(to: self)
+        
+        label.pin(.top, to: .top, of: self)
+        label.pin(.bottom, to: .bottom, of: self)
+        label.pin(.leading, to: .leading, of: self, withInset: Values.mediumSpacing)
+        label.pin(.trailing, to: .trailing, of: self, withInset: -Values.mediumSpacing)
+        
         self.set(.height, to: info.height)
         self.update(info)
     }
