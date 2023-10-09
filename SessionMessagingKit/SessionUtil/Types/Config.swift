@@ -219,8 +219,9 @@ public extension SessionUtil {
                         .map { message -> [UInt8] in message.data.bytes }
                         .unsafeCopy()
                     var mergeSize: [Int] = messages.map { $0.data.count }
+                    var mergedHashesPtr: UnsafeMutablePointer<config_string_list>?
                     try CExceptionHelper.performSafely {
-                        config_merge(
+                        mergedHashesPtr = config_merge(
                             conf,
                             &mergeHashes,
                             &mergeData,
@@ -232,10 +233,23 @@ public extension SessionUtil {
                     mergeData.forEach { $0?.deallocate() }
                     
                     // Get the list of hashes from the config (to determine which were successful)
-                    let currentHashes: Set<String> = currentHashes().asSet()
+                    let mergedHashes: [String] = mergedHashesPtr
+                        .map { ptr in
+                            [String](
+                                pointer: ptr.pointee.value,
+                                count: ptr.pointee.len,
+                                defaultValue: []
+                            )
+                        }
+                        .defaulting(to: [])
+                    mergedHashesPtr?.deallocate()
+                    
+                    if mergedHashes.count != messages.count {
+                        SNLog("[SessionUtil] Unable to merge all \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
+                    }
                     
                     return messages
-                        .filter { currentHashes.contains($0.serverHash) }
+                        .filter { mergedHashes.contains($0.serverHash) }
                         .map { $0.serverTimestampMs }
                         .sorted()
                         .last

@@ -25,7 +25,7 @@ public enum MessageWrapper {
     public static func wrap(
         type: SNProtoEnvelope.SNProtoEnvelopeType,
         timestamp: UInt64,
-        senderPublicKey: String,
+        senderPublicKey: String = "",   // FIXME: Remove once legacy groups are deprecated
         base64EncodedContent: String,
         wrapInWebSocketMessage: Bool = true
     ) throws -> Data {

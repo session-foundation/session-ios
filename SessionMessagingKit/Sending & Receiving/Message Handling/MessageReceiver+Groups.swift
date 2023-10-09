@@ -24,7 +24,7 @@ extension MessageReceiver {
         groupIdentityPrivateKey: Data?,
         name: String?,
         authData: Data?,
-        created: Int64,
+        joinedAt: Int64,
         invited: Bool,
         calledFromConfigHandling: Bool,
         using dependencies: Dependencies
@@ -36,7 +36,7 @@ extension MessageReceiver {
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupSessionId,
             name: (name ?? "GROUP_TITLE_FALLBACK".localized()),
-            formationTimestamp: TimeInterval(created),
+            formationTimestamp: TimeInterval(joinedAt),
             groupIdentityPrivateKey: groupIdentityPrivateKey,
             authData: authData,
             invited: invited
@@ -50,7 +50,7 @@ extension MessageReceiver {
                 groupIdentityPrivateKey: groupIdentityPrivateKey,
                 name: name,
                 authData: authData,
-                joinedAt: created,
+                joinedAt: joinedAt,
                 invited: invited,
                 using: dependencies
             )

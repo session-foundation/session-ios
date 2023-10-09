@@ -1025,11 +1025,11 @@ public extension SessionThreadViewModel {
             LEFT JOIN (
                 SELECT
                     \(groupMember[.groupId]),
-                    COUNT(\(groupMember[.rowId])) AS \(ClosedGroupUserCount.Columns.closedGroupUserCount)
+                    COUNT(DISTINCT \(groupMember[.profileId])) AS \(ClosedGroupUserCount.Columns.closedGroupUserCount)
                 FROM \(GroupMember.self)
                 WHERE (
                     \(SQL("\(groupMember[.groupId]) = \(threadId)")) AND
-                    \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)"))
+                    \(SQL("\(groupMember[.role]) != \(GroupMember.Role.zombie)"))
                 )
             ) AS \(closedGroupUserCount) ON \(SQL("\(closedGroupUserCount[.groupId]) = \(threadId)"))
             

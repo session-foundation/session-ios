@@ -96,8 +96,9 @@ internal extension SessionUtil {
             .forEach { try $0.save(db) }
         
         try GroupMember
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
             .filter(
-                GroupMember.Columns.groupId == groupSessionId.hexString && (
+                (
                     GroupMember.Columns.role == GroupMember.Role.standard &&
                     !updatedStandardMemberIds.contains(GroupMember.Columns.profileId)
                 ) || (

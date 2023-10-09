@@ -173,7 +173,6 @@ public final class MessageSender {
                         MessageWrapper.wrap(
                             type: .sessionMessage,
                             timestamp: sentTimestamp,
-                            senderPublicKey: "",
                             base64EncodedContent: ciphertext.base64EncodedString()
                         )
                     )
@@ -189,7 +188,6 @@ public final class MessageSender {
                                 MessageWrapper.wrap(
                                     type: .closedGroupMessage,
                                     timestamp: sentTimestamp,
-                                    senderPublicKey: groupId,
                                     base64EncodedContent: plaintext.base64EncodedString(),
                                     wrapInWebSocketMessage: false
                                 )
@@ -223,7 +221,7 @@ public final class MessageSender {
                         MessageWrapper.wrap(
                             type: .closedGroupMessage,
                             timestamp: sentTimestamp,
-                            senderPublicKey: groupPublicKey,
+                            senderPublicKey: groupPublicKey,    // Needed for Android
                             base64EncodedContent: ciphertext.base64EncodedString()
                         )
                     )

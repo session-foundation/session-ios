@@ -30,7 +30,6 @@ public struct ProfileManager {
     private static let avatarTagLength: Int = 16
     
     private static var profileAvatarCache: Atomic<[String: Data]> = Atomic([:])
-    private static var currentAvatarDownloads: Atomic<Set<String>> = Atomic([])
     
     private static var downloadsToSchedule: Atomic<Set<DownloadInfo>> = Atomic([])
     private static var scheduleDownloadsPublisher: AnyPublisher<Void, Never>?

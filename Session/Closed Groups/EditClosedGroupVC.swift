@@ -15,17 +15,17 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let role: GroupMember.Role
         let profile: Profile?
         let accessibilityLabel: String?
-        let accessibilityId: String?
+        let accessibilityIdentifier: String?
     }
     
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private var originalName: String = ""
-    private var originalMembersAndZombieIds: Set<String> = []
+    private var originalMembersIds: Set<String> = []
     private var name: String = ""
     private var hasContactsToAdd: Bool = false
     private var userSessionId: SessionId = .invalid
-    private var membersAndZombies: [GroupMemberDisplayInfo] = []
+    private var allGroupMembers: [GroupMemberDisplayInfo] = []
     private var adminIds: Set<String> = []
     private var isEditingGroupName = false { didSet { handleIsEditingGroupNameChanged() } }
     private var tableViewHeightConstraint: NSLayoutConstraint!
@@ -125,8 +125,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                 )
                 .asRequest(of: GroupMemberDisplayInfo.self)
                 .fetchAll(db)
-            self?.membersAndZombies = allGroupMembers
-                .filter { $0.role == .standard || $0.role == .zombie }
+            self?.allGroupMembers = allGroupMembers
             self?.adminIds = allGroupMembers
                 .filter { $0.role == .admin }
                 .map { $0.profileId }
@@ -135,7 +134,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             let uniqueGroupMemberIds: Set<String> = allGroupMembers
                 .map { $0.profileId }
                 .asSet()
-            self?.originalMembersAndZombieIds = uniqueGroupMemberIds
+            self?.originalMembersIds = uniqueGroupMemberIds
             self?.hasContactsToAdd = ((try? Profile
                 .allContactProfiles(
                     excluding: uniqueGroupMemberIds.inserting(userSessionId.hexString)
@@ -214,16 +213,16 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     // MARK: - Table View Data Source / Delegate
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return membersAndZombies.count
+        return allGroupMembers.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell: SessionCell = tableView.dequeue(type: SessionCell.self, for: indexPath)
-        let displayInfo: GroupMemberDisplayInfo = membersAndZombies[indexPath.row]
+        let displayInfo: GroupMemberDisplayInfo = allGroupMembers[indexPath.row]
         cell.update(
             with: SessionCell.Info(
                 id: displayInfo,
-                position: Position.with(indexPath.row, count: membersAndZombies.count),
+                position: Position.with(indexPath.row, count: allGroupMembers.count),
                 leftAccessory: .profile(id: displayInfo.profileId, profile: displayInfo.profile),
                 title: (
                     displayInfo.profile?.displayName() ??
@@ -256,7 +255,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     }
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let profileId: String = self.membersAndZombies[indexPath.row].profileId
+        let profileId: String = self.allGroupMembers[indexPath.row].profileId
         
         let delete: UIContextualAction = UIContextualAction(
             title: "GROUP_ACTION_REMOVE".localized(),
@@ -269,7 +268,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             tableView: tableView
         ) { [weak self] _, _, completionHandler in
             self?.adminIds.remove(profileId)
-            self?.membersAndZombies.remove(at: indexPath.row)
+            self?.allGroupMembers.remove(at: indexPath.row)
             self?.handleMembersChanged()
             
             completionHandler(true)
@@ -302,7 +301,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     }
 
     private func handleMembersChanged() {
-        tableViewHeightConstraint.constant = CGFloat(membersAndZombies.count) * 78
+        tableViewHeightConstraint.constant = CGFloat(allGroupMembers.count) * 78
         tableView.reloadData()
     }
 
@@ -364,7 +363,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let userSessionId: SessionId = self.userSessionId
         let userSelectionVC: UserSelectionVC = UserSelectionVC(
             with: title,
-            excluding: membersAndZombies
+            excluding: allGroupMembers
                 .map { $0.profileId }
                 .asSet()
         ) { [weak self] selectedUserIds in
@@ -378,10 +377,10 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                             role: .standard,
                             profile: profile,
                             accessibilityLabel: "Contact",
-                            accessibilityId: "Contact"
+                            accessibilityIdentifier: "Contact"
                         )
                     }
-                self?.membersAndZombies = (self?.membersAndZombies ?? [])
+                self?.allGroupMembers = (self?.allGroupMembers ?? [])
                     .appending(contentsOf: selectedGroupMembers)
                     .sorted(by: { lhs, rhs in
                         if lhs.role == .zombie && rhs.role != .zombie {
@@ -408,7 +407,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                     })
                     .filter { $0.role == .standard || $0.role == .zombie }
                 
-                let uniqueGroupMemberIds: Set<String> = (self?.membersAndZombies ?? [])
+                let uniqueGroupMemberIds: Set<String> = (self?.allGroupMembers ?? [])
                     .map { $0.profileId }
                     .asSet()
                     .inserting(contentsOf: self?.adminIds)
@@ -443,16 +442,16 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let threadId: String = self.threadId
         let updatedName: String = self.name
         let userSessionId: SessionId = self.userSessionId
-        let updatedMembers: [(String, Profile?)] = self.membersAndZombies
+        let updatedMembers: [(String, Profile?)] = self.allGroupMembers
             .map { ($0.profileId, $0.profile) }
         let updatedMemberIds: Set<String> = updatedMembers.map { $0.0 }.asSet()
         
-        guard updatedMemberIds != self.originalMembersAndZombieIds || updatedName != self.originalName else {
+        guard updatedMemberIds != self.originalMembersIds || updatedName != self.originalName else {
             return popToConversationVC(self)
         }
         
         if !updatedMemberIds.contains(userSessionId.hexString) {
-            guard self.originalMembersAndZombieIds.removing(userSessionId.hexString) == updatedMemberIds else {
+            guard self.originalMembersIds.removing(userSessionId.hexString) == updatedMemberIds else {
                 return showError(
                     title: "GROUP_UPDATE_ERROR_TITLE".localized(),
                     message: "GROUP_UPDATE_ERROR_MESSAGE".localized()

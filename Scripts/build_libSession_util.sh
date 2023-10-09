@@ -26,7 +26,7 @@
 # request ever gets implemented: https://github.com/CocoaPods/CocoaPods/issues/8464
 
 # Need to set the path or we won't find cmake
-PATH=${PATH}:/usr/local/bin:/opt/homebrew/bin:/sbin/md5
+PATH=${PATH}:/usr/local/bin:/opt/local/bin:/opt/homebrew/bin:/sbin/md5
 
 exec 3>&1 # Save original stdout
 
@@ -189,7 +189,8 @@ for i in "${!TARGET_ARCHS[@]}"; do
     echo_message "Building ${TARGET_ARCHS[$i]} for $platform in $build"
 
     cd "${SRCROOT}/LibSession-Util"
-    ./utils/static-bundle.sh "$build" "" \
+    env -i PATH="$PATH" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" \
+        ./utils/static-bundle.sh "$build" "" \
         -DCMAKE_TOOLCHAIN_FILE="${SRCROOT}/LibSession-Util/external/ios-cmake/ios.toolchain.cmake" \
         -DPLATFORM=$platform \
         -DDEPLOYMENT_TARGET=$IPHONEOS_DEPLOYMENT_TARGET \

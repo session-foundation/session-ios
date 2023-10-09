@@ -425,10 +425,6 @@ internal extension SessionUtil {
             .reduce(into: [:]) { result, next in result[next.id] = next }
         
         try groups.forEach { group in
-            guard
-                let joinedAt: Int64 = group.joinedAt
-            else { return }
-
             switch (existingGroups[group.groupSessionId], existingGroupSessionIds.contains(group.groupSessionId)) {
                 case (.none, _), (_, false):
                     // Add a new group if it doesn't already exist
@@ -438,19 +434,24 @@ internal extension SessionUtil {
                         groupIdentityPrivateKey: group.groupIdentityPrivateKey,
                         name: group.name,
                         authData: group.authData,
-                        created: Int64((group.joinedAt ?? (serverTimestampMs / 1000))),
+                        joinedAt: Int64((group.joinedAt ?? (serverTimestampMs / 1000))),
                         invited: (group.invited == true),
                         calledFromConfigHandling: true,
                         using: dependencies
                     )
                     
                 case (.some(let existingGroup), _):
+                    let joinedAt: TimeInterval = (
+                        group.joinedAt.map { TimeInterval($0) } ??
+                        existingGroup.formationTimestamp
+                    )
+                    
                     /// Otherwise update the existing group
                     ///
                     /// **Note:** We ignore the `name` value here as if it's an existing group then assume we will get the
                     /// proper name by polling for the `GROUP_INFO` instead of via syncing the `USER_GROUPS` data
                     let groupChanges: [ConfigColumnAssignment] = [
-                        (existingGroup.formationTimestamp == TimeInterval(joinedAt) ? nil :
+                        (existingGroup.formationTimestamp == joinedAt ? nil :
                             ClosedGroup.Columns.formationTimestamp.set(to: TimeInterval(joinedAt))
                         ),
                         (existingGroup.authData == group.authData ? nil :

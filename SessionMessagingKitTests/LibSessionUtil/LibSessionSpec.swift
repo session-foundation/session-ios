@@ -12,6 +12,8 @@ import Nimble
 @testable import SessionMessagingKit
 
 class LibSessionSpec: QuickSpec {
+    static let maxMessageSizeBytes: Int = 76800  // Storage server's limit, should match `config.hpp` in libSession
+    
     // FIXME: Would be good to move the identity generation into the libSession-util instead of using Sodium separately
     static let userSeed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
     static let seed: Data = Data(
@@ -164,7 +166,7 @@ fileprivate extension LibSessionSpec {
             context("when checking error catching") {
                 // MARK: ---- it can catch size limit errors thrown when pushing
                 it("can catch size limit errors thrown when pushing") {
-                    try (0..<10000).forEach { index in
+                    try (0..<2500).forEach { index in
                         var contact: contacts_contact = try createContact(
                             for: index,
                             in: conf,
@@ -174,7 +176,7 @@ fileprivate extension LibSessionSpec {
                         contacts_set(conf, &contact)
                     }
                     
-                    expect(contacts_size(conf)).to(equal(10000))
+                    expect(contacts_size(conf)).to(equal(2500))
                     expect(config_needs_push(conf)).to(beTrue())
                     expect(config_needs_dump(conf)).to(beTrue())
                     
@@ -189,7 +191,7 @@ fileprivate extension LibSessionSpec {
             context("when checking size limits") {
                 // MARK: ---- has not changed the max empty records
                 it("has not changed the max empty records") {
-                    for index in (0..<100000) {
+                    for index in (0..<2500) {
                         var contact: contacts_contact = try createContact(
                             for: index,
                             in: conf,
@@ -210,7 +212,7 @@ fileprivate extension LibSessionSpec {
                 
                 // MARK: ---- has not changed the max name only records
                 it("has not changed the max name only records") {
-                    for index in (0..<100000) {
+                    for index in (0..<2500) {
                         var contact: contacts_contact = try createContact(
                             for: index,
                             in: conf,
@@ -232,7 +234,7 @@ fileprivate extension LibSessionSpec {
                 
                 // MARK: ---- has not changed the max name and profile pic only records
                 it("has not changed the max name and profile pic only records") {
-                    for index in (0..<100000) {
+                    for index in (0..<2500) {
                         var contact: contacts_contact = try createContact(
                             for: index,
                             in: conf,
@@ -254,7 +256,7 @@ fileprivate extension LibSessionSpec {
                 
                 // MARK: ---- has not changed the max filled records
                 it("has not changed the max filled records") {
-                    for index in (0..<100000) {
+                    for index in (0..<2500) {
                         var contact: contacts_contact = try createContact(
                             for: index,
                             in: conf,
@@ -417,9 +419,12 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData4.pointee.config)]
                 var mergeSize: [Int] = [pushData4.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes, &mergeData, &mergeSize, 1)).to(equal(1))
+                let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes, &mergeData, &mergeSize, 1)
+                expect([String](pointer: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
+                    .to(equal(["fakehash2"]))
                 config_confirm_pushed(conf2, pushData4.pointee.seqno, &cFakeHash2)
                 mergeHashes.forEach { $0?.deallocate() }
+                mergedHashes?.deallocate()
                 pushData4.deallocate()
                 
                 expect(config_needs_push(conf)).to(beFalse())
@@ -493,18 +498,24 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash3b].unsafeCopy()
                 var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData7.pointee.config)]
                 var mergeSize2: [Int] = [pushData7.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)).to(equal(1))
+                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)
+                expect([String](pointer: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                    .to(equal(["fakehash3b"]))
                 expect(config_needs_push(conf)).to(beTrue())
+                mergeHashes2.forEach { $0?.deallocate() }
+                mergedHashes2?.deallocate()
+                pushData7.deallocate()
                 
                 var mergeHashes3: [UnsafePointer<CChar>?] = [cFakeHash3a].unsafeCopy()
                 var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData6.pointee.config)]
                 var mergeSize3: [Int] = [pushData6.pointee.config_len]
-                expect(config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)).to(equal(1))
+                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)
+                expect([String](pointer: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                    .to(equal(["fakehash3a"]))
                 expect(config_needs_push(conf2)).to(beTrue())
-                mergeHashes2.forEach { $0?.deallocate() }
                 mergeHashes3.forEach { $0?.deallocate() }
+                mergedHashes3?.deallocate()
                 pushData6.deallocate()
-                pushData7.deallocate()
                 
                 let pushData8: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData8.pointee.seqno).to(equal(4))
@@ -634,35 +645,32 @@ fileprivate extension LibSessionSpec {
                 
                 // We don't need to push since we haven't changed anything, so this call is mainly just for
                 // testing:
-                let PROTOBUF_OVERHEAD: Int = 28  // To be removed once we no longer protobuf wrap this
-                let PROTOBUF_DATA_OFFSET: Int = 26
+                let PROTOBUF_OVERHEAD: Int = 176  // To be removed once we no longer protobuf wrap this
                 let pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData1.pointee).toNot(beNil())
                 expect(pushData1.pointee.seqno).to(equal(0))
                 expect(pushData1.pointee.config_len).to(equal(256 + PROTOBUF_OVERHEAD))
-                
-                let encDomain: [CChar] = "UserProfile"
-                    .bytes
-                    .map { CChar(bitPattern: $0) }
                 expect(String(cString: config_encryption_domain(conf))).to(equal("UserProfile"))
                 
-                var toPushDecSize: Int = 0
-                let toPushDecrypted: UnsafeMutablePointer<UInt8>? = config_decrypt(
-                    pushData1.pointee.config.advanced(by: PROTOBUF_DATA_OFFSET),
-                    (pushData1.pointee.config_len - PROTOBUF_OVERHEAD),
-                    userEdSK,
-                    encDomain,
-                    &toPushDecSize
-                )
-                let prefixPadding: String = (0..<193)
-                    .map { _ in "\0" }
-                    .joined()
-                expect(toPushDecrypted).toNot(beNil())
-                expect(toPushDecSize).to(equal(216))  // 256 - 40 overhead
-                expect(String(pointer: toPushDecrypted, length: toPushDecSize))
-                    .to(equal("\(prefixPadding)d1:#i0e1:&de1:<le1:=dee"))
+                // There's nothing particularly profound about this value (it is multiple layers of nested
+                // protobuf with some encryption and padding halfway through); this test is just here to ensure
+                // that our pushed messages are deterministic:
+                let expectedPushData1: Data = Data(hex: [
+                    "080112ab030a0012001aa20308062801429b0326ec9746282053eb119228e6c36012966e7d2642163169ba39" +
+                    "98af44ca65f967768dd78ee80fffab6f809f6cef49c73a36c82a89622ff0de2ceee06b8c638e2c876fa9047f" +
+                    "449dbe24b1fc89281a264fe90abdeffcdd44f797bd4572a6c5ae8d88bf372c3c717943ebd570222206fabf0e" +
+                    "e9f3c6756f5d71a32616b1df53d12887961f5c129207a79622ccc1a4bba976886d9a6ddf0fe5d570e5075d01" +
+                    "ecd627f656e95f27b4c40d5661b5664cedd3e568206effa1308b0ccd663ca61a6d39c0731891804a8cf5edcf" +
+                    "8b98eaa5580c3d436e22156e38455e403869700956c3c1dd0b4470b663e75c98c5b859b53ccef6559215d804" +
+                    "9f755be9c2d6b3f4a310f97c496fc392f65b6431dd87788ac61074fd8cd409702e1b839b3f774d38cf8b28f0" +
+                    "226c4efa5220ac6ae060793e36e7ef278d42d042f15b21291f3bb29e3158f09d154b93f83fd8a319811a26cb" +
+                    "5240d90cbb360fafec0b7eff4c676ae598540813d062dc9468365c73b4cfa2ffd02d48cdcd8f0c71324c6d0a" +
+                    "60346a7a0e50af3be64684b37f9e6c831115bf112ddd18acde08eaec376f0872a3952000"
+                ].joined())
+                
+                expect(Data(bytes: pushData1.pointee.config, count: pushData1.pointee.config_len))
+                    .to(equal(expectedPushData1))
                 pushData1.deallocate()
-                toPushDecrypted?.deallocate()
                 
                 // This should also be unset:
                 let pic: user_profile_pic = user_profile_get_pic(conf)
@@ -740,34 +748,6 @@ fileprivate extension LibSessionSpec {
                     "056009a9ebf58d45d7d696b74e0c7ff0499c4d23204976f19561dc0dba6dc53a2497d28ce03498ea",
                     "49bf122762d7bc1d6d9c02f6d54f8384"
                 ].joined()).bytes
-                
-                let pushData2Str: String = String(
-                    pointer: pushData2.pointee.config.advanced(by: PROTOBUF_DATA_OFFSET),
-                    length: (pushData2.pointee.config_len - PROTOBUF_OVERHEAD),
-                    encoding: .ascii
-                )!
-                let expPush1EncryptedStr: String = String(pointer: expPush1Encrypted, length: expPush1Encrypted.count, encoding: .ascii)!
-                expect(pushData2Str).to(equal(expPush1EncryptedStr))
-                
-                // Raw decryption doesn't unpad (i.e. the padding is part of the encrypted data)
-                var pushData2DecSize: Int = 0
-                let pushData2Decrypted: UnsafeMutablePointer<UInt8>? = config_decrypt(
-                    pushData2.pointee.config.advanced(by: PROTOBUF_DATA_OFFSET),
-                    (pushData2.pointee.config_len - PROTOBUF_OVERHEAD),
-                    userEdSK,
-                    encDomain,
-                    &pushData2DecSize
-                )
-                let prefixPadding2: String = (0..<(256 - 40 - expPush1Decrypted.count))
-                    .map { _ in "\0" }
-                    .joined()
-                expect(pushData2DecSize).to(equal(216))  // 256 - 40 overhead
-                
-                let pushData2DecryptedStr: String = String(pointer: pushData2Decrypted, length: pushData2DecSize, encoding: .ascii)!
-                let expPush1DecryptedStr: String = String(pointer: expPush1Decrypted, length: expPush1Decrypted.count, encoding: .ascii)
-                    .map { "\(prefixPadding2)\($0)" }!
-                expect(pushData2DecryptedStr).to(equal(expPush1DecryptedStr))
-                pushData2Decrypted?.deallocate()
                 
                 // We haven't dumped, so still need to dump:
                 expect(config_needs_dump(conf)).to(beTrue())
@@ -851,14 +831,16 @@ fileprivate extension LibSessionSpec {
                 expect(user_profile_init(&conf2, &userEdSK, nil, 0, &error2)).to(equal(0))
                 expect(config_needs_dump(conf2)).to(beFalse())
                 
-                // Now imagine we just pulled down the `exp_push1` string from the swarm; we merge it into
-                // conf2:
+                // Now imagine we just pulled down the encrypted string from the swarm; we merge it into conf2:
                 var mergeHashes: [UnsafePointer<CChar>?] = [cFakeHash1].unsafeCopy()
                 var mergeData: [UnsafePointer<UInt8>?] = [expPush1Encrypted].unsafeCopy()
                 var mergeSize: [Int] = [expPush1Encrypted.count]
-                expect(config_merge(conf2, &mergeHashes, &mergeData, &mergeSize, 1)).to(equal(1))
+                let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes, &mergeData, &mergeSize, 1)
+                expect([String](pointer: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
+                    .to(equal(["fakehash1"]))
                 mergeHashes.forEach { $0?.deallocate() }
                 mergeData.forEach { $0?.deallocate() }
+                mergedHashes?.deallocate()
                 
                 // Our state has changed, so we need to dump:
                 expect(config_needs_dump(conf2)).to(beTrue())
@@ -937,12 +919,21 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
                 var mergeSize2: [Int] = [pushData3.pointee.config_len]
-                expect(config_merge(conf2, &mergeHashes2, &mergeData2, &mergeSize2, 1)).to(equal(1))
+                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes2, &mergeData2, &mergeSize2, 1)
+                expect([String](pointer: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                    .to(equal(["fakehash2"]))
+                mergeHashes2.forEach { $0?.deallocate() }
+                mergedHashes2?.deallocate()
                 pushData3.deallocate()
+                
                 var mergeHashes3: [UnsafePointer<CChar>?] = [cFakeHash3].unsafeCopy()
                 var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData4.pointee.config)]
                 var mergeSize3: [Int] = [pushData4.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes3, &mergeData3, &mergeSize3, 1)).to(equal(1))
+                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes3, &mergeData3, &mergeSize3, 1)
+                expect([String](pointer: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                    .to(equal(["fakehash3"]))
+                mergeHashes3.forEach { $0?.deallocate() }
+                mergedHashes3?.deallocate()
                 pushData4.deallocate()
                 
                 // Now after the merge we *will* want to push from both client, since both will have generated a
@@ -1157,8 +1148,12 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
                 var mergeSize: [Int] = [pushData2.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes, &mergeData, &mergeSize, 1)).to(equal(1))
+                let mergedHashes: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes, &mergeData, &mergeSize, 1)
+                expect([String](pointer: mergedHashes?.pointee.value, count: mergedHashes?.pointee.len))
+                    .to(equal(["fakehash2"]))
                 config_confirm_pushed(conf, pushData2.pointee.seqno, &cFakeHash2)
+                mergeHashes.forEach { $0?.deallocate() }
+                mergedHashes?.deallocate()
                 pushData2.deallocate()
                 
                 expect(config_needs_push(conf)).to(beFalse())
@@ -1594,7 +1589,11 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes1: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData8.pointee.config)]
                 var mergeSize1: [Int] = [pushData8.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes1, &mergeData1, &mergeSize1, 1)).to(equal(1))
+                let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes1, &mergeData1, &mergeSize1, 1)
+                expect([String](pointer: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
+                    .to(equal(["fakehash2"]))
+                mergeHashes1.forEach { $0?.deallocate() }
+                mergedHashes1?.deallocate()
                 pushData8.deallocate()
                 
                 var cCommunity3BaseUrl: [CChar] = "http://example.org:5678".cArray.nullTerminated()
@@ -1647,7 +1646,11 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash3].unsafeCopy()
                 var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData10.pointee.config)]
                 var mergeSize2: [Int] = [pushData10.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)).to(equal(1))
+                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)
+                expect([String](pointer: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                    .to(equal(["fakehash3"]))
+                mergeHashes2.forEach { $0?.deallocate() }
+                mergedHashes2?.deallocate()
                 
                 expect(user_groups_size(conf)).to(equal(1))
                 expect(user_groups_size_communities(conf)).to(equal(0))
@@ -1702,9 +1705,13 @@ fileprivate extension LibSessionSpec {
                     pushData7.pointee.config_len,
                     pushData11.pointee.config_len
                 ]
-                expect(config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 4)).to(equal(4))
+                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 4)
+                expect([String](pointer: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                    .to(equal(["fakehash10", "fakehash11", "fakehash12", "fakehash4"]))
                 expect(config_needs_dump(conf2)).to(beTrue())
                 expect(config_needs_push(conf2)).to(beFalse())
+                mergeHashes3.forEach { $0?.deallocate() }
+                mergedHashes3?.deallocate()
                 pushData2.deallocate()
                 pushData7.deallocate()
                 pushData10.deallocate()
@@ -1825,9 +1832,12 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes1: [UnsafePointer<CChar>?] = [cFakeHash1].unsafeCopy()
                 var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData1.pointee.config)]
                 var mergeSize1: [Int] = [pushData1.pointee.config_len]
-                expect(config_merge(conf2, &mergeHashes1, &mergeData1, &mergeSize1, 1)).to(equal(1))
+                let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes1, &mergeData1, &mergeSize1, 1)
+                expect([String](pointer: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
+                    .to(equal(["fakehash1"]))
                 expect(config_needs_push(conf2)).to(beFalse())
                 mergeHashes1.forEach { $0?.deallocate() }
+                mergedHashes1?.deallocate()
                 pushData1.deallocate()
                 
                 let namePtr: UnsafePointer<CChar>? = groups_info_get_name(conf2)
@@ -1867,8 +1877,11 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
                 var mergeSize2: [Int] = [pushData2.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)).to(equal(1))
+                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)
+                expect([String](pointer: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                    .to(equal(["fakehash2"]))
                 mergeHashes2.forEach { $0?.deallocate() }
+                mergedHashes2?.deallocate()
                 
                 expect(config_needs_push(conf)).to(beTrue())
                 
@@ -1896,8 +1909,11 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes3: [UnsafePointer<CChar>?] = [cFakeHash3].unsafeCopy()
                 var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
                 var mergeSize3: [Int] = [pushData3.pointee.config_len]
-                expect(config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)).to(equal(1))
+                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)
+                expect([String](pointer: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                    .to(equal(["fakehash3"]))
                 mergeHashes3.forEach { $0?.deallocate() }
+                mergedHashes3?.deallocate()
                 pushData3.deallocate()
                 
                 let namePtr3: UnsafePointer<CChar>? = groups_info_get_name(conf2)
@@ -1991,7 +2007,7 @@ fileprivate extension LibSessionSpec {
                 it("can catch size limit errors thrown when pushing") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
 
-                    try (0..<10000).forEach { index in
+                    try (0..<2500).forEach { index in
                         var member: config_group_member = try createMember(
                             for: index,
                             in: conf,
@@ -2001,7 +2017,7 @@ fileprivate extension LibSessionSpec {
                         groups_members_set(conf, &member)
                     }
 
-                    expect(groups_members_size(conf)).to(equal(10000))
+                    expect(groups_members_size(conf)).to(equal(2500))
                     expect(config_needs_push(conf)).to(beTrue())
                     expect(config_needs_dump(conf)).to(beTrue())
 
@@ -2018,7 +2034,7 @@ fileprivate extension LibSessionSpec {
                 it("has not changed the max empty records") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
 
-                    for index in (0..<100000) {
+                    for index in (0..<2500) {
                         var member: config_group_member = try createMember(
                             for: index,
                             in: conf,
@@ -2041,7 +2057,7 @@ fileprivate extension LibSessionSpec {
                 it("has not changed the max name only records") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
 
-                    for index in (0..<100000) {
+                    for index in (0..<2500) {
                         var member: config_group_member = try createMember(
                             for: index,
                             in: conf,
@@ -2065,7 +2081,7 @@ fileprivate extension LibSessionSpec {
                 it("has not changed the max name and profile pic only records") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
 
-                    for index in (0..<100000) {
+                    for index in (0..<2500) {
                         var member: config_group_member = try createMember(
                             for: index,
                             in: conf,
@@ -2089,7 +2105,7 @@ fileprivate extension LibSessionSpec {
                 it("has not changed the max filled records") {
                     var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
 
-                    for index in (0..<100000) {
+                    for index in (0..<2500) {
                         var member: config_group_member = try createMember(
                             for: index,
                             in: conf,
@@ -2185,9 +2201,12 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes1: [UnsafePointer<CChar>?] = [cFakeHash1].unsafeCopy()
                 var mergeData1: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData1.pointee.config)]
                 var mergeSize1: [Int] = [pushData1.pointee.config_len]
-                expect(config_merge(conf2, &mergeHashes1, &mergeData1, &mergeSize1, 1)).to(equal(1))
+                let mergedHashes1: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes1, &mergeData1, &mergeSize1, 1)
+                expect([String](pointer: mergedHashes1?.pointee.value, count: mergedHashes1?.pointee.len))
+                    .to(equal(["fakehash1"]))
                 expect(config_needs_push(conf2)).to(beFalse())
                 mergeHashes1.forEach { $0?.deallocate() }
+                mergedHashes1?.deallocate()
                 pushData1.deallocate()
                 
                 expect(groups_members_size(conf2)).to(equal(25))
@@ -2284,8 +2303,11 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
                 var mergeSize2: [Int] = [pushData2.pointee.config_len]
-                expect(config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)).to(equal(1))
+                let mergedHashes2: UnsafeMutablePointer<config_string_list>? = config_merge(conf, &mergeHashes2, &mergeData2, &mergeSize2, 1)
+                expect([String](pointer: mergedHashes2?.pointee.value, count: mergedHashes2?.pointee.len))
+                    .to(equal(["fakehash2"]))
                 mergeHashes2.forEach { $0?.deallocate() }
+                mergedHashes2?.deallocate()
                 
                 var cSessionId2: [CChar] = sids[23].cArray
                 var member2: config_group_member = config_group_member()
@@ -2429,9 +2451,12 @@ fileprivate extension LibSessionSpec {
                 var mergeHashes3: [UnsafePointer<CChar>?] = [cFakeHash3].unsafeCopy()
                 var mergeData3: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData3.pointee.config)]
                 var mergeSize3: [Int] = [pushData3.pointee.config_len]
-                expect(config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)).to(equal(1))
+                let mergedHashes3: UnsafeMutablePointer<config_string_list>? = config_merge(conf2, &mergeHashes3, &mergeData3, &mergeSize3, 1)
+                expect([String](pointer: mergedHashes3?.pointee.value, count: mergedHashes3?.pointee.len))
+                    .to(equal(["fakehash3"]))
                 mergeHashes3.forEach { $0?.deallocate() }
-                
+                mergedHashes3?.deallocate()
+
                 expect(groups_members_size(conf2)).to(equal(44))    // 18 deleted earlier
                 
                 (0..<62).forEach { index in
@@ -2592,6 +2617,75 @@ fileprivate extension LibSessionSpec {
     
     class func groupKeysSpec() {
         context("GROUP_KEYS") {
+            @TestState var userEdSK: [UInt8]! = LibSessionSpec.userEdSK
+            @TestState var edPK: [UInt8]! = LibSessionSpec.edPK
+            @TestState var edSK: [UInt8]! = LibSessionSpec.edSK
+            @TestState var error: [CChar]! = [CChar](repeating: 0, count: 256)
+            @TestState var infoConf: UnsafeMutablePointer<config_object>?
+            @TestState var membersConf: UnsafeMutablePointer<config_object>?
+            @TestState var keysConf: UnsafeMutablePointer<config_group_keys>?
+            @TestState var infoInitResult: Int32! = {
+                groups_info_init(&infoConf, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var membersInitResult: Int32! = {
+                groups_members_init(&membersConf, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var keysInitResult: Int32! = {
+                LibSessionSpec.initKeysConf(&keysConf, &infoConf, &membersConf)
+            }()
+            
+            @TestState var membersConf2: UnsafeMutablePointer<config_object>?
+            @TestState var keysConf2: UnsafeMutablePointer<config_group_keys>?
+            @TestState var membersInitResult2: Int32! = {
+                groups_members_init(&membersConf2, &edPK, &edSK, nil, 0, &error)
+            }()
+            @TestState var keysInitResult2: Int32! = {
+                LibSessionSpec.initKeysConf(&keysConf2, &infoConf, &membersConf2)
+            }()
+            @TestState var numRecords: Int! = 0
+            
+            // Convenience
+            var conf: UnsafeMutablePointer<config_group_keys>? { keysConf }
+            var conf2: UnsafeMutablePointer<config_group_keys>? { keysConf2 }
+            
+            // MARK: - when checking error catching
+            context("when checking error catching") {
+                // MARK: -- does not throw size exceptions when generating
+                it("does not throw size exceptions when generating") {
+                    var randomGenerator: ARC4RandomNumberGenerator = ARC4RandomNumberGenerator(seed: 1000)
+                    var pushResultLen: Int = 0
+                    
+                    // It's actually the number of members which can cause the keys message to get too large so
+                    // start by generating too many members
+                    try (0..<1750).forEach { index in
+                        var member: config_group_member = try createMember(
+                            for: index,
+                            in: membersConf,
+                            rand: &randomGenerator,
+                            maxing: .allProperties
+                        )
+                        groups_members_set(membersConf, &member)
+                    }
+                    
+                    expect {
+                        try CExceptionHelper.performSafely {
+                            var pushResult: UnsafePointer<UInt8>? = nil
+                            expect(groups_keys_rekey(
+                                conf,
+                                infoConf,
+                                membersConf,
+                                &pushResult,
+                                &pushResultLen
+                            )).to(beTrue())
+                        }
+                    }
+                    .toNot(throwError(NSError(domain: "cpp_exception", code: -2, userInfo: ["NSLocalizedDescription": "Config data is too large"])))
+                    
+                    expect(pushResultLen).to(beGreaterThan(LibSessionSpec.maxMessageSizeBytes))
+                    expect(groups_keys_needs_dump(conf)).to(beTrue())
+                }
+            }
+            
             // MARK: -- generates config correctly
             it("generates config correctly") {
                 let userSeed: Data = Data(hex: "0123456789abcdef0123456789abcdef")
