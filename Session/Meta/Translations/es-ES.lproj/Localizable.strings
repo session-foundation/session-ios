@@ -181,7 +181,7 @@
 /* Notification action button title */
 "PUSH_MANAGER_REPLY" = "Responder";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Autenticar para abrir Session.";
+"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Identifícate para acceder a Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
 "SCREEN_LOCK_UNLOCK_FAILED" = "Fallo al identificarse";
 /* alert title when user attempts to leave the send media flow when they have an in-progress album */
@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "Escanear código QR";
 "vc_enter_public_key_explanation" = "Empieza una nueva conversa poniendo el ID de sesión de alguien o comparte tu ID de sesión con ellos.";
 "vc_scan_qr_code_camera_access_explanation" = "Session necesita acceso a la cámara para escanear códigos QR";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Permitir acceso a cámara";
 "vc_create_closed_group_title" = "Crear un grupo";
 "vc_create_closed_group_text_field_hint" = "Ingresa un nombre de grupo";
 "vc_create_closed_group_empty_state_message" = "Aún no tienes contactos";
@@ -552,102 +551,102 @@
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Desaparecer después de %@";
 "COPY_GROUP_URL" = "Copiar URL del grupo";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Contactos";
-"GROUP_ERROR_NO_MEMBER_SELECTION" = "Please pick at least 1 group member";
-"GROUP_CREATION_PLEASE_WAIT" = "Please wait while the group is created...";
-"GROUP_CREATION_ERROR_TITLE" = "Couldn't Create Group";
-"GROUP_CREATION_ERROR_MESSAGE" = "Please check your internet connection and try again.";
-"GROUP_UPDATE_ERROR_TITLE" = "Couldn't Update Group";
-"GROUP_UPDATE_ERROR_MESSAGE" = "Can't leave while adding or removing other members.";
-"GROUP_ACTION_REMOVE" = "Remove";
-"GROUP_TITLE_MEMBERS" = "Members";
-"GROUP_TITLE_FALLBACK" = "Group";
-"DM_ERROR_DIRECT_BLINDED_ID" = "You can only send messages to Blinded IDs from within a Community";
-"DM_ERROR_INVALID" = "Please check the Session ID or ONS name and try again";
-"COMMUNITY_ERROR_INVALID_URL" = "Please check the URL you entered and try again.";
-"COMMUNITY_ERROR_GENERIC" = "Couldn't Join";
-"DISAPPERING_MESSAGES_TITLE" = "Disappearing Messages";
-"DISAPPERING_MESSAGES_TYPE_TITLE" = "Delete Type";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Disappear After Read";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Messages delete after they have been read.";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "Disappear After Send";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "Messages delete after they have been sent.";
-"DISAPPERING_MESSAGES_TIMER_TITLE" = "Timer";
-"DISAPPERING_MESSAGES_SAVE_TITLE" = "Set";
-"DISAPPERING_MESSAGES_GROUP_WARNING" = "This setting applies to everyone in this conversation.";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to everyone in this conversation. Only group admins can change this setting.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Disappear After %@ - %@";
-"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set messages to disappear %@ after they have been %@";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ has changed messages to disappear %@ after they have been %@";
-"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages";
+"GROUP_ERROR_NO_MEMBER_SELECTION" = "Elige al menos 1 miembro del grupo";
+"GROUP_CREATION_PLEASE_WAIT" = "El grupo se está creando...";
+"GROUP_CREATION_ERROR_TITLE" = "No se pudo crear el grupo";
+"GROUP_CREATION_ERROR_MESSAGE" = "Por favor, compruebe su conexión a internet e inténtelo de nuevo.";
+"GROUP_UPDATE_ERROR_TITLE" = "No se pudo actualizar el grupo";
+"GROUP_UPDATE_ERROR_MESSAGE" = "No se puede salir mientras se agregan o eliminan miembros.";
+"GROUP_ACTION_REMOVE" = "Eliminar";
+"GROUP_TITLE_MEMBERS" = "Miembros";
+"GROUP_TITLE_FALLBACK" = "Grupo";
+"DM_ERROR_DIRECT_BLINDED_ID" = "Solo puede enviar mensajes a ID encubiertos desde dentro de una comunidad";
+"DM_ERROR_INVALID" = "Por favor, compruebe el ID de Session o el nombre ONS e inténtelo de nuevo";
+"COMMUNITY_ERROR_INVALID_URL" = "Por favor, compruebe el URL que ha introducido y vuelve a intentarlo.";
+"COMMUNITY_ERROR_GENERIC" = "Error al unirse";
+"DISAPPERING_MESSAGES_TITLE" = "Desaparición de mensajes";
+"DISAPPERING_MESSAGES_TYPE_TITLE" = "Tipo de borrado";
+"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Desaparece tras leerlo";
+"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Los mensajes se borran después de haber sido leídos.";
+"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "Desaparece tras enviarlo";
+"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "Los mensajes se borran después de haber sido enviados.";
+"DISAPPERING_MESSAGES_TIMER_TITLE" = "Cronómetro";
+"DISAPPERING_MESSAGES_SAVE_TITLE" = "Definir";
+"DISAPPERING_MESSAGES_GROUP_WARNING" = "Esta opción se aplica a todos los usuarios en esta conversación.";
+"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Esta opción se aplica a todos los usuarios en esta conversación.\nSolo los administradores del grupo la pueden cambiar.";
+"DISAPPERING_MESSAGES_SUMMARY" = "Desaparece tras %@ - %@";
+"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ ha establecido que los mensajes desaparezcan %@ tras haber sido %@";
+"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ ha cambiado que los mensajes desaparezcan %@ tras haber sido %@";
+"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ ha desactivado la desaparición de mensajes";
 
 /* context_menu_info */
-"context_menu_info" = "Info";
+"context_menu_info" = "Información";
 
 /* An error that is displayed when the application fails for create it's initial connection to the database */
-"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"DATABASE_STARTUP_FAILED" = "Se ha producido un error al abrir la base de datos\n\nPuedes exportar tus registros de aplicación para compartirlos y solucionar los problemas, o restaurar el dispositivo\n\nAdvertencia: Restaurar su dispositivo causará una pérdida de todos los datos que sean más antiguos a dos semanas";
 
 /* A warning displayed to the user when the application takes too long to launch */
-"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+"APP_STARTUP_TIMEOUT" = "La aplicación está tardando mucho tiempo para iniciar\n\nPuedes continuar esperando a que la aplicación se inicie, exportar los registros de tu aplicación y compartirlos para solucionar los problemas o puedes intentar volver a abrir la aplicación";
 
 /* The title of a button on a modal shown when the application fails to start, pressing the button closes the application */
-"APP_STARTUP_EXIT" = "Exit";
+"APP_STARTUP_EXIT" = "Salir";
 
 /* An error which occurs if the user tries to restore the database after an initial failure and it fails to restore */
-"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
+"DATABASE_RESTORE_FAILED" = "Se ha producido un error al abrir la base de datos restaurada\n\nPuede exportar los registros de su aplicación para compartir y solucionar problemas, pero para continuar usando Session puede que necesite reinstalarlo";
 
 /* Text displayed in place of a quoted message when the original message is not on the device */
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+"QUOTED_MESSAGE_NOT_FOUND" = "No se encontró el mensaje original.";
 
 /* EMOJI_REACTS_SHOW_LESS */
-"EMOJI_REACTS_SHOW_LESS" = "Show less";
+"EMOJI_REACTS_SHOW_LESS" = "Ver menos";
 
 /* PRIVACY_SECTION_MESSAGE_REQUESTS */
-"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Solicitudes de mensajes";
 
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Solicitudes de mensaje de la comunidad";
 
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Permitir peticiones de mensajes de conversaciones comunitarias.";
 
 /* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "Podrás enviar mensajes de voz y archivos adjuntos cuando el destinatario haya aprobado esta solicitud de mensaje";
 
 /* State of a message while it's still in the process of being sent */
-"MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+"MESSAGE_DELIVERY_STATUS_SENDING" = "Enviando";
 
 /* State of a message once it has been sent */
-"MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+"MESSAGE_DELIVERY_STATUS_SENT" = "Enviado";
 
 /* State of a message after the recipient has read the message */
-"MESSAGE_DELIVERY_STATUS_READ" = "Read";
+"MESSAGE_DELIVERY_STATUS_READ" = "Leído";
 
 /* State of a message if it failed to be sent */
-"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"MESSAGE_DELIVERY_STATUS_FAILED" = "Fallo al enviar";
 
 /* Title of the message information screen describing the date/time a message was sent */
-"MESSAGE_INFO_SENT" = "Sent";
+"MESSAGE_INFO_SENT" = "Enviado";
 
 /* Title of the message information screen describing the date/time a message was received on a specific device */
-"MESSAGE_INFO_RECEIVED" = "Received";
+"MESSAGE_INFO_RECEIVED" = "Recibido";
 
 /* Title of the message information screen describing the sender of the message */
-"MESSAGE_INFO_FROM" = "From";
+"MESSAGE_INFO_FROM" = "De";
 
 /* Title of the message information screen describing the identifier of the attachment */
-"ATTACHMENT_INFO_FILE_ID" = "File ID";
+"ATTACHMENT_INFO_FILE_ID" = "ID de archivo";
 
 /* Title of the message information screen describing the file type of the attachment */
-"ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+"ATTACHMENT_INFO_FILE_TYPE" = "Tipo de archivo";
 
 /* Title of the message information screen describing the size of the attachment */
-"ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+"ATTACHMENT_INFO_FILE_SIZE" = "Tamaño del archivo";
 
 /* Title on the message information screen describing the resolution of a media attachment */
-"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+"ATTACHMENT_INFO_RESOLUTION" = "Resolución";
 
 /* Title on the message information screen describing the duration of a media attachment */
-"ATTACHMENT_INFO_DURATION" = "Duration";
+"ATTACHMENT_INFO_DURATION" = "Duración";
 
 /* State of a message after it failed to sync to the current users other devices */
 "MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
@@ -800,17 +799,17 @@
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
 
 /* The description for the legacy type of disappearing messages on the disappearing messages configuration screen */
-"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages.";
+"DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Versión original de los mensajes desaparecidos.";
 
 /* A warning shown at the top of a conversation to indicate a participant is using an old version of Session which may not support the updated disappearing messages functionality */
-"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
+"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ está usando un cliente desactualizado. Los mensajes que desaparecen pueden no funcionar correctamente.";
 
 /* An error which can occur when a user tries to update from a version that Session no longer supports updating from */
-"DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"DATABASE_UNSUPPORTED_MIGRATION" = "Estás intentando actualizar desde una versión que ya no soporta actualizar\n\nPara continuar usando Session, necesitas restaurar tu dispositivo\n\nAdvertencia: Restaurar tu dispositivo causará la pérdida de cualquier información anterior a dos semanas";
 
 /* DISAPPEARING_MESSAGE_STATE_READ
 The point that a message will disappear in a disappearing message update message for disappear after read */
-"DISAPPEARING_MESSAGE_STATE_READ" = "read";
+"DISAPPEARING_MESSAGE_STATE_READ" = "leído";
 
 /* The point that a message will disappear in a disappearing message update message for disappear after send */
-"DISAPPEARING_MESSAGE_STATE_SENT" = "sent";
+"DISAPPEARING_MESSAGE_STATE_SENT" = "enviado";

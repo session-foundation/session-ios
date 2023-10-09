@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "掃描 QR Code";
 "vc_enter_public_key_explanation" = "輸入他人的 Session ID 或分享您的 Session ID 以開始新會話。";
 "vc_scan_qr_code_camera_access_explanation" = "Session 需要使用相機來掃描 QR Codes";
-"vc_scan_qr_code_grant_camera_access_button_title" = "授與相機權限";
 "vc_create_closed_group_title" = "建立群組";
 "vc_create_closed_group_text_field_hint" = "請輸入群組名稱";
 "vc_create_closed_group_empty_state_message" = "您尚未加入聯絡人";
