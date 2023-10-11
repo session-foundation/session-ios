@@ -4,14 +4,16 @@ import Foundation
 import DifferenceKit
 import SessionUIKit
 
-protocol SessionTableSection: Differentiable {
+public protocol SessionTableSection: Differentiable, Equatable {
     var title: String? { get }
     var style: SessionTableSectionStyle { get }
+    var footer: String? { get }
 }
 
 extension SessionTableSection {
-    var title: String? { nil }
-    var style: SessionTableSectionStyle { .none }
+    public var title: String? { nil }
+    public var style: SessionTableSectionStyle { .none }
+    public var footer: String? { nil }
 }
 
 public enum SessionTableSectionStyle: Equatable, Hashable, Differentiable {
