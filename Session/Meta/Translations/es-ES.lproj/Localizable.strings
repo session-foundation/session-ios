@@ -548,7 +548,6 @@
 "modal_permission_library" = "fototeca";
 "DISAPPEARING_MESSAGES_OFF" = "Off";
 "DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Off";
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Desaparecer después de %@";
 "COPY_GROUP_URL" = "Copiar URL del grupo";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Contactos";
 "GROUP_ERROR_NO_MEMBER_SELECTION" = "Elige al menos 1 miembro del grupo";
@@ -574,7 +573,6 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Definir";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "Esta opción se aplica a todos los usuarios en esta conversación.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Esta opción se aplica a todos los usuarios en esta conversación.\nSolo los administradores del grupo la pueden cambiar.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Desaparece tras %@ - %@";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ ha establecido que los mensajes desaparezcan %@ tras haber sido %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ ha cambiado que los mensajes desaparezcan %@ tras haber sido %@";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ ha desactivado la desaparición de mensajes";
@@ -813,3 +811,21 @@ The point that a message will disappear in a disappearing message update message
 
 /* The point that a message will disappear in a disappearing message update message for disappear after send */
 "DISAPPEARING_MESSAGE_STATE_SENT" = "enviado";
+
+/* The current state for the legacy disappearing messages setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_LEGACY" = "Disappear After - %@";
+
+/* The current state for the disappear after read setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_READ" = "Disappear After Read - %@";
+
+/* The current state for the disappear after send setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_SEND" = "Disappear After Send - %@";
+
+/* The subtitle describing the current legacy disappearing messages setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY" = "Disappear After: %@";
+
+/* The subtitle describing the current disappear after read setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ" = "Disappear After Read: %@";
+
+/* The subtitle describing the current disappear after send setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";

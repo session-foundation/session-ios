@@ -233,16 +233,20 @@ final class ConversationTitleView: UIView {
                         return NSAttributedString(attachment: imageAttachment)
                             .appending(string: " ")
                             .appending(string: String(
-                                format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER".localized(),
+                                format: "DISAPPERING_MESSAGES_SUMMARY_LEGACY".localized(),
                                 floor(config.durationSeconds).formatted(format: .short)
                             ))
                     }
                     
                     return NSAttributedString(attachment: imageAttachment)
                         .appending(string: " ")
-                        .appending(string: config.type == .disappearAfterRead ? "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized() : "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized())
-                        .appending(string: " - ")
-                        .appending(string: floor(config.durationSeconds).formatted(format: .short))
+                        .appending(string: String(
+                            format: (config.type == .disappearAfterRead ?
+                                "DISAPPERING_MESSAGES_SUMMARY_READ".localized() :
+                                "DISAPPERING_MESSAGES_SUMMARY_SEND".localized()
+                            ),
+                            floor(config.durationSeconds).formatted(format: .short)
+                        ))
                 }()
                 
                 labelInfos.append(
