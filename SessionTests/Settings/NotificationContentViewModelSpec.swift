@@ -22,12 +22,14 @@ class NotificationContentViewModelSpec: QuickSpec {
                 SNUIKit.self
             ]
         )
-        @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
+        @TestState var dependencies: Dependencies! = Dependencies(
             storage: mockStorage,
-            scheduling: .immediate
+            scheduler: .immediate
         )
-        
-        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.observableTableData
+        @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
+            using: dependencies
+        )
+        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
             .receive(on: ImmediateScheduler.shared)
             .sink(
                 receiveCompletion: { _ in },
@@ -88,8 +90,8 @@ class NotificationContentViewModelSpec: QuickSpec {
                 mockStorage.write { db in
                     db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
                 }
-                viewModel = NotificationContentViewModel(storage: mockStorage, scheduling: .immediate)
-                dataChangeCancellable = viewModel.observableTableData
+                viewModel = NotificationContentViewModel(using: dependencies)
+                dataChangeCancellable = viewModel.tableDataPublisher
                     .receive(on: ImmediateScheduler.shared)
                     .sink(
                         receiveCompletion: { _ in },
@@ -141,7 +143,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                 it("dismisses the screen") {
                     var didDismissScreen: Bool = false
                     
-                    dismissCancellable = viewModel.dismissScreen
+                    dismissCancellable = viewModel.navigatableState.dismissScreen
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
