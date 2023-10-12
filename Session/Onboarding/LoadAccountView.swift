@@ -187,10 +187,26 @@ struct EnterRecoveryPasswordView: View{
             ) {
                 Spacer(minLength: 0)
                 
-                Text("onboarding_recovery_password_tab_title".localized())
-                    .bold()
-                    .font(.system(size: Values.veryLargeFontSize))
-                    .foregroundColor(themeColor: .textPrimary)
+                HStack(
+                    alignment: .bottom,
+                    spacing: Values.smallSpacing
+                ) {
+                    Text("onboarding_recovery_password_tab_title".localized())
+                        .bold()
+                        .font(.system(size: Values.veryLargeFontSize))
+                        .foregroundColor(themeColor: .textPrimary)
+                    
+                    Image("SessionShield")
+                        .resizable()
+                        .renderingMode(.template)
+                        .foregroundColor(themeColor: .textPrimary)
+                        .scaledToFit()
+                        .frame(
+                            maxWidth: Values.largeFontSize,
+                            maxHeight: Values.largeFontSize
+                        )
+                        .padding(.bottom, Values.verySmallSpacing)
+                }
                 
                 Spacer(minLength: 0)
                     .frame(maxHeight: 2 * Values.mediumSpacing)
