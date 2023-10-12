@@ -10,23 +10,23 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                 [
                     _001_InitialSetupMigration.self,
                     _002_SetupStandardJobs.self
-                ],
+                ],  // Initial DB Creation
                 [
                     _003_YDBToGRDBMigration.self
-                ],
+                ],  // YDB to GRDB Migration
                 [
                     _004_RemoveLegacyYDB.self
-                ],
+                ],  // Legacy DB removal
                 [
                     _005_FixDeletedMessageReadState.self,
                     _006_FixHiddenModAdminSupport.self,
                     _007_HomeQueryOptimisationIndexes.self
-                ],
+                ],  // Add job priorities
                 [
                     _008_EmojiReacts.self,
                     _009_OpenGroupPermission.self,
                     _010_AddThreadIdToFTS.self
-                ],  // Add job priorities
+                ],  // Fix thread FTS
                 [
                     _011_AddPendingReadReceipts.self,
                     _012_AddFTSIfNeeded.self,

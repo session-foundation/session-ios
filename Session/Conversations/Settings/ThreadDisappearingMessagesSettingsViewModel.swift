@@ -9,49 +9,14 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadDisappearingMessagesSettingsViewModel.NavButton, ThreadDisappearingMessagesSettingsViewModel.Section, ThreadDisappearingMessagesSettingsViewModel.Item> {
-    // MARK: - Config
+class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+    typealias TableItem = String
     
-    enum NavButton: Equatable {
-        case save
-    }
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
-    public enum Section: SessionTableSection {
-        case type
-        case timerDisappearAfterSend
-        case timerDisappearAfterRead
-        case noteToSelf
-        case group
-        
-        var title: String? {
-            switch self {
-                case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
-                case .timerDisappearAfterSend: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
-                case .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
-                case .noteToSelf: return nil
-                case .group: return nil
-            }
-        }
-        
-        var style: SessionTableSectionStyle { return .titleRoundedContent }
-        
-        var footer: String? {
-            switch self {
-                case .group: return "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY".localized()
-                default: return nil
-            }
-        }
-    }
-    
-    public struct Item: Equatable, Hashable, Differentiable {
-        let title: String
-            
-        public var differenceIdentifier: String { title }
-    }
-    
-    // MARK: - Variables
-    
-    private let dependencies: Dependencies
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private var isNoteToSelf: Bool
@@ -82,10 +47,43 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
         self.shouldShowConfirmButton = CurrentValueSubject(false)
     }
     
+    // MARK: - Config
+    
+    enum NavItem: Equatable {
+        case save
+    }
+    
+    public enum Section: SessionTableSection {
+        case type
+        case timerDisappearAfterSend
+        case timerDisappearAfterRead
+        case noteToSelf
+        case group
+        
+        var title: String? {
+            switch self {
+                case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
+                case .timerDisappearAfterSend: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                case .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                case .noteToSelf: return nil
+                case .group: return nil
+            }
+        }
+        
+        var style: SessionTableSectionStyle { return .titleRoundedContent }
+        
+        var footer: String? {
+            switch self {
+                case .group: return "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY".localized()
+                default: return nil
+            }
+        }
+    }
+    
     // MARK: - Content
     
-    override var title: String { "DISAPPEARING_MESSAGES".localized() }
-    override var subtitle: String? {
+    let title: String = "DISAPPEARING_MESSAGES".localized()
+    lazy var subtitle: String? = {
         guard Features.useNewDisappearingMessagesConfig else {
             return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized())
         }
@@ -95,36 +93,33 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
         }
         
         return "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized()
-    }
+    }()
     
-    override var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> {
-        self.shouldShowConfirmButton
-            .removeDuplicates()
-            .map { [weak self, dependencies] shouldShowConfirmButton in
-                guard shouldShowConfirmButton else { return nil }
-                
-                return SessionButton.Info(
-                    style: .bordered,
-                    title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
-                    isEnabled: true,
-                    accessibility: Accessibility(
-                        identifier: "Set button",
-                        label: "Set button"
-                    ),
-                    minWidth: 110,
-                    onTap: {
-                        self?.saveChanges(using: dependencies)
-                        self?.dismissScreen()
-                    }
-                )
-            }
-            .eraseToAnyPublisher()
-    }
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = shouldShowConfirmButton
+        .removeDuplicates()
+        .map { [weak self] shouldShowConfirmButton in
+            guard shouldShowConfirmButton else { return nil }
+            
+            return SessionButton.Info(
+                style: .bordered,
+                title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
+                isEnabled: true,
+                accessibility: Accessibility(
+                    identifier: "Set button",
+                    label: "Set button"
+                ),
+                minWidth: 110,
+                onTap: {
+                    self?.saveChanges()
+                    self?.dismissScreen()
+                }
+            )
+        }
+        .eraseToAnyPublisher()
     
-    public override var observableTableData: ObservableData { _observableTableData }
-    
-    private lazy var _observableTableData: ObservableData = self.currentSelection
-        .map { [weak self, threadVariant, isNoteToSelf, config, currentUserIsClosedGroupMember, currentUserIsClosedGroupAdmin, dependencies] currentSelection in
+    lazy var observation: TargetObservation = ObservationBuilder
+        .subject(currentSelection)
+        .map { [weak self, threadVariant, isNoteToSelf, config, currentUserIsClosedGroupMember, currentUserIsClosedGroupAdmin] currentSelection -> [SectionModel] in
             switch (threadVariant, isNoteToSelf) {
                 case (.contact, false):
                     return [
@@ -132,7 +127,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                             model: .type,
                             elements: [
                                 SessionCell.Info(
-                                    id: Item(title: "DISAPPEARING_MESSAGES_OFF".localized()),
+                                    id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                     title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                     rightAccessory: .radio(
                                         isSelected: { (self?.currentSelection.value.isEnabled == false) }
@@ -154,7 +149,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                 ),
                                 (Features.useNewDisappearingMessagesConfig ? nil :
                                     SessionCell.Info(
-                                        id: Item(title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized()),
+                                        id: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                         title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                         subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
                                         rightAccessory: .radio(
@@ -182,7 +177,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                     )
                                 ),
                                 SessionCell.Info(
-                                    id: Item(title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized()),
+                                    id: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
                                     title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
                                     subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
                                     rightAccessory: .radio(
@@ -221,7 +216,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                     }
                                 ),
                                 SessionCell.Info(
-                                    id: Item(title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()),
+                                    id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                     title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                     subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                     rightAccessory: .radio(
@@ -273,7 +268,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                         let title: String = duration.formatted(format: .long)
 
                                         return SessionCell.Info(
-                                            id: Item(title: title),
+                                            id: title,
                                             title: title,
                                             rightAccessory: .radio(
                                                 isSelected: {
@@ -307,7 +302,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                 model: .type,
                                 elements: [
                                     SessionCell.Info(
-                                        id: Item(title: "DISAPPEARING_MESSAGES_OFF".localized()),
+                                        id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                         title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                         rightAccessory: .radio(
                                             isSelected: { (self?.currentSelection.value.isEnabled == false) }
@@ -332,7 +327,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                         }
                                     ),
                                     SessionCell.Info(
-                                        id: Item(title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized()),
+                                        id: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                         title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                         subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
                                         rightAccessory: .radio(
@@ -363,7 +358,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                         }
                                     ),
                                     SessionCell.Info(
-                                        id: Item(title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()),
+                                        id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                         title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                         subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                         rightAccessory: .radio(isSelected: { false }),
@@ -388,7 +383,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                 elements: [
                                     (!Features.useNewDisappearingMessagesConfig ? nil :
                                         SessionCell.Info(
-                                            id: Item(title: "DISAPPEARING_MESSAGES_OFF".localized()),
+                                            id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                             title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                             rightAccessory: .radio(
                                                 isSelected: { (self?.currentSelection.value.isEnabled == false) }
@@ -422,7 +417,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                             let title: String = duration.formatted(format: .long)
 
                                             return SessionCell.Info(
-                                                id: Item(title: title),
+                                                id: title,
                                                 title: title,
                                                 rightAccessory: .radio(
                                                     isSelected: {
@@ -470,20 +465,15 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                     return [] // Should not happen
             }
         }
-        .removeDuplicates()
-        .eraseToAnyPublisher()
-        .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
     
-    private func saveChanges(using dependencies: Dependencies) {
-        let threadId: String = self.threadId
-        let threadVariant: SessionThread.Variant = self.threadVariant
+    private func saveChanges() {
         let updatedConfig: DisappearingMessagesConfiguration = self.currentSelection.value
 
         guard self.config != updatedConfig else { return }
 
-        dependencies.storage.writeAsync(using: dependencies) { db in
+        dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
             _ = try updatedConfig.saved(db)
             
             _ = try Interaction
@@ -495,7 +485,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
             
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
-                authorId: getUserHexEncodedPublicKey(db),
+                authorId: getUserHexEncodedPublicKey(db, using: dependencies),
                 variant: .infoDisappearingMessagesUpdate,
                 body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
                 timestampMs: currentOffsetTimestampMs,
@@ -523,7 +513,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
         }
         
         // Contacts & legacy closed groups need to update the SessionUtil
-        dependencies.storage.writeAsync(using: dependencies) { db in
+        dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant] db in
             switch threadVariant {
                 case .contact:
                     try SessionUtil

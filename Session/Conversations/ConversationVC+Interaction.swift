@@ -2488,11 +2488,14 @@ extension ConversationVC {
         guard threadVariant == .contact else { return }
         
         let updateNavigationBackStack: () -> Void = {
-            // Remove the 'MessageRequestsViewController' from the nav hierarchy if present
+            // Remove the 'SessionTableViewController<MessageRequestsViewModel>' from the nav hierarchy if present
             DispatchQueue.main.async { [weak self] in
                 if
                     let viewControllers: [UIViewController] = self?.navigationController?.viewControllers,
-                    let messageRequestsIndex = viewControllers.firstIndex(where: { $0 is MessageRequestsViewController }),
+                    let messageRequestsIndex = viewControllers
+                        .firstIndex(where: { viewCon -> Bool in
+                            (viewCon as? SessionViewModelAccessible)?.viewModelType == MessageRequestsViewModel.self
+                        }),
                     messageRequestsIndex > 0
                 {
                     var newViewControllers = viewControllers

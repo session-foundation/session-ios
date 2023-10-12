@@ -6,7 +6,7 @@ import SessionUtilitiesKit
 
 enum _017_DisappearingMessagesConfiguration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
-    static let identifier: String = "DisappearingMessagesWithTypes"
+    static let identifier: String = "DisappearingMessagesWithTypes" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
