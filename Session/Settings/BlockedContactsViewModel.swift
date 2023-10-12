@@ -170,7 +170,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
         let contactNames: [String] = contactIds
             .compactMap { contactId in
                 guard
-                    let section: BlockedContactsViewModel.SectionModel = self.tableData
+                    let section: SectionModel = self.tableData
                         .first(where: { section in section.model == .contacts }),
                     let info: SessionCell.Info<TableItem> = section.elements
                         .first(where: { info in info.id.id == contactId })

@@ -167,7 +167,7 @@ extension MessageSender {
         groupSessionId: String,
         name: String,
         displayPicture: SignalAttachment?,
-        members: [(String, Profile?)],
+        members: [(id: String, profile: Profile?, isAdmin: Bool)],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
         guard (try? SessionId.Prefix(from: groupSessionId)) == .group else {
@@ -194,6 +194,25 @@ extension MessageSender {
                         .filter(id: groupSessionId)
                         .updateAllAndConfig(db, ClosedGroup.Columns.name.set(to: name), using: dependencies)
                 }
+                
+                // Retrieve member info
+                guard let allGroupMembers: [GroupMember] = try? closedGroup.allMembers.fetchAll(db) else {
+                    throw MessageSenderError.invalidClosedGroupUpdate
+                }
+
+                let originalMemberIds: Set<String> = allGroupMembers.map { $0.profileId }.asSet()
+                let addedMembers: [(id: String, profile: Profile?, isAdmin: Bool)] = members
+                    .filter { !originalMemberIds.contains($0.0) }
+                let removedMemberIds: Set<String> = originalMemberIds
+                    .subtracting(members.map { id, _, _ in id }.asSet())
+                
+                // Update libSession (libSession will figure out if it's member list changed)
+                try? SessionUtil.update(
+                    db,
+                    groupSessionId: groupSessionId,
+                    members: members,
+                    using: dependencies
+                )
             }
             .eraseToAnyPublisher()
     }

@@ -361,6 +361,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let title: String = "vc_conversation_settings_invite_button_title".localized()
         
         let userSessionId: SessionId = self.userSessionId
+        let threadVariant: SessionThread.Variant = self.threadVariant
         let userSelectionVC: UserSelectionVC = UserSelectionVC(
             with: title,
             excluding: allGroupMembers
@@ -405,7 +406,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                         
                         return (lhsDisplayName < rhsDisplayName)
                     })
-                    .filter { $0.role == .standard || $0.role == .zombie }
+                    .filter { $0.role != .zombie }
                 
                 let uniqueGroupMemberIds: Set<String> = (self?.allGroupMembers ?? [])
                     .map { $0.profileId }
@@ -442,8 +443,8 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let threadId: String = self.threadId
         let updatedName: String = self.name
         let userSessionId: SessionId = self.userSessionId
-        let updatedMembers: [(String, Profile?)] = self.allGroupMembers
-            .map { ($0.profileId, $0.profile) }
+        let updatedMembers: [(id: String, profile: Profile?, isAdmin: Bool)] = self.allGroupMembers
+            .map { ($0.profileId, $0.profile, ($0.role == .admin)) }
         let updatedMemberIds: Set<String> = updatedMembers.map { $0.0 }.asSet()
         
         guard updatedMemberIds != self.originalMembersIds || updatedName != self.originalName else {

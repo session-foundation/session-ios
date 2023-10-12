@@ -156,7 +156,7 @@ public enum ObservationBuilder {
                 .trackingConstantRegion(fetch)
                 .removeDuplicates()
                 .handleEvents(didFail: { SNLog("[\(type(of: viewModel))] Observation failed with error: \($0)") })
-                .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
+                .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
                 .manualRefreshFrom(source.observableState.forcedRefresh)
         }
     }
@@ -173,7 +173,7 @@ public enum ObservationBuilder {
                 .trackingConstantRegion(fetch)
                 .removeDuplicates()
                 .handleEvents(didFail: { SNLog("[\(type(of: viewModel))] Observation failed with error: \($0)") })
-                .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
+                .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
                 .manualRefreshFrom(source.observableState.forcedRefresh)
         }
     }

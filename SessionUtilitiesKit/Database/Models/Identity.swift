@@ -55,7 +55,7 @@ public extension Identity {
                 .toX25519(ed25519PublicKey: ed25519KeyPair.publicKey)
             ),
             let x25519SecretKey: [UInt8] = try? dependencies[singleton: .crypto].perform(
-                .toX25519(ed25519PublicKey: ed25519KeyPair.secretKey)
+                .toX25519(ed25519SecretKey: ed25519KeyPair.secretKey)
             )
         else { throw GeneralError.keyGenerationFailed }
         

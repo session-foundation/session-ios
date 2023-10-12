@@ -79,7 +79,7 @@ extension ProjectState {
         .regex("case .* = "),
         .regex("Error.*\\("),
         .regex("Crypto.*\\(id:"),
-        .containsAnd("id:", .previousLine(numEarlier: 1, .regex("Crypto.*\\(")))
+        .containsAnd("id:", caseSensitive: false, .previousLine(numEarlier: 1, .regex("Crypto.*\\(")))
     ]
 }
 

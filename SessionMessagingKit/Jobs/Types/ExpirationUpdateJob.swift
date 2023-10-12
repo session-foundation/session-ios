@@ -30,25 +30,23 @@ public enum ExpirationUpdateJob: JobExecutor {
         
         dependencies[singleton: .storage]
             .readPublisher(using: dependencies) { db in
-                try SnodeAPI.AuthenticationInfo(
-                    db,
-                    sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
-                    using: dependencies
-                )
-            }
-            .flatMap { authInfo in
-                SnodeAPI
-                    .updateExpiry(
+                try SnodeAPI
+                    .preparedUpdateExpiry(
                         serverHashes: details.serverHashes,
                         updatedExpiryMs: details.expirationTimestampMs,
                         shortenOnly: true,
-                        authInfo: authInfo,
+                        authInfo: try SnodeAPI.AuthenticationInfo(
+                            db,
+                            sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
+                            using: dependencies
+                        ),
                         using: dependencies
                     )
             }
+            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
-            .map { response -> [UInt64: [String]] in
+            .map { _, response -> [UInt64: [String]] in
                 guard
                     let results: [UpdateExpiryResponseResult] = response
                         .compactMap({ _, value in value.didError ? nil : value })

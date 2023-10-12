@@ -50,18 +50,6 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         case content
     }
     
-    private let dependencies: Dependencies
-    
-    // MARK: - Initialization
-    
-    init(
-        using dependencies: Dependencies = Dependencies()
-    ) {
-        self.dependencies = dependencies
-        
-        super.init()
-    }
-    
     // MARK: - Content
     
     private struct State: Equatable {
@@ -84,7 +72,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
             )
         }
-        .map { dbState -> State in
+        .map { [dependencies] dbState -> State in
             State(
                 isUsingFullAPNs: dependencies[defaults: .standard, key: .isUsingFullAPNs],
                 notificationSound: dbState.notificationSound,

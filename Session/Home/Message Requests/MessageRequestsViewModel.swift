@@ -33,6 +33,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         // distinct stutter)
         let userSessionId: SessionId = getUserSessionId(using: dependencies)
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        
         self.pagedDataObserver = PagedDatabaseObserver(
             pagedTable: SessionThread.self,
             pageSize: MessageRequestsViewModel.pageSize,
@@ -225,7 +226,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             .map { id, _ in id },
                                         threadVariant: .contact,
                                         groupLeaveType: .silent,
-                                        calledFromConfigHandling: false
+                                        calledFromConfigHandling: false,
+                                        using: dependencies
                                     )
                                     
                                     // Remove the group requests
@@ -236,7 +238,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             .map { id, _ in id },
                                         threadVariant: .group,
                                         groupLeaveType: .silent,
-                                        calledFromConfigHandling: false
+                                        calledFromConfigHandling: false,
+                                        using: dependencies
                                     )
                                 }
                             }

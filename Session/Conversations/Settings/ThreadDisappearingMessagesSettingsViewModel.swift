@@ -513,7 +513,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         }
         
         // Contacts & legacy closed groups need to update the SessionUtil
-        dependencies[singleton: .storage].writeAsync(using: dependencies) { [threadId, threadVariant] db in
+        dependencies[singleton: .storage].writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
             switch threadVariant {
                 case .contact:
                     try SessionUtil

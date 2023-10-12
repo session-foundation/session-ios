@@ -44,18 +44,6 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         }
     }
     
-    private let dependencies: Dependencies
-    
-    // MARK: - Initialization
-    
-    init(
-        using dependencies: Dependencies = Dependencies()
-    ) {
-        self.dependencies = dependencies
-        
-        super.init()
-    }
-    
     // MARK: - Content
     
     private struct State: Equatable {

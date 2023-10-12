@@ -19,7 +19,7 @@ public struct SnodeReceivedMessage: CustomDebugStringConvertible {
         namespace: SnodeAPI.Namespace,
         rawMessage: GetMessagesResponse.RawMessage
     ) {
-        guard let data: Data = Data(base64Encoded: rawMessage.data) else {
+        guard let data: Data = Data(base64Encoded: rawMessage.base64EncodedDataString) else {
             SNLog("Failed to decode data for message: \(rawMessage).")
             return nil
         }

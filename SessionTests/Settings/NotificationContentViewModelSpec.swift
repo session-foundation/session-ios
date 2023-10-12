@@ -30,7 +30,7 @@ class NotificationContentViewModelSpec: QuickSpec {
         @TestState var viewModel: NotificationContentViewModel! = NotificationContentViewModel(
             using: dependencies
         )
-        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.observableTableData
+        @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
             .receive(on: ImmediateScheduler.shared)
             .sink(
                 receiveCompletion: { _ in },

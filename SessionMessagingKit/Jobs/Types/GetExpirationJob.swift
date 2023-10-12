@@ -43,31 +43,23 @@ public enum GetExpirationJob: JobExecutor {
         }
         
         let userSessionId: SessionId = getUserSessionId(using: dependencies)
-        SnodeAPI
-            .getSwarm(for: userSessionId.hexString, using: dependencies)
-            .tryFlatMap { swarm -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> in
-                guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
-                return dependencies[singleton: .storage]
-                    .readPublisher(using: dependencies) { db in
-                        try SnodeAPI.AuthenticationInfo(
+        
+        return dependencies[singleton: .storage]
+            .readPublisher(using: dependencies) { db in
+                try SnodeAPI
+                    .preparedGetExpiries(
+                        of: expirationInfo.map { $0.key },
+                        authInfo: try SnodeAPI.AuthenticationInfo(
                             db,
                             sessionIdHexString: userSessionId.hexString,
                             using: dependencies
-                        )
-                    }
-                    .flatMap { authInfo in
-                        SnodeAPI.getExpiries(
-                            from: snode,
-                            of: expirationInfo.map { $0.key },
-                            authInfo: authInfo,
-                            using: dependencies
-                        )
-                    }
-                    .eraseToAnyPublisher()
+                        ),
+                        using: dependencies
+                    )
             }
+            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
-            .map { _, response -> GetExpiriesResponse in response }
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
@@ -75,7 +67,7 @@ public enum GetExpirationJob: JobExecutor {
                         case .failure(let error): failure(job, error, true, dependencies)
                     }
                 },
-                receiveValue: { response in
+                receiveValue: { _, response in
                     let serverSpecifiedExpirationStartTimesMs: [String: TimeInterval] = response.expiries
                         .reduce(into: [:]) { result, next in
                             guard let expiresInSeconds: TimeInterval = expirationInfo[next.key] else { return }

@@ -549,98 +549,30 @@ public final class SnodeAPI {
             .eraseToAnyPublisher()
     }
     
-    public static func getExpiries(
-        from snode: Snode,
+    public static func preparedGetExpiries(
         of serverHashes: [String],
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> {
-        let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
-        
+    ) throws -> HTTP.PreparedRequest<GetExpiriesResponse> {
         // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
         let serverHashes: [String] = serverHashes.appending("fakehash")
         
-        return SnodeAPI
-            .send(
-                request: SnodeRequest(
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
                     endpoint: .getExpiries,
+                    publicKey: authInfo.sessionId.hexString,
                     body: GetExpiriesRequest(
                         messageHashes: serverHashes,
                         authInfo: authInfo,
-                        timestampMs: sendTimestamp
+                        timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     )
                 ),
-                to: snode,
-                associatedWith: authInfo.sessionId.hexString,
-                using: dependencies
+                responseType: GetExpiriesResponse.self
             )
-            .decoded(as: GetExpiriesResponse.self, using: dependencies)
-            .eraseToAnyPublisher()
     }
     
     // MARK: - Store
-    
-    public static func sendMessage(
-        _ message: SnodeMessage,
-        in namespace: Namespace,
-        authInfo: AuthenticationInfo,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> {
-        let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
-        
-        // Create a convenience method to send a message to an individual Snode
-        func sendMessage(to snode: Snode) throws -> AnyPublisher<(any ResponseInfoType, SendMessagesResponse), Error> {
-            guard namespace.requiresWriteAuthentication else {
-                return SnodeAPI
-                    .send(
-                        request: SnodeRequest(
-                            endpoint: .sendMessage,
-                            body: LegacySendMessagesRequest(
-                                message: message,
-                                namespace: namespace
-                            )
-                        ),
-                        to: snode,
-                        associatedWith: authInfo.sessionId.hexString,
-                        using: dependencies
-                    )
-                    .decoded(as: SendMessagesResponse.self, using: dependencies)
-                    .eraseToAnyPublisher()
-            }
-            
-            return SnodeAPI
-                .send(
-                    request: SnodeRequest(
-                        endpoint: .sendMessage,
-                        body: SendMessageRequest(
-                            message: message,
-                            namespace: namespace,
-                            authInfo: authInfo,
-                            timestampMs: sendTimestamp
-                        )
-                    ),
-                    to: snode,
-                    associatedWith: authInfo.sessionId.hexString,
-                    using: dependencies
-                )
-                .decoded(as: SendMessagesResponse.self, using: dependencies)
-                .eraseToAnyPublisher()
-        }
-        
-        return getSwarm(for: authInfo.sessionId.hexString)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<(ResponseInfoType, SendMessagesResponse), Error> in
-                try sendMessage(to: snode)
-                    .tryMap { info, response -> (ResponseInfoType, SendMessagesResponse) in
-                        try response.validateResultMap(
-                            publicKey: authInfo.sessionId.hexString,
-                            using: dependencies
-                        )
-                        
-                        return (info, response)
-                    }
-                    .eraseToAnyPublisher()
-            }
-    }
     
     public static func preparedSendMessage(
         _ db: Database,
@@ -693,131 +625,70 @@ public final class SnodeAPI {
     
     // MARK: - Edit
     
-    public static func updateExpiry(
+    public static func preparedUpdateExpiry(
         serverHashes: [String],
         updatedExpiryMs: Int64,
         shortenOnly: Bool? = nil,
         extendOnly: Bool? = nil,
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> {
+    ) throws -> HTTP.PreparedRequest<[String: UpdateExpiryResponseResult]> {
         // ShortenOnly and extendOnly cannot be true at the same time
-        guard shortenOnly == nil || extendOnly == nil else {
-            return Fail(error: SnodeAPIError.generic)
-                .eraseToAnyPublisher()
-        }
+        guard shortenOnly == nil || extendOnly == nil else { throw SnodeAPIError.generic }
         
-        return getSwarm(for: authInfo.sessionId.hexString)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
-                SnodeAPI
-                    .send(
-                        request: SnodeRequest(
-                            endpoint: .expire,
-                            body: UpdateExpiryRequest(
-                                messageHashes: serverHashes,
-                                expiryMs: UInt64(updatedExpiryMs),
-                                shorten: shortenOnly,
-                                extend: extendOnly,
-                                authInfo: authInfo
-                            )
-                        ),
-                        to: snode,
-                        associatedWith: authInfo.sessionId.hexString,
-                        using: dependencies
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .expire,
+                    publicKey: authInfo.sessionId.hexString,
+                    body: UpdateExpiryRequest(
+                        messageHashes: serverHashes,
+                        expiryMs: UInt64(updatedExpiryMs),
+                        shorten: shortenOnly,
+                        extend: extendOnly,
+                        authInfo: authInfo
                     )
-                    .decoded(as: UpdateExpiryResponse.self, using: dependencies)
-                    .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
-                        try response.validResultMap(
-                            publicKey: authInfo.sessionId.hexString,
-                            validationData: serverHashes,
-                            using: dependencies
-                        )
-                    }
-                    .eraseToAnyPublisher()
+                ),
+                responseType: UpdateExpiryResponse.self
+            )
+            .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
+                try response.validResultMap(
+                    publicKey: authInfo.sessionId.hexString,
+                    validationData: serverHashes,
+                    using: dependencies
+                )
             }
     }
     
-    public static func revokeSubkey(
+    public static func preparedRevokeSubkey(
         subkeyToRevoke: String,
         authInfo: AuthenticationInfo,
         using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Void, Error> {
-        return getSwarm(for: authInfo.sessionId.hexString)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<Void, Error> in
-                SnodeAPI
-                    .send(
-                        request: SnodeRequest(
-                            endpoint: .revokeSubkey,
-                            body: RevokeSubkeyRequest(
-                                subkeyToRevoke: subkeyToRevoke,
-                                authInfo: authInfo
-                            )
-                        ),
-                        to: snode,
-                        associatedWith: authInfo.sessionId.hexString,
-                        using: dependencies
+    ) throws -> HTTP.PreparedRequest<Void> {
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .revokeSubkey,
+                    publicKey: authInfo.sessionId.hexString,
+                    body: RevokeSubkeyRequest(
+                        subkeyToRevoke: subkeyToRevoke,
+                        authInfo: authInfo
                     )
-                    .decoded(as: RevokeSubkeyResponse.self, using: dependencies)
-                    .tryMap { _, response -> Void in
-                        try response.validateResultMap(
-                            publicKey: authInfo.sessionId.hexString,
-                            validationData: subkeyToRevoke,
-                            using: dependencies
-                        )
-                        
-                        return ()
-                    }
-                    .eraseToAnyPublisher()
+                ),
+                responseType: RevokeSubkeyResponse.self
+            )
+            .tryMap { _, response -> Void in
+                try response.validateResultMap(
+                    publicKey: authInfo.sessionId.hexString,
+                    validationData: subkeyToRevoke,
+                    using: dependencies
+                )
+                
+                return ()
             }
     }
     
-    // MARK: Delete
-    
-    public static func deleteMessages(
-        serverHashes: [String],
-        authInfo: AuthenticationInfo,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<[String: Bool], Error> {
-        return getSwarm(for: authInfo.sessionId.hexString, using: dependencies)
-            .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: Bool], Error> in
-                SnodeAPI
-                    .send(
-                        request: SnodeRequest(
-                            endpoint: .deleteMessages,
-                            body: DeleteMessagesRequest(
-                                messageHashes: serverHashes,
-                                requireSuccessfulDeletion: false,
-                                authInfo: authInfo
-                            )
-                        ),
-                        to: snode,
-                        associatedWith: authInfo.sessionId.hexString,
-                        using: dependencies
-                    )
-                    .decoded(as: DeleteMessagesResponse.self, using: dependencies)
-                    .tryMap { _, response -> [String: Bool] in
-                        let validResultMap: [String: Bool] = try response.validResultMap(
-                            publicKey: authInfo.sessionId.hexString,
-                            validationData: serverHashes,
-                            using: dependencies
-                        )
-                        
-                        // If `validResultMap` didn't throw then at least one service node
-                        // deleted successfully so we should mark the hash as invalid so we
-                        // don't try to fetch updates using that hash going forward (if we
-                        // do we would end up re-fetching all old messages)
-                        dependencies[singleton: .storage].writeAsync { db in
-                            try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                                db,
-                                potentiallyInvalidHashes: serverHashes
-                            )
-                        }
-                        
-                        return validResultMap
-                    }
-                    .eraseToAnyPublisher()
-            }
-    }
+    // MARK: - Delete
     
     public static func preparedDeleteMessages(
         serverHashes: [String],

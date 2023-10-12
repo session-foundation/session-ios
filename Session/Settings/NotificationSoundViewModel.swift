@@ -18,7 +18,6 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     
     // FIXME: Remove `threadId` once we ditch the per-thread notification sound
     private let threadId: String?
-    private let dependencies: Dependencies
     private var audioPlayer: OWSAudioPlayer?
     private var storedSelection: Preferences.Sound?
     private var currentSelection: CurrentValueSubject<Preferences.Sound?, Never> = CurrentValueSubject(nil)
@@ -28,7 +27,6 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
     init(threadId: String? = nil, using dependencies: Dependencies = Dependencies()) {
         self.dependencies = dependencies
         self.threadId = threadId
-        self.dependencies = dependencies
     }
     
     deinit {

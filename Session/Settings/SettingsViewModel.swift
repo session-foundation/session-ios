@@ -97,27 +97,25 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case clearData
     }
     
-    // MARK: - Navigation
+    // MARK: - NavigationItemSource
     
-    lazy var navState: AnyPublisher<NavState, Never> = {
-        Publishers
-            .CombineLatest(
-                isEditing,
-                textChanged
-                    .handleEvents(
-                        receiveOutput: { [weak self] value, _ in
-                            self?.editedDisplayName = value
-                        }
-                    )
-                    .filter { _ in false }
-                    .prepend((nil, .profileName))
-            )
-            .map { isEditing, _ -> NavState in (isEditing ? .editing : .standard) }
-            .removeDuplicates()
-            .prepend(.standard)     // Initial value
-            .shareReplay(1)
-            .eraseToAnyPublisher()
-    }()
+    lazy var navState: AnyPublisher<NavState, Never> = Publishers
+        .CombineLatest(
+            isEditing,
+            textChanged
+                .handleEvents(
+                    receiveOutput: { [weak self] value, _ in
+                        self?.editedDisplayName = value
+                    }
+                )
+                .filter { _ in false }
+                .prepend((nil, .profileName))
+        )
+        .map { isEditing, _ -> NavState in (isEditing ? .editing : .standard) }
+        .removeDuplicates()
+        .prepend(.standard)     // Initial value
+        .shareReplay(1)
+        .eraseToAnyPublisher()
 
     lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
         .map { navState -> [SessionNavItem<NavItem>] in
@@ -164,7 +162,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             }
                         )
                     ]
-                       
+                    
                     case .editing:
                         return [
                             SessionNavItem(
@@ -210,9 +208,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 )
                             }
                         ]
-                }
             }
-            .eraseToAnyPublisher()
+        }
+        .eraseToAnyPublisher()
+
     
     // MARK: - Content
     

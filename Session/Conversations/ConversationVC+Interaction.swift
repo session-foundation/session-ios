@@ -1839,15 +1839,14 @@ extension ConversationVC:
 
     func delete(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
         switch cellViewModel.variant {
-            case .standardIncomingDeleted, .infoCall,
-                .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoClosedGroupCreated, .infoClosedGroupUpdated,
-                .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
+            case .standardIncomingDeleted, .infoCall, .infoScreenshotNotification, .infoMediaSavedNotification,
+                .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft,
+                .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
                 .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate:
                 // Info messages and unsent messages should just trigger a local
                 // deletion (they are created as side effects so we wouldn't be
                 // able to delete them for all participants anyway)
-                Dependencies()[singleton: .storage].writeAsync { db in
+                dependencies[singleton: .storage].writeAsync { db in
                     _ = try Interaction
                         .filter(id: cellViewModel.id)
                         .deleteAll(db)
@@ -1858,8 +1857,8 @@ extension ConversationVC:
         }
         
         let threadName: String = self.viewModel.threadData.displayName
-        
         let userSessionId: SessionId = getUserSessionId(using: dependencies)
+        
         // Remote deletion logic
         func deleteRemotely(from viewController: UIViewController?, request: AnyPublisher<Void, Error>, onComplete: (() -> ())?) {
             // Show a loading indicator
@@ -2105,19 +2104,19 @@ extension ConversationVC:
                         from: self,
                         request: dependencies[singleton: .storage]
                             .readPublisher(using: dependencies) { db in
-                                try SnodeAPI.AuthenticationInfo(
-                                    db,
-                                    sessionIdHexString: targetPublicKey,
-                                    using: dependencies
-                                )
-                            }
-                            .flatMap { authInfo in
-                                SnodeAPI
-                                    .deleteMessages(
+                                try SnodeAPI
+                                    .preparedDeleteMessages(
                                         serverHashes: [serverHash],
-                                        authInfo: authInfo
+                                        requireSuccessfulDeletion: false,
+                                        authInfo: try SnodeAPI.AuthenticationInfo(
+                                            db,
+                                            sessionIdHexString: targetPublicKey,
+                                            using: dependencies
+                                        ),
+                                        using: dependencies
                                     )
                             }
+                            .flatMap { $0.send(using: dependencies) }
                             .map { _ in () }
                             .eraseToAnyPublisher()
                     ) { completeServerDeletion() }

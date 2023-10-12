@@ -6,7 +6,7 @@ import Foundation
 import SessionUtilitiesKit
 
 public extension SnodeAPI {
-    enum Namespace: Int, Codable, Hashable {
+    enum Namespace: Int, Codable, Hashable, CustomStringConvertible {
         /// Messages sent to one-to-one conversations are stored in this namespace
         case `default` = 0
         
@@ -25,14 +25,14 @@ public extension SnodeAPI {
         /// Messages sent to an updated closed group are stored in this namespace
         case groupMessages = 11
         
+        /// `GROUP_KEYS` config messages (encryption/decryption keys for messages within a specific group)
+        case configGroupKeys = 12
+        
         /// `GROUP_INFO` config messages (general info about a specific group)
-        case configGroupInfo = 12
+        case configGroupInfo = 13
         
         /// `GROUP_MEMBERS` config messages (member information for a specific group)
-        case configGroupMembers = 13
-        
-        /// `GROUP_KEYS` config messages (encryption/decryption keys for messages within a specific group)
-        case configGroupKeys = 14
+        case configGroupMembers = 14
         
         /// Messages sent to legacy group conversations are stored in this namespace
         case legacyClosedGroup = -10
@@ -147,6 +147,26 @@ public extension SnodeAPI {
                 .reduce(into: [:]) { result, next in
                     result[next.namespace] = -next.maxSize
                 }
+        }
+        
+        // MARK: - CustomStringConvertible
+        
+        public var description: String {
+            switch self {
+                case .`default`: return "default"
+                case .configUserProfile: return "configUserProfile"
+                case .configContacts: return "configContacts"
+                case .configConvoInfoVolatile: return "configConvoInfoVolatile"
+                case .configUserGroups: return "configUserGroups"
+                case .groupMessages: return "groupMessages"
+                case .configGroupInfo: return "configGroupInfo"
+                case .configGroupMembers: return "configGroupMembers"
+                case .configGroupKeys: return "configGroupKeys"
+                case .legacyClosedGroup: return "legacyClosedGroup"
+                
+                case .unknown: return "unknown"
+                case .all: return "all"
+            }
         }
     }
 }

@@ -189,7 +189,7 @@ public extension ClosedGroup {
             throw MessageReceiverError.noUserED25519KeyPair
         }
         
-        if group.invited == false {
+        if group.invited == true {
             try ClosedGroup
                 .filter(id: group.id)
                 .updateAllAndConfig(

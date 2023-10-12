@@ -726,4 +726,3 @@ public extension Publisher where Output == (ResponseInfoType, Data?), Failure ==
 private protocol _OptionalProtocol {}
 
 extension Optional: _OptionalProtocol {}
-

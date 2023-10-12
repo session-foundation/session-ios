@@ -113,6 +113,51 @@ internal extension SessionUtil {
 // MARK: - Outgoing Changes
 
 internal extension SessionUtil {
+    static func update(
+        _ db: Database,
+        groupSessionId: String,
+        groupIdentityPrivateKey: Data? = nil,
+        members: [(id: String, profile: Profile?, isAdmin: Bool)],
+        using dependencies: Dependencies
+    ) throws {
+        // Reduce the members list to ensure we don't accidentally insert duplicates (which can crash)
+        let finalMembers: [String: (profile: Profile?, isAdmin: Bool)] = members
+            .reduce(into: [:]) { result, next in result[next.0] = (profile: next.1, isAdmin: next.2)}
+        
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupMembers,
+            sessionId: SessionId(.group, hex: groupSessionId),
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            try finalMembers.forEach { memberId, info in
+                var profilePic: user_profile_pic = user_profile_pic()
+                
+                if
+                    let picUrl: String = info.profile?.profilePictureUrl,
+                    let picKey: Data = info.profile?.profileEncryptionKey
+                {
+                    profilePic.url = picUrl.toLibSession()
+                    profilePic.key = picKey.toLibSession()
+                }
+
+                try CExceptionHelper.performSafely {
+                    var member: config_group_member = config_group_member(
+                        session_id: memberId.toLibSession(),
+                        name: (info.profile?.name ?? "").toLibSession(),
+                        profile_pic: profilePic,
+                        admin: info.isAdmin,
+                        invited: 0,
+                        promoted: 0
+                    )
+                    
+                    groups_members_set(conf, &member)
+                }
+            }
+        }
+    }
 }
 
 // MARK: - MemberData

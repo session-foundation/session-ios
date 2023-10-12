@@ -37,13 +37,6 @@ public class HomeViewModel {
     init(
         using dependencies: Dependencies = Dependencies()
     ) {
-        typealias InitialData = (
-            userSessionId: SessionId,
-            showViewedSeedBanner: Bool,
-            hasHiddenMessageRequests: Bool,
-            profile: Profile
-        )
-        
         let initialState: State? = dependencies[singleton: .storage].read { db -> State in
             try HomeViewModel.retrieveState(db, excludingMessageRequestThreadCount: true, using: dependencies)
         }
