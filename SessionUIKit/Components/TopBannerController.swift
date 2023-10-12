@@ -95,11 +95,7 @@ public class TopBannerController: UIViewController {
         view.addSubview(contentStackView)
         
         contentStackView.addArrangedSubview(bannerContainer)
-        
-        child.willMove(toParent: self)
-        addChild(child)
-        contentStackView.addArrangedSubview(child.view)
-        child.didMove(toParent: self)
+        attachChild()
         
         bannerContainer.addSubview(bannerLabel)
         bannerContainer.addSubview(closeButton)
@@ -154,6 +150,13 @@ public class TopBannerController: UIViewController {
     }
     
     // MARK: - Functions
+    
+    public func attachChild() {
+        child.willMove(toParent: self)
+        addChild(child)
+        contentStackView.addArrangedSubview(child.view)
+        child.didMove(toParent: self)
+    }
     
     public static func show(warning: Warning, inWindowFor view: UIView? = nil) {
         guard Thread.isMainThread else {
