@@ -78,6 +78,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case textOnlyMessage
         case mediaMessage
         case audio
+        case voiceMessage
         case genericAttachment
         case typingIndicator
         case dateHeader
@@ -289,7 +290,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                     )
                 )
             {
-                return .audio
+                return (attachment.variant == .voiceMessage ? .voiceMessage : .audio)
             }
 
             if attachment.isVisualMedia {

@@ -2,6 +2,7 @@
 
 import Foundation
 import UIKit
+import AVKit
 import AVFoundation
 import SessionUIKit
 import SignalCoreKit
@@ -16,7 +17,7 @@ protocol AttachmentPrepViewControllerDelegate: AnyObject {
 
 // MARK: -
 
-public class AttachmentPrepViewController: OWSViewController, PlayerProgressBarDelegate, OWSVideoPlayerDelegate, MediaMessageViewAudioDelegate {
+public class AttachmentPrepViewController: OWSViewController {
     // We sometimes shrink the attachment view so that it remains somewhat visible
     // when the keyboard is presented.
     public enum AttachmentViewScale {
@@ -31,18 +32,6 @@ public class AttachmentPrepViewController: OWSViewController, PlayerProgressBarD
     var attachment: SignalAttachment {
         return attachmentItem.attachment
     }
-
-    private lazy var videoPlayer: OWSVideoPlayer? = {
-        guard let videoURL = attachment.dataUrl else {
-            owsFailDebug("Missing videoURL")
-            return nil
-        }
-
-        let player: OWSVideoPlayer = OWSVideoPlayer(url: videoURL)
-        player.delegate = self
-        
-        return player
-    }()
     
     // MARK: - UI
     
@@ -75,7 +64,6 @@ public class AttachmentPrepViewController: OWSViewController, PlayerProgressBarD
     private lazy var mediaMessageView: MediaMessageView = {
         let view: MediaMessageView = MediaMessageView(attachment: attachment, mode: .attachmentApproval)
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.audioDelegate = self
         view.isHidden = (imageEditorView != nil)
         
         return view
@@ -92,29 +80,7 @@ public class AttachmentPrepViewController: OWSViewController, PlayerProgressBarD
         return view
     }()
     
-    private lazy var videoPlayerView: VideoPlayerView? = {
-        guard let videoPlayer: OWSVideoPlayer = videoPlayer else { return nil }
-
-        let view: VideoPlayerView = VideoPlayerView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.player = videoPlayer.avPlayer
-
-        let pauseGesture = UITapGestureRecognizer(target: self, action: #selector(didTapPlayerView(_:)))
-        view.addGestureRecognizer(pauseGesture)
-        
-        return view
-    }()
-    
-    private lazy var progressBar: PlayerProgressBar = {
-        let progressBar: PlayerProgressBar = PlayerProgressBar()
-        progressBar.translatesAutoresizingMaskIntoConstraints = false
-        progressBar.player = videoPlayer?.avPlayer
-        progressBar.delegate = self
-        
-        return progressBar
-    }()
-    
-    private lazy var playVideoButton: UIButton = {
+    private lazy var playButton: UIButton = {
         let button: UIButton = UIButton()
         button.translatesAutoresizingMaskIntoConstraints = false
         button.contentMode = .scaleAspectFit
@@ -168,21 +134,8 @@ public class AttachmentPrepViewController: OWSViewController, PlayerProgressBarD
             imageEditorUpdateNavigationBar()
         }
 
-        // Hide the play button embedded in the MediaView and replace it with our own.
-        // This allows us to zoom in on the media view without zooming in on the button
-        // TODO: This for both Audio and Video?
-        if attachment.isVideo, let playerView: VideoPlayerView = videoPlayerView {
-            mediaMessageView.videoPlayButton.isHidden = true
-            mediaMessageView.addSubview(playerView)
-            
-            // We don't want the progress bar to zoom during "pinch-to-zoom"
-            // but we do want it to shrink with the media content when the user
-            // pops the keyboard.
-            contentContainerView.addSubview(progressBar)
-            contentContainerView.addSubview(playVideoButton)
-        }
-        else if attachment.isAudio, mediaMessageView.audioPlayer != nil {
-            contentContainerView.addSubview(progressBar)
+        if attachment.isVideo || attachment.isAudio {
+            contentContainerView.addSubview(playButton)
         }
         
         setupLayout()
@@ -256,33 +209,17 @@ public class AttachmentPrepViewController: OWSViewController, PlayerProgressBarD
             ])
         }
          
-        if attachment.isVideo, let playerView: VideoPlayerView = videoPlayerView {
+        if attachment.isVideo || attachment.isAudio {
             let playButtonSize: CGFloat = ScaleFromIPhone5(70)
             
             NSLayoutConstraint.activate([
-                playerView.topAnchor.constraint(equalTo: mediaMessageView.topAnchor),
-                playerView.leftAnchor.constraint(equalTo: mediaMessageView.leftAnchor),
-                playerView.rightAnchor.constraint(equalTo: mediaMessageView.rightAnchor),
-                playerView.bottomAnchor.constraint(equalTo: mediaMessageView.bottomAnchor),
-                
-                progressBar.topAnchor.constraint(equalTo: view.topAnchor),
-                progressBar.widthAnchor.constraint(equalTo: contentContainerView.widthAnchor),
-                progressBar.heightAnchor.constraint(equalToConstant: 44),
-                
-                playVideoButton.centerXAnchor.constraint(equalTo: contentContainerView.centerXAnchor),
-                playVideoButton.centerYAnchor.constraint(
+                playButton.centerXAnchor.constraint(equalTo: contentContainerView.centerXAnchor),
+                playButton.centerYAnchor.constraint(
                     equalTo: contentContainerView.centerYAnchor,
                     constant: -AttachmentPrepViewController.verticalCenterOffset
                 ),
-                playVideoButton.widthAnchor.constraint(equalToConstant: playButtonSize),
-                playVideoButton.heightAnchor.constraint(equalToConstant: playButtonSize),
-            ])
-        }
-        else if attachment.isAudio, mediaMessageView.audioPlayer != nil {
-            NSLayoutConstraint.activate([
-                progressBar.topAnchor.constraint(equalTo: view.topAnchor),
-                progressBar.widthAnchor.constraint(equalTo: contentContainerView.widthAnchor),
-                progressBar.heightAnchor.constraint(equalToConstant: 44)
+                playButton.widthAnchor.constraint(equalToConstant: playButtonSize),
+                playButton.heightAnchor.constraint(equalToConstant: playButtonSize),
             ])
         }
     }
@@ -303,107 +240,16 @@ public class AttachmentPrepViewController: OWSViewController, PlayerProgressBarD
         self.view.window?.endEditing(true)
     }
 
-    @objc public func didTapPlayerView(_ gestureRecognizer: UIGestureRecognizer) {
-        self.view.window?.endEditing(true)
-        self.pauseVideo()
-    }
-
     @objc public func playButtonTapped() {
-        self.playVideo()
-    }
-
-    // MARK: - Video
-
-    private func playVideo() {
-        guard let videoPlayer = self.videoPlayer else {
-            owsFailDebug("video player was unexpectedly nil")
-            return
-        }
-
-        UIView.animate(withDuration: 0.1) { [weak self] in
-            self?.playVideoButton.alpha = 0.0
-        }
+        guard let fileUrl: URL = attachment.dataUrl else { return SNLog("Missing video file") }
         
-        videoPlayer.play()
-    }
-
-    private func pauseVideo() {
-        guard let videoPlayer = self.videoPlayer else {
-            owsFailDebug("video player was unexpectedly nil")
-            return
-        }
-
-        videoPlayer.pause()
+        let player: AVPlayer = AVPlayer(url: fileUrl)
+        let viewController: AVPlayerViewController = AVPlayerViewController()
+        viewController.player = player
         
-        UIView.animate(withDuration: 0.1) { [weak self] in
-            self?.playVideoButton.alpha = 1.0
+        self.navigationController?.present(viewController, animated: true) { [weak player] in
+            player?.play()
         }
-    }
-
-    public func videoPlayerDidPlayToCompletion(_ videoPlayer: OWSVideoPlayer) {
-        UIView.animate(withDuration: 0.1) { [weak self] in
-            self?.playVideoButton.alpha = 1.0
-        }
-    }
-
-    public func playerProgressBarDidStartScrubbing(_ playerProgressBar: PlayerProgressBar) {
-        if attachment.isAudio {
-            mediaMessageView.pauseAudio()
-            return
-        }
-        
-        guard let videoPlayer = self.videoPlayer else {
-            owsFailDebug("video player was unexpectedly nil")
-            return
-        }
-        
-        videoPlayer.pause()
-    }
-
-    public func playerProgressBar(_ playerProgressBar: PlayerProgressBar, scrubbedToTime time: CMTime) {
-        if attachment.isAudio {
-            mediaMessageView.setAudioTime(currentTime: CMTimeGetSeconds(time))
-            progressBar.manuallySetValue(CMTimeGetSeconds(time), durationSeconds: mediaMessageView.audioDurationSeconds)
-            return
-        }
-        
-        guard let videoPlayer = self.videoPlayer else {
-            owsFailDebug("video player was unexpectedly nil")
-            return
-        }
-
-        videoPlayer.seek(to: time)
-        progressBar.updateState()
-    }
-
-    public func playerProgressBar(_ playerProgressBar: PlayerProgressBar, didFinishScrubbingAtTime time: CMTime, shouldResumePlayback: Bool) {
-        if attachment.isAudio {
-            mediaMessageView.setAudioTime(currentTime: CMTimeGetSeconds(time))
-            progressBar.manuallySetValue(CMTimeGetSeconds(time), durationSeconds: mediaMessageView.audioDurationSeconds)
-            
-            if mediaMessageView.wasPlayingAudio {
-                mediaMessageView.playAudio()
-            }
-            return
-        }
-        
-        guard let videoPlayer = self.videoPlayer else {
-            owsFailDebug("video player was unexpectedly nil")
-            return
-        }
-
-        videoPlayer.seek(to: time)
-        progressBar.updateState()
-        
-        if (shouldResumePlayback) {
-            videoPlayer.play()
-        }
-    }
-    
-    // MARK: - MediaMessageViewAudioDelegate
-    
-    public func progressChanged(_ progressSeconds: CGFloat, durationSeconds: CGFloat) {
-        progressBar.manuallySetValue(progressSeconds, durationSeconds: durationSeconds)
     }
 
     // MARK: - Helpers
