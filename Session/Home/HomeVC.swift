@@ -8,7 +8,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewDataSource, UITableViewDelegate {
+final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewDataSource, UITableViewDelegate, SeedReminderViewDelegate {
     private static let loadingHeaderHeight: CGFloat = 40
     public static let newConversationButtonSize: CGFloat = 60
     
@@ -46,6 +46,18 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     // MARK: - UI
     
     private var tableViewTopConstraint: NSLayoutConstraint!
+    
+    private lazy var seedReminderView: SeedReminderView = {
+        let result = SeedReminderView(hasContinueButton: true)
+        result.accessibilityLabel = "Recovery phrase reminder"
+        let title = "onboarding_recovery_password_title".localized()
+        result.subtitle = "onboarding_recovery_password_subtitle".localized()
+        result.setProgress(1, animated: false)
+        result.delegate = self
+        result.isHidden = !self.viewModel.state.showViewedSeedBanner
+
+        return result
+    }()
     
     private lazy var loadingConversationsLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -260,6 +272,12 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         updateNavBarButtons(userProfile: self.viewModel.state.userProfile)
         setUpNavBarSessionHeading()
         
+        // Recovery phrase reminder
+        view.addSubview(seedReminderView)
+        seedReminderView.pin(.leading, to: .leading, of: view)
+        seedReminderView.pin(.top, to: .top, of: view)
+        seedReminderView.pin(.trailing, to: .trailing, of: view)
+        
         // Loading conversations label
         view.addSubview(loadingConversationsLabel)
         
@@ -270,7 +288,12 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // Table view
         view.addSubview(tableView)
         tableView.pin(.leading, to: .leading, of: view)
-        tableViewTopConstraint = tableView.pin(.top, to: .top, of: view)
+        if self.viewModel.state.showViewedSeedBanner {
+            tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
+        }
+        else {
+            tableViewTopConstraint = tableView.pin(.top, to: .top, of: view)
+        }
         tableView.pin(.trailing, to: .trailing, of: view)
         tableView.pin(.bottom, to: .bottom, of: view)
         
@@ -405,7 +428,14 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // Update the 'view seed' UI
         if updatedState.showViewedSeedBanner != self.viewModel.state.showViewedSeedBanner {
             tableViewTopConstraint.isActive = false
-            tableViewTopConstraint = tableView.pin(.top, to: .top, of: view, withInset: Values.smallSpacing)
+            seedReminderView.isHidden = !updatedState.showViewedSeedBanner
+
+            if updatedState.showViewedSeedBanner {
+                tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
+            }
+            else {
+                tableViewTopConstraint = tableView.pin(.top, to: .top, of: view, withInset: Values.smallSpacing)
+            }
         }
         
         self.viewModel.updateState(updatedState)
@@ -774,6 +804,25 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     }
     
     // MARK: - Interaction
+    
+    func handleContinueButtonTapped(from seedReminderView: SeedReminderView) {
+        let targetViewController: UIViewController = {
+            if let seedVC: SeedVC = try? SeedVC() {
+                return StyledNavigationController(rootViewController: seedVC)
+            }
+
+            return ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "ALERT_ERROR_TITLE".localized(),
+                    body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
+                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelStyle: .alert_text
+                )
+            )
+        }()
+
+        present(targetViewController, animated: true, completion: nil)
+    }
     
     func show(
         _ threadId: String,
