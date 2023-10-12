@@ -7,7 +7,20 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSettingsViewModel.Section, ConversationSettingsViewModel.Section> {
+class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+    typealias TableItem = Section
+    
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+
+    // MARK: - Initialization
+
+    init(using dependencies: Dependencies = Dependencies()) {
+        self.dependencies = dependencies
+    }
+
     // MARK: - Section
     
     public enum Section: SessionTableSection {
@@ -50,29 +63,16 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
         let shouldAutoPlayConsecutiveAudioMessages: Bool
     }
     
-    override var title: String { "CONVERSATION_SETTINGS_TITLE".localized() }
+    let title: String = "CONVERSATION_SETTINGS_TITLE".localized()
     
-    public override var observableTableData: ObservableData { _observableTableData }
-    
-    /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
-    /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    ///
-    /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-    /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-    /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-    /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self] db -> State in
+    lazy var observation: TargetObservation = ObservationBuilder
+        .databaseObservation(self) { [weak self] db -> State in
             State(
                 trimOpenGroupMessagesOlderThanSixMonths: db[.trimOpenGroupMessagesOlderThanSixMonths],
                 shouldAutoPlayConsecutiveAudioMessages: db[.shouldAutoPlayConsecutiveAudioMessages]
             )
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[ConversationSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
-        .withPrevious()
-        .map { [dependencies] (previous: State?, current: State) -> [SectionModel] in
+        .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
             return [
                 SectionModel(
                     model: .messageTrimming,
@@ -138,5 +138,4 @@ class ConversationSettingsViewModel: SessionTableViewModel<NoNav, ConversationSe
                 )
             ]
         }
-        .mapToSessionTableViewData(for: self)
 }

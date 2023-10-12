@@ -617,7 +617,9 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         
         switch section.model {
             case .messageRequests:
-                let viewController: MessageRequestsViewController = MessageRequestsViewController()
+                let viewController: SessionTableViewController = SessionTableViewController(
+                    viewModel: MessageRequestsViewModel()
+                )
                 self.navigationController?.pushViewController(viewController, animated: true)
                 
             case .threads:
@@ -776,7 +778,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         
         let finalViewControllers: [UIViewController] = [
             self,
-            (isMessageRequest ? MessageRequestsViewController() : nil),
+            (isMessageRequest ? SessionTableViewController(viewModel: MessageRequestsViewModel()) : nil),
             ConversationVC(
                 threadId: threadId,
                 threadVariant: variant,

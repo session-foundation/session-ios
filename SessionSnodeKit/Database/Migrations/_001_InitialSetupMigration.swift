@@ -40,7 +40,7 @@ enum _001_InitialSetupMigration: Migration {
         }
         
         try db.create(table: SnodeReceivedMessageInfo.self) { t in
-            t.column(.id, .integer)
+            t.deprecatedColumn(name: "id", .integer)                  // stringlint:disable
                 .notNull()
                 .primaryKey(autoincrement: true)
             t.column(.key, .text)

@@ -7,7 +7,18 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSettingsViewModel.Section, NotificationSettingsViewModel.Item> {
+class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies = Dependencies()) {
+        self.dependencies = dependencies
+    }
+    
     // MARK: - Config
     
     public enum Section: SessionTableSection {
@@ -31,7 +42,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
         }
     }
     
-    public enum Item: Differentiable {
+    public enum TableItem: Differentiable {
         case strategyUseFastMode
         case strategyDeviceSettings
         case styleSound
@@ -60,19 +71,10 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
         let previewType: Preferences.NotificationPreviewType
     }
     
-    override var title: String { "NOTIFICATIONS_TITLE".localized() }
+    let title: String = "NOTIFICATIONS_TITLE".localized()
     
-    public override var observableTableData: ObservableData { _observableTableData }
-    
-    /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
-    /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    ///
-    /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-    /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-    /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-    /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { db -> State in
+    lazy var observation: TargetObservation = ObservationBuilder
+        .databaseObservation(self) { db -> State in
             State(
                 isUsingFullAPNs: false, // Set later the the data flow
                 notificationSound: db[.defaultNotificationSound]
@@ -82,11 +84,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                     .defaulting(to: Preferences.NotificationPreviewType.defaultPreviewType)
             )
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[NotificationSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
-        .manualRefreshFrom(forcedRefresh)
-        .map { [dependencies] dbState -> State in
+        .map { dbState -> State in
             State(
                 isUsingFullAPNs: dependencies[defaults: .standard, key: .isUsingFullAPNs],
                 notificationSound: dbState.notificationSound,
@@ -94,8 +92,7 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                 previewType: dbState.previewType
             )
         }
-        .withPrevious()
-        .map { [dependencies] (previous: State?, current: State) -> [SectionModel] in
+        .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
             return [
                 SectionModel(
                     model: .strategy,
@@ -190,5 +187,4 @@ class NotificationSettingsViewModel: SessionTableViewModel<NoNav, NotificationSe
                 )
             ]
         }
-        .mapToSessionTableViewData(for: self)
 }

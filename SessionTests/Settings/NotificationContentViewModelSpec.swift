@@ -92,7 +92,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                     db[.preferencesNotificationPreviewType] = Preferences.NotificationPreviewType.nameNoPreview
                 }
                 viewModel = NotificationContentViewModel(using: dependencies)
-                dataChangeCancellable = viewModel.observableTableData
+                dataChangeCancellable = viewModel.tableDataPublisher
                     .receive(on: ImmediateScheduler.shared)
                     .sink(
                         receiveCompletion: { _ in },
@@ -144,7 +144,7 @@ class NotificationContentViewModelSpec: QuickSpec {
                 it("dismisses the screen") {
                     var didDismissScreen: Bool = false
                     
-                    dismissCancellable = viewModel.dismissScreen
+                    dismissCancellable = viewModel.navigatableState.dismissScreen
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },

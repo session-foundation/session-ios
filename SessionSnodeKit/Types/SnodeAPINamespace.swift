@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtilitiesKit
@@ -65,12 +67,9 @@ public extension SnodeAPI {
         public var shouldFetchSinceLastHash: Bool { true }
         
         /// This flag indicates whether we should dedupe messages from the specified namespace, when `true` we will
-        /// store a `SnodeReceivedMessageInfo` record for the message and check for a matching record whenever
-        /// we receive a message from this namespace
-        ///
-        /// **Note:** An additional side-effect of this flag is that when we poll for messages from the specified namespace
-        /// we will always retrieve **all** messages from the namespace (instead of just new messages since the last one
-        /// we have seen)
+        /// attempt to `insert` a `SnodeReceivedMessageInfo` record (which will fail if we had already processed this
+        /// message previously), when `false` we will still `upsert` a record so we don't run into the unique constraint allowing
+        /// re-processing of a previously processed message
         public var shouldDedupeMessages: Bool {
             switch self {
                 case .`default`, .legacyClosedGroup, .groupMessages: return true

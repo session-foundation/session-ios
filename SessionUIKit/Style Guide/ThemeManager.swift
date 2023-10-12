@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import UIKit
 import GRDB
@@ -204,7 +206,7 @@ public enum ThemeManager {
         func updateIfNeeded(viewController: UIViewController?) {
             guard let viewController: UIViewController = viewController else { return }
             guard
-                let navController: UINavigationController = ((viewController as? UINavigationController) ?? viewController.navigationController),
+                let navController: UINavigationController = retrieveNavigationController(from: viewController),
                 let superview: UIView = navController.view.superview,
                 !navController.isNavigationBarHidden
             else {
@@ -219,9 +221,19 @@ public enum ThemeManager {
             applyNavigationStylingIfNeeded(to: viewController)
             
             // Re-attach to the UI
-            navController.view.removeFromSuperview()
-            superview.addSubview(navController.view)
+            let wasFirstResponder: Bool = (navController.topViewController?.isFirstResponder == true)
+            
+            switch navController.parent {
+                case let topBannerController as TopBannerController:
+                    navController.view.removeFromSuperview()
+                    topBannerController.attachChild()
+                    
+                default:
+                    navController.view.removeFromSuperview()
+                    superview.addSubview(navController.view)
+            }
             navController.topViewController?.setNeedsStatusBarAppearanceUpdate()
+            if wasFirstResponder { navController.topViewController?.becomeFirstResponder() }
             
             // Recurse through the rest of the UI
             updateIfNeeded(viewController:
@@ -261,6 +273,16 @@ public enum ThemeManager {
             
             navController.navigationBar.standardAppearance = appearance
             navController.navigationBar.scrollEdgeAppearance = appearance
+        }
+    }
+    
+    private static func retrieveNavigationController(from viewController: UIViewController) -> UINavigationController? {
+        switch viewController {
+            case let navController as UINavigationController: return navController
+            case let topBannerController as TopBannerController:
+                return (topBannerController.children.first as? UINavigationController)
+                
+            default: return viewController.navigationController
         }
     }
     

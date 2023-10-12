@@ -19,11 +19,14 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
                     _001_InitialSetupMigration.self,
                     _002_SetupStandardJobs.self,
                     _003_YDBToGRDBMigration.self
-                ],
-                [], // Other DB migrations
+                ],  // Initial DB Creation
+                [], // YDB to GRDB Migration
                 [], // Legacy DB removal
                 [
-                    _004_AddJobPriority.self,
+                    _004_AddJobPriority.self
+                ],  // Add job priorities
+                [], // Fix thread FTS
+                [
                     _005_AddJobUniqueHash.self
                 ]
             ]

@@ -12,14 +12,18 @@ public enum SNSnodeKit: MigratableTarget { // Just to make the external API nice
                 [
                     _001_InitialSetupMigration.self,
                     _002_SetupStandardJobs.self
-                ],
+                ],  // Initial DB Creation
                 [
                     _003_YDBToGRDBMigration.self
-                ],
+                ],  // YDB to GRDB Migration
                 [
                     _004_FlagMessageHashAsDeletedOrInvalid.self
-                ],
-                []  // Add job priorities
+                ],  // Legacy DB removal
+                [], // Add job priorities
+                [], // Fix thread FTS
+                [
+                    _005_AddSnodeReveivedMessageInfoPrimaryKey.self
+                ]
             ]
         )
     }

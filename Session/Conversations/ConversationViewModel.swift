@@ -50,11 +50,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     private let dependencies: Dependencies
     
     public lazy var blockedBannerMessage: String = {
-        switch self.threadData.threadVariant {
+        let threadData: SessionThreadViewModel = self._threadData.wrappedValue
+        
+        switch threadData.threadVariant {
             case .contact:
                 let name: String = Profile.displayName(
-                    id: self.threadData.threadId,
-                    threadVariant: self.threadData.threadVariant
+                    id: threadData.threadId,
+                    threadVariant: threadData.threadVariant
                 )
                 
                 return "\(name) is blocked. Unblock them?"
@@ -146,16 +148,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         self.focusedInteractionInfo = (focusedInteractionInfo ?? initialData?.initialUnreadInteractionInfo)
         self.focusBehaviour = (focusedInteractionInfo == nil ? .none : .highlight)
         self.initialUnreadInteractionId = initialData?.initialUnreadInteractionInfo?.id
-        self.threadData = SessionThreadViewModel(
-            threadId: threadId,
-            threadVariant: threadVariant,
-            threadIsNoteToSelf: (initialData?.userSessionId.hexString == threadId),
-            threadIsBlocked: initialData?.threadIsBlocked,
-            currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
-            openGroupPermissions: initialData?.openGroupPermissions
-        ).populatingCurrentUserBlindedIds(
-            currentUserBlinded15SessionIdForThisThread: initialData?.blinded15SessionId?.hexString,
-            currentUserBlinded25SessionIdForThisThread: initialData?.blinded25SessionId?.hexString
+        self._threadData = Atomic(
+            SessionThreadViewModel(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                threadIsNoteToSelf: (initialData?.userSessionId.hexString == threadId),
+                threadIsBlocked: initialData?.threadIsBlocked,
+                currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
+                openGroupPermissions: initialData?.openGroupPermissions
+            ).populatingCurrentUserBlindedIds(
+                currentUserBlinded15SessionIdForThisThread: initialData?.blinded15SessionId?.hexString,
+                currentUserBlinded25SessionIdForThisThread: initialData?.blinded25SessionId?.hexString
+            )
         )
         self.pagedDataObserver = nil
         self.dependencies = dependencies
@@ -187,8 +191,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     
     // MARK: - Thread Data
     
+    private var _threadData: Atomic<SessionThreadViewModel>
+    
     /// This value is the current state of the view
-    public private(set) var threadData: SessionThreadViewModel
+    public var threadData: SessionThreadViewModel { _threadData.wrappedValue }
     
     /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
     /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
@@ -208,6 +214,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             .trackingConstantRegion { [weak self, dependencies] db -> SessionThreadViewModel? in
                 let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
+                let oldThreadData: SessionThreadViewModel? = self?._threadData.wrappedValue
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                     .conversationQuery(threadId: threadId, userSessionId: userSessionId)
                     .fetchOne(db)
@@ -227,7 +234,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     }
 
     public func updateThreadData(_ updatedData: SessionThreadViewModel) {
-        self.threadData = updatedData
+        self._threadData.mutate { $0 = updatedData }
     }
     
     // MARK: - Interaction Data
@@ -403,6 +410,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         optimisticMessages: [MessageViewModel]?,
         initialUnreadInteractionId: Int64?
     ) -> [SectionModel] {
+        let threadData: SessionThreadViewModel = self._threadData.wrappedValue
         let typingIndicator: MessageViewModel? = data.first(where: { $0.isTypingIndicator == true })
         let sortedData: [MessageViewModel] = data
             .filter { $0.id != MessageViewModel.optimisticUpdateId }    // Remove old optimistic updates
@@ -508,6 +516,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     ) -> OptimisticMessageData {
         // Generate the optimistic data
         let optimisticMessageId: UUID = UUID()
+        let threadData: SessionThreadViewModel = self._threadData.wrappedValue
         let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser()
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
@@ -665,7 +674,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         for query: String = "",
         using dependencies: Dependencies = Dependencies()
     ) -> [MentionInfo] {
-        let threadData: SessionThreadViewModel = self.threadData
+        let threadData: SessionThreadViewModel = self._threadData.wrappedValue
         
         return dependencies[singleton: .storage]
             .read { db -> [MentionInfo] in
@@ -743,15 +752,17 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 .throttle(for: .milliseconds(100), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
                 .handleEvents(
                     receiveOutput: { [weak self] target, timestampMs in
+                        let threadData: SessionThreadViewModel? = self?._threadData.wrappedValue
+                        
                         switch target {
-                            case .thread: self?.threadData.markAsRead(target: target)
+                            case .thread: threadData?.markAsRead(target: target)
                             case .threadAndInteractions(let interactionId):
                                 guard
                                     timestampMs == nil ||
                                     (self?.lastInteractionTimestampMsMarkedAsRead ?? 0) < (timestampMs ?? 0) ||
                                     (self?.lastInteractionIdMarkedAsRead ?? 0) < (interactionId ?? 0)
                                 else {
-                                    self?.threadData.markAsRead(target: .thread)
+                                    threadData?.markAsRead(target: .thread)
                                     return
                                 }
                                 
@@ -761,8 +772,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                     self?.lastInteractionTimestampMsMarkedAsRead = timestampMs
                                 }
                                 
-                                self?.lastInteractionIdMarkedAsRead = (interactionId ?? self?.threadData.interactionId)
-                                self?.threadData.markAsRead(target: target)
+                                self?.lastInteractionIdMarkedAsRead = (interactionId ?? threadData?.interactionId)
+                                threadData?.markAsRead(target: target)
                         }
                     }
                 )
@@ -802,11 +813,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     }
     
     public func trustContact(using dependencies: Dependencies = Dependencies()) {
-        guard self.threadData.threadVariant == .contact else { return }
+        guard self._threadData.wrappedValue.threadVariant == .contact else { return }
         
-        let threadId: String = self.threadId
-        
-        dependencies[singleton: .storage].writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { [threadId] db in
             try Contact
                 .filter(id: threadId)
                 .updateAll(db, Contact.Columns.isTrusted.set(to: true))
@@ -835,11 +844,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     }
     
     public func unblockContact(using dependencies: Dependencies = Dependencies()) {
-        guard self.threadData.threadVariant == .contact else { return }
+        guard self._threadData.wrappedValue.threadVariant == .contact else { return }
         
-        let threadId: String = self.threadId
-        
-        dependencies[singleton: .storage].writeAsync { db in
+        dependencies[singleton: .storage].writeAsync { [threadId] db in
             try Contact
                 .filter(id: threadId)
                 .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false), using: dependencies)

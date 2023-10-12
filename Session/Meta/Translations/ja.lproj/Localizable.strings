@@ -548,7 +548,6 @@
 "modal_permission_library" = "ライブラリ";
 "DISAPPEARING_MESSAGES_OFF" = "オフ";
 "DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "オフ";
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "- %@ の後に消えます";
 "COPY_GROUP_URL" = "グループのURLをコピー";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "連絡先";
 "GROUP_ERROR_NO_MEMBER_SELECTION" = "グループメンバーを少なくとも 2 人選択してください";
@@ -574,16 +573,15 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "セット";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "この設定は、この会話の全員に適用されます。";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "この設定はこの会話の全員に適用されます。グループ管理者のみがこの設定を変更できます。";
-"DISAPPERING_MESSAGES_SUMMARY" = "%@ - %@ の後に消えます";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ が %@ になった後、 %@消えるようにメッセージを設定しました";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ が %@ になった後、 %@消えるようにメッセージを設定しました";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ は消えているメッセージをオフにしました";
 
 /* context_menu_info */
-"context_menu_info" = "Info";
+"context_menu_info" = "お知らせ";
 
 /* An error that is displayed when the application fails for create it's initial connection to the database */
-"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"DATABASE_STARTUP_FAILED" = "\n\nデータベースを開くときにエラーが発生しました。トラブルシューティングのために共有するためにアプリケーションログをエクスポートするか、デバイス\n\n警告: デバイスを復元すると、2週間以上のデータが失われます。";
 
 /* A warning displayed to the user when the application takes too long to launch */
 "APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
@@ -598,28 +596,28 @@
 "QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
 
 /* EMOJI_REACTS_SHOW_LESS */
-"EMOJI_REACTS_SHOW_LESS" = "Show less";
+"EMOJI_REACTS_SHOW_LESS" = "表示を隠す";
 
 /* PRIVACY_SECTION_MESSAGE_REQUESTS */
-"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "メッセージ";
 
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "コミュニティーメッセージリクエスト";
 
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "コミュニティの会話からのメッセージリクエストを許可する";
 
 /* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "受信者がこのメッセージリクエストを承認すると、音声メッセージと添付ファイルを送信できます";
 
 /* State of a message while it's still in the process of being sent */
-"MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+"MESSAGE_DELIVERY_STATUS_SENDING" = "送金中";
 
 /* State of a message once it has been sent */
-"MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+"MESSAGE_DELIVERY_STATUS_SENT" = "送信済み";
 
 /* State of a message after the recipient has read the message */
-"MESSAGE_DELIVERY_STATUS_READ" = "Read";
+"MESSAGE_DELIVERY_STATUS_READ" = "読むか";
 
 /* State of a message if it failed to be sent */
 "MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
@@ -813,3 +811,21 @@ The point that a message will disappear in a disappearing message update message
 
 /* The point that a message will disappear in a disappearing message update message for disappear after send */
 "DISAPPEARING_MESSAGE_STATE_SENT" = "sent";
+
+/* The current state for the legacy disappearing messages setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_LEGACY" = "Disappear After - %@";
+
+/* The current state for the disappear after read setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_READ" = "Disappear After Read - %@";
+
+/* The current state for the disappear after send setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_SEND" = "Disappear After Send - %@";
+
+/* The subtitle describing the current legacy disappearing messages setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY" = "Disappear After: %@";
+
+/* The subtitle describing the current disappear after read setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ" = "Disappear After Read: %@";
+
+/* The subtitle describing the current disappear after send setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";

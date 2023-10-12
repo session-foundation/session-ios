@@ -548,7 +548,6 @@
 "modal_permission_library" = "媒体库";
 "DISAPPEARING_MESSAGES_OFF" = "关闭";
 "DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "关闭";
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "%@后消失";
 "COPY_GROUP_URL" = "复制群组链接";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "联系人";
 "GROUP_ERROR_NO_MEMBER_SELECTION" = "请至少选择一名群组成员";
@@ -574,7 +573,6 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "会话设置";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "此设置适用于此对话中的所有人。";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "此设置适用于此对话中的所有人。只有群组管理员可以更改此设置。";
-"DISAPPERING_MESSAGES_SUMMARY" = "在 %@ - %@ 后消失。";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@已设置%@消息在被%@后消失";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@已改变消息%@在被%@后消失";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ 关闭了阅后即焚消息";
@@ -813,3 +811,21 @@ The point that a message will disappear in a disappearing message update message
 
 /* The point that a message will disappear in a disappearing message update message for disappear after send */
 "DISAPPEARING_MESSAGE_STATE_SENT" = "sent";
+
+/* The current state for the legacy disappearing messages setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_LEGACY" = "Disappear After - %@";
+
+/* The current state for the disappear after read setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_READ" = "Disappear After Read - %@";
+
+/* The current state for the disappear after send setting, the '%@' will be replaced by a short-form duration */
+"DISAPPERING_MESSAGES_SUMMARY_SEND" = "Disappear After Send - %@";
+
+/* The subtitle describing the current legacy disappearing messages setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY" = "Disappear After: %@";
+
+/* The subtitle describing the current disappear after read setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ" = "Disappear After Read: %@";
+
+/* The subtitle describing the current disappear after send setting, the '%@' will be replaced by a duration */
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";

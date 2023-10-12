@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 
 fileprivate typealias ViewModel = SessionThreadViewModel
 
-/// This type is used to populate the `ConversationCell` in the `HomeVC`, `MessageRequestsViewController` and the
+/// This type is used to populate the `ConversationCell` in the `HomeVC`, `MessageRequestsViewModel` and the
 /// `GlobalSearchViewController`, it has a number of query methods which can be used to retrieve the relevant data for each
 /// screen in a single location in an attempt to avoid spreading out _almost_ duplicated code in multiple places
 ///
@@ -622,7 +622,7 @@ private struct GroupMemberInfo: Decodable, ColumnExpressible {
     let threadMemberNames: String
 }
 
-// MARK: - HomeVC & MessageRequestsViewController
+// MARK: - HomeVC & MessageRequestsViewModel
 
 // MARK: --SessionThreadViewModel
 

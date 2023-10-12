@@ -219,7 +219,7 @@ public class Poller {
                 let lastHashes: [String] = namespacedResults
                     .compactMap { $0.value.data?.lastHash }
                 let otherKnownHashes: [String] = namespacedResults
-                    .filter { $0.key.shouldDedupeMessages }
+                    .filter { $0.key.shouldFetchSinceLastHash }
                     .compactMap { $0.value.data?.messages.map { $0.info.hash } }
                     .reduce([], +)
                 var messageCount: Int = 0

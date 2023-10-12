@@ -10,7 +10,38 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, SettingsViewModel.Section, SettingsViewModel.Item> {
+class SettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let editableState: EditableState<TableItem> = EditableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    
+    private let userSessionId: SessionId
+    private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
+        onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
+        onImageDataPicked: { [weak self] resultImageData in
+            guard let oldDisplayName: String = self?.oldDisplayName else { return }
+            
+            self?.updatedProfilePictureSelected(
+                name: oldDisplayName,
+                avatarUpdate: .uploadImageData(resultImageData)
+            )
+        }
+    )
+    fileprivate var oldDisplayName: String
+    private var editedDisplayName: String?
+    private var editProfilePictureModal: ConfirmationModal?
+    private var editProfilePictureModalInfo: ConfirmationModal.Info?
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies = Dependencies()) {
+        self.dependencies = dependencies
+        self.userSessionId = getUserSessionId(using: dependencies)
+        self.oldDisplayName = Profile.fetchOrCreateCurrentUser(using: dependencies).name
+    }
+    
     // MARK: - Config
     
     enum NavState {
@@ -18,7 +49,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         case editing
     }
     
-    enum NavButton: Equatable {
+    enum NavItem: Equatable {
         case close
         case qrCode
         case cancel
@@ -47,7 +78,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         }
     }
     
-    public enum Item: Differentiable {
+    public enum TableItem: Differentiable {
         case avatar
         case profileName
         
@@ -64,38 +95,6 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
         case recoveryPhrase
         case help
         case clearData
-    }
-    
-    // MARK: - Variables
-    
-    private let userSessionId: SessionId
-    private let dependencies: Dependencies
-    private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
-        onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImageDataPicked: { [weak self] resultImageData in
-            guard let oldDisplayName: String = self?.oldDisplayName else { return }
-            
-            self?.updatedProfilePictureSelected(
-                name: oldDisplayName,
-                avatarUpdate: .uploadImageData(resultImageData)
-            )
-        }
-    )
-    fileprivate var oldDisplayName: String
-    private var editedDisplayName: String?
-    private var editProfilePictureModal: ConfirmationModal?
-    private var editProfilePictureModalInfo: ConfirmationModal.Info?
-    
-    // MARK: - Initialization
-    
-    init(
-        using dependencies: Dependencies = Dependencies()
-    ) {
-        self.userSessionId = getUserSessionId(using: dependencies)
-        self.oldDisplayName = Profile.fetchOrCreateCurrentUser(using: dependencies).name
-        self.dependencies = dependencies
-        
-        super.init()
     }
     
     // MARK: - Navigation
@@ -120,58 +119,55 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             .eraseToAnyPublisher()
     }()
 
-    override var leftNavItems: AnyPublisher<[NavItem]?, Never> {
-       navState
-           .map { navState -> [NavItem] in
-               switch navState {
-                   case .standard:
-                       return [
-                            NavItem(
-                                id: .close,
-                                image: UIImage(named: "X")?
-                                    .withRenderingMode(.alwaysTemplate),
-                                style: .plain,
-                                accessibilityIdentifier: "Close button"
-                            ) { [weak self] in self?.dismissScreen() }
-                       ]
-                       
-                   case .editing:
-                       return [
-                           NavItem(
-                               id: .cancel,
-                               systemItem: .cancel,
-                               accessibilityIdentifier: "Cancel button"
-                           ) { [weak self] in
-                               self?.setIsEditing(false)
-                               self?.editedDisplayName = self?.oldDisplayName
-                           }
-                       ]
-               }
-           }
-           .eraseToAnyPublisher()
-    }
+    lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
+        .map { navState -> [SessionNavItem<NavItem>] in
+            switch navState {
+                case .standard:
+                    return [
+                        SessionNavItem(
+                            id: .close,
+                            image: UIImage(named: "X")?
+                                .withRenderingMode(.alwaysTemplate),
+                            style: .plain,
+                            accessibilityIdentifier: "Close button"
+                        ) { [weak self] in self?.dismissScreen() }
+                    ]
+                   
+                case .editing:
+                    return [
+                        SessionNavItem(
+                            id: .cancel,
+                            systemItem: .cancel,
+                            accessibilityIdentifier: "Cancel button"
+                        ) { [weak self] in
+                            self?.setIsEditing(false)
+                            self?.editedDisplayName = self?.oldDisplayName
+                        }
+                    ]
+            }
+        }
+        .eraseToAnyPublisher()
     
-    override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
-        navState
-            .map { [weak self] navState -> [NavItem] in
-                switch navState {
-                    case .standard:
-                        return [
-                            NavItem(
-                                id: .qrCode,
-                                image: UIImage(named: "QRCode")?
-                                    .withRenderingMode(.alwaysTemplate),
-                                style: .plain,
-                                accessibilityIdentifier: "Show QR code button",
-                                action: { [weak self] in
-                                    self?.transitionToScreen(QRCodeVC())
-                                }
-                            )
-                        ]
+    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
+        .map { [weak self] navState -> [SessionNavItem<NavItem>] in
+            switch navState {
+                case .standard:
+                    return [
+                        SessionNavItem(
+                            id: .qrCode,
+                            image: UIImage(named: "QRCode")?
+                                .withRenderingMode(.alwaysTemplate),
+                            style: .plain,
+                            accessibilityIdentifier: "Show QR code button",
+                            action: { [weak self] in
+                                self?.transitionToScreen(QRCodeVC())
+                            }
+                        )
+                    ]
                        
                     case .editing:
                         return [
-                            NavItem(
+                            SessionNavItem(
                                 id: .done,
                                 systemItem: .done,
                                 accessibilityIdentifier: "Done"
@@ -213,30 +209,20 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                                     avatarUpdate: .none
                                 )
                             }
-                       ]
-               }
-           }
-           .eraseToAnyPublisher()
-    }
+                        ]
+                }
+            }
+            .eraseToAnyPublisher()
     
     // MARK: - Content
     
-    override var title: String { "vc_settings_title".localized() }
+    let title: String = "vc_settings_title".localized()
     
-    public override var observableTableData: ObservableData { _observableTableData }
-    
-    /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
-    /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    ///
-    /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-    /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-    /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-    /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self] db -> [SectionModel] in
-            let userSessionId: SessionId = getUserSessionId(db)
-            let profile: Profile = Profile.fetchOrCreateCurrentUser(db)
-            
+    lazy var observation: TargetObservation = ObservationBuilder
+        .databaseObservation(self) { [weak self, dependencies] db -> Profile in
+            Profile.fetchOrCreateCurrentUser(db, using: dependencies)
+        }
+        .map { [weak self] profile -> [SectionModel] in
             return [
                 SectionModel(
                     model: .profileInfo,
@@ -333,7 +319,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                     elements: [
                         SessionCell.Info(
                             id: .path,
-                            leftAccessory: .customView(hashValue: "PathStatusView") {
+                            leftAccessory: .customView(hashValue: "PathStatusView") {   // stringlint:disable
                                 // Need to ensure this view is the same size as the icons so
                                 // wrap it in a larger view
                                 let result: UIView = UIView()
@@ -396,7 +382,9 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                             ),
                             title: "MESSAGE_REQUESTS_TITLE".localized(),
                             onTap: {
-                                self?.transitionToScreen(MessageRequestsViewController())
+                                self?.transitionToScreen(
+                                    SessionTableViewController(viewModel: MessageRequestsViewModel())
+                                )
                             }
                         ),
                         SessionCell.Info(
@@ -484,15 +472,8 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
                 )
             ]
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[SettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: dependencies[singleton: .storage], scheduling: dependencies[singleton: .scheduler])
-        .mapToSessionTableViewData(for: self)
     
-    public override var footerView: AnyPublisher<UIView?, Never> {
-        Just(VersionFooterView())
-            .eraseToAnyPublisher()
-    }
+    public let footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView()).eraseToAnyPublisher()
     
     // MARK: - Functions
     
@@ -577,7 +558,7 @@ class SettingsViewModel: SessionTableViewModel<SettingsViewModel.NavButton, Sett
             DispatchQueue.main.async {
                 let picker: UIImagePickerController = UIImagePickerController()
                 picker.sourceType = .photoLibrary
-                picker.mediaTypes = [ "public.image" ]
+                picker.mediaTypes = [ "public.image" ]  // stringlint:disable
                 picker.delegate = self?.imagePickerHandler
                 
                 self?.transitionToScreen(picker, transitionType: .present)

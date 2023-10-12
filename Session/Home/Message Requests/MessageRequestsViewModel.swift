@@ -5,33 +5,33 @@ import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
-import SignalUtilitiesKit
 import SessionUtilitiesKit
+import SignalUtilitiesKit
 
-public class MessageRequestsViewModel {
-    public typealias SectionModel = ArraySection<Section, SessionThreadViewModel>
-    
-    // MARK: - Section
-    
-    public enum Section: Differentiable {
-        case threads
-        case loadMore
-    }
+class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource, PagedObservationSource {
+    typealias TableItem = SessionThreadViewModel
+    typealias PagedTable = SessionThread
+    typealias PagedDataModel = SessionThreadViewModel
     
     // MARK: - Variables
     
     public static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
+    public let dependencies: Dependencies
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, SessionThreadViewModel> = ObservableTableSourceState()
+    public let navigatableState: NavigatableState = NavigatableState()
     
     // MARK: - Initialization
     
-    init() {
+    init(using dependencies: Dependencies = Dependencies()) {
+        self.dependencies = dependencies
         self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
         // also want to skip the initial query and trigger it async so that the push animation
         // doesn't stutter (it should load basically immediately but without this there is a
         // distinct stutter)
-        let userSessionId: SessionId = getUserSessionId()
+        let userSessionId: SessionId = getUserSessionId(using: dependencies)
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         self.pagedDataObserver = PagedDatabaseObserver(
             pagedTable: SessionThread.self,
@@ -103,14 +103,8 @@ public class MessageRequestsViewModel {
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
                 PagedData.processAndTriggerUpdates(
                     updatedData: self?.process(data: updatedData, for: updatedPageInfo),
-                    currentDataRetriever: { self?.threadData },
-                    onDataChange: self?.onThreadChange,
-                    onUnobservedDataChange: { updatedData, changeset in
-                        self?.unobservedThreadDataChanges = (changeset.isEmpty ?
-                            nil :
-                            (updatedData, changeset)
-                        )
-                    }
+                    currentDataRetriever: { self?.tableData },
+                    valueSubject: self?.pendingTableDataSubject
                 )
             }
         )
@@ -122,35 +116,35 @@ public class MessageRequestsViewModel {
         }
     }
     
-    // MARK: - Thread Data
+    // MARK: - Section
     
-    public private(set) var unobservedThreadDataChanges: ([SectionModel], StagedChangeset<[SectionModel]>)?
-    public private(set) var threadData: [SectionModel] = []
-    public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
-    
-    public var onThreadChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? {
-        didSet {
-            // When starting to observe interaction changes we want to trigger a UI update just in case the
-            // data was changed while we weren't observing
-            if let changes: ([SectionModel], StagedChangeset<[SectionModel]>) = self.unobservedThreadDataChanges {
-                let performChange: (([SectionModel], StagedChangeset<[SectionModel]>) -> ())? = onThreadChange
-                
-                switch Thread.isMainThread {
-                    case true: performChange?(changes.0, changes.1)
-                    case false: DispatchQueue.main.async { performChange?(changes.0, changes.1) }
-                }
-                
-                self.unobservedThreadDataChanges = nil
+    public enum Section: SessionTableSection {
+        case threads
+        case loadMore
+        
+        var style: SessionTableSectionStyle {
+            switch self {
+                case .threads: return .none
+                case .loadMore: return .loadMore
             }
         }
     }
     
+    // MARK: - Content
+    
+    public let title: String = "MESSAGE_REQUESTS_TITLE".localized()
+    public let initialLoadMessage: String? = "LOADING_CONVERSATIONS".localized()
+    public let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("MESSAGE_REQUESTS_EMPTY_TEXT".localized())
+        .eraseToAnyPublisher()
+    public let cellType: SessionTableViewCellType = .fullConversation
+    public private(set) var pagedDataObserver: PagedDatabaseObserver<SessionThread, SessionThreadViewModel>?
+    
     private func process(data: [SessionThreadViewModel], for pageInfo: PagedData.PageInfo) -> [SectionModel] {
-        let groupedOldData: [String: [SessionThreadViewModel]] = (self.threadData
+        let groupedOldData: [String: [SessionCell.Info<SessionThreadViewModel>]] = (self.tableData
             .first(where: { $0.model == .threads })?
             .elements)
             .defaulting(to: [])
-            .grouped(by: \.threadId)
+            .grouped(by: \.id.threadId)
         
         return [
             [
@@ -158,14 +152,28 @@ public class MessageRequestsViewModel {
                     section: .threads,
                     elements: data
                         .sorted { lhs, rhs -> Bool in lhs.lastInteractionDate > rhs.lastInteractionDate }
-                        .map { viewModel -> SessionThreadViewModel in
-                            viewModel.populatingCurrentUserBlindedIds(
-                                currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
-                                    .first?
-                                    .currentUserBlinded15SessionId,
-                                currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
-                                    .first?
-                                    .currentUserBlinded25SessionId
+                        .map { viewModel -> SessionCell.Info<SessionThreadViewModel> in
+                            SessionCell.Info(
+                                id: viewModel.populatingCurrentUserBlindedIds(
+                                    currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
+                                        .first?
+                                        .id
+                                        .currentUserBlinded15SessionId,
+                                    currentUserBlinded25SessionIdForThisThread: groupedOldData[viewModel.threadId]?
+                                        .first?
+                                        .id
+                                        .currentUserBlinded25SessionId
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Message request"
+                                ),
+                                onTap: { [weak self] in
+                                    let viewController: ConversationVC = ConversationVC(
+                                        threadId: viewModel.threadId,
+                                        threadVariant: viewModel.threadVariant
+                                    )
+                                    self?.transitionToScreen(viewController, transitionType: .push)
+                                }
                             )
                         }
                 )
@@ -177,35 +185,100 @@ public class MessageRequestsViewModel {
         ].flatMap { $0 }
     }
     
-    public func updateThreadData(_ updatedData: [SectionModel]) {
-        self.threadData = updatedData
-    }
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = observableState
+        .pendingTableDataSubject
+        .map { [dependencies] (currentThreadData: [SectionModel], _: StagedChangeset<[SectionModel]>) in
+            let threadInfo: [(id: String, variant: SessionThread.Variant)] = (currentThreadData
+                .first(where: { $0.model == .threads })?
+                .elements
+                .map { ($0.id.id, $0.id.threadVariant) })
+                .defaulting(to: [])
+            
+            return SessionButton.Info(
+                style: .destructive,
+                title: "MESSAGE_REQUESTS_CLEAR_ALL".localized(),
+                isEnabled: !threadInfo.isEmpty,
+                accessibility: Accessibility(
+                    identifier: "Clear all"
+                ),
+                onTap: { [weak self] in
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        info: ConfirmationModal.Info(
+                            title: "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE".localized(),
+                            accessibility: Accessibility(
+                                identifier: "Clear all"
+                            ),
+                            confirmTitle: "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON".localized(),
+                            confirmAccessibility: Accessibility(
+                                identifier: "Clear"
+                            ),
+                            confirmStyle: .danger,
+                            cancelStyle: .alert_text,
+                            onConfirm: { _ in
+                                // Clear the requests
+                                dependencies[singleton: .storage].write { db in
+                                    // Remove the one-to-one requests
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        threadIds: threadInfo
+                                            .filter { _, variant in variant == .contact }
+                                            .map { id, _ in id },
+                                        threadVariant: .contact,
+                                        groupLeaveType: .silent,
+                                        calledFromConfigHandling: false
+                                    )
+                                    
+                                    // Remove the group requests
+                                    try SessionThread.deleteOrLeave(
+                                        db,
+                                        threadIds: threadInfo
+                                            .filter { _, variant in variant == .legacyGroup || variant == .group }
+                                            .map { id, _ in id },
+                                        threadVariant: .group,
+                                        groupLeaveType: .silent,
+                                        calledFromConfigHandling: false
+                                    )
+                                }
+                            }
+                        )
+                    )
+
+                    self?.transitionToScreen(modal, transitionType: .present)
+                }
+            )
+        }
+        .eraseToAnyPublisher()
     
     // MARK: - Functions
     
-    static func clearAllRequests(
-        contactThreadIds: [String],
-        groupThreadIds: [String]
-    ) {
-        // Clear the requests
-        Dependencies()[singleton: .storage].write { db in
-            // Remove the one-to-one requests
-            try SessionThread.deleteOrLeave(
-                db,
-                threadIds: contactThreadIds,
-                threadVariant: .contact,
-                groupLeaveType: .silent,
-                calledFromConfigHandling: false
-            )
-            
-            // Remove the group requests
-            try SessionThread.deleteOrLeave(
-                db,
-                threadIds: groupThreadIds,
-                threadVariant: .group,
-                groupLeaveType: .silent,
-                calledFromConfigHandling: false
-            )
+    func canEditRow(at indexPath: IndexPath) -> Bool {
+        let section: SectionModel = tableData[indexPath.section]
+        
+        return (section.model == .threads)
+    }
+    
+    func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? {
+        let section: SectionModel = tableData[indexPath.section]
+        
+        switch section.model {
+            case .threads:
+                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row].id
+                
+                return UIContextualAction.configuration(
+                    for: UIContextualAction.generateSwipeActions(
+                        [
+                            (threadViewModel.threadVariant != .contact ? nil : .block),
+                            .delete
+                        ].compactMap { $0 },
+                        for: .trailing,
+                        indexPath: indexPath,
+                        tableView: tableView,
+                        threadViewModel: threadViewModel,
+                        viewController: viewController
+                    )
+                )
+                
+            default: return nil
         }
     }
 }
