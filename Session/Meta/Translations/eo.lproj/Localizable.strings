@@ -848,3 +848,4 @@ The point that a message will disappear in a disappearing message update message
 "recovery_password_error_generic" = "Please check your Recovery Password and try again.";
 "modal_open_url_title_2" = "Open URL";
 "modal_open_url_explanation_2" = "This will open in your browser.";
+"onboarding_notification_mode_explanation" = "There are two ways Session can notify you of new messages.";
