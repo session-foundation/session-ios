@@ -114,24 +114,7 @@ struct PNModeView: View {
         // If we are registering then we can just continue on
         guard flow != .register else {
             self.flow.completeRegistration()
-            
-            // Go to recovery password screen
-            if let recoveryPasswordView = try? RecoveryPasswordView(flow: self.flow) {
-                let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
-                viewController.setUpNavBarSessionIcon()
-                self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
-            } else {
-                let modal = ConfirmationModal(
-                    targetView: self.host.controller?.view,
-                    info: ConfirmationModal.Info(
-                        title: "ALERT_ERROR_TITLE".localized(),
-                        body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
-                        cancelTitle: "BUTTON_OK".localized(),
-                        cancelStyle: .alert_text
-                    )
-                )
-                self.host.controller?.present(modal, animated: true)
-            }
+            self.finishRegister()
             
             return
         }
@@ -161,6 +144,12 @@ struct PNModeView: View {
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadingView(flow: flow))
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+    }
+    
+    private func finishRegister() {
+        let homeVC: HomeVC = HomeVC(flow: self.flow)
+        self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
+        return
     }
 }
 
