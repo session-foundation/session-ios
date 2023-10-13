@@ -12,7 +12,7 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
     func send<T>(_ request: Network.RequestType<T>) -> AnyPublisher<(ResponseInfoType, T), Error> {
         requestData = request.data
         
-        return accept(funcName: "send<T>(\(request.id))", args: request.args) as! AnyPublisher<(ResponseInfoType, T), Error>
+        return accept(funcName: "send<\(T.self)>(\(request.id))", args: request.args) as! AnyPublisher<(ResponseInfoType, T), Error>
     }
     
     static func response<T: Encodable>(info: MockResponseInfo = .mockValue, with value: T) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
@@ -51,6 +51,10 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
         return Just((info, nil))
             .setFailureType(to: Error.self)
             .eraseToAnyPublisher()
+    }
+    
+    static func errorResponse() -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+        return Fail(error: TestError.mock).eraseToAnyPublisher()
     }
 }
 

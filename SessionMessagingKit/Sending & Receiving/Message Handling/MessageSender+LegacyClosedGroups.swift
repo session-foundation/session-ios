@@ -150,7 +150,7 @@ extension MessageSender {
             .handleEvents(
                 receiveOutput: { thread in
                     // Start polling
-                    ClosedGroupPoller.shared.startIfNeeded(for: thread.id, using: dependencies)
+                    dependencies[singleton: .groupsPoller].startIfNeeded(for: thread.id, using: dependencies)
                 }
             )
             .eraseToAnyPublisher()

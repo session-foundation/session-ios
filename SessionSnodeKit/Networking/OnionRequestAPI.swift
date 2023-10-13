@@ -88,7 +88,7 @@ public enum OnionRequestAPI {
         
         SNLog("Populating guard snode cache.")
         // Sync on LokiAPI.workQueue
-        var unusedSnodes = SnodeAPI.snodePool.wrappedValue.subtracting(reusableGuardSnodes)
+        var unusedSnodes: Set<Snode> = dependencies[cache: .snodeAPI].snodePool.subtracting(reusableGuardSnodes)
         let reusableGuardSnodeCount = UInt(reusableGuardSnodes.count)
         
         guard unusedSnodes.count >= (targetGuardSnodeCount - reusableGuardSnodeCount) else {
@@ -162,7 +162,7 @@ public enum OnionRequestAPI {
             let reusableGuardSnodes = reusablePaths.map { $0[0] }
             let publisher: AnyPublisher<[[Snode]], Error> = getGuardSnodes(reusing: reusableGuardSnodes, cache: cache, using: dependencies)
                 .flatMap { (guardSnodes: Set<Snode>) -> AnyPublisher<[[Snode]], Error> in
-                    var unusedSnodes: Set<Snode> = SnodeAPI.snodePool.wrappedValue
+                    var unusedSnodes: Set<Snode> = dependencies[cache: .snodeAPI].snodePool
                         .subtracting(guardSnodes)
                         .subtracting(reusablePaths.flatMap { $0 })
                     let reusableGuardSnodeCount: UInt = UInt(reusableGuardSnodes.count)
@@ -341,7 +341,7 @@ public enum OnionRequestAPI {
         var path = oldPaths[pathIndex]
         guard let snodeIndex = path.firstIndex(of: snode) else { return }
         path.remove(at: snodeIndex)
-        let unusedSnodes = SnodeAPI.snodePool.wrappedValue.subtracting(oldPaths.flatMap { $0 })
+        let unusedSnodes = dependencies[cache: .snodeAPI].snodePool.subtracting(oldPaths.flatMap { $0 })
         guard !unusedSnodes.isEmpty else { throw OnionRequestAPIError.insufficientSnodes }
         // randomElement() uses the system's default random generator, which is cryptographically secure
         path.append(unusedSnodes.randomElement()!)
@@ -521,7 +521,8 @@ public enum OnionRequestAPI {
                             responseData: responseData,
                             destinationSymmetricKey: destinationSymmetricKey,
                             version: version,
-                            destination: destination
+                            destination: destination,
+                            using: dependencies
                         )
                     }
                     .eraseToAnyPublisher()
@@ -666,7 +667,8 @@ public enum OnionRequestAPI {
         responseData: Data,
         destinationSymmetricKey: Data,
         version: OnionRequestAPIVersion,
-        destination: OnionRequestAPIDestination
+        destination: OnionRequestAPIDestination,
+        using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         switch version {
             // V2 and V3 Onion Requests have the same structure for responses
@@ -726,7 +728,7 @@ public enum OnionRequestAPI {
                         
                         if let timestamp = body["t"] as? Int64 {
                             let offset = timestamp - Int64(floor(Date().timeIntervalSince1970 * 1000))
-                            SnodeAPI.clockOffsetMs.mutate { $0 = offset }
+                            dependencies.mutate(cache: .snodeAPI) { $0.clockOffsetMs = offset }
                         }
                         
                         guard 200...299 ~= statusCode else {

@@ -7,6 +7,16 @@ import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Singleton
+
+public extension Singleton {
+    static let currentUserPoller: SingletonConfig<PollerType> = Dependencies.create { _ in
+        CurrentUserPoller()
+    }
+}
+
+// MARK: - GroupPoller
+
 public final class CurrentUserPoller: Poller {
     public static var namespaces: [SnodeAPI.Namespace] = [
         .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups
@@ -28,7 +38,7 @@ public final class CurrentUserPoller: Poller {
     
     // MARK: - Convenience Functions
     
-    public func start(using dependencies: Dependencies = Dependencies()) {
+    public override func start(using dependencies: Dependencies = Dependencies()) {
         let userSessionId: SessionId = getUserSessionId(using: dependencies)
         
         guard isPolling.wrappedValue[userSessionId.hexString] != true else { return }
@@ -45,7 +55,7 @@ public final class CurrentUserPoller: Poller {
     // MARK: - Abstract Methods
     
     override func pollerName(for publicKey: String) -> String {
-        return "Main Poller"
+        return "Main Poller"    // stringlint:disable
     }
     
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {

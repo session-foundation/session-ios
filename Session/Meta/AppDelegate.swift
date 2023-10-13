@@ -23,9 +23,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var startTime: CFTimeInterval = 0
     private var loadingViewController: LoadingViewController?
     
-    /// This needs to be a lazy variable to ensure it doesn't get initialized before it actually needs to be used
-    lazy var poller: CurrentUserPoller = CurrentUserPoller()
-    
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -803,12 +800,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// There is a fun issue where if you launch without any valid paths then the pollers are guaranteed to fail their first poll due to
         /// trying and failing to build paths without having the `SnodeAPI.snodePool` populated, by waiting for the
         /// `jobRunner.blockingQueue` to complete we can have more confidence that paths won't fail to build incorrectly
-        dependencies[singleton: .jobRunner].afterBlockingQueue { [weak self] in
-            self?.poller.start()
+        dependencies[singleton: .jobRunner].afterBlockingQueue {
+            dependencies[singleton: .currentUserPoller].start(using: dependencies)
             
             guard shouldStartGroupPollers else { return }
             
-            dependencies[singleton: .closedGroupPoller].start(using: dependencies)
+            dependencies[singleton: .groupsPoller].start(using: dependencies)
             OpenGroupManager.shared.startPolling()
         }
     }
@@ -818,10 +815,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         using dependencies: Dependencies = Dependencies()
     ) {
         if shouldStopUserPoller {
-            poller.stopAllPollers()
+            dependencies[singleton: .currentUserPoller].stopAllPollers()
         }
     
-        dependencies[singleton: .closedGroupPoller].stopAllPollers()
+        dependencies[singleton: .groupsPoller].stopAllPollers()
         OpenGroupManager.shared.stopPolling()
     }
     

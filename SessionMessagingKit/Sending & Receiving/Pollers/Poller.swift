@@ -7,7 +7,44 @@ import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-public class Poller {
+// MARK: - PollerType
+
+public protocol PollerType {
+    func start(using dependencies: Dependencies)
+    func startIfNeeded(for publicKey: String, using dependencies: Dependencies)
+    func poll(
+        namespaces: [SnodeAPI.Namespace],
+        for publicKey: String,
+        calledFromBackgroundPoller: Bool,
+        isBackgroundPollValid: @escaping () -> Bool,
+        drainBehaviour: Atomic<SwarmDrainBehaviour>,
+        using dependencies: Dependencies
+    ) -> AnyPublisher<[ProcessedMessage], Error>
+    func stopAllPollers()
+    func stopPolling(for publicKey: String)
+}
+
+public extension PollerType {
+    func poll(
+        namespaces: [SnodeAPI.Namespace],
+        for publicKey: String,
+        drainBehaviour: Atomic<SwarmDrainBehaviour>,
+        using dependencies: Dependencies
+    ) -> AnyPublisher<[ProcessedMessage], Error> {
+        return poll(
+            namespaces: namespaces,
+            for: publicKey,
+            calledFromBackgroundPoller: false,
+            isBackgroundPollValid: { true },
+            drainBehaviour: drainBehaviour,
+            using: dependencies
+        )
+    }
+}
+
+// MARK: - Poller
+
+public class Poller: PollerType {
     private var cancellables: Atomic<[String: AnyCancellable]> = Atomic([:])
     internal var isPolling: Atomic<[String: Bool]> = Atomic([:])
     internal var failureCount: Atomic<[String: Int]> = Atomic([:])
@@ -27,7 +64,26 @@ public class Poller {
 
     // MARK: - Public API
     
-    public init() {}
+    public func start(using dependencies: Dependencies) {
+        preconditionFailure("abstract class - override in subclass")
+    }
+    
+    public func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
+        // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
+        // on startup
+        let drainBehaviour: Atomic<SwarmDrainBehaviour> = Atomic(pollDrainBehaviour)
+        
+        Threading.pollerQueue.async(using: dependencies) { [weak self] in
+            guard self?.isPolling.wrappedValue[publicKey] != true else { return }
+            
+            // Might be a race condition that the setUpPolling finishes too soon,
+            // and the timer is not created, if we mark the group as is polling
+            // after setUpPolling. So the poller may not work, thus misses messages
+            self?.isPolling.mutate { $0[publicKey] = true }
+            self?.drainBehaviour.mutate { $0[publicKey] = drainBehaviour }
+            self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
+        }
+    }
     
     public func stopAllPollers() {
         let pollers: [String] = Array(isPolling.wrappedValue.keys)
@@ -63,23 +119,6 @@ public class Poller {
 
     // MARK: - Private API
     
-    internal func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
-        // Run on the 'pollerQueue' to ensure any 'Atomic' access doesn't block the main thread
-        // on startup
-        let drainBehaviour: Atomic<SwarmDrainBehaviour> = Atomic(pollDrainBehaviour)
-        
-        Threading.pollerQueue.async(using: dependencies) { [weak self] in
-            guard self?.isPolling.wrappedValue[publicKey] != true else { return }
-            
-            // Might be a race condition that the setUpPolling finishes too soon,
-            // and the timer is not created, if we mark the group as is polling
-            // after setUpPolling. So the poller may not work, thus misses messages
-            self?.isPolling.mutate { $0[publicKey] = true }
-            self?.drainBehaviour.mutate { $0[publicKey] = drainBehaviour }
-            self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
-        }
-    }
-    
     private func pollRecursively(
         for publicKey: String,
         drainBehaviour: Atomic<SwarmDrainBehaviour>,
@@ -93,12 +132,11 @@ public class Poller {
         
         // Store the publisher intp the cancellables dictionary
         cancellables.mutate { [weak self] cancellables in
-            cancellables[publicKey] = Poller
+            cancellables[publicKey] = self?
                 .poll(
                     namespaces: namespaces,
                     for: publicKey,
                     drainBehaviour: drainBehaviour,
-                    poller: self,
                     using: dependencies
                 )
                 .subscribe(on: Threading.pollerQueue, using: dependencies)
@@ -144,29 +182,25 @@ public class Poller {
     ///
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
-    public static func poll(
+    public func poll(
         namespaces: [SnodeAPI.Namespace],
         for publicKey: String,
-        calledFromBackgroundPoller: Bool = false,
-        isBackgroundPollValid: @escaping (() -> Bool) = { true },
+        calledFromBackgroundPoller: Bool,
+        isBackgroundPollValid: @escaping () -> Bool,
         drainBehaviour: Atomic<SwarmDrainBehaviour>,
-        poller: Poller? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<[ProcessedMessage], Error> {
         // If the polling has been cancelled then don't continue
         guard
             (calledFromBackgroundPoller && isBackgroundPollValid()) ||
-            poller?.isPolling.wrappedValue[publicKey] == true
+            isPolling.wrappedValue[publicKey] == true
         else {
             return Just([])
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
         
-        let pollerName: String = (
-            poller?.pollerName(for: publicKey) ??
-            "poller with public key \(publicKey)"   // stringlint:disable
-        )
+        let pollerName: String = pollerName(for: publicKey)
         let configHashes: [String] = SessionUtil.configHashes(for: publicKey, using: dependencies)
         
         /// Fetch the messages
@@ -174,7 +208,7 @@ public class Poller {
         /// **Note:**  We need a `writePublisher` here because we want to prune the `lastMessageHash` value when preparing
         /// the request
         return SnodeAPI.getSwarm(for: publicKey, using: dependencies)
-            .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour) { snode -> AnyPublisher<HTTP.PreparedRequest<SnodeAPI.PollResponse>, Error> in
+            .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour, using: dependencies) { snode -> AnyPublisher<HTTP.PreparedRequest<SnodeAPI.PollResponse>, Error> in
                 dependencies[singleton: .storage]
                     .writePublisher(using: dependencies) { db -> HTTP.PreparedRequest<SnodeAPI.PollResponse> in
                         try SnodeAPI.preparedPoll(
@@ -192,10 +226,10 @@ public class Poller {
                     }
             }
             .flatMap { $0.send(using: dependencies) }
-            .flatMap { (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<[ProcessedMessage], Error> in
+            .flatMap { [weak self] (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<[ProcessedMessage], Error> in
                 guard
                     (calledFromBackgroundPoller && isBackgroundPollValid()) ||
-                    poller?.isPolling.wrappedValue[publicKey] == true
+                    self?.isPolling.wrappedValue[publicKey] == true
                 else {
                     return Just([])
                         .setFailureType(to: Error.self)
@@ -227,7 +261,7 @@ public class Poller {
                 var hadValidHashUpdate: Bool = false
                 var configMessageJobsToRun: [Job] = []
                 var standardMessageJobsToRun: [Job] = []
-                var pollerLogOutput: String = "\(pollerName) failed to process any messages"
+                var pollerLogOutput: String = "\(pollerName) failed to process any messages"  // stringlint:disable
                 
                 dependencies[singleton: .storage].write { db in
                     let allProcessedMessages: [ProcessedMessage] = allMessages
@@ -350,11 +384,11 @@ public class Poller {
                         }
                     
                     // Set the output for logging
-                    pollerLogOutput = "Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(allMessages.count - messageCount))"
+                    pollerLogOutput = "Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(allMessages.count - messageCount))"  // stringlint:disable
                     
                     // Clean up message hashes and add some logs about the poll results
                     if allMessages.isEmpty && !hadValidHashUpdate {
-                        pollerLogOutput = "Received \(allMessages.count) new message\(allMessages.count == 1 ? "" : "s") in \(pollerName), all duplicates - marking the hash we polled with as invalid"
+                        pollerLogOutput = "Received \(allMessages.count) new message\(allMessages.count == 1 ? "" : "s") in \(pollerName), all duplicates - marking the hash we polled with as invalid" // stringlint:disable
                         
                         // Update the cached validity of the messages
                         try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(

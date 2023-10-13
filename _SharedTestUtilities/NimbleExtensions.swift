@@ -53,7 +53,7 @@ public func call<M, T, R>(
             let timesDescription: String? = {
                 switch amount {
                     case .atLeast(let times): return (times <= 1 ? nil : "at least \(times: times)")
-                    case .exactly(let times): return "exactly \(times: times))"
+                    case .exactly(let times): return "exactly \(times: times)"
                     case .noMoreThan(let times): return (times <= 0 ? nil : "no more than \(times: times))")
                 }
             }()

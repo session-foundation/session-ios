@@ -6,6 +6,7 @@ public extension JSONEncoder {
     convenience init(using dependencies: Dependencies = Dependencies()) {
         self.init()
         self.userInfo = [ Dependencies.userInfoKey: dependencies ]
+        self.outputFormatting = dependencies.mockableValue(self.outputFormatting)
     }
     
     func with(outputFormatting: JSONEncoder.OutputFormatting) -> JSONEncoder {

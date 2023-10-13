@@ -52,7 +52,7 @@ public extension HTTP.PreparedRequest {
                         guard let payload: Data = request.httpBody else { throw HTTPError.invalidPreparedRequest }
 
                         return SnodeAPI.getSwarm(for: randomSnode.publicKey, using: dependencies)
-                            .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount) { snode in
+                            .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount, using: dependencies) { snode in
                                 dependencies[singleton: .network]
                                     .send(
                                         .onionRequest(
@@ -67,7 +67,7 @@ public extension HTTP.PreparedRequest {
                         guard request.httpBody != nil else { throw HTTPError.invalidPreparedRequest }
                         
                         return SnodeAPI.getSwarm(for: randomSnode.publicKey, using: dependencies)
-                            .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount) { snode in
+                            .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount, using: dependencies) { snode in
                                 try SnodeAPI
                                     .preparedGetNetworkTime(from: snode, using: dependencies)
                                     .send(using: dependencies)

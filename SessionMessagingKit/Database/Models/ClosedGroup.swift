@@ -200,7 +200,7 @@ public extension ClosedGroup {
         )
         
         // Start polling
-        dependencies[singleton: .closedGroupPoller].startIfNeeded(for: group.id, using: dependencies)
+        dependencies[singleton: .groupsPoller].startIfNeeded(for: group.id, using: dependencies)
     }
     
     static func removeKeysAndUnsubscribe(
@@ -242,7 +242,7 @@ public extension ClosedGroup {
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         
         threadIds.forEach { threadId in
-            dependencies[singleton: .closedGroupPoller].stopPolling(for: threadId)
+            dependencies[singleton: .groupsPoller].stopPolling(for: threadId)
             
             try? PushNotificationAPI
                 .preparedUnsubscribeFromLegacyGroup(

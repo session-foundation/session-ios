@@ -1318,6 +1318,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 ),
                                 profileId: "TestMod",
                                 role: .moderator,
+                                roleStatus: .accepted,
                                 isHidden: false
                             )
                         ))
@@ -1364,6 +1365,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 ),
                                 profileId: "TestMod2",
                                 role: .moderator,
+                                roleStatus: .accepted,
                                 isHidden: true
                             )
                         ))
@@ -1435,6 +1437,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 ),
                                 profileId: "TestAdmin",
                                 role: .admin,
+                                roleStatus: .accepted,
                                 isHidden: false
                             )
                         ))
@@ -1481,6 +1484,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 ),
                                 profileId: "TestAdmin2",
                                 role: .admin,
+                                roleStatus: .accepted,
                                 isHidden: true
                             )
                         ))
@@ -2564,6 +2568,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                             profileId: "05\(TestConstants.publicKey)",
                             role: .moderator,
+                            roleStatus: .accepted,
                             isHidden: false
                         ).insert(db)
                     }
@@ -2585,6 +2590,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                             profileId: "05\(TestConstants.publicKey)",
                             role: .admin,
+                            roleStatus: .accepted,
                             isHidden: false
                         ).insert(db)
                     }
@@ -2606,6 +2612,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                             profileId: "05\(TestConstants.publicKey)",
                             role: .moderator,
+                            roleStatus: .accepted,
                             isHidden: true
                         ).insert(db)
                     }
@@ -2627,6 +2634,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                             profileId: "05\(TestConstants.publicKey)",
                             role: .admin,
+                            roleStatus: .accepted,
                             isHidden: true
                         ).insert(db)
                     }
@@ -2683,6 +2691,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 profileId: "00\(otherKey)",
                                 role: .moderator,
+                                roleStatus: .accepted,
                                 isHidden: false
                             ).insert(db)
                             
@@ -2724,6 +2733,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 profileId: "15\(otherKey)",
                                 role: .moderator,
+                                roleStatus: .accepted,
                                 isHidden: false
                             ).insert(db)
                         }
@@ -2786,6 +2796,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 profileId: "05\(otherKey)",
                                 role: .moderator,
+                                roleStatus: .accepted,
                                 isHidden: false
                             ).insert(db)
                             
@@ -2829,6 +2840,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 profileId: "15\(otherKey)",
                                 role: .moderator,
+                                roleStatus: .accepted,
                                 isHidden: false
                             ).insert(db)
                             
@@ -2947,6 +2959,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 profileId: "05\(otherKey)",
                                 role: .moderator,
+                                roleStatus: .accepted,
                                 isHidden: false
                             ).insert(db)
                             
@@ -2991,6 +3004,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 groupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 profileId: "00\(otherKey)",
                                 role: .moderator,
+                                roleStatus: .accepted,
                                 isHidden: false
                             ).insert(db)
                             

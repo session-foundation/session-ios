@@ -127,8 +127,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                 )
             }
             .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: queue)
-            .receive(on: queue)
+            .subscribe(on: queue, using: dependencies)
+            .receive(on: queue, using: dependencies)
             .map { (_: ResponseInfoType, response: HTTP.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and

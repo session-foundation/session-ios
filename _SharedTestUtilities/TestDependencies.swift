@@ -9,6 +9,7 @@ public class TestDependencies: Dependencies {
     private var singletonInstances: [Int: Any] = [:]
     private var cacheInstances: [Int: MutableCacheType] = [:]
     private var defaultsInstances: [Int: (any UserDefaultsType)] = [:]
+    private var mockedValues: [Int: Any] = [:]
     
     // MARK: - Subscript Access
     
@@ -71,6 +72,18 @@ public class TestDependencies: Dependencies {
     
     // MARK: - Functions
     
+    public override func mockableValue<T>(key: String? = nil, _ defaultValue: T) -> T {
+        let key: Int = (key?.hashValue ?? ObjectIdentifier(T.self).hashValue)
+
+        return ((mockedValues[key] as? T) ?? defaultValue)
+    }
+    
+    public func setMockableValue<T>(key: String? = nil, _ value: T) {
+        let key: Int = (key?.hashValue ?? ObjectIdentifier(T.self).hashValue)
+        
+        return mockedValues[key] = value
+    }
+    
     override public func async(at timestamp: TimeInterval, closure: @escaping () -> Void) {
         asyncExecutions.append(closure, toArrayOn: Int(ceil(timestamp)))
     }
@@ -106,6 +119,28 @@ public class TestDependencies: Dependencies {
             asyncExecutions[key]?.forEach { $0() }
             asyncExecutions[key] = nil
         }
+    }
+    
+    // MARK: - Random Access Functions
+    
+    public override func randomElement<T: Collection>(_ collection: T) -> T.Element? {
+        return collection.first
+    }
+    
+    /// `Set<T>` is unsorted so we need a deterministic method to retrieve the same value each time
+    public override func randomElement<T>(_ elements: Set<T>) -> T? {
+        return Array(elements)
+            .sorted { lhs, rhs -> Bool in lhs.hashValue < rhs.hashValue }
+            .first
+    }
+    
+    /// `Set<T>` is unsorted so we need a deterministic method to retrieve the same value each time
+    public override func popRandomElement<T>(_ elements: inout Set<T>) -> T? {
+        let result: T? = Array(elements)
+            .sorted { lhs, rhs -> Bool in lhs.hashValue < rhs.hashValue }
+            .first
+        
+        return result.map { elements.remove($0) }
     }
     
     // MARK: - Instance upserting

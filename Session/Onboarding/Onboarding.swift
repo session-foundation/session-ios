@@ -32,30 +32,29 @@ enum Onboarding {
     ) -> AnyPublisher<String?, Error> {
         let userSessionId: SessionId = getUserSessionId(using: dependencies)
         
-        return CurrentUserPoller
-            .poll(
-                namespaces: [.configUserProfile],
-                for: userSessionId.hexString,
-                // Note: These values mean the received messages will be
-                // processed immediately rather than async as part of a Job
-                calledFromBackgroundPoller: true,
-                isBackgroundPollValid: { true },
-                drainBehaviour: .alwaysRandom,
-                using: dependencies
-            )
-            .map { _ -> String? in
-                guard requestId == profileNameRetrievalIdentifier.wrappedValue else { return nil }
-                
-                return dependencies[singleton: .storage].read { db in
-                    try Profile
-                        .filter(id: userSessionId.hexString)
-                        .select(.name)
-                        .asRequest(of: String.self)
-                        .fetchOne(db)
-                }
+        /// **Note:** We trigger this as a "background poll" as doing so means the received messages will be
+        /// processed immediately rather than async as part of a Job
+        return dependencies[singleton: .currentUserPoller].poll(
+            namespaces: [.configUserProfile],
+            for: userSessionId.hexString,
+            calledFromBackgroundPoller: true,
+            isBackgroundPollValid: { true },
+            drainBehaviour: .alwaysRandom,
+            using: dependencies
+        )
+        .map { _ -> String? in
+            guard requestId == profileNameRetrievalIdentifier.wrappedValue else { return nil }
+            
+            return dependencies[singleton: .storage].read { db in
+                try Profile
+                    .filter(id: userSessionId.hexString)
+                    .select(.name)
+                    .asRequest(of: String.self)
+                    .fetchOne(db)
             }
-            .shareReplay(1)
-            .eraseToAnyPublisher()
+        }
+        .shareReplay(1)
+        .eraseToAnyPublisher()
     }
     
     enum State: CustomStringConvertible {

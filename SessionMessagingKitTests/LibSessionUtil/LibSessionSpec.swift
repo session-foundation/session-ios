@@ -592,18 +592,18 @@ fileprivate extension LibSessionSpec {
                 case .mute_until: contact.mute_until = Int64.max
                 
                 case .name:
-                    contact.name = rand.nextBytes(count: SessionUtil.libSessionMaxNameByteLength)
+                    contact.name = rand.nextBytes(count: SessionUtil.sizeMaxNameBytes)
                         .toHexString()
                         .toLibSession()
                 
                 case .nickname:
-                    contact.nickname = rand.nextBytes(count: SessionUtil.libSessionMaxNameByteLength)
+                    contact.nickname = rand.nextBytes(count: SessionUtil.sizeMaxNicknameBytes)
                         .toHexString()
                         .toLibSession()
                     
                 case .profile_pic:
                     contact.profile_pic = user_profile_pic(
-                        url: rand.nextBytes(count: SessionUtil.libSessionMaxProfileUrlByteLength)
+                        url: rand.nextBytes(count: SessionUtil.sizeMaxProfileUrlBytes)
                             .toHexString()
                             .toLibSession(),
                         key: Data(rand.nextBytes(count: 32))
@@ -2554,13 +2554,13 @@ fileprivate extension LibSessionSpec {
                 case .promoted: member.promoted = true
                 
                 case .name:
-                    member.name = rand.nextBytes(count: SessionUtil.libSessionMaxNameByteLength)
+                    member.name = rand.nextBytes(count: SessionUtil.sizeMaxNameBytes)
                         .toHexString()
                         .toLibSession()
                 
                 case .profile_pic:
                     member.profile_pic = user_profile_pic(
-                        url: rand.nextBytes(count: SessionUtil.libSessionMaxProfileUrlByteLength)
+                        url: rand.nextBytes(count: SessionUtil.sizeMaxProfileUrlBytes)
                             .toHexString()
                             .toLibSession(),
                         key: Data(rand.nextBytes(count: 32))

@@ -73,17 +73,16 @@ public final class BackgroundPoller {
     private static func pollForMessages(
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
-        return CurrentUserPoller
-            .poll(
-                namespaces: CurrentUserPoller.namespaces,
-                for: getUserSessionId(using: dependencies).hexString,
-                calledFromBackgroundPoller: true,
-                isBackgroundPollValid: { BackgroundPoller.isValid },
-                drainBehaviour: .alwaysRandom,
-                using: dependencies
-            )
-            .map { _ in () }
-            .eraseToAnyPublisher()
+        return dependencies[singleton: .currentUserPoller].poll(
+            namespaces: CurrentUserPoller.namespaces,
+            for: getUserSessionId(using: dependencies).hexString,
+            calledFromBackgroundPoller: true,
+            isBackgroundPollValid: { BackgroundPoller.isValid },
+            drainBehaviour: .alwaysRandom,
+            using: dependencies
+        )
+        .map { _ in () }
+        .eraseToAnyPublisher()
     }
     
     private static func pollForClosedGroupMessages(
@@ -104,8 +103,8 @@ public final class BackgroundPoller {
             }
             .defaulting(to: [])
             .map { groupId in
-                ClosedGroupPoller.poll(
-                    namespaces: ClosedGroupPoller.namespaces,
+                dependencies[singleton: .groupsPoller].poll(
+                    namespaces: GroupPoller.namespaces,
                     for: groupId,
                     calledFromBackgroundPoller: true,
                     isBackgroundPollValid: { BackgroundPoller.isValid },

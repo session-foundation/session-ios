@@ -12,3 +12,7 @@ enum TestConstants {
     static let blindedPublicKey: String = "98932d4bccbe595a8789d7eb1629cefc483a0eaddc7e20e8fe5c771efafd9af5"
     static let serverPublicKey: String = "c3b3c6f32f0ab5a57f853cc4f30f5da7fda5624b0c77b3fb0829de562ada081d"
 }
+
+public enum TestError: Error, Equatable {
+    case mock
+}

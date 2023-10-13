@@ -240,7 +240,7 @@ extension MessageReceiver {
         }
         
         // Start polling
-        ClosedGroupPoller.shared.startIfNeeded(for: legacyGroupSessionId, using: dependencies)
+        dependencies[singleton: .groupsPoller].startIfNeeded(for: legacyGroupSessionId, using: dependencies)
         
         // Resubscribe for group push notifications
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)

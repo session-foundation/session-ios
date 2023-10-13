@@ -241,13 +241,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .flatMap { _ in
                     // We may not have sufficient snodes, so rather than failing we try to load/fetch
                     // them if needed
-                    guard !SnodeAPI.hasCachedSnodesIncludingExpired() else {
+                    guard !SnodeAPI.hasCachedSnodesIncludingExpired(using: dependencies) else {
                         return Just(())
                             .setFailureType(to: Error.self)
                             .eraseToAnyPublisher()
                     }
                     
-                    return SnodeAPI.getSnodePool()
+                    return SnodeAPI.getSnodePool(using: dependencies)
                         .map { _ in () }
                         .eraseToAnyPublisher()
                 }
@@ -255,7 +255,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .flatMap { _ -> AnyPublisher<Void, Error> in
                     SnodeAPI
                         .getSwarm(for: publicKey, using: dependencies)
-                        .tryFlatMapWithRandomSnode { snode in
+                        .tryFlatMapWithRandomSnode(using: dependencies) { snode in
                             Just(try SnodeAPI.preparedGetNetworkTime(from: snode, using: dependencies))
                                 .setFailureType(to: Error.self)
                                 .eraseToAnyPublisher()

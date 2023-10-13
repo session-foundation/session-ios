@@ -34,7 +34,7 @@ public enum GetSnodePoolJob: JobExecutor {
         
         // If we don't have the snode pool cached then we should also try to build the path (this will
         // speed up the onboarding process for new users because it can run before the user is created)
-        SnodeAPI.getSnodePool()
+        SnodeAPI.getSnodePool(using: dependencies)
             .flatMap { _ in OnionRequestAPI.getPath(excluding: nil, using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)

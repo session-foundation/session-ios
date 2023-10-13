@@ -9,14 +9,14 @@ import SessionUtilitiesKit
 // MARK: - Singleton
 
 public extension Singleton {
-    static let closedGroupPoller: SingletonConfig<ClosedGroupPoller> = Dependencies.create { _ in
-        ClosedGroupPoller()
+    static let groupsPoller: SingletonConfig<PollerType> = Dependencies.create { _ in
+        GroupPoller()
     }
 }
 
-// MARK: - ClosedGroupPoller
+// MARK: - GroupPoller
 
-public final class ClosedGroupPoller: Poller {
+public final class GroupPoller: Poller {
     public static var legacyNamespaces: [SnodeAPI.Namespace] = [.legacyClosedGroup ]
     public static var namespaces: [SnodeAPI.Namespace] = [
         .groupMessages, .configGroupInfo, .configGroupMembers, .configGroupKeys
@@ -26,10 +26,10 @@ public final class ClosedGroupPoller: Poller {
     
     override func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] {
         guard (try? SessionId.Prefix(from: publicKey)) == .group else {
-            return ClosedGroupPoller.legacyNamespaces
+            return GroupPoller.legacyNamespaces
         }
         
-        return ClosedGroupPoller.namespaces
+        return GroupPoller.namespaces
     }
     
     override var pollDrainBehaviour: SwarmDrainBehaviour { .alwaysRandom }
@@ -37,13 +37,9 @@ public final class ClosedGroupPoller: Poller {
     private static let minPollInterval: Double = 3
     private static let maxPollInterval: Double = 30
 
-    // MARK: - Initialization
-    
-    public static let shared: ClosedGroupPoller = ClosedGroupPoller()
-
     // MARK: - Public API
     
-    public func start(using dependencies: Dependencies = Dependencies()) {
+    public override func start(using dependencies: Dependencies = Dependencies()) {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber and any which are in the 'invited' state)
         dependencies[singleton: .storage]
@@ -63,7 +59,7 @@ public final class ClosedGroupPoller: Poller {
     // MARK: - Abstract Methods
     
     override func pollerName(for publicKey: String) -> String {
-        return "closed group with public key: \(publicKey)"
+        return "closed group with public key: \(publicKey)" // swiftlint:disable
     }
 
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
@@ -86,9 +82,9 @@ public final class ClosedGroupPoller: Poller {
             .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
         
         let timeSinceLastMessage: TimeInterval = dependencies.dateNow.timeIntervalSince(lastMessageDate)
-        let minPollInterval: Double = ClosedGroupPoller.minPollInterval
+        let minPollInterval: Double = GroupPoller.minPollInterval
         let limit: Double = (12 * 60 * 60)
-        let a: TimeInterval = ((ClosedGroupPoller.maxPollInterval - minPollInterval) / limit)
+        let a: TimeInterval = ((GroupPoller.maxPollInterval - minPollInterval) / limit)
         let nextPollInterval: TimeInterval = a * min(timeSinceLastMessage, limit) + minPollInterval
         SNLog("Next poll interval for closed group with public key: \(publicKey) is \(nextPollInterval) s.")
         

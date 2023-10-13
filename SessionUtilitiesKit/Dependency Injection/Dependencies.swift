@@ -36,6 +36,8 @@ public class Dependencies {
     
     // MARK: - Functions
     
+    public func mockableValue<T>(key: String? = nil, _ defaultValue: T) -> T { defaultValue }
+    
     public func async(at fixedTime: Int, closure: @escaping () -> Void) {
         async(at: TimeInterval(fixedTime), closure: closure)
     }
@@ -60,6 +62,20 @@ public class Dependencies {
             var value: M = ((caches[cache.key] as? M) ?? cache.createInstance(self))
             return try mutation(&value)
         }
+    }
+    
+    // MARK: - Random Access Functions
+    
+    public func randomElement<T: Collection>(_ collection: T) -> T.Element? {
+        return collection.randomElement()
+    }
+    
+    public func randomElement<T>(_ elements: Set<T>) -> T? {
+        return elements.randomElement()
+    }
+    
+    public func popRandomElement<T>(_ elements: inout Set<T>) -> T? {
+        return elements.popRandomElement()
     }
 
     // MARK: - Instance upserting

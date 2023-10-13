@@ -38,6 +38,13 @@ public struct Snode: Codable, FetchableRecord, PersistableRecord, TableRecord, C
     }
     
     public var description: String { return "\(address):\(port)" }
+    
+    internal init(address: String, port: UInt16, ed25519PublicKey: String, x25519PublicKey: String) {
+        self.address = address
+        self.port = port
+        self.ed25519PublicKey = ed25519PublicKey
+        self.x25519PublicKey = x25519PublicKey
+    }
 }
 
 // MARK: - Decoder
@@ -49,7 +56,7 @@ extension Snode {
         do {
             let address: String = try container.decode(String.self, forKey: .address)
             
-            guard address != "0.0.0.0" else { throw SnodeAPIError.invalidIP }
+            guard address != "0.0.0.0" else { throw SnodeAPIError.invalidIP }   // stringlint:disable
             
             self = Snode(
                 address: (address.starts(with: "https://") ? address : "https://\(address)"),

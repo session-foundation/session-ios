@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -7,23 +9,6 @@ import GRDB
 import SessionUtilitiesKit
 
 public final class SnodeAPI {
-    private static var hasLoadedSnodePool: Atomic<Bool> = Atomic(false)
-    private static var loadedSwarms: Atomic<Set<String>> = Atomic([])
-    private static var getSnodePoolPublisher: Atomic<AnyPublisher<Set<Snode>, Error>?> = Atomic(nil)
-    
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    internal static var snodeFailureCount: Atomic<[Snode: UInt]> = Atomic([:])
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    internal static var snodePool: Atomic<Set<Snode>> = Atomic([])
-
-    /// The offset between the user's clock and the Service Node's clock. Used in cases where the
-    /// user's clock is incorrect.
-    ///
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    public static var clockOffsetMs: Atomic<Int64> = Atomic(0)
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    public static var swarmCache: Atomic<[String: Set<Snode>]> = Atomic([:])
-    
     // MARK: - Hardfork version
     
     public static var hardfork: Int = Dependencies()[defaults: .standard, key: .hardfork]
@@ -48,55 +33,53 @@ public final class SnodeAPI {
     private static let minSnodePoolCount: Int = 12
     
     public static func currentOffsetTimestampMs(using dependencies: Dependencies = Dependencies()) -> Int64 {
-        let clockOffsetMs: Int64 = SnodeAPI.clockOffsetMs.wrappedValue
+        let clockOffsetMs: Int64 = dependencies[cache: .snodeAPI].clockOffsetMs
         
         return (Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)) + clockOffsetMs)
     }
 
     // MARK: - Snode Pool Interaction
     
-    private static var hasInsufficientSnodes: Bool { snodePool.wrappedValue.count < minSnodePoolCount }
-    
-    private static func loadSnodePoolIfNeeded(
-        using dependencies: Dependencies = Dependencies()
-    ) {
-        guard !hasLoadedSnodePool.wrappedValue else { return }
+    private static func loadSnodePoolIfNeeded(using dependencies: Dependencies) {
+        guard !dependencies[cache: .snodeAPI].hasLoadedSnodePool else { return }
         
         let fetchedSnodePool: Set<Snode> = dependencies[singleton: .storage]
             .read { db in try Snode.fetchSet(db) }
             .defaulting(to: [])
         
-        snodePool.mutate { $0 = fetchedSnodePool }
-        hasLoadedSnodePool.mutate { $0 = true }
+        dependencies.mutate(cache: .snodeAPI) {
+            $0.snodePool = fetchedSnodePool
+            $0.hasLoadedSnodePool = true
+        }
     }
     
     private static func setSnodePool(
         _ db: Database? = nil,
         to newValue: Set<Snode>,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         guard let db: Database = db else {
             dependencies[singleton: .storage].write { db in setSnodePool(db, to: newValue, using: dependencies) }
             return
         }
         
-        snodePool.mutate { $0 = newValue }
+        dependencies.mutate(cache: .snodeAPI) { $0.snodePool = newValue }
         
         _ = try? Snode.deleteAll(db)
         newValue.forEach { try? $0.save(db) }
     }
     
-    private static func dropSnodeFromSnodePool(_ snode: Snode) {
-        var snodePool = SnodeAPI.snodePool.wrappedValue
+    private static func dropSnodeFromSnodePool(_ snode: Snode, using dependencies: Dependencies) {
+        var snodePool: Set<Snode> = dependencies[cache: .snodeAPI].snodePool
         snodePool.remove(snode)
-        setSnodePool(to: snodePool)
+        setSnodePool(to: snodePool, using: dependencies)
     }
     
-    @objc public static func clearSnodePool() {
-        snodePool.mutate { $0.removeAll() }
+    public static func clearSnodePool(using dependencies: Dependencies) {
+        dependencies.mutate(cache: .snodeAPI) { $0.snodePool.removeAll() }
         
         Threading.workQueue.async {
-            setSnodePool(to: [])
+            setSnodePool(to: [], using: dependencies)
         }
     }
     
@@ -104,16 +87,18 @@ public final class SnodeAPI {
     
     private static func loadSwarmIfNeeded(
         for publicKey: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
-        guard !loadedSwarms.wrappedValue.contains(publicKey) else { return }
+        guard !dependencies[cache: .snodeAPI].loadedSwarms.contains(publicKey) else { return }
         
         let updatedCacheForKey: Set<Snode> = dependencies[singleton: .storage]
            .read { db in try Snode.fetchSet(db, publicKey: publicKey) }
            .defaulting(to: [])
         
-        swarmCache.mutate { $0[publicKey] = updatedCacheForKey }
-        loadedSwarms.mutate { $0.insert(publicKey) }
+        dependencies.mutate(cache: .snodeAPI) {
+            $0.swarmCache[publicKey] = updatedCacheForKey
+            $0.loadedSwarms.insert(publicKey)
+        }
     }
     
     private static func setSwarm(
@@ -122,7 +107,7 @@ public final class SnodeAPI {
         persist: Bool = true,
         using dependencies: Dependencies
     ) {
-        swarmCache.mutate { $0[publicKey] = newValue }
+        dependencies.mutate(cache: .snodeAPI) { $0.swarmCache[publicKey] = newValue }
         
         guard persist else { return }
         
@@ -134,9 +119,9 @@ public final class SnodeAPI {
     public static func dropSnodeFromSwarmIfNeeded(
         _ snode: Snode,
         publicKey: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
-        let swarmOrNil = swarmCache.wrappedValue[publicKey]
+        let swarmOrNil: Set<Snode>? = dependencies[cache: .snodeAPI].swarmCache[publicKey]
         guard var swarm = swarmOrNil, let index = swarm.firstIndex(of: snode) else { return }
         swarm.remove(at: index)
         setSwarm(to: swarm, for: publicKey, using: dependencies)
@@ -144,45 +129,43 @@ public final class SnodeAPI {
 
     // MARK: - Snode API
     
-    public static func hasCachedSnodesIncludingExpired(
-        using dependencies: Dependencies = Dependencies()
-    ) -> Bool {
+    public static func hasCachedSnodesIncludingExpired(using dependencies: Dependencies) -> Bool {
         loadSnodePoolIfNeeded(using: dependencies)
         
-        return !hasInsufficientSnodes
+        return !dependencies[cache: .snodeAPI].hasInsufficientSnodes
     }
     
-    public static func getSnodePool(
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Set<Snode>, Error> {
+    public static func getSnodePool(using dependencies: Dependencies) -> AnyPublisher<Set<Snode>, Error> {
         loadSnodePoolIfNeeded(using: dependencies)
         
         let now: Date = Date()
         let hasSnodePoolExpired: Bool = dependencies[singleton: .storage, key: .lastSnodePoolRefreshDate]
             .map { now.timeIntervalSince($0) > 2 * 60 * 60 }
             .defaulting(to: true)
-        let snodePool: Set<Snode> = SnodeAPI.snodePool.wrappedValue
+        let snodePool: Set<Snode> = dependencies[cache: .snodeAPI].snodePool
         
-        guard hasInsufficientSnodes || hasSnodePoolExpired else {
+        guard dependencies[cache: .snodeAPI].hasInsufficientSnodes || hasSnodePoolExpired else {
             return Just(snodePool)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
         
-        if let getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error> = getSnodePoolPublisher.wrappedValue {
+        if let getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error> = dependencies[cache: .snodeAPI].getSnodePoolPublisher {
             return getSnodePoolPublisher
         }
         
-        return getSnodePoolPublisher.mutate { result in
+        return dependencies.mutate(cache: .snodeAPI) { cache in
             /// It was possible for multiple threads to call this at the same time resulting in duplicate promises getting created, while
             /// this should no longer be possible (as the `wrappedValue` should now properly be blocked) this is a sanity check
             /// to make sure we don't create an additional promise when one already exists
-            if let previouslyBlockedPublisher: AnyPublisher<Set<Snode>, Error> = result {
+            if let previouslyBlockedPublisher: AnyPublisher<Set<Snode>, Error> = cache.getSnodePoolPublisher {
                 return previouslyBlockedPublisher
             }
             
             let targetPublisher: AnyPublisher<Set<Snode>, Error> = {
-                guard snodePool.count >= minSnodePoolCount else { return getSnodePoolFromSeedNode(using: dependencies) }
+                guard snodePool.count >= minSnodePoolCount else {
+                    return getSnodePoolFromSeedNode(using: dependencies)
+                }
                 
                 return getSnodePoolFromSnode(using: dependencies)
                     .catch { _ in getSnodePoolFromSeedNode(using: dependencies) }
@@ -205,13 +188,15 @@ public final class SnodeAPI {
                         .eraseToAnyPublisher()
                 }
                 .handleEvents(
-                    receiveCompletion: { _ in getSnodePoolPublisher.mutate { $0 = nil } }
+                    receiveCompletion: { _ in
+                        dependencies.mutate(cache: .snodeAPI) { $0.getSnodePoolPublisher = nil }
+                    }
                 )
                 .shareReplay(1)
                 .eraseToAnyPublisher()
 
             /// Actually assign the atomic value
-            result = publisher
+            cache.getSnodePoolPublisher = publisher
             
             return publisher
                 
@@ -224,7 +209,7 @@ public final class SnodeAPI {
     ) -> AnyPublisher<Set<Snode>, Error> {
         loadSwarmIfNeeded(for: publicKey, using: dependencies)
         
-        if let cachedSwarm = swarmCache.wrappedValue[publicKey], cachedSwarm.count >= minSwarmSnodeCount {
+        if let cachedSwarm = dependencies[cache: .snodeAPI].swarmCache[publicKey], cachedSwarm.count >= minSwarmSnodeCount {
             return Just(cachedSwarm)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
@@ -816,7 +801,7 @@ public final class SnodeAPI {
                 // Assume we've fetched the networkTime in order to send a message to the specified snode, in
                 // which case we want to update the 'clockOffsetMs' value for subsequent requests
                 let offset = (Int64(response.timestamp) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
-                SnodeAPI.clockOffsetMs.mutate { $0 = offset }
+                dependencies.mutate(cache: .snodeAPI) { $0.clockOffsetMs = offset }
 
                 return response.timestamp
             }
@@ -894,7 +879,7 @@ public final class SnodeAPI {
     private static func getSnodePoolFromSnode(
         using dependencies: Dependencies
     ) -> AnyPublisher<Set<Snode>, Error> {
-        var snodePool = SnodeAPI.snodePool.wrappedValue
+        var snodePool: Set<Snode> = dependencies[cache: .snodeAPI].snodePool
         var snodes: Set<Snode> = []
         (0..<3).forEach { _ in
             guard let snode = snodePool.randomElement() else { return }
@@ -1100,18 +1085,18 @@ public final class SnodeAPI {
         using dependencies: Dependencies
     ) -> Error? {
         func handleBadSnode(using dependencies: Dependencies) {
-            let oldFailureCount = (SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0)
+            let oldFailureCount = (dependencies[cache: .snodeAPI].snodeFailureCount[snode] ?? 0)
             let newFailureCount = oldFailureCount + 1
-            SnodeAPI.snodeFailureCount.mutate { $0[snode] = newFailureCount }
+            dependencies.mutate(cache: .snodeAPI) { $0.snodeFailureCount[snode] = newFailureCount }
             SNLog("Couldn't reach snode at: \(snode); setting failure count to \(newFailureCount).")
             if newFailureCount >= SnodeAPI.snodeFailureThreshold {
                 SNLog("Failure threshold reached for: \(snode); dropping it.")
                 if let publicKey = publicKey {
                     SnodeAPI.dropSnodeFromSwarmIfNeeded(snode, publicKey: publicKey, using: dependencies)
                 }
-                SnodeAPI.dropSnodeFromSnodePool(snode)
-                SNLog("Snode pool count: \(snodePool.wrappedValue.count).")
-                SnodeAPI.snodeFailureCount.mutate { $0[snode] = 0 }
+                SnodeAPI.dropSnodeFromSnodePool(snode, using: dependencies)
+                SNLog("Snode pool count: \(dependencies[cache: .snodeAPI].snodePool.count).")
+                dependencies.mutate(cache: .snodeAPI) { $0.snodeFailureCount[snode] = 0 }
             }
         }
         
@@ -1204,6 +1189,7 @@ public extension Publisher where Output == Set<Snode> {
         maxPublishers: Subscribers.Demand = .unlimited,
         retry retries: Int = 0,
         drainBehaviour: Atomic<SwarmDrainBehaviour> = .alwaysRandom,
+        using dependencies: Dependencies = Dependencies(),
         _ transform: @escaping (Snode) throws -> P
     ) -> AnyPublisher<T, Error> where T == P.Output, P: Publisher, P.Failure == Error {
         return self
@@ -1235,7 +1221,9 @@ public extension Publisher where Output == Set<Snode> {
                             }
                             
                             // Select the next snode
-                            return try remainingSnodes.popRandomElement() ?? { throw SnodeAPIError.generic }()
+                            return try dependencies.popRandomElement(&remainingSnodes) ?? {
+                                throw SnodeAPIError.generic
+                            }()
                         }()
                         drainBehaviour.mutate { $0 = $0.use(snode: snode) }
                         
@@ -1308,4 +1296,83 @@ private extension Request {
             )
         )
     }
+}
+
+// MARK: - SnodeAPI Cache
+
+public extension SnodeAPI {
+    class Cache: SnodeAPICacheType {
+        public var hasLoadedSnodePool: Bool = false
+        public var loadedSwarms: Set<String> = []
+        public var getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error>?
+        
+        /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+        public var snodeFailureCount: [Snode: UInt] = [:]
+        /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+        public var snodePool: Set<Snode> = []
+
+        /// The offset between the user's clock and the Service Node's clock. Used in cases where the
+        /// user's clock is incorrect.
+        ///
+        /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+        public var clockOffsetMs: Int64 = 0
+        /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+        public var swarmCache: [String: Set<Snode>] = [:]
+        
+        public var hasInsufficientSnodes: Bool { snodePool.count < SnodeAPI.minSnodePoolCount }
+    }
+}
+
+public extension Cache {
+    static let snodeAPI: CacheConfig<SnodeAPICacheType, SnodeAPIImmutableCacheType> = Dependencies.create(
+        createInstance: { _ in SnodeAPI.Cache() },
+        mutableInstance: { $0 },
+        immutableInstance: { $0 }
+    )
+}
+
+// MARK: - SnodeAPICacheType
+
+/// This is a read-only version of the `OpenGroupManager.Cache` designed to avoid unintentionally mutating the instance in a
+/// non-thread-safe way
+public protocol SnodeAPIImmutableCacheType: ImmutableCacheType {
+    var hasLoadedSnodePool: Bool { get }
+    var loadedSwarms: Set<String> { get }
+    var getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error>? { get }
+    
+    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+    var snodeFailureCount: [Snode: UInt] { get }
+    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+    var snodePool: Set<Snode> { get }
+
+    /// The offset between the user's clock and the Service Node's clock. Used in cases where the
+    /// user's clock is incorrect.
+    ///
+    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+    var clockOffsetMs: Int64 { get }
+    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+    var swarmCache: [String: Set<Snode>] { get }
+    
+    var hasInsufficientSnodes: Bool { get }
+}
+
+public protocol SnodeAPICacheType: SnodeAPIImmutableCacheType, MutableCacheType {
+    var hasLoadedSnodePool: Bool { get set }
+    var loadedSwarms: Set<String> { get set }
+    var getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error>? { get set }
+    
+    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+    var snodeFailureCount: [Snode: UInt] { get set }
+    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+    var snodePool: Set<Snode> { get set }
+
+    /// The offset between the user's clock and the Service Node's clock. Used in cases where the
+    /// user's clock is incorrect.
+    ///
+    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+    var clockOffsetMs: Int64 { get set }
+    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
+    var swarmCache: [String: Set<Snode>] { get set }
+    
+    var hasInsufficientSnodes: Bool { get }
 }

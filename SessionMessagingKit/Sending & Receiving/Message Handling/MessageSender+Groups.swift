@@ -123,7 +123,7 @@ extension MessageSender {
             .handleEvents(
                 receiveOutput: { _, _, thread, _, members, preparedNotificationSubscription in
                     // Start polling
-                    dependencies[singleton: .closedGroupPoller].startIfNeeded(for: thread.id, using: dependencies)
+                    dependencies[singleton: .groupsPoller].startIfNeeded(for: thread.id, using: dependencies)
                     
                     // Subscribe for push notifications (if PNs are enabled)
                     preparedNotificationSubscription?
