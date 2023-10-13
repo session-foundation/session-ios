@@ -50,7 +50,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
         updateTitle(item: item)
         updateCaption(item: item)
-        setViewControllers([galleryPage], direction: direction, animated: isAnimated)
+        setViewControllers([galleryPage], direction: direction, animated: isAnimated) { [weak galleryPage] _ in
+            galleryPage?.parentDidAppear() // Trigger any custom appearance animations
+        }
         updateFooterBarButtonItems()
         updateMediaRail(item: item)
     }
@@ -658,6 +660,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                     captionContainerView.completePagerTransition()
                 }
 
+                currentViewController.parentDidAppear() // Trigger any custom appearance animations
                 updateTitle(item: currentItem)
                 updateMediaRail(item: currentItem)
                 previousPage.zoomOut(animated: false)
