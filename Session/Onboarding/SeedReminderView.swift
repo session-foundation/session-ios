@@ -8,6 +8,7 @@ final class SeedReminderView: UIView {
     private static let progressBarThickness: CGFloat = 2
     
     private let hasContinueButton: Bool
+    private let hasSessionShieldIcon: Bool
     
     var title = NSAttributedString(string: "") { didSet { titleLabel.attributedText = title } }
     var subtitle = "" { didSet { subtitleLabel.text = subtitle } }
@@ -46,8 +47,9 @@ final class SeedReminderView: UIView {
     
     // MARK: - Lifecycle
     
-    init(hasContinueButton: Bool) {
+    init(hasContinueButton: Bool, hasSessionShieldIcon: Bool) {
         self.hasContinueButton = hasContinueButton
+        self.hasSessionShieldIcon = hasSessionShieldIcon
         
         super.init(frame: CGRect.zero)
         
@@ -75,8 +77,19 @@ final class SeedReminderView: UIView {
         subtitleLabel.pin(.leading, to: .leading, of: subtitleContainerView)
         subtitleLabel.pin(.trailing, to: .trailing, of: subtitleContainerView)
         
+        let sessionShieldIcon: UIImageView = UIImageView(
+            image: UIImage(named: "SessionShieldFilled")?.withRenderingMode(.alwaysTemplate)
+        )
+        sessionShieldIcon.contentMode = .scaleAspectFill
+        sessionShieldIcon.set(.height, to: 16)
+        sessionShieldIcon.set(.width, to: 14)
+        sessionShieldIcon.isHidden = !hasSessionShieldIcon
+        let titleContainerView: UIStackView = UIStackView(arrangedSubviews: [titleLabel, sessionShieldIcon, UIView.hStretchingSpacer()])
+        titleContainerView.axis = .horizontal
+        titleContainerView.spacing = Values.verySmallSpacing
+        
         // Set up label stack view
-        let labelStackView = UIStackView(arrangedSubviews: [ titleLabel, subtitleContainerView ])
+        let labelStackView = UIStackView(arrangedSubviews: [ titleContainerView, subtitleContainerView ])
         labelStackView.axis = .vertical
         labelStackView.spacing = 4
         
@@ -86,7 +99,7 @@ final class SeedReminderView: UIView {
         button.accessibilityLabel = "Continue"
         button.isAccessibilityElement = true
         button.setTitle("continue_2".localized(), for: UIControl.State.normal)
-        button.set(.width, greaterThanOrEqualTo: 96)
+        button.set(.width, greaterThanOrEqualTo: 80)
         button.addTarget(self, action: #selector(handleContinueButtonTapped), for: UIControl.Event.touchUpInside)
         
         // Set up content stack view

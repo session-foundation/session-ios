@@ -59,7 +59,7 @@ final class SeedVC: BaseVC {
     // MARK: - Components
     
     private lazy var seedReminderView: SeedReminderView = {
-        let result = SeedReminderView(hasContinueButton: false)
+        let result = SeedReminderView(hasContinueButton: false, hasSessionShieldIcon: false)
         result.subtitle = "view_seed_reminder_subtitle_2".localized()
         result.setProgress(0.9, animated: false)
         

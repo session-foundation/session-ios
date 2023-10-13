@@ -48,9 +48,9 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     private var tableViewTopConstraint: NSLayoutConstraint!
     
     private lazy var seedReminderView: SeedReminderView = {
-        let result = SeedReminderView(hasContinueButton: true)
+        let result = SeedReminderView(hasContinueButton: true, hasSessionShieldIcon: true)
         result.accessibilityLabel = "Recovery phrase reminder"
-        let title = "onboarding_recovery_password_title".localized()
+        result.title = NSAttributedString(string: "onboarding_recovery_password_title".localized())
         result.subtitle = "onboarding_recovery_password_subtitle".localized()
         result.setProgress(1, animated: false)
         result.delegate = self
