@@ -895,10 +895,12 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         }
         
         // Now we have done all the needed diffs update the viewModel with the latest data
+        let oldCanWrite: Bool = viewModel.threadData.canWrite
         self.viewModel.updateThreadData(updatedThreadData)
         
-        /// **Note:** This needs to happen **after** we have update the viewModel's thread data
-        if initialLoad || viewModel.threadData.currentUserIsClosedGroupMember != updatedThreadData.currentUserIsClosedGroupMember {
+        /// **Note:** This needs to happen **after** we have update the viewModel's thread data (otherwise the `inputAccessoryView`
+        /// won't be generated correctly)
+        if initialLoad || oldCanWrite != updatedThreadData.canWrite {
             if !self.isFirstResponder {
                 self.becomeFirstResponder()
             }

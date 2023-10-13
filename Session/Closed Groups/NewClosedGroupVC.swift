@@ -320,7 +320,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         else {
             return showError(title: "vc_create_closed_group_group_name_missing_error".localized())
         }
-        guard name.utf8CString.count < SessionUtil.libSessionMaxGroupNameByteLength else {
+        guard name.utf8CString.count < SessionUtil.sizeMaxGroupNameBytes else {
             return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
         }
         guard selectedProfiles.count >= 1 else {

@@ -45,7 +45,7 @@ public enum SessionUtil {
         // Ensure we have the ed25519 key and that we haven't already loaded the state before
         // we continue
         guard
-            let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair(db, using: dependencies)?.secretKey,
+            let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies),
             dependencies[cache: .sessionUtil].isEmpty
         else { return SNLog("[SessionUtil] Ignoring loadState due to existing state") }
         
@@ -58,11 +58,14 @@ public enum SessionUtil {
             .asSet()
         let missingRequiredVariants: Set<ConfigDump.Variant> = ConfigDump.Variant.userVariants
             .subtracting(existingDumpVariants)
-        let groupsByKey: [String: Data] = (try? ClosedGroup
-            .filter(ids: existingDumps.map { $0.sessionId.hexString })
+        let groupsByKey: [String: ClosedGroup] = (try? ClosedGroup
+            .filter(ClosedGroup.Columns.threadId.like("\(SessionId.Prefix.group.rawValue)%"))
             .fetchAll(db)
-            .reduce(into: [:]) { result, next in result[next.threadId] = next.groupIdentityPrivateKey })
+            .reduce(into: [:]) { result, next in result[next.threadId] = next })
             .defaulting(to: [:])
+        let groupsWithNoDumps: [ClosedGroup] = groupsByKey
+            .values
+            .filter { group in !existingDumps.contains(where: { $0.sessionId.hexString == group.id }) }
         
         // Create the config records for each dump
         dependencies.mutate(cache: .sessionUtil) { cache in
@@ -74,8 +77,10 @@ public enum SessionUtil {
                         .loadState(
                             for: dump.variant,
                             sessionId: dump.sessionId,
-                            userEd25519SecretKey: ed25519SecretKey,
-                            groupEd25519SecretKey: groupsByKey[dump.sessionId.hexString].map { Array($0) },
+                            userEd25519SecretKey: ed25519KeyPair.secretKey,
+                            groupEd25519SecretKey: groupsByKey[dump.sessionId.hexString]?
+                                .groupIdentityPrivateKey
+                                .map { Array($0) },
                             cachedData: dump.data,
                             cache: cache
                         )
@@ -83,6 +88,8 @@ public enum SessionUtil {
                 )
             }
             
+            /// It's possible for there to not be dumps for all of the user configs so we load any missing ones to ensure funcitonality
+            /// works smoothly
             missingRequiredVariants.forEach { variant in
                 cache.setConfig(
                     for: variant,
@@ -91,7 +98,7 @@ public enum SessionUtil {
                         .loadState(
                             for: variant,
                             sessionId: userSessionId,
-                            userEd25519SecretKey: ed25519SecretKey,
+                            userEd25519SecretKey: ed25519KeyPair.secretKey,
                             groupEd25519SecretKey: nil,
                             cachedData: nil,
                             cache: cache
@@ -100,6 +107,22 @@ public enum SessionUtil {
                 )
             }
         }
+        
+        /// It's possible for a group to get created but for a dump to not be created (eg. when a crash happens at the right time), to
+        /// handle this we also load the state of any groups which don't have dumps if they aren't in the `invited` state (those in
+        /// the `invited` state will have their state loaded if the invite is accepted)
+        groupsWithNoDumps
+            .filter { $0.invited != true }
+            .forEach { group in
+                _ = try? SessionUtil.createGroupState(
+                    groupSessionId: SessionId(.group, hex: group.id),
+                    userED25519KeyPair: ed25519KeyPair,
+                    groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+                    authData: group.authData,
+                    shouldLoadState: true,
+                    using: dependencies
+                )
+            }
         
         SNLog("[SessionUtil] Completed loadState")
     }
@@ -498,9 +521,9 @@ public enum SessionUtil {
 public extension SessionUtil {
     static func parseCommunity(url: String) -> (room: String, server: String, publicKey: String)? {
         var cFullUrl: [CChar] = url.cArray.nullTerminated()
-        var cBaseUrl: [CChar] = [CChar](repeating: 0, count: COMMUNITY_BASE_URL_MAX_LENGTH)
-        var cRoom: [CChar] = [CChar](repeating: 0, count: COMMUNITY_ROOM_MAX_LENGTH)
-        var cPubkey: [UInt8] = [UInt8](repeating: 0, count: OpenGroup.pubkeyByteLength)
+        var cBaseUrl: [CChar] = [CChar](repeating: 0, count: SessionUtil.sizeMaxCommunityBaseUrlBytes)
+        var cRoom: [CChar] = [CChar](repeating: 0, count: SessionUtil.sizeMaxCommunityRoomBytes)
+        var cPubkey: [UInt8] = [UInt8](repeating: 0, count: SessionUtil.sizeCommunityPubkeyBytes)
         
         guard
             community_parse_full_url(&cFullUrl, &cBaseUrl, &cRoom, &cPubkey) &&

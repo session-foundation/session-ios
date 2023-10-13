@@ -623,7 +623,7 @@ public extension SessionUtil {
                 let roomToken: String = String(libSessionVal: community.room)
                 let publicKey: String = Data(
                     libSessionVal: community.pubkey,
-                    count: OpenGroup.pubkeyByteLength
+                    count: SessionUtil.sizeCommunityPubkeyBytes
                 ).toHexString()
                 
                 result.append(

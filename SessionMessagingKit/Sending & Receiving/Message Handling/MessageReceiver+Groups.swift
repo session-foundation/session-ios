@@ -37,6 +37,7 @@ extension MessageReceiver {
             threadId: groupSessionId,
             name: (name ?? "GROUP_TITLE_FALLBACK".localized()),
             formationTimestamp: TimeInterval(joinedAt),
+            shouldPoll: false,
             groupIdentityPrivateKey: groupIdentityPrivateKey,
             authData: authData,
             invited: invited

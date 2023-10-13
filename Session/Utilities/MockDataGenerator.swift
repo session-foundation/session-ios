@@ -197,6 +197,7 @@ enum MockDataGenerator {
                     threadId: randomLegacyGroupPublicKey,
                     name: groupName,
                     formationTimestamp: timestampNow,
+                    shouldPoll: true,
                     invited: false
                 )
                 .saved(db)
@@ -206,6 +207,7 @@ enum MockDataGenerator {
                         groupId: randomLegacyGroupPublicKey,
                         profileId: memberId,
                         role: .standard,
+                        roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
                     )
                     .save(db)
@@ -215,6 +217,7 @@ enum MockDataGenerator {
                         groupId: randomLegacyGroupPublicKey,
                         profileId: adminId,
                         role: .admin,
+                        roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
                     )
                     .save(db)

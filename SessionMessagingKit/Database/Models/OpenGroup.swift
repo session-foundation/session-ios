@@ -63,9 +63,6 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
         static let all: Permissions = [ .read, .write, .upload ]
     }
     
-    /// The Community public key takes up 32 bytes
-    static let pubkeyByteLength: Int = 32
-    
     public var id: String { threadId }  // Identifiable
     
     /// The id for the thread this open group belongs to

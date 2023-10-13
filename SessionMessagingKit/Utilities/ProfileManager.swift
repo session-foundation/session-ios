@@ -38,11 +38,11 @@ public struct ProfileManager {
     // MARK: - Functions
     
     public static func isToLong(profileName: String) -> Bool {
-        return (profileName.utf8CString.count > SessionUtil.libSessionMaxNameByteLength)
+        return (profileName.utf8CString.count > SessionUtil.sizeMaxNameBytes)
     }
     
     public static func isToLong(profileUrl: String) -> Bool {
-        return (profileUrl.utf8CString.count > SessionUtil.libSessionMaxProfileUrlByteLength)
+        return (profileUrl.utf8CString.count > SessionUtil.sizeMaxProfileUrlBytes)
     }
     
     public static func profileAvatar(

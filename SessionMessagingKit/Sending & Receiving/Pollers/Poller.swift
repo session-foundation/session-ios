@@ -165,7 +165,7 @@ public class Poller {
         
         let pollerName: String = (
             poller?.pollerName(for: publicKey) ??
-            "poller with public key \(publicKey)"
+            "poller with public key \(publicKey)"   // stringlint:disable
         )
         let configHashes: [String] = SessionUtil.configHashes(for: publicKey, using: dependencies)
         

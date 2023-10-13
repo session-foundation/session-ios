@@ -42,7 +42,8 @@ extension MessageSender {
                     threadId: legacyGroupSessionId,
                     name: name,
                     formationTimestamp: formationTimestamp,
-                    invited: false // Legacy groups are never in the "invite" state
+                    shouldPoll: true,   // Legacy groups should always poll
+                    invited: false      // Legacy groups are never in the "invite" state
                 ).insert(db)
                 
                 // Store the key pair
@@ -60,6 +61,7 @@ extension MessageSender {
                         groupId: legacyGroupSessionId,
                         profileId: adminId,
                         role: .admin,
+                        roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
                     ).save(db)
                 }
@@ -69,6 +71,7 @@ extension MessageSender {
                         groupId: legacyGroupSessionId,
                         profileId: memberId,
                         role: .standard,
+                        roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
                     ).save(db)
                 }
@@ -483,6 +486,7 @@ extension MessageSender {
                 groupId: closedGroup.id,
                 profileId: member,
                 role: .standard,
+                roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
             ).save(db)
         }

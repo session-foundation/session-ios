@@ -163,7 +163,8 @@ extension MessageReceiver {
             threadId: legacyGroupSessionId,
             name: name,
             formationTimestamp: (TimeInterval(formationTimestampMs) / 1000),
-            invited: false // Legacy groups are never in the "invite" state
+            shouldPoll: true,   // Legacy groups should always poll
+            invited: false      // Legacy groups are never in the "invite" state
         ).saved(db)
         
         // Clear the zombie list if the group wasn't active (ie. had no keys)
@@ -177,6 +178,7 @@ extension MessageReceiver {
                 groupId: legacyGroupSessionId,
                 profileId: memberId,
                 role: .standard,
+                roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
             ).save(db)
         }
@@ -186,6 +188,7 @@ extension MessageReceiver {
                 groupId: legacyGroupSessionId,
                 profileId: adminId,
                 role: .admin,
+                roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
             ).save(db)
         }
@@ -431,6 +434,7 @@ extension MessageReceiver {
                             groupId: threadId,
                             profileId: memberId,
                             role: .standard,
+                            roleStatus: .accepted,  // Legacy group members don't have role statuses
                             isHidden: false
                         ).save(db)
                     }
@@ -633,6 +637,7 @@ extension MessageReceiver {
                         groupId: threadId,
                         profileId: sender,
                         role: .zombie,
+                        roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
                     ).save(db)
                 }

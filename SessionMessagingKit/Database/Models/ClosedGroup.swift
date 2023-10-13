@@ -20,6 +20,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     public enum CodingKeys: String, CodingKey, ColumnExpression {
         case threadId
         case name
+        case groupDescription
         case formationTimestamp
         
         case displayPictureUrl
@@ -27,6 +28,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
         case displayPictureEncryptionKey
         case lastDisplayPictureUpdate
         
+        case shouldPoll
         case groupIdentityPrivateKey
         case authData
         case invited
@@ -40,6 +42,7 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     /// **Note:** This value will always be publicKey for the closed group
     public let threadId: String
     public let name: String
+    public let groupDescription: String?
     public let formationTimestamp: TimeInterval
     
     /// The URL from which to fetch the groups's display picture.
@@ -53,6 +56,9 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     
     /// The timestamp (in seconds since epoch) that the display picture was last updated
     public let lastDisplayPictureUpdate: TimeInterval?
+    
+    /// A flag indicating whether we should poll for messages in this group
+    public let shouldPoll: Bool?
     
     /// The private key for performing admin actions on this group
     public let groupIdentityPrivateKey: Data?
@@ -104,22 +110,26 @@ public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRe
     public init(
         threadId: String,
         name: String,
+        groupDescription: String? = nil,
         formationTimestamp: TimeInterval,
         displayPictureUrl: String? = nil,
         displayPictureFilename: String? = nil,
         displayPictureEncryptionKey: Data? = nil,
         lastDisplayPictureUpdate: TimeInterval? = nil,
+        shouldPoll: Bool?,
         groupIdentityPrivateKey: Data? = nil,
         authData: Data? = nil,
         invited: Bool?
     ) {
         self.threadId = threadId
         self.name = name
+        self.groupDescription = groupDescription
         self.formationTimestamp = formationTimestamp
         self.displayPictureUrl = displayPictureUrl
         self.displayPictureFilename = displayPictureFilename
         self.displayPictureEncryptionKey = displayPictureEncryptionKey
         self.lastDisplayPictureUpdate = lastDisplayPictureUpdate
+        self.shouldPoll = shouldPoll
         self.groupIdentityPrivateKey = groupIdentityPrivateKey
         self.authData = authData
         self.invited = invited
@@ -158,27 +168,6 @@ public extension ClosedGroup {
         case forced
     }
     
-    /// The Group public key takes up 32 bytes
-    static func pubKeyByteLength(for variant: SessionThread.Variant) -> Int {
-        return 32
-    }
-    
-    /// The Group secret key size differs between legacy and updated groups
-    static func secretKeyByteLength(for variant: SessionThread.Variant) -> Int {
-        switch variant {
-            case .group: return 64
-            default: return 32
-        }
-    }
-    
-    /// The Group authData size differs between legacy and updated groups
-    static func authDataByteLength(for variant: SessionThread.Variant) -> Int {
-        switch variant {
-            case .group: return 100
-            default: return 0
-        }
-    }
-    
     static func approveGroup(
         _ db: Database,
         group: ClosedGroup,
@@ -189,12 +178,13 @@ public extension ClosedGroup {
             throw MessageReceiverError.noUserED25519KeyPair
         }
         
-        if group.invited == true {
+        if group.invited == true || group.shouldPoll != true {
             try ClosedGroup
                 .filter(id: group.id)
                 .updateAllAndConfig(
                     db,
                     ClosedGroup.Columns.invited.set(to: false),
+                    ClosedGroup.Columns.shouldPoll.set(to: true),
                     calledFromConfig: calledFromConfigHandling,
                     using: dependencies
                 )
@@ -205,6 +195,7 @@ public extension ClosedGroup {
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: group.groupIdentityPrivateKey,
             authData: group.authData,
+            shouldLoadState: true,
             using: dependencies
         )
         

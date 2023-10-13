@@ -10,10 +10,16 @@ import SessionSnodeKit
 // MARK: - Size Restrictions
 
 public extension SessionUtil {
-    static var libSessionMaxGroupNameByteLength: Int { GROUP_NAME_MAX_LENGTH }
-    static var libSessionMaxGroupBaseUrlByteLength: Int { COMMUNITY_BASE_URL_MAX_LENGTH }
-    static var libSessionMaxGroupFullUrlByteLength: Int { COMMUNITY_FULL_URL_MAX_LENGTH }
-    static var libSessionMaxCommunityRoomByteLength: Int { COMMUNITY_ROOM_MAX_LENGTH }
+    static var sizeMaxGroupNameBytes: Int { GROUP_NAME_MAX_LENGTH }
+    static var sizeMaxCommunityBaseUrlBytes: Int { COMMUNITY_BASE_URL_MAX_LENGTH }
+    static var sizeMaxCommunityFullUrlBytes: Int { COMMUNITY_FULL_URL_MAX_LENGTH }
+    static var sizeMaxCommunityRoomBytes: Int { COMMUNITY_ROOM_MAX_LENGTH }
+ 
+    static var sizeCommunityPubkeyBytes: Int { 32 }
+    static var sizeLegacyGroupPubkeyBytes: Int { 32 }
+    static var sizeLegacyGroupSecretKeyBytes: Int { 32 }
+    static var sizeGroupSecretKeyBytes: Int { 64 }
+    static var sizeGroupAuthDataBytes: Int { 100 }
 }
 
 // MARK: - UserGroups Handling
@@ -58,7 +64,7 @@ internal extension SessionUtil {
                             roomToken: roomToken,
                             publicKey: Data(
                                 libSessionVal: community.pubkey,
-                                count: OpenGroup.pubkeyByteLength
+                                count: SessionUtil.sizeCommunityPubkeyBytes
                             ).toHexString()
                         ),
                         priority: community.priority
@@ -77,11 +83,11 @@ internal extension SessionUtil {
                             threadId: groupId,
                             publicKey: Data(
                                 libSessionVal: legacyGroup.enc_pubkey,
-                                count: ClosedGroup.pubKeyByteLength(for: .legacyGroup)
+                                count: SessionUtil.sizeLegacyGroupPubkeyBytes
                             ),
                             secretKey: Data(
                                 libSessionVal: legacyGroup.enc_seckey,
-                                count: ClosedGroup.secretKeyByteLength(for: .legacyGroup)
+                                count: SessionUtil.sizeLegacyGroupSecretKeyBytes
                             ),
                             receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
                         ),
@@ -99,6 +105,7 @@ internal extension SessionUtil {
                                     groupId: groupId,
                                     profileId: memberId,
                                     role: .standard,
+                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
                                     isHidden: false
                                 )
                             },
@@ -109,6 +116,7 @@ internal extension SessionUtil {
                                     groupId: groupId,
                                     profileId: memberId,
                                     role: .admin,
+                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
                                     isHidden: false
                                 )
                             },
@@ -126,7 +134,7 @@ internal extension SessionUtil {
                         groupIdentityPrivateKey: (!group.have_secretkey ? nil :
                             Data(
                                 libSessionVal: group.secretkey,
-                                count: ClosedGroup.secretKeyByteLength(for: .group),
+                                count: SessionUtil.sizeGroupSecretKeyBytes,
                                 nullIfEmpty: true
                             )
                         ),
@@ -134,7 +142,7 @@ internal extension SessionUtil {
                         authData: (!group.have_auth_data ? nil :
                             Data(
                                 libSessionVal: group.auth_data,
-                                count: ClosedGroup.authDataByteLength(for: .group),
+                                count: SessionUtil.sizeGroupAuthDataBytes,
                                 nullIfEmpty: true
                             )
                         ),
@@ -334,6 +342,7 @@ internal extension SessionUtil {
                                 groupId: admin.groupId,
                                 profileId: admin.profileId,
                                 role: .standard,
+                                roleStatus: .accepted,  // Legacy group members don't have role statuses
                                 isHidden: false
                             )
                         }
@@ -842,6 +851,7 @@ public extension SessionUtil {
                                     groupId: legacyGroupSessionId,
                                     profileId: memberId,
                                     role: .standard,
+                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
                                     isHidden: false
                                 )
                             },
@@ -851,6 +861,7 @@ public extension SessionUtil {
                                     groupId: legacyGroupSessionId,
                                     profileId: memberId,
                                     role: .admin,
+                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
                                     isHidden: false
                                 )
                             },
@@ -891,6 +902,7 @@ public extension SessionUtil {
                                     groupId: legacyGroupSessionId,
                                     profileId: memberId,
                                     role: .standard,
+                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
                                     isHidden: false
                                 )
                             },
@@ -900,6 +912,7 @@ public extension SessionUtil {
                                     groupId: legacyGroupSessionId,
                                     profileId: memberId,
                                     role: .admin,
+                                    roleStatus: .accepted,  // Legacy group members don't have role statuses
                                     isHidden: false
                                 )
                             }

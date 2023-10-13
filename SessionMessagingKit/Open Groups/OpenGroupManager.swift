@@ -471,6 +471,7 @@ public final class OpenGroupManager {
                     groupId: threadId,
                     profileId: adminId,
                     role: .admin,
+                    roleStatus: .accepted,  // Community members don't have role statuses
                     isHidden: false
                 ).save(db)
             }
@@ -482,6 +483,7 @@ public final class OpenGroupManager {
                         groupId: threadId,
                         profileId: adminId,
                         role: .admin,
+                        roleStatus: .accepted,  // Community members don't have role statuses
                         isHidden: true
                     ).save(db)
                 }
@@ -491,6 +493,7 @@ public final class OpenGroupManager {
                     groupId: threadId,
                     profileId: moderatorId,
                     role: .moderator,
+                    roleStatus: .accepted,      // Community members don't have role statuses
                     isHidden: false
                 ).save(db)
             }
@@ -502,6 +505,7 @@ public final class OpenGroupManager {
                         groupId: threadId,
                         profileId: moderatorId,
                         role: .moderator,
+                        roleStatus: .accepted,  // Community members don't have role statuses
                         isHidden: true
                     ).save(db)
                 }

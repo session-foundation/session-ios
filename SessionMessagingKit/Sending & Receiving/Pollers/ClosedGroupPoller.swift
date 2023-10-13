@@ -50,11 +50,7 @@ public final class ClosedGroupPoller: Poller {
             .read { db -> Set<String> in
                 try ClosedGroup
                     .select(.threadId)
-                    .filter(ClosedGroup.Columns.invited == false)
-                    .joining(
-                        required: ClosedGroup.members
-                            .filter(GroupMember.Columns.profileId == getUserSessionId(db, using: dependencies).hexString)
-                    )
+                    .filter(ClosedGroup.Columns.shouldPoll == true)                    
                     .asRequest(of: String.self)
                     .fetchSet(db)
             }

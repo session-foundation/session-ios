@@ -33,11 +33,7 @@ internal extension SessionUtil {
             let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies)
         else { throw MessageSenderError.noKeyPair }
         
-        // There will probably be custom init functions, will need a way to save the conf into
-        // the in-memory state after init though
-        var secretKey: [UInt8] = userED25519KeyPair.secretKey
-        var groupIdentityPublicKey: [UInt8] = groupIdentityKeyPair.publicKey
-        var groupIdentityPrivateKey: [UInt8] = groupIdentityKeyPair.secretKey
+        // Prep the relevant details
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         let creationTimestamp: TimeInterval = TimeInterval(
             SnodeAPI.currentOffsetTimestampMs(using: dependencies) / 1000
@@ -46,43 +42,17 @@ internal extension SessionUtil {
         let currentUserProfile: Profile? = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
         
         // Create the new config objects
-        var groupKeysConf: UnsafeMutablePointer<config_group_keys>? = nil
-        var groupInfoConf: UnsafeMutablePointer<config_object>? = nil
-        var groupMembersConf: UnsafeMutablePointer<config_object>? = nil
-        var error: [CChar] = [CChar](repeating: 0, count: 256)
-        try groups_info_init(
-            &groupInfoConf,
-            &groupIdentityPublicKey,
-            &groupIdentityPrivateKey,
-            nil,
-            0,
-            &error
-        ).orThrow(error: error)
-        try groups_members_init(
-            &groupMembersConf,
-            &groupIdentityPublicKey,
-            &groupIdentityPrivateKey,
-            nil,
-            0,
-            &error
-        ).orThrow(error: error)
-        try groups_keys_init(
-            &groupKeysConf,
-            &secretKey,
-            &groupIdentityPublicKey,
-            &groupIdentityPrivateKey,
-            groupInfoConf,
-            groupMembersConf,
-            nil,
-            0,
-            &error
-        ).orThrow(error: error)
+        let groupState: [ConfigDump.Variant: Config] = try createGroupState(
+            groupSessionId: groupSessionId,
+            userED25519KeyPair: userED25519KeyPair,
+            groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
+            authData: nil,
+            shouldLoadState: false, // We manually load the state after populating the configs
+            using: dependencies
+        )
         
-        guard
-            let keysConf: UnsafeMutablePointer<config_group_keys> = groupKeysConf,
-            let infoConf: UnsafeMutablePointer<config_object> = groupInfoConf,
-            let membersConf: UnsafeMutablePointer<config_object> = groupMembersConf
-        else {
+        // Extract the conf objects from the state to load in the initial data
+        guard case .groupKeys(_, let groupInfoConf, let membersConf) = groupState[.groupKeys] else {
             SNLog("[SessionUtil Error] Group config objects were null")
             throw SessionUtilError.unableToCreateConfigObject
         }
@@ -133,13 +103,8 @@ internal extension SessionUtil {
                 groups_members_set(membersConf, &member)
             }
         }
-        // Define the config state map and load it into memory
-        let groupState: [ConfigDump.Variant: Config] = [
-            .groupKeys: .groupKeys(keysConf, info: infoConf, members: membersConf),
-            .groupInfo: .object(infoConf),
-            .groupMembers: .object(membersConf),
-        ]
         
+        // Now that everything has been populated correctly we can load the state into memory
         dependencies.mutate(cache: .sessionUtil) { cache in
             groupState.forEach { variant, config in
                 cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
@@ -147,7 +112,7 @@ internal extension SessionUtil {
         }
         
         return (
-            SessionId(.group, publicKey: groupIdentityPublicKey),
+            groupSessionId,
             groupIdentityKeyPair,
             groupState,
             ClosedGroup(
@@ -158,7 +123,8 @@ internal extension SessionUtil {
                 displayPictureFilename: displayPictureFilename,
                 displayPictureEncryptionKey: displayPictureEncryptionKey,
                 lastDisplayPictureUpdate: creationTimestamp,
-                groupIdentityPrivateKey: Data(groupIdentityPrivateKey),
+                shouldPoll: true,
+                groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
                 invited: false
             ),
             finalMembers.map { memberId, info -> GroupMember in
@@ -166,6 +132,7 @@ internal extension SessionUtil {
                     groupId: groupSessionId.hexString,
                     profileId: memberId,
                     role: (info.isAdmin ? .admin : .standard),
+                    roleStatus: (memberId == userSessionId.hexString ? .accepted : .pending),
                     isHidden: false
                 )
             }
@@ -222,6 +189,7 @@ internal extension SessionUtil {
         userED25519KeyPair: KeyPair,
         groupIdentityPrivateKey: Data?,
         authData: Data?,
+        shouldLoadState: Bool,
         using dependencies: Dependencies
     ) throws -> [ConfigDump.Variant: Config] {
         var secretKey: [UInt8] = userED25519KeyPair.secretKey
@@ -277,9 +245,14 @@ internal extension SessionUtil {
             .groupMembers: .object(membersConf),
         ]
         
-        dependencies.mutate(cache: .sessionUtil) { cache in
-            groupState.forEach { variant, config in
-                cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
+        // Only load the state if specified (during initial group creation we want to
+        // load the state after populating the different configs incase invalid data
+        // was provided)
+        if shouldLoadState {
+            dependencies.mutate(cache: .sessionUtil) { cache in
+                groupState.forEach { variant, config in
+                    cache.setConfig(for: variant, sessionId: groupSessionId, to: config)
+                }
             }
         }
         

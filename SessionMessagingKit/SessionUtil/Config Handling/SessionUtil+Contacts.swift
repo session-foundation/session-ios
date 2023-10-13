@@ -8,9 +8,9 @@ import SessionUtilitiesKit
 // MARK: - Size Restrictions
 
 public extension SessionUtil {
-    static var libSessionMaxNameByteLength: Int { CONTACT_MAX_NAME_LENGTH }
-    static var libSessionMaxNicknameByteLength: Int { CONTACT_MAX_NAME_LENGTH }
-    static var libSessionMaxProfileUrlByteLength: Int { PROFILE_PIC_MAX_URL_LENGTH }
+    static var sizeMaxNameBytes: Int { CONTACT_MAX_NAME_LENGTH }
+    static var sizeMaxNicknameBytes: Int { CONTACT_MAX_NAME_LENGTH }
+    static var sizeMaxProfileUrlBytes: Int { PROFILE_PIC_MAX_URL_LENGTH }
 }
 
 // MARK: - Contacts Handling

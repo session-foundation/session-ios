@@ -17,6 +17,7 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         case groupId
         case profileId
         case role
+        case roleStatus
         case isHidden
     }
     
@@ -26,10 +27,17 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         case moderator
         case admin
     }
+    
+    public enum RoleStatus: Int, Codable, DatabaseValueConvertible {
+        case accepted
+        case pending
+        case failed
+    }
 
     public let groupId: String
     public let profileId: String
     public let role: Role
+    public let roleStatus: RoleStatus
     public let isHidden: Bool
     
     // MARK: - Relationships
@@ -52,11 +60,31 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         groupId: String,
         profileId: String,
         role: Role,
+        roleStatus: RoleStatus,
         isHidden: Bool
     ) {
         self.groupId = groupId
         self.profileId = profileId
         self.role = role
+        self.roleStatus = roleStatus
         self.isHidden = isHidden
+    }
+}
+
+// MARK: - Decoding
+
+extension GroupMember {
+    public init(from decoder: Decoder) throws {
+        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self = GroupMember(
+            groupId: try container.decode(String.self, forKey: .groupId),
+            profileId: try container.decode(String.self, forKey: .profileId),
+            role: try container.decode(Role.self, forKey: .role),
+            // Added in `_018_GroupsRebuildChanges`
+            roleStatus: ((try? container.decode(RoleStatus.self, forKey: .roleStatus)) ?? .accepted),
+            // Added in `_006_FixHiddenModAdminSupport`
+            isHidden: ((try? container.decode(Bool.self, forKey: .isHidden)) ?? false)
+        )
     }
 }

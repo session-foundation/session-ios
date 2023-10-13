@@ -71,12 +71,18 @@ internal extension SessionUtil {
             .fetchSet(db))
             .defaulting(to: [])
         let updatedMembers: Set<GroupMember> = result
-            .map {
+            .map { data in
                 GroupMember(
                     groupId: groupSessionId.hexString,
-                    profileId: $0.memberId,
-                    role: ($0.admin ? .admin : .standard),
-                    // TODO: Other properties
+                    profileId: data.memberId,
+                    role: (data.admin || (data.promoted > 0) ? .admin : .standard),
+                    roleStatus: {
+                        switch (data.invited, data.promoted, data.admin) {
+                            case (2, _, _), (_, 2, false): return .failed           // Explicitly failed
+                            case (1..., _, _), (_, 1..., false): return .pending    // Pending if not accepted
+                            default: return .accepted                               // Otherwise it's accepted
+                        }
+                    }(),
                     isHidden: false
                 )
             }
