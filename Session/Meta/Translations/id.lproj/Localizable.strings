@@ -831,6 +831,7 @@ The point that a message will disappear in a disappearing message update message
 "onboarding_display_name_title_new" = "Pick a new display name";
 "onboarding_display_name_explanation_new" = "We were unable to load your display name. Please enter a new display name to continue.";
 "onboarding_recovery_password_title" = "Save your recovery password";
+"onboarding_recovery_password_subtitle" = "Save your recovery password to make sure you don't lose access to your account.";
 "onboarding_recovery_password_explanation" = "Use your password to load your account on new devices. Make sure it is stored in a safe place — and don't share it with anyone.";
 "tap_to_copy" = "Tap to copy";
 "home_empty_state_account_created" = "Account Created";
@@ -838,7 +839,7 @@ The point that a message will disappear in a disappearing message update message
 "home_empty_state_no_conversation" = "You don't have any conversations yet";
 "home_empty_state_instruction" = "Hit the plus button to start a chat, create a group, or join an official communitiy!";
 "onboarding_recovery_password_tab_title" = "Recovery Password";
-"onboarding_recovery_password_tab_explanation" = "To load your account, enter the recovery password that was given to you when you signed up.";
+"onboarding_recovery_password_tab_explanation" = "Enter your recovery password to load your account. If you haven't saved it, you can find it in your app settings.";
 "onboarding_recovery_password_hint" = "Enter your recovery password";
 "onboarding_load_account_title" = "Load Account";
 "onboarding_load_account_waiting" = "One moment please..";
