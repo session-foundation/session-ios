@@ -139,6 +139,9 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             case is QueryInterfaceRequest<ClosedGroup>:
                 return try SessionUtil.updatingGroupInfo(db, updatedData, using: dependencies)
                 
+            case is QueryInterfaceRequest<GroupMember>:
+                return try SessionUtil.updatingGroupMembers(db, updatedData, using: dependencies)
+                
             case is QueryInterfaceRequest<DisappearingMessagesConfiguration>:
                 let oneToOneUpdates: [RowDecoder] = try SessionUtil.updatingDisappearingConfigsOneToOne(db, updatedData, using: dependencies)
                 let groupUpdates: [RowDecoder] = try SessionUtil.updatingDisappearingConfigsGroups(db, updatedData, using: dependencies)

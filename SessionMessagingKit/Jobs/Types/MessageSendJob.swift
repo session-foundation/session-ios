@@ -203,8 +203,6 @@ public enum MessageSendJob: JobExecutor {
                                     failure(job, error, (originalSentTimestamp != nil), dependencies)
                                     
                                 default:
-                                    SNLog("[MessageSendJob] Failed to send \(type(of: details.message)).")
-                                    
                                     if details.message is VisibleMessage {
                                         guard
                                             let interactionId: Int64 = job.interactionId,

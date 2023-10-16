@@ -363,7 +363,7 @@ extension MessageReceiver {
             threadVariant: threadVariant,
             message: message,
             messageKind: messageKind,
-            infoMessageVariant: .infoClosedGroupUpdated,
+            infoMessageVariant: .infoLegacyGroupUpdated,
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 // Update libSession
                 try? SessionUtil.update(
@@ -401,7 +401,7 @@ extension MessageReceiver {
             threadVariant: threadVariant,
             message: message,
             messageKind: messageKind,
-            infoMessageVariant: .infoClosedGroupUpdated,
+            infoMessageVariant: .infoLegacyGroupUpdated,
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 // Update the group
                 let addedMembers: [String] = membersAsData.map { $0.toHexString() }
@@ -497,8 +497,8 @@ extension MessageReceiver {
             message: message,
             messageKind: messageKind,
             infoMessageVariant: (removedMemberIds.contains(userSessionId.hexString) ?
-                .infoClosedGroupCurrentUserLeft :
-                .infoClosedGroupUpdated
+                .infoLegacyGroupCurrentUserLeft :
+                .infoLegacyGroupUpdated
             ),
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 let removedMembers = membersAsData.map { $0.toHexString() }
@@ -552,9 +552,10 @@ extension MessageReceiver {
                 if wasCurrentUserRemoved {
                     try ClosedGroup.removeKeysAndUnsubscribe(
                         db,
-                        threadId: threadId,
+                        threadIds: [threadId],
                         removeGroupData: true,
-                        calledFromConfigHandling: false
+                        calledFromConfigHandling: false,
+                        using: dependencies
                     )
                 }
             }
@@ -585,7 +586,7 @@ extension MessageReceiver {
             threadVariant: threadVariant,
             message: message,
             messageKind: messageKind,
-            infoMessageVariant: .infoClosedGroupUpdated,
+            infoMessageVariant: .infoLegacyGroupUpdated,
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let didAdminLeave: Bool = allMembers.contains(where: { member in
@@ -624,9 +625,10 @@ extension MessageReceiver {
                 if didAdminLeave || sender == userSessionId.hexString {
                     try ClosedGroup.removeKeysAndUnsubscribe(
                         db,
-                        threadId: threadId,
+                        threadIds: [threadId],
                         removeGroupData: (sender == userSessionId.hexString),
-                        calledFromConfigHandling: false
+                        calledFromConfigHandling: false,
+                        using: dependencies
                     )
                 }
                 

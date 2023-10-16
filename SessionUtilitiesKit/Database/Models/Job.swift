@@ -134,6 +134,10 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job which sends an invitation to a member of a group asynchronously so the admin doesn't need to
         /// wait during group creation
         case groupInviteMember
+        
+        /// This is a job which sends a promotion to a member of a group asynchronously so the admin doesn't need to
+        /// wait during promotions
+        case groupPromoteMember
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

@@ -829,3 +829,42 @@ The point that a message will disappear in a disappearing message update message
 
 /* The subtitle describing the current disappear after send setting, the '%@' will be replaced by a duration */
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";
+
+/* An informational message displayed when the name of a group is changed, the '%@' will be the updated name. */
+"GROUP_MESSAGE_INFO_NAME_UPDATED_TO" = "Group name is now %@.";
+
+/* An informational message displayed when the name of a group is changed. */
+"GROUP_MESSAGE_INFO_NAME_UPDATED" = "Group name updated.";
+
+/* An informational message displayed when the display picture of a group is changed. */
+"GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Group display picture updated.";
+
+/* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ joined the group.";
+
+/* An informational message displayed when two members joined the group, the '%@' will be the names of both members. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ joined the group.";
+
+/* An informational message displayed when multiple members joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others joined the group.";
+
+/* An informational message displayed when a single member was removed from the group, the '%@' will be the members. */
+"GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ was removed from the group.";
+
+/* An informational message displayed when two members were removed from the group, the '%@' will be the members names. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED" = "%@ and %@ were removed from the group.";
+
+/* An informational message displayed when multiple members were removed from the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members removed. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED" = "%@ and %@ others were removed from the group.";
+
+/* An informational message displayed when a member leaves the group. */
+"GROUP_MESSAGE_INFO_MEMBER_LEFT" = "%@ left the group.";
+
+/* An informational message displayed when a member of the group was promoted to admin, the '%@' will be the members name. */
+"GROUP_MESSAGE_INFO_MEMBER_PROMOTED" = "%@ was promoted to Admin.";
+
+/* An informational message displayed when two members of the group were promoted to admin, the '%@' will be the members names. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED" = "%@ and %@ were promoted to Admin.";
+
+/* An informational message displayed when multiple members of the group were promoted to admin, the first '%@' will be the first members name and the second '%@' will be the number of additional members promoted. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED" = "%@ and %@ others were promoted to Admin.";

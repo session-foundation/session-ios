@@ -315,22 +315,20 @@ message GroupUpdateMessage {
 
 message GroupUpdateInviteMessage {
   // @required
-  required bytes          groupIdentityPublicKey = 1;
+  required bytes          groupSessionId         = 1; // The `groupIdentityPublicKey` with a `03` prefix
   // @required
   required string         name                   = 2;
   // @required
-  required bytes          memberSubkey           = 3;
-  // @required
-  required bytes          memberTag              = 4;
+  required bytes          memberAuthData         = 3;
   optional bytes          profileKey             = 5;
   optional LokiProfile    profile                = 6;
 }
 
 message GroupUpdateDeleteMessage {
   // @required
-  required bytes          groupIdentityPublicKey  = 1;
+  required bytes          groupSessionId          = 1; // The `groupIdentityPublicKey` with a `03` prefix
   // @required
-  required bytes          encryptedMemberSubkey   = 2;
+  required bytes          encryptedMemberAuthData = 2;
 }
 
 message GroupUpdateInfoChangeMessage {
@@ -378,7 +376,7 @@ message GroupUpdateInviteResponseMessage {
 
 message GroupUpdatePromotionResponseMessage {
   // @required
-  required bytes    encryptedMemberPublicKey  = 1;
+  required bytes    encryptedMemberSessionId  = 1;
 }
 
 message GroupUpdateDeleteMemberContentMessage {

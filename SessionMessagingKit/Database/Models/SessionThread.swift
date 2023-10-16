@@ -368,10 +368,10 @@ public extension SessionThread {
                 }
                 
             case (.legacyGroup, .silent), (.legacyGroup, .forced), (.group, .forced), (.group, .silent):
-                try ClosedGroup.removeKeysAndUnsubscribe(
+                try ClosedGroup.removeData(
                     db,
                     threadIds: threadIds,
-                    removeGroupData: true,
+                    dataToRemove: .allData,
                     calledFromConfigHandling: calledFromConfigHandling,
                     using: dependencies
                 )

@@ -42,10 +42,9 @@ public enum GroupInviteMemberJob: JobExecutor {
         
         let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
         let message: GroupUpdateInviteMessage = GroupUpdateInviteMessage(
-            groupIdentityPublicKey: Data(hex: threadId),
+            groupSessionId: Data(hex: threadId),
             groupName: currentInfo.groupName,
-            memberSubkey: details.memberSubkey,
-            memberTag: details.memberTag,
+            memberAuthData: details.memberAuthData,
             profile: VisibleMessage.VMProfile.init(
                 profile: currentInfo.adminProfile,
                 blocksCommunityMessageRequests: nil
@@ -65,8 +64,8 @@ public enum GroupInviteMemberJob: JobExecutor {
 
 extension GroupInviteMemberJob {
     public struct Details: Codable {
-        public let memberSubkey: Data
-        public let memberTag: Data
+        public let memberSessionIdHexString: String
+        public let memberAuthData: Data
     }
 }
 

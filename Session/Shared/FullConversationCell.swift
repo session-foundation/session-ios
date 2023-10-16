@@ -430,7 +430,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         }
         else {
             displayNameLabel.themeTextColor = {
-                guard cellViewModel.interactionVariant != .infoClosedGroupCurrentUserLeaving else {
+                guard cellViewModel.interactionVariant != .infoGroupCurrentUserLeaving else {
                     return .textSecondary
                 }
                 
@@ -440,14 +440,14 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             typingIndicatorView.stopAnimation()
             
             ThemeManager.onThemeChange(observer: snippetLabel) { [weak self, weak snippetLabel] theme, _ in
-                if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserLeaving {
+                if cellViewModel.interactionVariant == .infoGroupCurrentUserLeaving {
                     guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
                     
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
                         textColor: textColor
                     )
-                } else if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving {
+                } else if cellViewModel.interactionVariant == .infoGroupCurrentUserErrorLeaving {
                     guard let textColor: UIColor = theme.color(for: .danger) else { return }
                     
                     snippetLabel?.attributedText = self?.getSnippet(
@@ -585,7 +585,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         }
         
         let previewText: String = {
-            if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving { return "group_leave_error".localized() }
+            if cellViewModel.interactionVariant == .infoGroupCurrentUserErrorLeaving { return "group_leave_error".localized() }
             return Interaction.previewText(
                 variant: (cellViewModel.interactionVariant ?? .standardIncoming),
                 body: cellViewModel.interactionBody,

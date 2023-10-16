@@ -4190,13 +4190,13 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
 
     // MARK: - SNProtoGroupUpdateInviteMessageBuilder
 
-    @objc public class func builder(groupIdentityPublicKey: Data, name: String, memberSubkey: Data, memberTag: Data) -> SNProtoGroupUpdateInviteMessageBuilder {
-        return SNProtoGroupUpdateInviteMessageBuilder(groupIdentityPublicKey: groupIdentityPublicKey, name: name, memberSubkey: memberSubkey, memberTag: memberTag)
+    @objc public class func builder(groupSessionID: Data, name: String, memberAuthData: Data) -> SNProtoGroupUpdateInviteMessageBuilder {
+        return SNProtoGroupUpdateInviteMessageBuilder(groupSessionID: groupSessionID, name: name, memberAuthData: memberAuthData)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdateInviteMessageBuilder {
-        let builder = SNProtoGroupUpdateInviteMessageBuilder(groupIdentityPublicKey: groupIdentityPublicKey, name: name, memberSubkey: memberSubkey, memberTag: memberTag)
+        let builder = SNProtoGroupUpdateInviteMessageBuilder(groupSessionID: groupSessionID, name: name, memberAuthData: memberAuthData)
         if let _value = profileKey {
             builder.setProfileKey(_value)
         }
@@ -4212,29 +4212,24 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(groupIdentityPublicKey: Data, name: String, memberSubkey: Data, memberTag: Data) {
+        @objc fileprivate init(groupSessionID: Data, name: String, memberAuthData: Data) {
             super.init()
 
-            setGroupIdentityPublicKey(groupIdentityPublicKey)
+            setGroupSessionID(groupSessionID)
             setName(name)
-            setMemberSubkey(memberSubkey)
-            setMemberTag(memberTag)
+            setMemberAuthData(memberAuthData)
         }
 
-        @objc public func setGroupIdentityPublicKey(_ valueParam: Data) {
-            proto.groupIdentityPublicKey = valueParam
+        @objc public func setGroupSessionID(_ valueParam: Data) {
+            proto.groupSessionID = valueParam
         }
 
         @objc public func setName(_ valueParam: String) {
             proto.name = valueParam
         }
 
-        @objc public func setMemberSubkey(_ valueParam: Data) {
-            proto.memberSubkey = valueParam
-        }
-
-        @objc public func setMemberTag(_ valueParam: Data) {
-            proto.memberTag = valueParam
+        @objc public func setMemberAuthData(_ valueParam: Data) {
+            proto.memberAuthData = valueParam
         }
 
         @objc public func setProfileKey(_ valueParam: Data) {
@@ -4256,13 +4251,11 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
 
     fileprivate let proto: SessionProtos_GroupUpdateInviteMessage
 
-    @objc public let groupIdentityPublicKey: Data
+    @objc public let groupSessionID: Data
 
     @objc public let name: String
 
-    @objc public let memberSubkey: Data
-
-    @objc public let memberTag: Data
+    @objc public let memberAuthData: Data
 
     @objc public let profile: SNProtoLokiProfile?
 
@@ -4277,16 +4270,14 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
     }
 
     private init(proto: SessionProtos_GroupUpdateInviteMessage,
-                 groupIdentityPublicKey: Data,
+                 groupSessionID: Data,
                  name: String,
-                 memberSubkey: Data,
-                 memberTag: Data,
+                 memberAuthData: Data,
                  profile: SNProtoLokiProfile?) {
         self.proto = proto
-        self.groupIdentityPublicKey = groupIdentityPublicKey
+        self.groupSessionID = groupSessionID
         self.name = name
-        self.memberSubkey = memberSubkey
-        self.memberTag = memberTag
+        self.memberAuthData = memberAuthData
         self.profile = profile
     }
 
@@ -4301,25 +4292,20 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
     }
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateInviteMessage) throws -> SNProtoGroupUpdateInviteMessage {
-        guard proto.hasGroupIdentityPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupIdentityPublicKey")
+        guard proto.hasGroupSessionID else {
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupSessionID")
         }
-        let groupIdentityPublicKey = proto.groupIdentityPublicKey
+        let groupSessionID = proto.groupSessionID
 
         guard proto.hasName else {
             throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: name")
         }
         let name = proto.name
 
-        guard proto.hasMemberSubkey else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: memberSubkey")
+        guard proto.hasMemberAuthData else {
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: memberAuthData")
         }
-        let memberSubkey = proto.memberSubkey
-
-        guard proto.hasMemberTag else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: memberTag")
-        }
-        let memberTag = proto.memberTag
+        let memberAuthData = proto.memberAuthData
 
         var profile: SNProtoLokiProfile? = nil
         if proto.hasProfile {
@@ -4331,10 +4317,9 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
         // MARK: - End Validation Logic for SNProtoGroupUpdateInviteMessage -
 
         let result = SNProtoGroupUpdateInviteMessage(proto: proto,
-                                                     groupIdentityPublicKey: groupIdentityPublicKey,
+                                                     groupSessionID: groupSessionID,
                                                      name: name,
-                                                     memberSubkey: memberSubkey,
-                                                     memberTag: memberTag,
+                                                     memberAuthData: memberAuthData,
                                                      profile: profile)
         return result
     }
@@ -4366,13 +4351,13 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
     // MARK: - SNProtoGroupUpdateDeleteMessageBuilder
 
-    @objc public class func builder(groupIdentityPublicKey: Data, encryptedMemberSubkey: Data) -> SNProtoGroupUpdateDeleteMessageBuilder {
-        return SNProtoGroupUpdateDeleteMessageBuilder(groupIdentityPublicKey: groupIdentityPublicKey, encryptedMemberSubkey: encryptedMemberSubkey)
+    @objc public class func builder(groupSessionID: Data, encryptedMemberAuthData: Data) -> SNProtoGroupUpdateDeleteMessageBuilder {
+        return SNProtoGroupUpdateDeleteMessageBuilder(groupSessionID: groupSessionID, encryptedMemberAuthData: encryptedMemberAuthData)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdateDeleteMessageBuilder {
-        let builder = SNProtoGroupUpdateDeleteMessageBuilder(groupIdentityPublicKey: groupIdentityPublicKey, encryptedMemberSubkey: encryptedMemberSubkey)
+        let builder = SNProtoGroupUpdateDeleteMessageBuilder(groupSessionID: groupSessionID, encryptedMemberAuthData: encryptedMemberAuthData)
         return builder
     }
 
@@ -4382,19 +4367,19 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(groupIdentityPublicKey: Data, encryptedMemberSubkey: Data) {
+        @objc fileprivate init(groupSessionID: Data, encryptedMemberAuthData: Data) {
             super.init()
 
-            setGroupIdentityPublicKey(groupIdentityPublicKey)
-            setEncryptedMemberSubkey(encryptedMemberSubkey)
+            setGroupSessionID(groupSessionID)
+            setEncryptedMemberAuthData(encryptedMemberAuthData)
         }
 
-        @objc public func setGroupIdentityPublicKey(_ valueParam: Data) {
-            proto.groupIdentityPublicKey = valueParam
+        @objc public func setGroupSessionID(_ valueParam: Data) {
+            proto.groupSessionID = valueParam
         }
 
-        @objc public func setEncryptedMemberSubkey(_ valueParam: Data) {
-            proto.encryptedMemberSubkey = valueParam
+        @objc public func setEncryptedMemberAuthData(_ valueParam: Data) {
+            proto.encryptedMemberAuthData = valueParam
         }
 
         @objc public func build() throws -> SNProtoGroupUpdateDeleteMessage {
@@ -4408,16 +4393,16 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
     fileprivate let proto: SessionProtos_GroupUpdateDeleteMessage
 
-    @objc public let groupIdentityPublicKey: Data
+    @objc public let groupSessionID: Data
 
-    @objc public let encryptedMemberSubkey: Data
+    @objc public let encryptedMemberAuthData: Data
 
     private init(proto: SessionProtos_GroupUpdateDeleteMessage,
-                 groupIdentityPublicKey: Data,
-                 encryptedMemberSubkey: Data) {
+                 groupSessionID: Data,
+                 encryptedMemberAuthData: Data) {
         self.proto = proto
-        self.groupIdentityPublicKey = groupIdentityPublicKey
-        self.encryptedMemberSubkey = encryptedMemberSubkey
+        self.groupSessionID = groupSessionID
+        self.encryptedMemberAuthData = encryptedMemberAuthData
     }
 
     @objc
@@ -4431,23 +4416,23 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
     }
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateDeleteMessage) throws -> SNProtoGroupUpdateDeleteMessage {
-        guard proto.hasGroupIdentityPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupIdentityPublicKey")
+        guard proto.hasGroupSessionID else {
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupSessionID")
         }
-        let groupIdentityPublicKey = proto.groupIdentityPublicKey
+        let groupSessionID = proto.groupSessionID
 
-        guard proto.hasEncryptedMemberSubkey else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedMemberSubkey")
+        guard proto.hasEncryptedMemberAuthData else {
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedMemberAuthData")
         }
-        let encryptedMemberSubkey = proto.encryptedMemberSubkey
+        let encryptedMemberAuthData = proto.encryptedMemberAuthData
 
         // MARK: - Begin Validation Logic for SNProtoGroupUpdateDeleteMessage -
 
         // MARK: - End Validation Logic for SNProtoGroupUpdateDeleteMessage -
 
         let result = SNProtoGroupUpdateDeleteMessage(proto: proto,
-                                                     groupIdentityPublicKey: groupIdentityPublicKey,
-                                                     encryptedMemberSubkey: encryptedMemberSubkey)
+                                                     groupSessionID: groupSessionID,
+                                                     encryptedMemberAuthData: encryptedMemberAuthData)
         return result
     }
 
@@ -5086,13 +5071,13 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
 
     // MARK: - SNProtoGroupUpdatePromotionResponseMessageBuilder
 
-    @objc public class func builder(encryptedMemberPublicKey: Data) -> SNProtoGroupUpdatePromotionResponseMessageBuilder {
-        return SNProtoGroupUpdatePromotionResponseMessageBuilder(encryptedMemberPublicKey: encryptedMemberPublicKey)
+    @objc public class func builder(encryptedMemberSessionID: Data) -> SNProtoGroupUpdatePromotionResponseMessageBuilder {
+        return SNProtoGroupUpdatePromotionResponseMessageBuilder(encryptedMemberSessionID: encryptedMemberSessionID)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdatePromotionResponseMessageBuilder {
-        let builder = SNProtoGroupUpdatePromotionResponseMessageBuilder(encryptedMemberPublicKey: encryptedMemberPublicKey)
+        let builder = SNProtoGroupUpdatePromotionResponseMessageBuilder(encryptedMemberSessionID: encryptedMemberSessionID)
         return builder
     }
 
@@ -5102,14 +5087,14 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(encryptedMemberPublicKey: Data) {
+        @objc fileprivate init(encryptedMemberSessionID: Data) {
             super.init()
 
-            setEncryptedMemberPublicKey(encryptedMemberPublicKey)
+            setEncryptedMemberSessionID(encryptedMemberSessionID)
         }
 
-        @objc public func setEncryptedMemberPublicKey(_ valueParam: Data) {
-            proto.encryptedMemberPublicKey = valueParam
+        @objc public func setEncryptedMemberSessionID(_ valueParam: Data) {
+            proto.encryptedMemberSessionID = valueParam
         }
 
         @objc public func build() throws -> SNProtoGroupUpdatePromotionResponseMessage {
@@ -5123,12 +5108,12 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
 
     fileprivate let proto: SessionProtos_GroupUpdatePromotionResponseMessage
 
-    @objc public let encryptedMemberPublicKey: Data
+    @objc public let encryptedMemberSessionID: Data
 
     private init(proto: SessionProtos_GroupUpdatePromotionResponseMessage,
-                 encryptedMemberPublicKey: Data) {
+                 encryptedMemberSessionID: Data) {
         self.proto = proto
-        self.encryptedMemberPublicKey = encryptedMemberPublicKey
+        self.encryptedMemberSessionID = encryptedMemberSessionID
     }
 
     @objc
@@ -5142,17 +5127,17 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
     }
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdatePromotionResponseMessage) throws -> SNProtoGroupUpdatePromotionResponseMessage {
-        guard proto.hasEncryptedMemberPublicKey else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedMemberPublicKey")
+        guard proto.hasEncryptedMemberSessionID else {
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: encryptedMemberSessionID")
         }
-        let encryptedMemberPublicKey = proto.encryptedMemberPublicKey
+        let encryptedMemberSessionID = proto.encryptedMemberSessionID
 
         // MARK: - Begin Validation Logic for SNProtoGroupUpdatePromotionResponseMessage -
 
         // MARK: - End Validation Logic for SNProtoGroupUpdatePromotionResponseMessage -
 
         let result = SNProtoGroupUpdatePromotionResponseMessage(proto: proto,
-                                                                encryptedMemberPublicKey: encryptedMemberPublicKey)
+                                                                encryptedMemberSessionID: encryptedMemberSessionID)
         return result
     }
 

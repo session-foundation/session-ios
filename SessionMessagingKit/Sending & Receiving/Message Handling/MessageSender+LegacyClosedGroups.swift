@@ -301,7 +301,7 @@ extension MessageSender {
                     let interaction: Interaction = try Interaction(
                         threadId: legacyGroupSessionId,
                         authorId: userSessionId.hexString,
-                        variant: .infoClosedGroupUpdated,
+                        variant: .infoLegacyGroupUpdated,
                         body: ClosedGroupControlMessage.Kind
                             .nameChange(name: name)
                             .infoMessage(db, sender: userSessionId.hexString),
@@ -416,7 +416,7 @@ extension MessageSender {
         let interaction: Interaction = try Interaction(
             threadId: closedGroup.threadId,
             authorId: userSessionId.hexString,
-            variant: .infoClosedGroupUpdated,
+            variant: .infoLegacyGroupUpdated,
             body: ClosedGroupControlMessage.Kind
                 .membersAdded(members: addedMembers.map { Data(hex: $0) })
                 .infoMessage(db, sender: userSessionId.hexString),
@@ -540,7 +540,7 @@ extension MessageSender {
                     let interaction: Interaction = try Interaction(
                         threadId: closedGroup.threadId,
                         authorId: userSessionId.hexString,
-                        variant: .infoClosedGroupUpdated,
+                        variant: .infoLegacyGroupUpdated,
                         body: ClosedGroupControlMessage.Kind
                             .membersRemoved(members: removedMembers.map { Data(hex: $0) })
                             .infoMessage(db, sender: userSessionId.hexString),
@@ -607,7 +607,7 @@ extension MessageSender {
         let interaction: Interaction = try Interaction(
             threadId: groupPublicKey,
             authorId: userSessionId.hexString,
-            variant: .infoClosedGroupCurrentUserLeaving,
+            variant: .infoGroupCurrentUserLeaving,
             body: "group_you_leaving".localized(),
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)

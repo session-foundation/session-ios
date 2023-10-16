@@ -3,12 +3,16 @@
 import Foundation
 import GRDB
 import SessionUtil
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 // MARK: - Group Info Handling
 
 internal extension SessionUtil {
-    static let columnsRelatedToGroupMembers: [ColumnExpression] = []
+    static let columnsRelatedToGroupMembers: [ColumnExpression] = [
+        GroupMember.Columns.role,
+        GroupMember.Columns.roleStatus
+    ]
     
     // MARK: - Incoming Changes
     
@@ -22,6 +26,237 @@ internal extension SessionUtil {
         guard config.needsDump else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
+        // Get the two member sets
+        let updatedMembers: Set<GroupMember> = try extractMembers(
+            from: conf,
+            groupSessionId: groupSessionId,
+            serverTimestampMs: serverTimestampMs
+        )
+        let existingMembers: Set<GroupMember> = (try? GroupMember
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+            .fetchSet(db))
+            .defaulting(to: [])
+        let updatedStandardMemberIds: Set<String> = updatedMembers
+            .filter { $0.role == .standard }
+            .map { $0.profileId }
+            .asSet()
+        let updatedAdminMemberIds: Set<String> = updatedMembers
+            .filter { $0.role == .admin }
+            .map { $0.profileId }
+            .asSet()
+
+        // Add in any new members and remove any removed members
+        try updatedMembers
+            .subtracting(existingMembers)
+            .forEach { try $0.save(db) }
+        
+        try GroupMember
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+            .filter(
+                (
+                    GroupMember.Columns.role == GroupMember.Role.standard &&
+                    !updatedStandardMemberIds.contains(GroupMember.Columns.profileId)
+                ) || (
+                    GroupMember.Columns.role == GroupMember.Role.admin &&
+                    !updatedAdminMemberIds.contains(GroupMember.Columns.profileId)
+                )
+            )
+            .deleteAll(db)
+    }
+}
+
+// MARK: - Outgoing Changes
+
+internal extension SessionUtil {
+    static func getMembers(
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws -> Set<GroupMember> {
+        return try dependencies[cache: .sessionUtil]
+            .config(for: .groupMembers, sessionId: groupSessionId)
+            .wrappedValue
+            .map { config in
+                guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+                
+                return try extractMembers(
+                    from: conf,
+                    groupSessionId: groupSessionId,
+                    serverTimestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+                )
+            } ?? { throw SessionUtilError.failedToRetrieveConfigData }()
+    }
+    
+    static func addMembers(
+        _ db: Database,
+        groupSessionId: SessionId,
+        members: [(id: String, profile: Profile?)],
+        using dependencies: Dependencies
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupMembers,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            try members.forEach { memberId, profile in
+                var profilePic: user_profile_pic = user_profile_pic()
+                
+                if
+                    let picUrl: String = profile?.profilePictureUrl,
+                    let picKey: Data = profile?.profileEncryptionKey
+                {
+                    profilePic.url = picUrl.toLibSession()
+                    profilePic.key = picKey.toLibSession()
+                }
+
+                var error: SessionUtilError?
+                try CExceptionHelper.performSafely {
+                    var member: config_group_member = config_group_member()
+                    
+                    guard groups_members_get_or_construct(conf, &member, memberId.toLibSession()) else {
+                        error = .getOrConstructFailedUnexpectedly
+                        return
+                    }
+                    
+                    member.name = ((profile?.name ?? "").toLibSession() ?? member.name)
+                    member.profile_pic = profilePic
+                    member.invited = 1
+                    groups_members_set(conf, &member)
+                }
+                
+                if let error: SessionUtilError = error {
+                    SNLog("[SessionUtil] Failed to add member to group: \(groupSessionId)")
+                    throw error
+                }
+            }
+        }
+    }
+    
+    static func updateMemberStatus(
+        _ db: Database,
+        groupSessionId: SessionId,
+        memberId: String,
+        role: GroupMember.Role,
+        status: GroupMember.RoleStatus,
+        using dependencies: Dependencies
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupMembers,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            // Only update members if they already exist in the group
+            var groupMember: config_group_member = config_group_member()
+            
+            guard groups_members_get(conf, &groupMember, memberId.toLibSession()) else { return }
+            
+            switch role {
+                case .standard: groupMember.invited = Int32(status.rawValue)
+                case .admin: groupMember.promoted = Int32(status.rawValue)
+                default: break
+            }
+            
+            groups_members_set(conf, &groupMember)
+        }
+    }
+    
+    static func removeMembers(
+        _ db: Database,
+        groupSessionId: SessionId,
+        memberIds: Set<String>,
+        using dependencies: Dependencies
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupMembers,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            memberIds.forEach { groups_members_erase(conf, $0.toLibSession()) }
+        }
+    }
+    
+    static func updatingGroupMembers<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
+        guard let updatedMembers: [GroupMember] = updated as? [GroupMember] else { throw StorageError.generic }
+        
+        // Exclude legacy groups as they aren't managed via SessionUtil
+        let targetMembers: [GroupMember] = updatedMembers
+            .filter { (try? SessionId(from: $0.groupId))?.prefix == .group }
+        
+        // If we only updated the current user contact then no need to continue
+        guard
+            !targetMembers.isEmpty,
+            let groupId: SessionId = targetMembers.first.map({ try? SessionId(from: $0.groupId) }),
+            groupId.prefix == .group
+        else { return updated }
+        
+        // Loop through each of the groups and update their settings
+        try targetMembers.forEach { member in
+            try SessionUtil.performAndPushChange(
+                db,
+                for: .groupMembers,
+                sessionId: groupId,
+                using: dependencies
+            ) { config in
+                guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+                
+                // Only update members if they already exist in the group
+                var groupMember: config_group_member = config_group_member()
+                
+                guard groups_members_get(conf, &groupMember, member.profileId.toLibSession()) else {
+                    return
+                }
+                
+                // Update the role and status to match
+                switch member.role {
+                    case .admin:
+                        groupMember.admin = true
+                        groupMember.invited = 0
+                        groupMember.promoted = Int32(member.roleStatus.rawValue)
+                        
+                    default:
+                        groupMember.admin = false
+                        groupMember.invited = Int32(member.roleStatus.rawValue)
+                        groupMember.promoted = 0
+                }
+                
+                groups_members_set(conf, &groupMember)
+            }
+        }
+        
+        return updated
+    }
+}
+
+// MARK: - MemberData
+
+private struct MemberData {
+    let memberId: String
+    let profile: Profile?
+    let admin: Bool
+    let invited: Int32
+    let promoted: Int32
+}
+
+// MARK: - Convenience
+
+private extension SessionUtil {
+    static func extractMembers(
+        from conf: UnsafeMutablePointer<config_object>?,
+        groupSessionId: SessionId,
+        serverTimestampMs: Int64
+    ) throws -> Set<GroupMember> {
         var infiniteLoopGuard: Int = 0
         var result: [MemberData] = []
         var member: config_group_member = config_group_member()
@@ -65,12 +300,7 @@ internal extension SessionUtil {
         }
         groups_members_iterator_free(membersIterator) // Need to free the iterator
         
-        // Get the two member sets
-        let existingMembers: Set<GroupMember> = (try? GroupMember
-            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-            .fetchSet(db))
-            .defaulting(to: [])
-        let updatedMembers: Set<GroupMember> = result
+        return result
             .map { data in
                 GroupMember(
                     groupId: groupSessionId.hexString,
@@ -87,91 +317,5 @@ internal extension SessionUtil {
                 )
             }
             .asSet()
-        let updatedStandardMemberIds: Set<String> = updatedMembers
-            .filter { $0.role == .standard }
-            .map { $0.profileId }
-            .asSet()
-        let updatedAdminMemberIds: Set<String> = updatedMembers
-            .filter { $0.role == .admin }
-            .map { $0.profileId }
-            .asSet()
-
-        // Add in any new members and remove any removed members
-        try updatedMembers
-            .subtracting(existingMembers)
-            .forEach { try $0.save(db) }
-        
-        try GroupMember
-            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
-            .filter(
-                (
-                    GroupMember.Columns.role == GroupMember.Role.standard &&
-                    !updatedStandardMemberIds.contains(GroupMember.Columns.profileId)
-                ) || (
-                    GroupMember.Columns.role == GroupMember.Role.admin &&
-                    !updatedAdminMemberIds.contains(GroupMember.Columns.profileId)
-                )
-            )
-            .deleteAll(db)
     }
-}
-
-// MARK: - Outgoing Changes
-
-internal extension SessionUtil {
-    static func update(
-        _ db: Database,
-        groupSessionId: String,
-        groupIdentityPrivateKey: Data? = nil,
-        members: [(id: String, profile: Profile?, isAdmin: Bool)],
-        using dependencies: Dependencies
-    ) throws {
-        // Reduce the members list to ensure we don't accidentally insert duplicates (which can crash)
-        let finalMembers: [String: (profile: Profile?, isAdmin: Bool)] = members
-            .reduce(into: [:]) { result, next in result[next.0] = (profile: next.1, isAdmin: next.2)}
-        
-        try SessionUtil.performAndPushChange(
-            db,
-            for: .groupMembers,
-            sessionId: SessionId(.group, hex: groupSessionId),
-            using: dependencies
-        ) { config in
-            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
-            
-            try finalMembers.forEach { memberId, info in
-                var profilePic: user_profile_pic = user_profile_pic()
-                
-                if
-                    let picUrl: String = info.profile?.profilePictureUrl,
-                    let picKey: Data = info.profile?.profileEncryptionKey
-                {
-                    profilePic.url = picUrl.toLibSession()
-                    profilePic.key = picKey.toLibSession()
-                }
-
-                try CExceptionHelper.performSafely {
-                    var member: config_group_member = config_group_member(
-                        session_id: memberId.toLibSession(),
-                        name: (info.profile?.name ?? "").toLibSession(),
-                        profile_pic: profilePic,
-                        admin: info.isAdmin,
-                        invited: 0,
-                        promoted: 0
-                    )
-                    
-                    groups_members_set(conf, &member)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - MemberData
-
-private struct MemberData {
-    let memberId: String
-    let profile: Profile?
-    let admin: Bool
-    let invited: Int32
-    let promoted: Int32
 }

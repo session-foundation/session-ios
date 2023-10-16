@@ -6,33 +6,29 @@ import SessionUtilitiesKit
 
 public final class GroupUpdateInviteMessage: ControlMessage {
     private enum CodingKeys: String, CodingKey {
-        case groupIdentityPublicKey
+        case groupSessionId
         case groupName
-        case memberSubkey
-        case memberTag
+        case memberAuthData
         case profile
     }
     
-    public var groupIdentityPublicKey: Data
+    public var groupSessionId: SessionId
     public var groupName: String
-    public var memberSubkey: Data
-    public var memberTag: Data
+    public var memberAuthData: Data
     public var profile: VisibleMessage.VMProfile?
     
     // MARK: - Initialization
     
     public init(
-        groupIdentityPublicKey: Data,
+        groupSessionId: SessionId,
         groupName: String,
-        memberSubkey: Data,
-        memberTag: Data,
+        memberAuthData: Data,
         profile: VisibleMessage.VMProfile? = nil,
         sentTimestamp: UInt64? = nil
     ) {
-        self.groupIdentityPublicKey = groupIdentityPublicKey
+        self.groupSessionId = groupSessionId
         self.groupName = groupName
-        self.memberSubkey = memberSubkey
-        self.memberTag = memberTag
+        self.memberAuthData = memberAuthData
         self.profile = profile
         
         super.init(
@@ -45,10 +41,9 @@ public final class GroupUpdateInviteMessage: ControlMessage {
     required init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        groupIdentityPublicKey = try container.decode(Data.self, forKey: .groupIdentityPublicKey)
+        groupSessionId = SessionId(.group, publicKey: Array(try container.decode(Data.self, forKey: .groupSessionId)))
         groupName = try container.decode(String.self, forKey: .groupName)
-        memberSubkey = try container.decode(Data.self, forKey: .memberSubkey)
-        memberTag = try container.decode(Data.self, forKey: .memberTag)
+        memberAuthData = try container.decode(Data.self, forKey: .memberAuthData)
         profile = try? container.decode(VisibleMessage.VMProfile.self, forKey: .profile)
         
         try super.init(from: decoder)
@@ -59,10 +54,9 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
         
-        try container.encode(groupIdentityPublicKey, forKey: .groupIdentityPublicKey)
+        try container.encode(groupSessionId.hexString.data(using: .utf8), forKey: .groupSessionId)
         try container.encode(groupName, forKey: .groupName)
-        try container.encode(memberSubkey, forKey: .memberSubkey)
-        try container.encode(memberTag, forKey: .memberTag)
+        try container.encode(memberAuthData, forKey: .memberAuthData)
         try container.encodeIfPresent(profile, forKey: .profile)
     }
 
@@ -72,10 +66,9 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         guard let groupInviteMessage = proto.dataMessage?.groupUpdateMessage?.inviteMessage else { return nil }
         
         return GroupUpdateInviteMessage(
-            groupIdentityPublicKey: groupInviteMessage.groupIdentityPublicKey,
+            groupSessionId: SessionId(.group, publicKey: Array(groupInviteMessage.groupSessionID)),
             groupName: groupInviteMessage.name,
-            memberSubkey: groupInviteMessage.memberSubkey,
-            memberTag: groupInviteMessage.memberTag,
+            memberAuthData: groupInviteMessage.memberAuthData,
             profile: VisibleMessage.VMProfile.fromProto(groupInviteMessage)
         )
     }
@@ -85,15 +78,18 @@ public final class GroupUpdateInviteMessage: ControlMessage {
             let inviteMessageBuilder: SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
             
             // Profile
-            if let profile = profile, let profileProto: SNProtoGroupUpdateInviteMessage = profile.toProto(groupIdentityPublicKey: groupIdentityPublicKey, name: groupName, memberSubkey: memberSubkey, memberTag: memberTag) {
+            if let profile = profile, let profileProto: SNProtoGroupUpdateInviteMessage = profile.toProto(
+                groupSessionId: Data(hex: groupSessionId.hexString),    // Include the prefix,
+                name: groupName,
+                memberAuthData: memberAuthData
+            ) {
                 inviteMessageBuilder = profileProto.asBuilder()
             }
             else {
                 inviteMessageBuilder = SNProtoGroupUpdateInviteMessage.builder(
-                    groupIdentityPublicKey: groupIdentityPublicKey,
+                    groupSessionID: Data(hex: groupSessionId.hexString),    // Include the prefix
                     name: groupName,
-                    memberSubkey: memberSubkey,
-                    memberTag: memberTag
+                    memberAuthData: memberAuthData
                 )
             }
             
@@ -117,10 +113,9 @@ public final class GroupUpdateInviteMessage: ControlMessage {
     public var description: String {
         """
         GroupUpdateInviteMessage(
-            groupIdentityPublicKey: \(groupIdentityPublicKey),
+            groupSessionId: \(groupSessionId),
             groupName: \(groupName),
-            memberSubkey: \(memberSubkey.toHexString()),
-            memberTag: \(memberTag.toHexString()),
+            memberAuthData: \(memberAuthData.toHexString()),
             profile: \(profile?.description ?? "null")
         )
         """

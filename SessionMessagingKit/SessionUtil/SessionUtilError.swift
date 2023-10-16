@@ -8,4 +8,8 @@ public enum SessionUtilError: Error {
     case userDoesNotExist
     case getOrConstructFailedUnexpectedly
     case processingLoopLimitReached
+    case failedToRetrieveConfigData
+    
+    case failedToRekeyGroup
+    case failedToMakeSubAccountInGroup
 }

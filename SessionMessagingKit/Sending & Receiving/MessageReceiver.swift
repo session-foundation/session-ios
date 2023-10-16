@@ -194,7 +194,7 @@ public enum MessageReceiver {
         message.attachDisappearingMessagesConfiguration(from: proto)
         
         // Don't process the envelope any further if the sender is blocked
-        guard (try? Contact.fetchOne(db, id: sender))?.isBlocked != true else {
+        guard (try? Contact.fetchOne(db, id: sender))?.isBlocked != true || message.processWithBlockedSender else {
             throw MessageReceiverError.senderBlocked
         }
         
@@ -284,6 +284,18 @@ public enum MessageReceiver {
                 
             case let message as ClosedGroupControlMessage:
                 try MessageReceiver.handleLegacyClosedGroupControlMessage(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message,
+                    using: dependencies
+                )
+                
+            case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage, is GroupUpdateInfoChangeMessage,
+                is GroupUpdateMemberChangeMessage, is GroupUpdatePromoteMessage, is GroupUpdateMemberLeftMessage,
+                is GroupUpdateInviteResponseMessage, is GroupUpdatePromotionResponseMessage,
+                is GroupUpdateDeleteMemberContentMessage:
+                try MessageReceiver.handleGroupUpdateMessage(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,

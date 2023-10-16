@@ -125,32 +125,72 @@ public extension VisibleMessage {
         }
         
         public func toProto(
-            groupIdentityPublicKey: Data,
+            groupSessionId: Data,
             name: String,
-            memberSubkey: Data,
-            memberTag: Data
+            memberAuthData: Data
         ) -> SNProtoGroupUpdateInviteMessage? {
             guard let displayName = displayName else {
                 SNLog("Couldn't construct profile proto from: \(self).")
                 return nil
             }
             
-            let groupUpdateProto = SNProtoGroupUpdateInviteMessage.builder(
-                groupIdentityPublicKey: groupIdentityPublicKey,
+            let groupInviteProto = SNProtoGroupUpdateInviteMessage.builder(
+                groupSessionID: groupSessionId,
                 name: name,
-                memberSubkey: memberSubkey,
-                memberTag: memberTag
+                memberAuthData: memberAuthData
             )
             let profileProto = SNProtoLokiProfile.builder()
             profileProto.setDisplayName(displayName)
             
             if let profileKey = profileKey, let profilePictureUrl = profilePictureUrl {
-                groupUpdateProto.setProfileKey(profileKey)
+                groupInviteProto.setProfileKey(profileKey)
                 profileProto.setProfilePicture(profilePictureUrl)
             }
             do {
-                groupUpdateProto.setProfile(try profileProto.build())
-                return try groupUpdateProto.build()
+                groupInviteProto.setProfile(try profileProto.build())
+                return try groupInviteProto.build()
+            } catch {
+                SNLog("Couldn't construct profile proto from: \(self).")
+                return nil
+            }
+        }
+        
+        // MARK: - GroupUpdateInviteResponseMessage
+        
+        public static func fromProto(_ proto: SNProtoGroupUpdateInviteResponseMessage) -> VMProfile? {
+            guard
+                let profileProto = proto.profile,
+                let displayName = profileProto.displayName
+            else { return nil }
+            
+            return VMProfile(
+                displayName: displayName,
+                profileKey: proto.profileKey,
+                profilePictureUrl: profileProto.profilePicture
+            )
+        }
+        
+        public func toProto(
+            isApproved: Bool
+        ) -> SNProtoGroupUpdateInviteResponseMessage? {
+            guard let displayName = displayName else {
+                SNLog("Couldn't construct profile proto from: \(self).")
+                return nil
+            }
+            
+            let groupInviteResponseProto = SNProtoGroupUpdateInviteResponseMessage.builder(
+                isApproved: isApproved
+            )
+            let profileProto = SNProtoLokiProfile.builder()
+            profileProto.setDisplayName(displayName)
+            
+            if let profileKey = profileKey, let profilePictureUrl = profilePictureUrl {
+                groupInviteResponseProto.setProfileKey(profileKey)
+                profileProto.setProfilePicture(profilePictureUrl)
+            }
+            do {
+                groupInviteResponseProto.setProfile(try profileProto.build())
+                return try groupInviteResponseProto.build()
             } catch {
                 SNLog("Couldn't construct profile proto from: \(self).")
                 return nil

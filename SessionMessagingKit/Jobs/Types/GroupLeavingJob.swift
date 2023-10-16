@@ -63,12 +63,12 @@ public enum GroupLeavingJob: JobExecutor {
                 receiveCompletion: { result in
                     let failureChanges: [ConfigColumnAssignment] = [
                         Interaction.Columns.variant
-                            .set(to: Interaction.Variant.infoClosedGroupCurrentUserErrorLeaving),
+                            .set(to: Interaction.Variant.infoGroupCurrentUserErrorLeaving),
                         Interaction.Columns.body.set(to: "group_unable_to_leave".localized())
                     ]
                     let successfulChanges: [ConfigColumnAssignment] = [
                         Interaction.Columns.variant
-                            .set(to: Interaction.Variant.infoClosedGroupCurrentUserLeft),
+                            .set(to: Interaction.Variant.infoLegacyGroupCurrentUserLeft),
                         Interaction.Columns.body.set(to: "GROUP_YOU_LEFT".localized())
                     ]
                     
@@ -121,11 +121,15 @@ public enum GroupLeavingJob: JobExecutor {
                         }
                         
                         // Clear out the group info as needed
-                        try ClosedGroup.removeKeysAndUnsubscribe(
+                        try ClosedGroup.removeData(
                             db,
-                            threadId: threadId,
-                            removeGroupData: details.deleteThread,
-                            calledFromConfigHandling: false
+                            threadIds: [threadId],
+                            dataToRemove: (details.deleteThread ?
+                                .allData :
+                                [.poller, .pushNotifications, .libSessionState]
+                            ),
+                            calledFromConfigHandling: false,
+                            using: dependencies
                         )
                     }
                     

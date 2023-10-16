@@ -167,10 +167,11 @@ extension MessageSender {
         groupSessionId: String,
         name: String,
         displayPicture: SignalAttachment?,
-        members: [(id: String, profile: Profile?, isAdmin: Bool)],
+        members: [(id: String, profile: Profile?)],
+        allowAccessToHistoricMessages: Bool,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        guard (try? SessionId.Prefix(from: groupSessionId)) == .group else {
+        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
             // FIXME: Fail with `MessageSenderError.invalidClosedGroupUpdate` once support for legacy groups is removed
             return MessageSender.update(
                 legacyGroupSessionId: groupSessionId,
@@ -182,38 +183,226 @@ extension MessageSender {
         
         return dependencies[singleton: .storage]
             .writePublisher { db in
-                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupId) else {
-                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupSessionId) else {
-                    throw MessageSenderError.invalidClosedGroupUpdate
-                }
+                guard
+                    let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: sessionId.hexString),
+                    closedGroup.groupIdentityPrivateKey != nil
+                else { throw MessageSenderError.invalidClosedGroupUpdate }
+                
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
                 
                 // Update name if needed
                 if name != closedGroup.name {
                     // Update the group
                     _ = try ClosedGroup
-                        .filter(id: groupSessionId)
+                        .filter(id: sessionId.hexString)
                         .updateAllAndConfig(db, ClosedGroup.Columns.name.set(to: name), using: dependencies)
-                }
-                
-                // Retrieve member info
-                guard let allGroupMembers: [GroupMember] = try? closedGroup.allMembers.fetchAll(db) else {
-                    throw MessageSenderError.invalidClosedGroupUpdate
-                }
 
-                let originalMemberIds: Set<String> = allGroupMembers.map { $0.profileId }.asSet()
-                let addedMembers: [(id: String, profile: Profile?, isAdmin: Bool)] = members
-                    .filter { !originalMemberIds.contains($0.0) }
-                let removedMemberIds: Set<String> = originalMemberIds
-                    .subtracting(members.map { id, _, _ in id }.asSet())
+                    // Update libSession
+                    try SessionUtil.update(
+                        db,
+                        groupSessionId: sessionId,
+                        name: name,
+                        using: dependencies
+                    )
+                    
+                    // Add a record of the change to the conversation
+                    _ = try Interaction(
+                        threadId: groupSessionId,
+                        authorId: userSessionId.hexString,
+                        variant: .infoGroupUpdated,
+                        body: ClosedGroup.MessageInfo
+                            .updatedName(name)
+                            .infoString,
+                        timestampMs: changeTimestampMs
+                    ).inserted(db)
+                    
+                    // Schedule the control message to be sent to the group
+                    try MessageSender.send(
+                        db,
+                        message: GroupUpdateInfoChangeMessage(
+                            changeType: .name,
+                            updatedName: name,
+                            sentTimestamp: UInt64(changeTimestampMs)
+                        ),
+                        interactionId: nil,
+                        threadId: sessionId.hexString,
+                        threadVariant: .group,
+                        using: dependencies
+                    )
+                }
                 
-                // Update libSession (libSession will figure out if it's member list changed)
-                try? SessionUtil.update(
-                    db,
-                    groupSessionId: groupSessionId,
-                    members: members,
+                // Retrieve member info (from libSession since it's the source of truth)
+                let sessionUtilMembersIds: Set<GroupMember> = try SessionUtil.getMembers(
+                    groupSessionId: sessionId,
                     using: dependencies
                 )
+                let originalMemberIds: Set<String> = sessionUtilMembersIds.map { $0.profileId }.asSet()
+                let addedMembers: [(id: String, profile: Profile?)] = members
+                    .filter { !originalMemberIds.contains($0.0) }
+                let removedMemberIds: Set<String> = originalMemberIds
+                    .subtracting(members.map { id, _ in id }.asSet())
+                
+                // Add members if needed (insert member records and schedule invitation sending)
+                if !addedMembers.isEmpty {
+                    // If we aren't allowing access to historic messages then we need to rekey the group
+                    if !allowAccessToHistoricMessages {
+                        try SessionUtil.rekey(
+                            db,
+                            groupSessionId: sessionId,
+                            using: dependencies
+                        )
+                    }
+                    
+                    // Make the required changes for each added member
+                    try addedMembers.forEach { id, profile in
+                        // Generate authData for the newly added member
+                        let memberAuthData: Data = try SessionUtil.generateAuthData(
+                            db,
+                            groupSessionId: sessionId,
+                            memberId: id,
+                            using: dependencies
+                        )
+                        
+                        // Add the member to the database
+                        try GroupMember(
+                            groupId: sessionId.hexString,
+                            profileId: id,
+                            role: .standard,
+                            roleStatus: .pending,
+                            isHidden: false
+                        ).upsert(db)
+                        
+                        // Schedule a job to send an invitation to the newly added member
+                        dependencies[singleton: .jobRunner].add(
+                            db,
+                            job: Job(
+                                variant: .groupInviteMember,
+                                details: GroupInviteMemberJob.Details(
+                                    memberSessionIdHexString: id,
+                                    memberAuthData: memberAuthData
+                                )
+                            ),
+                            canStartJob: true,
+                            using: dependencies
+                        )
+                    }
+                    
+                    // Add a record of the change to the conversation
+                    _ = try Interaction(
+                        threadId: groupSessionId,
+                        authorId: userSessionId.hexString,
+                        variant: .infoGroupUpdated,
+                        body: ClosedGroup.MessageInfo
+                            .addedUsers(
+                                names: addedMembers.map { id, profile in
+                                    profile?.displayName(for: .group) ??
+                                    Profile.truncated(id: id, truncating: .middle)
+                                }
+                            )
+                            .infoString,
+                        timestampMs: changeTimestampMs
+                    ).inserted(db)
+                    
+                    // Schedule the control message to be sent to the group
+                    try MessageSender.send(
+                        db,
+                        message: GroupUpdateMemberChangeMessage(
+                            changeType: .added,
+                            memberPublicKeys: addedMembers.map { Data(hex: $0.id) },
+                            sentTimestamp: UInt64(changeTimestampMs)
+                        ),
+                        interactionId: nil,
+                        threadId: sessionId.hexString,
+                        threadVariant: .group,
+                        using: dependencies
+                    )
+                }
+                
+                // Remove members if needed
+                if !removedMemberIds.isEmpty {
+                    try MessageSender.removeGroupMembers(
+                        db,
+                        groupSessionId: sessionId,
+                        memberIds: removedMemberIds,
+                        sendMemberChangedMessage: true,
+                        changeTimestampMs: changeTimestampMs,
+                        using: dependencies
+                    )
+                }
             }
             .eraseToAnyPublisher()
+    }
+    
+    public static func removeGroupMembers(
+        _ db: Database,
+        groupSessionId: SessionId,
+        memberIds: Set<String>,
+        sendMemberChangedMessage: Bool,
+        changeTimestampMs: Int64,
+        using dependencies: Dependencies
+    ) throws {
+        try GroupMember
+            .filter(
+                GroupMember.Columns.groupId == groupSessionId.hexString &&
+                memberIds.contains(GroupMember.Columns.profileId)
+            )
+            .deleteAll(db)
+        
+        try SessionUtil.removeMembers(
+            db,
+            groupSessionId: groupSessionId,
+            memberIds: memberIds,
+            using: dependencies
+        )
+        
+        
+        // Send the member changed message if desired
+        if sendMemberChangedMessage {
+            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+            let removedMemberProfiles: [String: Profile] = (try? Profile
+                .filter(ids: memberIds)
+                .fetchAll(db))
+                .defaulting(to: [])
+                .reduce(into: [:]) { result, next in result[next.id] = next }
+            
+            // Add a record of the change to the conversation
+            _ = try Interaction(
+                threadId: groupSessionId.hexString,
+                authorId: userSessionId.hexString,
+                variant: .infoGroupUpdated,
+                body: ClosedGroup.MessageInfo
+                    .removedUsers(
+                        names: memberIds.map { id in
+                            removedMemberProfiles[id]?.displayName(for: .group) ??
+                            Profile.truncated(id: id, truncating: .middle)
+                        }
+                    )
+                    .infoString,
+                timestampMs: changeTimestampMs
+            ).inserted(db)
+            
+            // Schedule the control message to be sent to the group
+            try MessageSender.send(
+                db,
+                message: GroupUpdateMemberChangeMessage(
+                    changeType: .removed,
+                    memberPublicKeys: memberIds.map { Data(hex: $0) },
+                    sentTimestamp: UInt64(changeTimestampMs)
+                ),
+                interactionId: nil,
+                threadId: groupSessionId.hexString,
+                threadVariant: .group,
+                using: dependencies
+            )
+        }
+    }
+    
+    public static func promoteGroupMembers(
+        groupSessionId: String,
+        memberIds: Set<String>,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<Void, Error> {
+        }
     }
 }

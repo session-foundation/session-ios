@@ -61,7 +61,9 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
             .configMessageReceive: ConfigMessageReceiveJob.self,
             .expirationUpdate: ExpirationUpdateJob.self,
             .displayPictureDownload: DisplayPictureDownloadJob.self,
-            .getExpiration: GetExpirationJob.self
+            .getExpiration: GetExpirationJob.self,
+            .groupInviteMember: GroupInviteMemberJob.self,
+            .groupPromoteMember: GroupPromoteMemberJob.self
         ]
         
         executors.forEach { variant, executor in

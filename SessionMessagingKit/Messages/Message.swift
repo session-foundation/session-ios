@@ -18,6 +18,7 @@ public class Message: Codable {
     public var isSelfSendValid: Bool { false }
     
     public var shouldBeRetryable: Bool { false }
+    public var processWithBlockedSender: Bool { false }
     
     // MARK: - Disappearing Messages
     public var expiresInSeconds: TimeInterval?

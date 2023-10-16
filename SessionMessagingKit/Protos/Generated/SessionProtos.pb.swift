@@ -1843,14 +1843,14 @@ struct SessionProtos_GroupUpdateInviteMessage {
   // methods supported on all messages.
 
   /// @required
-  var groupIdentityPublicKey: Data {
-    get {return _groupIdentityPublicKey ?? Data()}
-    set {_groupIdentityPublicKey = newValue}
+  var groupSessionID: Data {
+    get {return _groupSessionID ?? Data()}
+    set {_groupSessionID = newValue}
   }
-  /// Returns true if `groupIdentityPublicKey` has been explicitly set.
-  var hasGroupIdentityPublicKey: Bool {return self._groupIdentityPublicKey != nil}
-  /// Clears the value of `groupIdentityPublicKey`. Subsequent reads from it will return its default value.
-  mutating func clearGroupIdentityPublicKey() {self._groupIdentityPublicKey = nil}
+  /// Returns true if `groupSessionID` has been explicitly set.
+  var hasGroupSessionID: Bool {return self._groupSessionID != nil}
+  /// Clears the value of `groupSessionID`. Subsequent reads from it will return its default value.
+  mutating func clearGroupSessionID() {self._groupSessionID = nil}
 
   /// @required
   var name: String {
@@ -1863,24 +1863,14 @@ struct SessionProtos_GroupUpdateInviteMessage {
   mutating func clearName() {self._name = nil}
 
   /// @required
-  var memberSubkey: Data {
-    get {return _memberSubkey ?? Data()}
-    set {_memberSubkey = newValue}
+  var memberAuthData: Data {
+    get {return _memberAuthData ?? Data()}
+    set {_memberAuthData = newValue}
   }
-  /// Returns true if `memberSubkey` has been explicitly set.
-  var hasMemberSubkey: Bool {return self._memberSubkey != nil}
-  /// Clears the value of `memberSubkey`. Subsequent reads from it will return its default value.
-  mutating func clearMemberSubkey() {self._memberSubkey = nil}
-
-  /// @required
-  var memberTag: Data {
-    get {return _memberTag ?? Data()}
-    set {_memberTag = newValue}
-  }
-  /// Returns true if `memberTag` has been explicitly set.
-  var hasMemberTag: Bool {return self._memberTag != nil}
-  /// Clears the value of `memberTag`. Subsequent reads from it will return its default value.
-  mutating func clearMemberTag() {self._memberTag = nil}
+  /// Returns true if `memberAuthData` has been explicitly set.
+  var hasMemberAuthData: Bool {return self._memberAuthData != nil}
+  /// Clears the value of `memberAuthData`. Subsequent reads from it will return its default value.
+  mutating func clearMemberAuthData() {self._memberAuthData = nil}
 
   var profileKey: Data {
     get {return _profileKey ?? Data()}
@@ -1904,10 +1894,9 @@ struct SessionProtos_GroupUpdateInviteMessage {
 
   init() {}
 
-  fileprivate var _groupIdentityPublicKey: Data? = nil
+  fileprivate var _groupSessionID: Data? = nil
   fileprivate var _name: String? = nil
-  fileprivate var _memberSubkey: Data? = nil
-  fileprivate var _memberTag: Data? = nil
+  fileprivate var _memberAuthData: Data? = nil
   fileprivate var _profileKey: Data? = nil
   fileprivate var _profile: SessionProtos_LokiProfile? = nil
 }
@@ -1918,31 +1907,31 @@ struct SessionProtos_GroupUpdateDeleteMessage {
   // methods supported on all messages.
 
   /// @required
-  var groupIdentityPublicKey: Data {
-    get {return _groupIdentityPublicKey ?? Data()}
-    set {_groupIdentityPublicKey = newValue}
+  var groupSessionID: Data {
+    get {return _groupSessionID ?? Data()}
+    set {_groupSessionID = newValue}
   }
-  /// Returns true if `groupIdentityPublicKey` has been explicitly set.
-  var hasGroupIdentityPublicKey: Bool {return self._groupIdentityPublicKey != nil}
-  /// Clears the value of `groupIdentityPublicKey`. Subsequent reads from it will return its default value.
-  mutating func clearGroupIdentityPublicKey() {self._groupIdentityPublicKey = nil}
+  /// Returns true if `groupSessionID` has been explicitly set.
+  var hasGroupSessionID: Bool {return self._groupSessionID != nil}
+  /// Clears the value of `groupSessionID`. Subsequent reads from it will return its default value.
+  mutating func clearGroupSessionID() {self._groupSessionID = nil}
 
   /// @required
-  var encryptedMemberSubkey: Data {
-    get {return _encryptedMemberSubkey ?? Data()}
-    set {_encryptedMemberSubkey = newValue}
+  var encryptedMemberAuthData: Data {
+    get {return _encryptedMemberAuthData ?? Data()}
+    set {_encryptedMemberAuthData = newValue}
   }
-  /// Returns true if `encryptedMemberSubkey` has been explicitly set.
-  var hasEncryptedMemberSubkey: Bool {return self._encryptedMemberSubkey != nil}
-  /// Clears the value of `encryptedMemberSubkey`. Subsequent reads from it will return its default value.
-  mutating func clearEncryptedMemberSubkey() {self._encryptedMemberSubkey = nil}
+  /// Returns true if `encryptedMemberAuthData` has been explicitly set.
+  var hasEncryptedMemberAuthData: Bool {return self._encryptedMemberAuthData != nil}
+  /// Clears the value of `encryptedMemberAuthData`. Subsequent reads from it will return its default value.
+  mutating func clearEncryptedMemberAuthData() {self._encryptedMemberAuthData = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
-  fileprivate var _groupIdentityPublicKey: Data? = nil
-  fileprivate var _encryptedMemberSubkey: Data? = nil
+  fileprivate var _groupSessionID: Data? = nil
+  fileprivate var _encryptedMemberAuthData: Data? = nil
 }
 
 struct SessionProtos_GroupUpdateInfoChangeMessage {
@@ -2177,20 +2166,20 @@ struct SessionProtos_GroupUpdatePromotionResponseMessage {
   // methods supported on all messages.
 
   /// @required
-  var encryptedMemberPublicKey: Data {
-    get {return _encryptedMemberPublicKey ?? Data()}
-    set {_encryptedMemberPublicKey = newValue}
+  var encryptedMemberSessionID: Data {
+    get {return _encryptedMemberSessionID ?? Data()}
+    set {_encryptedMemberSessionID = newValue}
   }
-  /// Returns true if `encryptedMemberPublicKey` has been explicitly set.
-  var hasEncryptedMemberPublicKey: Bool {return self._encryptedMemberPublicKey != nil}
-  /// Clears the value of `encryptedMemberPublicKey`. Subsequent reads from it will return its default value.
-  mutating func clearEncryptedMemberPublicKey() {self._encryptedMemberPublicKey = nil}
+  /// Returns true if `encryptedMemberSessionID` has been explicitly set.
+  var hasEncryptedMemberSessionID: Bool {return self._encryptedMemberSessionID != nil}
+  /// Clears the value of `encryptedMemberSessionID`. Subsequent reads from it will return its default value.
+  mutating func clearEncryptedMemberSessionID() {self._encryptedMemberSessionID = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
-  fileprivate var _encryptedMemberPublicKey: Data? = nil
+  fileprivate var _encryptedMemberSessionID: Data? = nil
 }
 
 struct SessionProtos_GroupUpdateDeleteMemberContentMessage {
@@ -4133,19 +4122,17 @@ extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf
 extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".GroupUpdateInviteMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "groupIdentityPublicKey"),
+    1: .same(proto: "groupSessionId"),
     2: .same(proto: "name"),
-    3: .same(proto: "memberSubkey"),
-    4: .same(proto: "memberTag"),
+    3: .same(proto: "memberAuthData"),
     5: .same(proto: "profileKey"),
     6: .same(proto: "profile"),
   ]
 
   public var isInitialized: Bool {
-    if self._groupIdentityPublicKey == nil {return false}
+    if self._groupSessionID == nil {return false}
     if self._name == nil {return false}
-    if self._memberSubkey == nil {return false}
-    if self._memberTag == nil {return false}
+    if self._memberAuthData == nil {return false}
     return true
   }
 
@@ -4155,10 +4142,9 @@ extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftPr
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularBytesField(value: &self._groupIdentityPublicKey) }()
+      case 1: try { try decoder.decodeSingularBytesField(value: &self._groupSessionID) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self._name) }()
-      case 3: try { try decoder.decodeSingularBytesField(value: &self._memberSubkey) }()
-      case 4: try { try decoder.decodeSingularBytesField(value: &self._memberTag) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self._memberAuthData) }()
       case 5: try { try decoder.decodeSingularBytesField(value: &self._profileKey) }()
       case 6: try { try decoder.decodeSingularMessageField(value: &self._profile) }()
       default: break
@@ -4171,17 +4157,14 @@ extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftPr
     // allocates stack space for every if/case branch local when no optimizations
     // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
     // https://github.com/apple/swift-protobuf/issues/1182
-    try { if let v = self._groupIdentityPublicKey {
+    try { if let v = self._groupSessionID {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
     } }()
     try { if let v = self._name {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
     } }()
-    try { if let v = self._memberSubkey {
+    try { if let v = self._memberAuthData {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
-    } }()
-    try { if let v = self._memberTag {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 4)
     } }()
     try { if let v = self._profileKey {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 5)
@@ -4193,10 +4176,9 @@ extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftPr
   }
 
   static func ==(lhs: SessionProtos_GroupUpdateInviteMessage, rhs: SessionProtos_GroupUpdateInviteMessage) -> Bool {
-    if lhs._groupIdentityPublicKey != rhs._groupIdentityPublicKey {return false}
+    if lhs._groupSessionID != rhs._groupSessionID {return false}
     if lhs._name != rhs._name {return false}
-    if lhs._memberSubkey != rhs._memberSubkey {return false}
-    if lhs._memberTag != rhs._memberTag {return false}
+    if lhs._memberAuthData != rhs._memberAuthData {return false}
     if lhs._profileKey != rhs._profileKey {return false}
     if lhs._profile != rhs._profile {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -4207,13 +4189,13 @@ extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftPr
 extension SessionProtos_GroupUpdateDeleteMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".GroupUpdateDeleteMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "groupIdentityPublicKey"),
-    2: .same(proto: "encryptedMemberSubkey"),
+    1: .same(proto: "groupSessionId"),
+    2: .same(proto: "encryptedMemberAuthData"),
   ]
 
   public var isInitialized: Bool {
-    if self._groupIdentityPublicKey == nil {return false}
-    if self._encryptedMemberSubkey == nil {return false}
+    if self._groupSessionID == nil {return false}
+    if self._encryptedMemberAuthData == nil {return false}
     return true
   }
 
@@ -4223,8 +4205,8 @@ extension SessionProtos_GroupUpdateDeleteMessage: SwiftProtobuf.Message, SwiftPr
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularBytesField(value: &self._groupIdentityPublicKey) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self._encryptedMemberSubkey) }()
+      case 1: try { try decoder.decodeSingularBytesField(value: &self._groupSessionID) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self._encryptedMemberAuthData) }()
       default: break
       }
     }
@@ -4235,18 +4217,18 @@ extension SessionProtos_GroupUpdateDeleteMessage: SwiftProtobuf.Message, SwiftPr
     // allocates stack space for every if/case branch local when no optimizations
     // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
     // https://github.com/apple/swift-protobuf/issues/1182
-    try { if let v = self._groupIdentityPublicKey {
+    try { if let v = self._groupSessionID {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
     } }()
-    try { if let v = self._encryptedMemberSubkey {
+    try { if let v = self._encryptedMemberAuthData {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
     } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_GroupUpdateDeleteMessage, rhs: SessionProtos_GroupUpdateDeleteMessage) -> Bool {
-    if lhs._groupIdentityPublicKey != rhs._groupIdentityPublicKey {return false}
-    if lhs._encryptedMemberSubkey != rhs._encryptedMemberSubkey {return false}
+    if lhs._groupSessionID != rhs._groupSessionID {return false}
+    if lhs._encryptedMemberAuthData != rhs._encryptedMemberAuthData {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -4491,11 +4473,11 @@ extension SessionProtos_GroupUpdateInviteResponseMessage: SwiftProtobuf.Message,
 extension SessionProtos_GroupUpdatePromotionResponseMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".GroupUpdatePromotionResponseMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "encryptedMemberPublicKey"),
+    1: .same(proto: "encryptedMemberSessionId"),
   ]
 
   public var isInitialized: Bool {
-    if self._encryptedMemberPublicKey == nil {return false}
+    if self._encryptedMemberSessionID == nil {return false}
     return true
   }
 
@@ -4505,7 +4487,7 @@ extension SessionProtos_GroupUpdatePromotionResponseMessage: SwiftProtobuf.Messa
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularBytesField(value: &self._encryptedMemberPublicKey) }()
+      case 1: try { try decoder.decodeSingularBytesField(value: &self._encryptedMemberSessionID) }()
       default: break
       }
     }
@@ -4516,14 +4498,14 @@ extension SessionProtos_GroupUpdatePromotionResponseMessage: SwiftProtobuf.Messa
     // allocates stack space for every if/case branch local when no optimizations
     // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
     // https://github.com/apple/swift-protobuf/issues/1182
-    try { if let v = self._encryptedMemberPublicKey {
+    try { if let v = self._encryptedMemberSessionID {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 1)
     } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_GroupUpdatePromotionResponseMessage, rhs: SessionProtos_GroupUpdatePromotionResponseMessage) -> Bool {
-    if lhs._encryptedMemberPublicKey != rhs._encryptedMemberPublicKey {return false}
+    if lhs._encryptedMemberSessionID != rhs._encryptedMemberSessionID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

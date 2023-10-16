@@ -35,7 +35,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     ) -> SQL {
         let halfResolution: Double = LinkPreview.timstampResolution
 
-        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)"
+        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)" // stringlint:disable
     }
     public static let recipientStates = hasMany(RecipientState.self, using: RecipientState.interactionForeignKey)
     
@@ -71,11 +71,12 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case standardIncomingDeleted
         
         // Info Message Types (spacing the values out to make it easier to extend)
-        case infoClosedGroupCreated = 1000
-        case infoClosedGroupUpdated
-        case infoClosedGroupCurrentUserLeft
-        case infoClosedGroupCurrentUserErrorLeaving
-        case infoClosedGroupCurrentUserLeaving
+        case infoLegacyGroupCreated = 1000
+        case infoLegacyGroupUpdated
+        case infoLegacyGroupCurrentUserLeft
+        case infoGroupCurrentUserErrorLeaving
+        case infoGroupCurrentUserLeaving
+        case infoGroupUpdated
         
         case infoDisappearingMessagesUpdate = 2000
         
@@ -94,10 +95,10 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isInfoMessage: Bool {
             switch self {
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
-                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
+                case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                     .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
-                    .infoMessageRequestAccepted, .infoCall:
+                    .infoMessageRequestAccepted, .infoCall, .infoGroupUpdated:
                     return true
                     
                 case .standardIncoming, .standardOutgoing, .standardIncomingDeleted:
@@ -107,8 +108,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isGroupControlMessage: Bool {
             switch self {
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
-                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+                case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupUpdated:
                     return true
                 default:
                     return false
@@ -117,7 +118,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isGroupLeavingStatus: Bool {
             switch self {
-                case .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+                case .infoLegacyGroupCurrentUserLeft, .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving:
                     return true
                 default:
                     return false
@@ -138,9 +139,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 
                 case .standardOutgoing, .standardIncomingDeleted: return false
                 
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
-                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
-                    .infoMessageRequestAccepted:
+                case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
+                    .infoMessageRequestAccepted, .infoGroupUpdated:
                     return false
             }
         }
@@ -150,7 +151,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 case .standardIncoming, .standardOutgoing,
                     .infoCall,
                     .infoDisappearingMessagesUpdate,
-                    .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving,
+                    .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupUpdated,
                     .infoScreenshotNotification, .infoMediaSavedNotification:
                     return true
                 
@@ -1054,12 +1056,23 @@ public extension Interaction {
             case .infoScreenshotNotification:
                 return String(format: "screenshot_taken".localized(), authorDisplayName)
                 
-            case .infoClosedGroupCreated: return "GROUP_CREATED".localized()
-            case .infoClosedGroupCurrentUserLeft: return "GROUP_YOU_LEFT".localized()
-            case .infoClosedGroupCurrentUserLeaving: return "group_you_leaving".localized()
-            case .infoClosedGroupCurrentUserErrorLeaving: return "group_unable_to_leave".localized()
-            case .infoClosedGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
+            case .infoLegacyGroupCreated: return "GROUP_CREATED".localized()
+            case .infoLegacyGroupCurrentUserLeft: return "GROUP_YOU_LEFT".localized()
+            case .infoGroupCurrentUserLeaving: return "group_you_leaving".localized()
+            case .infoGroupCurrentUserErrorLeaving: return "group_unable_to_leave".localized()
+            case .infoLegacyGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
             case .infoMessageRequestAccepted: return (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized())
+                
+            case .infoGroupUpdated:
+                guard
+                    let infoMessageData: Data = (body ?? "").data(using: .utf8),
+                    let messageInfo: ClosedGroup.MessageInfo = try? JSONDecoder().decode(
+                        ClosedGroup.MessageInfo.self,
+                        from: infoMessageData
+                    )
+                else { return (body ?? "") }
+                
+                return messageInfo.previewText
             
             case .infoDisappearingMessagesUpdate:
                 guard

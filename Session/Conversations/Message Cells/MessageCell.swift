@@ -72,10 +72,10 @@ public class MessageCell: UITableViewCell {
             case .standardOutgoing, .standardIncoming, .standardIncomingDeleted:
                 return VisibleMessageCell.self
                 
-            case .infoClosedGroupCreated, .infoClosedGroupUpdated,
-                .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
+            case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                 .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoMessageRequestAccepted:
+                .infoMessageRequestAccepted, .infoGroupUpdated:
                 return InfoMessageCell.self
                 
             case .infoCall:

@@ -11,7 +11,7 @@ pod 'xcbeautify'
 # Dependencies to be included in the app and all extensions/frameworks
 abstract_target 'GlobalDependencies' do
   # FIXME: If https://github.com/jedisct1/swift-sodium/pull/249 gets resolved then revert this back to the standard pod
-  pod 'Sodium', :git => 'https://github.com/oxen-io/session-ios-swift-sodium.git', branch: 'session-build'
+  pod 'Sodium', :git => 'https://github.com/oxen-io/session-ios-swift-sodium.git', :commit => '310c343'
   pod 'GRDB.swift/SQLCipher'
   
   # FIXME: Would be nice to migrate from CocoaPods to SwiftPackageManager (should allow us to speed up build time), haven't gone through all of the dependencies but currently unfortunately SQLCipher doesn't support SPM (for more info see: https://github.com/sqlcipher/sqlcipher/issues/371)

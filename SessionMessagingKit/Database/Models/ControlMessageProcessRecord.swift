@@ -154,10 +154,10 @@ internal extension ControlMessageProcessRecord {
     ) {
         switch variant {
             case .standardOutgoing, .standardIncoming, .standardIncomingDeleted,
-                .infoClosedGroupCreated:
+                .infoLegacyGroupCreated:
                 return nil
                 
-            case .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+            case .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft, .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupUpdated:
                 self.variant = .closedGroupControlMessage
             
             case .infoDisappearingMessagesUpdate:

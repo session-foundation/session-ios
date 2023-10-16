@@ -168,6 +168,17 @@ public extension ClosedGroup {
         case forced
     }
     
+    enum RemovableGroupData: CaseIterable {
+        case poller
+        case pushNotifications
+        case messages
+        case members
+        case encryptionKeys
+        case libSessionState
+        case thread
+        case userGroup
+    }
+    
     static func approveGroup(
         _ db: Database,
         group: ClosedGroup,
@@ -203,90 +214,117 @@ public extension ClosedGroup {
         dependencies[singleton: .groupsPoller].startIfNeeded(for: group.id, using: dependencies)
     }
     
-    static func removeKeysAndUnsubscribe(
-        _ db: Database? = nil,
-        threadId: String,
-        removeGroupData: Bool,
-        calledFromConfigHandling: Bool
-    ) throws {
-        try removeKeysAndUnsubscribe(
-            db,
-            threadIds: [threadId],
-            removeGroupData: removeGroupData,
-            calledFromConfigHandling: calledFromConfigHandling
-        )
-    }
-    
-    static func removeKeysAndUnsubscribe(
-        _ db: Database? = nil,
+    static func removeData(
+        _ db: Database,
         threadIds: [String],
-        removeGroupData: Bool,
+        dataToRemove: [RemovableGroupData],
         calledFromConfigHandling: Bool,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
-        guard !threadIds.isEmpty else { return }
-        guard let db: Database = db else {
-            dependencies[singleton: .storage].write { db in
-                try ClosedGroup.removeKeysAndUnsubscribe(
-                    db,
-                    threadIds: threadIds,
-                    removeGroupData: removeGroupData,
-                    calledFromConfigHandling: calledFromConfigHandling,
-                    using: dependencies
-                )
-            }
-            return
-        }
-        
-        // Remove the group from the database and unsubscribe from PNs
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        
-        threadIds.forEach { threadId in
-            dependencies[singleton: .groupsPoller].stopPolling(for: threadId)
-            
-            try? PushNotificationAPI
-                .preparedUnsubscribeFromLegacyGroup(
-                    legacyGroupId: threadId,
-                    userSessionId: userSessionId
-                )
-                .send(using: dependencies)
-                .sinkUntilComplete()
-        }
-        
-        // Remove the keys for the group
-        try ClosedGroupKeyPair
-            .filter(threadIds.contains(ClosedGroupKeyPair.Columns.threadId))
-            .deleteAll(db)
+        guard !threadIds.isEmpty && !dataToRemove.isEmpty else { return }
         
         struct ThreadIdVariant: Decodable, FetchableRecord {
             let id: String
             let variant: SessionThread.Variant
         }
         
-        let threadVariants: [ThreadIdVariant] = try SessionThread
-            .select(.id, .variant)
-            .filter(ids: threadIds)
-            .asRequest(of: ThreadIdVariant.self)
-            .fetchAll(db)
+        // Remove the group from the database and unsubscribe from PNs
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let threadVariants: [ThreadIdVariant] = try {
+            guard
+                dataToRemove.contains(.pushNotifications) ||
+                (dataToRemove.contains(.userGroup) && !calledFromConfigHandling) ||
+                (dataToRemove.contains(.libSessionState) && !calledFromConfigHandling)
+            else { return [] }
+            
+            return try SessionThread
+                .select(.id, .variant)
+                .filter(ids: threadIds)
+                .asRequest(of: ThreadIdVariant.self)
+                .fetchAll(db)
+        }()
         
-        // Remove the remaining group data if desired
-        if removeGroupData {
-            try SessionThread   // Intentionally use `deleteAll` here as this gets triggered via `deleteOrLeave`
-                .filter(ids: threadIds)
+        // This data isn't located in the database so we can't perform bulk actions
+        if !dataToRemove.asSet().intersection([.poller, .pushNotifications, .libSessionState]).isEmpty {
+            threadIds.forEach { threadId in
+                if dataToRemove.contains(.poller) {
+                    dependencies[singleton: .groupsPoller].stopPolling(for: threadId)
+                }
+                
+                if dataToRemove.contains(.poller) {
+                    threadVariants.forEach { threadIdVariant in
+                        switch threadIdVariant.variant {
+                            case .legacyGroup:
+                                try? PushNotificationAPI
+                                    .preparedUnsubscribeFromLegacyGroup(
+                                        legacyGroupId: threadId,
+                                        userSessionId: userSessionId
+                                    )
+                                    .send(using: dependencies)
+                                    .sinkUntilComplete()
+                                
+                            case .group:
+                                break
+                                
+                            default: break
+                        }
+                    }
+                }
+                
+                // Ignore if called from the config handling
+                if dataToRemove.contains(.libSessionState) && !calledFromConfigHandling {
+                    threadVariants
+                        .filter { $0.variant == .group }
+                        .forEach { threadIdVariant in
+                            SessionUtil.removeGroupStateIfNeeded(
+                                db,
+                                groupSessionId: SessionId(.group, hex: threadIdVariant.id),
+                                using: dependencies
+                            )
+                        }
+                }
+            }
+        }
+        
+        // Remove database-located data
+        if dataToRemove.contains(.encryptionKeys) {
+            try ClosedGroupKeyPair
+                .filter(threadIds.contains(ClosedGroupKeyPair.Columns.threadId))
                 .deleteAll(db)
-            
-            try ClosedGroup
-                .filter(ids: threadIds)
+        }
+        
+        if dataToRemove.contains(.messages) {
+            try Interaction
+                .filter(threadIds.contains(Interaction.Columns.threadId))
                 .deleteAll(db)
-            
+        }
+        
+        if dataToRemove.contains(.members) {
             try GroupMember
                 .filter(threadIds.contains(GroupMember.Columns.groupId))
                 .deleteAll(db)
         }
         
-        // If we weren't called from config handling then we need to remove the group
-        // data from the config
-        if !calledFromConfigHandling {
+        // If we remove the poller but don't remove the thread then update the group so it doesn't poll
+        // on the next launch
+        if dataToRemove.contains(.poller) && !dataToRemove.contains(.thread) {
+            try ClosedGroup
+                .filter(ids: threadIds)
+                .updateAllAndConfig(
+                    db,
+                    ClosedGroup.Columns.shouldPoll.set(to: false),
+                    using: dependencies
+                )
+        }
+        
+        if dataToRemove.contains(.thread) {
+            try SessionThread   // Intentionally use `deleteAll` here as this gets triggered via `deleteOrLeave`
+                .filter(ids: threadIds)
+                .deleteAll(db)
+        }
+        
+        // Ignore if called from the config handling
+        if dataToRemove.contains(.userGroup) && !calledFromConfigHandling {
             try SessionUtil.remove(
                 db,
                 legacyGroupIds: threadVariants
@@ -302,17 +340,43 @@ public extension ClosedGroup {
                     .map { $0.id },
                 using: dependencies
             )
-            
-            // Remove the group config states
-            threadVariants
-                .filter { $0.variant == .group }
-                .forEach { threadIdVariant in
-                    SessionUtil.removeGroupStateIfNeeded(
-                        db,
-                        groupSessionId: SessionId(.group, hex: threadIdVariant.id),
-                        using: dependencies
-                    )
-                }
         }
     }
+}
+
+// MARK: - ClosedGroup.MessageInfo
+
+public extension ClosedGroup {
+    enum MessageInfo: Codable {
+        case updatedName(String)
+        case updatedNameFallback
+        case updatedDisplayPicture
+        case addedUsers(names: [String])
+        case removedUsers(names: [String])
+        case memberLeft(name: String)
+        case promotedUsers(names: [String])
+        
+        var previewText: String {
+            switch self {
+                case .updatedName(let name):
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_NAME_UPDATED_TO".localized(),
+                        name
+                    )
+                    
+                case .updatedNameFallback: return "GROUP_MESSAGE_INFO_NAME_UPDATED".localized()
+                case .updatedDisplayPicture: return "GROUP_MESSAGE_INFO_PICTURE_UPDATED".localized()
+            }
+        }
+        
+        var infoString: String? {
+            guard let messageInfoData: Data = try? JSONEncoder().encode(self) else { return nil }
+            
+            return String(data: messageInfoData, encoding: .utf8)
+        }
+    }
+}
+
+public extension [ClosedGroup.RemovableGroupData] {
+    static var allData: [ClosedGroup.RemovableGroupData] { ClosedGroup.RemovableGroupData.allCases }
 }
