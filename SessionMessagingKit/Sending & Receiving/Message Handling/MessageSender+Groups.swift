@@ -182,7 +182,6 @@ extension MessageSender {
         
         return dependencies[singleton: .storage]
             .writePublisher { db in
-                guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupId) else {
                 guard let closedGroup: ClosedGroup = try? ClosedGroup.fetchOne(db, id: groupSessionId) else {
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
