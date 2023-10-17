@@ -9,6 +9,8 @@ public class MediaAlbumView: UIStackView {
     private let items: [Attachment]
     public let itemViews: [MediaView]
     public var moreItemsView: MediaView?
+    public var numItems: Int { return items.count }
+    public var numVisibleItems: Int { return itemViews.count }
 
     private static let kSpacingPts: CGFloat = 4
     private static let kMaxItems = 3
@@ -24,13 +26,22 @@ public class MediaAlbumView: UIStackView {
         isOutgoing: Bool,
         maxMessageWidth: CGFloat
     ) {
+        let itemsToDisplay: [Attachment] = MediaAlbumView.itemsToDisplay(forItems: items)
+        
         self.items = items
-        self.itemViews = MediaAlbumView.itemsToDisplay(forItems: items)
-            .map {
+        self.itemViews = itemsToDisplay.enumerated()
+            .map { index, attachment -> MediaView in
                 MediaView(
                     mediaCache: mediaCache,
-                    attachment: $0,
+                    attachment: attachment,
                     isOutgoing: isOutgoing,
+                    shouldSupressControls: (
+                        // If there are extra items that aren't displayed and this is the
+                        // last one that will be displayed then suppress any custom controls
+                        // otherwise the '+' icon will be obscured
+                        itemsToDisplay.count != items.count &&
+                        (index == (itemsToDisplay.count - 1))
+                    ),
                     cornerRadius: VisibleMessageCell.largeCornerRadius
                 )
             }

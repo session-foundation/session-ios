@@ -10,11 +10,7 @@ import SessionMessagingKit
 import SignalCoreKit
 import SessionUtilitiesKit
 
-public protocol MediaMessageViewAudioDelegate: AnyObject {
-    func progressChanged(_ progressSeconds: CGFloat, durationSeconds: CGFloat)
-}
-
-public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
+public class MediaMessageView: UIView {
     public enum Mode: UInt {
         case large
         case small
@@ -26,25 +22,6 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
     private var disposables: Set<AnyCancellable> = Set()
     public let mode: Mode
     public let attachment: SignalAttachment
-
-    public lazy var audioPlayer: OWSAudioPlayer? = {
-        guard let dataUrl = attachment.dataUrl else { return nil }
-        
-        return OWSAudioPlayer(mediaUrl: dataUrl, audioBehavior: .playback, delegate: self)
-    }()
-    
-    public var wasPlayingAudio: Bool = false
-    public var audioProgressSeconds: CGFloat = 0
-    public var audioDurationSeconds: CGFloat = 0
-    public weak var audioDelegate: MediaMessageViewAudioDelegate?
-    
-    public var playbackState = AudioPlaybackState.stopped {
-        didSet {
-            AssertIsOnMainThread()
-
-            ensureButtonState()
-        }
-    }
     
     private lazy var validImage: UIImage? = {
         if attachment.isImage {
@@ -88,6 +65,7 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         
         return image
     }()
+    private lazy var duration: TimeInterval? = attachment.duration()
     private var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
 
     // MARK: Initializers
@@ -210,34 +188,6 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         return view
     }()
     
-    lazy var videoPlayButton: UIImageView = {
-        let view: UIImageView = UIImageView(image: UIImage(named: "CirclePlay"))
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.contentMode = .scaleAspectFit
-        view.isHidden = true
-        
-        return view
-    }()
-    
-    /// Note: This uses different assets from the `videoPlayButton` and has a 'Pause' state
-    private lazy var audioPlayPauseButton: UIButton = {
-        let button: UIButton = UIButton()
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.clipsToBounds = true
-        button.setThemeBackgroundColorForced(
-            .theme(.classicLight, color: .settings_tabBackground),
-            for: .normal
-        )
-        button.setThemeBackgroundColorForced(
-            .theme(.classicLight, color: .highlighted(.settings_tabBackground)),
-            for: .highlighted
-        )
-        button.addTarget(self, action: #selector(audioPlayPauseButtonPressed), for: .touchUpInside)
-        button.isHidden = true
-        
-        return button
-    }()
-    
     private lazy var titleStackView: UIStackView = {
         let stackView: UIStackView = UIStackView()
         stackView.translatesAutoresizingMaskIntoConstraints = false
@@ -354,7 +304,9 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
             // Format string for file size label in call interstitial view.
             // Embeds: {{file size as 'N mb' or 'N kb'}}.
             let fileSize: UInt = attachment.dataLength
-            label.text = String(format: "ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT".localized(), Format.fileSize(fileSize))
+            label.text = duration
+                .map { "\(Format.fileSize(fileSize)), \(Format.duration($0))" }
+                .defaulting(to: Format.fileSize(fileSize))
             label.textAlignment = .center
         }
         
@@ -373,7 +325,6 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         // Setup the view hierarchy
         addSubview(stackView)
         addSubview(loadingView)
-        addSubview(videoPlayButton)
         
         stackView.addArrangedSubview(imageView)
         stackView.addArrangedSubview(animatedImageView)
@@ -396,24 +347,15 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
             // Note: The 'attachmentApproval' mode provides it's own play button to keep
             // it at the proper scale when zooming
             imageView.isHidden = false
-            videoPlayButton.isHidden = (mode == .attachmentApproval)
         }
         else if attachment.isAudio {
             // Hide the 'audioPlayPauseButton' if the 'audioPlayer' failed to get created
             imageView.isHidden = false
-            audioPlayPauseButton.isHidden = (audioPlayer == nil)
-            setAudioIconToPlay()
-            setAudioProgress(0, duration: (audioPlayer?.duration ?? 0))
             
             fileTypeImageView.image = UIImage(named: "table_ic_notification_sound")?
                 .withRenderingMode(.alwaysTemplate)
             fileTypeImageView.themeTintColor = .textPrimary
             fileTypeImageView.isHidden = false
-            
-            // Note: There is an annoying bug where the MediaMessageView will fill the screen if the
-            // 'audioPlayPauseButton' is added anywhere within the view hierarchy causing issues with
-            // the min scale on 'image' and 'animatedImage' file types (assume it's actually any UIButton)
-            addSubview(audioPlayPauseButton)
         }
         else if attachment.isUrl {
             imageView.isHidden = false
@@ -481,8 +423,6 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
         }()
         
         let imageSize: CGFloat = (maybeImageSize ?? 0)
-        let audioButtonSize: CGFloat = (imageSize / 2.5)
-        audioPlayPauseButton.layer.cornerRadius = (audioButtonSize / 2)
         
         // Actual layout
         NSLayoutConstraint.activate([
@@ -531,9 +471,6 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
                 multiplier: ((fileTypeImageView.image?.size.width ?? 1) / (fileTypeImageView.image?.size.height ?? 1))
             ),
             fileTypeImageView.widthAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: 0.5),
-            
-            videoPlayButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            videoPlayButton.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             loadingView.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
             loadingView.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
@@ -546,18 +483,6 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
             NSLayoutConstraint.activate([
                 titleLabel.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -(32 * 2)),
                 subtitleLabel.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -(32 * 2))
-            ])
-        }
-        
-        // Note: There is an annoying bug where the MediaMessageView will fill the screen if the
-        // 'audioPlayPauseButton' is added anywhere within the view hierarchy causing issues with
-        // the min scale on 'image' and 'animatedImage' file types (assume it's actually any UIButton)
-        if attachment.isAudio {
-            NSLayoutConstraint.activate([
-                audioPlayPauseButton.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
-                audioPlayPauseButton.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
-                audioPlayPauseButton.widthAnchor.constraint(equalToConstant: audioButtonSize),
-                audioPlayPauseButton.heightAnchor.constraint(equalToConstant: audioButtonSize),
             ])
         }
     }
@@ -614,89 +539,5 @@ public class MediaMessageView: UIView, OWSAudioPlayerDelegate {
                 }
             )
             .store(in: &disposables)
-    }
-    
-    // MARK: - Functions
-    
-    public func playAudio() {
-        audioPlayer?.play()
-        ensureButtonState()
-    }
-    
-    public func pauseAudio() {
-        wasPlayingAudio = (audioPlayer?.isPlaying == true)
-        
-        // If the 'audioPlayer' has a duration of 0 then we probably haven't played previously which
-        // will result in the audioPlayer having a 'duration' of 0 breaking the progressBar. We play
-        // the audio to get it to properly load the file right before pausing it so the data is
-        // loaded correctly
-        if audioPlayer?.duration == 0 {
-            audioPlayer?.play()
-        }
-        
-        audioPlayer?.pause()
-        ensureButtonState()
-    }
-    
-    public func setAudioTime(currentTime: TimeInterval) {
-        audioPlayer?.setCurrentTime(currentTime)
-    }
-
-    // MARK: - Event Handlers
-
-    @objc func audioPlayPauseButtonPressed(sender: UIButton) {
-        audioPlayer?.togglePlayState()
-    }
-
-    // MARK: - OWSAudioPlayerDelegate
-
-    public func audioPlaybackState() -> AudioPlaybackState {
-        return playbackState
-    }
-
-    public func setAudioPlaybackState(_ value: AudioPlaybackState) {
-        playbackState = value
-    }
-    
-    public func showInvalidAudioFileAlert() {
-        let modal: ConfirmationModal = ConfirmationModal(
-            targetView: CurrentAppContext().frontmostViewController()?.view,
-            info: ConfirmationModal.Info(
-                title: CommonStrings.errorAlertTitle,
-                body: .text("INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized()),
-                cancelTitle: "BUTTON_OK".localized(),
-                cancelStyle: .alert_text
-            )
-        )
-        CurrentAppContext().frontmostViewController()?.present(modal, animated: true)
-    }
-
-    public func audioPlayerDidFinishPlaying(_ player: OWSAudioPlayer, successfully flag: Bool) {
-        // Do nothing
-    }
-
-    private func ensureButtonState() {
-        switch playbackState {
-            case .playing: setAudioIconToPause()
-            default: setAudioIconToPlay()
-        }
-    }
-
-    public func setAudioProgress(_ progress: CGFloat, duration: CGFloat) {
-        // Note: When the OWSAudioPlayer stops it sets the duration to 0 (which we want to ignore so
-        // the UI doesn't look buggy)
-        let finalDuration: CGFloat = (duration > 0 ? duration : audioDurationSeconds)
-        audioProgressSeconds = progress
-        audioDurationSeconds = finalDuration
-        
-        audioDelegate?.progressChanged(progress, durationSeconds: finalDuration)
-    }
-
-    private func setAudioIconToPlay() {
-        audioPlayPauseButton.setImage(UIImage(named: "Play"), for: .normal)
-    }
-
-    private func setAudioIconToPause() {
-        audioPlayPauseButton.setImage(UIImage(named: "Pause"), for: .normal)
     }
 }

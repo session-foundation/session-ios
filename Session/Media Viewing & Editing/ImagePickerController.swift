@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import Photos
+import PhotosUI
 import SessionUIKit
 import SignalUtilitiesKit
 import SignalCoreKit

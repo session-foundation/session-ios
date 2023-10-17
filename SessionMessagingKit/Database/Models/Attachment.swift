@@ -8,6 +8,7 @@ import GRDB
 import SignalCoreKit
 import SessionUtilitiesKit
 import SessionSnodeKit
+import SessionUIKit
 
 public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "attachment" }
@@ -788,11 +789,28 @@ extension Attachment {
     public var isText: Bool { MIMETypeUtil.isText(contentType) }
     public var isMicrosoftDoc: Bool { MIMETypeUtil.isMicrosoftDoc(contentType) }
     
+    public var documentFileName: String {
+        if let sourceFilename: String = sourceFilename { return sourceFilename }
+        if isImage { return "Image File" }
+        if isAudio { return "Audio File" }
+        if isVideo { return "Video File" }
+        return "File"
+    }
+    
     public var shortDescription: String {
         if isImage { return "Image" }
         if isAudio { return "Audio" }
         if isVideo { return "Video" }
         return "Document"
+    }
+    
+    public var documentFileInfo: String {
+        switch duration {
+            case .some(let duration) where duration > 0:
+                return "\(Format.fileSize(byteCount)), \(Format.duration(duration))"
+                
+            default: return Format.fileSize(byteCount)
+        }
     }
     
     public func readDataFromFile() throws -> Data? {
