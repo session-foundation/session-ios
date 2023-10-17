@@ -614,7 +614,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
                 unloadContent = { albumView.unloadMedia() }
                 
-            case .audio:
+            case .voiceMessage:
                 guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
                     return
                 }
@@ -633,7 +633,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 snContentView.addArrangedSubview(bubbleBackgroundView)
                 self.voiceMessageView = voiceMessageView
                 
-            case .genericAttachment:
+            case .audio, .genericAttachment:
                 guard let attachment: Attachment = cellViewModel.attachments?.first else { preconditionFailure() }
                 
                 let inset: CGFloat = 12
@@ -744,7 +744,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
 
         switch cellViewModel.cellType {
-            case .audio:
+            case .voiceMessage:
                 guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
                     return
                 }

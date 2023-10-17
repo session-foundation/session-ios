@@ -376,10 +376,17 @@ class DocumentCell: UITableViewCell {
     
     // MARK: - UI
     
-    private static let iconImageViewSize: CGSize = CGSize(width: 31, height: 40)
-    
     private let iconImageView: UIImageView = {
-        let result: UIImageView = UIImageView(image: #imageLiteral(resourceName: "File").withRenderingMode(.alwaysTemplate))
+        let result: UIImageView = UIImageView(image: UIImage(systemName: "doc")?.withRenderingMode(.alwaysTemplate))
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.themeTintColor = .textPrimary
+        result.contentMode = .scaleAspectFit
+        
+        return result
+    }()
+    
+    private let audioImageView: UIImageView = {
+        let result = UIImageView(image: UIImage(systemName: "music.note")?.withRenderingMode(.alwaysTemplate))
         result.translatesAutoresizingMaskIntoConstraints = false
         result.themeTintColor = .textPrimary
         result.contentMode = .scaleAspectFit
@@ -439,6 +446,8 @@ class DocumentCell: UITableViewCell {
         contentView.addSubview(titleLabel)
         contentView.addSubview(timeLabel)
         contentView.addSubview(detailLabel)
+        
+        iconImageView.addSubview(audioImageView)
     }
     
     // MARK: - Layout
@@ -458,6 +467,8 @@ class DocumentCell: UITableViewCell {
                 lessThanOrEqualTo: contentView.bottomAnchor,
                 constant: -(Values.verySmallSpacing + Values.verySmallSpacing)
             ),
+            iconImageView.widthAnchor.constraint(equalToConstant: 36),
+            iconImageView.heightAnchor.constraint(equalToConstant: 46),
             
             titleLabel.topAnchor.constraint(
                 equalTo: contentView.topAnchor,
@@ -485,6 +496,10 @@ class DocumentCell: UITableViewCell {
                 lessThanOrEqualTo: contentView.bottomAnchor,
                 constant: -(Values.verySmallSpacing + Values.smallSpacing)
             ),
+            
+            audioImageView.centerXAnchor.constraint(equalTo: iconImageView.centerXAnchor),
+            audioImageView.centerYAnchor.constraint(equalTo: iconImageView.centerYAnchor, constant: 7),
+            audioImageView.heightAnchor.constraint(equalTo: iconImageView.heightAnchor, multiplier: 0.32)
         ])
     }
     
@@ -504,11 +519,12 @@ class DocumentCell: UITableViewCell {
     
     func update(with item: MediaGalleryViewModel.Item) {
         let attachment = item.attachment
-        titleLabel.text = (attachment.sourceFilename ?? "File")
-        detailLabel.text = "\(Format.fileSize(attachment.byteCount)))"
+        titleLabel.text = attachment.documentFileName
+        detailLabel.text = attachment.documentFileInfo
         timeLabel.text = Date(
             timeIntervalSince1970: TimeInterval(item.interactionTimestampMs / 1000)
         ).formattedForDisplay
+        audioImageView.isHidden = !attachment.isAudio
     }
 }
 

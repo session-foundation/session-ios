@@ -47,7 +47,7 @@ public class SSKDefaultKeychainStorage: NSObject, SSKKeychainStorage {
         var error: NSError?
         let result = SAMKeychain.password(forService: service, account: key, error: &error)
         if let error = error {
-            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error retrieving string: \(error)")
+            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error retrieving string: \(error.localizedDescription)")
         }
         guard let string = result else {
             throw KeychainStorageError.failure(code: nil, description: "\(logTag) could not retrieve string")
@@ -62,7 +62,7 @@ public class SSKDefaultKeychainStorage: NSObject, SSKKeychainStorage {
         var error: NSError?
         let result = SAMKeychain.setPassword(string, forService: service, account: key, error: &error)
         if let error = error {
-            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error setting string: \(error)")
+            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error setting string: \(error.localizedDescription)")
         }
         guard result else {
             throw KeychainStorageError.failure(code: nil, description: "\(logTag) could not set string")
@@ -73,7 +73,7 @@ public class SSKDefaultKeychainStorage: NSObject, SSKKeychainStorage {
         var error: NSError?
         let result = SAMKeychain.passwordData(forService: service, account: key, error: &error)
         if let error = error {
-            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error retrieving data: \(error)")
+            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error retrieving data: \(error.localizedDescription)")
         }
         guard let data = result else {
             throw KeychainStorageError.failure(code: nil, description: "\(logTag) could not retrieve data")
@@ -88,7 +88,7 @@ public class SSKDefaultKeychainStorage: NSObject, SSKKeychainStorage {
         var error: NSError?
         let result = SAMKeychain.setPasswordData(data, forService: service, account: key, error: &error)
         if let error = error {
-            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error setting data: \(error)")
+            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error setting data: \(error.localizedDescription)")
         }
         guard result else {
             throw KeychainStorageError.failure(code: nil, description: "\(logTag) could not set data")
@@ -103,7 +103,7 @@ public class SSKDefaultKeychainStorage: NSObject, SSKKeychainStorage {
             if error.code == errSecItemNotFound {
                 return
             }
-            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error removing data: \(error)")
+            throw KeychainStorageError.failure(code: Int32(error.code), description: "\(logTag) error removing data: \(error.localizedDescription)")
         }
         guard result else {
             throw KeychainStorageError.failure(code: nil, description: "\(logTag) could not remove data")

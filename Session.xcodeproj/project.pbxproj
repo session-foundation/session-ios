@@ -340,7 +340,6 @@
 		C38D5E8D2575011E00B6A65C /* MessageSender+ClosedGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38D5E8C2575011E00B6A65C /* MessageSender+ClosedGroups.swift */; };
 		C38EF00C255B61CC007E1867 /* SignalUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */; };
 		C38EF22B255B6D5D007E1867 /* ShareViewDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF226255B6D5D007E1867 /* ShareViewDelegate.swift */; };
-		C38EF22C255B6D5D007E1867 /* OWSVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF227255B6D5D007E1867 /* OWSVideoPlayer.swift */; };
 		C38EF24D255B6D67007E1867 /* UIView+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF240255B6D67007E1867 /* UIView+OWS.swift */; };
 		C38EF24E255B6D67007E1867 /* Collection+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF241255B6D67007E1867 /* Collection+OWS.swift */; };
 		C38EF2B3255B6D9C007E1867 /* UIViewController+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2B1255B6D9C007E1867 /* UIViewController+Utilities.swift */; };
@@ -382,7 +381,6 @@
 		C38EF3FB255B6DF7007E1867 /* UIAlertController+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3DD255B6DF1007E1867 /* UIAlertController+OWS.swift */; };
 		C38EF3FF255B6DF7007E1867 /* TappableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3E1255B6DF3007E1867 /* TappableView.swift */; };
 		C38EF400255B6DF7007E1867 /* GalleryRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3E2255B6DF3007E1867 /* GalleryRailView.swift */; };
-		C38EF401255B6DF7007E1867 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3E3255B6DF4007E1867 /* VideoPlayerView.swift */; };
 		C38EF402255B6DF7007E1867 /* CommonStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3E4255B6DF4007E1867 /* CommonStrings.swift */; };
 		C38EF405255B6DF7007E1867 /* OWSButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3E7255B6DF5007E1867 /* OWSButton.swift */; };
 		C38EF407255B6DF7007E1867 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3E9255B6DF6007E1867 /* Toast.swift */; };
@@ -766,6 +764,7 @@
 		FDAED05C2A7C6CE600091B25 /* MigrationRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAED05B2A7C6CE600091B25 /* MigrationRequirement.swift */; };
 		FDB4BBC72838B91E00B7C95D /* LinkPreviewError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB4BBC62838B91E00B7C95D /* LinkPreviewError.swift */; };
 		FDB4BBC92839BEF000B7C95D /* ProfileManagerError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB4BBC82839BEF000B7C95D /* ProfileManagerError.swift */; };
+		FDB6A87C2AD75B7F002D4F96 /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */; };
 		FDB7400B28EB99A70094D718 /* TimeInterval+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */; };
 		FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */; };
 		FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */; };
@@ -1497,7 +1496,6 @@
 		C38EEF09255B49A8007E1867 /* SNProtoEnvelope+Conversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SNProtoEnvelope+Conversion.swift"; sourceTree = "<group>"; };
 		C38EF224255B6D5D007E1867 /* SignalAttachment.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SignalAttachment.swift; path = "SessionMessagingKit/Sending & Receiving/Attachments/SignalAttachment.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF226255B6D5D007E1867 /* ShareViewDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ShareViewDelegate.swift; path = SignalUtilitiesKit/Utilities/ShareViewDelegate.swift; sourceTree = SOURCE_ROOT; };
-		C38EF227255B6D5D007E1867 /* OWSVideoPlayer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = OWSVideoPlayer.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/OWSVideoPlayer.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF237255B6D65007E1867 /* UIDevice+featureSupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "UIDevice+featureSupport.swift"; path = "SessionUtilitiesKit/General/UIDevice+featureSupport.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF23D255B6D66007E1867 /* UIView+OWS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "UIView+OWS.h"; path = "SessionUtilitiesKit/General/UIView+OWS.h"; sourceTree = SOURCE_ROOT; };
 		C38EF23E255B6D66007E1867 /* UIView+OWS.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIView+OWS.m"; path = "SessionUtilitiesKit/General/UIView+OWS.m"; sourceTree = SOURCE_ROOT; };
@@ -1552,7 +1550,6 @@
 		C38EF3DD255B6DF1007E1867 /* UIAlertController+OWS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "UIAlertController+OWS.swift"; path = "SignalUtilitiesKit/Utilities/UIAlertController+OWS.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF3E1255B6DF3007E1867 /* TappableView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TappableView.swift; path = "SignalUtilitiesKit/Shared Views/TappableView.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF3E2255B6DF3007E1867 /* GalleryRailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = GalleryRailView.swift; path = "SignalUtilitiesKit/Shared Views/GalleryRailView.swift"; sourceTree = SOURCE_ROOT; };
-		C38EF3E3255B6DF4007E1867 /* VideoPlayerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = VideoPlayerView.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/VideoPlayerView.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF3E4255B6DF4007E1867 /* CommonStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CommonStrings.swift; path = SignalUtilitiesKit/Utilities/CommonStrings.swift; sourceTree = SOURCE_ROOT; };
 		C38EF3E7255B6DF5007E1867 /* OWSButton.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = OWSButton.swift; path = "SignalUtilitiesKit/Shared Views/OWSButton.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF3E9255B6DF6007E1867 /* Toast.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Toast.swift; path = "SignalUtilitiesKit/Shared Views/Toast.swift"; sourceTree = SOURCE_ROOT; };
@@ -1929,6 +1926,7 @@
 		FDAED05B2A7C6CE600091B25 /* MigrationRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationRequirement.swift; sourceTree = "<group>"; };
 		FDB4BBC62838B91E00B7C95D /* LinkPreviewError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewError.swift; sourceTree = "<group>"; };
 		FDB4BBC82839BEF000B7C95D /* ProfileManagerError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileManagerError.swift; sourceTree = "<group>"; };
+		FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
 		FDB7400A28EB99A70094D718 /* TimeInterval+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Utilities.swift"; sourceTree = "<group>"; };
 		FDB7400C28EBEC240094D718 /* DateHeaderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateHeaderCell.swift; sourceTree = "<group>"; };
 		FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_AddJobPriority.swift; sourceTree = "<group>"; };
@@ -2196,6 +2194,7 @@
 			files = (
 				B8FF8DAE25C0D00F004D1F22 /* SessionMessagingKit.framework in Frameworks */,
 				B8FF8DAF25C0D00F004D1F22 /* SessionUtilitiesKit.framework in Frameworks */,
+				FDB6A87C2AD75B7F002D4F96 /* PhotosUI.framework in Frameworks */,
 				C37F54DC255BB84A002AEA92 /* SessionSnodeKit.framework in Frameworks */,
 				C37F5414255BAFA7002AEA92 /* SignalUtilitiesKit.framework in Frameworks */,
 				455A16DD1F1FEA0000F86704 /* Metal.framework in Frameworks */,
@@ -3171,9 +3170,7 @@
 				C379DCEA2567334F0002D4EB /* Attachment Approval */,
 				C379DCE9256733390002D4EB /* Image Editing */,
 				C38EF358255B6DCC007E1867 /* MediaMessageView.swift */,
-				C38EF227255B6D5D007E1867 /* OWSVideoPlayer.swift */,
 				C38EF3B5255B6DE6007E1867 /* OWSViewController+ImageEditor.swift */,
-				C38EF3E3255B6DF4007E1867 /* VideoPlayerView.swift */,
 			);
 			path = "Media Viewing & Editing";
 			sourceTree = "<group>";
@@ -3545,6 +3542,7 @@
 		D221A08C169C9E5E00537ABF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */,
 				3496955F21A2FC8100DCFE74 /* CloudKit.framework */,
 				455A16DB1F1FEA0000F86704 /* Metal.framework */,
 				455A16DC1F1FEA0000F86704 /* MetalKit.framework */,
@@ -5726,7 +5724,6 @@
 				C3F0A530255C80BC007BE2A3 /* NoopNotificationsManager.swift in Sources */,
 				C33FDD8D255A582000E217F9 /* OWSSignalAddress.swift in Sources */,
 				C38EF388255B6DD2007E1867 /* AttachmentApprovalViewController.swift in Sources */,
-				C38EF22C255B6D5D007E1867 /* OWSVideoPlayer.swift in Sources */,
 				C33FDC29255A581F00E217F9 /* ReachabilityManager.swift in Sources */,
 				C38EF407255B6DF7007E1867 /* Toast.swift in Sources */,
 				C38EF38C255B6DD2007E1867 /* ApprovalRailCellView.swift in Sources */,
@@ -5751,7 +5748,6 @@
 				C38EF3BB255B6DE7007E1867 /* ImageEditorStrokeItem.swift in Sources */,
 				C38EF3C0255B6DE7007E1867 /* ImageEditorCropViewController.swift in Sources */,
 				FD52090B28B59BB4006098F6 /* ScreenLockViewController.swift in Sources */,
-				C38EF401255B6DF7007E1867 /* VideoPlayerView.swift in Sources */,
 				C38EF3BD255B6DE7007E1867 /* ImageEditorTransform.swift in Sources */,
 				C33FDC58255A582000E217F9 /* ReverseDispatchQueue.swift in Sources */,
 				C38EF324255B6DBF007E1867 /* Bench.swift in Sources */,
