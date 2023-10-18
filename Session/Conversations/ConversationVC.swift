@@ -497,6 +497,9 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         
         startObservingChanges()
         
+        /// If the view is removed and readded to the view hierarchy then `viewWillDisappear` will be called but `viewDidDisappear`
+        /// **won't**, as a result `viewIsDisappearing` would never get set to `false` - do so here to handle this case
+        viewIsDisappearing = false
         viewIsAppearing = true
     }
 

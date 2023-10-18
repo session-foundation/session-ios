@@ -9,27 +9,14 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadDisappearingMessagesSettingsViewModel.NavButton, ThreadDisappearingMessagesSettingsViewModel.Section, ThreadDisappearingMessagesSettingsViewModel.Item> {
-    // MARK: - Config
+class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+    typealias TableItem = String
     
-    enum NavButton: Equatable {
-        case cancel
-        case save
-    }
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
-    public enum Section: SessionTableSection {
-        case content
-    }
-    
-    public struct Item: Equatable, Hashable, Differentiable {
-        let title: String
-        
-        public var differenceIdentifier: String { title }
-    }
-    
-    // MARK: - Variables
-    
-    private let dependencies: Dependencies
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private let config: DisappearingMessagesConfiguration
@@ -52,65 +39,65 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
         self.currentSelection = CurrentValueSubject(self.storedSelection)
     }
     
+    // MARK: - Config
+    
+    enum NavItem: Equatable {
+        case cancel
+        case save
+    }
+    
+    public enum Section: SessionTableSection {
+        case content
+    }
+    
     // MARK: - Navigation
     
-    override var leftNavItems: AnyPublisher<[NavItem]?, Never> {
-        Just([
-            NavItem(
-                id: .cancel,
-                systemItem: .cancel,
-                accessibilityIdentifier: "Cancel button"
-            ) { [weak self] in self?.dismissScreen() }
-        ]).eraseToAnyPublisher()
-    }
+    lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
+        SessionNavItem(
+            id: .cancel,
+            systemItem: .cancel,
+            accessibilityIdentifier: "Cancel button"
+        ) { [weak self] in self?.dismissScreen() }
+    ]
 
-    override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
-        currentSelection
-            .removeDuplicates()
-            .map { [weak self] currentSelection in (self?.storedSelection != currentSelection) }
-            .map { [weak self, dependencies] isChanged in
-                guard isChanged else { return [] }
-                
-                return [
-                    NavItem(
-                        id: .save,
-                        systemItem: .save,
-                        accessibilityIdentifier: "Save button"
-                    ) {
-                        self?.saveChanges(using: dependencies)
-                        self?.dismissScreen()
-                    }
-                ]
-            }
-           .eraseToAnyPublisher()
-    }
+    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = currentSelection
+        .removeDuplicates()
+        .map { [weak self] currentSelection in (self?.storedSelection != currentSelection) }
+        .map { [weak self, dependencies] isChanged in
+            guard isChanged else { return [] }
+            
+            return [
+                SessionNavItem(
+                    id: .save,
+                    systemItem: .save,
+                    accessibilityIdentifier: "Save button"
+                ) {
+                    self?.saveChanges(using: dependencies)
+                    self?.dismissScreen()
+                }
+            ]
+        }
+       .eraseToAnyPublisher()
     
     // MARK: - Content
     
-    override var title: String { "DISAPPEARING_MESSAGES".localized() }
+    let title: String = "DISAPPEARING_MESSAGES".localized()
     
-    public override var observableTableData: ObservableData { _observableTableData }
-    
-    /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
-    /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    ///
-    /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-    /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-    /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-    /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self, config, dependencies, threadId = self.threadId] db -> [SectionModel] in
+    lazy var observation: TargetObservation = ObservationBuilder
+        .databaseObservation(self) { [dependencies, threadId = self.threadId] db -> SessionThreadViewModel? in
             let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-            let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
+            
+            return try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
                 .fetchOne(db)
-            
+        }
+        .map { [weak self, config, dependencies, threadId = self.threadId] maybeThreadViewModel -> [SectionModel] in
             return [
                 SectionModel(
                     model: .content,
                     elements: [
                         SessionCell.Info(
-                            id: Item(title: "DISAPPEARING_MESSAGES_OFF".localized()),
+                            id: "DISAPPEARING_MESSAGES_OFF".localized(),
                             title: "DISAPPEARING_MESSAGES_OFF".localized(),
                             rightAccessory: .radio(
                                 isSelected: { (self?.currentSelection.value == 0) }
@@ -130,7 +117,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                                 let title: String = duration.formatted(format: .long)
                                 
                                 return SessionCell.Info(
-                                    id: Item(title: title),
+                                    id: title,
                                     title: title,
                                     rightAccessory: .radio(
                                         isSelected: { (self?.currentSelection.value == duration) }
@@ -149,10 +136,6 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel<ThreadD
                 )
             ]
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[ThreadDisappearingMessageSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
-        .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
     

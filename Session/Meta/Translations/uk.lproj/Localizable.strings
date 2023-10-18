@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "Сканувати QR-код";
 "vc_enter_public_key_explanation" = "Почніть нову розмову, ввівши чийсь Session ID або поділіться з ним своїм Session ID.";
 "vc_scan_qr_code_camera_access_explanation" = "Session потрібен дозвіл до камери, щоб сканувати QR-код";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Дозволити доступ до камери";
 "vc_create_closed_group_title" = "Створити групу";
 "vc_create_closed_group_text_field_hint" = "Введіть назву групи";
 "vc_create_closed_group_empty_state_message" = "У вас ще немає жодних контактів";

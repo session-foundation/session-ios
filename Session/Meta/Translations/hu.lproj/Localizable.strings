@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "QR kód beolvasása";
 "vc_enter_public_key_explanation" = "Beszélgetés kezdeményezéséhez addj meg egy Session ID-t vagy oszd meg a tiédet másokkal.";
 "vc_scan_qr_code_camera_access_explanation" = "Kamera hozzáférésre van szükség a QR kód beolvasásához";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Adjon hozzáférést a kamerához";
 "vc_create_closed_group_title" = "Csoport létrehozása";
 "vc_create_closed_group_text_field_hint" = "Adja meg a csoport nevét";
 "vc_create_closed_group_empty_state_message" = "Még nincsenek névjegyei";

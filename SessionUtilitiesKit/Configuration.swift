@@ -5,10 +5,10 @@ import GRDB
 
 public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API nice
     public static var isRunningTests: Bool {
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil   // stringlint:disable
     }
 
-    public static func migrations(_ db: Database) -> TargetMigrations {
+    public static func migrations() -> TargetMigrations {
         return TargetMigrations(
             identifier: .utilitiesKit,
             migrations: [
@@ -19,12 +19,14 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
                     _001_InitialSetupMigration.self,
                     _002_SetupStandardJobs.self,
                     _003_YDBToGRDBMigration.self
-                ],
-                [], // Other DB migrations
+                ],  // Initial DB Creation
+                [], // YDB to GRDB Migration
                 [], // Legacy DB removal
                 [
                     _004_AddJobPriority.self
-                ]
+                ],  // Add job priorities
+                [], // Fix thread FTS
+                []
             ]
         )
     }

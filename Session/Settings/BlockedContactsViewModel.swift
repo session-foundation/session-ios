@@ -8,41 +8,35 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
-class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsViewModel.Section, Profile> {
-    // MARK: - Section
-    
-    public enum Section: SessionTableSection {
-        case contacts
-        case loadMore
-        
-        var style: SessionTableSectionStyle {
-            switch self {
-                case .contacts: return .none
-                case .loadMore: return .loadMore
-            }
-        }
-    }
-    
-    // MARK: - Variables
-    
+public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource, PagedObservationSource {
     public static let pageSize: Int = 30
+    
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    private let selectedContactIdsSubject: CurrentValueSubject<Set<String>, Never> = CurrentValueSubject([])
+    public private(set) var pagedDataObserver: PagedDatabaseObserver<Contact, TableItem>?
     
     // MARK: - Initialization
     
-    override init() {
-        _pagedDataObserver = nil
-        
-        super.init()
+    init(using dependencies: Dependencies = Dependencies()) {
+        self.dependencies = dependencies
+        self.pagedDataObserver = nil
         
         // Note: Since this references self we need to finish initializing before setting it, we
         // also want to skip the initial query and trigger it async so that the push animation
         // doesn't stutter (it should load basically immediately but without this there is a
         // distinct stutter)
-        _pagedDataObserver = PagedDatabaseObserver(
-            pagedTable: Profile.self,
+        self.pagedDataObserver = PagedDatabaseObserver(
+            pagedTable: Contact.self,
             pageSize: BlockedContactsViewModel.pageSize,
             idColumn: .id,
             observedChanges: [
+                PagedData.ObservedChanges(
+                    table: Contact.self,
+                    columns: [.id, .isBlocked]
+                ),
                 PagedData.ObservedChanges(
                     table: Profile.self,
                     columns: [
@@ -50,36 +44,29 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                         .name,
                         .nickname,
                         .profilePictureFileName
-                    ]
-                ),
-                PagedData.ObservedChanges(
-                    table: Contact.self,
-                    columns: [.isBlocked],
+                    ],
                     joinToPagedType: {
-                        let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         let contact: TypedTableAlias<Contact> = TypedTableAlias()
+                        let profile: TypedTableAlias<Profile> = TypedTableAlias()
                         
-                        return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(profile[.id])")
+                        return SQL("JOIN \(Profile.self) ON \(profile[.id]) = \(contact[.id])")
                     }()
                 )
             ],
             /// **Note:** This `optimisedJoinSQL` value includes the required minimum joins needed for the query
-            joinSQL: DataModel.optimisedJoinSQL,
-            filterSQL: DataModel.filterSQL,
-            orderSQL: DataModel.orderSQL,
-            dataQuery: DataModel.query(
-                filterSQL: DataModel.filterSQL,
-                orderSQL: DataModel.orderSQL
+            joinSQL: TableItem.optimisedJoinSQL,
+            filterSQL: TableItem.filterSQL,
+            orderSQL: TableItem.orderSQL,
+            dataQuery: TableItem.query(
+                filterSQL: TableItem.filterSQL,
+                orderSQL: TableItem.orderSQL
             ),
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
                 PagedData.processAndTriggerUpdates(
                     updatedData: self?.process(data: updatedData, for: updatedPageInfo)
                         .mapToSessionTableViewData(for: self),
                     currentDataRetriever: { self?.tableData },
-                    onDataChange: { updatedData, changeset in
-                        self?.contactDataSubject.send((updatedData, changeset))
-                    },
-                    onUnobservedDataChange: { _, _ in }
+                    valueSubject: self?.pendingTableDataSubject
                 )
             }
         )
@@ -87,49 +74,46 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
         // Run the initial query on a background thread so we don't block the push transition
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // The `.pageBefore` will query from a `0` offset loading the first page
-            self?._pagedDataObserver?.load(.pageBefore)
+            self?.pagedDataObserver?.load(.pageBefore)
         }
     }
     
-    // MARK: - Contact Data
+    // MARK: - Section
     
-    override var title: String { "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE".localized() }
-    override var emptyStateTextPublisher: AnyPublisher<String?, Never> {
-        Just("CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE".localized())
-            .eraseToAnyPublisher()
-    }
-    
-    private let contactDataSubject: CurrentValueSubject<([SectionModel], StagedChangeset<[SectionModel]>), Never> = CurrentValueSubject(([], StagedChangeset()))
-    private let selectedContactIdsSubject: CurrentValueSubject<Set<String>, Never> = CurrentValueSubject([])
-    private var _pagedDataObserver: PagedDatabaseObserver<Profile, DataModel>?
-    public override var pagedDataObserver: TransactionObserver? { _pagedDataObserver }
-    
-    public override var observableTableData: ObservableData { _observableTableData }
-
-    private lazy var _observableTableData: ObservableData = contactDataSubject
-        .setFailureType(to: Error.self)
-        .eraseToAnyPublisher()
-    
-    override var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> {
-        selectedContactIdsSubject
-            .prepend([])
-            .map { selectedContactIds in
-                SessionButton.Info(
-                    style: .destructive,
-                    title: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK".localized(),
-                    isEnabled: !selectedContactIds.isEmpty,
-                    onTap: { [weak self] in self?.unblockTapped() }
-                )
+    public enum Section: SessionTableSection {
+        case contacts
+        case loadMore
+        
+        public var style: SessionTableSectionStyle {
+            switch self {
+                case .contacts: return .none
+                case .loadMore: return .loadMore
             }
-            .eraseToAnyPublisher()
+        }
     }
+    
+    // MARK: - Content
+    
+    let title: String = "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE".localized()
+    let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE".localized())
+            .eraseToAnyPublisher()
+    
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = selectedContactIdsSubject
+        .prepend([])
+        .map { selectedContactIds in
+            SessionButton.Info(
+                style: .destructive,
+                title: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK".localized(),
+                isEnabled: !selectedContactIds.isEmpty,
+                onTap: { [weak self] in self?.unblockTapped() }
+            )
+        }
+        .eraseToAnyPublisher()
     
     // MARK: - Functions
     
-    override func loadPageAfter() { _pagedDataObserver?.load(.pageAfter) }
-    
     private func process(
-        data: [DataModel],
+        data: [TableItem],
         for pageInfo: PagedData.PageInfo
     ) -> [SectionModel] {
         return [
@@ -138,26 +122,32 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                     section: .contacts,
                     elements: data
                         .sorted { lhs, rhs -> Bool in
-                            lhs.profile.displayName() < rhs.profile.displayName()
+                            let lhsValue: String = (lhs.profile?.displayName() ?? lhs.id)
+                            let rhsValue: String = (rhs.profile?.displayName() ?? rhs.id)
+                            
+                            return (lhsValue < rhsValue)
                         }
-                        .map { [weak self] model -> SessionCell.Info<Profile> in
+                        .map { [weak self] model -> SessionCell.Info<TableItem> in
                             SessionCell.Info(
-                                id: model.profile,
-                                leftAccessory: .profile(id: model.profile.id, profile: model.profile),
-                                title: model.profile.displayName(),
+                                id: model,
+                                leftAccessory: .profile(id: model.id, profile: model.profile),
+                                title: (
+                                    model.profile?.displayName() ??
+                                    Profile.truncated(id: model.id, truncating: .middle)
+                                ),
                                 rightAccessory: .radio(
                                     isSelected: {
-                                        self?.selectedContactIdsSubject.value.contains(model.profile.id) == true
+                                        self?.selectedContactIdsSubject.value.contains(model.id) == true
                                     }
                                 ),
                                 onTap: {
                                     var updatedSelectedIds: Set<String> = (self?.selectedContactIdsSubject.value ?? [])
                                     
-                                    if !updatedSelectedIds.contains(model.profile.id) {
-                                        updatedSelectedIds.insert(model.profile.id)
+                                    if !updatedSelectedIds.contains(model.id) {
+                                        updatedSelectedIds.insert(model.id)
                                     }
                                     else {
-                                        updatedSelectedIds.remove(model.profile.id)
+                                        updatedSelectedIds.remove(model.id)
                                     }
                                     
                                     self?.selectedContactIdsSubject.send(updatedSelectedIds)
@@ -182,7 +172,7 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                 guard
                     let section: BlockedContactsViewModel.SectionModel = self.tableData
                         .first(where: { section in section.model == .contacts }),
-                    let info: SessionCell.Info<Profile> = section.elements
+                    let info: SessionCell.Info<TableItem> = section.elements
                         .first(where: { info in info.id.id == contactId })
                 else { return contactId }
                 
@@ -256,42 +246,46 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
         self.transitionToScreen(confirmationModal, transitionType: .present)
     }
     
-    // MARK: - DataModel
+    // MARK: - TableItem
 
-    public struct DataModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
+    public struct TableItem: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
         public typealias Columns = CodingKeys
         public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
             case rowId
+            case id
             case profile
         }
         
-        public var differenceIdentifier: String { profile.id }
-        public var id: String { profile.id }
+        public var differenceIdentifier: String { id }
         
         public let rowId: Int64
-        public let profile: Profile
+        public let id: String
+        public let profile: Profile?
     
         static func query(
             filterSQL: SQL,
             orderSQL: SQL
-        ) -> (([Int64]) -> any FetchRequest<DataModel>) {
-            return { rowIds -> any FetchRequest<DataModel> in
+        ) -> (([Int64]) -> any FetchRequest<TableItem>) {
+            return { rowIds -> any FetchRequest<TableItem> in
+                let contact: TypedTableAlias<Contact> = TypedTableAlias()
                 let profile: TypedTableAlias<Profile> = TypedTableAlias()
                 
                 /// **Note:** The `numColumnsBeforeProfile` value **MUST** match the number of fields before
-                /// the `DataModel.profileKey` entry below otherwise the query will fail to
+                /// the `TableItem.profileKey` entry below otherwise the query will fail to
                 /// parse and might throw
                 ///
                 /// Explicitly set default values for the fields ignored for search results
-                let numColumnsBeforeProfile: Int = 1
+                let numColumnsBeforeProfile: Int = 2
                 
-                let request: SQLRequest<DataModel> = """
+                let request: SQLRequest<TableItem> = """
                     SELECT
-                        \(profile[.rowId]) AS \(DataModel.Columns.rowId),
+                        \(contact[.rowId]) AS \(TableItem.Columns.rowId),
+                        \(contact[.id]),
                         \(profile.allColumns)
                     
-                    FROM \(Profile.self)
-                    WHERE \(profile[.rowId]) IN \(rowIds)
+                    FROM \(Contact.self)
+                    LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(contact[.id])
+                    WHERE \(contact[.rowId]) IN \(rowIds)
                     ORDER BY \(orderSQL)
                 """
                 
@@ -301,7 +295,7 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
                         Profile.numberOfSelectedColumns(db)
                     ])
                     
-                    return ScopeAdapter.with(DataModel.self, [
+                    return ScopeAdapter.with(TableItem.self, [
                         .profile: adapters[1]
                     ])
                 }
@@ -309,10 +303,10 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
         }
         
         static var optimisedJoinSQL: SQL = {
-            let profile: TypedTableAlias<Profile> = TypedTableAlias()
             let contact: TypedTableAlias<Contact> = TypedTableAlias()
+            let profile: TypedTableAlias<Profile> = TypedTableAlias()
             
-            return SQL("JOIN \(Contact.self) ON \(contact[.id]) = \(profile[.id])")
+            return SQL("LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(contact[.id])")
         }()
         
         static var filterSQL: SQL = {
@@ -322,10 +316,10 @@ class BlockedContactsViewModel: SessionTableViewModel<NoNav, BlockedContactsView
         }()
         
         static let orderSQL: SQL = {
+            let contact: TypedTableAlias<Contact> = TypedTableAlias()
             let profile: TypedTableAlias<Profile> = TypedTableAlias()
             
-            return SQL("IFNULL(IFNULL(\(profile[.nickname]), \(profile[.name])), \(profile[.id])) ASC")
+            return SQL("IFNULL(IFNULL(\(profile[.nickname]), \(profile[.name])), \(contact[.id])) ASC")
         }()
     }
-
 }

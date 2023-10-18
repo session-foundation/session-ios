@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "Scanner un QR Code";
 "vc_enter_public_key_explanation" = "Commencez une nouvelle conversation en entrant l'ID Session de quelqu'un ou en lui partageant votre ID Session.";
 "vc_scan_qr_code_camera_access_explanation" = "Session a besoin d'accéder à l'appareil photo pour scanner les QR codes";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Autoriser l'accès";
 "vc_create_closed_group_title" = "Créer un groupe";
 "vc_create_closed_group_text_field_hint" = "Saisissez un nom de groupe";
 "vc_create_closed_group_empty_state_message" = "Vous n'avez pas encore de contacts";

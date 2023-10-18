@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "Skenovať QR kód";
 "vc_enter_public_key_explanation" = "Začnite novú konverzáciu zadaním niekoho Session ID alebo zdieľajte s nimi svoje Session ID.";
 "vc_scan_qr_code_camera_access_explanation" = "Session potrebuje prístup ku kamere na skenovanie QR kódov";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Povoliť prístup ku kamere";
 "vc_create_closed_group_title" = "Vytvoriť skupinu";
 "vc_create_closed_group_text_field_hint" = "Zadajte názov skupiny";
 "vc_create_closed_group_empty_state_message" = "Zatiaľ nemáte žiadne kontakty";

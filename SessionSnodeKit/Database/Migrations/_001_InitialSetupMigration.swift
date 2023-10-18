@@ -9,6 +9,10 @@ enum _001_InitialSetupMigration: Migration {
     static let identifier: String = "initialSetup" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+        Snode.self, SnodeSet.self, SnodeReceivedMessageInfo.self
+    ]
     
     static func migrate(_ db: Database) throws {
         try db.create(table: Snode.self) { t in
@@ -36,7 +40,7 @@ enum _001_InitialSetupMigration: Migration {
         }
         
         try db.create(table: SnodeReceivedMessageInfo.self) { t in
-            t.column(.id, .integer)
+            t.deprecatedColumn(name: "id", .integer)                  // stringlint:disable
                 .notNull()
                 .primaryKey(autoincrement: true)
             t.column(.key, .text)

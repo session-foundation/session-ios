@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "Pindai kode QR";
 "vc_enter_public_key_explanation" = "Mulai percakapan baru dengan memasukkan ID Session seseorang atau bagikan ID Session Anda dengan mereka.";
 "vc_scan_qr_code_camera_access_explanation" = "Session membutuhkan akses kamera untuk memindai kode QR";
-"vc_scan_qr_code_grant_camera_access_button_title" = "Berikan akses kamera";
 "vc_create_closed_group_title" = "Buat Grup";
 "vc_create_closed_group_text_field_hint" = "Masukkan nama grup";
 "vc_create_closed_group_empty_state_message" = "anda belum memiliki kontak";

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import DifferenceKit
 
@@ -11,7 +12,7 @@ import DifferenceKit
 /// **Note:** We **MUST** have accurate `filterSQL` and `orderSQL` values otherwise the indexing won't work
 public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where ObservedTable: TableRecord & ColumnExpressible & Identifiable, T: FetchableRecordWithRowId & Identifiable {
     private let commitProcessingQueue: DispatchQueue = DispatchQueue(
-        label: "PagedDatabaseObserver.commitProcessingQueue",
+        label: "PagedDatabaseObserver.commitProcessingQueue",   // stringlint:disable
         qos: .userInitiated,
         attributes: [] // Must be serial in order to avoid updates getting processed in the wrong order
     )
@@ -131,6 +132,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
             
             // Retrieve the pagedRowId for the related value that is
             // getting deleted
+            let pagedTableName: String = self.pagedTableName
             let pagedRowIds: [Int64] = Storage.shared
                 .read { db in
                     PagedData.pagedRowIdsForRelatedRowIds(
@@ -183,10 +185,13 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
         // Store the instance variables locally to avoid unwrapping
         let dataCache: DataCache<T> = self.dataCache.wrappedValue
         let pageInfo: PagedData.PageInfo = self.pageInfo.wrappedValue
+        let pagedTableName: String = self.pagedTableName
         let joinSQL: SQL? = self.joinSQL
         let orderSQL: SQL = self.orderSQL
         let filterSQL: SQL = self.filterSQL
+        let dataQuery: ([Int64]) -> any FetchRequest<T> = self.dataQuery
         let associatedRecords: [ErasedAssociatedRecord] = self.associatedRecords
+        let observedTableChangeTypes: [String: PagedData.ObservedChanges] = self.observedTableChangeTypes
         let getAssociatedDataInfo: (Database, PagedData.PageInfo) -> AssociatedDataInfo = { db, updatedPageInfo in
             associatedRecords.map { associatedRecord in
                 let hasChanges: Bool = associatedRecord.tryUpdateForDatabaseCommit(
@@ -1055,6 +1060,46 @@ public enum PagedData {
             guard !changeset.isEmpty else { return }
             
             onDataChange(updatedData, changeset)
+        }
+        
+        // No need to dispatch to the next run loop if we are alread on the main thread
+        guard !Thread.isMainThread else {
+            performUpdates()
+            return
+        }
+        
+        // Run any changes on the main thread (as they will generally trigger UI updates)
+        DispatchQueue.main.async {
+            performUpdates()
+        }
+    }
+    
+    public static func processAndTriggerUpdates<SectionModel: DifferentiableSection>(
+        updatedData: [SectionModel]?,
+        currentDataRetriever: @escaping (() -> [SectionModel]?),
+        valueSubject: CurrentValueSubject<([SectionModel], StagedChangeset<[SectionModel]>), Never>?
+    ) {
+        guard let updatedData: [SectionModel] = updatedData else { return }
+        
+        // Note: While it would be nice to generate the changeset on a background thread it introduces
+        // a multi-threading issue where a data change can come in while the table is processing multiple
+        // updates resulting in the data being in a partially updated state (which makes the subsequent
+        // table reload crash due to inconsistent state)
+        let performUpdates = {
+            guard let currentData: [SectionModel] = currentDataRetriever() else { return }
+            
+            let changeset: StagedChangeset<[SectionModel]> = StagedChangeset(
+                source: currentData,
+                target: updatedData
+            )
+            
+            // No need to do anything if there were no changes
+            guard !changeset.isEmpty else { return }
+            
+            // Need to send an event with the changes and then a second event to clear out the `StagedChangeset`
+            // value otherwise resubscribing will result with the changes coming through a second time
+            valueSubject?.send((updatedData, changeset))
+            valueSubject?.send((updatedData, StagedChangeset()))
         }
         
         // No need to dispatch to the next run loop if we are alread on the main thread

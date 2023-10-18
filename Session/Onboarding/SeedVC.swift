@@ -8,6 +8,8 @@ import SignalUtilitiesKit
 final class SeedVC: BaseVC {
     public static func mnemonic() throws -> String {
         let dbIsValid: Bool = Storage.shared.isValid
+        let dbHasRead: Bool = Storage.shared.hasSuccessfullyRead
+        let dbHasWritten: Bool = Storage.shared.hasSuccessfullyWritten
         let dbIsSuspendedUnsafe: Bool = Storage.shared.isSuspendedUnsafe
         
         if let hexEncodedSeed: String = Identity.fetchHexEncodedSeed() {
@@ -19,6 +21,8 @@ final class SeedVC: BaseVC {
             let hasStoredEdKeyPair: Bool = (Identity.fetchUserEd25519KeyPair() != nil)
             let dbStates: [String] = [
                 "dbIsValid: \(dbIsValid)",                      // stringlint:disable
+                "dbHasRead: \(dbHasRead)",                      // stringlint:disable
+                "dbHasWritten: \(dbHasWritten)",                // stringlint:disable
                 "dbIsSuspendedUnsafe: \(dbIsSuspendedUnsafe)",  // stringlint:disable
                 "storedSeed: false",                            // stringlint:disable
                 "userPublicKey: \(hasStoredPublicKey)",         // stringlint:disable

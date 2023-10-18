@@ -16,7 +16,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         
         @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            customMigrationTargets: [
+            migrationTargets: [
                 SNUtilitiesKit.self,
                 SNSnodeKit.self,
                 SNMessagingKit.self,
@@ -41,7 +41,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         )
         
         @TestState var cancellables: [AnyCancellable]! = [
-            viewModel.observableTableData
+            viewModel.tableDataPublisher
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
                     receiveCompletion: { _ in },
@@ -68,9 +68,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
-                                    title: "DISAPPEARING_MESSAGES_OFF".localized()
-                                ),
+                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
@@ -87,7 +85,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(title: title),
+                                id: title,
                                 position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
@@ -116,7 +114,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     using: dependencies
                 )
                 cancellables.append(
-                    viewModel.observableTableData
+                    viewModel.tableDataPublisher
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -128,9 +126,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
-                                    title: "DISAPPEARING_MESSAGES_OFF".localized()
-                                ),
+                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
@@ -147,7 +143,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(title: title),
+                                id: title,
                                 position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
@@ -160,7 +156,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             
             // MARK: -- has no right bar button
             it("has no right bar button") {
-                var items: [ParentType.NavItem]?
+                var items: [SessionNavItem<ThreadDisappearingMessagesSettingsViewModel.NavItem>]!
                 
                 cancellables.append(
                     viewModel.rightNavItems
@@ -176,7 +172,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             
             // MARK: -- when changed from the previous setting
             context("when changed from the previous setting") {
-                @TestState var items: [ParentType.NavItem]?
+                @TestState var items: [SessionNavItem<ThreadDisappearingMessagesSettingsViewModel.NavItem>]!
                 
                 beforeEach {
                     cancellables.append(
@@ -195,7 +191,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 it("shows the save button") {
                     expect(items)
                         .to(equal([
-                            ParentType.NavItem(
+                            SessionNavItem<ThreadDisappearingMessagesSettingsViewModel.NavItem>(
                                 id: .save,
                                 systemItem: .save,
                                 accessibilityIdentifier: "Save button"
@@ -210,7 +206,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         var didDismissScreen: Bool = false
                         
                         cancellables.append(
-                            viewModel.dismissScreen
+                            viewModel.navigatableState.dismissScreen
                                 .receive(on: ImmediateScheduler.shared)
                                 .sink(
                                     receiveCompletion: { _ in },
@@ -218,14 +214,14 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 )
                         )
                         
-                        items?.first?.action?()
+                        items.first?.action?()
                         
                         expect(didDismissScreen).to(beTrue())
                     }
                     
                     // MARK: ------ saves the updated config
                     it("saves the updated config") {
-                        items?.first?.action?()
+                        items.first?.action?()
                         
                         let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
@@ -240,7 +236,3 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         }
     }
 }
-
-// MARK: - Test Types
-
-fileprivate typealias ParentType = SessionTableViewModel<ThreadDisappearingMessagesSettingsViewModel.NavButton, ThreadDisappearingMessagesSettingsViewModel.Section, ThreadDisappearingMessagesSettingsViewModel.Item>

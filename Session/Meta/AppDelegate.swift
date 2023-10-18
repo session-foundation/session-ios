@@ -324,7 +324,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // the user is in an invalid state (and should have already been shown a modal)
             guard success else { return }
             
-            SNLog("RootViewController ready, readying remaining processes")
+            SNLog("RootViewController ready for state: \(Onboarding.State.current), readying remaining processes")
             self?.initialLaunchFailed = false
             
             /// Trigger any launch-specific jobs and start the JobRunner with `JobRunner.appDidFinishLaunching()` some

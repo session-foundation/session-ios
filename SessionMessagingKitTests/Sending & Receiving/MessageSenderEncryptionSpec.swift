@@ -16,7 +16,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
         
         @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            customMigrationTargets: [
+            migrationTargets: [
                 SNUtilitiesKit.self,
                 SNMessagingKit.self
             ],

@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "امسح رمز الاستجابة السريع";
 "vc_enter_public_key_explanation" = "ابدأ محادثة جديدة بإدخال معرف جلسة شخص ما أو مشاركة معرفك معهم.";
 "vc_scan_qr_code_camera_access_explanation" = "تطبيق\"الجلسة\"يحتاج الوصول إلى الكاميرا لمسح رموز الاستجابة السريعة";
-"vc_scan_qr_code_grant_camera_access_button_title" = "منح صلاحية الكاميرا";
 "vc_create_closed_group_title" = "انشئ مجموعة";
 "vc_create_closed_group_text_field_hint" = "أدخل إسم المجموعة";
 "vc_create_closed_group_empty_state_message" = "ليست لديك أية جهات اتصال حتى الآن";

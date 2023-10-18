@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "اسکن کد QR";
 "vc_enter_public_key_explanation" = "یک مکالمه جدید را با وارد کردن شناسه Session شخصی شروع کنید یا شناسه جلسه خود را با آنها به اشتراک بگذارید.";
 "vc_scan_qr_code_camera_access_explanation" = "برای اسکن کدهای Session ،QR نیاز به دسترسی به دوربین دارد";
-"vc_scan_qr_code_grant_camera_access_button_title" = "اعطای دسترسی دوربین";
 "vc_create_closed_group_title" = "ایجاد گروه";
 "vc_create_closed_group_text_field_hint" = "وارد کردن یک نام گروه";
 "vc_create_closed_group_empty_state_message" = "هنوز هیچ مخاطبی ندارید";

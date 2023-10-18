@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "QR コードをスキャンする";
 "vc_enter_public_key_explanation" = "新しい会話を始めるには、セッションIDを入力するか、セッションIDを共有します。";
 "vc_scan_qr_code_camera_access_explanation" = "Session で QR コードをスキャンするにはカメラへのアクセスが必要です";
-"vc_scan_qr_code_grant_camera_access_button_title" = "カメラへのアクセスを許可する";
 "vc_create_closed_group_title" = "グループを作成";
 "vc_create_closed_group_text_field_hint" = "グループ名を入力してください";
 "vc_create_closed_group_empty_state_message" = "まだ連絡先がありません";
