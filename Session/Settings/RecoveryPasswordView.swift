@@ -13,8 +13,9 @@ struct RecoveryPasswordView: View {
     private let mnemonic: String
     private let flow: Onboarding.Flow
     
-    static let cornerRadius: CGFloat = 13
+    static private let cornerRadius: CGFloat = 13
     static private let backgroundCornerRadius: CGFloat = 17
+    static private let buttonWidth: CGFloat = 120
     
     public init(flow: Onboarding.Flow) throws {
         self.mnemonic = try Identity.mnemonic()
@@ -71,11 +72,13 @@ struct RecoveryPasswordView: View {
                                 .font(.system(size: Values.smallFontSize))
                                 .foregroundColor(themeColor: .textPrimary)
                                 .padding(.bottom, Values.mediumSpacing)
+                                .fixedSize(horizontal: false, vertical: true)
                             
                             Text("recovery_password_explanation_2".localized())
                                 .font(.system(size: Values.smallFontSize))
                                 .foregroundColor(themeColor: .textPrimary)
                                 .padding(.bottom, Values.mediumSpacing)
+                                .fixedSize(horizontal: false, vertical: true)
                             
                             if self.showQRCode {
                                 QRCodeView(
@@ -95,7 +98,7 @@ struct RecoveryPasswordView: View {
                                             .font(.system(size: Values.verySmallFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
                                             .frame(
-                                                maxWidth: 120,
+                                                maxWidth: Self.buttonWidth,
                                                 maxHeight: Values.mediumSmallButtonHeight,
                                                 alignment: .center
                                             )
@@ -142,8 +145,8 @@ struct RecoveryPasswordView: View {
                                             .font(.system(size: Values.verySmallFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
                                             .frame(
-                                                maxWidth: .infinity,
-                                                maxHeight: Values.mediumSmallButtonHeight,
+                                                maxWidth: Self.buttonWidth,
+                                                minHeight: Values.mediumSmallButtonHeight,
                                                 alignment: .center
                                             )
                                             .overlay(
@@ -163,8 +166,8 @@ struct RecoveryPasswordView: View {
                                             .font(.system(size: Values.verySmallFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
                                             .frame(
-                                                maxWidth: .infinity,
-                                                maxHeight: Values.mediumSmallButtonHeight,
+                                                maxWidth: Self.buttonWidth,
+                                                minHeight: Values.mediumSmallButtonHeight,
                                                 alignment: .center
                                             )
                                             .overlay(

@@ -51,18 +51,35 @@ struct QRCodeView: View {
     let hasBackground: Bool
     let hasLogo: Bool
     let themeStyle: UIUserInterfaceStyle
+    var backgroundThemeColor: ThemeValue {
+        switch themeStyle {
+            case .light:
+                return .backgroundSecondary
+            default:
+                return .textPrimary
+        }
+    }
+    var qrCodeThemeColor: ThemeValue {
+        switch themeStyle {
+            case .light:
+                return .textPrimary
+            default:
+                return .backgroundPrimary
+        }
+    }
     
     static private var cornerRadius: CGFloat = 10
+    static private var logoSize: CGFloat = 66
     
     var body: some View {
         ZStack(alignment: .center) {
             RoundedRectangle(cornerRadius: Self.cornerRadius)
-                .fill(themeColor: .textPrimary)
+                .fill(themeColor: backgroundThemeColor)
             
             Image(uiImage: QRCode.generate(for: string, hasBackground: hasBackground))
                 .resizable()
                 .renderingMode(.template)
-                .foregroundColor(themeColor: .backgroundPrimary)
+                .foregroundColor(themeColor: qrCodeThemeColor)
                 .scaledToFit()
                 .frame(
                     maxWidth: .infinity,
@@ -73,12 +90,12 @@ struct QRCodeView: View {
             if hasLogo {
                 ZStack(alignment: .center) {
                     Rectangle()
-                        .fill(themeColor: .textPrimary)
+                        .fill(themeColor: backgroundThemeColor)
                     
                     Image("SessionShieldFilled")
                         .resizable()
                         .renderingMode(.template)
-                        .foregroundColor(themeColor: .backgroundPrimary)
+                        .foregroundColor(themeColor: qrCodeThemeColor)
                         .scaledToFit()
                         .frame(
                             maxWidth: .infinity,
@@ -87,8 +104,8 @@ struct QRCodeView: View {
                         .padding(.all, 4)
                 }
                 .frame(
-                    width: 66,
-                    height: 66
+                    width: Self.logoSize,
+                    height: Self.logoSize
                 )
             }
         }
