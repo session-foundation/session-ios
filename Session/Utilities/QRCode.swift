@@ -42,3 +42,55 @@ enum QRCode {
         return UIImage(data: imageData)!
     }
 }
+
+import SwiftUI
+import SessionUIKit
+
+struct QRCodeView: View {
+    let string: String
+    let hasBackground: Bool
+    let hasLogo: Bool
+    let themeStyle: UIUserInterfaceStyle
+    
+    static private var cornerRadius: CGFloat = 10
+    
+    var body: some View {
+        ZStack(alignment: .center) {
+            RoundedRectangle(cornerRadius: Self.cornerRadius)
+                .fill(themeColor: .textPrimary)
+            
+            Image(uiImage: QRCode.generate(for: string, hasBackground: hasBackground))
+                .resizable()
+                .renderingMode(.template)
+                .foregroundColor(themeColor: .backgroundPrimary)
+                .scaledToFit()
+                .frame(
+                    maxWidth: .infinity,
+                    maxHeight: .infinity
+                )
+                .padding(.vertical, Values.smallSpacing)
+            
+            if hasLogo {
+                ZStack(alignment: .center) {
+                    Rectangle()
+                        .fill(themeColor: .textPrimary)
+                    
+                    Image("SessionShieldFilled")
+                        .resizable()
+                        .renderingMode(.template)
+                        .foregroundColor(themeColor: .backgroundPrimary)
+                        .scaledToFit()
+                        .frame(
+                            maxWidth: .infinity,
+                            maxHeight: .infinity
+                        )
+                        .padding(.all, 4)
+                }
+                .frame(
+                    width: 66,
+                    height: 66
+                )
+            }
+        }
+    }
+}

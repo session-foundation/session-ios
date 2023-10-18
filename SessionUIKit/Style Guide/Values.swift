@@ -21,6 +21,7 @@ public final class Values : NSObject {
     
     // MARK: - Element Sizes
     @objc public static let smallButtonHeight = isIPhone5OrSmaller ? CGFloat(24) : CGFloat(28)
+    @objc public static let mediumSmallButtonHeight = isIPhone5OrSmaller ? CGFloat(28) : CGFloat(30)
     @objc public static let mediumButtonHeight = isIPhone5OrSmaller ? CGFloat(30) : CGFloat(34)
     @objc public static let largeButtonHeight = isIPhone5OrSmaller ? CGFloat(40) : CGFloat(45)
     @objc public static let alertButtonHeight: CGFloat = 51 // 19px tall font with 16px margins

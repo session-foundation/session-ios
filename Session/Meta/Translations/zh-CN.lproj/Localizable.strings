@@ -850,3 +850,15 @@ The point that a message will disappear in a disappearing message update message
 "modal_open_url_title_2" = "Open URL";
 "modal_open_url_explanation_2" = "This will open in your browser.";
 "onboarding_notification_mode_explanation" = "There are two ways Session can notify you of new messages.";
+"recovery_password_title" = "Recovery Password";
+"recovery_password_explanation_1" = "Use your recovery password to load your account on new devices.";
+"recovery_password_explanation_2" = "Your account cannot be recovered without your recovery password. Make sure it's stored somewhere safe and secure — and don't share it with anyone.";
+"hide_recovery_password_title" = "Hide Recovery Password";
+"hide_recovery_password_explanation" = "Permanently hide your recovery password on this device.";
+"hide_button_title" = "Hide";
+"hide_recovery_password_modal_title" = "Hide Recovery Password Permanently";
+"hide_recovery_password_modal_warning_1" = "Without your recovery password, you cannot load your account on new devices.";
+"hide_recovery_password_modal_warning_2" = "We strongly recommend you save your recovery password in a safe and secure place before continuing.";
+"hide_recovery_password_modal_confirmation" = "Are you sure you want to permanently hide your recovery password on this device? This cannot be undone.";
+"view_qr_code_button_title" = "View QR";
+"view_mnemonic_button_title" = "View Password";
