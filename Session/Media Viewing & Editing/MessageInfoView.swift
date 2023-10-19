@@ -125,6 +125,7 @@ struct MessageInfoView: View {
                                     MediaView_SwiftUI(
                                         attachment: attachments[0],
                                         isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                        shouldSupressControls: true,
                                         cornerRadius: 0
                                     )
                                     .frame(

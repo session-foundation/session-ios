@@ -305,7 +305,7 @@ struct ScanQRCodeView: View {
                     Button {
                         requestCameraAccess()
                     } label: {
-                        Text("vc_scan_qr_code_grant_camera_access_button_title".localized())
+                        Text("continue_2".localized())
                             .bold()
                             .font(.system(size: Values.mediumFontSize))
                             .foregroundColor(themeColor: .primary)

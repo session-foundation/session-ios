@@ -507,17 +507,20 @@ struct MediaView_SwiftUI: UIViewRepresentable {
     private let mediaCache: NSCache<NSString, AnyObject>?
     public let attachment: Attachment
     private let isOutgoing: Bool
+    private let shouldSupressControls: Bool
     private let cornerRadius: CGFloat
     
     public init(
         mediaCache: NSCache<NSString, AnyObject>? = nil,
         attachment: Attachment,
         isOutgoing: Bool,
+        shouldSupressControls: Bool,
         cornerRadius: CGFloat
     ) {
         self.mediaCache = mediaCache
         self.attachment = attachment
         self.isOutgoing = isOutgoing
+        self.shouldSupressControls = shouldSupressControls
         self.cornerRadius = cornerRadius
     }
     
@@ -526,6 +529,7 @@ struct MediaView_SwiftUI: UIViewRepresentable {
             mediaCache: mediaCache,
             attachment: attachment,
             isOutgoing: isOutgoing,
+            shouldSupressControls: shouldSupressControls,
             cornerRadius: cornerRadius
         )
         
