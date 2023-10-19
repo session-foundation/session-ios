@@ -35,7 +35,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                         serverHashes: details.serverHashes,
                         updatedExpiryMs: details.expirationTimestampMs,
                         shortenOnly: true,
-                        authInfo: try SnodeAPI.AuthenticationInfo(
+                        authMethod: try Authentication.with(
                             db,
                             sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
                             using: dependencies
@@ -80,7 +80,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                                         .fetchOne(db)
                                 else { return }
                                 
-                                let expiresStartedAtMs: TimeInterval = TimeInterval(updatedExpiry - UInt64(expiresInSeconds * 1000))
+                                let expiresStartedAtMs: Double = Double(updatedExpiry - UInt64(expiresInSeconds * 1000))
                                 
                                 _ = try Interaction
                                     .filter(Interaction.Columns.serverHash == hash)

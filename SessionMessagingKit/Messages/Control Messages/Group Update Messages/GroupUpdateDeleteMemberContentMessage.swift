@@ -7,9 +7,11 @@ import SessionUtilitiesKit
 public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     private enum CodingKeys: String, CodingKey {
         case memberPublicKeys
+        case adminSignature
     }
     
     public var memberPublicKeys: [Data]
+    public var adminSignature: Authentication.Signature
     
     override public var processWithBlockedSender: Bool { true }
     
@@ -17,13 +19,44 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     
     public init(
         memberPublicKeys: [Data],
-        sentTimestamp: UInt64? = nil
-    ) {
+        sentTimestamp: UInt64,
+        authMethod: AuthenticationMethod,
+        using dependencies: Dependencies
+    ) throws {
         self.memberPublicKeys = memberPublicKeys
+        self.adminSignature = try authMethod.generateSignature(
+            with: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
+                memberPublicKeys: memberPublicKeys,
+                timestampMs: sentTimestamp
+            ),
+            using: dependencies
+        )
         
         super.init(
             sentTimestamp: sentTimestamp
         )
+    }
+    
+    private init(
+        memberPublicKeys: [Data],
+        adminSignature: Authentication.Signature
+    ) {
+        self.memberPublicKeys = memberPublicKeys
+        self.adminSignature = adminSignature
+        
+        super.init()
+    }
+    
+    // MARK: - Signature Generation
+    
+    public static func generateVerificationBytes(
+        memberPublicKeys: [Data],
+        timestampMs: UInt64
+    ) -> [UInt8] {
+        /// Ed25519 signature of `("DELETE_CONTENT" || timestamp || sessionId[0] || ... || sessionId[N])`
+        return "DELETE_CONTENT".bytes
+            .appending(contentsOf: "\(timestampMs)".data(using: .ascii)?.bytes)
+            .appending(contentsOf: Array(memberPublicKeys.joined()))
     }
     
     // MARK: - Codable
@@ -32,6 +65,9 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
         memberPublicKeys = try container.decode([Data].self, forKey: .memberPublicKeys)
+        adminSignature = Authentication.Signature.standard(
+            signature: try container.decode([UInt8].self, forKey: .adminSignature)
+        )
         
         try super.init(from: decoder)
     }
@@ -42,6 +78,11 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(memberPublicKeys, forKey: .memberPublicKeys)
+        
+        switch adminSignature {
+            case .standard(let signature): try container.encode(signature, forKey: .adminSignature)
+            case .subaccount: throw MessageSenderError.signingFailed
+        }
     }
 
     // MARK: - Proto Conversion
@@ -50,13 +91,23 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         guard let groupDeleteMemberContentMessage = proto.dataMessage?.groupUpdateMessage?.deleteMemberContent else { return nil }
         
         return GroupUpdateDeleteMemberContentMessage(
-            memberPublicKeys: groupDeleteMemberContentMessage.memberPublicKeys
+            memberPublicKeys: groupDeleteMemberContentMessage.memberPublicKeys,
+            adminSignature: Authentication.Signature.standard(
+                signature: Array(groupDeleteMemberContentMessage.adminSignature)
+            )
         )
     }
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         do {
-            let deleteMemberContentMessageBuilder: SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteMemberContentMessageBuilder = SNProtoGroupUpdateDeleteMemberContentMessage.builder()
+            let deleteMemberContentMessageBuilder: SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteMemberContentMessageBuilder = SNProtoGroupUpdateDeleteMemberContentMessage.builder(
+                adminSignature: try {
+                    switch adminSignature {
+                        case .standard(let signature): return Data(signature)
+                        case .subaccount: throw MessageSenderError.signingFailed
+                    }
+                }()
+            )
             deleteMemberContentMessageBuilder.setMemberPublicKeys(memberPublicKeys)
             
             let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
@@ -79,7 +130,8 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     public var description: String {
         """
         GroupUpdateDeleteMemberContentMessage(
-            memberPublicKeys: \(memberPublicKeys.map { $0.toHexString() })
+            memberPublicKeys: \(memberPublicKeys.map { $0.toHexString() }),
+            adminSignature: \(adminSignature)
         )
         """
     }

@@ -443,8 +443,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let threadId: String = self.threadId
         let updatedName: String = self.name
         let userSessionId: SessionId = self.userSessionId
-        let updatedMembers: [(id: String, profile: Profile?, isAdmin: Bool)] = self.allGroupMembers
-            .map { ($0.profileId, $0.profile, ($0.role == .admin)) }
+        let updatedMembers: [(id: String, profile: Profile?)] = self.allGroupMembers.map { ($0.profileId, $0.profile) }
         let updatedMemberIds: Set<String> = updatedMembers.map { $0.0 }.asSet()
         
         guard updatedMemberIds != self.originalMembersIds || updatedName != self.originalName else {
@@ -462,6 +461,11 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         guard updatedMemberIds.count <= 100 else {
             return showError(title: "vc_create_closed_group_too_many_group_members_error".localized())
         }
+        
+        // Split the changes into added/removed changes
+        let addedMembers: [(id: String, profile: Profile?)] = updatedMembers
+            .filter { !self.originalMembersIds.contains($0.id) }
+        let removedMemberIds: Set<String> = self.originalMembersIds.subtracting(updatedMemberIds)
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in
             // If the user is no longer a member then leave the group
@@ -498,9 +502,37 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                 .updateGroup(
                     groupSessionId: threadId,
                     name: updatedName,
-                    displayPicture: nil,
-                    members: updatedMembers
+                    displayPictureUpdate: .none,
+                    using: dependencies
                 )
+                .flatMap { _ in // Add members
+                    guard !addedMembers.isEmpty else {
+                        return Just(())
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                    }
+                    
+                    return MessageSender.addGroupMembers(
+                        groupSessionId: threadId,
+                        members: addedMembers,
+                        allowAccessToHistoricMessages: false,
+                        using: dependencies
+                    )
+                }
+                .flatMap { _ in // Remove members
+                    guard !removedMemberIds.isEmpty else {
+                        return Just(())
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                    }
+                    
+                    return MessageSender.removeGroupMembers(
+                        groupSessionId: threadId,
+                        memberIds: removedMemberIds,
+                        sendMemberChangedMessage: true,
+                        using: dependencies
+                    )
+                }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(

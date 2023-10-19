@@ -1320,9 +1320,10 @@ public enum OpenGroupAPI {
         switch signingType {
             case .unblinded:
                 guard
-                    let signatureResult: Bytes = try? dependencies[singleton: .crypto].perform(
+                    let signature: Authentication.Signature = try? dependencies[singleton: .crypto].generate(
                         .signature(message: messageBytes, secretKey: userEdKeyPair.secretKey)
-                    )
+                    ),
+                    case .standard(let signatureResult) = signature
                 else { throw OpenGroupAPIError.signingFailed }
 
                 return (

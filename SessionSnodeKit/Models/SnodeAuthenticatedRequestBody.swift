@@ -6,22 +6,25 @@ import SessionUtilitiesKit
 public class SnodeAuthenticatedRequestBody: Encodable {
     private enum CodingKeys: String, CodingKey {
         case pubkey
-        case subkey
+        case subaccount
         case timestampMs = "timestamp"
         case ed25519PublicKey = "pubkey_ed25519"
         case signatureBase64 = "signature"
+        case subaccountSignatureBase64 = "subaccount_sig"
     }
     
-    internal let authInfo: SnodeAPI.AuthenticationInfo
+    internal let authMethod: AuthenticationMethod
     internal let timestampMs: UInt64?
+    
+    var verificationBytes: [UInt8] { preconditionFailure("abstract class - override in subclass") }
     
     // MARK: - Initialization
 
     public init(
-        authInfo: SnodeAPI.AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         timestampMs: UInt64? = nil
     ) {
-        self.authInfo = authInfo
+        self.authMethod = authMethod
         self.timestampMs = timestampMs
     }
     
@@ -31,11 +34,13 @@ public class SnodeAuthenticatedRequestBody: Encodable {
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
         
         // Generate the signature for the request for encoding
-        let signatureBase64: String = try generateSignature(using: encoder.dependencies).toBase64()
+        let signature: Authentication.Signature = try authMethod.generateSignature(
+            with: verificationBytes,
+            using: encoder.dependencies
+        )
         try container.encodeIfPresent(timestampMs, forKey: .timestampMs)
-        try container.encode(signatureBase64, forKey: .signatureBase64)
         
-        switch authInfo {
+        switch authMethod.info {
             case .standard(let sessionId, let ed25519KeyPair):
                 try container.encode(sessionId.hexString, forKey: .pubkey)
                 try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
@@ -43,14 +48,18 @@ public class SnodeAuthenticatedRequestBody: Encodable {
             case .groupAdmin(let sessionId, _):
                 try container.encode(sessionId.hexString, forKey: .pubkey)
                 
-            case .groupMember(let sessionId, let authData):
+            case .groupMember(let sessionId, _):
                 try container.encode(sessionId.hexString, forKey: .pubkey)
         }
-    }
-    
-    // MARK: - Abstract Functions
-    
-    func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
-        preconditionFailure("abstract class - override in subclass")
+        
+        switch signature {
+            case .standard(let signature):
+                try container.encode(signature.toBase64(), forKey: .signatureBase64)
+                
+            case .subaccount(let subaccount, let subaccountSig, let signature):
+                try container.encode(subaccount.toHexString(), forKey: .subaccount)
+                try container.encode(signature.toBase64(), forKey: .signatureBase64)
+                try container.encode(subaccountSig.toBase64(), forKey: .subaccountSignatureBase64)
+        }
     }
 }

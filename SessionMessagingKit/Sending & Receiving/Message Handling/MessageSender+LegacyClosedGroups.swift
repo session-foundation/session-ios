@@ -33,7 +33,7 @@ extension MessageSender {
                 let membersAsData: [Data] = members.map { Data(hex: $0) }
                 let admins: Set<String> = [ userSessionId.hexString ]
                 let adminsAsData: [Data] = admins.map { Data(hex: $0) }
-                let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+                let formationTimestamp: TimeInterval = TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 
                 // Create the relevant objects in the database
                 let thread: SessionThread = try SessionThread
@@ -47,7 +47,7 @@ extension MessageSender {
                 ).insert(db)
                 
                 // Store the key pair
-                let latestKeyPairReceivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+                let latestKeyPairReceivedTimestamp: TimeInterval = TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 try ClosedGroupKeyPair(
                     threadId: legacyGroupSessionId,
                     publicKey: Data(encryptionKeyPair.publicKey),
@@ -185,7 +185,7 @@ extension MessageSender {
                     threadId: closedGroup.threadId,
                     publicKey: Data(legacyNewKeyPair.publicKey),
                     secretKey: Data(legacyNewKeyPair.secretKey),
-                    receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+                    receivedTimestamp: TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 )
                 
                 // Distribute it

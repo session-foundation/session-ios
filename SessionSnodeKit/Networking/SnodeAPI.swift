@@ -150,15 +150,15 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        if let getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error> = dependencies[cache: .snodeAPI].getSnodePoolPublisher {
+        if let getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error> = dependencies[cache: .getSnodePool].publisher {
             return getSnodePoolPublisher
         }
         
-        return dependencies.mutate(cache: .snodeAPI) { cache in
+        return dependencies.mutate(cache: .getSnodePool) { cache in
             /// It was possible for multiple threads to call this at the same time resulting in duplicate promises getting created, while
             /// this should no longer be possible (as the `wrappedValue` should now properly be blocked) this is a sanity check
             /// to make sure we don't create an additional promise when one already exists
-            if let previouslyBlockedPublisher: AnyPublisher<Set<Snode>, Error> = cache.getSnodePoolPublisher {
+            if let previouslyBlockedPublisher: AnyPublisher<Set<Snode>, Error> = cache.publisher {
                 return previouslyBlockedPublisher
             }
             
@@ -189,14 +189,14 @@ public final class SnodeAPI {
                 }
                 .handleEvents(
                     receiveCompletion: { _ in
-                        dependencies.mutate(cache: .snodeAPI) { $0.getSnodePoolPublisher = nil }
+                        dependencies.mutate(cache: .getSnodePool) { $0.publisher = nil }
                     }
                 )
                 .shareReplay(1)
                 .eraseToAnyPublisher()
 
             /// Actually assign the atomic value
-            cache.getSnodePoolPublisher = publisher
+            cache.publisher = publisher
             
             return publisher
                 
@@ -248,7 +248,7 @@ public final class SnodeAPI {
         namespaces: [SnodeAPI.Namespace],
         refreshingConfigHashes: [String] = [],
         from snode: Snode,
-        authInfo: SnodeAPI.AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<PollResponse> {
         // Determine the maxSize each namespace in the request should take up
@@ -262,7 +262,7 @@ public final class SnodeAPI {
                 try SnodeAPI.prepareRequest(
                     request: Request(
                         endpoint: .expire,
-                        publicKey: authInfo.sessionId.hexString,
+                        publicKey: authMethod.sessionId.hexString,
                         body: UpdateExpiryRequest(
                             messageHashes: refreshingConfigHashes,
                             expiryMs: UInt64(
@@ -270,7 +270,7 @@ public final class SnodeAPI {
                                 (30 * 24 * 60 * 60 * 1000) // 30 days
                             ),
                             extend: true,
-                            authInfo: authInfo
+                            authMethod: authMethod
                         )
                     ),
                     responseType: UpdateExpiryResponse.self
@@ -287,7 +287,7 @@ public final class SnodeAPI {
                     snode: snode,
                     maxSize: namespaceMaxSizeMap[namespace]
                         .defaulting(to: fallbackSize),
-                    authInfo: authInfo,
+                    authMethod: authMethod,
                     using: dependencies
                 )
             }
@@ -297,9 +297,21 @@ public final class SnodeAPI {
             db,
             requests: requests,
             requireAllBatchResponses: true,
-            associatedWith: authInfo.sessionId.hexString,
+            associatedWith: authMethod.sessionId.hexString,
             using: dependencies
         )
+        .tryMap(transform: { _, batchResponse -> HTTP.BatchResponse in
+            // If all of the responses failed for the same reason then throw that as the error for the entire request
+            let allStatusCodes: Set<Int> = batchResponse
+                .compactMap { $0 as? HTTP.BatchSubResponse<PreparedGetMessagesResponse> }
+                .map { $0.code }
+                .asSet()
+            
+            guard allStatusCodes.count == 1, let statusCode: Int = allStatusCodes.first else { return batchResponse }
+            
+            try HTTP.checkForError("preparedPoll: \(authMethod.sessionId)", statusCode: statusCode)
+            return batchResponse
+        })
         .map { (_: ResponseInfoType, batchResponse: HTTP.BatchResponse) -> [SnodeAPI.Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)] in
             let messageResponses: [HTTP.BatchSubResponse<PreparedGetMessagesResponse>] = batchResponse
                 .compactMap { $0 as? HTTP.BatchSubResponse<PreparedGetMessagesResponse> }
@@ -314,7 +326,7 @@ public final class SnodeAPI {
                     .asType(HTTP.BatchSubResponse<UpdateExpiryResponse>.self),
                 let refreshTTLResponse: UpdateExpiryResponse = refreshTTLSubReponse.body,
                 let validResults: [String: UpdateExpiryResponseResult] = try? refreshTTLResponse.validResultMap(
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     validationData: refreshingConfigHashes,
                     using: dependencies
                 ),
@@ -346,7 +358,7 @@ public final class SnodeAPI {
         }
     }
     
-    private static func preparedBatch(
+    public static func preparedBatch(
         _ db: Database,
         requests: [any ErasedPreparedRequest],
         requireAllBatchResponses: Bool,
@@ -395,7 +407,7 @@ public final class SnodeAPI {
         in namespace: SnodeAPI.Namespace,
         snode: Snode,
         maxSize: Int64? = nil,
-        authInfo: AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<PreparedGetMessagesResponse> {
         // Prune expired message hashes for this namespace on this service node
@@ -403,7 +415,7 @@ public final class SnodeAPI {
             db,
             for: snode,
             namespace: namespace,
-            associatedWith: authInfo.sessionId.hexString,
+            associatedWith: authMethod.sessionId.hexString,
             using: dependencies
         )
 
@@ -412,7 +424,7 @@ public final class SnodeAPI {
                 db,
                 for: snode,
                 namespace: namespace,
-                associatedWith: authInfo.sessionId.hexString,
+                associatedWith: authMethod.sessionId.hexString,
                 using: dependencies
             )?
             .hash
@@ -422,9 +434,9 @@ public final class SnodeAPI {
                 return try SnodeAPI.prepareRequest(
                     request: Request(
                         endpoint: .getMessages,
-                        publicKey: authInfo.sessionId.hexString,
+                        publicKey: authMethod.sessionId.hexString,
                         body: LegacyGetMessagesRequest(
-                            pubkey: authInfo.sessionId.hexString,
+                            pubkey: authMethod.sessionId.hexString,
                             lastHash: (maybeLastHash ?? ""),
                             namespace: namespace,
                             maxCount: nil,
@@ -438,11 +450,11 @@ public final class SnodeAPI {
             return try SnodeAPI.prepareRequest(
                 request: Request(
                     endpoint: .getMessages,
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     body: GetMessagesRequest(
                         lastHash: (maybeLastHash ?? ""),
                         namespace: namespace,
-                        authInfo: authInfo,
+                        authMethod: authMethod,
                         timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
                         maxSize: maxSize
                     )
@@ -457,7 +469,7 @@ public final class SnodeAPI {
                     response.messages.compactMap { rawMessage -> SnodeReceivedMessage? in
                         SnodeReceivedMessage(
                             snode: snode,
-                            publicKey: authInfo.sessionId.hexString,
+                            publicKey: authMethod.sessionId.hexString,
                             namespace: namespace,
                             rawMessage: rawMessage
                         )
@@ -536,7 +548,7 @@ public final class SnodeAPI {
     
     public static func preparedGetExpiries(
         of serverHashes: [String],
-        authInfo: AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<GetExpiriesResponse> {
         // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
@@ -546,10 +558,10 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .getExpiries,
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     body: GetExpiriesRequest(
                         messageHashes: serverHashes,
-                        authInfo: authInfo,
+                        authMethod: authMethod,
                         timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     )
                 ),
@@ -563,7 +575,7 @@ public final class SnodeAPI {
         _ db: Database,
         message: SnodeMessage,
         in namespace: Namespace,
-        authInfo: AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<SendMessagesResponse> {
         let request: HTTP.PreparedRequest<SendMessagesResponse> = try {
@@ -572,7 +584,7 @@ public final class SnodeAPI {
                 return try SnodeAPI.prepareRequest(
                     request: Request(
                         endpoint: .sendMessage,
-                        publicKey: authInfo.sessionId.hexString,
+                        publicKey: authMethod.sessionId.hexString,
                         body: LegacySendMessagesRequest(
                             message: message,
                             namespace: namespace
@@ -585,11 +597,11 @@ public final class SnodeAPI {
             return try SnodeAPI.prepareRequest(
                 request: Request(
                     endpoint: .sendMessage,
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     body: SendMessageRequest(
                         message: message,
                         namespace: namespace,
-                        authInfo: authInfo,
+                        authMethod: authMethod,
                         timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     )
                 ),
@@ -600,7 +612,7 @@ public final class SnodeAPI {
         return request
             .tryMap { _, response -> SendMessagesResponse in
                 try response.validateResultMap(
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     using: dependencies
                 )
 
@@ -615,7 +627,7 @@ public final class SnodeAPI {
         updatedExpiryMs: Int64,
         shortenOnly: Bool? = nil,
         extendOnly: Bool? = nil,
-        authInfo: AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<[String: UpdateExpiryResponseResult]> {
         // ShortenOnly and extendOnly cannot be true at the same time
@@ -625,47 +637,75 @@ public final class SnodeAPI {
             .prepareRequest(
                 request: Request(
                     endpoint: .expire,
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     body: UpdateExpiryRequest(
                         messageHashes: serverHashes,
                         expiryMs: UInt64(updatedExpiryMs),
                         shorten: shortenOnly,
                         extend: extendOnly,
-                        authInfo: authInfo
+                        authMethod: authMethod
                     )
                 ),
                 responseType: UpdateExpiryResponse.self
             )
             .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
                 try response.validResultMap(
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     validationData: serverHashes,
                     using: dependencies
                 )
             }
     }
     
-    public static func preparedRevokeSubkey(
-        subkeyToRevoke: String,
-        authInfo: AuthenticationInfo,
+    public static func preparedRevokeSubaccount(
+        subaccountToRevoke: String,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<Void> {
         return try SnodeAPI
             .prepareRequest(
                 request: Request(
-                    endpoint: .revokeSubkey,
-                    publicKey: authInfo.sessionId.hexString,
-                    body: RevokeSubkeyRequest(
-                        subkeyToRevoke: subkeyToRevoke,
-                        authInfo: authInfo
+                    endpoint: .revokeSubaccount,
+                    publicKey: authMethod.sessionId.hexString,
+                    body: RevokeSubaccountRequest(
+                        subaccountToRevoke: subaccountToRevoke,
+                        authMethod: authMethod
                     )
                 ),
-                responseType: RevokeSubkeyResponse.self
+                responseType: RevokeSubaccountResponse.self
             )
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
-                    publicKey: authInfo.sessionId.hexString,
-                    validationData: subkeyToRevoke,
+                    publicKey: authMethod.sessionId.hexString,
+                    validationData: subaccountToRevoke,
+                    using: dependencies
+                )
+                
+                return ()
+            }
+    }
+    
+    public static func preparedUnrevokeSubaccount(
+        subaccountToUnrevoke: String,
+        authMethod: AuthenticationMethod,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> HTTP.PreparedRequest<Void> {
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .unrevokeSubaccount,
+                    publicKey: authMethod.sessionId.hexString,
+                    body: UnrevokeSubaccountRequest(
+                        subaccountToUnrevoke: subaccountToUnrevoke,
+                        authMethod: authMethod
+                    )
+                ),
+                responseType: UnrevokeSubaccountResponse.self
+            )
+            .tryMap { _, response -> Void in
+                try response.validateResultMap(
+                    publicKey: authMethod.sessionId.hexString,
+                    validationData: subaccountToUnrevoke,
                     using: dependencies
                 )
                 
@@ -678,25 +718,25 @@ public final class SnodeAPI {
     public static func preparedDeleteMessages(
         serverHashes: [String],
         requireSuccessfulDeletion: Bool,
-        authInfo: AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<[String: Bool]> {
         return try SnodeAPI
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteMessages,
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     body: DeleteMessagesRequest(
                         messageHashes: serverHashes,
                         requireSuccessfulDeletion: requireSuccessfulDeletion,
-                        authInfo: authInfo
+                        authMethod: authMethod
                     )
                 ),
                 responseType: DeleteMessagesResponse.self
             )
             .tryMap { _, response -> [String: Bool] in
                 let validResultMap: [String: Bool] = try response.validResultMap(
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     validationData: serverHashes,
                     using: dependencies
                 )
@@ -719,18 +759,18 @@ public final class SnodeAPI {
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
     public static func preparedDeleteAllMessages(
         namespace: SnodeAPI.Namespace,
-        authInfo: AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<[String: Bool]> {
         return try SnodeAPI
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteAll,
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     requiresLatestNetworkTime: true,
                     body: DeleteAllMessagesRequest(
                         namespace: namespace,
-                        authInfo: authInfo,
+                        authMethod: authMethod,
                         timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     )
                 ),
@@ -743,7 +783,7 @@ public final class SnodeAPI {
                 }
                 
                 return try response.validResultMap(
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     validationData: targetInfo.timestampMs,
                     using: dependencies
                 )
@@ -754,19 +794,19 @@ public final class SnodeAPI {
     public static func preparedDeleteAllMessages(
         beforeMs: UInt64,
         namespace: SnodeAPI.Namespace,
-        authInfo: AuthenticationInfo,
+        authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<[String: Bool]> {
         return try SnodeAPI
             .prepareRequest(
                 request: Request(
                     endpoint: .deleteAllBefore,
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     requiresLatestNetworkTime: true,
                     body: DeleteAllBeforeRequest(
                         beforeMs: beforeMs,
                         namespace: namespace,
-                        authInfo: authInfo,
+                        authMethod: authMethod,
                         timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     )
                 ),
@@ -775,7 +815,7 @@ public final class SnodeAPI {
             )
             .tryMap { _, response -> [String: Bool] in
                 try response.validResultMap(
-                    publicKey: authInfo.sessionId.hexString,
+                    publicKey: authMethod.sessionId.hexString,
                     validationData: beforeMs,
                     using: dependencies
                 )
@@ -1304,7 +1344,6 @@ public extension SnodeAPI {
     class Cache: SnodeAPICacheType {
         public var hasLoadedSnodePool: Bool = false
         public var loadedSwarms: Set<String> = []
-        public var getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error>?
         
         /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
         public var snodeFailureCount: [Snode: UInt] = [:]
@@ -1321,11 +1360,23 @@ public extension SnodeAPI {
         
         public var hasInsufficientSnodes: Bool { snodePool.count < SnodeAPI.minSnodePoolCount }
     }
+    
+    class GetPoolCache: GetSnodePoolCacheType {
+        public var publisher: AnyPublisher<Set<Snode>, Error>?
+    }
 }
 
 public extension Cache {
     static let snodeAPI: CacheConfig<SnodeAPICacheType, SnodeAPIImmutableCacheType> = Dependencies.create(
+        identifier: "snodeAPI",
         createInstance: { _ in SnodeAPI.Cache() },
+        mutableInstance: { $0 },
+        immutableInstance: { $0 }
+    )
+    
+    static let getSnodePool: CacheConfig<GetSnodePoolCacheType, GetSnodePoolImmutableCacheType> = Dependencies.create(
+        identifier: "getSnodePool",
+        createInstance: { _ in SnodeAPI.GetPoolCache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -1333,12 +1384,10 @@ public extension Cache {
 
 // MARK: - SnodeAPICacheType
 
-/// This is a read-only version of the `OpenGroupManager.Cache` designed to avoid unintentionally mutating the instance in a
-/// non-thread-safe way
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol SnodeAPIImmutableCacheType: ImmutableCacheType {
     var hasLoadedSnodePool: Bool { get }
     var loadedSwarms: Set<String> { get }
-    var getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error>? { get }
     
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     var snodeFailureCount: [Snode: UInt] { get }
@@ -1359,7 +1408,6 @@ public protocol SnodeAPIImmutableCacheType: ImmutableCacheType {
 public protocol SnodeAPICacheType: SnodeAPIImmutableCacheType, MutableCacheType {
     var hasLoadedSnodePool: Bool { get set }
     var loadedSwarms: Set<String> { get set }
-    var getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error>? { get set }
     
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     var snodeFailureCount: [Snode: UInt] { get set }
@@ -1375,4 +1423,15 @@ public protocol SnodeAPICacheType: SnodeAPIImmutableCacheType, MutableCacheType 
     var swarmCache: [String: Set<Snode>] { get set }
     
     var hasInsufficientSnodes: Bool { get }
+}
+
+// MARK: - GetSnodePoolCacheType
+
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
+public protocol GetSnodePoolImmutableCacheType: ImmutableCacheType {
+    var publisher: AnyPublisher<Set<Snode>, Error>? { get }
+}
+
+public protocol GetSnodePoolCacheType: GetSnodePoolImmutableCacheType, MutableCacheType {
+    var publisher: AnyPublisher<Set<Snode>, Error>? { get set }
 }

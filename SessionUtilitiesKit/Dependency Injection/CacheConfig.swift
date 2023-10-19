@@ -14,17 +14,18 @@ public protocol ImmutableCacheType {}
 // MARK: - CacheInfo
 
 public class CacheConfig<M, I>: Cache {
-    public let key: Int
+    public let identifier: String
     public let createInstance: (Dependencies) -> M
     public let mutableInstance: (M) -> MutableCacheType
     public let immutableInstance: (M) -> I
     
     fileprivate init(
+        identifier: String,
         createInstance: @escaping (Dependencies) -> M,
         mutableInstance: @escaping (M) -> MutableCacheType,
         immutableInstance: @escaping (M) -> I
     ) {
-        self.key = ObjectIdentifier(M.self).hashValue
+        self.identifier = identifier
         self.createInstance = createInstance
         self.mutableInstance = mutableInstance
         self.immutableInstance = immutableInstance
@@ -35,11 +36,13 @@ public class CacheConfig<M, I>: Cache {
 
 public extension Dependencies {
     static func create<M, I>(
+        identifier: String,
         createInstance: @escaping (Dependencies) -> M,
         mutableInstance: @escaping (M) -> MutableCacheType,
         immutableInstance: @escaping (M) -> I
     ) -> CacheConfig<M, I> {
         return CacheConfig(
+            identifier: identifier,
             createInstance: createInstance,
             mutableInstance: mutableInstance,
             immutableInstance: immutableInstance

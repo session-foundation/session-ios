@@ -159,7 +159,7 @@ public class HomeViewModel {
                 ),
                 PagedData.ObservedChanges(
                     table: OpenGroup.self,
-                    columns: [.name, .imageData],
+                    columns: [.name, .displayPictureFilename],
                     joinToPagedType: {
                         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
                         

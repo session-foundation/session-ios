@@ -28,6 +28,22 @@ public extension Crypto.Action {
     }
 }
 
+public extension Crypto.AuthenticationSignature {
+    static func signature(message: Bytes, secretKey: Bytes) -> Crypto.AuthenticationSignature {
+        return Crypto.AuthenticationSignature(id: "signature", args: [message, secretKey]) { sodium in
+            sodium.sign.signature(message: message, secretKey: secretKey).map { .standard(signature: $0) }
+        }
+    }
+}
+
+public extension Crypto.Verification {
+    static func signature(message: Bytes, publicKey: Bytes, signature: Bytes) -> Crypto.Verification {
+        return Crypto.Verification(id: "signature", args: [message, publicKey, signature]) { sodium in
+            sodium.sign.verify(message: message, publicKey: publicKey, signature: signature)
+        }
+    }
+}
+
 // MARK: - Ed25519
 
 public extension Crypto.KeyPairType {

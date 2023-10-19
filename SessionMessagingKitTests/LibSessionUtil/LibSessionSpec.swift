@@ -692,7 +692,7 @@ fileprivate extension LibSessionSpec {
                 
                 let pic2: user_profile_pic = user_profile_get_pic(conf);
                 expect(String(libSessionVal: pic2.url)).to(equal("http://example.org/omg-pic-123.bmp"))
-                expect(Data(libSessionVal: pic2.key, count: ProfileManager.avatarAES256KeyByteLength))
+                expect(Data(libSessionVal: pic2.key, count: DisplayPictureManager.aes256KeyByteLength))
                     .to(equal("secret78901234567890123456789012".data(using: .utf8)))
                 expect(user_profile_get_nts_priority(conf)).to(equal(9))
                 
@@ -1815,6 +1815,7 @@ fileprivate extension LibSessionSpec {
                 expect(keysInitResult2).to(equal(0))
                 
                 expect(groups_info_set_name(conf, "GROUP Name")).to(equal(0))
+                expect(groups_info_set_description(conf, "this is where you go to play in the tomato sauce, I guess")).to(equal(0))
                 expect(config_needs_push(conf)).to(beTrue())
                 expect(config_needs_dump(conf)).to(beTrue())
                 
@@ -1841,8 +1842,11 @@ fileprivate extension LibSessionSpec {
                 pushData1.deallocate()
                 
                 let namePtr: UnsafePointer<CChar>? = groups_info_get_name(conf2)
+                let descPtr: UnsafePointer<CChar>? = groups_info_get_description(conf2)
                 expect(namePtr).toNot(beNil())
+                expect(descPtr).toNot(beNil())
                 expect(String(cString: namePtr!)).to(equal("GROUP Name"))
+                expect(String(cString: descPtr!)).to(equal("this is where you go to play in the tomato sauce, I guess"))
                 
                 let createTime: Int64 = 1682529839
                 let pic: user_profile_pic = user_profile_pic(
@@ -1850,8 +1854,10 @@ fileprivate extension LibSessionSpec {
                     key: Data(hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd")
                         .toLibSession()
                 )
+                
                 expect(groups_info_set_pic(conf2, pic)).to(equal(0))
                 expect(groups_info_set_name(conf2, "GROUP Name2")).to(equal(0))
+                expect(groups_info_set_description(conf2, "Test Description 2")).to(equal(0))
                 groups_info_set_expiry_timer(conf2, 60 * 60)
                 groups_info_set_created(conf2, createTime)
                 groups_info_set_delete_before(conf2, createTime + (50 * 86400))
@@ -1873,6 +1879,7 @@ fileprivate extension LibSessionSpec {
                 config_confirm_pushed(conf2, pushData2.pointee.seqno, &cFakeHash2)
                 
                 expect(groups_info_set_name(conf, "Better name!")).to(equal(0))
+                expect(groups_info_set_description(conf, "Test New Name Really long abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")).to(equal(0))
 
                 var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
@@ -1888,11 +1895,14 @@ fileprivate extension LibSessionSpec {
                 let pushData3: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 
                 let namePtr2: UnsafePointer<CChar>? = groups_info_get_name(conf)
+                let descPtr2: UnsafePointer<CChar>? = groups_info_get_description(conf)
                 let pic2: user_profile_pic = groups_info_get_pic(conf)
                 expect(namePtr2).toNot(beNil())
+                expect(descPtr2).toNot(beNil())
                 expect(String(cString: namePtr2!)).to(equal("Better name!"))
+                expect(String(cString: descPtr2!)).to(equal("Test New Name Really long abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"))
                 expect(String(libSessionVal: pic2.url)).to(equal("http://example.com/12345"))
-                expect(Data(libSessionVal: pic2.key, count: ProfileManager.avatarAES256KeyByteLength))
+                expect(Data(libSessionVal: pic2.key, count: DisplayPictureManager.aes256KeyByteLength))
                     .to(equal(Data(
                         hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
                     )))
@@ -1917,11 +1927,14 @@ fileprivate extension LibSessionSpec {
                 pushData3.deallocate()
                 
                 let namePtr3: UnsafePointer<CChar>? = groups_info_get_name(conf2)
+                let descPtr3: UnsafePointer<CChar>? = groups_info_get_description(conf2)
                 let pic3: user_profile_pic = groups_info_get_pic(conf2)
                 expect(namePtr3).toNot(beNil())
+                expect(descPtr3).toNot(beNil())
                 expect(String(cString: namePtr3!)).to(equal("Better name!"))
+                expect(String(cString: descPtr3!)).to(equal("Test New Name Really long abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"))
                 expect(String(libSessionVal: pic3.url)).to(equal("http://example.com/12345"))
-                expect(Data(libSessionVal: pic3.key, count: ProfileManager.avatarAES256KeyByteLength))
+                expect(Data(libSessionVal: pic3.key, count: DisplayPictureManager.aes256KeyByteLength))
                     .to(equal(Data(
                         hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
                     )))
@@ -2225,7 +2238,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beTrue())
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
-                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                            expect(Data(libSessionVal: member.profile_pic.key, count: DisplayPictureManager.aes256KeyByteLength))
                                 .to(equal(Data(
                                     hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
                                 )))
@@ -2235,7 +2248,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beFalse())
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
-                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                            expect(Data(libSessionVal: member.profile_pic.key, count: DisplayPictureManager.aes256KeyByteLength))
                                 .to(equal(Data(
                                     hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
                                 )))
@@ -2330,7 +2343,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.promoted).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
-                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                            expect(Data(libSessionVal: member.profile_pic.key, count: DisplayPictureManager.aes256KeyByteLength))
                                 .to(equal(Data(
                                     hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
                                 )))
@@ -2342,7 +2355,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.promoted).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
-                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                            expect(Data(libSessionVal: member.profile_pic.key, count: DisplayPictureManager.aes256KeyByteLength))
                                 .to(equal(Data(
                                     hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
                                 )))
@@ -2481,7 +2494,7 @@ fileprivate extension LibSessionSpec {
                         case 0..<10:
                             expect(String(libSessionVal: member.name)).to(equal("Admin \(index)"))
                             expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
-                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                            expect(Data(libSessionVal: member.profile_pic.key, count: DisplayPictureManager.aes256KeyByteLength))
                                 .to(equal(Data(
                                     hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
                                 )))
@@ -2489,7 +2502,7 @@ fileprivate extension LibSessionSpec {
                         case 10..<20:
                             expect(String(libSessionVal: member.name)).to(equal("Member \(index)"))
                             expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
-                            expect(Data(libSessionVal: member.profile_pic.key, count: ProfileManager.avatarAES256KeyByteLength))
+                            expect(Data(libSessionVal: member.profile_pic.key, count: DisplayPictureManager.aes256KeyByteLength))
                                 .to(equal(Data(
                                     hex: "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
                                 )))

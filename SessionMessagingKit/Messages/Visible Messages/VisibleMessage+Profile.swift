@@ -125,9 +125,10 @@ public extension VisibleMessage {
         }
         
         public func toProto(
-            groupSessionId: Data,
+            groupSessionIdHexString: String,
             name: String,
-            memberAuthData: Data
+            memberAuthData: Data,
+            adminSignature: Data
         ) -> SNProtoGroupUpdateInviteMessage? {
             guard let displayName = displayName else {
                 SNLog("Couldn't construct profile proto from: \(self).")
@@ -135,9 +136,10 @@ public extension VisibleMessage {
             }
             
             let groupInviteProto = SNProtoGroupUpdateInviteMessage.builder(
-                groupSessionID: groupSessionId,
+                groupSessionID: groupSessionIdHexString,
                 name: name,
-                memberAuthData: memberAuthData
+                memberAuthData: memberAuthData,
+                adminSignature: adminSignature
             )
             let profileProto = SNProtoLokiProfile.builder()
             profileProto.setDisplayName(displayName)

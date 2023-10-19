@@ -73,7 +73,7 @@ extension OpenGroupAPI {
                         // Calculate the remaining poll delay
                         let currentTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         let nextPollInterval: TimeInterval = Poller.getInterval(
-                            for: TimeInterval(minPollFailureCount),
+                            for: minPollFailureCount,
                             minInterval: Poller.minPollInterval,
                             maxInterval: Poller.maxPollInterval
                         )
@@ -595,9 +595,9 @@ extension OpenGroupAPI {
         
         // MARK: - Convenience
 
-        fileprivate static func getInterval(for failureCount: TimeInterval, minInterval: TimeInterval, maxInterval: TimeInterval) -> TimeInterval {
+        fileprivate static func getInterval(for failureCount: Int64, minInterval: TimeInterval, maxInterval: TimeInterval) -> TimeInterval {
             // Arbitrary backoff factor...
-            return min(maxInterval, minInterval + pow(2, failureCount))
+            return min(maxInterval, minInterval + pow(2, Double(failureCount)))
         }
     }
 }

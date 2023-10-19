@@ -52,7 +52,7 @@ extension MessageReceiver {
                         .preparedDeleteMessages(
                             serverHashes: [serverHash],
                             requireSuccessfulDeletion: false,
-                            authInfo: try SnodeAPI.AuthenticationInfo(
+                            authMethod: try Authentication.with(
                                 db,
                                 sessionIdHexString: author,
                                 using: dependencies

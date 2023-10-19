@@ -494,7 +494,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         profilePictureView.update(
             publicKey: userProfile.id,
             threadVariant: .contact,
-            customImageData: nil,
+            displayPictureFilename: nil,
             profile: userProfile,
             additionalProfile: nil
         )

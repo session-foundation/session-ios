@@ -251,7 +251,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 id: threadViewModel.id,
                                 size: .hero,
                                 threadVariant: threadViewModel.threadVariant,
-                                customImageData: threadViewModel.openGroupProfilePictureData,
+                                displayPictureFilename: threadViewModel.displayPictureFilename,
                                 profile: threadViewModel.profile,
                                 profileIcon: .none,
                                 additionalProfile: threadViewModel.additionalProfile,
@@ -741,7 +741,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         guard
             threadViewModel.threadVariant == .contact,
             let profile: Profile = threadViewModel.profile,
-            let profileData: Data = ProfileManager.profileAvatar(profile: profile)
+            let profileData: Data = DisplayPictureManager.displayPicture(owner: .user(profile))
         else { return }
         
         let format: ImageFormat = profileData.guessedImageFormat
@@ -818,7 +818,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     job: DisappearingMessagesJob.updateNextRunIfNeeded(
                         db,
                         interaction: interaction,
-                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
+                        startedAtMs: Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
                         using: dependencies
                     ),
                     canStartJob: true,

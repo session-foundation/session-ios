@@ -38,23 +38,23 @@ internal extension SessionUtil {
         let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
         
         // Handle user profile changes
-        try ProfileManager.updateProfileIfNeeded(
+        try Profile.updateIfNeeded(
             db,
             publicKey: userSessionId.hexString,
             name: profileName,
-            avatarUpdate: {
+            displayPictureUpdate: {
                 guard let profilePictureUrl: String = profilePictureUrl else { return .remove }
                 
                 return .updateTo(
                     url: profilePictureUrl,
                     key: Data(
                         libSessionVal: profilePic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
+                        count: DisplayPictureManager.aes256KeyByteLength
                     ),
                     fileName: nil
                 )
             }(),
-            sentTimestamp: (TimeInterval(serverTimestampMs) / 1000),
+            sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
             calledFromConfigHandling: true,
             using: dependencies
         )

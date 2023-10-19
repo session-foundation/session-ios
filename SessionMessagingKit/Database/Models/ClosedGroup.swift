@@ -6,7 +6,7 @@ import DifferenceKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-public struct ClosedGroup: Codable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "closedGroup" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     public static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
@@ -379,4 +379,5 @@ public extension ClosedGroup {
 
 public extension [ClosedGroup.RemovableGroupData] {
     static var allData: [ClosedGroup.RemovableGroupData] { ClosedGroup.RemovableGroupData.allCases }
+    static var noData: [ClosedGroup.RemovableGroupData] { [] }
 }

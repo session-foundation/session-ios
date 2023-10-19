@@ -45,7 +45,7 @@ extension SessionCell {
             id: String,
             size: ProfilePictureView.Size,
             threadVariant: SessionThread.Variant,
-            customImageData: Data?,
+            displayPictureFilename: String?,
             profile: Profile?,
             profileIcon: ProfilePictureView.ProfileIcon,
             additionalProfile: Profile?,
@@ -126,7 +126,7 @@ extension SessionCell {
                     let profileId,
                     let size,
                     let threadVariant,
-                    let customImageData,
+                    let displayPictureFilename,
                     let profile,
                     let profileIcon,
                     let additionalProfile,
@@ -136,7 +136,7 @@ extension SessionCell {
                     profileId.hash(into: &hasher)
                     size.hash(into: &hasher)
                     threadVariant.hash(into: &hasher)
-                    customImageData.hash(into: &hasher)
+                    displayPictureFilename.hash(into: &hasher)
                     profile.hash(into: &hasher)
                     profileIcon.hash(into: &hasher)
                     additionalProfile.hash(into: &hasher)
@@ -207,7 +207,7 @@ extension SessionCell {
                         let lhsProfileId,
                         let lhsSize,
                         let lhsThreadVariant,
-                        let lhsCustomImageData,
+                        let lhsDisplayPictureFilename,
                         let lhsProfile,
                         let lhsProfileIcon,
                         let lhsAdditionalProfile,
@@ -218,7 +218,7 @@ extension SessionCell {
                         let rhsProfileId,
                         let rhsSize,
                         let rhsThreadVariant,
-                        let rhsCustomImageData,
+                        let rhsDisplayPictureFilename,
                         let rhsProfile,
                         let rhsProfileIcon,
                         let rhsAdditionalProfile,
@@ -230,7 +230,7 @@ extension SessionCell {
                         lhsProfileId == rhsProfileId &&
                         lhsSize == rhsSize &&
                         lhsThreadVariant == rhsThreadVariant &&
-                        lhsCustomImageData == rhsCustomImageData &&
+                        lhsDisplayPictureFilename == rhsDisplayPictureFilename &&
                         lhsProfile == rhsProfile &&
                         lhsProfileIcon == rhsProfileIcon &&
                         lhsAdditionalProfile == rhsAdditionalProfile &&
@@ -354,7 +354,7 @@ extension SessionCell.Accessory {
             id: id,
             size: .list,
             threadVariant: .contact,
-            customImageData: nil,
+            displayPictureFilename: nil,
             profile: profile,
             profileIcon: .none,
             additionalProfile: nil,
@@ -368,7 +368,7 @@ extension SessionCell.Accessory {
             id: id,
             size: size,
             threadVariant: .contact,
-            customImageData: nil,
+            displayPictureFilename: nil,
             profile: profile,
             profileIcon: .none,
             additionalProfile: nil,

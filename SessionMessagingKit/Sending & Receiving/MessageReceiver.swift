@@ -293,8 +293,7 @@ public enum MessageReceiver {
                 
             case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage, is GroupUpdateInfoChangeMessage,
                 is GroupUpdateMemberChangeMessage, is GroupUpdatePromoteMessage, is GroupUpdateMemberLeftMessage,
-                is GroupUpdateInviteResponseMessage, is GroupUpdatePromotionResponseMessage,
-                is GroupUpdateDeleteMemberContentMessage:
+                is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
                 try MessageReceiver.handleGroupUpdateMessage(
                     db,
                     threadId: threadId,
@@ -357,7 +356,7 @@ public enum MessageReceiver {
                 
             case is LegacyConfigurationMessage: TopBannerController.show(warning: .outdatedUserConfig)
                 
-            default: fatalError()
+            default: throw MessageReceiverError.unknownMessage
         }
         
         // Perform any required post-handling logic
@@ -377,51 +376,66 @@ public enum MessageReceiver {
     ) throws {
         // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
-        switch message {
-            case is ReadReceipt: break
-            case is TypingIndicator: break
-            case is LegacyConfigurationMessage: break
-            case is UnsendRequest: break
-                
-            case let message as ClosedGroupControlMessage:
-                // Only re-show a legacy group conversation if we are going to add a control text message
-                switch message.kind {
-                    case .new, .encryptionKeyPair, .encryptionKeyPairRequest: return
-                    default: break
-                }
-                
-                fallthrough
-                
-            default:
-                // Only update the `shouldBeVisible` flag if the thread is currently not visible
-                // as we don't want to trigger a config update if not needed
-                let isCurrentlyVisible: Bool = try SessionThread
-                    .filter(id: threadId)
-                    .select(.shouldBeVisible)
-                    .asRequest(of: Bool.self)
-                    .fetchOne(db)
-                    .defaulting(to: false)
-                
-                // Start the disappearing messages timer if needed
-                // For disappear after send, this is necessary so the message will disappear even if it is not read
-                dependencies[singleton: .jobRunner].upsert(
-                    db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
-                    canStartJob: true,
-                    using: dependencies
-                )
+        let shouldBecomeVisible: Bool = {
+            switch message {
+                case is ReadReceipt: return true
+                case is TypingIndicator: return true
+                case is LegacyConfigurationMessage: return true
+                case is UnsendRequest: return true
+                    
+                case let message as ClosedGroupControlMessage:
+                    // Only re-show a legacy group conversation if we are going to add a control text message
+                    switch message.kind {
+                        case .new, .encryptionKeyPair, .encryptionKeyPairRequest: return false
+                        default: return true
+                    }
+                    
+                /// These are sent to the one-to-one conversation so they shouldn't make that visible
+                case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage, is GroupUpdatePromoteMessage:
+                    return false
+                    
+                /// These are sent to the group conversation but we have logic so you can only ever "leave" a group, you can't "hide" it
+                /// so that it re-appears when a new message is received so the thread shouldn't become visible for any of them
+                case is GroupUpdateInfoChangeMessage, is GroupUpdateMemberChangeMessage,
+                    is GroupUpdateMemberLeftMessage, is GroupUpdateInviteResponseMessage,
+                    is GroupUpdateDeleteMemberContentMessage:
+                    return false
+                    
+                default: return true
+            }
+        }()
+        
+        // Start the disappearing messages timer if needed
+        // For disappear after send, this is necessary so the message will disappear even if it is not read
+        dependencies[singleton: .jobRunner].upsert(
+            db,
+            job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
+            canStartJob: true,
+            using: dependencies
+        )
+        
+        // Only check the current visibility state if we should become visible for this message type
+        guard shouldBecomeVisible else { return }
+        
+        // Only update the `shouldBeVisible` flag if the thread is currently not visible
+        // as we don't want to trigger a config update if not needed
+        let isCurrentlyVisible: Bool = try SessionThread
+            .filter(id: threadId)
+            .select(.shouldBeVisible)
+            .asRequest(of: Bool.self)
+            .fetchOne(db)
+            .defaulting(to: false)
 
-                guard !isCurrentlyVisible else { return }
-                
-                try SessionThread
-                    .filter(id: threadId)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.shouldBeVisible.set(to: true),
-                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority),
-                        using: dependencies
-                    )
-        }
+        guard !isCurrentlyVisible else { return }
+        
+        try SessionThread
+            .filter(id: threadId)
+            .updateAllAndConfig(
+                db,
+                SessionThread.Columns.shouldBeVisible.set(to: true),
+                SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority),
+                using: dependencies
+            )
     }
     
     public static func handleOpenGroupReactions(

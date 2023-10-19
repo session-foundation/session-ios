@@ -9,7 +9,7 @@ public class UserDefaultsStorage {}
 // MARK: - UserDefaultsConfig
 
 public class UserDefaultsConfig: UserDefaultsStorage {
-    public let key: Int
+    public let identifier: String
     public let createInstance: (Dependencies) -> UserDefaultsType
 
     /// `fileprivate` to hide when accessing via `dependencies[defaults: ]`
@@ -17,7 +17,7 @@ public class UserDefaultsConfig: UserDefaultsStorage {
         identifier: String,
         createInstance: @escaping (Dependencies) -> UserDefaultsType
     ) {
-        self.key = identifier.hashValue
+        self.identifier = identifier
         self.createInstance = createInstance
     }
 }

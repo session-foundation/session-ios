@@ -60,7 +60,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
     public init(
         url: String,
         timestamp: TimeInterval = LinkPreview.timestampFor(
-            sentTimestampMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())  // Default to now
+            sentTimestampMs: Double(SnodeAPI.currentOffsetTimestampMs())  // Default to now
         ),
         variant: Variant = .standard,
         title: String?,

@@ -6,7 +6,7 @@ import GRDB
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-public enum GroupPromoteMemberJob: JobExecutor {
+public enum GroupInviteMemberJob: JobExecutor {
     public static var maxFailureCount: Int = 1
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
@@ -22,37 +22,50 @@ public enum GroupPromoteMemberJob: JobExecutor {
         guard
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
-            let groupIdentityPrivateKey: Data = dependencies[singleton: .storage].read({ db in
-                try ClosedGroup
+            let currentInfo: (groupName: String, adminProfile: Profile) = dependencies[singleton: .storage].read({ db in
+                let maybeGroupName: String? = try ClosedGroup
                     .filter(id: threadId)
-                    .select(.groupIdentityPrivateKey)
-                    .asRequest(of: Data.self)
+                    .select(.name)
+                    .asRequest(of: String.self)
                     .fetchOne(db)
+                
+                guard let groupName: String = maybeGroupName else { throw StorageError.objectNotFound }
+                
+                return (groupName, Profile.fetchOrCreateCurrentUser(db, using: dependencies))
             }),
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else {
-            SNLog("[GroupPromoteMemberJob] Failing due to missing details")
+            SNLog("[GroupInviteMemberJob] Failing due to missing details")
             failure(job, JobRunnerError.missingRequiredDetails, true, dependencies)
             return
         }
         
-        let encryptedGroupIdentityPrivateKey: Data = groupIdentityPrivateKey
-        
-        let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
-        let message: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
-            memberPublicKey: Data(hex: details.memberSessionIdHexString),
-            encryptedGroupIdentityPrivateKey: encryptedGroupIdentityPrivateKey,
-            sentTimestamp: UInt64(sentTimestamp)
-        )
+        let sentTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> HTTP.PreparedRequest<Void> in
+            .readPublisher { db -> HTTP.PreparedRequest<Void> in
                 try MessageSender.preparedSend(
                     db,
-                    message: message,
-                    to: .closedGroup(groupPublicKey: threadId),
-                    namespace: .groupMessages,
+                    message: try GroupUpdateInviteMessage(
+                        inviteeSessionIdHexString: details.memberSessionIdHexString,
+                        groupSessionId: SessionId(.group, hex: threadId),
+                        groupName: currentInfo.groupName,
+                        memberAuthData: details.memberAuthData,
+                        profile: VisibleMessage.VMProfile.init(
+                            profile: currentInfo.adminProfile,
+                            blocksCommunityMessageRequests: nil
+                        ),
+                        sentTimestamp: UInt64(sentTimestamp),
+                        authMethod: try Authentication.with(
+                            db,
+                            sessionIdHexString: threadId,
+                            using: dependencies
+                        ),
+                        using: dependencies
+                    ),
+                    to: .contact(publicKey: details.memberSessionIdHexString),
+                    namespace: .default,
                     interactionId: nil,
                     fileIds: [],
                     isSyncMessage: false,
@@ -67,15 +80,16 @@ public enum GroupPromoteMemberJob: JobExecutor {
                     switch result {
                         case .finished: success(job, false, dependencies)
                         case .failure(let error):
-                            SNLog("[GroupPromoteMemberJob] Couldn't send message due to error: \(error).")
+                            SNLog("[GroupInviteMemberJob] Couldn't send message due to error: \(error).")
                             
-                            // Update the promotion status of the group member (only if the role status isn't already
-                            // 'accepted')
+                            // Update the invite status of the group member (only if the role is 'standard' and
+                            // the role status isn't already 'accepted')
                             dependencies[singleton: .storage].write(using: dependencies) { db in
                                 try GroupMember
                                     .filter(
                                         GroupMember.Columns.groupId == threadId &&
                                         GroupMember.Columns.profileId == details.memberSessionIdHexString &&
+                                        GroupMember.Columns.role == GroupMember.Role.standard &&
                                         GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
                                     )
                                     .updateAllAndConfig(
@@ -94,7 +108,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
                                     failure(job, error, true, dependencies)
                                     
                                 case SnodeAPIError.clockOutOfSync:
-                                    SNLog("[GroupPromoteMemberJob] Permanently Failing to send due to clock out of sync issue.")
+                                    SNLog("[GroupInviteMemberJob] Permanently Failing to send due to clock out of sync issue.")
                                     failure(job, error, true, dependencies)
                                     
                                 default: failure(job, error, false, dependencies)
@@ -102,14 +116,28 @@ public enum GroupPromoteMemberJob: JobExecutor {
                     }
                 }
             )
+        
+        // TODO: Need to batch errors together and send a toast indicating invitation failures
     }
 }
 
-// MARK: - GroupPromoteMemberJob.Details
+// MARK: - GroupInviteMemberJob.Details
 
-extension GroupPromoteMemberJob {
+extension GroupInviteMemberJob {
     public struct Details: Codable {
         public let memberSessionIdHexString: String
+        public let memberAuthData: Data
+        
+        public init(
+            memberSessionIdHexString: String,
+            authInfo: Authentication.Info
+        ) throws {
+            self.memberSessionIdHexString = memberSessionIdHexString
+            
+            switch authInfo {
+                case .groupMember(_, let authData): self.memberAuthData = authData
+                default: throw MessageSenderError.invalidMessage
+            }
+        }
     }
 }
-

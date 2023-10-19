@@ -436,7 +436,7 @@ extension SessionCell {
                     let profileId,
                     let profileSize,
                     let threadVariant,
-                    let customImageData,
+                    let displayPictureFilename,
                     let profile,
                     let profileIcon,
                     let additionalProfile,
@@ -452,7 +452,7 @@ extension SessionCell {
                     profilePictureView.update(
                         publicKey: profileId,
                         threadVariant: threadVariant,
-                        customImageData: customImageData,
+                        displayPictureFilename: displayPictureFilename,
                         profile: profile,
                         profileIcon: profileIcon,
                         additionalProfile: additionalProfile,

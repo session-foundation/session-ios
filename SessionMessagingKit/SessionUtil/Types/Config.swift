@@ -245,7 +245,7 @@ public extension SessionUtil {
                     mergedHashesPtr?.deallocate()
                     
                     if mergedHashes.count != messages.count {
-                        SNLog("[SessionUtil] Unable to merge all \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
+                        SNLog("[SessionUtil] Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
                     }
                     
                     return messages

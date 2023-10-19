@@ -120,6 +120,19 @@ public enum ProcessedMessage {
         }
     }
     
+    var namespace: SnodeAPI.Namespace {
+        switch self {
+            case .standard(_, let threadVariant, _, _):
+                switch threadVariant {
+                    case .group: return .groupMessages
+                    case .legacyGroup: return .legacyClosedGroup
+                    case .contact, .community: return .default
+                }
+                
+            case .config(_, let namespace, _, _, _): return namespace
+        }
+    }
+    
     var isConfigMessage: Bool {
         switch self {
             case .standard: return false
@@ -140,6 +153,14 @@ public extension Message {
         case messageRequestResponse
         case visibleMessage
         case callMessage
+        case groupUpdateInvite
+        case groupUpdateDelete
+        case groupUpdatePromote
+        case groupUpdateInfoChange
+        case groupUpdateMemberChange
+        case groupUpdateMemberLeft
+        case groupUpdateInviteResponse
+        case groupUpdateDeleteMemberContent
         
         init?(from type: Message) {
             switch type {
@@ -153,6 +174,14 @@ public extension Message {
                 case is MessageRequestResponse: self = .messageRequestResponse
                 case is VisibleMessage: self = .visibleMessage
                 case is CallMessage: self = .callMessage
+                case is GroupUpdateInviteMessage: self = .groupUpdateInvite
+                case is GroupUpdateDeleteMessage: self = .groupUpdateDelete
+                case is GroupUpdatePromoteMessage: self = .groupUpdatePromote
+                case is GroupUpdateInfoChangeMessage: self = .groupUpdateInfoChange
+                case is GroupUpdateMemberChangeMessage: self = .groupUpdateMemberChange
+                case is GroupUpdateMemberLeftMessage: self = .groupUpdateMemberLeft
+                case is GroupUpdateInviteResponseMessage: self = .groupUpdateInviteResponse
+                case is GroupUpdateDeleteMemberContentMessage: self = .groupUpdateDeleteMemberContent
                 default: return nil
             }
         }
@@ -169,6 +198,14 @@ public extension Message {
                 case .messageRequestResponse: return MessageRequestResponse.self
                 case .visibleMessage: return VisibleMessage.self
                 case .callMessage: return CallMessage.self
+                case .groupUpdateInvite: return GroupUpdateInviteMessage.self
+                case .groupUpdateDelete: return GroupUpdateDeleteMessage.self
+                case .groupUpdatePromote: return GroupUpdatePromoteMessage.self
+                case .groupUpdateInfoChange: return GroupUpdateInfoChangeMessage.self
+                case .groupUpdateMemberChange: return GroupUpdateMemberChangeMessage.self
+                case .groupUpdateMemberLeft: return GroupUpdateMemberLeftMessage.self
+                case .groupUpdateInviteResponse: return GroupUpdateInviteResponseMessage.self
+                case .groupUpdateDeleteMemberContent: return GroupUpdateDeleteMemberContentMessage.self
             }
         }
 
@@ -192,6 +229,25 @@ public extension Message {
                 case .messageRequestResponse: return try container.decode(MessageRequestResponse.self, forKey: key)
                 case .visibleMessage: return try container.decode(VisibleMessage.self, forKey: key)
                 case .callMessage: return try container.decode(CallMessage.self, forKey: key)
+                    
+                case .groupUpdateInvite: return try container.decode(GroupUpdateInviteMessage.self, forKey: key)
+                case .groupUpdateDelete: return try container.decode(GroupUpdateDeleteMessage.self, forKey: key)
+                case .groupUpdatePromote: return try container.decode(GroupUpdatePromoteMessage.self, forKey: key)
+                
+                case .groupUpdateInfoChange:
+                    return try container.decode(GroupUpdateInfoChangeMessage.self, forKey: key)
+                                                                                
+                case .groupUpdateMemberChange:
+                    return try container.decode(GroupUpdateMemberChangeMessage.self, forKey: key)
+                
+                case .groupUpdateMemberLeft:
+                    return try container.decode(GroupUpdateMemberLeftMessage.self, forKey: key)
+                
+                case .groupUpdateInviteResponse:
+                    return try container.decode(GroupUpdateInviteResponseMessage.self, forKey: key)
+                
+                case .groupUpdateDeleteMemberContent:
+                    return try container.decode(GroupUpdateDeleteMemberContentMessage.self, forKey: key)
             }
         }
     }
@@ -203,6 +259,14 @@ public extension Message {
             .readReceipt,
             .typingIndicator,
             .closedGroupControlMessage,
+            .groupUpdateInvite,
+            .groupUpdateDelete,
+            .groupUpdatePromote,
+            .groupUpdateInfoChange,
+            .groupUpdateMemberChange,
+            .groupUpdateMemberLeft,
+            .groupUpdateInviteResponse,
+            .groupUpdateDeleteMemberContent,
             .dataExtractionNotification,
             .expirationTimerUpdate,
             .legacyConfigurationMessage,
@@ -223,7 +287,10 @@ public extension Message {
     
     static func requiresExistingConversation(message: Message, threadVariant: SessionThread.Variant) -> Bool {
         switch threadVariant {
-            case .contact, .community: return false
+            /// Process every message sent to these conversation types (the `MessageReceiver` will determine whether a message should
+            /// result in a conversation appearing if it's not already visible after processing the message - this just controls whether the messages
+            /// should be processed)
+            case .contact, .group, .community: return false
                 
             case .legacyGroup:
                 switch message {
@@ -235,9 +302,6 @@ public extension Message {
                         
                     default: return true
                 }
-                
-            case .group:
-                return false
         }
     }
     
@@ -301,7 +365,7 @@ public extension Message {
                     namespace: rawMessage.namespace,
                     serverHash: rawMessage.info.hash,
                     serverTimestampMs: rawMessage.timestampMs,
-                    serverExpirationTimestamp: (TimeInterval(rawMessage.info.expirationDateMs) / 1000)
+                    serverExpirationTimestamp: TimeInterval(Double(rawMessage.info.expirationDateMs) / 1000)
                 ),
                 using: dependencies
             )
@@ -365,7 +429,7 @@ public extension Message {
                 serverHash: metadata.hash,
                 serverTimestampMs: metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
-                    (TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) +
+                    TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) +
                     ControlMessageProcessRecord.defaultExpirationSeconds
                 )
             ),

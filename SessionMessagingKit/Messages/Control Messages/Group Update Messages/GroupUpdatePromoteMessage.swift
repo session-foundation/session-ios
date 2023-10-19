@@ -6,22 +6,20 @@ import SessionUtilitiesKit
 
 public final class GroupUpdatePromoteMessage: ControlMessage {
     private enum CodingKeys: String, CodingKey {
-        case memberPublicKey
-        case encryptedGroupIdentityPrivateKey
+        case groupIdentitySeed
     }
     
-    public var memberPublicKey: Data
-    public var encryptedGroupIdentityPrivateKey: Data
+    public var groupIdentitySeed: Data
+    
+    override public var processWithBlockedSender: Bool { true }
     
     // MARK: - Initialization
     
     public init(
-        memberPublicKey: Data,
-        encryptedGroupIdentityPrivateKey: Data,
+        groupIdentitySeed: Data,
         sentTimestamp: UInt64? = nil
     ) {
-        self.memberPublicKey = memberPublicKey
-        self.encryptedGroupIdentityPrivateKey = encryptedGroupIdentityPrivateKey
+        self.groupIdentitySeed = groupIdentitySeed
         
         super.init(
             sentTimestamp: sentTimestamp
@@ -33,8 +31,7 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
     required init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
-        memberPublicKey = try container.decode(Data.self, forKey: .memberPublicKey)
-        encryptedGroupIdentityPrivateKey = try container.decode(Data.self, forKey: .encryptedGroupIdentityPrivateKey)
+        groupIdentitySeed = try container.decode(Data.self, forKey: .groupIdentitySeed)
         
         try super.init(from: decoder)
     }
@@ -44,8 +41,7 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
         
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
         
-        try container.encode(memberPublicKey, forKey: .memberPublicKey)
-        try container.encode(encryptedGroupIdentityPrivateKey, forKey: .encryptedGroupIdentityPrivateKey)
+        try container.encode(groupIdentitySeed, forKey: .groupIdentitySeed)
     }
 
     // MARK: - Proto Conversion
@@ -54,16 +50,14 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
         guard let groupPromoteMessage = proto.dataMessage?.groupUpdateMessage?.promoteMessage else { return nil }
         
         return GroupUpdatePromoteMessage(
-            memberPublicKey: groupPromoteMessage.memberPublicKey,
-            encryptedGroupIdentityPrivateKey: groupPromoteMessage.encryptedGroupIdentityPrivateKey
+            groupIdentitySeed: groupPromoteMessage.groupIdentitySeed
         )
     }
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         do {
             let promoteMessageBuilder: SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuilder = SNProtoGroupUpdatePromoteMessage.builder(
-                memberPublicKey: memberPublicKey,
-                encryptedGroupIdentityPrivateKey: encryptedGroupIdentityPrivateKey
+                groupIdentitySeed: groupIdentitySeed
             )
             
             let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
@@ -86,8 +80,7 @@ public final class GroupUpdatePromoteMessage: ControlMessage {
     public var description: String {
         """
         GroupUpdatePromoteMessage(
-            memberPublicKey: \(memberPublicKey.toHexString()),
-            encryptedGroupIdentityPrivateKey: \(encryptedGroupIdentityPrivateKey.toHexString())
+            groupIdentitySeed: \(groupIdentitySeed.toHexString())
         )
         """
     }

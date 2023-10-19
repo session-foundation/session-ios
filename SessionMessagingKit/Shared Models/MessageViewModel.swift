@@ -163,10 +163,12 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let shouldShowDateHeader: Bool
     
     /// This value will be used to populate the Context Menu and date header (if present)
-    public var dateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.timestampMs) / 1000)) }
+    public var dateForUI: Date { Date(timeIntervalSince1970: TimeInterval(Double(self.timestampMs) / 1000)) }
     
     /// This value will be used to populate the Message Info (if present)
-    public var receivedDateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.receivedAtTimestampMs) / 1000)) }
+    public var receivedDateForUI: Date {
+        Date(timeIntervalSince1970: TimeInterval(Double(self.receivedAtTimestampMs) / 1000))
+    }
     
     /// This value specifies whether the body contains only emoji characters
     public let containsOnlyEmoji: Bool?
@@ -759,8 +761,8 @@ extension MessageViewModel {
     }
     
     fileprivate static func shouldShowDateBreak(between timestamp1: Int64, and timestamp2: Int64) -> Bool {
-        let date1: Date = Date(timeIntervalSince1970: (TimeInterval(timestamp1) / 1000))
-        let date2: Date = Date(timeIntervalSince1970: (TimeInterval(timestamp2) / 1000))
+        let date1: Date = Date(timeIntervalSince1970: TimeInterval(Double(timestamp1) / 1000))
+        let date2: Date = Date(timeIntervalSince1970: TimeInterval(Double(timestamp2) / 1000))
         
         return ((minutesFrom(date1, to: date2) ?? 0) > maxMinutesBetweenTwoDateBreaks)
     }

@@ -101,6 +101,34 @@ public extension SnodeAPI {
             }
         }
         
+        /// This value defines the order that the messages should be processed in, by processing messages in a specific order
+        /// we can prevent certain edge-cases where data/logic between different messages types could be dependant on each
+        /// other (eg. there could be `configConvoInfoVolatile` data related to a new conversation which hasn't been created
+        /// yet because it's associated `contacts`/`userGroups` message hasn't been processed; or a `groupMessages`
+        /// which was encrypted with a key included in the `configGroupKeys` within the same poll)
+        public var processingOrder: Int {
+            switch self {
+                case .configUserProfile, .configContacts, .configGroupKeys: return 0
+                case .configUserGroups, .configGroupInfo, .configGroupMembers: return 1
+                case .configConvoInfoVolatile: return 2
+                    
+                case .`default`, .legacyClosedGroup, .groupMessages, .unknown, .all:
+                    return 3
+            }
+        }
+        
+        /// Flag which indicates whether messages from this namespace should be handled synchronously as part of the polling process
+        /// or whether they can be scheduled to be handled asynchronously
+        public var shouldHandleSynchronously: Bool {
+            switch self {
+                case .configGroupKeys: return true
+                case .`default`, .legacyClosedGroup, .groupMessages, .configUserProfile, .configContacts,
+                    .configConvoInfoVolatile, .configUserGroups, .configGroupInfo, .configGroupMembers,
+                    .unknown, .all:
+                    return false
+            }
+        }
+        
         /// When performing a batch request we want to try to use the amount of data available in the response as effectively as possible
         /// this priority allows us to split the response effectively between the number of namespaces we are requesting from where
         /// namespaces with the same priority will be given the same response size divider, for example:

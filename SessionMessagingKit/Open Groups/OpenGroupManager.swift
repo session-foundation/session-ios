@@ -10,7 +10,7 @@ import SessionSnodeKit
 // MARK: - OpenGroupManager
 
 public final class OpenGroupManager {
-    public typealias DefaultRoomInfo = (room: OpenGroupAPI.Room, existingImageData: Data?)
+    public typealias DefaultRoomInfo = (room: OpenGroupAPI.Room, openGroup: OpenGroup)
     
     // MARK: - Variables
     
@@ -420,7 +420,6 @@ public final class OpenGroupManager {
         publicKey maybePublicKey: String?,
         for roomToken: String,
         on server: String,
-        waitForImageToComplete: Bool = false,
         using dependencies: Dependencies,
         completion: (() -> ())? = nil
     ) throws {
@@ -511,7 +510,34 @@ public final class OpenGroupManager {
                 }
         }
         
-        db.afterNextTransactionNested { reentrantDb in
+        /// Schedule the room image download (if we don't have one or it's been updated)
+        if
+            let imageId: String = (pollInfo.details?.imageId ?? openGroup.imageId),
+            (
+                openGroup.displayPictureFilename == nil ||
+                openGroup.imageId != imageId
+            )
+        {
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .displayPictureDownload,
+                    shouldBeUnique: true,
+                    details: DisplayPictureDownloadJob.Details(
+                        target: .community(
+                            imageId: imageId,
+                            roomToken: openGroup.roomToken,
+                            server: openGroup.server
+                        ),
+                        timestamp: TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+                    )
+                ),
+                canStartJob: true,
+                using: dependencies
+            )
+        }
+        
+        db.afterNextTransactionNested { _ in
             // Dispatch async to the workQueue to prevent holding up the DBWrite thread from the
             // above transaction
             OpenGroupAPI.workQueue.async(using: dependencies) {
@@ -525,48 +551,6 @@ public final class OpenGroupManager {
                     dependencies[cache: .openGroupManager].pollers[server.lowercased()]?
                         .startIfNeeded(using: dependencies)
                 }
-                
-                /// Start downloading the room image (if we don't have one or it's been updated)
-                if
-                    let imageId: String = (pollInfo.details?.imageId ?? openGroup.imageId),
-                    (
-                        openGroup.imageData == nil ||
-                        openGroup.imageId != imageId
-                    )
-                {
-                    OpenGroupManager
-                        .roomImage(
-                            fileId: imageId,
-                            for: roomToken,
-                            on: server,
-                            existingData: openGroup.imageData,
-                            using: dependencies
-                        )
-                        // Note: We need to subscribe and receive on different threads to ensure the
-                        // logic in 'receiveValue' doesn't result in a reentrancy database issue
-                        .subscribe(on: OpenGroupAPI.workQueue, using: dependencies)
-                        .receive(on: DispatchQueue.global(qos: .default), using: dependencies)
-                        .sinkUntilComplete(
-                            receiveCompletion: { _ in
-                                if waitForImageToComplete {
-                                    completion?()
-                                }
-                            },
-                            receiveValue: { data in
-                                dependencies[singleton: .storage].write(using: dependencies) { db in
-                                    _ = try OpenGroup
-                                        .filter(id: threadId)
-                                        .updateAll(db, OpenGroup.Columns.imageData.set(to: data))
-                                }
-                            }
-                        )
-                }
-                else if waitForImageToComplete {
-                    completion?()
-                }
-                
-                // If we want to wait for the image to complete then don't call the completion here
-                guard !waitForImageToComplete else { return }
                 
                 // Finish
                 completion?()
@@ -1024,65 +1008,86 @@ public final class OpenGroupManager {
             .receive(on: OpenGroupAPI.workQueue, using: dependencies)
             .retry(8, using: dependencies)
             .map { info, response -> [DefaultRoomInfo]? in
-                dependencies[singleton: .storage].write { db -> [DefaultRoomInfo] in
+                dependencies[singleton: .storage].write(using: dependencies) { db -> [DefaultRoomInfo] in
                     // Store the capabilities first
                     OpenGroupManager.handleCapabilities(
                         db,
                         capabilities: response.capabilities.data,
                         on: OpenGroupAPI.defaultServer
                     )
-                        
-                    // Then the rooms
-                    return response.rooms.data
-                        .map { room -> DefaultRoomInfo in
+                    
+                    let existingImageIds: [String: String] = try OpenGroup
+                        .filter(OpenGroup.Columns.server == OpenGroupAPI.defaultServer)
+                        .filter(OpenGroup.Columns.imageId != nil)
+                        .fetchAll(db)
+                        .reduce(into: [:]) { result, next in result[next.id] = next.imageId }
+                    let result: [DefaultRoomInfo] = try response.rooms.data
+                        .compactMap { room -> DefaultRoomInfo? in
                             // Try to insert an inactive version of the OpenGroup (use 'insert'
                             // rather than 'save' as we want it to fail if the room already exists)
                             do {
-                                _ = try OpenGroup(
-                                    server: OpenGroupAPI.defaultServer,
-                                    roomToken: room.token,
-                                    publicKey: OpenGroupAPI.defaultServerPublicKey,
-                                    isActive: false,
-                                    name: room.name,
-                                    roomDescription: room.roomDescription,
-                                    imageId: room.imageId,
-                                    imageData: nil,
-                                    userCount: room.activeUsers,
-                                    infoUpdates: room.infoUpdates,
-                                    sequenceNumber: 0,
-                                    inboxLatestMessageId: 0,
-                                    outboxLatestMessageId: 0
+                                return (
+                                    room,
+                                    try OpenGroup(
+                                        server: OpenGroupAPI.defaultServer,
+                                        roomToken: room.token,
+                                        publicKey: OpenGroupAPI.defaultServerPublicKey,
+                                        isActive: false,
+                                        name: room.name,
+                                        roomDescription: room.roomDescription,
+                                        imageId: room.imageId,
+                                        userCount: room.activeUsers,
+                                        infoUpdates: room.infoUpdates
+                                    )
+                                    .inserted(db)
                                 )
-                                .inserted(db)
                             }
-                            catch {}
-                            
-                            // Retrieve existing image data if we have it
-                            let existingImageData: Data? = try? OpenGroup
-                                .select(.imageData)
-                                .filter(id: OpenGroup.idFor(roomToken: room.token, server: OpenGroupAPI.defaultServer))
-                                .asRequest(of: Data.self)
-                                .fetchOne(db)
-                            
-                            return (room, existingImageData)
+                            catch {
+                                return try OpenGroup
+                                    .fetchOne(
+                                        db,
+                                        id: OpenGroup.idFor(
+                                            roomToken: room.token,
+                                            server: OpenGroupAPI.defaultServer
+                                        )
+                                    )
+                                    .map { (room, $0) }
+                            }
                         }
+                    
+                    /// Schedule the room image download (if it doesn't match out current one)
+                    result.forEach { room, _ in
+                        let id: String = OpenGroup.idFor(roomToken: room.token, server: OpenGroupAPI.defaultServer)
+                        
+                        guard
+                            let imageId: String = room.imageId,
+                            imageId != existingImageIds[id]
+                        else { return }
+                        
+                        dependencies[singleton: .jobRunner].add(
+                            db,
+                            job: Job(
+                                variant: .displayPictureDownload,
+                                shouldBeUnique: true,
+                                details: DisplayPictureDownloadJob.Details(
+                                    target: .community(
+                                        imageId: imageId,
+                                        roomToken: room.token,
+                                        server: OpenGroupAPI.defaultServer
+                                    ),
+                                    timestamp: TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+                                )
+                            ),
+                            canStartJob: true,
+                            using: dependencies
+                        )
+                    }
+                    
+                    return result
                 }
             }
             .map { ($0 ?? []) }
             .handleEvents(
-                receiveOutput: { roomInfo in
-                    roomInfo.forEach { room, existingImageData in
-                        guard let imageId: String = room.imageId else { return }
-                        
-                        roomImage(
-                            fileId: imageId,
-                            for: room.token,
-                            on: OpenGroupAPI.defaultServer,
-                            existingData: existingImageData,
-                            using: dependencies
-                        )
-                    }
-                },
                 receiveCompletion: { result in
                     switch result {
                         case .finished: break
@@ -1105,129 +1110,6 @@ public final class OpenGroupManager {
         
         return publisher
     }
-    
-    @discardableResult public static func roomImage(
-        fileId: String,
-        for roomToken: String,
-        on server: String,
-        existingData: Data?,
-        using dependencies: Dependencies = Dependencies()
-    ) -> AnyPublisher<Data, Error> {
-        // Normally the image for a given group is stored with the group thread, so it's only
-        // fetched once. However, on the join open group screen we show images for groups the
-        // user * hasn't * joined yet. We don't want to re-fetch these images every time the
-        // user opens the app because that could slow the app down or be data-intensive. So
-        // instead we assume that these images don't change that often and just fetch them once
-        // a week. We also assume that they're all fetched at the same time as well, so that
-        // we only need to maintain one date in user defaults. On top of all of this we also
-        // don't double up on fetch requests by storing the existing request as a promise if
-        // there is one.
-        let threadId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
-        let lastOpenGroupImageUpdate: Date? = dependencies[defaults: .standard, key: .lastOpenGroupImageUpdate]
-        let now: Date = dependencies.dateNow
-        let timeSinceLastUpdate: TimeInterval = (lastOpenGroupImageUpdate.map { now.timeIntervalSince($0) } ?? .greatestFiniteMagnitude)
-        let updateInterval: TimeInterval = (7 * 24 * 60 * 60)
-        let canUseExistingImage: Bool = (
-            server.lowercased() == OpenGroupAPI.defaultServer &&
-            timeSinceLastUpdate < updateInterval
-        )
-        
-        if canUseExistingImage, let data: Data = existingData {
-            return Just(data)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        if let publisher: AnyPublisher<Data, Error> = dependencies[cache: .openGroupManager].groupImagePublishers[threadId] {
-            return publisher
-        }
-        
-        // Defer the actual download and run it on a separate thread to avoid blocking the calling thread
-        let publisher: AnyPublisher<Data, Error> = Deferred {
-            Future { resolver in
-                DispatchQueue.global(qos: .background).async(using: dependencies) {
-                    // Hold on to the publisher until it has completed at least once
-                    dependencies[singleton: .storage]
-                        .readPublisher { db -> (Data?, HTTP.PreparedRequest<Data>?) in
-                            if canUseExistingImage {
-                                let maybeExistingData: Data? = try? OpenGroup
-                                    .select(.imageData)
-                                    .filter(id: threadId)
-                                    .asRequest(of: Data.self)
-                                    .fetchOne(db)
-                                
-                                if let existingData: Data = maybeExistingData {
-                                    return (existingData, nil)
-                                }
-                            }
-                            
-                            return (
-                                nil,
-                                try OpenGroupAPI
-                                    .preparedDownloadFile(
-                                        db,
-                                        fileId: fileId,
-                                        from: roomToken,
-                                        on: server,
-                                        using: dependencies
-                                    )
-                            )
-                        }
-                        .flatMap { info in
-                            switch info {
-                                case (.some(let existingData), _):
-                                    return Just(existingData)
-                                        .setFailureType(to: Error.self)
-                                        .eraseToAnyPublisher()
-                                    
-                                case (_, .some(let preparedRequest)):
-                                    return preparedRequest.send(using: dependencies)
-                                        .map { _, imageData in imageData }
-                                        .eraseToAnyPublisher()
-                                    
-                                default:
-                                    return Fail(error: HTTPError.generic)
-                                        .eraseToAnyPublisher()
-                            }
-                        }
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                switch result {
-                                    case .finished: break
-                                    case .failure(let error): resolver(Result.failure(error))
-                                }
-                            },
-                            receiveValue: { imageData in
-                                if server.lowercased() == OpenGroupAPI.defaultServer {
-                                    dependencies[singleton: .storage].write { db in
-                                        _ = try OpenGroup
-                                            .filter(id: threadId)
-                                            .updateAll(db, OpenGroup.Columns.imageData.set(to: imageData))
-                                    }
-                                    dependencies[defaults: .standard, key: .lastOpenGroupImageUpdate] = now
-                                }
-                                
-                                resolver(Result.success(imageData))
-                            }
-                        )
-                }
-            }
-        }
-        .shareReplay(1)
-        .eraseToAnyPublisher()
-        
-        // Automatically subscribe for the roomImage download (want to download regardless of
-        // whether the upstream subscribes)
-        publisher
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .sinkUntilComplete()
-        
-        dependencies.mutate(cache: .openGroupManager) { cache in
-            cache.groupImagePublishers[threadId] = publisher
-        }
-        
-        return publisher
-    }
 }
 
 // MARK: - OpenGroupManager Cache
@@ -1235,7 +1117,6 @@ public final class OpenGroupManager {
 public extension OpenGroupManager {
     class Cache: OGMCacheType {
         public var defaultRoomsPublisher: AnyPublisher<[DefaultRoomInfo], Error>?
-        public var groupImagePublishers: [String: AnyPublisher<Data, Error>] = [:]
         
         public var pollers: [String: OpenGroupAPI.Poller] = [:] // One for each server
         public var isPolling: Bool = false
@@ -1265,6 +1146,7 @@ public extension OpenGroupManager {
 
 public extension Cache {
     static let openGroupManager: CacheConfig<OGMCacheType, OGMImmutableCacheType> = Dependencies.create(
+        identifier: "openGroupManager",
         createInstance: { _ in OpenGroupManager.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
@@ -1273,11 +1155,9 @@ public extension Cache {
 
 // MARK: - OGMCacheType
 
-/// This is a read-only version of the `OpenGroupManager.Cache` designed to avoid unintentionally mutating the instance in a
-/// non-thread-safe way
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol OGMImmutableCacheType: ImmutableCacheType {
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get }
-    var groupImagePublishers: [String: AnyPublisher<Data, Error>] { get }
     
     var pollers: [String: OpenGroupAPI.Poller] { get }
     var isPolling: Bool { get }
@@ -1290,7 +1170,6 @@ public protocol OGMImmutableCacheType: ImmutableCacheType {
 
 public protocol OGMCacheType: OGMImmutableCacheType, MutableCacheType {
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get set }
-    var groupImagePublishers: [String: AnyPublisher<Data, Error>] { get set }
     
     var pollers: [String: OpenGroupAPI.Poller] { get set }
     var isPolling: Bool { get set }

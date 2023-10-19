@@ -5,7 +5,6 @@ import Combine
 import GRDB
 import Sodium
 import SessionUtilitiesKit
-import SessionSnodeKit
 
 extension MessageReceiver {
     public static func handleGroupUpdateMessage(
@@ -30,6 +29,13 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
+            case (let message as GroupUpdatePromoteMessage, _):
+                try MessageReceiver.handleGroupPromotion(
+                    db,
+                    message: message,
+                    using: dependencies
+                )
+                
             case (let message as GroupUpdateInfoChangeMessage, .some(let sessionId)) where sessionId.prefix == .group:
                 try MessageReceiver.handleGroupInfoChanged(
                     db,
@@ -46,14 +52,6 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
-            case (let message as GroupUpdatePromoteMessage, .some(let sessionId)) where sessionId.prefix == .group:
-                try MessageReceiver.handleGroupPromotion(
-                    db,
-                    groupSessionId: sessionId,
-                    message: message,
-                    using: dependencies
-                )
-                
             case (let message as GroupUpdateMemberLeftMessage, .some(let sessionId)) where sessionId.prefix == .group:
                 try MessageReceiver.handleGroupMemberLeft(
                     db,
@@ -64,14 +62,6 @@ extension MessageReceiver {
                 
             case (let message as GroupUpdateInviteResponseMessage, .some(let sessionId)) where sessionId.prefix == .group:
                 try MessageReceiver.handleGroupInviteResponse(
-                    db,
-                    groupSessionId: sessionId,
-                    message: message,
-                    using: dependencies
-                )
-                
-            case (let message as GroupUpdatePromotionResponseMessage, .some(let sessionId)) where sessionId.prefix == .group:
-                try MessageReceiver.handleGroupPromotionResponse(
                     db,
                     groupSessionId: sessionId,
                     message: message,
@@ -97,19 +87,30 @@ extension MessageReceiver {
         message: GroupUpdateInviteMessage,
         using dependencies: Dependencies
     ) throws {
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp
+            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            Authentication.verify(
+                signature: message.adminSignature,
+                publicKey: message.groupSessionId.publicKey,
+                verificationBytes: GroupUpdateInviteMessage.generateVerificationBytes(
+                    inviteeSessionIdHexString: userSessionId.hexString,
+                    timestampMs: sentTimestampMs
+                ),
+                using: dependencies
+            )
         else { throw MessageReceiverError.invalidMessage }
         
         // Update profile if needed
         if let profile = message.profile {
-            try ProfileManager.updateProfileIfNeeded(
+            try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 name: profile.displayName,
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                avatarUpdate: {
+                displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
@@ -121,7 +122,7 @@ extension MessageReceiver {
                         fileName: nil
                     )
                 }(),
-                sentTimestamp: TimeInterval(sentTimestampMs * 1000),
+                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 using: dependencies
             )
         }
@@ -137,7 +138,7 @@ extension MessageReceiver {
             groupIdentityPrivateKey: nil,
             name: message.groupName,
             authData: message.memberAuthData,
-            joinedAt: Int64(sentTimestampMs),
+            joinedAt: TimeInterval(Double(sentTimestampMs) / 1000),
             invited: !inviteSenderIsApproved,
             calledFromConfigHandling: false,
             using: dependencies
@@ -150,7 +151,7 @@ extension MessageReceiver {
         groupIdentityPrivateKey: Data?,
         name: String?,
         authData: Data?,
-        joinedAt: Int64,
+        joinedAt: TimeInterval,
         invited: Bool,
         calledFromConfigHandling: Bool,
         using dependencies: Dependencies
@@ -160,7 +161,7 @@ extension MessageReceiver {
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupSessionId,
             name: (name ?? "GROUP_TITLE_FALLBACK".localized()),
-            formationTimestamp: TimeInterval(joinedAt),
+            formationTimestamp: joinedAt,
             shouldPoll: false,  // Always false here - will be updated in `approveGroup`
             groupIdentityPrivateKey: groupIdentityPrivateKey,
             authData: authData,
@@ -192,7 +193,9 @@ extension MessageReceiver {
         )
     }
     
-    /// Logic for handling the `GroupUpdateDeleteMessage`
+    /// Logic for handling the `GroupUpdateDeleteMessage`, this message should only be processed if it was sent
+    /// after the user joined the group (while unlikely, it's possible to receive this message when re-joining a group after
+    /// previously being kicked in which case we don't want to delete the data)
     ///
     /// **Note:** Admins can't be removed from a group so this only clears the `authData`
     private static func handleGroupDelete(
@@ -200,25 +203,26 @@ extension MessageReceiver {
         message: GroupUpdateDeleteMessage,
         using dependencies: Dependencies
     ) throws {
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        
         guard
-            let sender: String = message.sender,
             let sentTimestampMs: UInt64 = message.sentTimestamp,
-            // TODO: This encryption/decryption approach WILL NOT work (it uses the group encryption keys instead of the group admin key)
-            let decryptedData: (plaintext: Data, sender: String) = try? SessionUtil.decrypt(
-                ciphertext: message.encryptedMemberAuthData,
-                groupSessionId: message.groupSessionId,
+            let groupJoinedAt: TimeInterval = try? ClosedGroup
+                .filter(id: message.groupSessionId.hexString)
+                .select(ClosedGroup.Columns.formationTimestamp)
+                .asRequest(of: TimeInterval.self)
+                .fetchOne(db),
+            sentTimestampMs > UInt64(groupJoinedAt * 1000),
+            Authentication.verify(
+                signature: message.adminSignature,
+                publicKey: message.groupSessionId.publicKey,
+                verificationBytes: GroupUpdateDeleteMessage.generateVerificationBytes(
+                    recipientSessionIdHexString: userSessionId.hexString,
+                    timestampMs: sentTimestampMs
+                ),
                 using: dependencies
             )
         else { throw MessageReceiverError.invalidMessage }
-        
-        let maybeMemberAuthData: Data? = try? ClosedGroup
-            .filter(id: message.groupSessionId.hexString)
-            .select(.authData)
-            .asRequest(of: Data.self)
-            .fetchOne(db)
-        
-        // We don't have any authData stored so just ignore the message
-        guard let memberAuthData: Data = maybeMemberAuthData else { return }
         
         // Delete the group data (Want to keep the group itself around because the user was kicked and
         // the UX of conversations randomly disappearing isn't great)
@@ -232,6 +236,61 @@ extension MessageReceiver {
             calledFromConfigHandling: false,
             using: dependencies
         )
+    }
+    
+    private static func handleGroupPromotion(
+        _ db: Database,
+        message: GroupUpdatePromoteMessage,
+        using dependencies: Dependencies
+    ) throws {
+        guard
+            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies),
+            let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                .ed25519KeyPair(seed: message.groupIdentitySeed, using: dependencies)
+            )
+        else { throw MessageReceiverError.invalidMessage }
+        
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
+        
+        // Reload the libSession config state for the group to have the admin key
+        try SessionUtil
+            .reloadState(
+                db,
+                for: groupSessionId,
+                userEd25519SecretKey: userEdKeyPair.secretKey,
+                groupEd25519SecretKey: groupIdentityKeyPair.secretKey,
+                using: dependencies
+            )
+        
+        // Replace the member key with the admin key in the database
+        try ClosedGroup
+            .filter(id: groupSessionId.hexString)
+            .updateAll( // Intentionally not calling 'updateAllAndConfig' as we want to explicitly make changes
+                db,
+                ClosedGroup.Columns.groupIdentityPrivateKey.set(to: Data(groupIdentityKeyPair.secretKey)),
+                ClosedGroup.Columns.authData.set(to: nil)
+            )
+        
+        // Upsert the 'GroupMember' entry into the database (this will trigger a libSession update)
+        try GroupMember(
+            groupId: groupSessionId.hexString,
+            profileId: userSessionId.hexString,
+            role: .admin,
+            roleStatus: .accepted,
+            isHidden: false
+        ).upsert(db)
+        
+        // Update the current user to be an admin in the 'GROUP_MEMBERS' state
+        try SessionUtil
+            .updateMemberStatus(
+                db,
+                groupSessionId: groupSessionId,
+                memberId: userSessionId.hexString,
+                role: .admin,
+                status: .accepted,
+                using: dependencies
+            )
     }
     
     private static func handleGroupInfoChanged(
@@ -353,19 +412,6 @@ extension MessageReceiver {
         ).inserted(db)
     }
     
-    private static func handleGroupPromotion(
-        _ db: Database,
-        groupSessionId: SessionId,
-        message: GroupUpdatePromoteMessage,
-        using dependencies: Dependencies
-    ) throws {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        
-        // Current user wasn't promoted, ignore the message
-        guard message.memberPublicKey.toHexString() == userSessionId.hexString else { return }
-        
-    }
-    
     private static func handleGroupMemberLeft(
         _ db: Database,
         groupSessionId: SessionId,
@@ -400,14 +446,15 @@ extension MessageReceiver {
             return
         }
         
-        try MessageSender.removeGroupMembers(
-            db,
-            groupSessionId: groupSessionId,
-            memberIds: [sender],
-            sendMemberChangedMessage: false,
-            changeTimestampMs: Int64(sentTimestampMs),
-            using: dependencies
-        )
+        MessageSender
+            .removeGroupMembers(
+                groupSessionId: groupSessionId.hexString,
+                memberIds: [sender],
+                sendMemberChangedMessage: false,
+                changeTimestampMs: Int64(sentTimestampMs),
+                using: dependencies
+            )
+            .sinkUntilComplete()
     }
     
     private static func handleGroupInviteResponse(
@@ -423,12 +470,12 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
-            try ProfileManager.updateProfileIfNeeded(
+            try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 name: profile.displayName,
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                avatarUpdate: {
+                displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
@@ -440,7 +487,7 @@ extension MessageReceiver {
                         fileName: nil
                     )
                 }(),
-                sentTimestamp: TimeInterval(sentTimestampMs * 1000),
+                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
                 using: dependencies
             )
         }
@@ -485,25 +532,6 @@ extension MessageReceiver {
         }
     }
     
-    private static func handleGroupPromotionResponse(
-        _ db: Database,
-        groupSessionId: SessionId,
-        message: GroupUpdatePromotionResponseMessage,
-        using dependencies: Dependencies
-    ) throws {
-        guard let sender: String = message.sender else { throw MessageReceiverError.invalidMessage }
-        
-        
-        // Upsert the 'GroupMember' entry into the database (this will trigger a libSession update)
-        try GroupMember(
-            groupId: groupSessionId.hexString,
-            profileId: sender,
-            role: .admin,
-            roleStatus: .accepted,
-            isHidden: false
-        ).upsert(db)
-    }
-    
     private static func handleGroupDeleteMemberContent(
         _ db: Database,
         groupSessionId: SessionId,
@@ -511,14 +539,27 @@ extension MessageReceiver {
         using dependencies: Dependencies
     ) throws {
         guard
-            let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp
+            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            Authentication.verify(
+                signature: message.adminSignature,
+                publicKey: groupSessionId.publicKey,
+                verificationBytes: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
+                    memberPublicKeys: message.memberPublicKeys,
+                    timestampMs: sentTimestampMs
+                ),
+                using: dependencies
+            )
         else { throw MessageReceiverError.invalidMessage }
+        
+        // Convert the public keys into sessionIds
+        let memberSessionIds: Set<String> = message.memberPublicKeys
+            .map { SessionId(.standard, publicKey: Array($0)).hexString }
+            .asSet()
         
         try Interaction
             .filter(
                 Interaction.Columns.threadId == groupSessionId.hexString &&
-                message.memberPublicKeys.contains(Interaction.Columns.authorId) &&
+                memberSessionIds.contains(Interaction.Columns.authorId) &&
                 Interaction.Columns.timestampMs < sentTimestampMs
             )
             .deleteAll(db)

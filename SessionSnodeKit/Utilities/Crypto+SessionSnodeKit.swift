@@ -15,24 +15,6 @@ public extension Crypto.Action {
     }
 }
 
-// MARK: - Sign
-
-public extension Crypto.Action {
-    static func signature(message: Bytes, secretKey: Bytes) -> Crypto.Action {
-        return Crypto.Action(id: "signature", args: [message, secretKey]) { sodium in
-            sodium.sign.signature(message: message, secretKey: secretKey)
-        }
-    }
-}
-
-public extension Crypto.Verification {
-    static func signature(message: Bytes, publicKey: Bytes, signature: Bytes) -> Crypto.Verification {
-        return Crypto.Verification(id: "signature", args: [message, publicKey, signature]) { sodium in
-            sodium.sign.verify(message: message, publicKey: publicKey, signature: signature)
-        }
-    }
-}
-
 // MARK: - AeadXChaCha20Poly1305Ietf
 
 public extension Crypto.Size {

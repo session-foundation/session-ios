@@ -754,7 +754,7 @@ public extension Interaction {
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     interactionIds: interactionInfo.map { $0.id },
-                    startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs()),
+                    startedAtMs: Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
                     threadId: threadId,
                     using: dependencies
                 ),

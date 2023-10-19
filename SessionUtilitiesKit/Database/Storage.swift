@@ -11,10 +11,14 @@ import SignalCoreKit
 // MARK: - Singleton
 
 public extension Singleton {
-    static let storage: SingletonConfig<Storage> = Dependencies.create { _ in Storage() }
-    static let scheduler: SingletonConfig<ValueObservationScheduler> = Dependencies.create { _ in
-        AsyncValueObservationScheduler.async(onQueue: .main)
-    }
+    static let storage: SingletonConfig<Storage> = Dependencies.create(
+        identifier: "storage",
+        createInstance: { _ in Storage() }
+    )
+    static let scheduler: SingletonConfig<ValueObservationScheduler> = Dependencies.create(
+        identifier: "scheduler",
+        createInstance: { _ in AsyncValueObservationScheduler.async(onQueue: .main) }
+    )
 }
 
 // MARK: - Storage

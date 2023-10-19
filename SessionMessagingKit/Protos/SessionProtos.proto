@@ -302,33 +302,39 @@ message SharedConfigMessage {
 // Group Update Messages
 
 message GroupUpdateMessage {
-  optional GroupUpdateInviteMessage               inviteMessage          = 31;
-  optional GroupUpdateDeleteMessage               deleteMessage          = 32;
-  optional GroupUpdateInfoChangeMessage           infoChangeMessage      = 33;
-  optional GroupUpdateMemberChangeMessage         memberChangeMessage    = 34;
-  optional GroupUpdatePromoteMessage              promoteMessage         = 35;
-  optional GroupUpdateMemberLeftMessage           memberLeftMessage      = 36;
-  optional GroupUpdateInviteResponseMessage       inviteResponse         = 37;
-  optional GroupUpdatePromotionResponseMessage    promotionResponse      = 38;
-  optional GroupUpdateDeleteMemberContentMessage  deleteMemberContent    = 39;
+  optional GroupUpdateInviteMessage               inviteMessage          = 1;
+  optional GroupUpdateDeleteMessage               deleteMessage          = 2;
+  optional GroupUpdateInfoChangeMessage           infoChangeMessage      = 3;
+  optional GroupUpdateMemberChangeMessage         memberChangeMessage    = 4;
+  optional GroupUpdatePromoteMessage              promoteMessage         = 5;
+  optional GroupUpdateMemberLeftMessage           memberLeftMessage      = 6;
+  optional GroupUpdateInviteResponseMessage       inviteResponse         = 7;
+  optional GroupUpdateDeleteMemberContentMessage  deleteMemberContent    = 8;
 }
 
 message GroupUpdateInviteMessage {
   // @required
-  required bytes          groupSessionId         = 1; // The `groupIdentityPublicKey` with a `03` prefix
+  required string         groupSessionId         = 1; // The `groupIdentityPublicKey` with a `03` prefix
   // @required
   required string         name                   = 2;
   // @required
   required bytes          memberAuthData         = 3;
-  optional bytes          profileKey             = 5;
-  optional LokiProfile    profile                = 6;
+  optional bytes          profileKey             = 4;
+  optional LokiProfile    profile                = 5;
+  // @required
+  required bytes          adminSignature         = 6;
 }
 
 message GroupUpdateDeleteMessage {
   // @required
-  required bytes          groupSessionId          = 1; // The `groupIdentityPublicKey` with a `03` prefix
+  required string         groupSessionId          = 1; // The `groupIdentityPublicKey` with a `03` prefix
   // @required
-  required bytes          encryptedMemberAuthData = 2;
+  required bytes          adminSignature          = 2;
+}
+
+message GroupUpdatePromoteMessage {
+  // @required
+  required bytes          groupIdentitySeed       = 1;
 }
 
 message GroupUpdateInfoChangeMessage {
@@ -356,13 +362,6 @@ message GroupUpdateMemberChangeMessage {
   repeated bytes  memberPublicKeys   = 2;
 }
 
-message GroupUpdatePromoteMessage {
-  // @required
-  required bytes          memberPublicKey                  = 1;
-  // @required
-  required bytes          encryptedGroupIdentityPrivateKey = 2;
-}
-
 message GroupUpdateMemberLeftMessage {
   // the pubkey of the member left is included as part of the closed group encryption logic (senderIdentity on desktop)
 }
@@ -374,11 +373,8 @@ message GroupUpdateInviteResponseMessage {
   optional LokiProfile               profile                   = 3;
 }
 
-message GroupUpdatePromotionResponseMessage {
-  // @required
-  required bytes    encryptedMemberSessionId  = 1;
-}
-
 message GroupUpdateDeleteMemberContentMessage {
-  repeated bytes    memberPublicKeys          = 2;
+  repeated bytes  memberPublicKeys   = 1;
+  // @required
+  required bytes  adminSignature     = 2;
 }

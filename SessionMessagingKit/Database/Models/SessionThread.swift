@@ -130,7 +130,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         self.variant = variant
         self.creationDateTimestamp = (
             creationDateTimestamp ??
-            (TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+            TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
         )
         self.shouldBeVisible = shouldBeVisible
         self.messageDraft = messageDraft

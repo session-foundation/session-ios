@@ -13,6 +13,8 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
     public var isApproved: Bool
     public var profile: VisibleMessage.VMProfile?
     
+    override public var processWithBlockedSender: Bool { true }
+    
     // MARK: - Initialization
     
     public init(

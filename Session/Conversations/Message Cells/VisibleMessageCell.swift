@@ -310,7 +310,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         profilePictureView.update(
             publicKey: cellViewModel.authorId,
             threadVariant: .contact,    // Always show the display picture in 'contact' mode
-            customImageData: nil,
+            displayPictureFilename: nil,
             profile: cellViewModel.profile,
             profileIcon: (cellViewModel.isSenderOpenGroupModerator ? .crown : .none)
         )

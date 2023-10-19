@@ -325,7 +325,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                                     timestampMs: 1234567890
                                                 ),
                                                 in: pushData.variant.namespace,
-                                                authInfo: try SnodeAPI.AuthenticationInfo(
+                                                authInfo: try Authentication.with(
                                                     db,
                                                     sessionIdHexString: groupId.hexString,
                                                     using: dependencies

@@ -7,14 +7,18 @@ public extension ProfilePictureView {
     func update(
         publicKey: String,
         threadVariant: SessionThread.Variant,
-        customImageData: Data?,
+        displayPictureFilename: String?,
         profile: Profile?,
         profileIcon: ProfileIcon = .none,
         additionalProfile: Profile? = nil,
         additionalProfileIcon: ProfileIcon = .none
     ) {
-        // If we are given 'customImageData' then only use that
-        guard customImageData == nil else { return update(Info(imageData: customImageData)) }
+        // If we are given an explicit 'displayPictureFilename' then only use that (this could be for
+        // either Community conversations or updated groups)
+        if let displayPictureFilename: String = displayPictureFilename {
+            update(Info(imageData: DisplayPictureManager.displayPicture(owner: .file(displayPictureFilename))))
+            return
+        }
         
         // Otherwise there are conversation-type-specific behaviours
         switch threadVariant {
@@ -47,7 +51,7 @@ public extension ProfilePictureView {
                 update(
                     Info(
                         imageData: (
-                            profile.map { ProfileManager.profileAvatar(profile: $0) } ??
+                            profile.map { DisplayPictureManager.displayPicture(owner: .user($0)) } ??
                             PlaceholderIcon.generate(
                                 seed: publicKey,
                                 text: (profile?.displayName(for: threadVariant))
@@ -64,7 +68,7 @@ public extension ProfilePictureView {
                         .map { otherProfile in
                             Info(
                                 imageData: (
-                                    ProfileManager.profileAvatar(profile: otherProfile) ??
+                                    DisplayPictureManager.displayPicture(owner: .user(otherProfile)) ??
                                     PlaceholderIcon.generate(
                                         seed: otherProfile.id,
                                         text: otherProfile.displayName(for: threadVariant),
@@ -96,7 +100,7 @@ public extension ProfilePictureView {
                 update(
                     Info(
                         imageData: (
-                            profile.map { ProfileManager.profileAvatar(profile: $0) } ??
+                            profile.map { DisplayPictureManager.displayPicture(owner: .user($0)) } ??
                             PlaceholderIcon.generate(
                                 seed: publicKey,
                                 text: (profile?.displayName(for: threadVariant))

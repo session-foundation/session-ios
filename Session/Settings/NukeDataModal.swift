@@ -177,16 +177,14 @@ final class NukeDataModal: Modal {
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
                 dependencies[singleton: .storage]
                     .readPublisher { db -> PreparedClearRequests in
-                        let authInfo: SnodeAPI.AuthenticationInfo = try SnodeAPI.AuthenticationInfo(
-                            db,
-                            sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
-                            using: dependencies
-                        )
-                        
-                        return (
+                        (
                             try SnodeAPI.preparedDeleteAllMessages(
                                 namespace: .all,
-                                authInfo: authInfo,
+                                authMethod: try Authentication.with(
+                                    db,
+                                    sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
+                                    using: dependencies
+                                ),
                                 using: dependencies
                             ),
                             try OpenGroup

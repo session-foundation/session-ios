@@ -272,7 +272,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            customImageData: cellViewModel.openGroupProfilePictureData,
+            displayPictureFilename: cellViewModel.displayPictureFilename,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile
         )
@@ -324,7 +324,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            customImageData: cellViewModel.openGroupProfilePictureData,
+            displayPictureFilename: cellViewModel.displayPictureFilename,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile
         )
@@ -416,7 +416,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
-            customImageData: cellViewModel.openGroupProfilePictureData,
+            displayPictureFilename: cellViewModel.displayPictureFilename,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile
         )

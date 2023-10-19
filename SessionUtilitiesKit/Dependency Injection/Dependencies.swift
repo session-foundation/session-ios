@@ -1,14 +1,16 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
 
 public class Dependencies {
-    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!  // stringlint:disable
+    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!
     
-    private static var singletonInstances: Atomic<[Int: Any]> = Atomic([:])
-    private static var cacheInstances: Atomic<[Int: MutableCacheType]> = Atomic([:])
-    private static var userDefaultsInstances: Atomic<[Int: (any UserDefaultsType)]> = Atomic([:])
+    private static var singletonInstances: Atomic<[String: Any]> = Atomic([:])
+    private static var cacheInstances: Atomic<[String: Atomic<MutableCacheType>]> = Atomic([:])
+    private static var userDefaultsInstances: Atomic<[String: (any UserDefaultsType)]> = Atomic([:])
     
     // MARK: - Subscript Access
     
@@ -48,8 +50,19 @@ public class Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) -> R
     ) -> R {
-        return Dependencies.cacheInstances.mutate { caches in
-            var value: M = ((caches[cache.key] as? M) ?? cache.createInstance(self))
+        /// The cast from `Atomic<MutableCacheType>` to `Atomic<M>` always fails so we need to do some
+        /// stuffing around to ensure we have the right types - since we call `createInstance` multiple times in
+        /// the below code we first call `getValueSettingIfNull` to ensure we have a proper instance stored
+        /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
+        /// random instance that will go out of memory as soon as the mutation is completed
+        getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
+        let cacheWrapper: Atomic<MutableCacheType> = (
+            Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
+            Atomic(cache.mutableInstance(cache.createInstance(self)))  // Should never be called
+        )
+        
+        return cacheWrapper.mutate { erasedValue in
+            var value: M = ((erasedValue as? M) ?? cache.createInstance(self))
             return mutation(&value)
         }
     }
@@ -58,8 +71,20 @@ public class Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) throws -> R
     ) throws -> R {
-        return try Dependencies.cacheInstances.mutate { caches in
-            var value: M = ((caches[cache.key] as? M) ?? cache.createInstance(self))
+        /// The cast from `Atomic<MutableCacheType>` to `Atomic<M>` always fails so we need to do some
+        /// stuffing around to ensure we have the right types - since we call `createInstance` multiple times in
+        /// the below code we first call `getValueSettingIfNull` to ensure we have a proper instance stored
+        /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
+        /// random instance that will go out of memory as soon as the mutation is completed
+        getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
+        
+        let cacheWrapper: Atomic<MutableCacheType> = (
+            Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
+            Atomic(cache.mutableInstance(cache.createInstance(self)))  // Should never be called
+        )
+        
+        return try cacheWrapper.mutate { erasedValue in
+            var value: M = ((erasedValue as? M) ?? cache.createInstance(self))
             return try mutation(&value)
         }
     }
@@ -82,11 +107,11 @@ public class Dependencies {
     
     @discardableResult private func getValueSettingIfNull<S>(
         singleton: SingletonConfig<S>,
-        _ store: inout Atomic<[Int: Any]>
+        _ store: inout Atomic<[String: Any]>
     ) -> S {
-        guard let value: S = (store.wrappedValue[singleton.key] as? S) else {
+        guard let value: S = (store.wrappedValue[singleton.identifier] as? S) else {
             let value: S = singleton.createInstance(self)
-            store.mutate { $0[singleton.key] = value }
+            store.mutate { $0[singleton.identifier] = value }
             return value
         }
 
@@ -95,12 +120,12 @@ public class Dependencies {
     
     @discardableResult private func getValueSettingIfNull<M, I>(
         cache: CacheConfig<M, I>,
-        _ store: inout Atomic<[Int: MutableCacheType]>
+        _ store: inout Atomic<[String: Atomic<MutableCacheType>]>
     ) -> I {
-        guard let value: M = (store.wrappedValue[cache.key] as? M) else {
+        guard let value: M = (store.wrappedValue[cache.identifier]?.wrappedValue as? M) else {
             let value: M = cache.createInstance(self)
             let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-            store.mutate { $0[cache.key] = mutableInstance }
+            store.mutate { $0[cache.identifier] = Atomic(mutableInstance) }
             return cache.immutableInstance(value)
         }
         
@@ -109,11 +134,11 @@ public class Dependencies {
     
     @discardableResult private func getValueSettingIfNull(
         defaults: UserDefaultsConfig,
-        _ store: inout Atomic<[Int: UserDefaultsType]>
+        _ store: inout Atomic<[String: UserDefaultsType]>
     ) -> UserDefaultsType {
-        guard let value: UserDefaultsType = store.wrappedValue[defaults.key] else {
+        guard let value: UserDefaultsType = store.wrappedValue[defaults.identifier] else {
             let value: UserDefaultsType = defaults.createInstance(self)
-            store.mutate { $0[defaults.key] = value }
+            store.mutate { $0[defaults.identifier] = value }
             return value
         }
         

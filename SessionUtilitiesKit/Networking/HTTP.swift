@@ -141,6 +141,7 @@ public enum HTTP {
                 .eraseToAnyPublisher()
         }
         
+        let requestName: String = "\(method.rawValue) request to \(url)"
         let urlSession: URLSession = (useSeedNodeURLSession ? seedNodeURLSession : snodeURLSession)
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
@@ -153,7 +154,7 @@ public enum HTTP {
         return urlSession
             .dataTaskPublisher(for: request)
             .mapError { error in
-                SNLog("\(method.rawValue) request to \(url) failed due to error: \(error).")
+                SNLog("\(requestName) failed due to error: \(error).")
                 
                 // Override the actual error so that we can correctly catch failed requests
                 // in sendOnionRequest(invoking:on:with:)
@@ -162,33 +163,47 @@ public enum HTTP {
                     default: return HTTPError.httpRequestFailed(statusCode: 0, data: nil)
                 }
             }
-            .flatMap { data, response in
-                guard let response = response as? HTTPURLResponse else {
-                    SNLog("\(method.rawValue) request to \(url) failed.")
-                    return Fail<Data, Error>(error: HTTPError.httpRequestFailed(statusCode: 0, data: data))
-                        .eraseToAnyPublisher()
-                }
-                let statusCode = UInt(response.statusCode)
-                // TODO: Remove all the JSON handling?
-                guard 200...299 ~= statusCode else {
-                    var json: JSON? = nil
-                    if let processedJson: JSON = try? JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON {
-                        json = processedJson
-                    }
-                    else if let result: String = String(data: data, encoding: .utf8) {
-                        json = [ "result": result ]
-                    }
-                    
-                    let jsonDescription: String = (json?.prettifiedDescription ?? "no debugging info provided")
-                    SNLog("\(method.rawValue) request to \(url) failed with status code: \(statusCode) (\(jsonDescription)).")
-                    return Fail<Data, Error>(error: HTTPError.httpRequestFailed(statusCode: statusCode, data: data))
-                        .eraseToAnyPublisher()
-                }
-                
-                return Just(data)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
+            .tryMap { data, response in try checkForError(requestName, data: data, response: response) }
             .eraseToAnyPublisher()
+    }
+    
+    public static func checkForError(
+        _ requestName: String,
+        data: Data,
+        response: URLResponse
+    ) throws -> Data {
+        guard let httpResponse: HTTPURLResponse = response as? HTTPURLResponse else {
+            SNLog("\(requestName) failed.")
+            throw HTTPError.httpRequestFailed(statusCode: 0, data: data)
+        }
+        
+        return try checkForError(requestName, data: data, statusCode: httpResponse.statusCode)
+            .defaulting(to: data)
+    }
+    
+    @discardableResult public static func checkForError(
+        _ requestName: String,
+        data: Data? = nil,
+        statusCode: Int
+    ) throws -> Data? {
+        // Ignore valid status codes
+        guard !(200...299).contains(statusCode) else { return data }
+        
+        let jsonDict: [String: Any]? = {
+            guard let data: Data = data else { return nil }
+            
+            if let processedJson: [String: Any] = try? JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? [String: Any] {
+                return processedJson
+            }
+            else if let result: String = String(data: data, encoding: .utf8) {
+                return [ "result": result ]
+            }
+            
+            return nil
+        }()
+        
+        let jsonDescription: String = (jsonDict?.prettifiedDescription ?? "no debugging info provided")
+        SNLog("\(requestName) failed with status code: \(statusCode) (\(jsonDescription)).")
+        throw HTTPError.httpRequestFailed(statusCode: UInt(statusCode), data: data)
     }
 }

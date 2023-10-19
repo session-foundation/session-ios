@@ -5,29 +5,10 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension PushNotificationAPI {
-    struct SubscribeRequest: Encodable {
-        struct ServiceInfo: Codable {
-            private enum CodingKeys: String, CodingKey {
-                case token
-            }
-            
-            private let token: String
-            
-            // MARK: - Initialization
-            
-            init(token: String) {
-                self.token = token
-            }
-        }
-        
+    class SubscribeRequest: AuthenticatedRequest {
         private enum CodingKeys: String, CodingKey {
-            case pubkey
-            case ed25519PublicKey = "session_ed25519"
-            case subkey = "subkey_tag"
             case namespaces
             case includeMessageData = "data"
-            case timestamp = "sig_ts"
-            case signatureBase64 = "signature"
             case service
             case serviceInfo = "service_info"
             case notificationsEncryptionKey = "enc_key"
@@ -48,61 +29,7 @@ extension PushNotificationAPI {
         /// it is permitted for this to change, it is recommended that the device generate this once and persist it.
         private let notificationsEncryptionKey: Data
         
-        /// The authentication information needed to subscribe for notifications
-        private let authInfo: SnodeAPI.AuthenticationInfo
-        
-        /// The signature unix timestamp (seconds, not ms)
-        private let timestamp: Int64
-        
-        // MARK: - Initialization
-        
-        init(
-            namespaces: [SnodeAPI.Namespace],
-            includeMessageData: Bool,
-            serviceInfo: ServiceInfo,
-            notificationsEncryptionKey: Data,
-            authInfo: SnodeAPI.AuthenticationInfo,
-            timestamp: TimeInterval
-        ) {
-            self.namespaces = namespaces
-            self.includeMessageData = includeMessageData
-            self.serviceInfo = serviceInfo
-            self.notificationsEncryptionKey = notificationsEncryptionKey
-            self.authInfo = authInfo
-            self.timestamp = Int64(timestamp)   // Server expects rounded seconds
-        }
-        
-        // MARK: - Coding
-        
-        public func encode(to encoder: Encoder) throws {
-            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
-            
-            // Generate the signature for the request for encoding
-            let signatureBase64: String = try generateSignature(using: encoder.dependencies).toBase64()
-            try container.encode(namespaces.map { $0.rawValue}.sorted(), forKey: .namespaces)
-            try container.encode(includeMessageData, forKey: .includeMessageData)
-            try container.encode(timestamp, forKey: .timestamp)
-            try container.encode(signatureBase64, forKey: .signatureBase64)
-            try container.encode(Service.apns, forKey: .service)
-            try container.encode(serviceInfo, forKey: .serviceInfo)
-            try container.encode(notificationsEncryptionKey.toHexString(), forKey: .notificationsEncryptionKey)
-            
-            switch authInfo {
-                case .standard(let sessionId, let ed25519KeyPair):
-                    try container.encode(sessionId.hexString, forKey: .pubkey)
-                    try container.encode(ed25519KeyPair.publicKey.toHexString(), forKey: .ed25519PublicKey)
-                    
-                case .groupAdmin(let sessionId, _):
-                    try container.encode(sessionId.hexString, forKey: .pubkey)
-                    
-                case .groupMember(let sessionId, let authData):
-                    try container.encode(sessionId.hexString, forKey: .pubkey)
-            }
-        }
-        
-        // MARK: - Abstract Methods
-        
-        func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
+        override var verificationBytes: [UInt8] {
             /// The signature data collected and stored here is used by the PN server to subscribe to the swarms
             /// for the given account; the specific rules are governed by the storage server, but in general:
             ///
@@ -118,8 +45,8 @@ extension PushNotificationAPI {
             /// on whether the subscription wants message data included; and the trailing `NS[i]` values are a
             /// comma-delimited list of namespaces that should be subscribed to, in the same sorted order as
             /// the `namespaces` parameter.
-            let verificationBytes: [UInt8] = "MONITOR".bytes
-                .appending(contentsOf: authInfo.sessionId.hexString.bytes)
+            "MONITOR".bytes
+                .appending(contentsOf: authMethod.sessionId.hexString.bytes)
                 .appending(contentsOf: "\(timestamp)".bytes)
                 .appending(contentsOf: (includeMessageData ? "1" : "0").bytes)
                 .appending(
@@ -130,8 +57,42 @@ extension PushNotificationAPI {
                         .joined(separator: ",")
                         .bytes
                 )
+        }
+        
+        // MARK: - Initialization
+        
+        init(
+            namespaces: [SnodeAPI.Namespace],
+            includeMessageData: Bool,
+            serviceInfo: ServiceInfo,
+            notificationsEncryptionKey: Data,
+            authMethod: AuthenticationMethod,
+            timestamp: TimeInterval
+        ) {
+            self.namespaces = namespaces
+            self.includeMessageData = includeMessageData
+            self.serviceInfo = serviceInfo
+            self.notificationsEncryptionKey = notificationsEncryptionKey
             
-            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
+            super.init(
+                authMethod: authMethod,
+                timestamp: Int64(timestamp)   // Server expects rounded seconds
+            )
+        }
+        
+        // MARK: - Coding
+        
+        override public func encode(to encoder: Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            
+            // Generate the signature for the request for encoding
+            try container.encode(namespaces.map { $0.rawValue}.sorted(), forKey: .namespaces)
+            try container.encode(includeMessageData, forKey: .includeMessageData)
+            try container.encode(Service.apns, forKey: .service)
+            try container.encode(serviceInfo, forKey: .serviceInfo)
+            try container.encode(notificationsEncryptionKey.toHexString(), forKey: .notificationsEncryptionKey)
+            
+            try super.encode(to: encoder)
         }
     }
 }

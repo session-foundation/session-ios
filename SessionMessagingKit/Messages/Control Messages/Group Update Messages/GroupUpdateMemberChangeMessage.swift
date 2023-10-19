@@ -19,6 +19,8 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     public var changeType: ChangeType
     public var memberPublicKeys: [Data]
     
+    override public var processWithBlockedSender: Bool { true }
+    
     // MARK: - Initialization
     
     public init(

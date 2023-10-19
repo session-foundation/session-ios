@@ -868,3 +868,6 @@ The point that a message will disappear in a disappearing message update message
 
 /* An informational message displayed when multiple members of the group were promoted to admin, the first '%@' will be the first members name and the second '%@' will be the number of additional members promoted. */
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED" = "%@ and %@ others were promoted to Admin.";
+
+/* An informational message displayed the current user was removed from a group, the '%@' will be the name of the group. */
+"GROUP_MESSAGE_INFO_REMOVED" = "You were removed from %@.";

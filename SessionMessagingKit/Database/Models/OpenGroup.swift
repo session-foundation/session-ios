@@ -6,7 +6,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "openGroup" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
@@ -22,7 +22,7 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
         case isActive
         case roomDescription = "description"
         case imageId
-        case imageData
+        @available(*, deprecated, message: "use 'DisplayPictureManager' instead") case imageData
         case userCount
         case infoUpdates
         case sequenceNumber
@@ -30,6 +30,9 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
         case outboxLatestMessageId
         case pollFailureCount
         case permissions
+        
+        case displayPictureFilename
+        case lastDisplayPictureUpdate
     }
     
     public struct Permissions: OptionSet, Codable, DatabaseValueConvertible, Hashable {
@@ -98,7 +101,8 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
     public let imageId: String?
     
     /// The image for the group
-    public let imageData: Data?
+    @available(*, deprecated, message: "use 'DisplayPictureManager' instead")
+    public let imageData: Data? = nil
     
     /// The number of users in the group
     public let userCount: Int64
@@ -126,6 +130,12 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
     
     /// The permissions this room has for current user
     public let permissions: Permissions?
+    
+    /// The file name of the groups's display picture on local storage.
+    public let displayPictureFilename: String?
+    
+    /// The timestamp (in seconds since epoch) that the display picture was last updated
+    public let lastDisplayPictureUpdate: TimeInterval?
 
     // MARK: - Relationships
     
@@ -153,14 +163,15 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
         name: String,
         roomDescription: String? = nil,
         imageId: String? = nil,
-        imageData: Data? = nil,
         userCount: Int64,
         infoUpdates: Int64,
         sequenceNumber: Int64 = 0,
         inboxLatestMessageId: Int64 = 0,
         outboxLatestMessageId: Int64 = 0,
         pollFailureCount: Int64 = 0,
-        permissions: Permissions? = nil
+        permissions: Permissions? = nil,
+        displayPictureFilename: String? = nil,
+        lastDisplayPictureUpdate: TimeInterval? = nil
     ) {
         self.threadId = OpenGroup.idFor(roomToken: roomToken, server: server)
         self.server = server.lowercased()
@@ -170,7 +181,6 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
         self.name = name
         self.roomDescription = roomDescription
         self.imageId = imageId
-        self.imageData = imageData
         self.userCount = userCount
         self.infoUpdates = infoUpdates
         self.sequenceNumber = sequenceNumber
@@ -178,6 +188,8 @@ public struct OpenGroup: Codable, Identifiable, FetchableRecord, PersistableReco
         self.outboxLatestMessageId = outboxLatestMessageId
         self.pollFailureCount = pollFailureCount
         self.permissions = permissions
+        self.displayPictureFilename = displayPictureFilename
+        self.lastDisplayPictureUpdate = lastDisplayPictureUpdate
     }
 }
 
@@ -199,14 +211,8 @@ public extension OpenGroup {
                 name: roomToken,    // Default the name to the `roomToken` until we get retrieve the actual name
                 roomDescription: nil,
                 imageId: nil,
-                imageData: nil,
                 userCount: 0,
-                infoUpdates: 0,
-                sequenceNumber: 0,
-                inboxLatestMessageId: 0,
-                outboxLatestMessageId: 0,
-                pollFailureCount: 0,
-                permissions: nil
+                infoUpdates: 0
             )
         }
         
@@ -239,22 +245,26 @@ public extension OpenGroup {
 extension OpenGroup: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String { "\(name) (Server: \(server), Room: \(roomToken))" }
     public var debugDescription: String {
-        [
-            "OpenGroup(server: \"\(server)\"",
-            "roomToken: \"\(roomToken)\"",
-            "id: \"\(id)\"",
-            "publicKey: \"\(publicKey)\"",
-            "isActive: \(isActive)",
-            "name: \"\(name)\"",
-            "roomDescription: \(roomDescription.map { "\"\($0)\"" } ?? "null")",
-            "imageId: \(imageId ?? "null")",
-            "userCount: \(userCount)",
-            "infoUpdates: \(infoUpdates)",
-            "sequenceNumber: \(sequenceNumber)",
-            "inboxLatestMessageId: \(inboxLatestMessageId)",
-            "outboxLatestMessageId: \(outboxLatestMessageId)",
-            "pollFailureCount: \(pollFailureCount)",
-            "permissions: \(permissions?.toString() ?? "---"))"
-        ].joined(separator: ", ")
+        return """
+        OpenGroup(
+            server: \"\(server)\",
+            roomToken: \"\(roomToken)\",
+            id: \"\(id)\",
+            publicKey: \"\(publicKey)\",
+            isActive: \(isActive),
+            name: \"\(name)\",
+            roomDescription: \(roomDescription.map { "\"\($0)\"" } ?? "null"),
+            imageId: \(imageId ?? "null"),
+            userCount: \(userCount),
+            infoUpdates: \(infoUpdates),
+            sequenceNumber: \(sequenceNumber),
+            inboxLatestMessageId: \(inboxLatestMessageId),
+            outboxLatestMessageId: \(outboxLatestMessageId),
+            pollFailureCount: \(pollFailureCount),
+            permissions: \(permissions?.toString() ?? "---")),
+            displayPictureFilename: \"\(displayPictureFilename ?? "null")\",
+            lastDisplayPictureUpdate: \(lastDisplayPictureUpdate ?? 0)
+        )
+        """
     }
 }

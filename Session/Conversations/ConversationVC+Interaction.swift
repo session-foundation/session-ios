@@ -630,7 +630,7 @@ extension ConversationVC:
                         job: DisappearingMessagesJob.updateNextRunIfNeeded(
                             db,
                             interaction: insertedInteraction,
-                            startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
+                            startedAtMs: Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
                             using: dependencies
                         ),
                         canStartJob: true,
@@ -2108,7 +2108,7 @@ extension ConversationVC:
                                     .preparedDeleteMessages(
                                         serverHashes: [serverHash],
                                         requireSuccessfulDeletion: false,
-                                        authInfo: try SnodeAPI.AuthenticationInfo(
+                                        authMethod: try Authentication.with(
                                             db,
                                             sessionIdHexString: targetPublicKey,
                                             using: dependencies

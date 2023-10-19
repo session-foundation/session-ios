@@ -21,6 +21,8 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
     public var updatedName: String?
     public var updatedExpiration: UInt32?
     
+    override public var processWithBlockedSender: Bool { true }
+    
     // MARK: - Initialization
     
     public init(

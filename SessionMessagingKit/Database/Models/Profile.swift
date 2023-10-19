@@ -157,7 +157,7 @@ public extension Profile {
         
         var profileKey: Data?
         var profilePictureUrl: String?
-        let sentTimestamp: TimeInterval = (proto.hasTimestamp ? (TimeInterval(proto.timestamp) / 1000) : 0)
+        let sentTimestamp: TimeInterval = TimeInterval(proto.hasTimestamp ? (Double(proto.timestamp) / 1000) : 0)
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
         if let profileKeyData: Data = proto.profileKey, profileProto.profilePicture != nil {

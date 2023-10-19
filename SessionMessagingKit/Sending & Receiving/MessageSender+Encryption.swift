@@ -20,12 +20,13 @@ extension MessageSender {
         
         let verificationData = plaintext + Data(userEd25519KeyPair.publicKey) + recipientX25519PublicKey
         guard
-            let signature = try? dependencies[singleton: .crypto].perform(
+            let signature: Authentication.Signature = try? dependencies[singleton: .crypto].generate(
                 .signature(message: Bytes(verificationData), secretKey: userEd25519KeyPair.secretKey)
-            )
+            ),
+            case .standard(let signatureBytes) = signature
         else { throw MessageSenderError.signingFailed }
         
-        let plaintextWithMetadata = plaintext + Data(userEd25519KeyPair.publicKey) + Data(signature)
+        let plaintextWithMetadata = plaintext + Data(userEd25519KeyPair.publicKey) + Data(signatureBytes)
         guard
             let ciphertext = try? dependencies[singleton: .crypto].perform(
                 .seal(

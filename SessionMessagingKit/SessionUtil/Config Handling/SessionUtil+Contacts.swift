@@ -323,7 +323,7 @@ internal extension SessionUtil {
                     let oldAvatarUrl: String? = String(libSessionVal: contact.profile_pic.url)
                     let oldAvatarKey: Data? = Data(
                         libSessionVal: contact.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
+                        count: DisplayPictureManager.aes256KeyByteLength
                     )
                     
                     contact.name = updatedProfile.name.toLibSession()
@@ -335,9 +335,9 @@ internal extension SessionUtil {
                     // needed via a throttled subscription on another thread to prevent blocking)
                     if
                         oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
-                        oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: ProfileManager.avatarAES256KeyByteLength))
+                        oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
                     {
-                        ProfileManager.profileAvatar(profile: updatedProfile)
+                        DisplayPictureManager.displayPicture(owner: .user(updatedProfile))
                     }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)
@@ -727,16 +727,16 @@ private extension SessionUtil {
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: String(libSessionVal: contact.name),
-                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
+                lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                 nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
                 profilePictureUrl: profilePictureUrl,
                 profileEncryptionKey: (profilePictureUrl == nil ? nil :
                     Data(
                         libSessionVal: contact.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
+                        count: DisplayPictureManager.aes256KeyByteLength
                     )
                 ),
-                lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000)
+                lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,

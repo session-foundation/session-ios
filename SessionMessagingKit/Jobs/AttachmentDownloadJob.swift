@@ -133,7 +133,8 @@ public enum AttachmentDownloadJob: JobExecutor {
                         key.count > 0,
                         digest.count > 0
                     else { return data } // Open group attachments are unencrypted
-                        
+                    
+                    // FIXME: Replace this with an first party solution
                     return try Cryptography.decryptAttachment(
                         data,
                         withKey: key,
@@ -164,7 +165,9 @@ public enum AttachmentDownloadJob: JobExecutor {
                                 _ = try attachment
                                     .with(
                                         state: .downloaded,
-                                        creationTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000),
+                                        creationTimestamp: TimeInterval(
+                                            (Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+                                        ),
                                         localRelativeFilePath: (
                                             attachment.localRelativeFilePath ??
                                             Attachment.localRelativeFilePath(from: attachment.originalFilePath)

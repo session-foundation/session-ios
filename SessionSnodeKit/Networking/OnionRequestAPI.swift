@@ -868,6 +868,7 @@ public extension OnionRequestAPI {
 
 public extension Cache {
     static let onionRequestAPI: CacheConfig<ORAPICacheType, ORAPIImmutableCacheType> = Dependencies.create(
+        identifier: "onionRequestAPI",
         createInstance: { dependencies in OnionRequestAPI.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
@@ -876,8 +877,7 @@ public extension Cache {
 
 // MARK: - OGMCacheType
 
-/// This is a read-only version of the `OpenGroupManager.Cache` designed to avoid unintentionally mutating the instance in a
-/// non-thread-safe way
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol ORAPIImmutableCacheType: ImmutableCacheType {
     var buildPathsPublisher: AnyPublisher<[[Snode]], Error>? { get }
     var pathFailureCount: [[Snode]: UInt] { get }

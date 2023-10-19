@@ -5,6 +5,17 @@ import GRDB
 import SessionUtilitiesKit
 
 public final class GroupUpdateMemberLeftMessage: ControlMessage {
+    private enum CodingKeys: String, CodingKey {
+        case memberLeftCodableId
+    }
+    
+    /// This value shouldn't be used for any logic, it's just used to ensure this type can be uniquely encoded/decoded by
+    /// the `Message.createMessageFrom(_:sender:)` function and won't collide with other message types due
+    /// to having the same keys
+    private let memberLeftCodableId: UUID = UUID()
+    
+    override public var processWithBlockedSender: Bool { true }
+    
     // MARK: - Proto Conversion
     
     public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateMemberLeftMessage? {
@@ -17,8 +28,11 @@ public final class GroupUpdateMemberLeftMessage: ControlMessage {
         do {
             let memberLeftMessageBuilder: SNProtoGroupUpdateMemberLeftMessage.SNProtoGroupUpdateMemberLeftMessageBuilder = SNProtoGroupUpdateMemberLeftMessage.builder()
             
+            let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
+            groupUpdateMessage.setMemberLeftMessage(try memberLeftMessageBuilder.build())
+            
             let dataMessage = SNProtoDataMessage.builder()
-            dataMessage.setMemberLeftMessage(try memberLeftMessageBuilder.build())
+            dataMessage.setGroupUpdateMessage(try groupUpdateMessage.build())
             
             let contentProto = SNProtoContent.builder()
             contentProto.setDataMessage(try dataMessage.build())
@@ -31,9 +45,5 @@ public final class GroupUpdateMemberLeftMessage: ControlMessage {
 
     // MARK: - Description
     
-    public var description: String {
-        """
-        GroupUpdateMemberLeftMessage()
-        """
-    }
+    public var description: String { "GroupUpdateMemberLeftMessage()" }
 }

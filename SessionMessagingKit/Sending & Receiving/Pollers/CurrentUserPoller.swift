@@ -10,9 +10,10 @@ import SessionUtilitiesKit
 // MARK: - Singleton
 
 public extension Singleton {
-    static let currentUserPoller: SingletonConfig<PollerType> = Dependencies.create { _ in
-        CurrentUserPoller()
-    }
+    static let currentUserPoller: SingletonConfig<PollerType> = Dependencies.create(
+        identifier: "currentUserPoller",
+        createInstance: { _ in CurrentUserPoller() }
+    )
 }
 
 // MARK: - GroupPoller
@@ -59,13 +60,13 @@ public final class CurrentUserPoller: Poller {
     }
     
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
-        let failureCount: TimeInterval = TimeInterval(failureCount.wrappedValue[publicKey] ?? 0)
+        let failureCount: Double = Double(failureCount.wrappedValue[publicKey] ?? 0)
         
         // If there have been no failures then just use the 'minPollInterval'
         guard failureCount > 0 else { return pollInterval }
         
         // Otherwise use a simple back-off with the 'retryInterval'
-        let nextDelay: TimeInterval = (retryInterval * (failureCount * 1.2))
+        let nextDelay: TimeInterval = TimeInterval(retryInterval * (failureCount * 1.2))
                                        
         return min(maxRetryInterval, nextDelay)
     }
@@ -78,7 +79,7 @@ public final class CurrentUserPoller: Poller {
             let drainBehaviour: Atomic<SwarmDrainBehaviour> = drainBehaviour.wrappedValue[publicKey],
             case .limitedReuse(_, .some(let targetSnode), _, _) = drainBehaviour.wrappedValue
         {
-            SNLog("Main Poller polling \(targetSnode) failed; dropping it and switching to next snode.")
+            SNLog("Main Poller polling \(targetSnode) failed with error: \(error); dropping it and switching to next snode.")
             drainBehaviour.mutate { $0 = $0.clearTargetSnode() }
             SnodeAPI.dropSnodeFromSwarmIfNeeded(targetSnode, publicKey: publicKey, using: dependencies)
         }

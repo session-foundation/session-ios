@@ -34,7 +34,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         
         case readReceipt = 1
         case typingIndicator = 2
-        case closedGroupControlMessage = 3
+        case legacyGroupControlMessage = 3
         case dataExtractionNotification = 4
         case expirationTimerUpdate = 5
         case configurationMessage = 6
@@ -50,6 +50,8 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         /// This `Variant` allows us to create a record which survives thread deletion to prevent a duplicate
         /// message from being reprocessed
         case visibleMessageDedupe = 10
+        
+        case groupControlMessage = 11
     }
     
     /// The id for the thread the control message is associated to
@@ -105,7 +107,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
             switch message {
                 case is ReadReceipt: return .readReceipt
                 case is TypingIndicator: return .typingIndicator
-                case is ClosedGroupControlMessage: return .closedGroupControlMessage
+                case is ClosedGroupControlMessage: return .legacyGroupControlMessage
                 case is DataExtractionNotification: return .dataExtractionNotification
                 case is ExpirationTimerUpdate: return .expirationTimerUpdate
                 case is LegacyConfigurationMessage: return .configurationMessage
@@ -113,6 +115,13 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 case is MessageRequestResponse: return .messageRequestResponse
                 case is CallMessage: return .call
                 case is VisibleMessage: return .visibleMessageDedupe
+                    
+                case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage,
+                    is GroupUpdatePromoteMessage, is GroupUpdateInfoChangeMessage,
+                    is GroupUpdateMemberChangeMessage, is GroupUpdateMemberLeftMessage,
+                    is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
+                    return .groupControlMessage
+                    
                 default: preconditionFailure("[ControlMessageProcessRecord] Unsupported message type")
             }
         }()
@@ -157,8 +166,8 @@ internal extension ControlMessageProcessRecord {
                 .infoLegacyGroupCreated:
                 return nil
                 
-            case .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft, .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupUpdated:
-                self.variant = .closedGroupControlMessage
+            case .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft:
+                self.variant = .legacyGroupControlMessage
             
             case .infoDisappearingMessagesUpdate:
                 self.variant = .expirationTimerUpdate
@@ -171,12 +180,20 @@ internal extension ControlMessageProcessRecord {
                 
             case .infoCall:
                 self.variant = .call
+                
+            case .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupUpdated:
+                // If the `threadId` is for an updated group then it's a `groupControlMessage`, otherwise
+                // assume it's a `legacyGroupControlMessage`
+                self.variant = ((try? SessionId(from: threadId))?.prefix == .group ?
+                    .groupControlMessage :
+                    .legacyGroupControlMessage
+                )
         }
         
         self.threadId = threadId
         self.timestampMs = timestampMs
         self.serverExpirationTimestamp = (
-            (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+            TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
             ControlMessageProcessRecord.defaultExpirationSeconds
         )
     }
@@ -189,7 +206,7 @@ internal extension ControlMessageProcessRecord {
     /// clean out these excessive entries after `defaultExpirationSeconds`)
     static func generateLegacyProcessRecords(_ db: Database, receivedMessageTimestamps: [Int64]) throws {
         let defaultExpirationTimestamp: TimeInterval = (
-            (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+            TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
             ControlMessageProcessRecord.defaultExpirationSeconds
         )
         

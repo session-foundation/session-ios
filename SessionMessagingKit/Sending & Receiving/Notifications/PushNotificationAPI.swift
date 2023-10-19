@@ -200,16 +200,18 @@ public enum PushNotificationAPI {
                         // control messages can't be distinguished from visible messages which results in the
                         // 'generic' notification being shown when receiving things like typing indicator updates
                         includeMessageData: true,
-                        serviceInfo: SubscribeRequest.ServiceInfo(
+                        serviceInfo: ServiceInfo(
                             token: token
                         ),
                         notificationsEncryptionKey: notificationsEncryptionKey,
-                        authInfo: try SnodeAPI.AuthenticationInfo(
+                        authMethod: try Authentication.with(
                             db,
                             sessionIdHexString: sessionId.hexString,
                             using: dependencies
                         ),
-                        timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)  // Seconds
+                        timestamp: TimeInterval(
+                            (Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) // Seconds
+                        )
                     )
                 ),
                 responseType: SubscribeResponse.self,
@@ -244,15 +246,17 @@ public enum PushNotificationAPI {
                     method: .post,
                     endpoint: .unsubscribe,
                     body: UnsubscribeRequest(
-                        serviceInfo: UnsubscribeRequest.ServiceInfo(
+                        serviceInfo: ServiceInfo(
                             token: token.toHexString()
                         ),
-                        authInfo: try SnodeAPI.AuthenticationInfo(
+                        authMethod: try Authentication.with(
                             db,
                             sessionIdHexString: sessionId.hexString,
                             using: dependencies
                         ),
-                        timestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)  // Seconds
+                        timestamp: TimeInterval(
+                            (Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) // Seconds
+                        )
                     )
                 ),
                 responseType: UnsubscribeResponse.self,

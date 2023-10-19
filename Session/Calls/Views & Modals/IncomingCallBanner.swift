@@ -102,7 +102,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         preconditionFailure("Use init(coder:) instead.")
     }
     
-    private func setUpViewHierarchy() {
+    private func setUpViewHierarchy(using dependencies: Dependencies = Dependencies()) {
         self.clipsToBounds = true
         self.layer.cornerRadius = Values.largeSpacing
         self.set(.height, to: 100)
@@ -113,8 +113,10 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         profilePictureView.update(
             publicKey: call.sessionId,
             threadVariant: .contact,
-            customImageData: nil,
-            profile: Dependencies()[singleton: .storage].read { [sessionId = call.sessionId] db in Profile.fetchOrCreate(db, id: sessionId) },
+            displayPictureFilename: nil,
+            profile: dependencies[singleton: .storage].read { [sessionId = call.sessionId] db in
+                Profile.fetchOrCreate(db, id: sessionId)
+            },
             additionalProfile: nil
         )
         displayNameLabel.text = call.contactName

@@ -29,8 +29,8 @@ public enum GetExpirationJob: JobExecutor {
             return
         }
         
-        let expirationInfo: [String: TimeInterval] = dependencies[singleton: .storage]
-            .read(using: dependencies) { db -> [String: TimeInterval] in
+        let expirationInfo: [String: Double] = dependencies[singleton: .storage]
+            .read(using: dependencies) { db -> [String: Double] in
                 details
                     .expirationInfo
                     .filter { Interaction.filter(Interaction.Columns.serverHash == $0.key).isNotEmpty(db) }
@@ -49,7 +49,7 @@ public enum GetExpirationJob: JobExecutor {
                 try SnodeAPI
                     .preparedGetExpiries(
                         of: expirationInfo.map { $0.key },
-                        authInfo: try SnodeAPI.AuthenticationInfo(
+                        authMethod: try Authentication.with(
                             db,
                             sessionIdHexString: userSessionId.hexString,
                             using: dependencies
@@ -68,11 +68,11 @@ public enum GetExpirationJob: JobExecutor {
                     }
                 },
                 receiveValue: { _, response in
-                    let serverSpecifiedExpirationStartTimesMs: [String: TimeInterval] = response.expiries
+                    let serverSpecifiedExpirationStartTimesMs: [String: Double] = response.expiries
                         .reduce(into: [:]) { result, next in
-                            guard let expiresInSeconds: TimeInterval = expirationInfo[next.key] else { return }
+                            guard let expiresInSeconds: Double = expirationInfo[next.key] else { return }
                             
-                            result[next.key] = TimeInterval(next.value - UInt64(expiresInSeconds * 1000))
+                            result[next.key] = Double(next.value - UInt64(expiresInSeconds * 1000))
                         }
                     let hashesToUseDefault: Set<String> = Set(expirationInfo.keys)
                         .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
@@ -129,13 +129,13 @@ extension GetExpirationJob {
             case startedAtTimestampMs
         }
         
-        public let expirationInfo: [String: TimeInterval]
+        public let expirationInfo: [String: Double]
         public let startedAtTimestampMs: Double
         
         // MARK: - Initialization
         
         public init(
-            expirationInfo: [String: TimeInterval],
+            expirationInfo: [String: Double],
             startedAtTimestampMs: Double
         ) {
             self.expirationInfo = expirationInfo
@@ -148,7 +148,7 @@ extension GetExpirationJob {
             let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
             
             self = Details(
-                expirationInfo: try container.decode([String: TimeInterval].self, forKey: .expirationInfo),
+                expirationInfo: try container.decode([String: Double].self, forKey: .expirationInfo),
                 startedAtTimestampMs: try container.decode(Double.self, forKey: .startedAtTimestampMs)
             )
         }

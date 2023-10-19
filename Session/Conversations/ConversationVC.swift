@@ -247,7 +247,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }()
     
     private lazy var emptyStateLabel: UILabel = {
-        let text: String = emptyStateText(for: viewModel.threadData)
+        let text: String = viewModel.threadData.emptyStateText
         let result: UILabel = UILabel()
         result.accessibilityLabel = "Empty state label"
         result.translatesAutoresizingMaskIntoConstraints = false
@@ -735,24 +735,6 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         self.viewModel.onInteractionChange = nil
     }
     
-    private func emptyStateText(for threadData: SessionThreadViewModel) -> String {
-        return String(
-            format: {
-                switch (threadData.threadIsNoteToSelf, threadData.canWrite) {
-                    case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
-                    case (_, false):
-                        return (threadData.profile?.blocksCommunityMessageRequests == true ?
-                            "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized() :
-                            "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
-                        )
-                       
-                    default: return "CONVERSATION_EMPTY_STATE".localized()
-                }
-            }(),
-            threadData.displayName
-        )
-    }
-    
     private func handleThreadUpdates(_ updatedThreadData: SessionThreadViewModel, initialLoad: Bool = false) {
         // Ensure the first load or a load when returning from a child screen runs without animations (if
         // we don't do this the cells will animate in from a frame of CGRect.zero or have a buggy transition)
@@ -795,7 +777,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             )
             
             // Update the empty state
-            let text: String = emptyStateText(for: updatedThreadData)
+            let text: String = updatedThreadData.emptyStateText
             emptyStateLabel.attributedText = NSAttributedString(string: text)
                 .adding(
                     attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
@@ -1368,7 +1350,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     profilePictureView.update(
                         publicKey: threadData.threadId,  // Contact thread uses the contactId
                         threadVariant: threadData.threadVariant,
-                        customImageData: nil,
+                        displayPictureFilename: nil,
                         profile: threadData.profile,
                         additionalProfile: nil
                     )

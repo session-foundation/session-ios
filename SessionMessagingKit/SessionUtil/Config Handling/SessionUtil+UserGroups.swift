@@ -89,7 +89,9 @@ internal extension SessionUtil {
                                 libSessionVal: legacyGroup.enc_seckey,
                                 count: SessionUtil.sizeLegacyGroupSecretKeyBytes
                             ),
-                            receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+                            receivedTimestamp: TimeInterval(
+                                (Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+                            )
                         ),
                         disappearingConfig: DisappearingMessagesConfiguration
                             .defaultWith(groupId)
@@ -121,7 +123,7 @@ internal extension SessionUtil {
                                 )
                             },
                         priority: legacyGroup.priority,
-                        joinedAt: legacyGroup.joined_at
+                        joinedAt: TimeInterval(legacyGroup.joined_at)
                     )
                 )
             }
@@ -147,7 +149,7 @@ internal extension SessionUtil {
                             )
                         ),
                         priority: group.priority,
-                        joinedAt: group.joined_at,
+                        joinedAt: TimeInterval(group.joined_at),
                         invited: group.invited
                     )
                 )
@@ -255,7 +257,7 @@ internal extension SessionUtil {
                 let lastKeyPair: ClosedGroupKeyPair = group.lastKeyPair,
                 let members: [GroupMember] = group.groupMembers,
                 let updatedAdmins: Set<GroupMember> = group.groupAdmins?.asSet(),
-                let joinedAt: Int64 = group.joinedAt
+                let joinedAt: TimeInterval = group.joinedAt
             else { return }
             
             if !existingLegacyGroupIds.contains(group.id) {
@@ -274,7 +276,7 @@ internal extension SessionUtil {
                         .map { $0.profileId },
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
-                    formationTimestampMs: UInt64((group.joinedAt.map { $0 * 1000 } ?? serverTimestampMs)),
+                    formationTimestamp: TimeInterval((group.joinedAt ?? (Double(serverTimestampMs) / 1000))),
                     calledFromConfigHandling: true,
                     using: dependencies
                 )
@@ -443,7 +445,7 @@ internal extension SessionUtil {
                         groupIdentityPrivateKey: group.groupIdentityPrivateKey,
                         name: group.name,
                         authData: group.authData,
-                        joinedAt: Int64((group.joinedAt ?? (serverTimestampMs / 1000))),
+                        joinedAt: TimeInterval(group.joinedAt ?? (Double(serverTimestampMs) / 1000)),
                         invited: (group.invited == true),
                         calledFromConfigHandling: true,
                         using: dependencies
@@ -636,7 +638,7 @@ internal extension SessionUtil {
                     }
                 }
                 
-                if let joinedAt: Int64 = legacyGroup.joinedAt {
+                if let joinedAt: Int64 = legacyGroup.joinedAt.map({ Int64($0) }) {
                     userGroup.pointee.joined_at = joinedAt
                 }
                 
@@ -695,7 +697,7 @@ internal extension SessionUtil {
 
                 // Store the updated group (can't be sure if we made any changes above)
                 userGroup.invited = (group.invited ?? userGroup.invited)
-                userGroup.joined_at = (group.joinedAt ?? userGroup.joined_at)
+                userGroup.joined_at = (group.joinedAt.map { Int64($0) } ?? userGroup.joined_at)
                 userGroup.priority = (group.priority ?? userGroup.priority)
                 user_groups_set_group(conf, &userGroup)
             }
@@ -865,7 +867,7 @@ public extension SessionUtil {
                                     isHidden: false
                                 )
                             },
-                        joinedAt: Int64(floor(formationTimestamp))
+                        joinedAt: formationTimestamp
                     )
                 ],
                 in: config
@@ -981,7 +983,7 @@ public extension SessionUtil {
         groupIdentityPrivateKey: Data?,
         name: String?,
         authData: Data?,
-        joinedAt: Int64,
+        joinedAt: TimeInterval,
         invited: Bool,
         using dependencies: Dependencies
     ) throws {
@@ -1090,7 +1092,7 @@ extension SessionUtil {
         let groupMembers: [GroupMember]?
         let groupAdmins: [GroupMember]?
         let priority: Int32?
-        let joinedAt: Int64?
+        let joinedAt: TimeInterval?
         
         init(
             id: String,
@@ -1100,7 +1102,7 @@ extension SessionUtil {
             groupMembers: [GroupMember]? = nil,
             groupAdmins: [GroupMember]? = nil,
             priority: Int32? = nil,
-            joinedAt: Int64? = nil
+            joinedAt: TimeInterval? = nil
         ) {
             self.threadId = id
             self.name = name
@@ -1199,7 +1201,7 @@ extension SessionUtil {
         let name: String?
         let authData: Data?
         let priority: Int32?
-        let joinedAt: Int64?
+        let joinedAt: TimeInterval?
         let invited: Bool?
         
         init(
@@ -1208,7 +1210,7 @@ extension SessionUtil {
             name: String? = nil,
             authData: Data? = nil,
             priority: Int32? = nil,
-            joinedAt: Int64? = nil,
+            joinedAt: TimeInterval? = nil,
             invited: Bool? = nil
         ) {
             self.groupSessionId = groupSessionId

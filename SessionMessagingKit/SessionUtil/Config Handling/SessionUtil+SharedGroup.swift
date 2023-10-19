@@ -36,7 +36,7 @@ internal extension SessionUtil {
         // Prep the relevant details
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         let creationTimestamp: TimeInterval = TimeInterval(
-            SnodeAPI.currentOffsetTimestampMs(using: dependencies) / 1000
+            Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000
         )
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let currentUserProfile: Profile? = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
@@ -178,7 +178,7 @@ internal extension SessionUtil {
             groupIdentityPrivateKey: group.groupIdentityPrivateKey,
             name: group.name,
             authData: group.authData,
-            joinedAt: Int64(floor(group.formationTimestamp)),
+            joinedAt: group.formationTimestamp,
             invited: (group.invited == true),
             using: dependencies
         )
@@ -194,40 +194,76 @@ internal extension SessionUtil {
     ) throws -> [ConfigDump.Variant: Config] {
         var secretKey: [UInt8] = userED25519KeyPair.secretKey
         var groupIdentityPublicKey: [UInt8] = groupSessionId.publicKey
-        var groupIdentityPrivateKey: [UInt8] = Array(groupIdentityPrivateKey!)
         
         // Create the new config objects
         var groupKeysConf: UnsafeMutablePointer<config_group_keys>? = nil
         var groupInfoConf: UnsafeMutablePointer<config_object>? = nil
         var groupMembersConf: UnsafeMutablePointer<config_object>? = nil
         var error: [CChar] = [CChar](repeating: 0, count: 256)
-        try groups_info_init(
-            &groupInfoConf,
-            &groupIdentityPublicKey,
-            &groupIdentityPrivateKey,
-            nil,
-            0,
-            &error
-        ).orThrow(error: error)
-        try groups_members_init(
-            &groupMembersConf,
-            &groupIdentityPublicKey,
-            &groupIdentityPrivateKey,
-            nil,
-            0,
-            &error
-        ).orThrow(error: error)
-        try groups_keys_init(
-            &groupKeysConf,
-            &secretKey,
-            &groupIdentityPublicKey,
-            &groupIdentityPrivateKey,
-            groupInfoConf,
-            groupMembersConf,
-            nil,
-            0,
-            &error
-        ).orThrow(error: error)
+        
+        // It looks like C doesn't deal will passing pointers to null variables well so we need
+        // to explicitly pass 'nil' for the admin key in this case
+        switch groupIdentityPrivateKey {
+            case .some(let privateKeyData):
+                var groupIdentityPrivateKey: [UInt8] = Array(privateKeyData)
+                
+                try groups_info_init(
+                    &groupInfoConf,
+                    &groupIdentityPublicKey,
+                    &groupIdentityPrivateKey,
+                    nil,
+                    0,
+                    &error
+                ).orThrow(error: error)
+                try groups_members_init(
+                    &groupMembersConf,
+                    &groupIdentityPublicKey,
+                    &groupIdentityPrivateKey,
+                    nil,
+                    0,
+                    &error
+                ).orThrow(error: error)
+                try groups_keys_init(
+                    &groupKeysConf,
+                    &secretKey,
+                    &groupIdentityPublicKey,
+                    &groupIdentityPrivateKey,
+                    groupInfoConf,
+                    groupMembersConf,
+                    nil,
+                    0,
+                    &error
+                ).orThrow(error: error)
+                
+            case .none:
+                try groups_info_init(
+                    &groupInfoConf,
+                    &groupIdentityPublicKey,
+                    nil,
+                    nil,
+                    0,
+                    &error
+                ).orThrow(error: error)
+                try groups_members_init(
+                    &groupMembersConf,
+                    &groupIdentityPublicKey,
+                    nil,
+                    nil,
+                    0,
+                    &error
+                ).orThrow(error: error)
+                try groups_keys_init(
+                    &groupKeysConf,
+                    &secretKey,
+                    &groupIdentityPublicKey,
+                    nil,
+                    groupInfoConf,
+                    groupMembersConf,
+                    nil,
+                    0,
+                    &error
+                ).orThrow(error: error)
+        }
         
         guard
             let keysConf: UnsafeMutablePointer<config_group_keys> = groupKeysConf,

@@ -248,7 +248,7 @@ public final class MessageSender {
                 db,
                 message: snodeMessage,
                 in: namespace,
-                authInfo: try SnodeAPI.AuthenticationInfo(db, sessionIdHexString: threadId, using: dependencies),
+                authMethod: try Authentication.with(db, sessionIdHexString: threadId, using: dependencies),
                 using: dependencies
             )
             .handleEvents(
@@ -708,7 +708,7 @@ public final class MessageSender {
             threadId: threadId,
             message: message,
             serverExpirationTimestamp: (
-                (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+                TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) +
                 ControlMessageProcessRecord.defaultExpirationSeconds
             )
         )?.insert(db)

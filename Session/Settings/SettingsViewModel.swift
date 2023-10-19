@@ -23,9 +23,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         onImageDataPicked: { [weak self] resultImageData in
             guard let oldDisplayName: String = self?.oldDisplayName else { return }
             
-            self?.updatedProfilePictureSelected(
+            self?.updatedDisplayPictureSelected(
                 name: oldDisplayName,
-                avatarUpdate: .uploadImageData(resultImageData)
+                update: .uploadImageData(resultImageData)
             )
         }
     )
@@ -186,7 +186,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     )
                                     return
                                 }
-                                guard !ProfileManager.isToLong(profileName: updatedNickname) else {
+                                guard !Profile.isToLong(profileName: updatedNickname) else {
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
@@ -204,7 +204,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 self?.oldDisplayName = updatedNickname
                                 self?.updateProfile(
                                     name: updatedNickname,
-                                    avatarUpdate: .none
+                                    displayPictureUpdate: .none
                                 )
                             }
                         ]
@@ -478,8 +478,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     private func updateProfilePicture(currentFileName: String?) {
         let existingDisplayName: String = self.oldDisplayName
-        let existingImageData: Data? = ProfileManager
-            .profileAvatar(id: self.userSessionId.hexString)
+        let existingImageData: Data? = dependencies[singleton: .storage].read(using: dependencies) { [userSessionId] db in
+            DisplayPictureManager.displayPicture(db, id: .user(userSessionId.hexString))
+        }
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
             title: "update_profile_modal_title".localized(),
             body: .image(
@@ -503,7 +504,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             onCancel: { [weak self] modal in
                 self?.updateProfile(
                     name: existingDisplayName,
-                    avatarUpdate: .remove,
+                    displayPictureUpdate: .remove,
                     onComplete: { [weak modal] in modal?.close() }
                 )
             },
@@ -519,7 +520,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         self.transitionToScreen(modal, transitionType: .present)
     }
 
-    fileprivate func updatedProfilePictureSelected(name: String, avatarUpdate: ProfileManager.AvatarUpdate) {
+    fileprivate func updatedDisplayPictureSelected(name: String, update: DisplayPictureManager.Update) {
         guard let info: ConfirmationModal.Info = self.editProfilePictureModalInfo else { return }
         
         self.editProfilePictureModal?.updateContent(
@@ -527,7 +528,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 body: .image(
                     placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
                     valueData: {
-                        switch avatarUpdate {
+                        switch update {
                             case .uploadImageData(let imageData): return imageData
                             default: return nil
                         }
@@ -544,7 +545,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 onConfirm: { [weak self] modal in
                     self?.updateProfile(
                         name: name,
-                        avatarUpdate: avatarUpdate,
+                        displayPictureUpdate: update,
                         onComplete: { [weak modal] in modal?.close() }
                     )
                 }
@@ -567,14 +568,14 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     fileprivate func updateProfile(
         name: String,
-        avatarUpdate: ProfileManager.AvatarUpdate,
+        displayPictureUpdate: DisplayPictureManager.Update,
         onComplete: (() -> ())? = nil
     ) {
         let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self] modalActivityIndicator in
-            ProfileManager.updateLocal(
+            Profile.updateLocal(
                 queue: .global(qos: .default),
                 profileName: name,
-                avatarUpdate: avatarUpdate,
+                displayPictureUpdate: displayPictureUpdate,
                 success: { db in
                     // Wait for the database transaction to complete before updating the UI
                     db.afterNextTransactionNested { _ in
@@ -589,18 +590,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     DispatchQueue.main.async {
                         modalActivityIndicator.dismiss {
                             let title: String = {
-                                switch (avatarUpdate, error) {
+                                switch (displayPictureUpdate, error) {
                                     case (.remove, _): return "update_profile_modal_remove_error_title".localized()
-                                    case (_, .avatarUploadMaxFileSizeExceeded):
+                                    case (_, .uploadMaxFileSizeExceeded):
                                         return "update_profile_modal_max_size_error_title".localized()
                                     
                                     default: return "update_profile_modal_error_title".localized()
                                 }
                             }()
                             let message: String? = {
-                                switch (avatarUpdate, error) {
+                                switch (displayPictureUpdate, error) {
                                     case (.remove, _): return nil
-                                    case (_, .avatarUploadMaxFileSizeExceeded):
+                                    case (_, .uploadMaxFileSizeExceeded):
                                         return "update_profile_modal_max_size_error_message".localized()
                                     
                                     default: return "update_profile_modal_error_message".localized()

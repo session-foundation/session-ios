@@ -41,15 +41,15 @@ public enum UpdateProfilePictureJob: JobExecutor {
             return deferred(job, dependencies)
         }
         
-        // Note: The user defaults flag is updated in ProfileManager
+        // Note: The user defaults flag is updated in DisplayPictureManager
         let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
-        let profilePictureData: Data? = profile.profilePictureFileName
-            .map { ProfileManager.loadProfileData(with: $0) }
+        let displayPictureData: Data? = profile.profilePictureFileName
+            .map { DisplayPictureManager.loadDisplayPictureFromDisk(for: $0) }
         
-        ProfileManager.updateLocal(
+        Profile.updateLocal(
             queue: queue,
             profileName: profile.name,
-            avatarUpdate: (profilePictureData.map { .uploadImageData($0) } ?? .none),
+            displayPictureUpdate: (displayPictureData.map { .uploadImageData($0) } ?? .none),
             success: { db in
                 // Need to call the 'success' closure asynchronously on the queue to prevent a reentrancy
                 // issue as it will write to the database and this closure is already called within

@@ -20,18 +20,18 @@ extension MessageReceiver {
         
         // Note: `message.sentTimestamp` is in ms (convert to TimeInterval before converting to
         // seconds to maintain the accuracy)
-        let messageSentTimestamp: TimeInterval = (TimeInterval(message.sentTimestamp ?? 0) / 1000)
+        let messageSentTimestamp: TimeInterval = TimeInterval(Double(message.sentTimestamp ?? 0) / 1000)
         let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
         
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
         if let profile = message.profile {
-            try ProfileManager.updateProfileIfNeeded(
+            try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 name: profile.displayName,
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                avatarUpdate: {
+                displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey

@@ -5,6 +5,12 @@ import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 
+// MARK: - Size Restrictions
+
+public extension SessionUtil {
+    static var sizeMaxGroupDescriptionBytes: Int { GROUP_INFO_DESCRIPTION_MAX_LENGTH }
+}
+
 // MARK: - Group Info Handling
 
 internal extension SessionUtil {
@@ -46,7 +52,7 @@ internal extension SessionUtil {
         let displayPictureUrl: String? = String(libSessionVal: displayPic.url, nullIfEmpty: true)
         let displayPictureKey: Data? = Data(
             libSessionVal: displayPic.key,
-            count: ProfileManager.avatarAES256KeyByteLength
+            count: DisplayPictureManager.aes256KeyByteLength
         )
 
         // Update the group name

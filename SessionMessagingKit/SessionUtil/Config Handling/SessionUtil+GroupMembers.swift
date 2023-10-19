@@ -113,9 +113,10 @@ internal extension SessionUtil {
 
                 var error: SessionUtilError?
                 try CExceptionHelper.performSafely {
+                    var cMemberId: [CChar] = memberId.cArray
                     var member: config_group_member = config_group_member()
                     
-                    guard groups_members_get_or_construct(conf, &member, memberId.toLibSession()) else {
+                    guard groups_members_get_or_construct(conf, &member, &cMemberId) else {
                         error = .getOrConstructFailedUnexpectedly
                         return
                     }
@@ -151,9 +152,16 @@ internal extension SessionUtil {
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
             
             // Only update members if they already exist in the group
+            var cMemberId: [CChar] = memberId.cArray
             var groupMember: config_group_member = config_group_member()
             
-            guard groups_members_get(conf, &groupMember, memberId.toLibSession()) else { return }
+            // If the member doesn't exist or the role status is already "accepted" then do nothing
+            guard
+                groups_members_get(conf, &groupMember, &cMemberId) && (
+                    (role == .standard && groupMember.invited != Int32(GroupMember.RoleStatus.accepted.rawValue)) ||
+                    (role == .admin && groupMember.promoted != Int32(GroupMember.RoleStatus.accepted.rawValue))
+                )
+            else { return }
             
             switch role {
                 case .standard: groupMember.invited = Int32(status.rawValue)
@@ -179,7 +187,10 @@ internal extension SessionUtil {
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
             
-            memberIds.forEach { groups_members_erase(conf, $0.toLibSession()) }
+            memberIds.forEach { memberId in
+                var cMemberId: [CChar] = memberId.cArray
+                groups_members_erase(conf, &cMemberId)
+            }
         }
     }
     
@@ -212,9 +223,10 @@ internal extension SessionUtil {
                 guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
                 
                 // Only update members if they already exist in the group
+                var cMemberId: [CChar] = member.profileId.cArray
                 var groupMember: config_group_member = config_group_member()
                 
-                guard groups_members_get(conf, &groupMember, member.profileId.toLibSession()) else {
+                guard groups_members_get(conf, &groupMember, &cMemberId) else {
                     return
                 }
                 
@@ -273,16 +285,16 @@ private extension SessionUtil {
             let profileResult: Profile = Profile(
                 id: memberId,
                 name: String(libSessionVal: member.name),
-                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
+                lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                 nickname: nil,
                 profilePictureUrl: profilePictureUrl,
                 profileEncryptionKey: (profilePictureUrl == nil ? nil :
                     Data(
                         libSessionVal: member.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
+                        count: DisplayPictureManager.aes256KeyByteLength
                     )
                 ),
-                lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000),
+                lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                 lastBlocksCommunityMessageRequests: nil
             )
             

@@ -8,7 +8,10 @@ import GRDB
 // MARK: - Singleton
 
 public extension Singleton {
-    static let jobRunner: SingletonConfig<JobRunnerType> = Dependencies.create { _ in JobRunner() }
+    static let jobRunner: SingletonConfig<JobRunnerType> = Dependencies.create(
+        identifier: "jobRunner",
+        createInstance: { _ in JobRunner() }
+    )
 }
 
 // MARK: - JobRunnerType
@@ -236,7 +239,9 @@ public final class JobRunner: JobRunnerType {
                     jobVariants.remove(.notifyPushServer),
                     jobVariants.remove(.sendReadReceipts),
                     jobVariants.remove(.groupLeaving),
-                    jobVariants.remove(.configurationSync)
+                    jobVariants.remove(.configurationSync),
+                    jobVariants.remove(.groupInviteMember),
+                    jobVariants.remove(.groupPromoteMember)
                 ].compactMap { $0 }
             ),
             

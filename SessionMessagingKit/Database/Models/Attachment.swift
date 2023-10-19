@@ -1184,7 +1184,7 @@ extension Attachment {
                             state: .uploaded,
                             creationTimestamp: (
                                 uploadInfo.attachment.creationTimestamp ??
-                                (TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+                                TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
                             ),
                             downloadUrl: Attachment.downloadUrl(for: response.id),
                             encryptionKey: uploadInfo.encryptionKey,

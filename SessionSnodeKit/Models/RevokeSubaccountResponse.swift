@@ -4,11 +4,11 @@ import Foundation
 import Sodium
 import SessionUtilitiesKit
 
-public class RevokeSubkeyResponse: SnodeRecursiveResponse<SnodeSwarmItem> {}
+public class RevokeSubaccountResponse: SnodeRecursiveResponse<SnodeSwarmItem> {}
 
 // MARK: - ValidatableResponse
 
-extension RevokeSubkeyResponse: ValidatableResponse {
+extension RevokeSubaccountResponse: ValidatableResponse {
     typealias ValidationData = String
     typealias ValidationResponse = Bool
     
@@ -35,7 +35,7 @@ extension RevokeSubkeyResponse: ValidatableResponse {
                 return
             }
             
-            /// Signature of `( PUBKEY_HEX || SUBKEY_TAG_BYTES )` where `SUBKEY_TAG_BYTES` is the
+            /// Signature of `( PUBKEY_HEX || SUBACCOUNT_TAG_BYTES )` where `SUBACCOUNT_TAG_BYTES` is the
             /// requested subkey tag for revocation
             let verificationBytes: [UInt8] = publicKey.bytes
                 .appending(contentsOf: validationData.bytes)

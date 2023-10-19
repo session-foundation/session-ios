@@ -46,6 +46,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case disappearingMessagesConfiguration
         
         case contactLastKnownClientVersion
+        case displayPictureFilename
         case contactProfile
         case closedGroupProfileFront
         case closedGroupProfileBack
@@ -58,7 +59,6 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case openGroupServer
         case openGroupRoomToken
         case openGroupPublicKey
-        case openGroupProfilePictureData
         case openGroupUserCount
         case openGroupPermissions
         
@@ -135,6 +135,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     
     public let contactLastKnownClientVersion: FeatureVersion?
+    public let displayPictureFilename: String?
     private let contactProfile: Profile?
     private let closedGroupProfileFront: Profile?
     private let closedGroupProfileBack: Profile?
@@ -147,7 +148,6 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     public let openGroupServer: String?
     public let openGroupRoomToken: String?
     public let openGroupPublicKey: String?
-    public let openGroupProfilePictureData: Data?
     private let openGroupUserCount: Int?
     private let openGroupPermissions: OpenGroup.Permissions?
     
@@ -205,7 +205,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             return Date(timeIntervalSince1970: threadCreationDateTimestamp)
         }
                         
-        return Date(timeIntervalSince1970: (TimeInterval(interactionTimestampMs) / 1000))
+        return Date(timeIntervalSince1970: TimeInterval(Double(interactionTimestampMs) / 1000))
     }
     
     public var enabledMessageTypes: MessageInputTypes {
@@ -397,6 +397,7 @@ public extension SessionThreadViewModel {
         self.disappearingMessagesConfiguration = disappearingMessagesConfiguration
         
         self.contactLastKnownClientVersion = nil
+        self.displayPictureFilename = nil
         self.contactProfile = contactProfile
         self.closedGroupProfileFront = nil
         self.closedGroupProfileBack = nil
@@ -409,7 +410,6 @@ public extension SessionThreadViewModel {
         self.openGroupServer = nil
         self.openGroupRoomToken = nil
         self.openGroupPublicKey = nil
-        self.openGroupProfilePictureData = nil
         self.openGroupUserCount = nil
         self.openGroupPermissions = openGroupPermissions
         
@@ -463,6 +463,7 @@ public extension SessionThreadViewModel {
             threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactLastKnownClientVersion: self.contactLastKnownClientVersion,
+            displayPictureFilename: self.displayPictureFilename,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -475,7 +476,6 @@ public extension SessionThreadViewModel {
             openGroupServer: self.openGroupServer,
             openGroupRoomToken: self.openGroupRoomToken,
             openGroupPublicKey: self.openGroupPublicKey,
-            openGroupProfilePictureData: self.openGroupProfilePictureData,
             openGroupUserCount: self.openGroupUserCount,
             openGroupPermissions: self.openGroupPermissions,
             interactionId: self.interactionId,
@@ -524,6 +524,7 @@ public extension SessionThreadViewModel {
             threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactLastKnownClientVersion: self.contactLastKnownClientVersion,
+            displayPictureFilename: self.displayPictureFilename,
             contactProfile: self.contactProfile,
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
@@ -536,7 +537,6 @@ public extension SessionThreadViewModel {
             openGroupServer: self.openGroupServer,
             openGroupRoomToken: self.openGroupRoomToken,
             openGroupPublicKey: self.openGroupPublicKey,
-            openGroupProfilePictureData: self.openGroupProfilePictureData,
             openGroupUserCount: self.openGroupUserCount,
             openGroupPermissions: self.openGroupPermissions,
             interactionId: self.interactionId,
@@ -712,7 +712,12 @@ public extension SessionThreadViewModel {
                     ) AS \(ViewModel.Columns.currentUserIsClosedGroupAdmin),
 
                     \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
-                    \(openGroup[.imageData]) AS \(ViewModel.Columns.openGroupProfilePictureData),
+            
+                    COALESCE(
+                        \(openGroup[.displayPictureFilename]),
+                        \(closedGroup[.displayPictureFilename]),
+                        \(contactProfile[.profilePictureFileName])
+                    ) AS \(ViewModel.Columns.displayPictureFilename),
 
                     \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                     \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),
@@ -1112,7 +1117,12 @@ public extension SessionThreadViewModel {
                 \(openGroup[.server]) AS \(ViewModel.Columns.openGroupServer),
                 \(openGroup[.roomToken]) AS \(ViewModel.Columns.openGroupRoomToken),
                 \(openGroup[.publicKey]) AS \(ViewModel.Columns.openGroupPublicKey),
-                \(openGroup[.imageData]) AS \(ViewModel.Columns.openGroupProfilePictureData),
+        
+                COALESCE(
+                    \(openGroup[.displayPictureFilename]),
+                    \(closedGroup[.displayPictureFilename]),
+                    \(contactProfile[.profilePictureFileName])
+                ) AS \(ViewModel.Columns.displayPictureFilename),
                     
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
             
@@ -1288,7 +1298,12 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBackFallback.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
-                \(openGroup[.imageData]) AS \(ViewModel.Columns.openGroupProfilePictureData),
+        
+                COALESCE(
+                    \(openGroup[.displayPictureFilename]),
+                    \(closedGroup[.displayPictureFilename]),
+                    \(contactProfile[.profilePictureFileName])
+                ) AS \(ViewModel.Columns.displayPictureFilename),
             
                 \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                 \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),
@@ -1426,7 +1441,12 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBackFallback.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
-                \(openGroup[.imageData]) AS \(ViewModel.Columns.openGroupProfilePictureData),
+        
+                COALESCE(
+                    \(openGroup[.displayPictureFilename]),
+                    \(closedGroup[.displayPictureFilename]),
+                    \(contactProfile[.profilePictureFileName])
+                ) AS \(ViewModel.Columns.displayPictureFilename),
                 
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
 
@@ -1696,7 +1716,12 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBackFallback.allColumns),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
-                \(openGroup[.imageData]) AS \(ViewModel.Columns.openGroupProfilePictureData),
+                
+                COALESCE(
+                    \(openGroup[.displayPictureFilename]),
+                    \(closedGroup[.displayPictureFilename]),
+                    \(contactProfile[.profilePictureFileName])
+                ) AS \(ViewModel.Columns.displayPictureFilename),
                 
                 \(SQL("\(userSessionId.hexString)")) AS \(ViewModel.Columns.currentUserSessionId)
 
@@ -1905,8 +1930,13 @@ public extension SessionThreadViewModel {
                 ) AS \(ViewModel.Columns.currentUserIsClosedGroupMember),
         
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
-                \(openGroup[.imageData]) AS \(ViewModel.Columns.openGroupProfilePictureData),
                 \(openGroup[.permissions]) AS \(ViewModel.Columns.openGroupPermissions),
+        
+                COALESCE(
+                    \(openGroup[.displayPictureFilename]),
+                    \(closedGroup[.displayPictureFilename]),
+                    \(contactProfile[.profilePictureFileName])
+                ) AS \(ViewModel.Columns.displayPictureFilename),
         
                 \(interaction[.id]) AS \(ViewModel.Columns.interactionId),
                 \(interaction[.variant]) AS \(ViewModel.Columns.interactionVariant),

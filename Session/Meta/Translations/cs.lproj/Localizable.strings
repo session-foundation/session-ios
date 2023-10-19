@@ -813,58 +813,61 @@ The point that a message will disappear in a disappearing message update message
 "DISAPPEARING_MESSAGE_STATE_SENT" = "odesláno";
 
 /* The current state for the legacy disappearing messages setting, the '%@' will be replaced by a short-form duration */
-"DISAPPERING_MESSAGES_SUMMARY_LEGACY" = "Disappear After - %@";
+"DISAPPERING_MESSAGES_SUMMARY_LEGACY" = "Zmizí po - %@";
 
 /* The current state for the disappear after read setting, the '%@' will be replaced by a short-form duration */
-"DISAPPERING_MESSAGES_SUMMARY_READ" = "Disappear After Read - %@";
+"DISAPPERING_MESSAGES_SUMMARY_READ" = "Zmizí po přečtení - %@";
 
 /* The current state for the disappear after send setting, the '%@' will be replaced by a short-form duration */
-"DISAPPERING_MESSAGES_SUMMARY_SEND" = "Disappear After Send - %@";
+"DISAPPERING_MESSAGES_SUMMARY_SEND" = "Zmizí po odeslání - %@";
 
 /* The subtitle describing the current legacy disappearing messages setting, the '%@' will be replaced by a duration */
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY" = "Disappear After: %@";
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY" = "Zmizí po: %@";
 
 /* The subtitle describing the current disappear after read setting, the '%@' will be replaced by a duration */
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ" = "Disappear After Read: %@";
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ" = "Zmizí po přečtení: %@";
 
 /* The subtitle describing the current disappear after send setting, the '%@' will be replaced by a duration */
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";
+"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Zmizí po odeslání: %@";
 
 /* An informational message displayed when the name of a group is changed, the '%@' will be the updated name. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED_TO" = "Group name is now %@.";
+"GROUP_MESSAGE_INFO_NAME_UPDATED_TO" = "Název skupiny je nyní %@.";
 
 /* An informational message displayed when the name of a group is changed. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED" = "Group name updated.";
+"GROUP_MESSAGE_INFO_NAME_UPDATED" = "Název skupiny aktualizován.";
 
 /* An informational message displayed when the display picture of a group is changed. */
-"GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Group display picture updated.";
+"GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Obrázek skupiny aktualizován.";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ joined the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ se připojil/a ke skupině.";
 
 /* An informational message displayed when two members joined the group, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ joined the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ a %@ se připojili ke skupině.";
 
 /* An informational message displayed when multiple members joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others joined the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ a %@ další se připojili ke skupině.";
 
 /* An informational message displayed when a single member was removed from the group, the '%@' will be the members. */
-"GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ was removed from the group.";
+"GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ byl/a odebrán/a ze skupiny.";
 
 /* An informational message displayed when two members were removed from the group, the '%@' will be the members names. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED" = "%@ and %@ were removed from the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED" = "%@ a %@ byli odebráni ze skupiny.";
 
 /* An informational message displayed when multiple members were removed from the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members removed. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED" = "%@ and %@ others were removed from the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED" = "%@ a %@ další byli odebráni ze skupiny.";
 
 /* An informational message displayed when a member leaves the group. */
-"GROUP_MESSAGE_INFO_MEMBER_LEFT" = "%@ left the group.";
+"GROUP_MESSAGE_INFO_MEMBER_LEFT" = "%@ opustil/a skupinu.";
 
 /* An informational message displayed when a member of the group was promoted to admin, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_PROMOTED" = "%@ was promoted to Admin.";
+"GROUP_MESSAGE_INFO_MEMBER_PROMOTED" = "%@ byl/a povýšen/a na správce.";
 
 /* An informational message displayed when two members of the group were promoted to admin, the '%@' will be the members names. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED" = "%@ and %@ were promoted to Admin.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED" = "%@ a %@ byli povýšeni na správce.";
 
 /* An informational message displayed when multiple members of the group were promoted to admin, the first '%@' will be the first members name and the second '%@' will be the number of additional members promoted. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED" = "%@ and %@ others were promoted to Admin.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED" = "%@ a %@ další byli povýšeni na správce.";
+
+/* An informational message displayed the current user was removed from a group, the '%@' will be the name of the group. */
+"GROUP_MESSAGE_INFO_REMOVED" = "You were removed from %@.";

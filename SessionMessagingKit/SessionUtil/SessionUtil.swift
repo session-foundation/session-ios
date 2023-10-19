@@ -127,6 +127,41 @@ public enum SessionUtil {
         SNLog("[SessionUtil] Completed loadState")
     }
     
+    public static func reloadState(
+        _ db: Database,
+        for sessionId: SessionId,
+        userEd25519SecretKey: [UInt8],
+        groupEd25519SecretKey: [UInt8],
+        using dependencies: Dependencies
+    ) throws {
+        // Retrieve the existing dumps from the database
+        let configDumps: [ConfigDump.Variant: ConfigDump] = (try? ConfigDump
+            .filter(ConfigDump.Columns.publicKey == sessionId.hexString)
+            .fetchAll(db))
+            .defaulting(to: [])
+            .reduce(into: [:]) { result, next in result[next.variant] = next }
+        
+        // Create the config records for each dump
+        try dependencies.mutate(cache: .sessionUtil) { cache in
+            try ConfigDump.Variant.groupVariants.forEach { variant in
+                cache.setConfig(
+                    for: variant,
+                    sessionId: sessionId,
+                    to: try SessionUtil
+                        .loadState(
+                            for: variant,
+                            sessionId: sessionId,
+                            userEd25519SecretKey: userEd25519SecretKey,
+                            groupEd25519SecretKey: groupEd25519SecretKey,
+                            cachedData: configDumps[variant]?.data,
+                            cache: cache
+                        )
+                        .addingLogger()
+                )
+            }
+        }
+    }
+    
     private static func loadState(
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
@@ -395,20 +430,20 @@ public enum SessionUtil {
             .grouped(by: { ConfigDump.Variant(namespace: $0.namespace) })
         
         let needsPush: Bool = try groupedMessages
-            .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
+            .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
             .reduce(false) { prevNeedsPush, next -> Bool in
                 let sessionId: SessionId = SessionId(hex: sessionIdHexString, dumpVariant: next.key)
                 let needsPush: Bool = try dependencies[cache: .sessionUtil]
                     .config(for: next.key, sessionId: sessionId)
                     .mutate { config in
-                        // Merge the messages (if it doesn't merge anything then don't bother trying
-                        // to handle the result)
-                        guard let latestServerTimestampMs: Int64 = try config?.merge(next.value) else {
-                            return config.needsPush
-                        }
-                        
-                        // Apply the updated states to the database
                         do {
+                            // Merge the messages (if it doesn't merge anything then don't bother trying
+                            // to handle the result)
+                            guard let latestServerTimestampMs: Int64 = try config?.merge(next.value) else {
+                                return config.needsPush
+                            }
+                            
+                            // Apply the updated states to the database
                             switch next.key {
                                 case .userProfile:
                                     try SessionUtil.handleUserProfileUpdate(
@@ -470,34 +505,34 @@ public enum SessionUtil {
                                 case .invalid:
                                     SNLog("[libSession] Failed to process merge of invalid config namespace")
                             }
+                            
+                            // Need to check if the config needs to be dumped (this might have changed
+                            // after handling the merge changes)
+                            guard config.needsDump else {
+                                try ConfigDump
+                                    .filter(
+                                        ConfigDump.Columns.variant == next.key &&
+                                        ConfigDump.Columns.publicKey == sessionId.hexString
+                                    )
+                                    .updateAll(
+                                        db,
+                                        ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
+                                    )
+                                
+                                return config.needsPush
+                            }
+                            
+                            try SessionUtil.createDump(
+                                config: config,
+                                for: next.key,
+                                sessionId: sessionId,
+                                timestampMs: latestServerTimestampMs
+                            )?.save(db)
                         }
                         catch {
                             SNLog("[SessionUtil] Failed to process merge of \(next.key) config data")
                             throw error
                         }
-                        
-                        // Need to check if the config needs to be dumped (this might have changed
-                        // after handling the merge changes)
-                        guard config.needsDump else {
-                            try ConfigDump
-                                .filter(
-                                    ConfigDump.Columns.variant == next.key &&
-                                    ConfigDump.Columns.publicKey == sessionId.hexString
-                                )
-                                .updateAll(
-                                    db,
-                                    ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
-                                )
-                            
-                            return config.needsPush
-                        }
-                        
-                        try SessionUtil.createDump(
-                            config: config,
-                            for: next.key,
-                            sessionId: sessionId,
-                            timestampMs: latestServerTimestampMs
-                        )?.save(db)
                 
                         return config.needsPush
                     }
@@ -652,6 +687,7 @@ public extension SessionUtil {
 
 public extension Cache {
     static let sessionUtil: CacheConfig<SessionUtilCacheType, SessionUtilImmutableCacheType> = Dependencies.create(
+        identifier: "sessionUtil",
         createInstance: { _ in SessionUtil.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
@@ -660,8 +696,7 @@ public extension Cache {
 
 // MARK: - SessionUtilCacheType
 
-/// This is a read-only version of the `SessionUtil.Cache` designed to avoid unintentionally mutating the instance in a
-/// non-thread-safe way
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol SessionUtilImmutableCacheType: ImmutableCacheType {
     var isEmpty: Bool { get }
     var needsSync: Bool { get }

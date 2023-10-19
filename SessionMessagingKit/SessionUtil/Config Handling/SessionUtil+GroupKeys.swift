@@ -9,6 +9,9 @@ import SessionUtilitiesKit
 
 public extension SessionUtil {
     static var sizeAuthDataBytes: Int { 100 }
+    static var sizeSubaccountBytes: Int { 36 }
+    static var sizeSubaccountSigBytes: Int { 64 }
+    static var sizeSubaccountSignatureBytes: Int { 64 }
 }
 
 // MARK: - Group Info Handling
@@ -58,27 +61,70 @@ internal extension SessionUtil {
         }
     }
     
-    static func generateAuthData(
+    static func keySupplement(
         _ db: Database,
+        groupSessionId: SessionId,
+        memberIds: Set<String>,
+        using dependencies: Dependencies
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupKeys,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            var cMemberIds: [UnsafePointer<CChar>?] = memberIds
+                .map { id in id.cArray.nullTerminated() }
+                .unsafeCopy()
+            
+            defer { cMemberIds.forEach { $0?.deallocate() } }
+            
+            // Performing a `key_supplement` returns the updated key data which we don't use directly, this updated
+            // key will now be returned by `groups_keys_pending_config` which the `ConfigurationSyncJob` uses
+            // when generating pending changes for group keys so we don't need to push it directly
+            var pushResult: UnsafeMutablePointer<UInt8>? = nil
+            var pushResultLen: Int = 0
+            guard groups_keys_key_supplement(conf, &cMemberIds, cMemberIds.count, &pushResult, &pushResultLen) else {
+                throw SessionUtilError.failedToKeySupplementGroup
+            }
+            
+            // Must deallocate on success
+            pushResult?.deallocate()
+        }
+    }
+    
+    static func generateAuthData(
         groupSessionId: SessionId,
         memberId: String,
         using dependencies: Dependencies
-    ) throws -> Data {
-        try dependencies[cache: .sessionUtil]
-            .config(for: .groupKeys, sessionId: groupSessionId)
-            .wrappedValue
-            .map { config in
-                guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
-                
-                var authData: Data = Data(repeating: 0, count: SessionUtil.sizeAuthDataBytes)
-                
-                guard groups_keys_swarm_make_subaccount(
-                    conf,
-                    groupSessionId.hexString.toLibSession(),
-                    &authData
-                ) else { throw SessionUtilError.failedToMakeSubAccountInGroup }
-                
-                return authData
-            } ?? { throw SessionUtilError.invalidConfigObject }()
+    ) throws -> Authentication.Info {
+        try dependencies[singleton: .crypto].generate(
+            .memberAuthData(
+                config: dependencies[cache: .sessionUtil]
+                    .config(for: .groupKeys, sessionId: groupSessionId)
+                    .wrappedValue,
+                groupSessionId: groupSessionId,
+                memberId: memberId
+            )
+        )
+    }
+    
+    static func generateSubaccountSignature(
+        groupSessionId: SessionId,
+        verificationBytes: [UInt8],
+        memberAuthData: Data,
+        using dependencies: Dependencies
+    ) throws -> Authentication.Signature {
+        try dependencies[singleton: .crypto].generate(
+            .subaccountSignature(
+                config: dependencies[cache: .sessionUtil]
+                    .config(for: .groupKeys, sessionId: groupSessionId)
+                    .wrappedValue,
+                verificationBytes: verificationBytes,
+                memberAuthData: memberAuthData
+            )
+        )
     }
 }

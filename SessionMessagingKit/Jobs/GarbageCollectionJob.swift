@@ -344,7 +344,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     // Retrieve a list of all valid attachmnet and avatar file paths
                     struct FileInfo {
                         let attachmentLocalRelativePaths: Set<String>
-                        let profileAvatarFilenames: Set<String>
+                        let displayPictureFilenames: Set<String>
                     }
                     
                     let maybeFileInfo: FileInfo? = dependencies[singleton: .storage].read { db -> FileInfo in
@@ -432,6 +432,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     }
                     
                     // Orphaned profile avatar files (actual deletion)
+                    // TODO: Should update 'orphanedProfileAvatars' to be 'orphanedDisplayPictures' and update it to include group images as well
                     if finalTypesToCollect.contains(.orphanedProfileAvatars) {
                         let allAvatarProfileFilenames: Set<String> = (try? FileManager.default
                             .contentsOfDirectory(atPath: ProfileManager.sharedDataProfileAvatarsDirPath))

@@ -8,6 +8,10 @@ public protocol BatchRequestChildRetrievable {
 
 public extension HTTP {
     struct BatchRequest: Encodable, BatchRequestChildRetrievable {
+        /// The servers currently have a limit for the number of requests a `BatchRequest` can have, when using this we should avoid
+        /// trying to make calls that exceed this limit as they will fail
+        public static let childRequestLimit: Int = 20
+        
         public enum CodingKeys: String, CodingKey {
             // Storage Server keys
             case requests
@@ -19,6 +23,10 @@ public extension HTTP {
         public init(requestsKey: CodingKeys? = nil, requests: [any ErasedPreparedRequest]) {
             self.requestsKey = requestsKey
             self.requests = requests.map { Child(request: $0) }
+            
+            if requests.count > BatchRequest.childRequestLimit {
+                SNLog(.warn, "[BatchRequest] Constructed request with \(requests.count) subrequests when the limit is \(BatchRequest.childRequestLimit)")
+            }
         }
         
         // MARK: - Encodable

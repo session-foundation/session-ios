@@ -127,21 +127,6 @@ public extension ConfigDump.Variant {
         }
     }
     
-    /// This value defines the order that the config messages should be processed in, while we re-process config
-    /// messages every time we poll this will prevent an edge-case where data/logic between different config messages
-    /// could be dependant on each other (eg. there could be `convoInfoVolatile` data related to a new conversation
-    /// which hasn't been created yet because it's associated `contacts`/`userGroups` message hasn't yet been
-    /// processed (without this we would have to wait until the next poll for it to be processed correctly)
-    var processingOrder: Int {
-        switch self {
-            case .userProfile, .contacts, .groupKeys: return 0
-            case .userGroups, .groupInfo, .groupMembers: return 1
-            case .convoInfoVolatile: return 2
-                
-            case .invalid: return -1
-        }
-    }
-    
     /// This value defines the order that the config messages should be sent in, we need to send the `groupKeys`
     /// config _before_ the `groupInfo` and `groupMembers` configs as they both get encrypted with the latest key
     /// and we want to avoid weird edge-cases

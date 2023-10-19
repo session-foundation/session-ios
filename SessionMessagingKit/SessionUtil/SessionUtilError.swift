@@ -11,5 +11,6 @@ public enum SessionUtilError: Error {
     case failedToRetrieveConfigData
     
     case failedToRekeyGroup
+    case failedToKeySupplementGroup
     case failedToMakeSubAccountInGroup
 }
