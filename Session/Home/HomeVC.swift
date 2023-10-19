@@ -811,9 +811,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         if let recoveryPasswordView: RecoveryPasswordView = try? RecoveryPasswordView() {
             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
             viewController.setNavBarTitle("recovery_password_title".localized())
-            self.navigationController?.pushViewController(viewController, animated: true) {
-                Storage.shared.writeAsync { db in db[.hasViewedSeed] = true }
-            }
+            self.navigationController?.pushViewController(viewController, animated: true)
         } else {
             let targetViewController: UIViewController = ConfirmationModal(
                 info: ConfirmationModal.Info(

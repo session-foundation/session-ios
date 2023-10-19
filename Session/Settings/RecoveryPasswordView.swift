@@ -206,7 +206,7 @@ struct RecoveryPasswordView: View {
                             )
                             
                             Button {
-                                
+                                hideRecoveryPassword()
                             } label: {
                                 Text("hide_button_title".localized())
                                     .bold()
@@ -226,7 +226,10 @@ struct RecoveryPasswordView: View {
                     }
                 }
                 .padding(.horizontal, Values.largeSpacing)
+                .padding(.vertical, Values.mediumSpacing)
             }
+        }.onAppear {
+            Storage.shared.writeAsync { db in db[.hasViewedSeed] = true }
         }
     }
     
@@ -234,10 +237,51 @@ struct RecoveryPasswordView: View {
         UIPasteboard.general.string = self.mnemonic
         self.copied = true
     }
+    
+    private func hideRecoveryPassword() {
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "hide_recovery_password_modal_title".localized(),
+                body: .text(
+                    "hide_recovery_password_modal_warning_1".localized() +
+                    "\n\n" +
+                    "hide_recovery_password_modal_warning_2".localized()
+                ),
+                confirmTitle: "continue_2".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .textPrimary,
+                onConfirm: { modal in
+                    guard let presentingViewController: UIViewController = modal.presentingViewController else {
+                        return
+                    }
+                    
+                    let continueModal: ConfirmationModal = ConfirmationModal(
+                        info: ConfirmationModal.Info(
+                            title: "hide_recovery_password_modal_title".localized(),
+                            body: .text("hide_recovery_password_modal_confirmation".localized()),
+                            confirmTitle: "TXT_CANCEL_TITLE".localized(),
+                            confirmStyle: .textPrimary,
+                            cancelTitle: "yes_button_title".localized(),
+                            cancelStyle: .danger,
+                            onCancel: { modal in
+                                modal.dismiss(animated: true) {
+                                    Storage.shared.writeAsync { db in db[.hideRecoveryPasswordPermanently] = true }
+                                    self.host.controller?.navigationController?.popViewController(animated: true)
+                                }
+                            }
+                        )
+                    )
+                    
+                    return presentingViewController.present(continueModal, animated: true, completion: nil)
+                }
+            )
+        )
+        self.host.controller?.present(modal, animated: true)
+    }
 }
 
 struct RecoveryPasswordView_Previews: PreviewProvider {
     static var previews: some View {
-        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo penguin  tree grass  building  listen  speak withdraw  terminal  plane ")
+        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo penguin  tree grass  building  listen  speak withdraw  terminal  plane")
     }
 }

@@ -861,3 +861,4 @@ The point that a message will disappear in a disappearing message update message
 "hide_recovery_password_modal_confirmation" = "Are you sure you want to permanently hide your recovery password on this device? This cannot be undone.";
 "view_qr_code_button_title" = "View QR";
 "view_mnemonic_button_title" = "View Password";
+"yes_button_title" = "Yes";

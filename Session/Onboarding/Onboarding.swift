@@ -160,6 +160,7 @@ enum Onboarding {
             // Clear any data which gets set during Onboarding
             Storage.shared.write { db in
                 db[.hasViewedSeed] = false
+                db[.hideRecoveryPasswordPermanently] = false
                 
                 try SessionThread.deleteAll(db)
                 try Profile.deleteAll(db)

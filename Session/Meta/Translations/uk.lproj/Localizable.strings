@@ -859,3 +859,4 @@ The point that a message will disappear in a disappearing message update message
 "hide_recovery_password_modal_warning_1" = "Without your recovery password, you cannot load your account on new devices.";
 "hide_recovery_password_modal_warning_2" = "We strongly recommend you save your recovery password in a safe and secure place before continuing.";
 "hide_recovery_password_modal_confirmation" = "Are you sure you want to permanently hide your recovery password on this device? This cannot be undone.";
+"yes_button_title" = "Yes";
