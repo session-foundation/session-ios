@@ -459,7 +459,13 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         }
         
         // Start the disappearing messages timer if needed
-        if self.expiresStartedAtMs != nil {
+        let shouldStartExipring: Bool = try {
+            guard self.expiresStartedAtMs != nil else { return false }
+            guard self.variant == .standardOutgoing else { return true }
+            return try self.recipientStates.filter(RecipientState.Columns.state != RecipientState.State.sent).isEmpty(db)
+        }()
+        
+        if shouldStartExipring {
             JobRunner.upsert(
                 db,
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(db)

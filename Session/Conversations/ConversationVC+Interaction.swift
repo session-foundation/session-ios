@@ -621,18 +621,6 @@ extension ConversationVC:
                         threadVariant: threadVariant,
                         using: dependencies
                     )
-                    
-                    // Trigger disappear after read
-                    dependencies.jobRunner.upsert(
-                        db,
-                        job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                            db,
-                            interaction: insertedInteraction,
-                            startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
-                        ),
-                        canStartJob: true,
-                        using: dependencies
-                    )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .sinkUntilComplete(
