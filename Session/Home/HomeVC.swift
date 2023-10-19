@@ -808,12 +808,14 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     // MARK: - Interaction
     
     func handleContinueButtonTapped(from seedReminderView: SeedReminderView) {
-        let targetViewController: UIViewController = {
-            if let seedVC: SeedVC = try? SeedVC() {
-                return StyledNavigationController(rootViewController: seedVC)
+        if let recoveryPasswordView: RecoveryPasswordView = try? RecoveryPasswordView() {
+            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
+            viewController.setNavBarTitle("recovery_password_title".localized())
+            self.navigationController?.pushViewController(viewController, animated: true) {
+                Storage.shared.writeAsync { db in db[.hasViewedSeed] = true }
             }
-
-            return ConfirmationModal(
+        } else {
+            let targetViewController: UIViewController = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "ALERT_ERROR_TITLE".localized(),
                     body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
@@ -821,9 +823,8 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                     cancelStyle: .alert_text
                 )
             )
-        }()
-
-        present(targetViewController, animated: true, completion: nil)
+            present(targetViewController, animated: true, completion: nil)
+        }
     }
     
     func show(

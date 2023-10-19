@@ -9,22 +9,19 @@ struct RecoveryPasswordView: View {
     @EnvironmentObject var host: HostWrapper
     
     @State private var copied: Bool = false
-    @State private var showQRCode: Bool = true
+    @State private var showQRCode: Bool = false
     private let mnemonic: String
-    private let flow: Onboarding.Flow
     
     static private let cornerRadius: CGFloat = 13
     static private let backgroundCornerRadius: CGFloat = 17
-    static private let buttonWidth: CGFloat = 120
+    static private let buttonWidth: CGFloat = 130
     
-    public init(flow: Onboarding.Flow) throws {
+    public init() throws {
         self.mnemonic = try Identity.mnemonic()
-        self.flow = flow
     }
     
-    public init(hardcode: String, flow: Onboarding.Flow) {
+    public init(hardcode: String) {
         self.mnemonic = hardcode
-        self.flow = flow
     }
     
     var body: some View {
@@ -241,6 +238,6 @@ struct RecoveryPasswordView: View {
 
 struct RecoveryPasswordView_Previews: PreviewProvider {
     static var previews: some View {
-        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo penguin  tree grass  building  listen  speak withdraw  terminal  plane ", flow: .register)
+        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo penguin  tree grass  building  listen  speak withdraw  terminal  plane ")
     }
 }

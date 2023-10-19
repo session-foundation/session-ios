@@ -420,17 +420,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         SessionCell.Info(
                             id: .recoveryPhrase,
                             leftAccessory: .icon(
-                                UIImage(named: "icon_recovery")?
+                                UIImage(named: "SessionShield")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_settings_recovery_phrase_button_title".localized(),
+                            title: "recovery_password_title".localized(),
                             onTap: {
-                                let targetViewController: UIViewController = {
-                                    if let modal: SeedModal = try? SeedModal() {
-                                        return modal
-                                    }
-                                    
-                                    return ConfirmationModal(
+                                if let recoveryPasswordView: RecoveryPasswordView = try? RecoveryPasswordView() {
+                                    let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
+                                    viewController.setNavBarTitle("recovery_password_title".localized())
+                                    self?.transitionToScreen(viewController)
+                                } else {
+                                    let targetViewController: UIViewController = ConfirmationModal(
                                         info: ConfirmationModal.Info(
                                             title: "ALERT_ERROR_TITLE".localized(),
                                             body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
@@ -438,9 +438,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                             cancelStyle: .alert_text
                                         )
                                     )
-                                }()
-                                
-                                self?.transitionToScreen(targetViewController, transitionType: .present)
+                                    self?.transitionToScreen(targetViewController, transitionType: .present)
+                                }
                             }
                         ),
                         SessionCell.Info(
