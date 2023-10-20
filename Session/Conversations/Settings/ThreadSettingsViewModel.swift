@@ -779,8 +779,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try selectedUsers.forEach { userId in
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                    db,
+                    id: userId,
+                    variant: .contact,
+                    shouldBeVisible: nil,
+                    calledFromConfigHandling: false,
+                    using: dependencies
+                )
                 
                 try LinkPreview(
                     url: communityUrl,

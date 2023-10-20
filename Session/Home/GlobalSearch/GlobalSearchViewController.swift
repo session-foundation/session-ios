@@ -334,7 +334,9 @@ extension GlobalSearchViewController {
                     db,
                     id: threadId,
                     variant: threadVariant,
-                    shouldBeVisible: nil    // Don't change current state
+                    shouldBeVisible: nil,    // Don't change current state
+                    calledFromConfigHandling: false,
+                    using: dependencies
                 )
             }
         }

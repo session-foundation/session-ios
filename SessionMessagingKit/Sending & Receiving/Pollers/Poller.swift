@@ -243,7 +243,7 @@ public class Poller: PollerType {
                 let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
                 
                 // No need to do anything if there are no messages
-                guard !sortedMessages.isEmpty else {
+                guard rawMessageCount > 0 else {
                     if !calledFromBackgroundPoller { SNLog("Received no new messages in \(pollerName)") }
                     
                     return Just([])

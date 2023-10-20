@@ -556,7 +556,6 @@
 		FD245C59285065FC00B966DD /* ControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A7702553A41E00C340D1 /* ControlMessage.swift */; };
 		FD245C5A2850660100B966DD /* LinkPreviewDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBA8255A581500E217F9 /* LinkPreviewDraft.swift */; };
 		FD245C5B2850660500B966DD /* ReadReceipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5BC2554B00D00555489 /* ReadReceipt.swift */; };
-		FD245C5C2850660A00B966DD /* LegacyConfigurationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DA9C0625AE7396008F7C7E /* LegacyConfigurationMessage.swift */; };
 		FD245C5D2850660F00B966DD /* OWSAudioPlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2F7255B6DBC007E1867 /* OWSAudioPlayer.m */; };
 		FD245C5F2850662200B966DD /* OWSWindowManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C38EF306255B6DBE007E1867 /* OWSWindowManager.m */; };
 		FD245C632850664600B966DD /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD245C612850664300B966DD /* Configuration.swift */; };
@@ -1673,7 +1672,6 @@
 		C3CA3ABD255CDB0D00F4C6D4 /* portuguese.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = portuguese.txt; sourceTree = "<group>"; };
 		C3CA3AC7255CDB2900F4C6D4 /* spanish.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = spanish.txt; sourceTree = "<group>"; };
 		C3D0972A2510499C00F6E3E4 /* BackgroundPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundPoller.swift; sourceTree = "<group>"; };
-		C3DA9C0625AE7396008F7C7E /* LegacyConfigurationMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyConfigurationMessage.swift; sourceTree = "<group>"; };
 		C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRCopyableLabel.swift; sourceTree = "<group>"; };
 		C3DB66AB260ACA42001EFC55 /* OpenGroupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupManager.swift; sourceTree = "<group>"; };
 		C3DB66C2260ACCE6001EFC55 /* OpenGroupAPI+Poller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpenGroupAPI+Poller.swift"; sourceTree = "<group>"; };
@@ -2943,7 +2941,6 @@
 				C3C2A7702553A41E00C340D1 /* ControlMessage.swift */,
 				B8DE1FB526C22FCB0079C9CE /* CallMessage.swift */,
 				C34A977325A3E34A00852C71 /* ClosedGroupControlMessage.swift */,
-				C3DA9C0625AE7396008F7C7E /* LegacyConfigurationMessage.swift */,
 				B8F5F60225EDE16F003BF8D4 /* DataExtractionNotification.swift */,
 				C300A5E62554B07300555489 /* ExpirationTimerUpdate.swift */,
 				7B93D06F27CF194000811CB6 /* MessageRequestResponse.swift */,
@@ -6444,7 +6441,6 @@
 				C3DB66C3260ACCE6001EFC55 /* OpenGroupAPI+Poller.swift in Sources */,
 				FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */,
 				FD368A6829DE8F9C000DBF1E /* _012_AddFTSIfNeeded.swift in Sources */,
-				FD245C5C2850660A00B966DD /* LegacyConfigurationMessage.swift in Sources */,
 				FDB5DAD82A95D830002C8721 /* GroupUpdateDeleteMessage.swift in Sources */,
 				FD5C7301284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift in Sources */,
 				C3C2A75F2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift in Sources */,

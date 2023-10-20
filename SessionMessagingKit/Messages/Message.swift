@@ -148,7 +148,6 @@ public extension Message {
         case closedGroupControlMessage
         case dataExtractionNotification
         case expirationTimerUpdate
-        case legacyConfigurationMessage = "configurationMessage"
         case unsendRequest
         case messageRequestResponse
         case visibleMessage
@@ -169,7 +168,6 @@ public extension Message {
                 case is ClosedGroupControlMessage: self = .closedGroupControlMessage
                 case is DataExtractionNotification: self = .dataExtractionNotification
                 case is ExpirationTimerUpdate: self = .expirationTimerUpdate
-                case is LegacyConfigurationMessage: self = .legacyConfigurationMessage
                 case is UnsendRequest: self = .unsendRequest
                 case is MessageRequestResponse: self = .messageRequestResponse
                 case is VisibleMessage: self = .visibleMessage
@@ -193,7 +191,6 @@ public extension Message {
                 case .closedGroupControlMessage: return ClosedGroupControlMessage.self
                 case .dataExtractionNotification: return DataExtractionNotification.self
                 case .expirationTimerUpdate: return ExpirationTimerUpdate.self
-                case .legacyConfigurationMessage: return LegacyConfigurationMessage.self
                 case .unsendRequest: return UnsendRequest.self
                 case .messageRequestResponse: return MessageRequestResponse.self
                 case .visibleMessage: return VisibleMessage.self
@@ -222,9 +219,6 @@ public extension Message {
                     
                 case .expirationTimerUpdate: return try container.decode(ExpirationTimerUpdate.self, forKey: key)
                 
-                case .legacyConfigurationMessage:
-                    return try container.decode(LegacyConfigurationMessage.self, forKey: key)
-                    
                 case .unsendRequest: return try container.decode(UnsendRequest.self, forKey: key)
                 case .messageRequestResponse: return try container.decode(MessageRequestResponse.self, forKey: key)
                 case .visibleMessage: return try container.decode(VisibleMessage.self, forKey: key)
@@ -269,7 +263,6 @@ public extension Message {
             .groupUpdateDeleteMemberContent,
             .dataExtractionNotification,
             .expirationTimerUpdate,
-            .legacyConfigurationMessage,
             .unsendRequest,
             .messageRequestResponse,
             .visibleMessage,
@@ -309,7 +302,6 @@ public extension Message {
         switch message {
             case is VisibleMessage: return true
             case is ExpirationTimerUpdate: return true
-            case is LegacyConfigurationMessage: return true
             case is UnsendRequest: return true
             
             case let controlMessage as ClosedGroupControlMessage:

@@ -50,8 +50,13 @@ enum MockDataGenerator {
         logProgress("", "Start")
         
         // First create the thread used to indicate that the mock data has been generated
-        _ = try? SessionThread
-            .fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact, shouldBeVisible: false)
+        _ = try? SessionThread.fetchOrCreate(
+            db,
+            id: "MockDatabaseThread",
+            variant: .contact,
+            shouldBeVisible: false,
+            calledFromConfigHandling: false
+        )
         
         // MARK: - -- DM Thread
         
@@ -80,7 +85,8 @@ enum MockDataGenerator {
                         db,
                         id: randomSessionId,
                         variant: .contact,
-                        shouldBeVisible: true
+                        shouldBeVisible: true,
+                        calledFromConfigHandling: false
                     )
                 
                 // Generate the contact
@@ -191,7 +197,8 @@ enum MockDataGenerator {
                         db,
                         id: randomLegacyGroupPublicKey,
                         variant: .legacyGroup,
-                        shouldBeVisible: true
+                        shouldBeVisible: true,
+                        calledFromConfigHandling: false
                     )
                 _ = try! ClosedGroup(
                     threadId: randomLegacyGroupPublicKey,
@@ -324,7 +331,8 @@ enum MockDataGenerator {
                         db,
                         id: randomGroupPublicKey,
                         variant: .community,
-                        shouldBeVisible: true
+                        shouldBeVisible: true,
+                        calledFromConfigHandling: false
                     )
                 _ = try! OpenGroup(
                     server: serverName,

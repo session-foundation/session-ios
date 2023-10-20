@@ -1,4 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
@@ -19,7 +21,7 @@ public final class GroupUpdateMemberLeftMessage: ControlMessage {
     // MARK: - Proto Conversion
     
     public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateMemberLeftMessage? {
-        guard let groupMemberLeftMessage = proto.dataMessage?.groupUpdateMessage?.memberLeftMessage else { return nil }
+        guard proto.dataMessage?.groupUpdateMessage?.memberLeftMessage != nil else { return nil }
         
         return GroupUpdateMemberLeftMessage()
     }

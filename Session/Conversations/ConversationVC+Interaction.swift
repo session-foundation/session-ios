@@ -1128,14 +1128,25 @@ extension ConversationVC:
         reply(cellViewModel, using: dependencies)
     }
     
-    func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?) {
+    func startThread(
+        with sessionId: String,
+        openGroupServer: String?,
+        openGroupPublicKey: String?,
+        using dependencies: Dependencies
+    ) {
         guard viewModel.threadData.canWrite else { return }
         // FIXME: Add in support for starting a thread with a 'blinded25' id
         guard (try? SessionId.Prefix(from: sessionId)) != .blinded25 else { return }
         guard (try? SessionId.Prefix(from: sessionId)) == .blinded15 else {
-            Dependencies()[singleton: .storage].write { db in
-                try SessionThread
-                    .fetchOrCreate(db, id: sessionId, variant: .contact, shouldBeVisible: nil)
+            dependencies[singleton: .storage].write { db in
+                try SessionThread.fetchOrCreate(
+                    db,
+                    id: sessionId,
+                    variant: .contact,
+                    shouldBeVisible: nil,
+                    calledFromConfigHandling: false,
+                    using: dependencies
+                )
             }
             
             let conversationVC: ConversationVC = ConversationVC(threadId: sessionId, threadVariant: .contact)
@@ -1150,7 +1161,7 @@ extension ConversationVC:
             return
         }
         
-        let targetThreadId: String? = Dependencies()[singleton: .storage].write { db in
+        let targetThreadId: String? = dependencies[singleton: .storage].write { db in
             let lookup: BlindedIdLookup = try BlindedIdLookup
                 .fetchOrCreate(
                     db,
@@ -1165,7 +1176,9 @@ extension ConversationVC:
                     db,
                     id: (lookup.sessionId ?? lookup.blindedId),
                     variant: .contact,
-                    shouldBeVisible: nil
+                    shouldBeVisible: nil,
+                    calledFromConfigHandling: false,
+                    using: dependencies
                 )
                 .id
         }
@@ -1842,7 +1855,8 @@ extension ConversationVC:
             case .standardIncomingDeleted, .infoCall, .infoScreenshotNotification, .infoMediaSavedNotification,
                 .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
-                .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate, .infoGroupUpdated:
+                .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate, .infoGroupInfoUpdated,
+                .infoGroupMembersUpdated:
                 // Info messages and unsent messages should just trigger a local
                 // deletion (they are created as side effects so we wouldn't be
                 // able to delete them for all participants anyway)
@@ -1944,7 +1958,7 @@ extension ConversationVC:
                     })
                     
                     guard targetJob == nil else {
-                        dependencies[singleton: .jobRunner].afterCurrentlyRunningJob(targetJob) { [weak self] result in
+                        dependencies[singleton: .jobRunner].afterJob(targetJob, state: .running) { [weak self] result in
                             switch result {
                                 // If it succeeded then we'll need to delete from the server so re-run
                                 // this function (if we still don't have the server id for some reason

@@ -75,7 +75,7 @@ public class MessageCell: UITableViewCell {
             case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                 .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoMessageRequestAccepted, .infoGroupUpdated:
+                .infoMessageRequestAccepted, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                 return InfoMessageCell.self
                 
             case .infoCall:
@@ -93,7 +93,7 @@ protocol MessageCellDelegate: ReactionDelegate {
     func handleItemSwiped(_ cellViewModel: MessageViewModel, state: SwipeState)
     func openUrl(_ urlString: String)
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel, using dependencies: Dependencies)
-    func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?)
+    func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?, using dependencies: Dependencies)
     func showReactionList(_ cellViewModel: MessageViewModel, selectedReaction: EmojiWithSkinTones?)
     func needsLayout(for cellViewModel: MessageViewModel, expandingReactions: Bool)
 }

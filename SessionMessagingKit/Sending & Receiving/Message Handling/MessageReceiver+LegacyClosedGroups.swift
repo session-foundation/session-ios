@@ -157,8 +157,14 @@ extension MessageReceiver {
         guard hasApprovedAdmin || calledFromConfigHandling else { return }
         
         // Create the group
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: legacyGroupSessionId, variant: .legacyGroup, shouldBeVisible: true)
+        let thread: SessionThread = try SessionThread.fetchOrCreate(
+            db,
+            id: legacyGroupSessionId,
+            variant: .legacyGroup,
+            shouldBeVisible: true,
+            calledFromConfigHandling: calledFromConfigHandling,
+            using: dependencies
+        )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: legacyGroupSessionId,
             name: name,

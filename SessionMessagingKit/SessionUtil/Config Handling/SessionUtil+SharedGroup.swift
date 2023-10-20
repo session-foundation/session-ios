@@ -21,6 +21,7 @@ internal extension SessionUtil {
     static func createGroup(
         _ db: Database,
         name: String,
+        description: String?,
         displayPictureUrl: String?,
         displayPictureFilename: String?,
         displayPictureEncryptionKey: Data?,
@@ -33,34 +34,44 @@ internal extension SessionUtil {
             let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies)
         else { throw MessageSenderError.noKeyPair }
         
-        // Prep the relevant details
+        // Prep the relevant details (reduce the members to ensure we don't accidentally insert duplicates)
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         let creationTimestamp: TimeInterval = TimeInterval(
             Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000
         )
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let currentUserProfile: Profile? = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
+        let initialMembers: [String: (profile: Profile?, isAdmin: Bool)] = members
+            .map { ($0.id, $0.profile, false) }
+            .appending(contentsOf: admins.map { ($0.id, $0.profile, true) })
+            .appending((userSessionId.hexString, currentUserProfile, true))
+            .reduce(into: [:]) { result, next in result[next.0] = (profile: next.1, isAdmin: next.2)}
         
         // Create the new config objects
         let groupState: [ConfigDump.Variant: Config] = try createGroupState(
             groupSessionId: groupSessionId,
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
-            authData: nil,
+            initialMembers: initialMembers,
             shouldLoadState: false, // We manually load the state after populating the configs
             using: dependencies
         )
         
         // Extract the conf objects from the state to load in the initial data
-        guard case .groupKeys(_, let groupInfoConf, let membersConf) = groupState[.groupKeys] else {
+        guard case .groupKeys(_, let groupInfoConf, _) = groupState[.groupKeys] else {
             SNLog("[SessionUtil Error] Group config objects were null")
             throw SessionUtilError.unableToCreateConfigObject
         }
         
         // Set the initial values in the confs
-        var groupName: [CChar] = name.cArray.nullTerminated()
-        groups_info_set_name(groupInfoConf, &groupName)
+        var cGroupName: [CChar] = name.cArray.nullTerminated()
+        groups_info_set_name(groupInfoConf, &cGroupName)
         groups_info_set_created(groupInfoConf, Int64(floor(creationTimestamp)))
+        
+        if let groupDescription: String = description {
+            var cGroupDescription: [CChar] = groupDescription.cArray.nullTerminated()
+            groups_info_set_description(groupInfoConf, &cGroupDescription)
+        }
         
         if
             let displayPictureUrl: String = displayPictureUrl,
@@ -70,38 +81,6 @@ internal extension SessionUtil {
             displayPic.url = displayPictureUrl.toLibSession()
             displayPic.key = displayPictureEncryptionKey.toLibSession()
             groups_info_set_pic(groupInfoConf, displayPic)
-        }
-        
-        // Store the members/admins in the group (reduce to ensure we don't accidentally insert duplicates)
-        let finalMembers: [String: (profile: Profile?, isAdmin: Bool)] = members
-            .map { ($0.id, $0.profile, false) }
-            .appending(contentsOf: admins.map { ($0.id, $0.profile, true) })
-            .appending((userSessionId.hexString, currentUserProfile, true))
-            .reduce(into: [:]) { result, next in result[next.0] = (profile: next.1, isAdmin: next.2)}
-        
-        try finalMembers.forEach { memberId, info in
-            var profilePic: user_profile_pic = user_profile_pic()
-            
-            if
-                let picUrl: String = info.profile?.profilePictureUrl,
-                let picKey: Data = info.profile?.profileEncryptionKey
-            {
-                profilePic.url = picUrl.toLibSession()
-                profilePic.key = picKey.toLibSession()
-            }
-
-            try CExceptionHelper.performSafely {
-                var member: config_group_member = config_group_member(
-                    session_id: memberId.toLibSession(),
-                    name: (info.profile?.name ?? "").toLibSession(),
-                    profile_pic: profilePic,
-                    admin: info.isAdmin,
-                    invited: 0,
-                    promoted: 0
-                )
-                
-                groups_members_set(membersConf, &member)
-            }
         }
         
         // Now that everything has been populated correctly we can load the state into memory
@@ -127,7 +106,7 @@ internal extension SessionUtil {
                 groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
                 invited: false
             ),
-            finalMembers.map { memberId, info -> GroupMember in
+            initialMembers.map { memberId, info -> GroupMember in
                 GroupMember(
                     groupId: groupSessionId.hexString,
                     profileId: memberId,
@@ -188,7 +167,7 @@ internal extension SessionUtil {
         groupSessionId: SessionId,
         userED25519KeyPair: KeyPair,
         groupIdentityPrivateKey: Data?,
-        authData: Data?,
+        initialMembers: [String: (profile: Profile?, isAdmin: Bool)] = [:],
         shouldLoadState: Bool,
         using dependencies: Dependencies
     ) throws -> [ConfigDump.Variant: Config] {
@@ -200,6 +179,39 @@ internal extension SessionUtil {
         var groupInfoConf: UnsafeMutablePointer<config_object>? = nil
         var groupMembersConf: UnsafeMutablePointer<config_object>? = nil
         var error: [CChar] = [CChar](repeating: 0, count: 256)
+        
+        func loading(
+            members: [String: (profile: Profile?, isAdmin: Bool)],
+            into membersConf: UnsafeMutablePointer<config_object>?
+        ) throws {
+            guard !members.isEmpty else { return }
+            
+            try members.forEach { memberId, info in
+                var profilePic: user_profile_pic = user_profile_pic()
+                
+                if
+                    let picUrl: String = info.profile?.profilePictureUrl,
+                    let picKey: Data = info.profile?.profileEncryptionKey
+                {
+                    profilePic.url = picUrl.toLibSession()
+                    profilePic.key = picKey.toLibSession()
+                }
+                
+                try CExceptionHelper.performSafely {
+                    var member: config_group_member = config_group_member(
+                        session_id: memberId.toLibSession(),
+                        name: (info.profile?.name ?? "").toLibSession(),
+                        profile_pic: profilePic,
+                        admin: info.isAdmin,
+                        invited: 0,
+                        promoted: 0,
+                        supplement: false
+                    )
+                    
+                    groups_members_set(membersConf, &member)
+                }
+            }
+        }
         
         // It looks like C doesn't deal will passing pointers to null variables well so we need
         // to explicitly pass 'nil' for the admin key in this case
@@ -223,6 +235,8 @@ internal extension SessionUtil {
                     0,
                     &error
                 ).orThrow(error: error)
+                try loading(members: initialMembers, into: groupMembersConf)
+                
                 try groups_keys_init(
                     &groupKeysConf,
                     &secretKey,
@@ -252,6 +266,8 @@ internal extension SessionUtil {
                     0,
                     &error
                 ).orThrow(error: error)
+                try loading(members: initialMembers, into: groupMembersConf)
+                
                 try groups_keys_init(
                     &groupKeysConf,
                     &secretKey,
@@ -294,6 +310,7 @@ internal extension SessionUtil {
         
         return groupState
     }
+    
     
     static func encrypt(
         message: Data,

@@ -195,7 +195,9 @@ public final class OpenGroupManager {
                 ///
                 /// **Note:** We **MUST** provide a `nil` value if this method was called from the config handling as updating
                 /// the `shouldVeVisible` state can trigger a config update which could result in an infinite loop in the future
-                shouldBeVisible: (calledFromConfigHandling ? nil : true)
+                shouldBeVisible: (calledFromConfigHandling ? nil : true),
+                calledFromConfigHandling: calledFromConfigHandling,
+                using: dependencies
             )
         
         if (try? OpenGroup.exists(db, id: threadId)) == false {
@@ -222,7 +224,7 @@ public final class OpenGroupManager {
                     db,
                     OpenGroup.Columns.isActive.set(to: true),
                     OpenGroup.Columns.sequenceNumber.set(to: 0),
-                    calledFromConfig: calledFromConfigHandling,
+                    calledFromConfigHandling: calledFromConfigHandling,
                     using: dependencies
                 )
         }
@@ -368,7 +370,7 @@ public final class OpenGroupManager {
                 .updateAllAndConfig(
                     db,
                     OpenGroup.Columns.isActive.set(to: false),
-                    calledFromConfig: calledFromConfigHandling,
+                    calledFromConfigHandling: calledFromConfigHandling,
                     using: dependencies
                 )
         }

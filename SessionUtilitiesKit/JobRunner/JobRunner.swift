@@ -37,7 +37,7 @@ public protocol JobRunnerType {
     @discardableResult func add(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) -> Job?
     func upsert(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies)
     @discardableResult func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)?
-    func afterCurrentlyRunningJob(_ job: Job?, callback: @escaping (JobRunner.JobResult) -> ())
+    func afterJob(_ job: Job?, state: JobRunner.JobState, callback: @escaping (JobRunner.JobResult) -> ())
     func removePendingJob(_ job: Job?)
 }
 
@@ -90,6 +90,10 @@ public extension JobRunnerType {
     
     func stopAndClearPendingJobs(exceptForVariant: Job.Variant? = nil, onComplete: (() -> ())? = nil) {
         stopAndClearPendingJobs(exceptForVariant: exceptForVariant, onComplete: onComplete)
+    }
+    
+    func afterJob(_ job: Job?, callback: @escaping (JobRunner.JobResult) -> ()) {
+        afterJob(job, state: .any, callback: callback)
     }
 }
 
@@ -145,7 +149,7 @@ public final class JobRunner: JobRunnerType {
     
     public enum JobResult {
         case succeeded
-        case failed
+        case failed(Error?)
         case deferred
         case notFound
     }
@@ -705,13 +709,13 @@ public final class JobRunner: JobRunnerType {
         return (jobId, updatedJob)
     }
     
-    public func afterCurrentlyRunningJob(_ job: Job?, callback: @escaping (JobResult) -> ()) {
+    public func afterJob(_ job: Job?, state: JobRunner.JobState, callback: @escaping (JobResult) -> ()) {
         guard let job: Job = job, let jobId: Int64 = job.id, let queue: JobQueue = queues.wrappedValue[job.variant] else {
             callback(.notFound)
             return
         }
         
-        queue.afterCurrentlyRunningJob(jobId, callback: callback)
+        queue.afterJob(jobId, state: state, callback: callback)
     }
     
     public func removePendingJob(_ job: Job?) {
@@ -1069,8 +1073,13 @@ public final class JobQueue: Hashable {
         return currentlyRunningJobInfo.wrappedValue
     }
     
-    fileprivate func afterCurrentlyRunningJob(_ jobId: Int64, callback: @escaping (JobRunner.JobResult) -> ()) {
-        guard currentlyRunningJobIds.wrappedValue.contains(jobId) else { return callback(.notFound) }
+    fileprivate func afterJob(_ jobId: Int64, state: JobRunner.JobState, callback: @escaping (JobRunner.JobResult) -> ()) {
+        /// Check if the current job state matches the requested state (if not then the job in the requested state can't be found so stop here)
+        switch (state, currentlyRunningJobIds.wrappedValue.contains(jobId)) {
+            case (.running, false): return callback(.notFound)
+            case (.pending, true): return callback(.notFound)
+            default: break
+        }
         
         jobCallbacks.mutate { jobCallbacks in
             jobCallbacks[jobId] = (jobCallbacks[jobId] ?? []).appending(callback)
@@ -1566,7 +1575,7 @@ public final class JobQueue: Hashable {
     ) {
         guard dependencies[singleton: .storage].read(using: dependencies, { db in try Job.exists(db, id: job.id ?? -1) }) == true else {
             SNLog("[JobRunner] \(queueContext) \(job.variant) job canceled")
-            performCleanUp(for: job, result: .failed, using: dependencies)
+            performCleanUp(for: job, result: .failed(error), using: dependencies)
             
             internalQueue.async(using: dependencies) { [weak self] in
                 self?.runNextJob(using: dependencies)
@@ -1590,7 +1599,7 @@ public final class JobQueue: Hashable {
             }()
             performCleanUp(
                 for: job,
-                result: .failed,
+                result: .failed(error),
                 shouldTriggerCallbacks: wasPossibleDeferralLoop,
                 using: dependencies
             )
@@ -1671,7 +1680,7 @@ public final class JobQueue: Hashable {
         }
         
         SNLog("[JobRunner] \(queueContext) \(job.variant) job \(failureText)")
-        performCleanUp(for: job, result: .failed, using: dependencies)
+        performCleanUp(for: job, result: .failed(error), using: dependencies)
         internalQueue.async(using: dependencies) { [weak self] in
             self?.runNextJob(using: dependencies)
         }

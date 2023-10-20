@@ -879,7 +879,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 delegate?.startThread(
                     with: cellViewModel.authorId,
                     openGroupServer: cellViewModel.threadOpenGroupServer,
-                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
+                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey,
+                    using: dependencies
                 )
                 return
             }
@@ -887,7 +888,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             delegate?.startThread(
                 with: cellViewModel.authorId,
                 openGroupServer: nil,
-                openGroupPublicKey: nil
+                openGroupPublicKey: nil,
+                using: dependencies
             )
         }
         else if replyButton.alpha > 0 && replyButton.bounds.contains(replyButton.convert(location, from: self)) {

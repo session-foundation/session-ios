@@ -157,7 +157,14 @@ extension MessageReceiver {
         using dependencies: Dependencies
     ) throws {
         // Create the group
-        try SessionThread.fetchOrCreate(db, id: groupSessionId, variant: .group, shouldBeVisible: true)
+        try SessionThread.fetchOrCreate(
+            db,
+            id: groupSessionId,
+            variant: .group,
+            shouldBeVisible: true,
+            calledFromConfigHandling: calledFromConfigHandling,
+            using: dependencies
+        )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupSessionId,
             name: (name ?? "GROUP_TITLE_FALLBACK".localized()),
@@ -224,14 +231,14 @@ extension MessageReceiver {
             )
         else { throw MessageReceiverError.invalidMessage }
         
-        // Delete the group data (Want to keep the group itself around because the user was kicked and
-        // the UX of conversations randomly disappearing isn't great)
+        // Delete the group data (want to keep the group itself around because the UX of conversations
+        // randomly disappearing isn't great)
         try ClosedGroup.removeData(
             db,
             threadIds: [message.groupSessionId.hexString],
             dataToRemove: [
-                .poller, .pushNotifications, .messages,
-                .members, .encryptionKeys, .libSessionState
+                .poller, .pushNotifications, .messages, .members,
+                .encryptionKeys, .authDetails, .libSessionState
             ],
             calledFromConfigHandling: false,
             using: dependencies
@@ -312,7 +319,7 @@ extension MessageReceiver {
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
                     authorId: sender,
-                    variant: .infoGroupUpdated,
+                    variant: .infoGroupInfoUpdated,
                     body: message.updatedName
                         .map { ClosedGroup.MessageInfo.updatedName($0) }
                         .defaulting(to: ClosedGroup.MessageInfo.updatedNameFallback)
@@ -325,7 +332,7 @@ extension MessageReceiver {
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
                     authorId: sender,
-                    variant: .infoGroupUpdated,
+                    variant: .infoGroupInfoUpdated,
                     body: ClosedGroup.MessageInfo
                         .updatedDisplayPicture
                         .infoString,
@@ -386,13 +393,13 @@ extension MessageReceiver {
         else { throw MessageReceiverError.invalidMessage }
         
         let profiles: [String: Profile] = (try? Profile
-            .filter(ids: message.memberPublicKeys.map { $0.toHexString() })
+            .filter(ids: message.memberSessionIds)
             .fetchAll(db))
             .defaulting(to: [])
             .reduce(into: [:]) { result, next in result[next.id] = next }
-        let names: [String] = message.memberPublicKeys.map { idData in
-            profiles[idData.toHexString()]?.displayName(for: .group) ??
-            Profile.truncated(id: idData.toHexString(), truncating: .middle)
+        let names: [String] = message.memberSessionIds.map { id in
+            profiles[id]?.displayName(for: .group) ??
+            Profile.truncated(id: id, truncating: .middle)
         }
         
         // Add a record of the specific change to the conversation (the actual change is handled via
@@ -400,7 +407,7 @@ extension MessageReceiver {
         _ = try Interaction(
             threadId: groupSessionId.hexString,
             authorId: sender,
-            variant: .infoGroupUpdated,
+            variant: .infoGroupMembersUpdated,
             body: {
                 switch message.changeType {
                     case .added: return ClosedGroup.MessageInfo.addedUsers(names: names).infoString
@@ -428,7 +435,7 @@ extension MessageReceiver {
         _ = try Interaction(
             threadId: groupSessionId.hexString,
             authorId: sender,
-            variant: .infoGroupUpdated,
+            variant: .infoGroupMembersUpdated,
             body: ClosedGroup.MessageInfo
                 .memberLeft(
                     name: (
@@ -450,6 +457,7 @@ extension MessageReceiver {
             .removeGroupMembers(
                 groupSessionId: groupSessionId.hexString,
                 memberIds: [sender],
+                removeTheirMessages: false,
                 sendMemberChangedMessage: false,
                 changeTimestampMs: Int64(sentTimestampMs),
                 using: dependencies
@@ -544,22 +552,17 @@ extension MessageReceiver {
                 signature: message.adminSignature,
                 publicKey: groupSessionId.publicKey,
                 verificationBytes: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
-                    memberPublicKeys: message.memberPublicKeys,
+                    memberSessionIds: message.memberSessionIds,
                     timestampMs: sentTimestampMs
                 ),
                 using: dependencies
             )
         else { throw MessageReceiverError.invalidMessage }
         
-        // Convert the public keys into sessionIds
-        let memberSessionIds: Set<String> = message.memberPublicKeys
-            .map { SessionId(.standard, publicKey: Array($0)).hexString }
-            .asSet()
-        
         try Interaction
             .filter(
                 Interaction.Columns.threadId == groupSessionId.hexString &&
-                memberSessionIds.contains(Interaction.Columns.authorId) &&
+                message.memberSessionIds.asSet().contains(Interaction.Columns.authorId) &&
                 Interaction.Columns.timestampMs < sentTimestampMs
             )
             .deleteAll(db)

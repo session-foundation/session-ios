@@ -471,13 +471,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             // If the user is no longer a member then leave the group
             guard updatedMemberIds.contains(userSessionId.hexString) else {
                 dependencies[singleton: .storage]
-                    .writePublisher { db in
-                        try MessageSender.leave(
-                            db,
-                            groupPublicKey: threadId,
-                            deleteThread: true
-                        )
-                    }
+                    .writePublisher { db in try MessageSender.leave(db, groupPublicKey: threadId) }
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                     .receive(on: DispatchQueue.main)
                     .sinkUntilComplete(
@@ -529,6 +523,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                     return MessageSender.removeGroupMembers(
                         groupSessionId: threadId,
                         memberIds: removedMemberIds,
+                        removeTheirMessages: false,
                         sendMemberChangedMessage: true,
                         using: dependencies
                     )

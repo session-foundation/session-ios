@@ -4,6 +4,7 @@
 
 import Foundation
 import SessionUtil
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 public extension SessionUtil {
@@ -255,7 +256,7 @@ public extension SessionUtil {
                         .last
                     
                 case .groupKeys(let conf, let infoConf, let membersConf):
-                    return messages
+                    let successfulMergeTimestamps: [Int64] = messages
                         .map { message -> (Bool, Int64) in
                             var data: [UInt8] = Array(message.data)
                             var messageHash: [CChar] = message.serverHash.cArray.nullTerminated()
@@ -274,7 +275,12 @@ public extension SessionUtil {
                         .filter { success, _ in success }
                         .map { _, serverTimestampMs in serverTimestampMs }
                         .sorted()
-                        .last
+                    
+                    if successfulMergeTimestamps.count != messages.count {
+                        SNLog("[SessionUtil] Unable to merge \(SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
+                    }
+                    
+                    return successfulMergeTimestamps.last
             }
         }
         

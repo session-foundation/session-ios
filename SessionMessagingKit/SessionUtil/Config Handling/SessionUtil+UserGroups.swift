@@ -1039,6 +1039,54 @@ public extension SessionUtil {
         }
     }
     
+    static func markAsKicked(
+        _ db: Database,
+        groupSessionIds: [String],
+        using dependencies: Dependencies
+    ) throws {
+        guard !groupSessionIds.isEmpty else { return }
+        
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .userGroups,
+            sessionId: getUserSessionId(db, using: dependencies),
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            groupSessionIds.forEach { groupSessionId in
+                var cGroupSessionId: [CChar] = groupSessionId.cArray.nullTerminated()
+                var userGroup: ugroups_group_info = ugroups_group_info()
+                
+                guard user_groups_get_group(conf, &userGroup, &cGroupSessionId) else { return }
+                
+                ugroups_group_set_kicked(&userGroup)
+                user_groups_set_group(conf, &userGroup)
+            }
+        }
+    }
+    
+    static func wasKickedFromGroup(
+        groupSessionId: SessionId,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Bool {
+        return (try? dependencies[cache: .sessionUtil]
+            .config(for: .userGroups, sessionId: getUserSessionId(using: dependencies))
+            .wrappedValue
+            .map { config in
+                guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+                
+                var cGroupId: [CChar] = groupSessionId.hexString.cArray.nullTerminated()
+                var userGroup: ugroups_group_info = ugroups_group_info()
+                
+                // If the group doesn't exist then assume the user was kicked
+                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return true }
+                
+                return ugroups_group_is_kicked(&userGroup)
+            })
+            .defaulting(to: true)
+    }
+    
     static func remove(
         _ db: Database,
         groupSessionIds: [String],

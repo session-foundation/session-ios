@@ -53,17 +53,22 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAllAndConfig(
         _ db: Database,
         _ assignments: ConfigColumnAssignment...,
-        calledFromConfig: Bool = false,
+        calledFromConfigHandling: Bool = false,
         using dependencies: Dependencies = Dependencies()
     ) throws -> Int {
-        return try updateAllAndConfig(db, assignments, calledFromConfig: calledFromConfig, using: dependencies)
+        return try updateAllAndConfig(
+            db,
+            assignments,
+            calledFromConfigHandling: calledFromConfigHandling,
+            using: dependencies
+        )
     }
     
     @discardableResult
     func updateAllAndConfig(
         _ db: Database,
         _ assignments: [ConfigColumnAssignment],
-        calledFromConfig: Bool = false,
+        calledFromConfigHandling: Bool = false,
         using dependencies: Dependencies = Dependencies()
     ) throws -> Int {
         let targetAssignments: [ColumnAssignment] = assignments.map { $0.assignment }
@@ -76,7 +81,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         return try self.updateAndFetchAllAndUpdateConfig(
             db,
             assignments,
-            calledFromConfig: calledFromConfig,
+            calledFromConfigHandling: calledFromConfigHandling,
             using: dependencies
         ).count
     }
@@ -87,13 +92,13 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
         _ assignments: ConfigColumnAssignment...,
-        calledFromConfig: Bool = false,
+        calledFromConfigHandling: Bool = false,
         using dependencies: Dependencies = Dependencies()
     ) throws -> [RowDecoder] {
         return try updateAndFetchAllAndUpdateConfig(
             db,
             assignments,
-            calledFromConfig: calledFromConfig,
+            calledFromConfigHandling: calledFromConfigHandling,
             using: dependencies
         )
     }
@@ -102,7 +107,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
         _ assignments: [ConfigColumnAssignment],
-        calledFromConfig: Bool = false,
+        calledFromConfigHandling: Bool = false,
         using dependencies: Dependencies = Dependencies()
     ) throws -> [RowDecoder] {
         // First perform the actual updates
@@ -110,7 +115,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         
         // Then check if any of the changes could affect the config
         guard
-            !calledFromConfig &&
+            !calledFromConfigHandling &&
             SessionUtil.assignmentsRequireConfigUpdate(assignments)
         else { return updatedData }
         

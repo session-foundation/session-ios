@@ -163,6 +163,7 @@ public extension SessionThread {
         id: ID,
         variant: Variant,
         shouldBeVisible: Bool?,
+        calledFromConfigHandling: Bool,
         using dependencies: Dependencies = Dependencies()
     ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
@@ -186,6 +187,7 @@ public extension SessionThread {
             .updateAllAndConfig(
                 db,
                 SessionThread.Columns.shouldBeVisible.set(to: shouldBeVisible),
+                calledFromConfigHandling: calledFromConfigHandling,
                 using: dependencies
             )
         
@@ -328,7 +330,7 @@ public extension SessionThread {
                             db,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
                             SessionThread.Columns.shouldBeVisible.set(to: false),
-                            calledFromConfig: calledFromConfigHandling,
+                            calledFromConfigHandling: calledFromConfigHandling,
                             using: dependencies
                         )
                 }
@@ -341,7 +343,7 @@ public extension SessionThread {
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: SessionUtil.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false),
-                        calledFromConfig: calledFromConfigHandling,
+                        calledFromConfigHandling: calledFromConfigHandling,
                         using: dependencies
                     )
                 
@@ -358,13 +360,7 @@ public extension SessionThread {
                 
             case (.legacyGroup, .standard), (.group, .standard):
                 try threadIds.forEach { threadId in
-                    try MessageSender
-                        .leave(
-                            db,
-                            groupPublicKey: threadId,
-                            deleteThread: true,
-                            using: dependencies
-                        )
+                    try MessageSender.leave(db, groupPublicKey: threadId, using: dependencies)
                 }
                 
             case (.legacyGroup, .silent), (.legacyGroup, .forced), (.group, .forced), (.group, .silent):

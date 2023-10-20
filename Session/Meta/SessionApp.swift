@@ -88,7 +88,14 @@ public struct SessionApp {
         guard threadInfo?.threadExists == true else {
             DispatchQueue.global(qos: .userInitiated).async {
                 dependencies[singleton: .storage].write { db in
-                    try SessionThread.fetchOrCreate(db, id: threadId, variant: variant, shouldBeVisible: nil)
+                    try SessionThread.fetchOrCreate(
+                        db,
+                        id: threadId,
+                        variant: variant,
+                        shouldBeVisible: nil,
+                        calledFromConfigHandling: false,
+                        using: dependencies
+                    )
                 }
 
                 // Send back to main thread for UI transitions

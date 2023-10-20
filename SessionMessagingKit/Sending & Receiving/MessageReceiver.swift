@@ -354,8 +354,6 @@ public enum MessageReceiver {
                     associatedWithProto: proto
                 )
                 
-            case is LegacyConfigurationMessage: TopBannerController.show(warning: .outdatedUserConfig)
-                
             default: throw MessageReceiverError.unknownMessage
         }
         
@@ -380,7 +378,6 @@ public enum MessageReceiver {
             switch message {
                 case is ReadReceipt: return true
                 case is TypingIndicator: return true
-                case is LegacyConfigurationMessage: return true
                 case is UnsendRequest: return true
                     
                 case let message as ClosedGroupControlMessage:

@@ -90,6 +90,7 @@ internal extension SessionUtil {
         _ db: Database,
         groupSessionId: SessionId,
         members: [(id: String, profile: Profile?)],
+        allowAccessToHistoricMessages: Bool,
         using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
@@ -124,6 +125,7 @@ internal extension SessionUtil {
                     member.name = ((profile?.name ?? "").toLibSession() ?? member.name)
                     member.profile_pic = profilePic
                     member.invited = 1
+                    member.supplement = allowAccessToHistoricMessages
                     groups_members_set(conf, &member)
                 }
                 

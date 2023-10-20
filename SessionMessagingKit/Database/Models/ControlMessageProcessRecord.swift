@@ -26,18 +26,15 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         case serverExpirationTimestamp
     }
     
-    public enum Variant: Int, Codable, CaseIterable, DatabaseValueConvertible {
-        /// **Note:** This value should only be used for entries created from the initial migration, when inserting
-        /// new records it will check if there is an existing legacy record and if so it will attempt to create a "legacy"
-        /// version of the new record to try and trip the unique constraint
-        case legacyEntry = 0
+    public enum Variant: Int, Codable, DatabaseValueConvertible {
+        @available(*, deprecated, message: "Removed along with legacy db migration") case legacyEntry = 0
         
         case readReceipt = 1
         case typingIndicator = 2
         case legacyGroupControlMessage = 3
         case dataExtractionNotification = 4
         case expirationTimerUpdate = 5
-        case configurationMessage = 6
+        @available(*, deprecated) case configurationMessage = 6
         case unsendRequest = 7
         case messageRequestResponse = 8
         case call = 9
@@ -51,7 +48,14 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         /// message from being reprocessed
         case visibleMessageDedupe = 10
         
-        case groupControlMessage = 11
+        case groupUpdateInvite = 11
+        case groupUpdateDelete = 12
+        case groupUpdatePromote = 13
+        case groupUpdateInfoChange = 14
+        case groupUpdateMemberChange = 15
+        case groupUpdateMemberLeft = 16
+        case groupUpdateInviteResponse = 17
+        case groupUpdateDeleteMemberContent = 18
     }
     
     /// The id for the thread the control message is associated to
@@ -99,9 +103,11 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         if case .new = (message as? ClosedGroupControlMessage)?.kind { return nil }
         if case .encryptionKeyPair = (message as? ClosedGroupControlMessage)?.kind { return nil }
         
-        // For all other cases we want to prevent duplicate handling of the message (this
-        // can happen in a number of situations, primarily with sync messages though hence
-        // why we don't include the 'serverHash' as part of this record
+        /// For all other cases we want to prevent duplicate handling of the message (this can happen in a number of situations, primarily
+        /// with sync messages though hence why we don't include the 'serverHash' as part of this record
+        ///
+        /// **Note:** We should make sure to have a unique `variant` for any message type which could have the same timestamp
+        /// as another message type as otherwise they might incorrectly be deduped
         self.threadId = threadId
         self.variant = {
             switch message {
@@ -110,46 +116,25 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 case is ClosedGroupControlMessage: return .legacyGroupControlMessage
                 case is DataExtractionNotification: return .dataExtractionNotification
                 case is ExpirationTimerUpdate: return .expirationTimerUpdate
-                case is LegacyConfigurationMessage: return .configurationMessage
                 case is UnsendRequest: return .unsendRequest
                 case is MessageRequestResponse: return .messageRequestResponse
                 case is CallMessage: return .call
                 case is VisibleMessage: return .visibleMessageDedupe
                     
-                case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage,
-                    is GroupUpdatePromoteMessage, is GroupUpdateInfoChangeMessage,
-                    is GroupUpdateMemberChangeMessage, is GroupUpdateMemberLeftMessage,
-                    is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
-                    return .groupControlMessage
+                case is GroupUpdateInviteMessage: return .groupUpdateInvite
+                case is GroupUpdateDeleteMessage: return .groupUpdateDelete
+                case is GroupUpdatePromoteMessage: return .groupUpdatePromote
+                case is GroupUpdateInfoChangeMessage: return .groupUpdateInfoChange
+                case is GroupUpdateMemberChangeMessage: return .groupUpdateMemberChange
+                case is GroupUpdateMemberLeftMessage: return .groupUpdateMemberLeft
+                case is GroupUpdateInviteResponseMessage: return .groupUpdateInviteResponse
+                case is GroupUpdateDeleteMemberContentMessage: return .groupUpdateDeleteMemberContent
                     
                 default: preconditionFailure("[ControlMessageProcessRecord] Unsupported message type")
             }
         }()
         self.timestampMs = Int64(message.sentTimestamp ?? 0)   // Default to `0` if not set
         self.serverExpirationTimestamp = serverExpirationTimestamp
-    }
-    
-    // MARK: - Custom Database Interaction
-    
-    public func willInsert(_ db: Database) throws {
-        // If this isn't a legacy entry then check if there is a single entry and, if so,
-        // try to create a "legacy entry" version of this record to see if a unique constraint
-        // conflict occurs
-        if !threadId.isEmpty && variant != .legacyEntry {
-            let legacyEntry: ControlMessageProcessRecord? = try? ControlMessageProcessRecord
-                .filter(Columns.threadId == "")
-                .filter(Columns.variant == Variant.legacyEntry)
-                .fetchOne(db)
-            
-            if legacyEntry != nil {
-                try ControlMessageProcessRecord(
-                    threadId: "",
-                    variant: .legacyEntry,
-                    timestampMs: timestampMs,
-                    serverExpirationTimestamp: (legacyEntry?.serverExpirationTimestamp ?? 0)
-                ).insert(db)
-            }
-        }
     }
 }
 
@@ -166,26 +151,19 @@ internal extension ControlMessageProcessRecord {
                 .infoLegacyGroupCreated:
                 return nil
                 
-            case .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft:
-                self.variant = .legacyGroupControlMessage
-            
-            case .infoDisappearingMessagesUpdate:
-                self.variant = .expirationTimerUpdate
-            
-            case .infoScreenshotNotification, .infoMediaSavedNotification:
-                self.variant = .dataExtractionNotification
-        
-            case .infoMessageRequestAccepted:
-                self.variant = .messageRequestResponse
+            case .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft: self.variant = .legacyGroupControlMessage
+            case .infoDisappearingMessagesUpdate: self.variant = .expirationTimerUpdate
+            case .infoScreenshotNotification, .infoMediaSavedNotification: self.variant = .dataExtractionNotification
+            case .infoMessageRequestAccepted: self.variant = .messageRequestResponse
+            case .infoCall: self.variant = .call
+            case .infoGroupInfoUpdated: self.variant = .groupUpdateInfoChange
+            case .infoGroupMembersUpdated: self.variant = .groupUpdateMemberChange
                 
-            case .infoCall:
-                self.variant = .call
-                
-            case .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupUpdated:
+            case .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving:
                 // If the `threadId` is for an updated group then it's a `groupControlMessage`, otherwise
                 // assume it's a `legacyGroupControlMessage`
                 self.variant = ((try? SessionId(from: threadId))?.prefix == .group ?
-                    .groupControlMessage :
+                    .groupUpdateMemberLeft :
                     .legacyGroupControlMessage
                 )
         }
@@ -196,28 +174,6 @@ internal extension ControlMessageProcessRecord {
             TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
             ControlMessageProcessRecord.defaultExpirationSeconds
         )
-    }
-    
-    /// This method should only be used for records created during migration from the legacy
-    /// `receivedMessageTimestamps` collection which doesn't include thread or variant info
-    ///
-    /// In order to get around this but maintain the unique constraints on everything we create entries for each timestamp
-    /// for every thread and every timestamp (while this is wildly inefficient there is a garbage collection process which will
-    /// clean out these excessive entries after `defaultExpirationSeconds`)
-    static func generateLegacyProcessRecords(_ db: Database, receivedMessageTimestamps: [Int64]) throws {
-        let defaultExpirationTimestamp: TimeInterval = (
-            TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
-            ControlMessageProcessRecord.defaultExpirationSeconds
-        )
-        
-        try receivedMessageTimestamps.forEach { timestampMs in
-            try ControlMessageProcessRecord(
-                threadId: "",
-                variant: .legacyEntry,
-                timestampMs: timestampMs,
-                serverExpirationTimestamp: defaultExpirationTimestamp
-            ).insert(db)
-        }
     }
     
     /// This method should only be called from either the `generateLegacyProcessRecords` method above or

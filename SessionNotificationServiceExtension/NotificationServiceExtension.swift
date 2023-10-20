@@ -164,7 +164,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                                 db,
                                                 id: sender,
                                                 variant: .contact,
-                                                shouldBeVisible: nil
+                                                shouldBeVisible: nil,
+                                                calledFromConfigHandling: false,
+                                                using: dependencies
                                             )
 
                                         // Notify the user if the call message wasn't already read

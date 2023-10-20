@@ -33,8 +33,14 @@ public enum GroupLeavingJob: JobExecutor {
         let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
         
         dependencies[singleton: .storage]
-            .writePublisher { db -> HTTP.PreparedRequest<Void> in
-                guard (try? SessionThread.exists(db, id: threadId)) == true else {
+            .writePublisher { db -> LeaveType in
+                guard
+                    let threadVariant: SessionThread.Variant = try? SessionThread
+                        .filter(id: threadId)
+                        .select(.variant)
+                        .asRequest(of: SessionThread.Variant.self)
+                        .fetchOne(db)
+                else {
                     SNLog("[GroupLeavingJob] Failed due to non-existent group conversation")
                     throw MessageSenderError.noThread
                 }
@@ -43,97 +49,130 @@ public enum GroupLeavingJob: JobExecutor {
                     throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
-                return try MessageSender.preparedSend(
-                    db,
-                    message: ClosedGroupControlMessage(
-                        kind: .memberLeft
-                    ),
-                    to: destination,
-                    namespace: destination.defaultNamespace,
-                    interactionId: job.interactionId,
-                    fileIds: [],
-                    isSyncMessage: false,
-                    using: dependencies
-                )
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let isAdminUser: Bool = GroupMember
+                    .filter(GroupMember.Columns.groupId == threadId)
+                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                    .isNotEmpty(db)
+                let numAdminUsers: Int = (try? GroupMember
+                    .filter(GroupMember.Columns.groupId == threadId)
+                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                    .distinct()
+                    .fetchCount(db))
+                    .defaulting(to: 0)
+                
+                switch (threadVariant, details.behaviour, (isAdminUser && numAdminUsers == 1)) {
+                    case (.legacyGroup, _, _):
+                        // Legacy group only supports the 'leave' behaviour so don't bother checking
+                        return .leave(
+                            try MessageSender.preparedSend(
+                                db,
+                                message: ClosedGroupControlMessage(kind: .memberLeft),
+                                to: destination,
+                                namespace: destination.defaultNamespace,
+                                interactionId: job.interactionId,
+                                fileIds: [],
+                                isSyncMessage: false,
+                                using: dependencies
+                            )
+                        )
+                    
+                    case (.group, .leave, false):
+                        return .leave(
+                            try MessageSender.preparedSend(
+                                db,
+                                message: GroupUpdateMemberLeftMessage(),
+                                to: destination,
+                                namespace: destination.defaultNamespace,
+                                interactionId: job.interactionId,
+                                fileIds: [],
+                                isSyncMessage: false,
+                                using: dependencies
+                            )
+                        )
+                        
+                    case (.group, .delete, _), (.group, .leave, true):
+                        try SessionUtil.deleteGroupForEveryone(
+                            db,
+                            groupSessionId: SessionId(.group, hex: threadId),
+                            using: dependencies
+                        )
+                        
+                        return .delete
+                        
+                    default: throw MessageSenderError.invalidClosedGroupUpdate
+                }
             }
-            .flatMap { $0.send(using: dependencies) }
+            .flatMap { leaveType -> AnyPublisher<Void, Error> in
+                switch leaveType {
+                    case .leave(let leaveMessage):
+                        return leaveMessage
+                            .send(using: dependencies)
+                            .map { _ in () }
+                            .tryCatch { error -> AnyPublisher<Void, Error> in
+                                /// If it failed due to one of these errors then clear out any associated data (as somehow the `SessionThread`
+                                /// exists but not the data required to send the `MEMBER_LEFT` message which would leave the user in a state
+                                /// where they can't leave the group)
+                                switch error as? MessageSenderError {
+                                    case .invalidClosedGroupUpdate, .noKeyPair, .encryptionFailed:
+                                        return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
+                                    
+                                    default: throw error
+                                }
+                            }
+                            .eraseToAnyPublisher()
+                            
+                        
+                    case .delete:
+                        return ConfigurationSyncJob
+                            .run(sessionIdHexString: threadId, using: dependencies)
+                            .map { _ in () }
+                            .eraseToAnyPublisher()
+                }
+            }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
             .sinkUntilComplete(
                 receiveCompletion: { result in
-                    let failureChanges: [ConfigColumnAssignment] = [
-                        Interaction.Columns.variant
-                            .set(to: Interaction.Variant.infoGroupCurrentUserErrorLeaving),
-                        Interaction.Columns.body.set(to: "group_unable_to_leave".localized())
-                    ]
-                    let successfulChanges: [ConfigColumnAssignment] = [
-                        Interaction.Columns.variant
-                            .set(to: Interaction.Variant.infoLegacyGroupCurrentUserLeft),
-                        Interaction.Columns.body.set(to: "GROUP_YOU_LEFT".localized())
-                    ]
-                    
-                    // Handle the appropriate response
-                    dependencies[singleton: .storage].writeAsync { db in
-                        // If it failed due to one of these errors then clear out any associated data (as somehow
-                        // the 'SessionThread' exists but not the data required to send the 'MEMBER_LEFT' message
-                        // which would leave the user in a state where they can't leave the group)
-                        let errorsToSucceed: [MessageSenderError] = [
-                            .invalidClosedGroupUpdate,
-                            .noKeyPair
-                        ]
-                        let shouldSucceed: Bool = {
-                            switch result {
-                                case .failure(let error as MessageSenderError): return errorsToSucceed.contains(error)
-                                case .failure: return false
-                                default: return true
+                    switch result {
+                        case .failure(let error):
+                            let updatedBody: String = {
+                                switch details.behaviour {
+                                    case .leave: return "group_unable_to_leave".localized()
+                                    case .delete: return "group_unable_to_leave".localized()
+                                }
+                            }()
+                            
+                            // Update the interaction to indicate we failed to leave the group
+                            dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                                try Interaction
+                                    .filter(id: interactionId)
+                                    .updateAll(
+                                        db,
+                                        Interaction.Columns.variant
+                                            .set(to: Interaction.Variant.infoGroupCurrentUserErrorLeaving),
+                                        Interaction.Columns.body.set(to: updatedBody)
+                                    )
                             }
-                        }()
-                        
-                        // Update the transaction
-                        try Interaction
-                            .filter(id: interactionId)
-                            .updateAll(
-                                db,
-                                (shouldSucceed ? successfulChanges : failureChanges)
-                            )
-                        
-                        // If we succeed in leaving then we should try to clear the group data
-                        guard shouldSucceed else { return }
-                        
-                        // Update the group (if the admin leaves the group is disbanded)
-                        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-                        let wasAdminUser: Bool = GroupMember
-                            .filter(GroupMember.Columns.groupId == threadId)
-                            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
-                            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-                            .isNotEmpty(db)
-                        
-                        if wasAdminUser {
-                            try GroupMember
-                                .filter(GroupMember.Columns.groupId == threadId)
-                                .deleteAll(db)
-                        }
-                        else {
-                            try GroupMember
-                                .filter(GroupMember.Columns.groupId == threadId)
-                                .filter(GroupMember.Columns.profileId == userSessionId.hexString)
-                                .deleteAll(db)
-                        }
-                        
-                        // Clear out the group info as needed
-                        try ClosedGroup.removeData(
-                            db,
-                            threadIds: [threadId],
-                            dataToRemove: (details.deleteThread ?
-                                .allData :
-                                [.poller, .pushNotifications, .libSessionState]
-                            ),
-                            calledFromConfigHandling: false,
-                            using: dependencies
-                        )
+                            
+                            failure(job, error, true, dependencies)
+                            
+                            
+                        case .finished:
+                            // Remove all of the group data
+                            dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+                                try ClosedGroup.removeData(
+                                    db,
+                                    threadIds: [threadId],
+                                    dataToRemove: .allData,
+                                    calledFromConfigHandling: false,
+                                    using: dependencies
+                                )
+                            }
+                            
+                            success(job, false, dependencies)
                     }
-                    
-                    success(job, false, dependencies)
                 }
             )
     }
@@ -144,32 +183,33 @@ public enum GroupLeavingJob: JobExecutor {
 extension GroupLeavingJob {
     public struct Details: Codable {
         private enum CodingKeys: String, CodingKey {
-            case deleteThread
+            case behaviour
         }
         
-        public let deleteThread: Bool
+        public enum Behaviour: Int, Codable {
+            /// Will leave the group, deleting it from the current device but letting the group continue to exist as long
+            /// the current user isn't the only admin
+            case leave = 1
+            
+            /// Will permanently delete the group, this will result in the group being deleted from all member devices
+            case delete = 2
+        }
+        
+        public let behaviour: Behaviour
         
         // MARK: - Initialization
         
-        public init(deleteThread: Bool) {
-            self.deleteThread = deleteThread
-        }
-        
-        // MARK: - Codable
-        
-        public init(from decoder: Decoder) throws {
-            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
-            
-            self = Details(
-                deleteThread: try container.decode(Bool.self, forKey: .deleteThread)
-            )
-        }
-        
-        public func encode(to encoder: Encoder) throws {
-            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
-            
-            try container.encode(deleteThread, forKey: .deleteThread)
+        public init(behaviour: Behaviour) {
+            self.behaviour = behaviour
         }
     }
 }
 
+// MARK: - Convenience
+
+private extension GroupLeavingJob {
+    enum LeaveType {
+        case leave(HTTP.PreparedRequest<Void>)
+        case delete
+    }
+}

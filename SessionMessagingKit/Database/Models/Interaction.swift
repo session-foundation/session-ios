@@ -76,7 +76,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case infoLegacyGroupCurrentUserLeft
         case infoGroupCurrentUserErrorLeaving
         case infoGroupCurrentUserLeaving
-        case infoGroupUpdated
+        case infoGroupInfoUpdated
+        case infoGroupMembersUpdated
         
         case infoDisappearingMessagesUpdate = 2000
         
@@ -98,7 +99,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                     .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                     .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
-                    .infoMessageRequestAccepted, .infoCall, .infoGroupUpdated:
+                    .infoMessageRequestAccepted, .infoCall, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                     return true
                     
                 case .standardIncoming, .standardOutgoing, .standardIncomingDeleted:
@@ -109,7 +110,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         public var isGroupControlMessage: Bool {
             switch self {
                 case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
-                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupUpdated:
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupInfoUpdated,
+                    .infoGroupMembersUpdated:
                     return true
                 default:
                     return false
@@ -141,7 +143,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 
                 case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                     .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
-                    .infoMessageRequestAccepted, .infoGroupUpdated:
+                    .infoMessageRequestAccepted, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                     return false
             }
         }
@@ -152,7 +154,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                     .infoCall,
                     .infoDisappearingMessagesUpdate,
                     .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
-                    .infoGroupCurrentUserLeaving, .infoGroupUpdated,
+                    .infoGroupCurrentUserLeaving, .infoGroupInfoUpdated, .infoGroupMembersUpdated,
                     .infoScreenshotNotification, .infoMediaSavedNotification:
                     return true
                 
@@ -1063,7 +1065,7 @@ public extension Interaction {
             case .infoLegacyGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
             case .infoMessageRequestAccepted: return (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized())
                 
-            case .infoGroupUpdated:
+            case .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                 guard
                     let infoMessageData: Data = (body ?? "").data(using: .utf8),
                     let messageInfo: ClosedGroup.MessageInfo = try? JSONDecoder().decode(

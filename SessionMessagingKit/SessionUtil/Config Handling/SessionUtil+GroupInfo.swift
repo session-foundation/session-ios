@@ -37,16 +37,29 @@ internal extension SessionUtil {
         guard config.needsDump else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
-        // If the group is destroyed then remove everything, no other properties matter and this
+        // If the group is destroyed then remove the group date (want to keep the group itself around because
+        // the UX of conversations randomly disappearing isn't great) - no other changes matter and this
         // can't be reversed
         guard !groups_info_is_destroyed(conf) else {
+            try ClosedGroup.removeData(
+                db,
+                threadIds: [groupSessionId.hexString],
+                dataToRemove: [
+                    .poller, .pushNotifications, .messages, .members,
+                    .encryptionKeys, .authDetails, .libSessionState
+                ],
+                calledFromConfigHandling: true,
+                using: dependencies
+            )
             return
         }
 
         // A group must have a name so if this is null then it's invalid and can be ignored
         guard let groupNamePtr: UnsafePointer<CChar> = groups_info_get_name(conf) else { return }
 
+        let groupDescPtr: UnsafePointer<CChar>? = groups_info_get_description(conf)
         let groupName: String = String(cString: groupNamePtr)
+        let groupDesc: String? = groupDescPtr.map { String(cString: $0) }
         let formationTimestamp: TimeInterval = TimeInterval(groups_info_get_created(conf))
         let displayPic: user_profile_pic = groups_info_get_pic(conf)
         let displayPictureUrl: String? = String(libSessionVal: displayPic.url, nullIfEmpty: true)
@@ -67,6 +80,9 @@ internal extension SessionUtil {
         let groupChanges: [ConfigColumnAssignment] = [
             ((existingGroup?.name == groupName) ? nil :
                 ClosedGroup.Columns.name.set(to: groupName)
+            ),
+            ((existingGroup?.groupDescription == groupDesc) ? nil :
+                ClosedGroup.Columns.groupDescription.set(to: groupDesc)
             ),
             ((existingGroup?.formationTimestamp != formationTimestamp && formationTimestamp != 0) ? nil :
                 ClosedGroup.Columns.formationTimestamp.set(to: formationTimestamp)
@@ -241,6 +257,23 @@ public extension SessionUtil {
             if let config: DisappearingMessagesConfiguration = disappearingConfig {
                 groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
             }
+        }
+    }
+    
+    static func deleteGroupForEveryone(
+        _ db: Database,
+        groupSessionId: SessionId,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupInfo,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            groups_info_destroy_group(conf)
         }
     }
 }

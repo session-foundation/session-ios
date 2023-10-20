@@ -66,8 +66,13 @@ extension MessageReceiver {
         
         // Store the message variant so we can run variant-specific behaviours
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: threadId, variant: threadVariant, shouldBeVisible: nil)
+        let thread: SessionThread = try SessionThread.fetchOrCreate(
+            db,
+            id: threadId,
+            variant: threadVariant,
+            shouldBeVisible: nil,
+            calledFromConfigHandling: false
+        )
         let maybeOpenGroup: OpenGroup? = {
             guard threadVariant == .community else { return nil }
             

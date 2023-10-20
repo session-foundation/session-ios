@@ -174,6 +174,7 @@ public extension ClosedGroup {
         case messages
         case members
         case encryptionKeys
+        case authDetails
         case libSessionState
         case thread
         case userGroup
@@ -196,7 +197,7 @@ public extension ClosedGroup {
                     db,
                     ClosedGroup.Columns.invited.set(to: false),
                     ClosedGroup.Columns.shouldPoll.set(to: true),
-                    calledFromConfig: calledFromConfigHandling,
+                    calledFromConfigHandling: calledFromConfigHandling,
                     using: dependencies
                 )
         }
@@ -205,7 +206,6 @@ public extension ClosedGroup {
             groupSessionId: SessionId(.group, hex: group.id),
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-            authData: group.authData,
             shouldLoadState: true,
             using: dependencies
         )
@@ -291,6 +291,24 @@ public extension ClosedGroup {
             try ClosedGroupKeyPair
                 .filter(threadIds.contains(ClosedGroupKeyPair.Columns.threadId))
                 .deleteAll(db)
+        }
+        
+        if dataToRemove.contains(.authDetails) {
+            try ClosedGroup
+                .filter(ids: threadIds)
+                .updateAllAndConfig(
+                    db,
+                    ClosedGroup.Columns.groupIdentityPrivateKey.set(to: nil),
+                    ClosedGroup.Columns.authData.set(to: nil),
+                    calledFromConfigHandling: calledFromConfigHandling,
+                    using: dependencies
+                )
+            
+            try SessionUtil.markAsKicked(
+                db,
+                groupSessionIds: threadIds,
+                using: dependencies
+            )
         }
         
         if dataToRemove.contains(.messages) {

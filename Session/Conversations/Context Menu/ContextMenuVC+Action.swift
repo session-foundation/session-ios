@@ -158,7 +158,8 @@ extension ContextMenuVC {
             case .standardIncomingDeleted, .infoCall, .infoScreenshotNotification, .infoMediaSavedNotification,
                 .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
-                .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate, .infoGroupUpdated:
+                .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate, .infoGroupInfoUpdated,
+                .infoGroupMembersUpdated:
                 // Let the user delete info messages and unsent messages
                 return [ Action.delete(cellViewModel, delegate, using: dependencies) ]
                 

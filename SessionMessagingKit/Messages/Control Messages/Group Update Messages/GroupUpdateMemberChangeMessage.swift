@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 public final class GroupUpdateMemberChangeMessage: ControlMessage {
     private enum CodingKeys: String, CodingKey {
         case changeType
-        case memberPublicKeys
+        case memberSessionIds
     }
     
     public enum ChangeType: Int, Codable {
@@ -17,7 +17,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     }
     
     public var changeType: ChangeType
-    public var memberPublicKeys: [Data]
+    public var memberSessionIds: [String]
     
     override public var processWithBlockedSender: Bool { true }
     
@@ -25,11 +25,11 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     
     public init(
         changeType: ChangeType,
-        memberPublicKeys: [Data],
+        memberSessionIds: [String],
         sentTimestamp: UInt64? = nil
     ) {
         self.changeType = changeType
-        self.memberPublicKeys = memberPublicKeys
+        self.memberSessionIds = memberSessionIds
         
         super.init(
             sentTimestamp: sentTimestamp
@@ -42,7 +42,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
         changeType = try container.decode(ChangeType.self, forKey: .changeType)
-        memberPublicKeys = try container.decode([Data].self, forKey: .memberPublicKeys)
+        memberSessionIds = try container.decode([String].self, forKey: .memberSessionIds)
         
         try super.init(from: decoder)
     }
@@ -53,7 +53,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(changeType, forKey: .changeType)
-        try container.encode(memberPublicKeys, forKey: .memberPublicKeys)
+        try container.encode(memberSessionIds, forKey: .memberSessionIds)
     }
 
     // MARK: - Proto Conversion
@@ -67,7 +67,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         
         return GroupUpdateMemberChangeMessage(
             changeType: changeType,
-            memberPublicKeys: groupMemberChangeMessage.memberPublicKeys
+            memberSessionIds: groupMemberChangeMessage.memberSessionIds
         )
     }
 
@@ -83,7 +83,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
                 }()
             )
             
-            memberChangeMessageBuilder.setMemberPublicKeys(memberPublicKeys)
+            memberChangeMessageBuilder.setMemberSessionIds(memberSessionIds)
             
             let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
             groupUpdateMessage.setMemberChangeMessage(try memberChangeMessageBuilder.build())
@@ -106,7 +106,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         """
         GroupUpdateMemberChangeMessage(
             changeType: \(changeType),
-            memberPublicKeys: \(memberPublicKeys.map { $0.toHexString() })
+            memberSessionIds: \(memberSessionIds)
         )
         """
     }

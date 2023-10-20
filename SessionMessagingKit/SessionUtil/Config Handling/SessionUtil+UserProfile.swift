@@ -93,7 +93,8 @@ internal extension SessionUtil {
                     db,
                     id: userSessionId.hexString,
                     variant: .contact,
-                    shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority)
+                    shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority),
+                    calledFromConfigHandling: true
                 )
             
             try SessionThread

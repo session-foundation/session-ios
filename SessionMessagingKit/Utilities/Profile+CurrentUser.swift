@@ -312,7 +312,7 @@ public extension Profile {
                 .updateAllAndConfig(
                     db,
                     profileChanges,
-                    calledFromConfig: calledFromConfigHandling,
+                    calledFromConfigHandling: calledFromConfigHandling,
                     using: dependencies
                 )
         }

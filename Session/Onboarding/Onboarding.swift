@@ -158,8 +158,14 @@ enum Onboarding {
                 ///
                 /// **Note:** We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false`
                 /// otherwise it won't actually get synced correctly
-                try SessionThread
-                    .fetchOrCreate(db, id: sessionId.hexString, variant: .contact, shouldBeVisible: false)
+                try SessionThread.fetchOrCreate(
+                    db,
+                    id: sessionId.hexString,
+                    variant: .contact,
+                    shouldBeVisible: false,
+                    calledFromConfigHandling: false,
+                    using: dependencies
+                )
                 
                 try SessionThread
                     .filter(id: sessionId.hexString)

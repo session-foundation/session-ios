@@ -190,10 +190,17 @@ public enum ConfigurationSyncJob: JobExecutor {
                                 .fetchOne(db)
                         {
                             // If the next job isn't currently running then delay it's start time
-                            // until the 'nextRunTimestamp'
+                            // until the 'nextRunTimestamp' unless it was manually triggered (in which
+                            // case we want it to run immediately as some thread is likely waiting on
+                            // it to return)
                             if !dependencies[singleton: .jobRunner].isCurrentlyRunning(existingJob) {
+                                let jobWasManualTrigger: Bool = (existingJob.details
+                                    .map { try? JSONDecoder(using: dependencies).decode(OptionalDetails.self, from: $0) }
+                                    .map { $0.wasManualTrigger })
+                                    .defaulting(to: false)
+                                
                                 _ = try existingJob
-                                    .with(nextRunTimestamp: nextRunTimestamp)
+                                    .with(nextRunTimestamp: (jobWasManualTrigger ? 0 : nextRunTimestamp))
                                     .saved(db)
                             }
                             
@@ -210,6 +217,18 @@ public enum ConfigurationSyncJob: JobExecutor {
                     success((updatedJob ?? job), shouldFinishCurrentJob, dependencies)
                 }
             )
+    }
+}
+
+// MARK: - ConfigurationSyncJob.OptionalDetails
+
+extension ConfigurationSyncJob {
+    public struct OptionalDetails: Codable {
+        private enum CodingKeys: String, CodingKey {
+            case wasManualTrigger
+        }
+        
+        public let wasManualTrigger: Bool
     }
 }
 
@@ -259,19 +278,40 @@ public extension ConfigurationSyncJob {
         )
     }
     
+    /// Trigger the job emitting the result when completed
+    ///
+    /// **Note:** The `ConfigurationSyncJob` can only have a single instance running at a time, as a result this call may not
+    /// resolve until after the current job has completed
     static func run(
         sessionIdHexString: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        // Trigger the job emitting the result when completed
         return Deferred {
             Future { resolver in
+                guard
+                    let job: Job = Job(
+                        variant: .configurationSync,
+                        threadId: sessionIdHexString,
+                        details: OptionalDetails(wasManualTrigger: true)
+                    )
+                else { return resolver(Result.failure(HTTPError.invalidJSON)) }
+                
                 ConfigurationSyncJob.run(
-                    Job(variant: .configurationSync, threadId: sessionIdHexString),
+                    job,
                     queue: .global(qos: .userInitiated),
                     success: { _, _, _ in resolver(Result.success(())) },
                     failure: { _, error, _, _ in resolver(Result.failure(error ?? HTTPError.generic)) },
-                    deferred: { _, _ in },
+                    deferred: { job, _ in
+                        dependencies[singleton: .jobRunner].afterJob(job) { result in
+                            switch result {
+                                /// If it gets deferred a second time then we should probably just fail - no use waiting on something
+                                /// that may never run (also means we can avoid another potential defer loop)
+                                case .notFound, .deferred: resolver(Result.failure(HTTPError.generic))
+                                case .failed(let error): resolver(Result.failure(error ?? HTTPError.generic))
+                                case .succeeded: resolver(Result.success(()))
+                            }
+                        }
+                    },
                     using: dependencies
                 )
             }

@@ -118,7 +118,6 @@ public enum SessionUtil {
                     groupSessionId: SessionId(.group, hex: group.id),
                     userED25519KeyPair: ed25519KeyPair,
                     groupIdentityPrivateKey: group.groupIdentityPrivateKey,
-                    authData: group.authData,
                     shouldLoadState: true,
                     using: dependencies
                 )
@@ -494,16 +493,8 @@ public enum SessionUtil {
                                         using: dependencies
                                     )
                                     
-                                case .groupKeys:
-                                    try SessionUtil.handleGroupKeysUpdate(
-                                        db,
-                                        in: config,
-                                        groupSessionId: sessionId,
-                                        using: dependencies
-                                    )
-                                    
-                                case .invalid:
-                                    SNLog("[libSession] Failed to process merge of invalid config namespace")
+                                case .groupKeys: break // No custom handling needed (libSession manages everything)
+                                case .invalid: SNLog("[libSession] Failed to process merge of invalid config namespace")
                             }
                             
                             // Need to check if the config needs to be dumped (this might have changed

@@ -173,6 +173,30 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     
     // UI specific logic
     
+    public var emptyStateText: String {
+        return String(
+            format: {
+                switch (threadVariant, threadIsNoteToSelf, canWrite, profile?.blocksCommunityMessageRequests) {
+                    case (_, true, _, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
+                    case (.contact, _, false, true):
+                        return "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized()
+                    
+                    case (.group, _, false, _):
+                        guard SessionUtil.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)) else {
+                            return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
+                        }
+                        
+                        return "GROUP_MESSAGE_INFO_REMOVED".localized()
+                        
+                    case (_, _, false, _): return "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
+                        
+                    default: return "CONVERSATION_EMPTY_STATE".localized()
+                }
+            }(),
+            displayName
+        )
+    }
+    
     public var displayName: String {
         return SessionThread.displayName(
             threadId: threadId,

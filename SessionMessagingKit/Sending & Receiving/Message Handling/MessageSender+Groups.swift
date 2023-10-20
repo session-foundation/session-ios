@@ -19,6 +19,7 @@ extension MessageSender {
     
     public static func createGroup(
         name: String,
+        description: String?,
         displayPicture: SignalAttachment?,
         members: [(String, Profile?)],
         using dependencies: Dependencies = Dependencies()
@@ -44,6 +45,7 @@ extension MessageSender {
                     let createdInfo: SessionUtil.CreatedGroupInfo = try SessionUtil.createGroup(
                         db,
                         name: name,
+                        description: description,
                         displayPictureUrl: displayPictureInfo?.url,
                         displayPictureFilename: displayPictureInfo?.filename,
                         displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
@@ -59,6 +61,7 @@ extension MessageSender {
                             id: createdInfo.group.id,
                             variant: .group,
                             shouldBeVisible: true,
+                            calledFromConfigHandling: false,
                             using: dependencies
                         )
                     try createdInfo.group.insert(db)
@@ -228,7 +231,7 @@ extension MessageSender {
                     _ = try Interaction(
                         threadId: groupSessionId,
                         authorId: userSessionId.hexString,
-                        variant: .infoGroupUpdated,
+                        variant: .infoGroupInfoUpdated,
                         body: ClosedGroup.MessageInfo
                             .updatedName(name)
                             .infoString,
@@ -306,6 +309,7 @@ extension MessageSender {
                     db,
                     groupSessionId: sessionId,
                     members: members,
+                    allowAccessToHistoricMessages: allowAccessToHistoricMessages,
                     using: dependencies
                 )
                 
@@ -316,6 +320,42 @@ extension MessageSender {
                 /// **Note:** This **MUST** be called _after_ the new members have been added to the group, otherwise the
                 /// keys may not be generated correctly for the newly added members
                 if allowAccessToHistoricMessages {
+                    /// Since our state doesn't care about the `GROUP_KEYS` needed for other members triggering a `keySupplement`
+                    /// change won't result in the `GROUP_KEYS` config changing or the `ConfigurationSyncJob` getting triggered
+                    /// we need to push the change directly
+                    let supplementData: Data = try SessionUtil.keySupplement(
+                        db,
+                        groupSessionId: sessionId,
+                        memberIds: members.map { $0.id }.asSet(),
+                        using: dependencies
+                    )
+                    try SnodeAPI
+                        .preparedSendMessage(
+                            db,
+                            message: SnodeMessage(
+                                recipient: sessionId.hexString,
+                                data: supplementData.base64EncodedString(),
+                                ttl: ConfigDump.Variant.groupKeys.ttl,
+                                timestampMs: UInt64(changeTimestampMs)
+                            ),
+                            in: .configGroupKeys,
+                            authMethod: Authentication.groupAdmin(
+                                groupSessionId: sessionId,
+                                ed25519SecretKey: Array(groupIdentityPrivateKey)
+                            ),
+                            using: dependencies
+                        )
+                        .send(using: dependencies)
+                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                        .sinkUntilComplete()
+                }
+                else {
+                    try SessionUtil.rekey(
+                        db,
+                        groupSessionId: sessionId,
+                        using: dependencies
+                    )
+                }
                 
                 /// Generate the data needed to send the new members invitations to the group
                 let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details)] = try members
@@ -390,7 +430,7 @@ extension MessageSender {
                 _ = try Interaction(
                     threadId: groupSessionId,
                     authorId: userSessionId.hexString,
-                    variant: .infoGroupUpdated,
+                    variant: .infoGroupMembersUpdated,
                     body: ClosedGroup.MessageInfo
                         .addedUsers(
                             names: members.map { id, profile in
@@ -407,7 +447,7 @@ extension MessageSender {
                     db,
                     message: GroupUpdateMemberChangeMessage(
                         changeType: .added,
-                        memberPublicKeys: members.map { Data(hex: $0.id) },
+                        memberSessionIds: members.map { $0.id },
                         sentTimestamp: UInt64(changeTimestampMs)
                     ),
                     interactionId: nil,
@@ -421,6 +461,7 @@ extension MessageSender {
     public static func removeGroupMembers(
         groupSessionId: String,
         memberIds: Set<String>,
+        removeTheirMessages: Bool,
         sendMemberChangedMessage: Bool,
         changeTimestampMs: Int64? = nil,
         using dependencies: Dependencies
@@ -553,6 +594,34 @@ extension MessageSender {
                     )
                 }
                 
+                /// If we want to remove the messages sent by the removed members then do so and send an instruction
+                /// to other members to remove the messages as well
+                if removeTheirMessages {
+                    try Interaction
+                        .filter(
+                            Interaction.Columns.threadId == sessionId.hexString &&
+                            memberIds.contains(Interaction.Columns.authorId)
+                        )
+                        .deleteAll(db)
+                    
+                    try MessageSender.send(
+                        db,
+                        message: GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: Array(memberIds),
+                            sentTimestamp: UInt64(targetChangeTimestampMs),
+                            authMethod: Authentication.groupAdmin(
+                                groupSessionId: sessionId,
+                                ed25519SecretKey: Array(groupIdentityPrivateKey)
+                            ),
+                            using: dependencies
+                        ),
+                        interactionId: nil,
+                        threadId: sessionId.hexString,
+                        threadVariant: .group,
+                        using: dependencies
+                    )
+                }
+                
                 /// Send the member changed message if desired
                 if sendMemberChangedMessage {
                     let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
@@ -566,7 +635,7 @@ extension MessageSender {
                     _ = try Interaction(
                         threadId: sessionId.hexString,
                         authorId: userSessionId.hexString,
-                        variant: .infoGroupUpdated,
+                        variant: .infoGroupMembersUpdated,
                         body: ClosedGroup.MessageInfo
                             .removedUsers(
                                 names: memberIds.map { id in
@@ -583,7 +652,7 @@ extension MessageSender {
                         db,
                         message: GroupUpdateMemberChangeMessage(
                             changeType: .removed,
-                            memberPublicKeys: memberIds.map { Data(hex: $0) },
+                            memberSessionIds: Array(memberIds),
                             sentTimestamp: UInt64(targetChangeTimestampMs)
                         ),
                         interactionId: nil,
@@ -628,5 +697,40 @@ extension MessageSender {
                     )
                 }
             }
+    }
+    
+    /// Leave the group with the given `groupPublicKey`. If the current user is the only admin, the group is disbanded entirely.
+    ///
+    /// This function also removes all encryption key pairs associated with the closed group and the group's public key, and
+    /// unregisters from push notifications.
+    public static func leave(
+        _ db: Database,
+        groupPublicKey: String,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        
+        // Notify the user
+        let interaction: Interaction = try Interaction(
+            threadId: groupPublicKey,
+            authorId: userSessionId.hexString,
+            variant: .infoGroupCurrentUserLeaving,
+            body: "group_you_leaving".localized(),
+            timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+        ).inserted(db)
+        
+        dependencies[singleton: .jobRunner].upsert(
+            db,
+            job: Job(
+                variant: .groupLeaving,
+                threadId: groupPublicKey,
+                interactionId: interaction.id,
+                details: GroupLeavingJob.Details(
+                    behaviour: .leave
+                )
+            ),
+            canStartJob: true,
+            using: dependencies
+        )
     }
 }

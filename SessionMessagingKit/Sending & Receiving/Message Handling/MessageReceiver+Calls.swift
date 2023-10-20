@@ -70,8 +70,13 @@ extension MessageReceiver {
         guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestamp: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed) {
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                    db,
+                    id: sender,
+                    variant: .contact,
+                    shouldBeVisible: nil,
+                    calledFromConfigHandling: false
+                )
                 
                 if !interaction.wasRead {
                     Environment.shared?.notificationsManager.wrappedValue?
@@ -88,8 +93,13 @@ extension MessageReceiver {
         
         guard db[.areCallsEnabled] else {
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied) {
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                    db,
+                    id: sender,
+                    variant: .contact,
+                    shouldBeVisible: nil,
+                    calledFromConfigHandling: false
+                )
                 
                 if !interaction.wasRead {
                     Environment.shared?.notificationsManager.wrappedValue?
