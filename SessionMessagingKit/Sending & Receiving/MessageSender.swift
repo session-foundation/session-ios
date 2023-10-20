@@ -970,7 +970,7 @@ public final class MessageSender {
                         let serverHash: String = message.serverHash
                     {
                         let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
-                        JobRunner.add(
+                        dependencies.jobRunner.add(
                             db,
                             job: Job(
                                 variant: .expirationUpdate,
@@ -980,9 +980,23 @@ public final class MessageSender {
                                     serverHashes: [serverHash],
                                     expirationTimestampMs: expirationTimestampMs
                                 )
-                            )
+                            ),
+                            canStartJob: true,
+                            using: dependencies
                         )
                     }
+                    
+                    dependencies.jobRunner.upsert(
+                        db,
+                        job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                            db,
+                            interaction: interaction,
+                            startedAtMs: Double(interaction.timestampMs)
+                        ),
+                        canStartJob: true,
+                        using: dependencies
+                    )
+                                            
                 }
                 
                 // Mark the message as sent
