@@ -55,16 +55,14 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     
     public enum Section: SessionTableSection {
         case type
-        case timerDisappearAfterSend
-        case timerDisappearAfterRead
+        case timer
         case noteToSelf
         case group
         
         var title: String? {
             switch self {
                 case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
-                case .timerDisappearAfterSend: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
-                case .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                case .timer: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
                 case .noteToSelf: return nil
                 case .group: return nil
             }
@@ -258,12 +256,12 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         ),
                         (currentSelection.isEnabled == false ? nil :
                             SectionModel(
-                                model: (currentSelection.type == .disappearAfterSend ?
-                                    .timerDisappearAfterSend :
-                                    .timerDisappearAfterRead
-                                ),
+                                model: .timer,
                                 elements: DisappearingMessagesConfiguration
-                                    .validDurationsSeconds(currentSelection.type ?? .disappearAfterSend)
+                                    .validDurationsSeconds({
+                                        guard Features.useNewDisappearingMessagesConfig else { return .disappearAfterSend }
+                                        return currentSelection.type ?? .disappearAfterSend
+                                    }())
                                     .map { duration in
                                         let title: String = duration.formatted(format: .long)
 
@@ -371,12 +369,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         (!Features.useNewDisappearingMessagesConfig && currentSelection.isEnabled == false ? nil :
                             SectionModel(
                                 model: {
-                                    guard Features.useNewDisappearingMessagesConfig else {
-                                        return (currentSelection.type == .disappearAfterSend ?
-                                            .timerDisappearAfterSend :
-                                            .timerDisappearAfterRead
-                                        )
-                                    }
+                                    guard Features.useNewDisappearingMessagesConfig else { return .timer }
 
                                     return (isNoteToSelf ? .noteToSelf : .group)
                                 }(),
