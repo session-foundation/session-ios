@@ -365,13 +365,20 @@ public final class OpenGroupManager {
                 .updateAllAndConfig(db, OpenGroup.Columns.isActive.set(to: false))
         }
         
-        // Remove the thread and associated data
-        _ = try? SessionThread
-            .filter(id: openGroupId)
-            .deleteAll(db)
+        //TODO: Remove message requests from this open group
         
-        if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
-            try? SessionUtil.remove(db, server: server, roomToken: roomToken)
+        if !calledFromConfigHandling, let server: String = server {
+            //Remove inbox messages
+            if let data = try? OpenGroupAPI.preparedClearInbox(db, on: server) {
+                OpenGroupAPI
+                    .send(data: data)
+                    .map { _ in [server: true] }
+                    .sinkUntilComplete()
+            }
+            
+            if let roomToken: String = roomToken {
+                try? SessionUtil.remove(db, server: server, roomToken: roomToken)
+            }
         }
     }
     
