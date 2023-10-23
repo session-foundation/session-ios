@@ -55,14 +55,16 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     
     public enum Section: SessionTableSection {
         case type
-        case timer
+        case timerLegacy
+        case timerDisappearAfterSend
+        case timerDisappearAfterRead
         case noteToSelf
         case group
         
         var title: String? {
             switch self {
                 case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
-                case .timer: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                case .timerLegacy, .timerDisappearAfterSend, .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
                 case .noteToSelf: return nil
                 case .group: return nil
             }
@@ -256,7 +258,12 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         ),
                         (currentSelection.isEnabled == false ? nil :
                             SectionModel(
-                                model: .timer,
+                                model: {
+                                    guard Features.useNewDisappearingMessagesConfig else { return .timerLegacy }
+                                    return currentSelection.type == .disappearAfterSend ?
+                                        .timerDisappearAfterSend :
+                                        .timerDisappearAfterRead
+                                }(),
                                 elements: DisappearingMessagesConfiguration
                                     .validDurationsSeconds({
                                         guard Features.useNewDisappearingMessagesConfig else { return .disappearAfterSend }
@@ -369,7 +376,12 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         (!Features.useNewDisappearingMessagesConfig && currentSelection.isEnabled == false ? nil :
                             SectionModel(
                                 model: {
-                                    guard Features.useNewDisappearingMessagesConfig else { return .timer }
+                                    guard Features.useNewDisappearingMessagesConfig else {
+                                        return (currentSelection.type == .disappearAfterSend ?
+                                            .timerDisappearAfterSend :
+                                            .timerDisappearAfterRead
+                                        )
+                                    }
 
                                     return (isNoteToSelf ? .noteToSelf : .group)
                                 }(),
