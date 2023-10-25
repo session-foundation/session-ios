@@ -2,9 +2,8 @@
 
 import Foundation
 import GRDB
-import SessionUtilitiesKit
 
-@testable import SessionMessagingKit
+@testable import SessionUtilitiesKit
 
 class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     // MARK: - Configuration

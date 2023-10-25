@@ -12,10 +12,12 @@ protocol SessionViewModelAccessible {
     var viewModelType: AnyObject.Type { get }
 }
 
-class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSection, SettingItem: Hashable & Differentiable>: BaseVC, UITableViewDataSource, UITableViewDelegate, SessionViewModelAccessible {
-    typealias SectionModel = SessionTableViewModel<NavItemId, Section, SettingItem>.SectionModel
+class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITableViewDelegate, SessionViewModelAccessible where ViewModel: (SessionTableViewModel & ObservableTableSource) {
+    typealias Section = ViewModel.Section
+    typealias TableItem = ViewModel.TableItem
+    typealias SectionModel = ViewModel.SectionModel
     
-    private let viewModel: SessionTableViewModel<NavItemId, Section, SettingItem>
+    private let viewModel: ViewModel
     private var hasLoadedInitialTableData: Bool = false
     private var isLoadingMore: Bool = false
     private var isAutoLoadingNextPage: Bool = false
@@ -37,6 +39,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         result.showsVerticalScrollIndicator = false
         result.showsHorizontalScrollIndicator = false
         result.register(view: SessionCell.self)
+        result.register(view: FullConversationCell.self)
         result.registerHeaderFooterView(view: SessionHeaderView.self)
         result.dataSource = self
         result.delegate = self
@@ -45,6 +48,20 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             result.sectionHeaderTopPadding = 0
         }
         
+        return result
+    }()
+    
+    private lazy var initialLoadLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.isUserInteractionEnabled = false
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textSecondary
+        result.text = viewModel.initialLoadMessage
+        result.textAlignment = .center
+        result.numberOfLines = 0
+        result.isHidden = (viewModel.initialLoadMessage == nil)
+
         return result
     }()
     
@@ -87,10 +104,10 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     
     // MARK: - Initialization
     
-    init(viewModel: SessionTableViewModel<NavItemId, Section, SettingItem>) {
+    init(viewModel: ViewModel) {
         self.viewModel = viewModel
         
-        Storage.shared.addObserver(viewModel.pagedDataObserver)
+        (viewModel as? (any PagedObservationSource))?.didInit(using: viewModel.dependencies)
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -116,6 +133,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
+        view.addSubview(initialLoadLabel)
         view.addSubview(emptyStateLabel)
         view.addSubview(fadeView)
         view.addSubview(footerButton)
@@ -159,7 +177,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     @objc func applicationDidBecomeActive(_ notification: Notification) {
         /// Need to dispatch to the next run loop to prevent a possible crash caused by the database resuming mid-query
         DispatchQueue.main.async { [weak self] in
-            self?.startObservingChanges()
+            self?.startObservingChanges(didReturnFromBackground: true)
         }
     }
     
@@ -169,6 +187,10 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     
     private func setupLayout() {
         tableView.pin(to: view)
+        
+        initialLoadLabel.pin(.top, to: .top, of: self.view, withInset: Values.massiveSpacing)
+        initialLoadLabel.pin(.leading, to: .leading, of: self.view, withInset: Values.mediumSpacing)
+        initialLoadLabel.pin(.trailing, to: .trailing, of: self.view, withInset: -Values.mediumSpacing)
         
         emptyStateLabel.pin(.top, to: .top, of: self.view, withInset: Values.massiveSpacing)
         emptyStateLabel.pin(.leading, to: .leading, of: self.view, withInset: Values.mediumSpacing)
@@ -184,9 +206,9 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     
     // MARK: - Updating
     
-    private func startObservingChanges() {
+    private func startObservingChanges(didReturnFromBackground: Bool = false) {
         // Start observing for data changes
-        dataChangeCancellable = viewModel.observableTableData
+        dataChangeCancellable = viewModel.tableDataPublisher
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] result in
@@ -202,7 +224,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                             
                             SNLog("Atempting recovery for database stream in '\(title)' settings with error: \(error)")
                             self?.dataStreamJustFailed = true
-                            self?.startObservingChanges()
+                            self?.startObservingChanges(didReturnFromBackground: didReturnFromBackground)
                             
                         case .finished: break
                     }
@@ -212,6 +234,9 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                     self?.handleDataUpdates(updatedData, changeset: changeset)
                 }
             )
+        
+        // Some viewModel's may need to run custom logic after returning from the background so trigger that here
+        if didReturnFromBackground { viewModel.didReturnFromBackground() }
     }
     
     private func stopObservingChanges() {
@@ -233,7 +258,8 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialTableData else {
             UIView.performWithoutAnimation {
-                // Update the empty state
+                // Update the initial/empty state
+                initialLoadLabel.isHidden = true
                 emptyStateLabel.isHidden = (itemCount > 0)
                 
                 // Update the content
@@ -302,7 +328,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             self?.isLoadingMore = true
             
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.viewModel.loadPageAfter()
+                (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
             }
         }
     }
@@ -310,13 +336,22 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     // MARK: - Binding
 
     private func setupBinding() {
-        viewModel.isEditing
+        (viewModel as? (any NavigationItemSource))?.setupBindings(
+            viewController: self,
+            disposables: &disposables
+        )
+        (viewModel as? (any NavigatableStateHolder))?.navigatableState.setupBindings(
+            viewController: self,
+            disposables: &disposables
+        )
+        
+        (viewModel as? ErasedEditableStateHolder)?.isEditing
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] isEditing in
+            .sink { [weak self, weak tableView] isEditing in
                 UIView.animate(withDuration: 0.25) {
                     self?.setEditing(isEditing, animated: true)
                     
-                    self?.tableView.visibleCells
+                    tableView?.visibleCells
                         .compactMap { $0 as? SessionCell }
                         .filter { $0.interactionMode == .editable || $0.interactionMode == .alwaysEditing }
                         .enumerated()
@@ -332,53 +367,9 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                             )
                         }
                     
-                    self?.tableView.beginUpdates()
-                    self?.tableView.endUpdates()
+                    tableView?.beginUpdates()
+                    tableView?.endUpdates()
                 }
-            }
-            .store(in: &disposables)
-        
-        viewModel.leftNavItems
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] maybeItems in
-                self?.navigationItem.setLeftBarButtonItems(
-                    maybeItems.map { items in
-                        items.map { item -> DisposableBarButtonItem in
-                            let buttonItem: DisposableBarButtonItem = item.createBarButtonItem()
-                            buttonItem.themeTintColor = .textPrimary
-
-                            buttonItem.tapPublisher
-                                .map { _ in item.id }
-                                .sink(receiveValue: { _ in item.action?() })
-                                .store(in: &buttonItem.disposables)
-
-                            return buttonItem
-                        }
-                    },
-                    animated: true
-                )
-            }
-            .store(in: &disposables)
-
-        viewModel.rightNavItems
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] maybeItems in
-                self?.navigationItem.setRightBarButtonItems(
-                    maybeItems.map { items in
-                        items.map { item -> DisposableBarButtonItem in
-                            let buttonItem: DisposableBarButtonItem = item.createBarButtonItem()
-                            buttonItem.themeTintColor = .textPrimary
-
-                            buttonItem.tapPublisher
-                                .map { _ in item.id }
-                                .sink(receiveValue: { _ in item.action?() })
-                                .store(in: &buttonItem.disposables)
-
-                            return buttonItem
-                        }
-                    },
-                    animated: true
-                )
             }
             .store(in: &disposables)
         
@@ -403,6 +394,8 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)
                     self?.footerButton.setStyle(buttonInfo.style)
                     self?.footerButton.isEnabled = buttonInfo.isEnabled
+                    self?.footerButton.accessibilityIdentifier = buttonInfo.accessibility?.identifier
+                    self?.footerButton.accessibilityLabel = buttonInfo.accessibility?.label
                 }
                 
                 self?.onFooterTap = buttonInfo?.onTap
@@ -420,61 +413,6 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                     ),
                     right: 0
                 )
-            }
-            .store(in: &disposables)
-        
-        viewModel.showToast
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] text, color in
-                guard let view: UIView = self?.view else { return }
-                
-                let toastController: ToastController = ToastController(text: text, background: color)
-                toastController.presentToastView(fromBottomOfView: view, inset: Values.largeSpacing)
-            }
-            .store(in: &disposables)
-        
-        viewModel.transitionToScreen
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] viewController, transitionType in
-                switch transitionType {
-                    case .push:
-                        self?.navigationController?.pushViewController(viewController, animated: true)
-                    
-                    case .present:
-                        let presenter: UIViewController? = (self?.presentedViewController ?? self)
-                        
-                        if UIDevice.current.isIPad {
-                            viewController.popoverPresentationController?.permittedArrowDirections = []
-                            viewController.popoverPresentationController?.sourceView = presenter?.view
-                            viewController.popoverPresentationController?.sourceRect = (presenter?.view.bounds ?? UIScreen.main.bounds)
-                        }
-                        
-                        presenter?.present(viewController, animated: true)
-                }
-            }
-            .store(in: &disposables)
-        
-        viewModel.dismissScreen
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] dismissType in
-                switch dismissType {
-                    case .auto:
-                        guard
-                            let viewController: UIViewController = self,
-                            (self?.navigationController?.viewControllers
-                                .firstIndex(of: viewController))
-                                .defaulting(to: 0) > 0
-                        else {
-                            self?.dismiss(animated: true)
-                            return
-                        }
-                        
-                        self?.navigationController?.popViewController(animated: true)
-                        
-                    case .dismiss: self?.dismiss(animated: true)
-                    case .pop: self?.navigationController?.popViewController(animated: true)
-                    case .popToRoot: self?.navigationController?.popToRootViewController(animated: true)
-                }
             }
             .store(in: &disposables)
     }
@@ -495,19 +433,36 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let section: SectionModel = viewModel.tableData[indexPath.section]
-        let info: SessionCell.Info<SettingItem> = section.elements[indexPath.row]
-        let cell: SessionCell = tableView.dequeue(type: SessionCell.self, for: indexPath)
-        cell.update(with: info)
-        cell.update(
-            isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
-            becomeFirstResponder: false,
-            animated: false
-        )
-        cell.textPublisher
-            .sink(receiveValue: { [weak self] text in
-                self?.viewModel.textChanged(text, for: info.id)
-            })
-            .store(in: &cell.disposables)
+        let info: SessionCell.Info<TableItem> = section.elements[indexPath.row]
+        let cell: UITableViewCell = tableView.dequeue(type: viewModel.cellType.viewType.self, for: indexPath)
+        
+        switch (cell, info) {
+            case (let cell as SessionCell, _):
+                cell.update(with: info)
+                cell.update(
+                    isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
+                    becomeFirstResponder: false,
+                    animated: false
+                )
+                
+                switch viewModel {
+                    case let editableStateHolder as ErasedEditableStateHolder:
+                        cell.textPublisher
+                            .sink(receiveValue: { [weak editableStateHolder] text in
+                                editableStateHolder?.textChanged(text, for: info.id)
+                            })
+                            .store(in: &cell.disposables)
+                    default: break
+                }
+                
+            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<SessionThreadViewModel>):
+                cell.accessibilityIdentifier = info.accessibility?.identifier
+                cell.isAccessibilityElement = (info.accessibility != nil)
+                cell.update(with: threadInfo.id)
+                
+            default:
+                SNLog("[SessionTableViewController] Got invalid combination of cellType: \(viewModel.cellType) and tableData: \(SessionCell.Info<TableItem>.self)")
+        }
         
         return cell
     }
@@ -547,18 +502,38 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                 self.isLoadingMore = true
                 
                 DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    self?.viewModel.loadPageAfter()
+                    (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
                 }
                 
             default: break
         }
+    }
+    
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return viewModel.canEditRow(at: indexPath)
+    }
+    
+    func tableView(_ tableView: UITableView, willBeginEditingRowAt indexPath: IndexPath) {
+        UIContextualAction.willBeginEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
+    func tableView(_ tableView: UITableView, didEndEditingRowAt indexPath: IndexPath?) {
+        UIContextualAction.didEndEditing(indexPath: indexPath, tableView: tableView)
+    }
+    
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        return viewModel.leadingSwipeActionsConfiguration(forRowAt: indexPath, in: tableView, of: self)
+    }
+    
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        return viewModel.trailingSwipeActionsConfiguration(forRowAt: indexPath, in: tableView, of: self)
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
         let section: SectionModel = self.viewModel.tableData[indexPath.section]
-        let info: SessionCell.Info<SettingItem> = section.elements[indexPath.row]
+        let info: SessionCell.Info<TableItem> = section.elements[indexPath.row]
         
         // Do nothing if the item is disabled
         guard info.isEnabled else { return }
@@ -580,7 +555,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
                     return cell
             }
         }()
-        let maybeOldSelection: (Int, SessionCell.Info<SettingItem>)? = section.elements
+        let maybeOldSelection: (Int, SessionCell.Info<TableItem>)? = section.elements
             .enumerated()
             .first(where: { index, info in
                 switch (info.leftAccessory, info.rightAccessory) {
@@ -596,7 +571,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
             self?.manuallyReload(indexPath: indexPath, section: section, info: info)
             
             // Update the old selection as well
-            if let oldSelection: (index: Int, info: SessionCell.Info<SettingItem>) = maybeOldSelection {
+            if let oldSelection: (index: Int, info: SessionCell.Info<TableItem>) = maybeOldSelection {
                 self?.manuallyReload(
                     indexPath: IndexPath(
                         row: oldSelection.index,
@@ -628,7 +603,7 @@ class SessionTableViewController<NavItemId: Equatable, Section: SessionTableSect
     private func manuallyReload(
         indexPath: IndexPath,
         section: SectionModel,
-        info: SessionCell.Info<SettingItem>
+        info: SessionCell.Info<TableItem>
     ) {
         // Try update the existing cell to have a nice animation instead of reloading the cell
         if let existingCell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell {

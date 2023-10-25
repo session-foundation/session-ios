@@ -138,12 +138,12 @@ public extension Profile {
 
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encode(lastNameUpdate, forKey: .lastNameUpdate)
+        try container.encodeIfPresent(lastNameUpdate, forKey: .lastNameUpdate)
         try container.encodeIfPresent(nickname, forKey: .nickname)
         try container.encodeIfPresent(profilePictureUrl, forKey: .profilePictureUrl)
         try container.encodeIfPresent(profilePictureFileName, forKey: .profilePictureFileName)
         try container.encodeIfPresent(profileEncryptionKey, forKey: .profileEncryptionKey)
-        try container.encode(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
+        try container.encodeIfPresent(lastProfilePictureUpdate, forKey: .lastProfilePictureUpdate)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
         try container.encodeIfPresent(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
     }
@@ -334,9 +334,9 @@ public extension Profile {
         guard id.count > 8 else { return id }
         
         switch truncating {
-            case .start: return "...\(id.suffix(8))"
-            case .middle: return "\(id.prefix(4))...\(id.suffix(4))"
-            case .end: return "\(id.prefix(8))..."
+            case .start: return "...\(id.suffix(8))"                    //stringlint:disable
+            case .middle: return "\(id.prefix(4))...\(id.suffix(4))"    //stringlint:disable
+            case .end: return "\(id.prefix(8))..."                      //stringlint:disable
         }
     }
     
@@ -352,9 +352,9 @@ public extension Profile {
         nickname: String?,
         customFallback: String? = nil
     ) -> String {
-        if let nickname: String = nickname { return nickname }
+        if let nickname: String = nickname, !nickname.isEmpty { return nickname }
         
-        guard let name: String = name, name != id else {
+        guard let name: String = name, name != id, !name.isEmpty else {
             return (customFallback ?? Profile.truncated(id: id, threadVariant: threadVariant))
         }
         

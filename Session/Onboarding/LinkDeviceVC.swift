@@ -130,10 +130,6 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
     
     // MARK: - Interaction
     
-    @objc private func close() {
-        dismiss(animated: true, completion: nil)
-    }
-    
     func controller(_ controller: QRCodeScanningViewController, didDetectQRCodeWith string: String, onError: (() -> ())?) {
         let seed = Data(hex: string)
         continueWithSeed(seed, onError: onError)
@@ -345,7 +341,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Set up call to action button
         let callToActionButton = UIButton()
         callToActionButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        callToActionButton.setTitle("vc_scan_qr_code_grant_camera_access_button_title".localized(), for: .normal)
+        callToActionButton.setTitle("continue_2".localized(), for: .normal)
         callToActionButton.setThemeTitleColor(.primary, for: .normal)
         callToActionButton.addTarget(self, action: #selector(requestCameraAccess), for: .touchUpInside)
         

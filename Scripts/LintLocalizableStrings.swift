@@ -38,18 +38,25 @@ extension ProjectState {
         .contains("print("),
         .contains("NSLog("),
         .contains("SNLog("),
+        .contains("SNLogNotTests("),
         .contains("owsFailDebug("),
         .contains("#imageLiteral(resourceName:"),
         .contains("UIImage(named:"),
         .contains("UIImage(systemName:"),
         .contains("[UIImage imageNamed:"),
         .contains("UIFont(name:"),
+        .contains(".dateFormat ="),
         .contains(".accessibilityLabel ="),
+        .contains(".accessibilityValue ="),
         .contains(".accessibilityIdentifier ="),
         .contains("accessibilityIdentifier:"),
         .contains("accessibilityLabel:"),
         .contains("Accessibility(identifier:"),
         .contains("Accessibility(label:"),
+        .contains("NSAttributedString.Key("),
+        .contains("Notification.Name("),
+        .contains("Notification.Key("),
+        .contains("DispatchQueue("),
         .containsAnd("identifier:", .previousLine(numEarlier: 1, .contains("Accessibility("))),
         .containsAnd("label:", .previousLine(numEarlier: 1, .contains("Accessibility("))),
         .containsAnd("label:", .previousLine(numEarlier: 2, .contains("Accessibility("))),
@@ -57,7 +64,8 @@ extension ProjectState {
         .regex(".*static var databaseTableName: String"),
         .regex("Logger\\..*\\("),
         .regex("OWSLogger\\..*\\("),
-        .regex("case .* = ")
+        .regex("case .* = "),
+        .regex("Error.*\\(")
     ]
 }
 
@@ -96,8 +104,19 @@ enum ScriptAction: String {
                 guard
                     let builtProductsPath: String = ProcessInfo.processInfo.environment["BUILT_PRODUCTS_DIR"],
                     let productName: String = ProcessInfo.processInfo.environment["FULL_PRODUCT_NAME"],
+                    let productPathInfo = try? URL(fileURLWithPath: "\(builtProductsPath)/\(productName)")
+                        .resourceValues(forKeys: [.isSymbolicLinkKey, .isAliasFileKey]),
+                    let finalProductUrl: URL = try? { () -> URL in
+                        let possibleAliasUrl: URL = URL(fileURLWithPath: "\(builtProductsPath)/\(productName)")
+                        
+                        guard productPathInfo.isSymbolicLink == true || productPathInfo.isAliasFile == true else {
+                            return possibleAliasUrl
+                        }
+                        
+                        return try URL(resolvingAliasFileAt: possibleAliasUrl, options: URL.BookmarkResolutionOptions())
+                    }(),
                     let enumerator: FileManager.DirectoryEnumerator = FileManager.default.enumerator(
-                        at: URL(fileURLWithPath: "\(builtProductsPath)/\(productName)"),
+                        at: finalProductUrl,
                         includingPropertiesForKeys: [.isDirectoryKey],
                         options: [.skipsHiddenFiles]
                     ),

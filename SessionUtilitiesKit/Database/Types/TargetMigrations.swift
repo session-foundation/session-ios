@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 
 public protocol MigratableTarget {
-    static func migrations(_ db: Database) -> TargetMigrations
+    static func migrations() -> TargetMigrations
 }
 
 public struct TargetMigrations: Comparable {
