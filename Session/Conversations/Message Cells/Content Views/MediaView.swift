@@ -525,7 +525,8 @@ struct MediaView_SwiftUI: UIViewRepresentable {
         let mediaView = MediaView(
             mediaCache: mediaCache,
             attachment: attachment,
-            isOutgoing: isOutgoing,
+            isOutgoing: isOutgoing, 
+            shouldSupressControls: true,
             cornerRadius: cornerRadius
         )
         
