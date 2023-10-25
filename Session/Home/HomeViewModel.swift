@@ -150,7 +150,7 @@ public class HomeViewModel {
                 ),
                 PagedData.ObservedChanges(
                     table: ClosedGroup.self,
-                    columns: [.name],
+                    columns: [.name, .invited],
                     joinToPagedType: {
                         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
                         

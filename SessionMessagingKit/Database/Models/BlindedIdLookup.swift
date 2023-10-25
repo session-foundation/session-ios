@@ -103,10 +103,9 @@ public extension BlindedIdLookup {
                 )
             )
         {
-            lookup = try lookup
+            return try lookup
                 .with(sessionId: sessionId)
-                .saved(db)
-            return lookup
+                .upserted(db)
         }
         
         // We now need to try to match the blinded id to an existing contact, this can only be done by looping
@@ -131,7 +130,7 @@ public extension BlindedIdLookup {
             // We found a match so update the lookup and leave the loop
             lookup = try lookup
                 .with(sessionId: contact.id)
-                .saved(db)
+                .upserted(db)
             
             // There is an edge-case where the contact might not have their 'isApproved' flag set to true
             // but if we have a `BlindedIdLookup` for them and are performing the lookup from the outbox
@@ -173,13 +172,13 @@ public extension BlindedIdLookup {
             // We found a match so update the lookup and leave the loop
             lookup = try lookup
                 .with(sessionId: sessionId)
-                .saved(db)
+                .upserted(db)
             break
         }
         
         // Want to save the lookup even if it doesn't have a sessionId so it can be used when handling
         // MessageRequestResponse messages
         return try lookup
-            .saved(db)
+            .upserted(db)
     }
 }

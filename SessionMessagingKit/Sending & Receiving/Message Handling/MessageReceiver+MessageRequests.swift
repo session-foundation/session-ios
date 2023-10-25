@@ -93,9 +93,9 @@ extension MessageReceiver {
             else { return }
             
             // Update the lookup
-            _ = try blindedIdLookup
+            try blindedIdLookup
                 .with(sessionId: senderId)
-                .saved(db)
+                .upserted(db)
             
             // Add the `blindedId` to an array so we can remove them at the end of processing
             blindedContactIds.append(blindedIdLookup.blindedId)
@@ -184,7 +184,7 @@ extension MessageReceiver {
             
             guard !contact.isApproved else { return }
             
-            try? contact.save(db)
+            try? contact.upsert(db)
             _ = try? Contact
                 .filter(id: threadId)
                 .updateAllAndConfig(db, Contact.Columns.isApproved.set(to: true))
@@ -196,7 +196,7 @@ extension MessageReceiver {
             
             guard !contact.didApproveMe else { return }
 
-            try? contact.save(db)
+            try? contact.upsert(db)
             _ = try? Contact
                 .filter(id: senderSessionId)
                 .updateAllAndConfig(db, Contact.Columns.didApproveMe.set(to: true))

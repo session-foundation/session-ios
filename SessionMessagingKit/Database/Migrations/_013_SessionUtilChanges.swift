@@ -78,7 +78,7 @@ enum _013_SessionUtilChanges: Migration {
             .fetchAll(db)
         
         // Insert into the new table, drop the old table and rename the new table to be the old one
-        try nonDuplicateGroupMembers.forEach { try $0.save(db) }
+        try nonDuplicateGroupMembers.forEach { try $0.upsert(db) }
         try db.drop(table: GroupMember.self)
         try db.rename(table: TmpGroupMember.databaseTableName, to: GroupMember.databaseTableName)
         

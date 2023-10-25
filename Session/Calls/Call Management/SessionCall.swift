@@ -309,9 +309,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                             .encode(missedCallInfo)
                     else { return }
                     
-                    _ = try interaction
+                    try interaction
                         .with(body: String(data: missedCallInfoData, encoding: .utf8))
-                        .saved(db)
+                        .upserted(db)
                 }
                 let shouldMarkAsRead: Bool = try {
                     if duration > 0 { return true }

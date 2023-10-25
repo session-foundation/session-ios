@@ -66,7 +66,7 @@ public final class SnodeAPI {
         dependencies.mutate(cache: .snodeAPI) { $0.snodePool = newValue }
         
         _ = try? Snode.deleteAll(db)
-        newValue.forEach { try? $0.save(db) }
+        newValue.forEach { try? $0.upsert(db) }
     }
     
     private static func dropSnodeFromSnodePool(_ snode: Snode, using dependencies: Dependencies) {
@@ -112,7 +112,7 @@ public final class SnodeAPI {
         guard persist else { return }
         
         dependencies[singleton: .storage].write { db in
-            try? newValue.save(db, key: publicKey)
+            try? newValue.upsert(db, key: publicKey)
         }
     }
     
@@ -1240,9 +1240,9 @@ public extension Publisher where Output == Set<Snode> {
                 var remainingSnodes: Set<Snode> = {
                     switch drainBehaviour.wrappedValue {
                         case .alwaysRandom: return swarm
-                        case .limitedReuse(_, let targetSnode, _, let usedSnodes):
-                            // If we've used all of the snodes then reset the used list
-                            guard targetSnode != nil || usedSnodes != swarm else {
+                        case .limitedReuse(_, let targetSnode, _, let usedSnodes, let swarmHash):
+                            // If we've used all of the snodes or the swarm has changed then reset the used list
+                            guard swarmHash == swarm.hashValue && (targetSnode != nil || usedSnodes != swarm) else {
                                 drainBehaviour.mutate { $0 = $0.reset() }
                                 return swarm
                             }
@@ -1256,7 +1256,7 @@ public extension Publisher where Output == Set<Snode> {
                     .tryFlatMap(maxPublishers: maxPublishers) { _ -> AnyPublisher<T, Error> in
                         let snode: Snode = try {
                             switch drainBehaviour.wrappedValue {
-                                case .limitedReuse(_, .some(let targetSnode), _, _): return targetSnode
+                                case .limitedReuse(_, .some(let targetSnode), _, _, _): return targetSnode
                                 default: break
                             }
                             
@@ -1265,7 +1265,7 @@ public extension Publisher where Output == Set<Snode> {
                                 throw SnodeAPIError.generic
                             }()
                         }()
-                        drainBehaviour.mutate { $0 = $0.use(snode: snode) }
+                        drainBehaviour.mutate { $0 = $0.use(snode: snode, from: swarm) }
                         
                         return try transform(snode)
                             .eraseToAnyPublisher()

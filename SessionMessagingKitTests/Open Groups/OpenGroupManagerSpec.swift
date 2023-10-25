@@ -2668,8 +2668,8 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                             
-                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).upsert(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).upsert(db)
                         }
                         
                         expect(
@@ -2695,8 +2695,8 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).upsert(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
                         }
                         
                         expect(
@@ -2773,8 +2773,8 @@ class OpenGroupManagerSpec: QuickSpec {
                         mockStorage.write { db in
                             let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                             
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).upsert(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
                         }
                         
                         expect(
@@ -2800,10 +2800,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).upsert(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).upsert(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).upsert(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
                         }
                         
                         expect(
@@ -2844,10 +2844,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).upsert(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).upsert(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).upsert(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
                         }
                         
                         expect(
@@ -2963,10 +2963,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: otherKey)).upsert(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).upsert(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.publicKey)).upsert(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
                         }
                         
                         expect(
@@ -3008,10 +3008,10 @@ class OpenGroupManagerSpec: QuickSpec {
                                 isHidden: false
                             ).insert(db)
                             
-                            try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).save(db)
-                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).save(db)
-                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).save(db)
-                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).save(db)
+                            try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).upsert(db)
+                            try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).upsert(db)
+                            try Identity(variant: .ed25519PublicKey, data: Data(hex: otherKey)).upsert(db)
+                            try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).upsert(db)
                         }
                         
                         expect(

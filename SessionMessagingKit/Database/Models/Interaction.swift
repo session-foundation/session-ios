@@ -76,6 +76,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case infoLegacyGroupCurrentUserLeft
         case infoGroupCurrentUserErrorLeaving
         case infoGroupCurrentUserLeaving
+        case infoGroupInfoInvited
         case infoGroupInfoUpdated
         case infoGroupMembersUpdated
         
@@ -99,7 +100,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                     .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                     .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
-                    .infoMessageRequestAccepted, .infoCall, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
+                    .infoMessageRequestAccepted, .infoCall, .infoGroupInfoInvited, .infoGroupInfoUpdated,
+                    .infoGroupMembersUpdated:
                     return true
                     
                 case .standardIncoming, .standardOutgoing, .standardIncomingDeleted:
@@ -110,8 +112,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         public var isGroupControlMessage: Bool {
             switch self {
                 case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
-                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupInfoUpdated,
-                    .infoGroupMembersUpdated:
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupInfoInvited,
+                    .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                     return true
                 default:
                     return false
@@ -134,7 +136,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 case .standardIncoming: return true
                 case .infoCall: return true
 
-                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification:
+                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification,
+                    .infoMediaSavedNotification, .infoGroupInfoInvited:
                     /// These won't be counted as unread messages but need to be able to be in an unread state so that they can disappear
                     /// after being read (if we don't do this their expiration timer will start immediately when received)
                     return true
@@ -154,8 +157,8 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                     .infoCall,
                     .infoDisappearingMessagesUpdate,
                     .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
-                    .infoGroupCurrentUserLeaving, .infoGroupInfoUpdated, .infoGroupMembersUpdated,
-                    .infoScreenshotNotification, .infoMediaSavedNotification:
+                    .infoGroupCurrentUserLeaving, .infoGroupInfoInvited, .infoGroupInfoUpdated,
+                    .infoGroupMembersUpdated, .infoScreenshotNotification, .infoMediaSavedNotification:
                     return true
                 
                 default: return false
@@ -1065,7 +1068,7 @@ public extension Interaction {
             case .infoLegacyGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
             case .infoMessageRequestAccepted: return (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized())
                 
-            case .infoGroupInfoUpdated, .infoGroupMembersUpdated:
+            case .infoGroupInfoInvited, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                 guard
                     let infoMessageData: Data = (body ?? "").data(using: .utf8),
                     let messageInfo: ClosedGroup.MessageInfo = try? JSONDecoder().decode(

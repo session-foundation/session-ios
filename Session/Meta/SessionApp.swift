@@ -46,19 +46,12 @@ public struct SessionApp {
         let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = dependencies[singleton: .storage].read { db in
             let isMessageRequest: Bool = {
                 switch variant {
-                    case .contact:
+                    case .contact, .group:
                         return SessionThread
                             .isMessageRequest(
-                                id: threadId,
-                                variant: .contact,
+                                db,
+                                threadId: threadId,
                                 userSessionId: getUserSessionId(db, using: dependencies),
-                                shouldBeVisible: nil,
-                                contactIsApproved: (try? Contact
-                                    .filter(id: threadId)
-                                    .select(.isApproved)
-                                    .asRequest(of: Bool.self)
-                                    .fetchOne(db))
-                                    .defaulting(to: false),
                                 includeNonVisible: true
                             )
                         

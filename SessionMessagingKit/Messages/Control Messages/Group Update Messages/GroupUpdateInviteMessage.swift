@@ -30,7 +30,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
         groupSessionId: SessionId,
         groupName: String,
         memberAuthData: Data,
-        profile: VisibleMessage.VMProfile? = nil,
+        profile: VisibleMessage.VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
         sentTimestamp: UInt64,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
@@ -120,7 +120,10 @@ public final class GroupUpdateInviteMessage: ControlMessage {
     // MARK: - Proto Conversion
     
     public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateInviteMessage? {
-        guard let groupInviteMessage = proto.dataMessage?.groupUpdateMessage?.inviteMessage else { return nil }
+        guard
+            let dataMessage: SNProtoDataMessage = proto.dataMessage,
+            let groupInviteMessage = dataMessage.groupUpdateMessage?.inviteMessage
+        else { return nil }
         
         let userSessionId: SessionId = getUserSessionId()
         
@@ -129,7 +132,7 @@ public final class GroupUpdateInviteMessage: ControlMessage {
             groupSessionId: SessionId(.group, hex: groupInviteMessage.groupSessionID),
             groupName: groupInviteMessage.name,
             memberAuthData: groupInviteMessage.memberAuthData,
-            profile: VisibleMessage.VMProfile.fromProto(groupInviteMessage),
+            profile: VisibleMessage.VMProfile.fromProto(dataMessage),
             adminSignature: Authentication.Signature.standard(
                 signature: Array(groupInviteMessage.adminSignature)
             )
@@ -138,36 +141,28 @@ public final class GroupUpdateInviteMessage: ControlMessage {
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         do {
-            let inviteMessageBuilder: SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
-            let adminSignatureBytes: [UInt8] = try {
-                switch adminSignature {
-                    case .standard(let signature): return signature
-                    case .subaccount: throw MessageSenderError.signingFailed
-                }
-            }()
-            
-            // Profile
-            if let profile = profile, let profileProto: SNProtoGroupUpdateInviteMessage = profile.toProto(
-                groupSessionIdHexString: groupSessionId.hexString,      // Include the prefix,
+            let inviteMessageBuilder: SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder = SNProtoGroupUpdateInviteMessage.builder(
+                groupSessionID: groupSessionId.hexString,           // Include the prefix
                 name: groupName,
                 memberAuthData: memberAuthData,
-                adminSignature: Data(adminSignatureBytes)
-            ) {
-                inviteMessageBuilder = profileProto.asBuilder()
-            }
-            else {
-                inviteMessageBuilder = SNProtoGroupUpdateInviteMessage.builder(
-                    groupSessionID: groupSessionId.hexString,           // Include the prefix
-                    name: groupName,
-                    memberAuthData: memberAuthData,
-                    adminSignature: Data(adminSignatureBytes)
-                )
-            }
+                adminSignature: try {
+                    switch adminSignature {
+                        case .standard(let signature): return Data(signature)
+                        case .subaccount: throw MessageSenderError.signingFailed
+                    }
+                }()
+            )
             
             let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
             groupUpdateMessage.setInviteMessage(try inviteMessageBuilder.build())
             
-            let dataMessage = SNProtoDataMessage.builder()
+            let dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder = try {
+                guard let profile: VisibleMessage.VMProfile = profile else {
+                    return SNProtoDataMessage.builder()
+                }
+                
+                return try profile.toProtoBuilder()
+            }()
             dataMessage.setGroupUpdateMessage(try groupUpdateMessage.build())
             
             let contentProto = SNProtoContent.builder()

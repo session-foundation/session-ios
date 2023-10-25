@@ -308,7 +308,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 shouldPoll: nil,
                                 groupIdentityPrivateKey: groupSecretKey,
                                 invited: nil
-                            ).save(db)
+                            ).upsert(db)
                             
                             let preparedRequest: HTTP.PreparedRequest<HTTP.BatchResponse> = try SnodeAPI.preparedSequence(
                                 db,

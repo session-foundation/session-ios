@@ -228,8 +228,8 @@ extension MessageReceiver {
         guard
             let caller: String = message.sender,
             let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo),
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: caller),
-            !thread.isMessageRequest(db)
+            !SessionThread.isMessageRequest(db, threadId: caller, userSessionId: getUserSessionId(db, using: dependencies)),
+            let thread: SessionThread = try SessionThread.fetchOne(db, id: caller)
         else { return }
         
         SNLog("[Calls] Sending end call message because there is an ongoing call.")
@@ -292,8 +292,8 @@ extension MessageReceiver {
                 .isEmpty(db))
                 .defaulting(to: false),
             let sender: String = message.sender,
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: sender),
-            !thread.isMessageRequest(db)
+            !SessionThread.isMessageRequest(db, threadId: sender, userSessionId: getUserSessionId(db, using: dependencies)),
+            let thread: SessionThread = try SessionThread.fetchOne(db, id: sender)
         else { return nil }
         
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)

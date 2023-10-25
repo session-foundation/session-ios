@@ -278,10 +278,8 @@ message GroupUpdateInviteMessage {
   required string         name                   = 2;
   // @required
   required bytes          memberAuthData         = 3;
-  optional bytes          profileKey             = 4;
-  optional LokiProfile    profile                = 5;
   // @required
-  required bytes          adminSignature         = 6;
+  required bytes          adminSignature         = 4;
 }
 
 message GroupUpdateDeleteMessage {
@@ -328,12 +326,11 @@ message GroupUpdateMemberLeftMessage {
 message GroupUpdateInviteResponseMessage {
   // @required
   required bool                      isApproved                = 1; // Whether the request was approved
-  optional bytes                     profileKey                = 2;
-  optional LokiProfile               profile                   = 3;
 }
 
 message GroupUpdateDeleteMemberContentMessage {
   repeated string memberSessionIds   = 1;
+  repeated string messageHashes      = 2;
   // @required
-  required bytes  adminSignature     = 2;
+  required bytes  adminSignature     = 3;
 }

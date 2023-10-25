@@ -327,7 +327,7 @@ internal extension SessionUtil {
                         durationSeconds: remoteConfig.durationSeconds,
                         type: remoteConfig.type,
                         lastChangeTimestampMs: remoteConfig.lastChangeTimestampMs
-                    ).save(db)
+                    ).upsert(db)
                     
                     _ = try Interaction
                         .filter(Interaction.Columns.threadId == group.id)
@@ -358,7 +358,7 @@ internal extension SessionUtil {
                     existingMembers != updatedMembers
                 {
                     // Add in any new members and remove any removed members
-                    try updatedMembers.forEach { try $0.save(db) }
+                    try updatedMembers.forEach { try $0.upsert(db) }
                     try existingMembers
                         .filter { !updatedMembers.contains($0) }
                         .forEach { member in
@@ -381,7 +381,7 @@ internal extension SessionUtil {
                     existingAdmins != updatedAdmins
                 {
                     // Add in any new admins and remove any removed admins
-                    try updatedAdmins.forEach { try $0.save(db) }
+                    try updatedAdmins.forEach { try $0.upsert(db) }
                     try existingAdmins
                         .filter { !updatedAdmins.contains($0) }
                         .forEach { member in

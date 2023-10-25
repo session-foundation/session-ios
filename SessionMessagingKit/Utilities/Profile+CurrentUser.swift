@@ -305,7 +305,7 @@ public extension Profile {
         
         // Persist any changes
         if !profileChanges.isEmpty {
-            try profile.save(db)
+            try profile.upsert(db)
             
             try Profile
                 .filter(id: publicKey)

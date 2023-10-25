@@ -75,7 +75,7 @@ public class MessageCell: UITableViewCell {
             case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                 .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoMessageRequestAccepted, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
+                .infoMessageRequestAccepted, .infoGroupInfoInvited, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                 return InfoMessageCell.self
                 
             case .infoCall:

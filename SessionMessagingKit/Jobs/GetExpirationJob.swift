@@ -108,7 +108,7 @@ public enum GetExpirationJob: JobExecutor {
                         let updatedJob: Job? = dependencies[singleton: .storage].write(using: dependencies) { db in
                             try job
                                 .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + minRunFrequency)
-                                .saved(db)
+                                .upserted(db)
                         }
                         
                         return deferred(updatedJob ?? job, dependencies)

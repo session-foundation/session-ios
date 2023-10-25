@@ -120,6 +120,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
                 return (profile?.blocksCommunityMessageRequests != true)
                 
             case .legacyGroup, .group:
+                guard threadIsMessageRequest == false else { return true }
+                
                 return (
                     currentUserIsClosedGroupMember == true &&
                     interactionVariant?.isGroupLeavingStatus != true
@@ -386,6 +388,7 @@ public extension SessionThreadViewModel {
         threadId: String,
         threadVariant: SessionThread.Variant? = nil,
         threadIsNoteToSelf: Bool = false,
+        threadIsMessageRequest: Bool? = nil,
         threadIsBlocked: Bool? = nil,
         contactProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
@@ -401,7 +404,7 @@ public extension SessionThreadViewModel {
         self.threadMemberNames = nil
         
         self.threadIsNoteToSelf = threadIsNoteToSelf
-        self.threadIsMessageRequest = false
+        self.threadIsMessageRequest = threadIsMessageRequest
         self.threadRequiresApproval = false
         self.threadShouldBeVisible = false
         self.threadPinnedPriority = 0
@@ -698,9 +701,11 @@ public extension SessionThreadViewModel {
                     \(thread[.mutedUntilTimestamp]) AS \(ViewModel.Columns.threadMutedUntilTimestamp),
                     \(thread[.onlyNotifyForMentions]) AS \(ViewModel.Columns.threadOnlyNotifyForMentions),
                     (
-                        \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
-                        \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
-                        IFNULL(\(contact[.isApproved]), false) = false
+                        COALESCE(\(closedGroup[.invited]), false) = true OR (
+                            \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                            \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
+                            IFNULL(\(contact[.isApproved]), false) = false
+                        )
                     ) AS \(ViewModel.Columns.threadIsMessageRequest),
                     
                     (\(typingIndicator[.threadId]) IS NOT NULL) AS \(ViewModel.Columns.threadContactIsTyping),
@@ -882,12 +887,14 @@ public extension SessionThreadViewModel {
     static var optimisedJoinSQL: SQL = {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
+        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
         let timestampMsColumnLiteral: SQL = SQL(stringLiteral: Interaction.Columns.timestampMs.name)
         
         return """
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
+            LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
             LEFT JOIN (
                 SELECT
                     \(interaction[.threadId]),
@@ -902,10 +909,12 @@ public extension SessionThreadViewModel {
     static func homeFilterSQL(userSessionId: SessionId) -> SQL {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
+        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         
         return """
-            \(thread[.shouldBeVisible]) = true AND (
-                -- Is not a message request
+            \(thread[.shouldBeVisible]) = true AND
+            -- Is not a message request
+            COALESCE(\(closedGroup[.invited]), false) = false AND (
                 \(SQL("\(thread[.variant]) != \(SessionThread.Variant.contact)")) OR
                 \(SQL("\(thread[.id]) = \(userSessionId.hexString)")) OR
                 \(contact[.isApproved]) = true
@@ -916,13 +925,16 @@ public extension SessionThreadViewModel {
     static func messageRequestsFilterSQL(userSessionId: SessionId) -> SQL {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
+        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         
         return """
             \(thread[.shouldBeVisible]) = true AND (
                 -- Is a message request
-                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
-                \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
-                IFNULL(\(contact[.isApproved]), false) = false
+                COALESCE(\(closedGroup[.invited]), false) = true OR (
+                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                    \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
+                    IFNULL(\(contact[.isApproved]), false) = false
+                )
             )
         """
     }
@@ -982,9 +994,11 @@ public extension SessionThreadViewModel {
                 
                 (\(SQL("\(thread[.id]) = \(userSessionId.hexString)"))) AS \(ViewModel.Columns.threadIsNoteToSelf),
                 (
-                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
-                    \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
-                    IFNULL(\(contact[.isApproved]), false) = false
+                    COALESCE(\(closedGroup[.invited]), false) = true OR (
+                        \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                        \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
+                        IFNULL(\(contact[.isApproved]), false) = false
+                    )
                 ) AS \(ViewModel.Columns.threadIsMessageRequest),
                 (
                     \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
@@ -1929,9 +1943,11 @@ public extension SessionThreadViewModel {
                 
                 (\(SQL("\(thread[.id]) = \(userSessionId.hexString)"))) AS \(ViewModel.Columns.threadIsNoteToSelf),
                 (
-                    \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
-                    \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
-                    IFNULL(\(contact[.isApproved]), false) = false
+                    COALESCE(\(closedGroup[.invited]), false) = true OR (
+                        \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                        \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
+                        IFNULL(\(contact[.isApproved]), false) = false
+                    )
                 ) AS \(ViewModel.Columns.threadIsMessageRequest),
                 
                 IFNULL(\(thread[.pinnedPriority]), 0) AS \(ViewModel.Columns.threadPinnedPriority),
@@ -2022,7 +2038,8 @@ public extension SessionThreadViewModel {
             )
             
             WHERE (
-                \(thread[.shouldBeVisible]) = true AND (
+                \(thread[.shouldBeVisible]) = true AND
+                COALESCE(\(closedGroup[.invited]), false) = false AND (
                     -- Is not a message request
                     \(SQL("\(thread[.variant]) != \(SessionThread.Variant.contact)")) OR
                     \(SQL("\(thread[.id]) = \(userSessionId.hexString)")) OR

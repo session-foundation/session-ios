@@ -190,6 +190,7 @@ public extension ClosedGroup {
             throw MessageReceiverError.noUserED25519KeyPair
         }
         
+        /// Update the database state
         if group.invited == true || group.shouldPoll != true {
             try ClosedGroup
                 .filter(id: group.id)
@@ -202,6 +203,7 @@ public extension ClosedGroup {
                 )
         }
         
+        /// Create the libSession state for the group
         try SessionUtil.createGroupState(
             groupSessionId: SessionId(.group, hex: group.id),
             userED25519KeyPair: userED25519KeyPair,
@@ -210,7 +212,17 @@ public extension ClosedGroup {
             using: dependencies
         )
         
-        // Start polling
+        /// Update the `USER_GROUPS` config
+        if !calledFromConfigHandling {
+            try? SessionUtil.update(
+                db,
+                groupSessionId: group.id,
+                invited: false,
+                using: dependencies
+            )
+        }
+        
+        /// Start polling
         dependencies[singleton: .groupsPoller].startIfNeeded(for: group.id, using: dependencies)
     }
     
@@ -366,6 +378,7 @@ public extension ClosedGroup {
 
 public extension ClosedGroup {
     enum MessageInfo: Codable {
+        case invited(String, String)
         case updatedName(String)
         case updatedNameFallback
         case updatedDisplayPicture
@@ -376,6 +389,13 @@ public extension ClosedGroup {
         
         var previewText: String {
             switch self {
+                case .invited(let adminName, let groupName):
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_INVITED".localized(),
+                        adminName,
+                        groupName
+                    )
+                    
                 case .updatedName(let name):
                     return String(
                         format: "GROUP_MESSAGE_INFO_NAME_UPDATED_TO".localized(),
@@ -384,6 +404,72 @@ public extension ClosedGroup {
                     
                 case .updatedNameFallback: return "GROUP_MESSAGE_INFO_NAME_UPDATED".localized()
                 case .updatedDisplayPicture: return "GROUP_MESSAGE_INFO_PICTURE_UPDATED".localized()
+                
+                case .addedUsers(let names) where names.count > 2:
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED".localized(),
+                        names[0],
+                        "\(names.count - 1)"
+                    )
+                    
+                case .addedUsers(let names) where names.count == 2:
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED".localized(),
+                        names[0],
+                        names[1]
+                    )
+                    
+                case .addedUsers(let names):
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_MEMBER_ADDED".localized(),
+                        (names.first ?? "Anonymous")
+                    )
+                    
+                case .removedUsers(let names) where names.count > 2:
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED".localized(),
+                        names[0],
+                        "\(names.count - 1)"
+                    )
+                    
+                case .removedUsers(let names) where names.count == 2:
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED".localized(),
+                        names[0],
+                        names[1]
+                    )
+                    
+                case .removedUsers(let names):
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_MEMBER_REMOVED".localized(),
+                        (names.first ?? "Anonymous")
+                    )
+                    
+                case .memberLeft(let name):
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_MEMBER_LEFT".localized(),
+                        name
+                    )
+                    
+                case .promotedUsers(let names) where names.count > 2:
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED".localized(),
+                        names[0],
+                        "\(names.count - 1)"
+                    )
+                    
+                case .promotedUsers(let names) where names.count == 2:
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED".localized(),
+                        names[0],
+                        names[1]
+                    )
+                    
+                case .promotedUsers(let names):
+                    return String(
+                        format: "GROUP_MESSAGE_INFO_MEMBER_PROMOTED".localized(),
+                        (names.first ?? "Anonymous")
+                    )
             }
         }
         

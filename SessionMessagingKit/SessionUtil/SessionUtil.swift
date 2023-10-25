@@ -518,7 +518,7 @@ public enum SessionUtil {
                                 for: next.key,
                                 sessionId: sessionId,
                                 timestampMs: latestServerTimestampMs
-                            )?.save(db)
+                            )?.upsert(db)
                         }
                         catch {
                             SNLog("[SessionUtil] Failed to process merge of \(next.key) config data")

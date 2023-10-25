@@ -269,10 +269,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                 
                 return UIContextualAction.configuration(
                     for: UIContextualAction.generateSwipeActions(
-                        [
-                            (threadViewModel.threadVariant != .contact ? nil : .block),
-                            .delete
-                        ].compactMap { $0 },
+                        [.block, .delete],
                         for: .trailing,
                         indexPath: indexPath,
                         tableView: tableView,

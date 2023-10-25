@@ -35,7 +35,7 @@ public enum DisappearingMessagesJob: JobExecutor {
             // should have it's 'nextRunTimestamp' cleared)
             return try updateNextRunIfNeeded(db)
                 .defaulting(to: job.with(nextRunTimestamp: 0))
-                .saved(db)
+                .upserted(db)
         }
         
         SNLog("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages")
@@ -79,7 +79,7 @@ public extension DisappearingMessagesJob {
             .filter(Job.Columns.variant == Job.Variant.disappearingMessages)
             .fetchOne(db)?
             .with(nextRunTimestamp: ceil((nextExpirationTimestampMs - Double(clockOffsetMs)) / 1000))
-            .saved(db)
+            .upserted(db)
     }
     
     static func updateNextRunIfNeeded(

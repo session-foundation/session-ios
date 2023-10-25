@@ -63,7 +63,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                             sessionId: userSessionId,
                             timestampMs: timestampMs
                         )?
-                        .save(db)
+                        .upsert(db)
                 }
             }
         
@@ -129,7 +129,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                             sessionId: userSessionId,
                             timestampMs: timestampMs
                         )?
-                        .save(db)
+                        .upsert(db)
                 }
             }
         
@@ -154,7 +154,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                             sessionId: userSessionId,
                             timestampMs: timestampMs
                         )?
-                        .save(db)
+                        .upsert(db)
                 }
             }
         
@@ -190,7 +190,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                             sessionId: userSessionId,
                             timestampMs: timestampMs
                         )?
-                        .save(db)
+                        .upsert(db)
                 }
         }
                 

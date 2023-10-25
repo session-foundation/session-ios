@@ -76,7 +76,6 @@ extension ContextMenuVC {
                 icon: UIImage(named: "ic_copy"),
                 title: "vc_conversation_settings_copy_session_id_button_title".localized(),
                 accessibilityLabel: "Copy Session ID"
-                
             ) { delegate?.copySessionID(cellViewModel) }
         }
 
@@ -158,8 +157,8 @@ extension ContextMenuVC {
             case .standardIncomingDeleted, .infoCall, .infoScreenshotNotification, .infoMediaSavedNotification,
                 .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
-                .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate, .infoGroupInfoUpdated,
-                .infoGroupMembersUpdated:
+                .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate, .infoGroupInfoInvited,
+                .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                 // Let the user delete info messages and unsent messages
                 return [ Action.delete(cellViewModel, delegate, using: dependencies) ]
                 

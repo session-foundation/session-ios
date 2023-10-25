@@ -3454,12 +3454,6 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdateInviteMessageBuilder {
         let builder = SNProtoGroupUpdateInviteMessageBuilder(groupSessionID: groupSessionID, name: name, memberAuthData: memberAuthData, adminSignature: adminSignature)
-        if let _value = profileKey {
-            builder.setProfileKey(_value)
-        }
-        if let _value = profile {
-            builder.setProfile(_value)
-        }
         return builder
     }
 
@@ -3490,14 +3484,6 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
             proto.memberAuthData = valueParam
         }
 
-        @objc public func setProfileKey(_ valueParam: Data) {
-            proto.profileKey = valueParam
-        }
-
-        @objc public func setProfile(_ valueParam: SNProtoLokiProfile) {
-            proto.profile = valueParam.proto
-        }
-
         @objc public func setAdminSignature(_ valueParam: Data) {
             proto.adminSignature = valueParam
         }
@@ -3519,31 +3505,17 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
 
     @objc public let memberAuthData: Data
 
-    @objc public let profile: SNProtoLokiProfile?
-
     @objc public let adminSignature: Data
-
-    @objc public var profileKey: Data? {
-        guard proto.hasProfileKey else {
-            return nil
-        }
-        return proto.profileKey
-    }
-    @objc public var hasProfileKey: Bool {
-        return proto.hasProfileKey
-    }
 
     private init(proto: SessionProtos_GroupUpdateInviteMessage,
                  groupSessionID: String,
                  name: String,
                  memberAuthData: Data,
-                 profile: SNProtoLokiProfile?,
                  adminSignature: Data) {
         self.proto = proto
         self.groupSessionID = groupSessionID
         self.name = name
         self.memberAuthData = memberAuthData
-        self.profile = profile
         self.adminSignature = adminSignature
     }
 
@@ -3573,11 +3545,6 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
         }
         let memberAuthData = proto.memberAuthData
 
-        var profile: SNProtoLokiProfile? = nil
-        if proto.hasProfile {
-            profile = try SNProtoLokiProfile.parseProto(proto.profile)
-        }
-
         guard proto.hasAdminSignature else {
             throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
         }
@@ -3591,7 +3558,6 @@ extension SNProtoGroupUpdateMessage.SNProtoGroupUpdateMessageBuilder {
                                                      groupSessionID: groupSessionID,
                                                      name: name,
                                                      memberAuthData: memberAuthData,
-                                                     profile: profile,
                                                      adminSignature: adminSignature)
         return result
     }
@@ -4204,12 +4170,6 @@ extension SNProtoGroupUpdateMemberLeftMessage.SNProtoGroupUpdateMemberLeftMessag
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdateInviteResponseMessageBuilder {
         let builder = SNProtoGroupUpdateInviteResponseMessageBuilder(isApproved: isApproved)
-        if let _value = profileKey {
-            builder.setProfileKey(_value)
-        }
-        if let _value = profile {
-            builder.setProfile(_value)
-        }
         return builder
     }
 
@@ -4229,14 +4189,6 @@ extension SNProtoGroupUpdateMemberLeftMessage.SNProtoGroupUpdateMemberLeftMessag
             proto.isApproved = valueParam
         }
 
-        @objc public func setProfileKey(_ valueParam: Data) {
-            proto.profileKey = valueParam
-        }
-
-        @objc public func setProfile(_ valueParam: SNProtoLokiProfile) {
-            proto.profile = valueParam.proto
-        }
-
         @objc public func build() throws -> SNProtoGroupUpdateInviteResponseMessage {
             return try SNProtoGroupUpdateInviteResponseMessage.parseProto(proto)
         }
@@ -4250,24 +4202,10 @@ extension SNProtoGroupUpdateMemberLeftMessage.SNProtoGroupUpdateMemberLeftMessag
 
     @objc public let isApproved: Bool
 
-    @objc public let profile: SNProtoLokiProfile?
-
-    @objc public var profileKey: Data? {
-        guard proto.hasProfileKey else {
-            return nil
-        }
-        return proto.profileKey
-    }
-    @objc public var hasProfileKey: Bool {
-        return proto.hasProfileKey
-    }
-
     private init(proto: SessionProtos_GroupUpdateInviteResponseMessage,
-                 isApproved: Bool,
-                 profile: SNProtoLokiProfile?) {
+                 isApproved: Bool) {
         self.proto = proto
         self.isApproved = isApproved
-        self.profile = profile
     }
 
     @objc
@@ -4286,18 +4224,12 @@ extension SNProtoGroupUpdateMemberLeftMessage.SNProtoGroupUpdateMemberLeftMessag
         }
         let isApproved = proto.isApproved
 
-        var profile: SNProtoLokiProfile? = nil
-        if proto.hasProfile {
-            profile = try SNProtoLokiProfile.parseProto(proto.profile)
-        }
-
         // MARK: - Begin Validation Logic for SNProtoGroupUpdateInviteResponseMessage -
 
         // MARK: - End Validation Logic for SNProtoGroupUpdateInviteResponseMessage -
 
         let result = SNProtoGroupUpdateInviteResponseMessage(proto: proto,
-                                                             isApproved: isApproved,
-                                                             profile: profile)
+                                                             isApproved: isApproved)
         return result
     }
 
@@ -4336,6 +4268,7 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
     @objc public func asBuilder() -> SNProtoGroupUpdateDeleteMemberContentMessageBuilder {
         let builder = SNProtoGroupUpdateDeleteMemberContentMessageBuilder(adminSignature: adminSignature)
         builder.setMemberSessionIds(memberSessionIds)
+        builder.setMessageHashes(messageHashes)
         return builder
     }
 
@@ -4361,6 +4294,16 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
             proto.memberSessionIds = wrappedItems
         }
 
+        @objc public func addMessageHashes(_ valueParam: String) {
+            var items = proto.messageHashes
+            items.append(valueParam)
+            proto.messageHashes = items
+        }
+
+        @objc public func setMessageHashes(_ wrappedItems: [String]) {
+            proto.messageHashes = wrappedItems
+        }
+
         @objc public func setAdminSignature(_ valueParam: Data) {
             proto.adminSignature = valueParam
         }
@@ -4380,6 +4323,10 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
 
     @objc public var memberSessionIds: [String] {
         return proto.memberSessionIds
+    }
+
+    @objc public var messageHashes: [String] {
+        return proto.messageHashes
     }
 
     private init(proto: SessionProtos_GroupUpdateDeleteMemberContentMessage,

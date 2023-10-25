@@ -162,7 +162,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                             /// **Note:** We **MUST** use the `'with()` function here as it will update the
                             /// `isValid` and `duration` values based on the downloaded data and the state
                             dependencies[singleton: .storage].write { db in
-                                _ = try attachment
+                                try attachment
                                     .with(
                                         state: .downloaded,
                                         creationTimestamp: TimeInterval(
@@ -173,7 +173,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                                             Attachment.localRelativeFilePath(from: attachment.originalFilePath)
                                         )
                                     )
-                                    .saved(db)
+                                    .upserted(db)
                             }
                             
                             success(job, false, dependencies)

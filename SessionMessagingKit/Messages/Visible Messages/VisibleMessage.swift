@@ -64,7 +64,7 @@ public final class VisibleMessage: Message {
         dataMessageHasAttachments: Bool? = nil,
         quote: VMQuote? = nil,
         linkPreview: VMLinkPreview? = nil,
-        profile: VMProfile? = nil,
+        profile: VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
         openGroupInvitation: VMOpenGroupInvitation? = nil,
         reaction: VMReaction? = nil
     ) {

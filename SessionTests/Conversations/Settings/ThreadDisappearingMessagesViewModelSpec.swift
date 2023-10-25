@@ -132,7 +132,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         type: .disappearAfterSend
                     )
                 mockStorage.write { db in
-                    _ = try config.saved(db)
+                    try config.upserted(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
@@ -241,7 +241,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         type: .disappearAfterSend
                     )
                 mockStorage.write { db in
-                    _ = try config.saved(db)
+                    try config.upserted(db)
                 }
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",

@@ -69,7 +69,7 @@ extension MessageSender {
                         role: .admin,
                         roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
-                    ).save(db)
+                    ).upsert(db)
                 }
                 
                 try members.forEach { memberId in
@@ -79,7 +79,7 @@ extension MessageSender {
                         role: .standard,
                         roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
-                    ).save(db)
+                    ).upsert(db)
                 }
                 
                 // Update libSession
@@ -501,7 +501,7 @@ extension MessageSender {
                 role: .standard,
                 roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
-            ).save(db)
+            ).upsert(db)
         }
     }
 

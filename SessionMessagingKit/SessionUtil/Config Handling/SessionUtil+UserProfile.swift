@@ -144,7 +144,7 @@ internal extension SessionUtil {
                 durationSeconds: targetConfig.durationSeconds,
                 type: targetConfig.type,
                 lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
-            ).save(db)
+            ).upsert(db)
         }
 
         // Update settings if needed
@@ -163,7 +163,7 @@ internal extension SessionUtil {
         let userContact: Contact = Contact.fetchOrCreate(db, id: userSessionId.hexString)
         
         if !userContact.isTrusted || !userContact.isApproved || !userContact.didApproveMe {
-            try userContact.save(db)
+            try userContact.upsert(db)
             try Contact
                 .filter(id: userSessionId.hexString)
                 .updateAll( // Handling a config update so don't use `updateAllAndConfig`

@@ -140,6 +140,14 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job which sends a promotion to a member of a group asynchronously so the admin doesn't need to
         /// wait during promotions
         case groupPromoteMember
+        
+        /// This is a job which does nothing but never completes by itself, the code will need to manually trigger a resolution
+        /// for the job; it can be beneficial when there is another `Job` which needs to be blocked by a non-job process as
+        /// it can be added as a dependency and can be added to any job queue
+        ///
+        /// **Note:** In order to avoid these jobs building up in the database due to crashes or unhandled code paths these
+        /// jobs will be automatically removed on launch
+        case manualResultJob = 4000
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

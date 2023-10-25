@@ -76,7 +76,7 @@ internal extension SessionUtil {
                     profile.nickname != data.profile.nickname ||
                     profilePictureShouldBeUpdated
                 {
-                    try profile.save(db)
+                    try profile.upsert(db)
                     try Profile
                         .filter(id: sessionId)
                         .updateAll( // Handling a config update so don't use `updateAllAndConfig`
@@ -112,7 +112,7 @@ internal extension SessionUtil {
                     (contact.isBlocked != data.contact.isBlocked) ||
                     (contact.didApproveMe != data.contact.didApproveMe)
                 {
-                    try contact.save(db)
+                    try contact.upsert(db)
                     try Contact
                         .filter(id: sessionId)
                         .updateAll( // Handling a config update so don't use `updateAllAndConfig`
@@ -154,7 +154,7 @@ internal extension SessionUtil {
                         creationDateTimestamp: data.created,
                         shouldBeVisible: updatedShouldBeVisible,
                         pinnedPriority: data.priority
-                    ).save(db)
+                    ).upsert(db)
                 }
                 else {
                     let changes: [ConfigColumnAssignment] = [
@@ -189,7 +189,7 @@ internal extension SessionUtil {
                         durationSeconds: data.config.durationSeconds,
                         type: data.config.type,
                         lastChangeTimestampMs: data.config.lastChangeTimestampMs
-                    ).save(db)
+                    ).upsert(db)
                     
                     _ = try Interaction
                         .filter(Interaction.Columns.threadId == sessionId)

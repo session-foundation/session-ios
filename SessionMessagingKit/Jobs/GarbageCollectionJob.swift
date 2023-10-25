@@ -349,7 +349,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     
                     let maybeFileInfo: FileInfo? = dependencies[singleton: .storage].read { db -> FileInfo in
                         var attachmentLocalRelativePaths: Set<String> = []
-                        var profileAvatarFilenames: Set<String> = []
+                        var displayPictureFilenames: Set<String> = []
                         
                         /// Orphaned attachment files - attachment files which don't have an associated record in the database
                         if finalTypesToCollect.contains(.orphanedAttachmentFiles) {
@@ -364,18 +364,34 @@ public enum GarbageCollectionJob: JobExecutor {
                                 .fetchSet(db)
                         }
 
-                        /// Orphaned profile avatar files - profile avatar files which don't have an associated record in the database
-                        if finalTypesToCollect.contains(.orphanedProfileAvatars) {
-                            profileAvatarFilenames = try Profile
-                                .select(.profilePictureFileName)
-                                .filter(Profile.Columns.profilePictureFileName != nil)
-                                .asRequest(of: String.self)
-                                .fetchSet(db)
+                        /// Orphaned display picture files - profile avatar files which don't have an associated record in the database
+                        if finalTypesToCollect.contains(.orphanedDisplayPictures) {
+                            displayPictureFilenames.insert(
+                                contentsOf: try Profile
+                                    .select(.profilePictureFileName)
+                                    .filter(Profile.Columns.profilePictureFileName != nil)
+                                    .asRequest(of: String.self)
+                                    .fetchSet(db)
+                            )
+                            displayPictureFilenames.insert(
+                                contentsOf: try ClosedGroup
+                                    .select(.displayPictureFilename)
+                                    .filter(ClosedGroup.Columns.displayPictureFilename != nil)
+                                    .asRequest(of: String.self)
+                                    .fetchSet(db)
+                            )
+                            displayPictureFilenames.insert(
+                                contentsOf: try OpenGroup
+                                    .select(.displayPictureFilename)
+                                    .filter(OpenGroup.Columns.displayPictureFilename != nil)
+                                    .asRequest(of: String.self)
+                                    .fetchSet(db)
+                            )
                         }
                         
                         return FileInfo(
                             attachmentLocalRelativePaths: attachmentLocalRelativePaths,
-                            profileAvatarFilenames: profileAvatarFilenames
+                            displayPictureFilenames: displayPictureFilenames
                         )
                     }
                     
@@ -431,28 +447,27 @@ public enum GarbageCollectionJob: JobExecutor {
                         SNLog("[GarbageCollectionJob] Removed \(orphanedAttachmentFiles.count) orphaned attachment\(orphanedAttachmentFiles.count == 1 ? "" : "s")")
                     }
                     
-                    // Orphaned profile avatar files (actual deletion)
-                    // TODO: Should update 'orphanedProfileAvatars' to be 'orphanedDisplayPictures' and update it to include group images as well
-                    if finalTypesToCollect.contains(.orphanedProfileAvatars) {
-                        let allAvatarProfileFilenames: Set<String> = (try? FileManager.default
-                            .contentsOfDirectory(atPath: ProfileManager.sharedDataProfileAvatarsDirPath))
+                    // Orphaned display picture files (actual deletion)
+                    if finalTypesToCollect.contains(.orphanedDisplayPictures) {
+                        let allDisplayPictureFilenames: Set<String> = (try? FileManager.default
+                            .contentsOfDirectory(atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath))
                             .defaulting(to: [])
                             .asSet()
-                        let orphanedAvatarFiles: Set<String> = allAvatarProfileFilenames
-                            .subtracting(fileInfo.profileAvatarFilenames)
+                        let orphanedFiles: Set<String> = allDisplayPictureFilenames
+                            .subtracting(fileInfo.displayPictureFilenames)
                         
-                        orphanedAvatarFiles.forEach { filename in
+                        orphanedFiles.forEach { filename in
                             // We don't want a single deletion failure to block deletion of the other files so try
                             // each one and store the error to be used to determine success/failure of the job
                             do {
                                 try FileManager.default.removeItem(
-                                    atPath: ProfileManager.profileAvatarFilepath(filename: filename)
+                                    atPath: DisplayPictureManager.filepath(for: filename)
                                 )
                             }
                             catch { deletionErrors.append(error) }
                         }
                         
-                        SNLog("[GarbageCollectionJob] Removed \(orphanedAvatarFiles.count) orphaned avatar image\(orphanedAvatarFiles.count == 1 ? "" : "s")")
+                        SNLog("[GarbageCollectionJob] Removed \(orphanedFiles.count) orphaned display picture\(orphanedFiles.count == 1 ? "" : "s")")
                     }
                     
                     // Report a single file deletion as a job failure (even if other content was successfully removed)
@@ -490,7 +505,7 @@ extension GarbageCollectionJob {
         case orphanedProfiles
         case orphanedAttachments
         case orphanedAttachmentFiles
-        case orphanedProfileAvatars
+        case orphanedDisplayPictures
         case expiredUnreadDisappearingMessages // unread disappearing messages after 14 days
         case expiredPendingReadReceipts
         case shadowThreads

@@ -72,11 +72,11 @@ public extension Identity {
     }
 
     static func store(_ db: Database, seed: Data, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) throws {
-        try Identity(variant: .seed, data: seed).save(db)
-        try Identity(variant: .ed25519SecretKey, data: Data(ed25519KeyPair.secretKey)).save(db)
-        try Identity(variant: .ed25519PublicKey, data: Data(ed25519KeyPair.publicKey)).save(db)
-        try Identity(variant: .x25519PrivateKey, data: Data(x25519KeyPair.secretKey)).save(db)
-        try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).save(db)
+        try Identity(variant: .seed, data: seed).upsert(db)
+        try Identity(variant: .ed25519SecretKey, data: Data(ed25519KeyPair.secretKey)).upsert(db)
+        try Identity(variant: .ed25519PublicKey, data: Data(ed25519KeyPair.publicKey)).upsert(db)
+        try Identity(variant: .x25519PrivateKey, data: Data(x25519KeyPair.secretKey)).upsert(db)
+        try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).upsert(db)
     }
     
     static func userExists(

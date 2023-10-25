@@ -474,7 +474,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         guard self.config != updatedConfig else { return }
 
         dependencies[singleton: .storage].writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
-            _ = try updatedConfig.saved(db)
+            try updatedConfig.upserted(db)
             
             _ = try Interaction
                 .filter(Interaction.Columns.threadId == threadId)

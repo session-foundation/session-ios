@@ -110,25 +110,24 @@ public enum GroupLeavingJob: JobExecutor {
                         return leaveMessage
                             .send(using: dependencies)
                             .map { _ in () }
-                            .tryCatch { error -> AnyPublisher<Void, Error> in
-                                /// If it failed due to one of these errors then clear out any associated data (as somehow the `SessionThread`
-                                /// exists but not the data required to send the `MEMBER_LEFT` message which would leave the user in a state
-                                /// where they can't leave the group)
-                                switch error as? MessageSenderError {
-                                    case .invalidClosedGroupUpdate, .noKeyPair, .encryptionFailed:
-                                        return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
-                                    
-                                    default: throw error
-                                }
-                            }
                             .eraseToAnyPublisher()
-                            
                         
                     case .delete:
                         return ConfigurationSyncJob
                             .run(sessionIdHexString: threadId, using: dependencies)
                             .map { _ in () }
                             .eraseToAnyPublisher()
+                }
+            }
+            .tryCatch { error -> AnyPublisher<Void, Error> in
+                /// If it failed due to one of these errors then clear out any associated data (as somehow the `SessionThread`
+                /// exists but not the data required to send the `MEMBER_LEFT` message which would leave the user in a state
+                /// where they can't leave the group)
+                switch error as? MessageSenderError {
+                    case .invalidClosedGroupUpdate, .noKeyPair, .encryptionFailed:
+                        return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
+                    
+                    default: throw error
                 }
             }
             .subscribe(on: queue, using: dependencies)
@@ -140,7 +139,7 @@ public enum GroupLeavingJob: JobExecutor {
                             let updatedBody: String = {
                                 switch details.behaviour {
                                     case .leave: return "group_unable_to_leave".localized()
-                                    case .delete: return "group_unable_to_leave".localized()
+                                    case .delete: return "group_unable_to_delete".localized()
                                 }
                             }()
                             
@@ -157,7 +156,6 @@ public enum GroupLeavingJob: JobExecutor {
                             }
                             
                             failure(job, error, true, dependencies)
-                            
                             
                         case .finished:
                             // Remove all of the group data

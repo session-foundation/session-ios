@@ -1462,82 +1462,89 @@ struct SessionProtos_GroupUpdateMessage {
   // methods supported on all messages.
 
   var inviteMessage: SessionProtos_GroupUpdateInviteMessage {
-    get {return _storage._inviteMessage ?? SessionProtos_GroupUpdateInviteMessage()}
-    set {_uniqueStorage()._inviteMessage = newValue}
+    get {return _inviteMessage ?? SessionProtos_GroupUpdateInviteMessage()}
+    set {_inviteMessage = newValue}
   }
   /// Returns true if `inviteMessage` has been explicitly set.
-  var hasInviteMessage: Bool {return _storage._inviteMessage != nil}
+  var hasInviteMessage: Bool {return self._inviteMessage != nil}
   /// Clears the value of `inviteMessage`. Subsequent reads from it will return its default value.
-  mutating func clearInviteMessage() {_uniqueStorage()._inviteMessage = nil}
+  mutating func clearInviteMessage() {self._inviteMessage = nil}
 
   var deleteMessage: SessionProtos_GroupUpdateDeleteMessage {
-    get {return _storage._deleteMessage ?? SessionProtos_GroupUpdateDeleteMessage()}
-    set {_uniqueStorage()._deleteMessage = newValue}
+    get {return _deleteMessage ?? SessionProtos_GroupUpdateDeleteMessage()}
+    set {_deleteMessage = newValue}
   }
   /// Returns true if `deleteMessage` has been explicitly set.
-  var hasDeleteMessage: Bool {return _storage._deleteMessage != nil}
+  var hasDeleteMessage: Bool {return self._deleteMessage != nil}
   /// Clears the value of `deleteMessage`. Subsequent reads from it will return its default value.
-  mutating func clearDeleteMessage() {_uniqueStorage()._deleteMessage = nil}
+  mutating func clearDeleteMessage() {self._deleteMessage = nil}
 
   var infoChangeMessage: SessionProtos_GroupUpdateInfoChangeMessage {
-    get {return _storage._infoChangeMessage ?? SessionProtos_GroupUpdateInfoChangeMessage()}
-    set {_uniqueStorage()._infoChangeMessage = newValue}
+    get {return _infoChangeMessage ?? SessionProtos_GroupUpdateInfoChangeMessage()}
+    set {_infoChangeMessage = newValue}
   }
   /// Returns true if `infoChangeMessage` has been explicitly set.
-  var hasInfoChangeMessage: Bool {return _storage._infoChangeMessage != nil}
+  var hasInfoChangeMessage: Bool {return self._infoChangeMessage != nil}
   /// Clears the value of `infoChangeMessage`. Subsequent reads from it will return its default value.
-  mutating func clearInfoChangeMessage() {_uniqueStorage()._infoChangeMessage = nil}
+  mutating func clearInfoChangeMessage() {self._infoChangeMessage = nil}
 
   var memberChangeMessage: SessionProtos_GroupUpdateMemberChangeMessage {
-    get {return _storage._memberChangeMessage ?? SessionProtos_GroupUpdateMemberChangeMessage()}
-    set {_uniqueStorage()._memberChangeMessage = newValue}
+    get {return _memberChangeMessage ?? SessionProtos_GroupUpdateMemberChangeMessage()}
+    set {_memberChangeMessage = newValue}
   }
   /// Returns true if `memberChangeMessage` has been explicitly set.
-  var hasMemberChangeMessage: Bool {return _storage._memberChangeMessage != nil}
+  var hasMemberChangeMessage: Bool {return self._memberChangeMessage != nil}
   /// Clears the value of `memberChangeMessage`. Subsequent reads from it will return its default value.
-  mutating func clearMemberChangeMessage() {_uniqueStorage()._memberChangeMessage = nil}
+  mutating func clearMemberChangeMessage() {self._memberChangeMessage = nil}
 
   var promoteMessage: SessionProtos_GroupUpdatePromoteMessage {
-    get {return _storage._promoteMessage ?? SessionProtos_GroupUpdatePromoteMessage()}
-    set {_uniqueStorage()._promoteMessage = newValue}
+    get {return _promoteMessage ?? SessionProtos_GroupUpdatePromoteMessage()}
+    set {_promoteMessage = newValue}
   }
   /// Returns true if `promoteMessage` has been explicitly set.
-  var hasPromoteMessage: Bool {return _storage._promoteMessage != nil}
+  var hasPromoteMessage: Bool {return self._promoteMessage != nil}
   /// Clears the value of `promoteMessage`. Subsequent reads from it will return its default value.
-  mutating func clearPromoteMessage() {_uniqueStorage()._promoteMessage = nil}
+  mutating func clearPromoteMessage() {self._promoteMessage = nil}
 
   var memberLeftMessage: SessionProtos_GroupUpdateMemberLeftMessage {
-    get {return _storage._memberLeftMessage ?? SessionProtos_GroupUpdateMemberLeftMessage()}
-    set {_uniqueStorage()._memberLeftMessage = newValue}
+    get {return _memberLeftMessage ?? SessionProtos_GroupUpdateMemberLeftMessage()}
+    set {_memberLeftMessage = newValue}
   }
   /// Returns true if `memberLeftMessage` has been explicitly set.
-  var hasMemberLeftMessage: Bool {return _storage._memberLeftMessage != nil}
+  var hasMemberLeftMessage: Bool {return self._memberLeftMessage != nil}
   /// Clears the value of `memberLeftMessage`. Subsequent reads from it will return its default value.
-  mutating func clearMemberLeftMessage() {_uniqueStorage()._memberLeftMessage = nil}
+  mutating func clearMemberLeftMessage() {self._memberLeftMessage = nil}
 
   var inviteResponse: SessionProtos_GroupUpdateInviteResponseMessage {
-    get {return _storage._inviteResponse ?? SessionProtos_GroupUpdateInviteResponseMessage()}
-    set {_uniqueStorage()._inviteResponse = newValue}
+    get {return _inviteResponse ?? SessionProtos_GroupUpdateInviteResponseMessage()}
+    set {_inviteResponse = newValue}
   }
   /// Returns true if `inviteResponse` has been explicitly set.
-  var hasInviteResponse: Bool {return _storage._inviteResponse != nil}
+  var hasInviteResponse: Bool {return self._inviteResponse != nil}
   /// Clears the value of `inviteResponse`. Subsequent reads from it will return its default value.
-  mutating func clearInviteResponse() {_uniqueStorage()._inviteResponse = nil}
+  mutating func clearInviteResponse() {self._inviteResponse = nil}
 
   var deleteMemberContent: SessionProtos_GroupUpdateDeleteMemberContentMessage {
-    get {return _storage._deleteMemberContent ?? SessionProtos_GroupUpdateDeleteMemberContentMessage()}
-    set {_uniqueStorage()._deleteMemberContent = newValue}
+    get {return _deleteMemberContent ?? SessionProtos_GroupUpdateDeleteMemberContentMessage()}
+    set {_deleteMemberContent = newValue}
   }
   /// Returns true if `deleteMemberContent` has been explicitly set.
-  var hasDeleteMemberContent: Bool {return _storage._deleteMemberContent != nil}
+  var hasDeleteMemberContent: Bool {return self._deleteMemberContent != nil}
   /// Clears the value of `deleteMemberContent`. Subsequent reads from it will return its default value.
-  mutating func clearDeleteMemberContent() {_uniqueStorage()._deleteMemberContent = nil}
+  mutating func clearDeleteMemberContent() {self._deleteMemberContent = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
-  fileprivate var _storage = _StorageClass.defaultInstance
+  fileprivate var _inviteMessage: SessionProtos_GroupUpdateInviteMessage? = nil
+  fileprivate var _deleteMessage: SessionProtos_GroupUpdateDeleteMessage? = nil
+  fileprivate var _infoChangeMessage: SessionProtos_GroupUpdateInfoChangeMessage? = nil
+  fileprivate var _memberChangeMessage: SessionProtos_GroupUpdateMemberChangeMessage? = nil
+  fileprivate var _promoteMessage: SessionProtos_GroupUpdatePromoteMessage? = nil
+  fileprivate var _memberLeftMessage: SessionProtos_GroupUpdateMemberLeftMessage? = nil
+  fileprivate var _inviteResponse: SessionProtos_GroupUpdateInviteResponseMessage? = nil
+  fileprivate var _deleteMemberContent: SessionProtos_GroupUpdateDeleteMemberContentMessage? = nil
 }
 
 struct SessionProtos_GroupUpdateInviteMessage {
@@ -1575,24 +1582,6 @@ struct SessionProtos_GroupUpdateInviteMessage {
   /// Clears the value of `memberAuthData`. Subsequent reads from it will return its default value.
   mutating func clearMemberAuthData() {self._memberAuthData = nil}
 
-  var profileKey: Data {
-    get {return _profileKey ?? Data()}
-    set {_profileKey = newValue}
-  }
-  /// Returns true if `profileKey` has been explicitly set.
-  var hasProfileKey: Bool {return self._profileKey != nil}
-  /// Clears the value of `profileKey`. Subsequent reads from it will return its default value.
-  mutating func clearProfileKey() {self._profileKey = nil}
-
-  var profile: SessionProtos_LokiProfile {
-    get {return _profile ?? SessionProtos_LokiProfile()}
-    set {_profile = newValue}
-  }
-  /// Returns true if `profile` has been explicitly set.
-  var hasProfile: Bool {return self._profile != nil}
-  /// Clears the value of `profile`. Subsequent reads from it will return its default value.
-  mutating func clearProfile() {self._profile = nil}
-
   /// @required
   var adminSignature: Data {
     get {return _adminSignature ?? Data()}
@@ -1610,8 +1599,6 @@ struct SessionProtos_GroupUpdateInviteMessage {
   fileprivate var _groupSessionID: String? = nil
   fileprivate var _name: String? = nil
   fileprivate var _memberAuthData: Data? = nil
-  fileprivate var _profileKey: Data? = nil
-  fileprivate var _profile: SessionProtos_LokiProfile? = nil
   fileprivate var _adminSignature: Data? = nil
 }
 
@@ -1836,31 +1823,11 @@ struct SessionProtos_GroupUpdateInviteResponseMessage {
   /// Clears the value of `isApproved`. Subsequent reads from it will return its default value.
   mutating func clearIsApproved() {self._isApproved = nil}
 
-  var profileKey: Data {
-    get {return _profileKey ?? Data()}
-    set {_profileKey = newValue}
-  }
-  /// Returns true if `profileKey` has been explicitly set.
-  var hasProfileKey: Bool {return self._profileKey != nil}
-  /// Clears the value of `profileKey`. Subsequent reads from it will return its default value.
-  mutating func clearProfileKey() {self._profileKey = nil}
-
-  var profile: SessionProtos_LokiProfile {
-    get {return _profile ?? SessionProtos_LokiProfile()}
-    set {_profile = newValue}
-  }
-  /// Returns true if `profile` has been explicitly set.
-  var hasProfile: Bool {return self._profile != nil}
-  /// Clears the value of `profile`. Subsequent reads from it will return its default value.
-  mutating func clearProfile() {self._profile = nil}
-
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _isApproved: Bool? = nil
-  fileprivate var _profileKey: Data? = nil
-  fileprivate var _profile: SessionProtos_LokiProfile? = nil
 }
 
 struct SessionProtos_GroupUpdateDeleteMemberContentMessage {
@@ -1869,6 +1836,8 @@ struct SessionProtos_GroupUpdateDeleteMemberContentMessage {
   // methods supported on all messages.
 
   var memberSessionIds: [String] = []
+
+  var messageHashes: [String] = []
 
   /// @required
   var adminSignature: Data {
@@ -3372,125 +3341,77 @@ extension SessionProtos_GroupUpdateMessage: SwiftProtobuf.Message, SwiftProtobuf
     8: .same(proto: "deleteMemberContent"),
   ]
 
-  fileprivate class _StorageClass {
-    var _inviteMessage: SessionProtos_GroupUpdateInviteMessage? = nil
-    var _deleteMessage: SessionProtos_GroupUpdateDeleteMessage? = nil
-    var _infoChangeMessage: SessionProtos_GroupUpdateInfoChangeMessage? = nil
-    var _memberChangeMessage: SessionProtos_GroupUpdateMemberChangeMessage? = nil
-    var _promoteMessage: SessionProtos_GroupUpdatePromoteMessage? = nil
-    var _memberLeftMessage: SessionProtos_GroupUpdateMemberLeftMessage? = nil
-    var _inviteResponse: SessionProtos_GroupUpdateInviteResponseMessage? = nil
-    var _deleteMemberContent: SessionProtos_GroupUpdateDeleteMemberContentMessage? = nil
-
-    static let defaultInstance = _StorageClass()
-
-    private init() {}
-
-    init(copying source: _StorageClass) {
-      _inviteMessage = source._inviteMessage
-      _deleteMessage = source._deleteMessage
-      _infoChangeMessage = source._infoChangeMessage
-      _memberChangeMessage = source._memberChangeMessage
-      _promoteMessage = source._promoteMessage
-      _memberLeftMessage = source._memberLeftMessage
-      _inviteResponse = source._inviteResponse
-      _deleteMemberContent = source._deleteMemberContent
-    }
-  }
-
-  fileprivate mutating func _uniqueStorage() -> _StorageClass {
-    if !isKnownUniquelyReferenced(&_storage) {
-      _storage = _StorageClass(copying: _storage)
-    }
-    return _storage
-  }
-
   public var isInitialized: Bool {
-    return withExtendedLifetime(_storage) { (_storage: _StorageClass) in
-      if let v = _storage._inviteMessage, !v.isInitialized {return false}
-      if let v = _storage._deleteMessage, !v.isInitialized {return false}
-      if let v = _storage._infoChangeMessage, !v.isInitialized {return false}
-      if let v = _storage._memberChangeMessage, !v.isInitialized {return false}
-      if let v = _storage._promoteMessage, !v.isInitialized {return false}
-      if let v = _storage._inviteResponse, !v.isInitialized {return false}
-      if let v = _storage._deleteMemberContent, !v.isInitialized {return false}
-      return true
-    }
+    if let v = self._inviteMessage, !v.isInitialized {return false}
+    if let v = self._deleteMessage, !v.isInitialized {return false}
+    if let v = self._infoChangeMessage, !v.isInitialized {return false}
+    if let v = self._memberChangeMessage, !v.isInitialized {return false}
+    if let v = self._promoteMessage, !v.isInitialized {return false}
+    if let v = self._inviteResponse, !v.isInitialized {return false}
+    if let v = self._deleteMemberContent, !v.isInitialized {return false}
+    return true
   }
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    _ = _uniqueStorage()
-    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
-      while let fieldNumber = try decoder.nextFieldNumber() {
-        // The use of inline closures is to circumvent an issue where the compiler
-        // allocates stack space for every case branch when no optimizations are
-        // enabled. https://github.com/apple/swift-protobuf/issues/1034
-        switch fieldNumber {
-        case 1: try { try decoder.decodeSingularMessageField(value: &_storage._inviteMessage) }()
-        case 2: try { try decoder.decodeSingularMessageField(value: &_storage._deleteMessage) }()
-        case 3: try { try decoder.decodeSingularMessageField(value: &_storage._infoChangeMessage) }()
-        case 4: try { try decoder.decodeSingularMessageField(value: &_storage._memberChangeMessage) }()
-        case 5: try { try decoder.decodeSingularMessageField(value: &_storage._promoteMessage) }()
-        case 6: try { try decoder.decodeSingularMessageField(value: &_storage._memberLeftMessage) }()
-        case 7: try { try decoder.decodeSingularMessageField(value: &_storage._inviteResponse) }()
-        case 8: try { try decoder.decodeSingularMessageField(value: &_storage._deleteMemberContent) }()
-        default: break
-        }
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._inviteMessage) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._deleteMessage) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._infoChangeMessage) }()
+      case 4: try { try decoder.decodeSingularMessageField(value: &self._memberChangeMessage) }()
+      case 5: try { try decoder.decodeSingularMessageField(value: &self._promoteMessage) }()
+      case 6: try { try decoder.decodeSingularMessageField(value: &self._memberLeftMessage) }()
+      case 7: try { try decoder.decodeSingularMessageField(value: &self._inviteResponse) }()
+      case 8: try { try decoder.decodeSingularMessageField(value: &self._deleteMemberContent) }()
+      default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every if/case branch local when no optimizations
-      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-      // https://github.com/apple/swift-protobuf/issues/1182
-      try { if let v = _storage._inviteMessage {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-      } }()
-      try { if let v = _storage._deleteMessage {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-      } }()
-      try { if let v = _storage._infoChangeMessage {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-      } }()
-      try { if let v = _storage._memberChangeMessage {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
-      } }()
-      try { if let v = _storage._promoteMessage {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
-      } }()
-      try { if let v = _storage._memberLeftMessage {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
-      } }()
-      try { if let v = _storage._inviteResponse {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
-      } }()
-      try { if let v = _storage._deleteMemberContent {
-        try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
-      } }()
-    }
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._inviteMessage {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._deleteMessage {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._infoChangeMessage {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
+    try { if let v = self._memberChangeMessage {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    } }()
+    try { if let v = self._promoteMessage {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    } }()
+    try { if let v = self._memberLeftMessage {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    } }()
+    try { if let v = self._inviteResponse {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    } }()
+    try { if let v = self._deleteMemberContent {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_GroupUpdateMessage, rhs: SessionProtos_GroupUpdateMessage) -> Bool {
-    if lhs._storage !== rhs._storage {
-      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
-        let _storage = _args.0
-        let rhs_storage = _args.1
-        if _storage._inviteMessage != rhs_storage._inviteMessage {return false}
-        if _storage._deleteMessage != rhs_storage._deleteMessage {return false}
-        if _storage._infoChangeMessage != rhs_storage._infoChangeMessage {return false}
-        if _storage._memberChangeMessage != rhs_storage._memberChangeMessage {return false}
-        if _storage._promoteMessage != rhs_storage._promoteMessage {return false}
-        if _storage._memberLeftMessage != rhs_storage._memberLeftMessage {return false}
-        if _storage._inviteResponse != rhs_storage._inviteResponse {return false}
-        if _storage._deleteMemberContent != rhs_storage._deleteMemberContent {return false}
-        return true
-      }
-      if !storagesAreEqual {return false}
-    }
+    if lhs._inviteMessage != rhs._inviteMessage {return false}
+    if lhs._deleteMessage != rhs._deleteMessage {return false}
+    if lhs._infoChangeMessage != rhs._infoChangeMessage {return false}
+    if lhs._memberChangeMessage != rhs._memberChangeMessage {return false}
+    if lhs._promoteMessage != rhs._promoteMessage {return false}
+    if lhs._memberLeftMessage != rhs._memberLeftMessage {return false}
+    if lhs._inviteResponse != rhs._inviteResponse {return false}
+    if lhs._deleteMemberContent != rhs._deleteMemberContent {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3502,9 +3423,7 @@ extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftPr
     1: .same(proto: "groupSessionId"),
     2: .same(proto: "name"),
     3: .same(proto: "memberAuthData"),
-    4: .same(proto: "profileKey"),
-    5: .same(proto: "profile"),
-    6: .same(proto: "adminSignature"),
+    4: .same(proto: "adminSignature"),
   ]
 
   public var isInitialized: Bool {
@@ -3524,9 +3443,7 @@ extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftPr
       case 1: try { try decoder.decodeSingularStringField(value: &self._groupSessionID) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self._name) }()
       case 3: try { try decoder.decodeSingularBytesField(value: &self._memberAuthData) }()
-      case 4: try { try decoder.decodeSingularBytesField(value: &self._profileKey) }()
-      case 5: try { try decoder.decodeSingularMessageField(value: &self._profile) }()
-      case 6: try { try decoder.decodeSingularBytesField(value: &self._adminSignature) }()
+      case 4: try { try decoder.decodeSingularBytesField(value: &self._adminSignature) }()
       default: break
       }
     }
@@ -3546,14 +3463,8 @@ extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftPr
     try { if let v = self._memberAuthData {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
     } }()
-    try { if let v = self._profileKey {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 4)
-    } }()
-    try { if let v = self._profile {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
-    } }()
     try { if let v = self._adminSignature {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 6)
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 4)
     } }()
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3562,8 +3473,6 @@ extension SessionProtos_GroupUpdateInviteMessage: SwiftProtobuf.Message, SwiftPr
     if lhs._groupSessionID != rhs._groupSessionID {return false}
     if lhs._name != rhs._name {return false}
     if lhs._memberAuthData != rhs._memberAuthData {return false}
-    if lhs._profileKey != rhs._profileKey {return false}
-    if lhs._profile != rhs._profile {return false}
     if lhs._adminSignature != rhs._adminSignature {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -3798,8 +3707,6 @@ extension SessionProtos_GroupUpdateInviteResponseMessage: SwiftProtobuf.Message,
   static let protoMessageName: String = _protobuf_package + ".GroupUpdateInviteResponseMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "isApproved"),
-    2: .same(proto: "profileKey"),
-    3: .same(proto: "profile"),
   ]
 
   public var isInitialized: Bool {
@@ -3814,8 +3721,6 @@ extension SessionProtos_GroupUpdateInviteResponseMessage: SwiftProtobuf.Message,
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBoolField(value: &self._isApproved) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self._profileKey) }()
-      case 3: try { try decoder.decodeSingularMessageField(value: &self._profile) }()
       default: break
       }
     }
@@ -3829,19 +3734,11 @@ extension SessionProtos_GroupUpdateInviteResponseMessage: SwiftProtobuf.Message,
     try { if let v = self._isApproved {
       try visitor.visitSingularBoolField(value: v, fieldNumber: 1)
     } }()
-    try { if let v = self._profileKey {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
-    } }()
-    try { if let v = self._profile {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_GroupUpdateInviteResponseMessage, rhs: SessionProtos_GroupUpdateInviteResponseMessage) -> Bool {
     if lhs._isApproved != rhs._isApproved {return false}
-    if lhs._profileKey != rhs._profileKey {return false}
-    if lhs._profile != rhs._profile {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -3851,7 +3748,8 @@ extension SessionProtos_GroupUpdateDeleteMemberContentMessage: SwiftProtobuf.Mes
   static let protoMessageName: String = _protobuf_package + ".GroupUpdateDeleteMemberContentMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "memberSessionIds"),
-    2: .same(proto: "adminSignature"),
+    2: .same(proto: "messageHashes"),
+    3: .same(proto: "adminSignature"),
   ]
 
   public var isInitialized: Bool {
@@ -3866,7 +3764,8 @@ extension SessionProtos_GroupUpdateDeleteMemberContentMessage: SwiftProtobuf.Mes
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeRepeatedStringField(value: &self.memberSessionIds) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self._adminSignature) }()
+      case 2: try { try decoder.decodeRepeatedStringField(value: &self.messageHashes) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self._adminSignature) }()
       default: break
       }
     }
@@ -3880,14 +3779,18 @@ extension SessionProtos_GroupUpdateDeleteMemberContentMessage: SwiftProtobuf.Mes
     if !self.memberSessionIds.isEmpty {
       try visitor.visitRepeatedStringField(value: self.memberSessionIds, fieldNumber: 1)
     }
+    if !self.messageHashes.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.messageHashes, fieldNumber: 2)
+    }
     try { if let v = self._adminSignature {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
     } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_GroupUpdateDeleteMemberContentMessage, rhs: SessionProtos_GroupUpdateDeleteMemberContentMessage) -> Bool {
     if lhs.memberSessionIds != rhs.memberSessionIds {return false}
+    if lhs.messageHashes != rhs.messageHashes {return false}
     if lhs._adminSignature != rhs._adminSignature {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

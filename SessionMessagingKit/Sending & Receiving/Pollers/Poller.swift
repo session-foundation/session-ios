@@ -12,6 +12,9 @@ import SessionUtilitiesKit
 public protocol PollerType {
     func start(using dependencies: Dependencies)
     func startIfNeeded(for publicKey: String, using dependencies: Dependencies)
+    func stopAllPollers()
+    func stopPolling(for publicKey: String)
+    
     func poll(
         namespaces: [SnodeAPI.Namespace],
         for publicKey: String,
@@ -20,8 +23,7 @@ public protocol PollerType {
         drainBehaviour: Atomic<SwarmDrainBehaviour>,
         using dependencies: Dependencies
     ) -> AnyPublisher<[ProcessedMessage], Error>
-    func stopAllPollers()
-    func stopPolling(for publicKey: String)
+    func afterNextPoll(for publicKey: String, closure: @escaping ([ProcessedMessage]) -> ())
 }
 
 public extension PollerType {
@@ -46,6 +48,7 @@ public extension PollerType {
 
 public class Poller: PollerType {
     private var cancellables: Atomic<[String: AnyCancellable]> = Atomic([:])
+    private var pollResultCallbacks: Atomic<[String: [([ProcessedMessage]) -> ()]]> = Atomic([:])
     internal var isPolling: Atomic<[String: Bool]> = Atomic([:])
     internal var failureCount: Atomic<[String: Int]> = Atomic([:])
     internal var drainBehaviour: Atomic<[String: Atomic<SwarmDrainBehaviour>]> = Atomic([:])
@@ -505,6 +508,26 @@ public class Poller: PollerType {
                     .map { _ in processedMessages }
                     .eraseToAnyPublisher()
             }
+            .handleEvents(
+                receiveOutput: { [weak self] messages in
+                    /// Run any poll result callbacks we registered
+                    let callbacks: [([ProcessedMessage]) -> ()] = (self?.pollResultCallbacks
+                        .mutate { callbacks in
+                            let result: [([ProcessedMessage]) -> ()] = (callbacks[publicKey] ?? [])
+                            callbacks.removeValue(forKey: publicKey)
+                            return result
+                        })
+                        .defaulting(to: [])
+                    
+                    callbacks.forEach { $0(messages) }
+                }
+            )
             .eraseToAnyPublisher()
+    }
+    
+    public func afterNextPoll(for publicKey: String, closure: @escaping ([ProcessedMessage]) -> ()) {
+        pollResultCallbacks.mutate { callbacks in
+            callbacks[publicKey] = (callbacks[publicKey] ?? []).appending(closure)
+        }
     }
 }

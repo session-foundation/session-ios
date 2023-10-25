@@ -1196,7 +1196,7 @@ extension Attachment {
                     guard updatedAttachment != uploadInfo.attachment else { return }
                     
                     dependencies[singleton: .storage].write(using: dependencies) { db in
-                        try updatedAttachment.saved(db)
+                        try updatedAttachment.upserted(db)
                     }
                 },
                 receiveCompletion: { result in

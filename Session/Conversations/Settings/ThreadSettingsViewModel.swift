@@ -793,7 +793,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     variant: .openGroupInvitation,
                     title: name
                 )
-                .save(db)
+                .upsert(db)
                 
                 let interaction: Interaction = try Interaction(
                     threadId: thread.id,

@@ -439,7 +439,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         )
         titleView.initialSetup(
             with: self.viewModel.initialThreadVariant,
-            isNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf
+            isNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf,
+            isMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true)
         )
         
         // Constraints
@@ -769,6 +770,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             titleView.update(
                 with: updatedThreadData.displayName,
                 isNoteToSelf: updatedThreadData.threadIsNoteToSelf,
+                isMessageRequest: (updatedThreadData.threadIsMessageRequest == true),
                 threadVariant: updatedThreadData.threadVariant,
                 mutedUntilTimestamp: updatedThreadData.threadMutedUntilTimestamp,
                 onlyNotifyForMentions: (updatedThreadData.threadOnlyNotifyForMentions == true),
@@ -815,7 +817,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             
             UIView.animate(withDuration: 0.3) { [weak self] in
                 self?.messageRequestBlockButton.isHidden = (
-                    self?.viewModel.threadData.threadVariant != .contact ||
+                    (
+                        self?.viewModel.threadData.threadVariant != .contact &&
+                        self?.viewModel.threadData.threadVariant != .group
+                    ) ||
                     updatedThreadData.threadRequiresApproval == true
                 )
                 self?.messageRequestActionStackView.isHidden = (

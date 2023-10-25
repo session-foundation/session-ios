@@ -157,7 +157,7 @@ internal extension ControlMessageProcessRecord {
             case .infoMessageRequestAccepted: self.variant = .messageRequestResponse
             case .infoCall: self.variant = .call
             case .infoGroupInfoUpdated: self.variant = .groupUpdateInfoChange
-            case .infoGroupMembersUpdated: self.variant = .groupUpdateMemberChange
+            case .infoGroupInfoInvited, .infoGroupMembersUpdated: self.variant = .groupUpdateMemberChange
                 
             case .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving:
                 // If the `threadId` is for an updated group then it's a `groupControlMessage`, otherwise

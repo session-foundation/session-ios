@@ -30,7 +30,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
         dependencies[singleton: .storage].write { db in
             guard try OpenGroup.exists(db, id: defaultGroupId) == false else { return }
             
-            _ = try OpenGroup(
+            try OpenGroup(
                 server: OpenGroupAPI.defaultServer,
                 roomToken: "",
                 publicKey: OpenGroupAPI.defaultServerPublicKey,
@@ -39,7 +39,7 @@ public enum RetrieveDefaultOpenGroupRoomsJob: JobExecutor {
                 userCount: 0,
                 infoUpdates: 0
             )
-            .saved(db)
+            .upserted(db)
         }
         
         OpenGroupManager.getDefaultRoomsIfNeeded()

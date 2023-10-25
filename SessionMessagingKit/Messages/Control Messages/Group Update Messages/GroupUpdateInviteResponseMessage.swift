@@ -19,7 +19,7 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
     
     public init(
         isApproved: Bool,
-        profile: VisibleMessage.VMProfile? = nil,
+        profile: VisibleMessage.VMProfile? = nil,   // Added when sending via the `MessageWithProfile` protocol
         sentTimestamp: UInt64? = nil
     ) {
         self.isApproved = isApproved
@@ -53,32 +53,33 @@ public final class GroupUpdateInviteResponseMessage: ControlMessage {
     // MARK: - Proto Conversion
     
     public override class func fromProto(_ proto: SNProtoContent, sender: String) -> GroupUpdateInviteResponseMessage? {
-        guard let groupInviteResponseMessage = proto.dataMessage?.groupUpdateMessage?.inviteResponse else { return nil }
+        guard
+            let dataMessage: SNProtoDataMessage = proto.dataMessage,
+            let groupInviteResponseMessage = dataMessage.groupUpdateMessage?.inviteResponse
+        else { return nil }
         
         return GroupUpdateInviteResponseMessage(
             isApproved: groupInviteResponseMessage.isApproved,
-            profile: VisibleMessage.VMProfile.fromProto(groupInviteResponseMessage)
+            profile: VisibleMessage.VMProfile.fromProto(dataMessage)
         )
     }
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         do {
-            let inviteResponseMessageBuilder: SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteResponseMessageBuilder
-            
-            // Profile
-            if let profile = profile, let profileProto: SNProtoGroupUpdateInviteResponseMessage = profile.toProto(isApproved: isApproved) {
-                inviteResponseMessageBuilder = profileProto.asBuilder()
-            }
-            else {
-                inviteResponseMessageBuilder = SNProtoGroupUpdateInviteResponseMessage.builder(
-                    isApproved: isApproved
-                )
-            }
+            let inviteResponseMessageBuilder: SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteResponseMessageBuilder = SNProtoGroupUpdateInviteResponseMessage.builder(
+                isApproved: isApproved
+            )
             
             let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
             groupUpdateMessage.setInviteResponse(try inviteResponseMessageBuilder.build())
             
-            let dataMessage = SNProtoDataMessage.builder()
+            let dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder = try {
+                guard let profile: VisibleMessage.VMProfile = profile else {
+                    return SNProtoDataMessage.builder()
+                }
+                
+                return try profile.toProtoBuilder()
+            }()
             dataMessage.setGroupUpdateMessage(try groupUpdateMessage.build())
             
             let contentProto = SNProtoContent.builder()

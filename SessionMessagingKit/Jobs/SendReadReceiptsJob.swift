@@ -73,9 +73,9 @@ public enum SendReadReceiptsJob: JobExecutor {
                                         .fetchOne(db),
                                     !dependencies[singleton: .jobRunner].isCurrentlyRunning(existingJob)
                                 {
-                                    _ = try existingJob
+                                    try existingJob
                                         .with(nextRunTimestamp: nextRunTimestamp)
-                                        .saved(db)
+                                        .upserted(db)
                                     shouldFinishCurrentJob = true
                                     return job
                                 }
@@ -84,7 +84,7 @@ public enum SendReadReceiptsJob: JobExecutor {
                                     .with(details: Details(destination: details.destination, timestampMsValues: []))
                                     .defaulting(to: job)
                                     .with(nextRunTimestamp: nextRunTimestamp)
-                                    .saved(db)
+                                    .upserted(db)
                             }
                             
                             success(updatedJob ?? job, shouldFinishCurrentJob, dependencies)
@@ -155,7 +155,7 @@ public extension SendReadReceiptsJob {
             guard let updatedJob: Job = maybeUpdatedJob else { return nil }
             
             return try? updatedJob
-                .saved(db)
+                .upserted(db)
         }
         
         // Otherwise create a new job

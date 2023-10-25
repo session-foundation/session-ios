@@ -33,8 +33,17 @@ public enum SNUtilitiesKit: MigratableTarget { // Just to make the external API 
         )
     }
 
-    public static func configure(maxFileSize: UInt) {
+    public static func configure(maxFileSize: UInt, using dependencies: Dependencies) {
         SNUtilitiesKitConfiguration.maxFileSize = maxFileSize
+        
+        // Configure the job executors
+        let executors: [Job.Variant: JobExecutor.Type] = [
+            .manualResultJob: ManualResultJob.self
+        ]
+        
+        executors.forEach { variant, executor in
+            dependencies[singleton: .jobRunner].setExecutor(executor, for: variant)
+        }
     }
 }
 

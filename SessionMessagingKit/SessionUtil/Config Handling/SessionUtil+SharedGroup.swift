@@ -147,7 +147,7 @@ internal extension SessionUtil {
                 for: variant,
                 sessionId: SessionId(.group, hex: group.id),
                 timestampMs: Int64(floor(group.formationTimestamp * 1000))
-            )?.save(db)
+            )?.upsert(db)
         }
         
         // Add the new group to the USER_GROUPS config message

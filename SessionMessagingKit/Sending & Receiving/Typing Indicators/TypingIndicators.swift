@@ -66,7 +66,7 @@ public class TypingIndicators {
                         threadId: threadId,
                         timestampMs: timestampMs
                     )
-                    .save(db)
+                    .upsert(db)
             }
             
             // Refresh the timeout since we just started

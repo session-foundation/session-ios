@@ -369,7 +369,7 @@ public extension Message {
                 // want to fail if it already exsits because we don't want to dedupe messages
                 // in this namespace)
                 if rawMessage.namespace.shouldFetchSinceLastHash {
-                    _ = try rawMessage.info.saved(db)
+                    try rawMessage.info.upserted(db)
                 }
                 
                 return processedMessage

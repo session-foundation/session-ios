@@ -329,6 +329,7 @@ extension MessageSender {
                         memberIds: members.map { $0.id }.asSet(),
                         using: dependencies
                     )
+                    
                     try SnodeAPI
                         .preparedSendMessage(
                             db,
@@ -458,6 +459,9 @@ extension MessageSender {
             }
     }
     
+    /// A backwards-compatible method to perform the `removeGroupMembers` logic that returns a publisher
+    ///
+    /// **Note:** This will start a `writePublisher` so shouldn't be called within another database closure
     public static func removeGroupMembers(
         groupSessionId: String,
         memberIds: Set<String>,
@@ -466,11 +470,6 @@ extension MessageSender {
         changeTimestampMs: Int64? = nil,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
-        let targetChangeTimestampMs: Int64 = (
-            changeTimestampMs ??
-            SnodeAPI.currentOffsetTimestampMs(using: dependencies)
-        )
-        
         guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
             // FIXME: Fail with `MessageSenderError.invalidClosedGroupUpdate` once support for legacy groups is removed
             let groupData: (name: String?, memberIds: Set<String>)? = dependencies[singleton: .storage].read(using: dependencies) { db in
@@ -502,166 +501,216 @@ extension MessageSender {
         
         return dependencies[singleton: .storage]
             .writePublisher { db in
-                guard
-                    let groupIdentityPrivateKey: Data = try? ClosedGroup
-                        .filter(id: sessionId.hexString)
-                        .select(.groupIdentityPrivateKey)
-                        .asRequest(of: Data.self)
-                        .fetchOne(db)
-                else { throw MessageSenderError.invalidClosedGroupUpdate }
-                
-                /// Remove the members from the `GROUP_MEMBERS` config
-                try SessionUtil.removeMembers(
+                try MessageSender.removeGroupMembers(
                     db,
                     groupSessionId: sessionId,
                     memberIds: memberIds,
+                    removeTheirMessages: removeTheirMessages,
+                    sendMemberChangedMessage: sendMemberChangedMessage,
                     using: dependencies
                 )
-                
-                /// We need to update the group keys when removing members so they can't decrypt any more group messages
-                ///
-                /// **Note:** This **MUST** be called _after_ the members have been removed, otherwise the removed members
-                /// may still be able to access the keys
-                try SessionUtil.rekey(
-                    db,
-                    groupSessionId: sessionId,
-                    using: dependencies
-                )
-                            .sinkUntilComplete()
-                
-                /// Revoke the members authData from the group so the server rejects API calls from the ex-members (fire-and-forget
-                /// this request, we don't want it to be blocking)
-                memberIds
-                    .chunked(by: HTTP.BatchRequest.childRequestLimit)
-                    .forEach { memberIdsChunk in
-                        try? SnodeAPI
-                            .preparedBatch(
-                                db,
-                                requests: memberIdsChunk.compactMap { id -> HTTP.PreparedRequest<Void>? in
-                                    // Generate authData for the removed member
-                                    guard
-                                        let memberAuthInfo: Authentication.Info = try? SessionUtil.generateAuthData(
-                                            groupSessionId: sessionId,
-                                            memberId: id,
-                                            using: dependencies
-                                        ),
-                                        case .groupMember(_, let memberAuthData) = memberAuthInfo
-                                    else { return nil }
-                                    
-                                    return try? SnodeAPI.preparedRevokeSubaccount(
-                                        subaccountToRevoke: memberAuthData.toHexString(),
-                                        authMethod: Authentication.groupAdmin(
-                                            groupSessionId: sessionId,
-                                            ed25519SecretKey: Array(groupIdentityPrivateKey)
-                                        ),
-                                        using: dependencies
-                                    )
-                                },
-                                requireAllBatchResponses: false,
-                                associatedWith: sessionId.hexString,
+            }
+    }
+    
+    public static func removeGroupMembers(
+        _ db: Database,
+        groupSessionId: SessionId,
+        memberIds: Set<String>,
+        removeTheirMessages: Bool,
+        sendMemberChangedMessage: Bool,
+        changeTimestampMs: Int64? = nil,
+        using dependencies: Dependencies
+    ) throws {
+        let targetChangeTimestampMs: Int64 = (
+            changeTimestampMs ??
+            SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+        )
+        
+        guard
+            let groupIdentityPrivateKey: Data = try? ClosedGroup
+                .filter(id: groupSessionId.hexString)
+                .select(.groupIdentityPrivateKey)
+                .asRequest(of: Data.self)
+                .fetchOne(db)
+        else { throw MessageSenderError.invalidClosedGroupUpdate }
+        
+        /// Remove the members from the `GROUP_MEMBERS` config
+        try SessionUtil.removeMembers(
+            db,
+            groupSessionId: groupSessionId,
+            memberIds: memberIds,
+            using: dependencies
+        )
+        
+        /// We need to update the group keys when removing members so they can't decrypt any more group messages
+        ///
+        /// **Note:** This **MUST** be called _after_ the members have been removed, otherwise the removed members
+        /// may still be able to access the keys
+        try SessionUtil.rekey(
+            db,
+            groupSessionId: groupSessionId,
+            using: dependencies
+        )
+        
+        /// Revoke the members authData from the group so the server rejects API calls from the ex-members (fire-and-forget
+        /// this request, we don't want it to be blocking)
+        memberIds
+            .chunked(by: HTTP.BatchRequest.childRequestLimit)
+            .forEach { memberIdsChunk in
+                try? SnodeAPI
+                    .preparedBatch(
+                        db,
+                        requests: memberIdsChunk.compactMap { id -> HTTP.PreparedRequest<Void>? in
+                            // Generate authData for the removed member
+                            guard
+                                let memberAuthInfo: Authentication.Info = try? SessionUtil.generateAuthData(
+                                    groupSessionId: groupSessionId,
+                                    memberId: id,
+                                    using: dependencies
+                                ),
+                                case .groupMember(_, let memberAuthData) = memberAuthInfo
+                            else { return nil }
+                            
+                            return try? SnodeAPI.preparedRevokeSubaccount(
+                                subaccountToRevoke: memberAuthData.toHexString(),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: groupSessionId,
+                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                ),
                                 using: dependencies
                             )
-                            .send(using: dependencies)
-                            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                    }
-                
-                /// Remove the members from the database
-                try GroupMember
-                    .filter(
-                        GroupMember.Columns.groupId == sessionId.hexString &&
-                        memberIds.contains(GroupMember.Columns.profileId)
-                    )
-                    .deleteAll(db)
-                
-                /// Schedule a `GroupUpdateDeleteMessage` to each of the members (instruct their clients to delete the group content)
-                try memberIds.forEach { memberId in
-                    try MessageSender.send(
-                        db,
-                        message: try GroupUpdateDeleteMessage(
-                            recipientSessionIdHexString: memberId,
-                            groupSessionId: sessionId,
-                            sentTimestamp: UInt64(targetChangeTimestampMs),
-                            authMethod: Authentication.groupAdmin(
-                                groupSessionId: sessionId,
-                                ed25519SecretKey: Array(groupIdentityPrivateKey)
-                            ),
-                            using: dependencies
-                        ),
-                        interactionId: nil,
-                        threadId: memberId,
-                        threadVariant: .contact,
+                        },
+                        requireAllBatchResponses: false,
+                        associatedWith: groupSessionId.hexString,
                         using: dependencies
                     )
-                }
-                
-                /// If we want to remove the messages sent by the removed members then do so and send an instruction
-                /// to other members to remove the messages as well
-                if removeTheirMessages {
-                    try Interaction
-                        .filter(
-                            Interaction.Columns.threadId == sessionId.hexString &&
-                            memberIds.contains(Interaction.Columns.authorId)
-                        )
-                        .deleteAll(db)
-                    
-                    try MessageSender.send(
-                        db,
-                        message: GroupUpdateDeleteMemberContentMessage(
-                            memberSessionIds: Array(memberIds),
-                            sentTimestamp: UInt64(targetChangeTimestampMs),
-                            authMethod: Authentication.groupAdmin(
-                                groupSessionId: sessionId,
-                                ed25519SecretKey: Array(groupIdentityPrivateKey)
-                            ),
-                            using: dependencies
-                        ),
-                        interactionId: nil,
-                        threadId: sessionId.hexString,
-                        threadVariant: .group,
-                        using: dependencies
-                    )
-                }
-                
-                /// Send the member changed message if desired
-                if sendMemberChangedMessage {
-                    let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-                    let removedMemberProfiles: [String: Profile] = (try? Profile
-                        .filter(ids: memberIds)
-                        .fetchAll(db))
-                        .defaulting(to: [])
-                        .reduce(into: [:]) { result, next in result[next.id] = next }
-                    
-                    /// Add a record of the change to the conversation
-                    _ = try Interaction(
-                        threadId: sessionId.hexString,
-                        authorId: userSessionId.hexString,
-                        variant: .infoGroupMembersUpdated,
-                        body: ClosedGroup.MessageInfo
-                            .removedUsers(
-                                names: memberIds.map { id in
-                                    removedMemberProfiles[id]?.displayName(for: .group) ??
-                                    Profile.truncated(id: id, truncating: .middle)
-                                }
-                            )
-                            .infoString,
-                        timestampMs: targetChangeTimestampMs
-                    ).inserted(db)
-                    
-                    /// Schedule the control message to be sent to the group
-                    try MessageSender.send(
-                        db,
-                        message: GroupUpdateMemberChangeMessage(
-                            changeType: .removed,
-                            memberSessionIds: Array(memberIds),
-                            sentTimestamp: UInt64(targetChangeTimestampMs)
-                        ),
-                        interactionId: nil,
-                        threadId: sessionId.hexString,
-                        threadVariant: .group,
-                        using: dependencies
-                    )
-                }
+                    .send(using: dependencies)
+                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                    .sinkUntilComplete()
             }
+        
+        /// Remove the members from the database
+        try GroupMember
+            .filter(
+                GroupMember.Columns.groupId == groupSessionId.hexString &&
+                memberIds.contains(GroupMember.Columns.profileId)
+            )
+            .deleteAll(db)
+        
+        /// Schedule a `GroupUpdateDeleteMessage` to each of the members (instruct their clients to delete the group content)
+        try memberIds.forEach { memberId in
+            try MessageSender.send(
+                db,
+                message: try GroupUpdateDeleteMessage(
+                    recipientSessionIdHexString: memberId,
+                    groupSessionId: groupSessionId,
+                    sentTimestamp: UInt64(targetChangeTimestampMs),
+                    authMethod: Authentication.groupAdmin(
+                        groupSessionId: groupSessionId,
+                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                    ),
+                    using: dependencies
+                ),
+                interactionId: nil,
+                threadId: memberId,
+                threadVariant: .contact,
+                using: dependencies
+            )
+        }
+        
+        /// If we want to remove the messages sent by the removed members then do so and send an instruction
+        /// to other members to remove the messages as well
+        if removeTheirMessages {
+            let messageHashesToRemove: Set<String> = try Interaction
+                .filter(
+                    Interaction.Columns.threadId == groupSessionId.hexString &&
+                    memberIds.contains(Interaction.Columns.authorId)
+                )
+                .select(.serverHash)
+                .asRequest(of: String.self)
+                .fetchSet(db)
+            
+            /// Delete the messages from my device
+            try Interaction
+                .filter(
+                    Interaction.Columns.threadId == groupSessionId.hexString &&
+                    memberIds.contains(Interaction.Columns.authorId)
+                )
+                .deleteAll(db)
+            
+            /// Tell other members devices to delete the messages
+            try MessageSender.send(
+                db,
+                message: GroupUpdateDeleteMemberContentMessage(
+                    memberSessionIds: Array(memberIds),
+                    messageHashes: [],
+                    sentTimestamp: UInt64(targetChangeTimestampMs),
+                    authMethod: Authentication.groupAdmin(
+                        groupSessionId: groupSessionId,
+                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                    ),
+                    using: dependencies
+                ),
+                interactionId: nil,
+                threadId: groupSessionId.hexString,
+                threadVariant: .group,
+                using: dependencies
+            )
+            
+            /// Delete the messages from the swarm so users won't download them again
+            try? SnodeAPI
+                .preparedDeleteMessages(
+                    serverHashes: Array(messageHashesToRemove),
+                    requireSuccessfulDeletion: false,
+                    authMethod: Authentication.groupAdmin(
+                        groupSessionId: groupSessionId,
+                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                    ),
+                    using: dependencies
+                )
+                .send(using: dependencies)
+                .sinkUntilComplete()
+        }
+        
+        /// Send the member changed message if desired
+        if sendMemberChangedMessage {
+            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+            let removedMemberProfiles: [String: Profile] = (try? Profile
+                .filter(ids: memberIds)
+                .fetchAll(db))
+                .defaulting(to: [])
+                .reduce(into: [:]) { result, next in result[next.id] = next }
+            
+            /// Add a record of the change to the conversation
+            _ = try Interaction(
+                threadId: groupSessionId.hexString,
+                authorId: userSessionId.hexString,
+                variant: .infoGroupMembersUpdated,
+                body: ClosedGroup.MessageInfo
+                    .removedUsers(
+                        names: memberIds.map { id in
+                            removedMemberProfiles[id]?.displayName(for: .group) ??
+                            Profile.truncated(id: id, truncating: .middle)
+                        }
+                    )
+                    .infoString,
+                timestampMs: targetChangeTimestampMs
+            ).inserted(db)
+            
+            /// Schedule the control message to be sent to the group
+            try MessageSender.send(
+                db,
+                message: GroupUpdateMemberChangeMessage(
+                    changeType: .removed,
+                    memberSessionIds: Array(memberIds),
+                    sentTimestamp: UInt64(targetChangeTimestampMs)
+                ),
+                interactionId: nil,
+                threadId: groupSessionId.hexString,
+                threadVariant: .group,
+                using: dependencies
+            )
+        }
     }
     
     public static func promoteGroupMembers(

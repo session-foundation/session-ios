@@ -273,7 +273,7 @@ class MessageSendJobSpec: QuickSpec {
                     // MARK: ------ it fails when trying to send with an attachment which previously failed to download
                     it("it fails when trying to send with an attachment which previously failed to download") {
                         mockStorage.write { db in
-                            try attachment.with(state: .failedDownload).save(db)
+                            try attachment.with(state: .failedDownload).upsert(db)
                         }
                         
                         var error: Error? = nil
@@ -299,7 +299,7 @@ class MessageSendJobSpec: QuickSpec {
                     context("with a pending upload") {
                         beforeEach {
                             mockStorage.write { db in
-                                try attachment.with(state: .uploading).save(db)
+                                try attachment.with(state: .uploading).upsert(db)
                             }
                         }
                         
@@ -308,7 +308,7 @@ class MessageSendJobSpec: QuickSpec {
                             var didDefer: Bool = false
                             
                             mockStorage.write { db in
-                                try attachment.with(state: .uploading).save(db)
+                                try attachment.with(state: .uploading).upsert(db)
                             }
                             
                             MessageSendJob.run(
@@ -333,7 +333,7 @@ class MessageSendJobSpec: QuickSpec {
                                         state: .uploaded,
                                         downloadUrl: nil
                                     )
-                                    .save(db)
+                                    .upsert(db)
                             }
                             
                             MessageSendJob.run(

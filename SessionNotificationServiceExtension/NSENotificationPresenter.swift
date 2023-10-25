@@ -11,7 +11,12 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
     private var notifications: [String: UNNotificationRequest] = [:]
      
     public func notifyUser(_ db: Database, for interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State) {
-        let isMessageRequest: Bool = thread.isMessageRequest(db, includeNonVisible: true)
+        let isMessageRequest: Bool = SessionThread.isMessageRequest(
+            db,
+            threadId: thread.id,
+            userSessionId: getUserSessionId(db),
+            includeNonVisible: true
+        )
         
         // Ensure we should be showing a notification for the thread
         guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest) else {
@@ -181,7 +186,12 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
     }
     
     public func notifyUser(_ db: Database, forReaction reaction: Reaction, in thread: SessionThread, applicationState: UIApplication.State) {
-        let isMessageRequest: Bool = thread.isMessageRequest(db, includeNonVisible: true)
+        let isMessageRequest: Bool = SessionThread.isMessageRequest(
+            db,
+            threadId: thread.id,
+            userSessionId: getUserSessionId(db),
+            includeNonVisible: true
+        )
         
         // No reaction notifications for muted, group threads or message requests
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }

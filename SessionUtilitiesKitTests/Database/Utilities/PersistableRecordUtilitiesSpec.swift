@@ -50,7 +50,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("fails when using the standard save and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            try TestType(columnA: "Test3", columnB: "Test3B").save(db)
+                            try TestType(columnA: "Test3", columnB: "Test3B").upsert(db)
                         }
                         .to(throwError())
                     }
@@ -60,7 +60,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("fails when using the standard saved and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            try MutableTestType(columnA: "Test4", columnB: "Test4B").saved(db)
+                            try MutableTestType(columnA: "Test4", columnB: "Test4B").upserted(db)
                         }
                         .to(throwError())
                     }
@@ -169,13 +169,13 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("succeeds when using the migration safe saved and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            try MutableTestType(columnA: "Test11", columnB: "Test11B").migrationSafeSaved(db)
+                            try MutableTestType(columnA: "Test11", columnB: "Test11B").migrationSafeupserted(db)
                         }
                         .toNot(throwError())
                         
                         expect {
                             try MutableTestType(columnA: "Test12", columnB: "Test12B")
-                                .migrationSafeSaved(db)
+                                .migrationSafeupserted(db)
                                 .id
                         }
                         .toNot(beNil())
@@ -223,7 +223,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO TestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test16"])
                             )
-                            try TestType(columnA: "Test16", columnB: "Test16B").save(db)
+                            try TestType(columnA: "Test16", columnB: "Test16B").upsert(db)
                         }
                         .toNot(throwError())
                     }
@@ -239,7 +239,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test17"])
                             )
-                            _ = try MutableTestType(id: 1, columnA: "Test17", columnB: "Test17B").saved(db)
+                            _ = try MutableTestType(id: 1, columnA: "Test17", columnB: "Test17B").upserted(db)
                         }
                         .toNot(throwError())
                         
@@ -249,7 +249,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 arguments: StatementArguments(["Test18"])
                             )
                             return try MutableTestType(id: 2, columnA: "Test18", columnB: "Test18B")
-                                .saved(db)
+                                .upserted(db)
                                 .id
                         }
                         .toNot(beNil())
@@ -313,7 +313,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("succeeds when using the standard save and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            try TestType(columnA: "Test3", columnB: "Test3B").save(db)
+                            try TestType(columnA: "Test3", columnB: "Test3B").upsert(db)
                         }
                         .toNot(throwError())
                     }
@@ -323,7 +323,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                 it("succeeds when using the standard saved and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            try MutableTestType(columnA: "Test3", columnB: "Test3B").saved(db)
+                            try MutableTestType(columnA: "Test3", columnB: "Test3B").upserted(db)
                         }
                         .toNot(throwError())
                     }
@@ -337,7 +337,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO TestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test4"])
                             )
-                            try TestType(columnA: "Test4", columnB: "Test4B").save(db)
+                            try TestType(columnA: "Test4", columnB: "Test4B").upsert(db)
                         }
                         .toNot(throwError())
                     }
@@ -352,7 +352,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test5"])
                             )
-                            _ = try MutableTestType(id: 1, columnA: "Test5", columnB: "Test5B").saved(db)
+                            _ = try MutableTestType(id: 1, columnA: "Test5", columnB: "Test5B").upserted(db)
                         }
                         .toNot(throwError())
                         

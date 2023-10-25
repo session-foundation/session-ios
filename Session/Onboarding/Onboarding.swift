@@ -143,7 +143,7 @@ enum Onboarding {
                 // they don't get weird behaviours
                 try Contact
                     .fetchOrCreate(db, id: sessionId.hexString)
-                    .save(db)
+                    .upsert(db)
                 try Contact
                     .filter(id: sessionId.hexString)
                     .updateAllAndConfig(

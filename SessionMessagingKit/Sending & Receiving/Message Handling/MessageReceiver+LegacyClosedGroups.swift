@@ -171,7 +171,7 @@ extension MessageReceiver {
             formationTimestamp: formationTimestamp,
             shouldPoll: true,   // Legacy groups should always poll
             invited: false      // Legacy groups are never in the "invite" state
-        ).saved(db)
+        ).upserted(db)
         
         // Clear the zombie list if the group wasn't active (ie. had no keys)
         if ((try? closedGroup.keyPairs.fetchCount(db)) ?? 0) == 0 {
@@ -186,7 +186,7 @@ extension MessageReceiver {
                 role: .standard,
                 roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
-            ).save(db)
+            ).upsert(db)
         }
         
         try admins.forEach { adminId in
@@ -196,7 +196,7 @@ extension MessageReceiver {
                 role: .admin,
                 roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
-            ).save(db)
+            ).upsert(db)
         }
         
         // Update the DisappearingMessages config
@@ -210,7 +210,7 @@ extension MessageReceiver {
                     DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds,
                 type: .disappearAfterSend
             )
-            .saved(db)
+            .upserted(db)
         
         // Store the key pair if it doesn't already exist
         let receivedTimestamp: TimeInterval = TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
@@ -442,7 +442,7 @@ extension MessageReceiver {
                             role: .standard,
                             roleStatus: .accepted,  // Legacy group members don't have role statuses
                             isHidden: false
-                        ).save(db)
+                        ).upsert(db)
                     }
                 
                 // Send the latest encryption key pair to the added members if the current user is
@@ -647,7 +647,7 @@ extension MessageReceiver {
                         role: .zombie,
                         roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
-                    ).save(db)
+                    ).upsert(db)
                 }
             }
         )

@@ -70,7 +70,7 @@ class MessageReceiverSpec: QuickSpec {
                         )
                     
                     mockStorage.write { db in
-                        try config.save(db)
+                        try config.upsert(db)
                         
                         try MessageReceiver.handle(
                             db,

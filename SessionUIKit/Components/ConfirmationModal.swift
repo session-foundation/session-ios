@@ -7,6 +7,7 @@ import SessionUtilitiesKit
 public class ConfirmationModal: Modal, UITextFieldDelegate {
     private static let closeSize: CGFloat = 24
     
+    public private(set) var info: Info
     private var internalOnConfirm: ((ConfirmationModal) -> ())? = nil
     private var internalOnCancel: ((ConfirmationModal) -> ())? = nil
     private var internalOnBodyTap: (() -> ())? = nil
@@ -157,6 +158,8 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     // MARK: - Lifecycle
     
     public init(targetView: UIView? = nil, info: Info) {
+        self.info = info
+        
         super.init(targetView: targetView, dismissType: info.dismissType, afterClosed: info.afterClosed)
         
         self.modalPresentationStyle = .overFullScreen
@@ -194,6 +197,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     // MARK: - Content
     
     public func updateContent(with info: Info) {
+        self.info = info
         internalOnBodyTap = nil
         internalOnTextChanged = nil
         internalOnConfirm = { modal in
@@ -236,6 +240,40 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
                 textField.clearButtonMode = (clearButton ? .always : .never)
                 textFieldContainer.isHidden = false
                 internalOnTextChanged = onTextChanged
+                
+            case .radio(let explanation, let options):
+                mainStackView.spacing = 0
+                explanationLabel.attributedText = explanation
+                explanationLabel.isHidden = (explanation == nil)
+                contentStackView.subviews.forEach { subview in
+                    guard subview is RadioButton else { return }
+                    
+                    subview.removeFromSuperview()
+                }
+                
+                // Add the options
+                options.enumerated().forEach { index, optionInfo in
+                    let radioButton: RadioButton = RadioButton(size: .medium) { [weak self] button in
+                        guard !button.isSelected else { return }
+                        
+                        // If an option is selected then update the modal to show that one as selected
+                        self?.updateContent(
+                            with: info.with(
+                                body: .radio(
+                                    explanation: explanation,
+                                    options: options.enumerated().map { otherIndex, otherInfo in
+                                        (otherInfo.title, (index == otherIndex), otherInfo.accessibility)
+                                    }
+                                )
+                            )
+                        )
+                    }
+                    radioButton.text = optionInfo.title
+                    radioButton.accessibilityLabel = optionInfo.accessibility?.label
+                    radioButton.accessibilityIdentifier = optionInfo.accessibility?.identifier
+                    radioButton.update(isSelected: optionInfo.selected)
+                    contentStackView.addArrangedSubview(radioButton)
+                }
                 
             case .image(let placeholder, let value, let icon, let style, let accessibility, let onClick):
                 imageViewContainer.isAccessibilityElement = (accessibility != nil)
@@ -326,7 +364,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
 public extension ConfirmationModal {
     struct Info: Equatable, Hashable {
         let title: String
-        let body: Body
+        public let body: Body
         let accessibility: Accessibility?
         public let showCondition: ShowCondition
         let confirmTitle: String?
@@ -497,8 +535,14 @@ public extension ConfirmationModal.Info {
             clearButton: Bool,
             onChange: (String) -> ()
         )
-        // FIXME: Implement this
-        // case radio(explanation: NSAttributedString?, options: [(title: String, selected: Bool)])
+        case radio(
+            explanation: NSAttributedString?,
+            options: [(
+                title: String,
+                selected: Bool,
+                accessibility: Accessibility?
+            )]
+        )
         case image(
             placeholderData: Data?,
             valueData: Data?,
@@ -522,12 +566,11 @@ public extension ConfirmationModal.Info {
                        lhsClearButton == rhsClearButton
                    )
                 
-                // FIXME: Implement this
-                //case (.radio(let lhsExplanation, let lhsOptions), .radio(let rhsExplanation, let rhsOptions)):
-                //    return (
-                //        lhsExplanation == rhsExplanation &&
-                //        lhsOptions.map { "\($0.0)-\($0.1)" } == rhsValue.map { "\($0.0)-\($0.1)" }
-                //    )
+                case (.radio(let lhsExplanation, let lhsOptions), .radio(let rhsExplanation, let rhsOptions)):
+                    return (
+                        lhsExplanation == rhsExplanation &&
+                        lhsOptions.map { "\($0.0)-\($0.1)" } == rhsOptions.map { "\($0.0)-\($0.1)" }
+                    )
                     
                 case (.image(let lhsPlaceholder, let lhsValue, let lhsIcon, let lhsStyle, let lhsAccessibility, _), .image(let rhsPlaceholder, let rhsValue, let rhsIcon, let rhsStyle, let rhsAccessibility, _)):
                     return (
@@ -553,6 +596,10 @@ public extension ConfirmationModal.Info {
                     placeholder.hash(into: &hasher)
                     initialValue.hash(into: &hasher)
                     clearButton.hash(into: &hasher)
+                    
+                case .radio(let explanation, let options):
+                    explanation.hash(into: &hasher)
+                    options.map { "\($0.0)-\($0.1)" }.hash(into: &hasher)
                 
                 case .image(let placeholder, let value, let icon, let style, let accessibility, _):
                     placeholder.hash(into: &hasher)

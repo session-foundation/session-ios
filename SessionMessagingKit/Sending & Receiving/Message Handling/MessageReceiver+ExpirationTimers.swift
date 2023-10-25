@@ -105,7 +105,7 @@ extension MessageReceiver {
         if canPerformChange {
             // Finally save the changes to the DisappearingMessagesConfiguration (If it's a duplicate
             // then the interaction unique constraint will prevent the code from getting here)
-            try remoteConfig.save(db)
+            try remoteConfig.upsert(db)
         }
         
         // Remove previous info messages
@@ -224,7 +224,7 @@ extension MessageReceiver {
         }
         
         if localConfig != remoteConfig {
-            _ = try remoteConfig.save(db)
+            _ = try remoteConfig.upsert(db)
             
             // Contacts & legacy closed groups need to update the SessionUtil
             switch threadVariant {

@@ -70,9 +70,9 @@ extension MessageReceiver {
                 _ = try interaction.delete(db)
                 
             case (_, true):
-                _ = try interaction
+                try interaction
                     .markingAsDeleted()
-                    .saved(db)
+                    .upserted(db)
                 
                 _ = try interaction.attachments
                     .deleteAll(db)

@@ -43,7 +43,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             let updatedJob: Job? = dependencies[singleton: .storage].write { db in
                 try job
                     .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
-                    .saved(db)
+                    .upserted(db)
             }
             
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") deferred due to in progress job")
@@ -172,7 +172,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                     // Lastly we need to save the updated dumps to the database
                     let updatedJob: Job? = dependencies[singleton: .storage].write { db in
                         // Save the updated dumps to the database
-                        try configDumps.forEach { try $0.save(db) }
+                        try configDumps.forEach { try $0.upsert(db) }
                         
                         // When we complete the 'ConfigurationSync' job we want to immediately schedule
                         // another one with a 'nextRunTimestamp' set to the 'maxRunFrequency' value to
@@ -199,9 +199,9 @@ public enum ConfigurationSyncJob: JobExecutor {
                                     .map { $0.wasManualTrigger })
                                     .defaulting(to: false)
                                 
-                                _ = try existingJob
+                                try existingJob
                                     .with(nextRunTimestamp: (jobWasManualTrigger ? 0 : nextRunTimestamp))
-                                    .saved(db)
+                                    .upserted(db)
                             }
                             
                             // If there is another job then we should finish this one
@@ -211,7 +211,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         
                         return try job
                             .with(nextRunTimestamp: nextRunTimestamp)
-                            .saved(db)
+                            .upserted(db)
                     }
                     
                     success((updatedJob ?? job), shouldFinishCurrentJob, dependencies)
@@ -307,7 +307,7 @@ public extension ConfigurationSyncJob {
                                 /// If it gets deferred a second time then we should probably just fail - no use waiting on something
                                 /// that may never run (also means we can avoid another potential defer loop)
                                 case .notFound, .deferred: resolver(Result.failure(HTTPError.generic))
-                                case .failed(let error): resolver(Result.failure(error ?? HTTPError.generic))
+                                case .failed(let error, _): resolver(Result.failure(error ?? HTTPError.generic))
                                 case .succeeded: resolver(Result.success(()))
                             }
                         }

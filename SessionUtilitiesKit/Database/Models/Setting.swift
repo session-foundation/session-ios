@@ -159,7 +159,7 @@ public extension Database {
                 return
             }
             
-            try? newValue.save(self)
+            try? newValue.upsert(self)
         }
     }
     

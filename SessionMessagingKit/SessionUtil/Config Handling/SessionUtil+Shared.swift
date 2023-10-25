@@ -82,7 +82,7 @@ internal extension SessionUtil {
                         for: variant,
                         sessionId: sessionId,
                         timestampMs: SnodeAPI.currentOffsetTimestampMs()
-                    )?.save(db)
+                    )?.upsert(db)
 
                     return config.needsPush
                 }

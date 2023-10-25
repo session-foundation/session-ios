@@ -137,7 +137,7 @@ internal extension SessionUtil {
                 durationSeconds: targetConfig.durationSeconds,
                 type: targetConfig.type,
                 lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
-            ).save(db)
+            ).upsert(db)
         }
     }
 }
@@ -251,7 +251,8 @@ public extension SessionUtil {
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
             
             if let name: String = name {
-                groups_info_set_name(conf, name.toLibSession())
+                var updatedName: [CChar] = name.cArray.nullTerminated()
+                groups_info_set_name(conf, &updatedName)
             }
             
             if let config: DisappearingMessagesConfiguration = disappearingConfig {

@@ -48,7 +48,7 @@ internal extension SessionUtil {
         // Add in any new members and remove any removed members
         try updatedMembers
             .subtracting(existingMembers)
-            .forEach { try $0.save(db) }
+            .forEach { try $0.upsert(db) }
         
         try GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -62,6 +62,38 @@ internal extension SessionUtil {
                 )
             )
             .deleteAll(db)
+        
+        // If there were members then also extract and update the profile information for the members
+        // if we don't have newer data locally
+        guard !updatedMembers.isEmpty else { return }
+        
+        let groupProfiles: Set<Profile>? = try? extractProfiles(
+            from: conf,
+            groupSessionId: groupSessionId,
+            serverTimestampMs: serverTimestampMs
+        )
+        
+        groupProfiles?.forEach { profile in
+            try? Profile.updateIfNeeded(
+                db,
+                publicKey: profile.id,
+                name: profile.name,
+                displayPictureUpdate: {
+                    guard
+                        let profilePictureUrl: String = profile.profilePictureUrl,
+                        let profileKey: Data = profile.profileEncryptionKey
+                    else { return .none }
+                    
+                    return .updateTo(
+                        url: profilePictureUrl,
+                        key: profileKey,
+                        fileName: nil
+                    )
+                }(),
+                sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
+                using: dependencies
+            )
+        }
     }
 }
 
@@ -106,7 +138,9 @@ internal extension SessionUtil {
                 
                 if
                     let picUrl: String = profile?.profilePictureUrl,
-                    let picKey: Data = profile?.profileEncryptionKey
+                    let picKey: Data = profile?.profileEncryptionKey,
+                    !picUrl.isEmpty,
+                    picKey.count == DisplayPictureManager.aes256KeyByteLength
                 {
                     profilePic.url = picUrl.toLibSession()
                     profilePic.key = picKey.toLibSession()
@@ -122,7 +156,9 @@ internal extension SessionUtil {
                         return
                     }
                     
-                    member.name = ((profile?.name ?? "").toLibSession() ?? member.name)
+                    if let memberName: String = profile?.name, !memberName.isEmpty {
+                        member.name = memberName.toLibSession()
+                    }
                     member.profile_pic = profilePic
                     member.invited = 1
                     member.supplement = allowAccessToHistoricMessages
@@ -272,7 +308,48 @@ private extension SessionUtil {
         serverTimestampMs: Int64
     ) throws -> Set<GroupMember> {
         var infiniteLoopGuard: Int = 0
-        var result: [MemberData] = []
+        var result: [GroupMember] = []
+        var member: config_group_member = config_group_member()
+        let membersIterator: UnsafeMutablePointer<groups_members_iterator> = groups_members_iterator_new(conf)
+        
+        while !groups_members_iterator_done(membersIterator, &member) {
+            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            
+            let memberId: String = String(cString: withUnsafeBytes(of: member.session_id) { [UInt8]($0) }
+                .map { CChar($0) }
+                .nullTerminated()
+            )
+            
+            result.append(
+                GroupMember(
+                    groupId: groupSessionId.hexString,
+                    profileId: memberId,
+                    role: (member.admin || (member.promoted > 0) ? .admin : .standard),
+                    roleStatus: {
+                        switch (member.invited, member.promoted, member.admin) {
+                            case (2, _, _), (_, 2, false): return .failed           // Explicitly failed
+                            case (1..., _, _), (_, 1..., false): return .pending    // Pending if not accepted
+                            default: return .accepted                               // Otherwise it's accepted
+                        }
+                    }(),
+                    isHidden: false
+                )
+            )
+            
+            groups_members_iterator_advance(membersIterator)
+        }
+        groups_members_iterator_free(membersIterator) // Need to free the iterator
+        
+        return result.asSet()
+    }
+    
+    static func extractProfiles(
+        from conf: UnsafeMutablePointer<config_object>?,
+        groupSessionId: SessionId,
+        serverTimestampMs: Int64
+    ) throws -> Set<Profile> {
+        var infiniteLoopGuard: Int = 0
+        var result: [Profile] = []
         var member: config_group_member = config_group_member()
         let membersIterator: UnsafeMutablePointer<groups_members_iterator> = groups_members_iterator_new(conf)
         
@@ -284,29 +361,22 @@ private extension SessionUtil {
                 .nullTerminated()
             )
             let profilePictureUrl: String? = String(libSessionVal: member.profile_pic.url, nullIfEmpty: true)
-            let profileResult: Profile = Profile(
-                id: memberId,
-                name: String(libSessionVal: member.name),
-                lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
-                nickname: nil,
-                profilePictureUrl: profilePictureUrl,
-                profileEncryptionKey: (profilePictureUrl == nil ? nil :
-                    Data(
-                        libSessionVal: member.profile_pic.key,
-                        count: DisplayPictureManager.aes256KeyByteLength
-                    )
-                ),
-                lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
-                lastBlocksCommunityMessageRequests: nil
-            )
             
             result.append(
-                MemberData(
-                    memberId: memberId,
-                    profile: profileResult,
-                    admin: member.admin,
-                    invited: member.invited,
-                    promoted: member.promoted
+                Profile(
+                    id: memberId,
+                    name: String(libSessionVal: member.name),
+                    lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
+                    nickname: nil,
+                    profilePictureUrl: profilePictureUrl,
+                    profileEncryptionKey: (profilePictureUrl == nil ? nil :
+                        Data(
+                            libSessionVal: member.profile_pic.key,
+                            count: DisplayPictureManager.aes256KeyByteLength
+                        )
+                    ),
+                    lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
+                    lastBlocksCommunityMessageRequests: nil
                 )
             )
             
@@ -314,22 +384,6 @@ private extension SessionUtil {
         }
         groups_members_iterator_free(membersIterator) // Need to free the iterator
         
-        return result
-            .map { data in
-                GroupMember(
-                    groupId: groupSessionId.hexString,
-                    profileId: data.memberId,
-                    role: (data.admin || (data.promoted > 0) ? .admin : .standard),
-                    roleStatus: {
-                        switch (data.invited, data.promoted, data.admin) {
-                            case (2, _, _), (_, 2, false): return .failed           // Explicitly failed
-                            case (1..., _, _), (_, 1..., false): return .pending    // Pending if not accepted
-                            default: return .accepted                               // Otherwise it's accepted
-                        }
-                    }(),
-                    isHidden: false
-                )
-            }
-            .asSet()
+        return result.asSet()
     }
 }

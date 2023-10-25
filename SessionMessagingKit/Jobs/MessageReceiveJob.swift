@@ -97,7 +97,7 @@ public enum MessageReceiveJob: JobExecutor {
                     )
                 )
                 .defaulting(to: job)
-                .saved(db)
+                .upserted(db)
         }
         
         // Handle the result

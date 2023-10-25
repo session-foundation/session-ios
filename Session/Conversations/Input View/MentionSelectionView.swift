@@ -86,7 +86,7 @@ final class MentionSelectionView: UIView, UITableViewDataSource, UITableViewDele
             with: candidates[indexPath.row].profile,
             threadVariant: candidates[indexPath.row].threadVariant,
             isUserModeratorOrAdmin: OpenGroupManager.isUserModeratorOrAdmin(
-                candidates[indexPath.row].profile.id,
+                publicKey: candidates[indexPath.row].profile.id,
                 for: candidates[indexPath.row].openGroupRoomToken,
                 on: candidates[indexPath.row].openGroupServer
             ),

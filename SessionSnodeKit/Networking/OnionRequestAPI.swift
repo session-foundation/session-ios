@@ -203,7 +203,7 @@ public enum OnionRequestAPI {
                         
                         dependencies[singleton: .storage].write { db in
                             SNLog("Persisting onion request paths to database.")
-                            try? output.save(db)
+                            try? output.upsert(db)
                         }
                         
                         DispatchQueue.main.async {
@@ -352,7 +352,7 @@ public enum OnionRequestAPI {
         
         dependencies[singleton: .storage].write { db in
             SNLog("Persisting onion request paths to database.")
-            try? newPaths.save(db)
+            try? newPaths.upsert(db)
         }
     }
 
@@ -371,7 +371,7 @@ public enum OnionRequestAPI {
             }
             
             SNLog("Persisting onion request paths to database.")
-            try? paths.save(db)
+            try? paths.upsert(db)
         }
     }
     

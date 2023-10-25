@@ -517,7 +517,7 @@ extension ConversationVC:
         let sentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
 
         // If this was a message request then approve it
-        approveMessageRequestIfNeeded(
+        let approvalBlockingJob: Job? = approveMessageRequestIfNeeded(
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             isNewThread: !oldThreadShouldBeVisible,
@@ -531,14 +531,16 @@ extension ConversationVC:
             sentTimestampMs: sentTimestampMs,
             attachments: attachments,
             linkPreviewDraft: linkPreviewDraft,
-            quoteModel: quoteModel
+            quoteModel: quoteModel,
+            using: dependencies
         )
         
-        sendMessage(optimisticData: optimisticData, using: dependencies)
+        sendMessage(optimisticData: optimisticData, after: approvalBlockingJob, using: dependencies)
     }
     
     private func sendMessage(
         optimisticData: ConversationViewModel.OptimisticMessageData,
+        after approvalBlockingJob: Job? = nil,
         using dependencies: Dependencies
     ) {
         let threadId: String = self.viewModel.threadData.threadId
@@ -594,7 +596,7 @@ extension ConversationVC:
                                 url: linkPreviewDraft.urlString,
                                 title: linkPreviewDraft.title,
                                 attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id
-                            ).save(db)
+                            ).upsert(db)
                         }
                     }
                     
@@ -621,6 +623,7 @@ extension ConversationVC:
                         interaction: insertedInteraction,
                         threadId: threadId,
                         threadVariant: threadVariant,
+                        after: approvalBlockingJob,
                         using: dependencies
                     )
                     
@@ -847,7 +850,7 @@ extension ConversationVC:
                 currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
                 currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId,
                 currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
-                    self.viewModel.threadData.currentUserSessionId,
+                    publicKey: self.viewModel.threadData.currentUserSessionId,
                     for: self.viewModel.threadData.openGroupRoomToken,
                     on: self.viewModel.threadData.openGroupServer
                 ),
@@ -1211,7 +1214,7 @@ extension ConversationVC:
             selectedReaction: selectedReaction,
             initialLoad: true,
             shouldShowClearAllButton: OpenGroupManager.isUserModeratorOrAdmin(
-                self.viewModel.threadData.currentUserSessionId,
+                publicKey: self.viewModel.threadData.currentUserSessionId,
                 for: self.viewModel.threadData.openGroupRoomToken,
                 on: self.viewModel.threadData.openGroupServer
             )
@@ -1851,15 +1854,14 @@ extension ConversationVC:
     }
 
     func delete(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
+        /// Info messages and unsent messages should just trigger a local deletion (they are created as side effects so we wouldn't be
+        /// able to delete them for all participants anyway)
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall, .infoScreenshotNotification, .infoMediaSavedNotification,
                 .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
-                .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate, .infoGroupInfoUpdated,
-                .infoGroupMembersUpdated:
-                // Info messages and unsent messages should just trigger a local
-                // deletion (they are created as side effects so we wouldn't be
-                // able to delete them for all participants anyway)
+                .infoMessageRequestAccepted, .infoDisappearingMessagesUpdate, .infoGroupInfoInvited,
+                .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                 dependencies[singleton: .storage].writeAsync { db in
                     _ = try Interaction
                         .filter(id: cellViewModel.id)
@@ -1870,279 +1872,102 @@ extension ConversationVC:
             case .standardOutgoing, .standardIncoming: break
         }
         
-        let threadName: String = self.viewModel.threadData.displayName
-        let userSessionId: SessionId = getUserSessionId(using: dependencies)
+        /// Retrieve the data needed to determine which types of deletions should be available
+        let deletionBehaviours: ConversationViewModel.DeletionBehaviours = self.viewModel.deletionActions(
+            for: cellViewModel,
+            threadName: self.viewModel.threadData.displayName,
+            using: dependencies
+        )
         
-        // Remote deletion logic
-        func deleteRemotely(from viewController: UIViewController?, request: AnyPublisher<Void, Error>, onComplete: (() -> ())?) {
-            // Show a loading indicator
-            Deferred {
-                Future<Void, Error> { resolver in
-                    DispatchQueue.main.async {
-                        ModalActivityIndicatorViewController.present(fromViewController: viewController, canCancel: false) { _ in
-                            resolver(Result.success(()))
-                        }
-                    }
-                }
-            }
-            .flatMap { _ in request }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main)
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .failure: break
-                        case .finished:
-                            // Delete the interaction (and associated data) from the database
-                            Dependencies()[singleton: .storage].writeAsync { db in
-                                _ = try Interaction
-                                    .filter(id: cellViewModel.id)
-                                    .deleteAll(db)
-                            }
-                    }
-                    
-                    // Regardless of success we should dismiss and callback
-                    if self?.presentedViewController is ModalActivityIndicatorViewController {
-                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                    }
-                    
-                    onComplete?()
-                }
+        /// Ensure we actually got deletion behavious or don't do anything (no point if we got no actions)
+        guard !deletionBehaviours.actions.isEmpty else { return }
+        
+        let errorModal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "ALERT_ERROR_TITLE".localized(),
+                body: .text("DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE".localized()),
+                afterClosed: { [weak self] in self?.becomeFirstResponder() }
             )
-        }
-        
-        // How we delete the message differs depending on the type of thread
-        switch cellViewModel.threadVariant {
-            // Handle open group messages the old way
-            case .community:
-                // If it's an incoming message the user must have moderator status
-                let result: (openGroupServerMessageId: Int64?, openGroup: OpenGroup?)? = dependencies[singleton: .storage].read { db -> (Int64?, OpenGroup?) in
-                    (
-                        try Interaction
-                            .select(.openGroupServerMessageId)
-                            .filter(id: cellViewModel.id)
-                            .asRequest(of: Int64.self)
-                            .fetchOne(db),
-                        try OpenGroup.fetchOne(db, id: cellViewModel.threadId)
-                    )
-                }
-                
-                guard
-                    let openGroup: OpenGroup = result?.openGroup,
-                    let openGroupServerMessageId: Int64 = result?.openGroupServerMessageId, (
-                        cellViewModel.variant != .standardIncoming ||
-                        OpenGroupManager.isUserModeratorOrAdmin(
-                            userSessionId.hexString,
-                            for: openGroup.roomToken,
-                            on: openGroup.server
+        )
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "TXT_DELETE_TITLE".localized(),
+                body: {
+                    guard deletionBehaviours.actions.count > 1 else {
+                        return .text(
+                            deletionBehaviours.actions.first?.title ??
+                            ConversationViewModel.DeletionBehaviours.defaultTitle
                         )
-                    )
-                else {
-                    // If the message hasn't been sent yet then just delete locally
-                    guard cellViewModel.state == .sending || cellViewModel.state == .failed else { return }
+                    }
                     
-                    // Retrieve any message send jobs for this interaction
-                    let jobs: [Job] = dependencies[singleton: .storage]
-                        .read { db in
-                            try? Job
-                                .filter(Job.Columns.variant == Job.Variant.messageSend)
-                                .filter(Job.Columns.interactionId == cellViewModel.id)
-                                .fetchAll(db)
+                    return .radio(
+                        explanation: nil,
+                        options: deletionBehaviours.actions.enumerated().map { index, action in
+                            (action.title, (index == 0), action.accessibility)
                         }
-                        .defaulting(to: [])
+                    )
+                }(),
+                confirmTitle: "TXT_DELETE_TITLE".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                dismissOnConfirm: false,
+                onConfirm: { [weak self] modal in
+                    /// Determine the selected action index
+                    let selectedIndex: Int = {
+                        switch modal.info.body {
+                            case .radio(_, let options):
+                                return options
+                                    .enumerated()
+                                    .first(where: { _, value in value.selected })
+                                    .map { index, _ in index }
+                                    .defaulting(to: 0)
+                            
+                            default: return 0
+                        }
+                    }()
                     
-                    // If the job is currently running then wait until it's done before triggering
-                    // the deletion
-                    let targetJob: Job? = jobs.first(where: { job -> Bool in
-                        dependencies[singleton: .jobRunner].isCurrentlyRunning(job)
-                    })
-                    
-                    guard targetJob == nil else {
-                        dependencies[singleton: .jobRunner].afterJob(targetJob, state: .running) { [weak self] result in
-                            switch result {
-                                // If it succeeded then we'll need to delete from the server so re-run
-                                // this function (if we still don't have the server id for some reason
-                                // then this would result in a local-only deletion which should be fine
-                                case .succeeded: self?.delete(cellViewModel)
-                                    
-                                // Otherwise we just need to cancel the pending job (in case it retries)
-                                // and delete the interaction
-                                default:
-                                    dependencies[singleton: .jobRunner].removePendingJob(targetJob)
-                                    
-                                    dependencies[singleton: .storage].writeAsync { db in
-                                        _ = try Interaction
-                                            .filter(id: cellViewModel.id)
-                                            .deleteAll(db)
-                                    }
-                            }
+                    /// If we are just doing a local deletion then just trigger it (no need to show a loading indicator
+                    guard !deletionBehaviours.isOnlyDeleteFromDatabase(at: selectedIndex) else {
+                        dependencies[singleton: .storage].writeAsync { db in
+                            _ = try Interaction
+                                .filter(id: cellViewModel.id)
+                                .deleteAll(db)
+                        }
+                        self?.dismiss(animated: true) {
+                            self?.becomeFirstResponder()
                         }
                         return
                     }
                     
-                    // If it's not currently running then remove any pending jobs (just to be safe) and
-                    // delete the interaction locally
-                    jobs.forEach { dependencies[singleton: .jobRunner].removePendingJob($0) }
-                    
-                    dependencies[singleton: .storage].writeAsync { db in
-                        _ = try Interaction
-                            .filter(id: cellViewModel.id)
-                            .deleteAll(db)
-                    }
-                    return
-                }
-                
-                // Delete the message from the open group
-                deleteRemotely(
-                    from: self,
-                    request: dependencies[singleton: .storage]
-                        .readPublisher { db in
-                            try OpenGroupAPI.preparedMessageDelete(
-                                db,
-                                id: openGroupServerMessageId,
-                                in: openGroup.roomToken,
-                                on: openGroup.server
-                            )
-                        }
-                        .flatMap { $0.send(using: dependencies) }
-                        .map { _ in () }
-                        .eraseToAnyPublisher()
-                ) { [weak self] in
-                    self?.showInputAccessoryView()
-                }
-                
-            case .contact, .legacyGroup, .group:
-                let targetPublicKey: String = (cellViewModel.threadVariant == .contact ?
-                    userSessionId.hexString :
-                    cellViewModel.threadId
-                )
-                let serverHash: String? = dependencies[singleton: .storage].read { db -> String? in
-                    try Interaction
-                        .select(.serverHash)
-                        .filter(id: cellViewModel.id)
-                        .asRequest(of: String.self)
-                        .fetchOne(db)
-                }
-                let unsendRequest: UnsendRequest = UnsendRequest(
-                    timestamp: UInt64(cellViewModel.timestampMs),
-                    author: (cellViewModel.variant == .standardOutgoing ?
-                        userSessionId.hexString :
-                        cellViewModel.authorId
-                    )
-                )
-                
-                // For incoming interactions or interactions with no serverHash just delete them locally
-                guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
-                    dependencies[singleton: .storage].writeAsync { db in
-                        _ = try Interaction
-                            .filter(id: cellViewModel.id)
-                            .deleteAll(db)
-                        
-                        // No need to send the unsendRequest if there is no serverHash (ie. the message
-                        // was outgoing but never got to the server)
-                        guard serverHash != nil else { return }
-                        
-                        MessageSender
-                            .send(
-                                db,
-                                message: unsendRequest,
-                                threadId: cellViewModel.threadId,
-                                interactionId: nil,
-                                to: .contact(publicKey: userSessionId.hexString),
-                                using: dependencies
-                            )
-                    }
-                    return
-                }
-                
-                let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-                actionSheet.addAction(UIAlertAction(
-                    title: "delete_message_for_me".localized(),
-                    accessibilityIdentifier: "Delete for me",
-                    style: .destructive
-                ) { [weak self] _ in
-                    dependencies[singleton: .storage].writeAsync { db in
-                        _ = try Interaction
-                            .filter(id: cellViewModel.id)
-                            .deleteAll(db)
-                        
-                        MessageSender
-                            .send(
-                                db,
-                                message: unsendRequest,
-                                threadId: cellViewModel.threadId,
-                                interactionId: nil,
-                                to: .contact(publicKey: userSessionId.hexString),
-                                using: dependencies
-                            )
-                    }
-                    self?.showInputAccessoryView()
-                })
-                
-                actionSheet.addAction(UIAlertAction(
-                    title: {
-                        switch cellViewModel.threadVariant {
-                            case .legacyGroup, .group: return "delete_message_for_everyone".localized()
-                            default:
-                                return (cellViewModel.threadId == userSessionId.hexString ?
-                                    "delete_message_for_me_and_my_devices".localized() :
-                                    String(format: "delete_message_for_me_and_recipient".localized(), threadName)
+                    /// Otherwise show the loading indicator and trigger the publisher
+                    ModalActivityIndicatorViewController
+                        .present(fromViewController: modal, canCancel: false) { viewController in
+                            deletionBehaviours
+                                .publisherForAction(at: selectedIndex, using: dependencies)
+                                .sinkUntilComplete(
+                                    receiveCompletion: { result in
+                                        DispatchQueue.main.async {
+                                            self?.dismiss(animated: true) {
+                                                switch result {
+                                                    case .finished: self?.becomeFirstResponder()
+                                                    case .failure: self?.present(errorModal, animated: true)
+                                                }
+                                            }
+                                        }
+                                    }
                                 )
                         }
-                    }(),
-                    accessibilityIdentifier: "Delete for everyone",
-                    style: .destructive
-                ) { [weak self] _ in
-                    let completeServerDeletion = { [weak self] in
-                        dependencies[singleton: .storage].writeAsync { db in
-                            try MessageSender
-                                .send(
-                                    db,
-                                    message: unsendRequest,
-                                    interactionId: nil,
-                                    threadId: cellViewModel.threadId,
-                                    threadVariant: cellViewModel.threadVariant,
-                                    using: dependencies
-                                )
-                        }
-                        
-                        self?.showInputAccessoryView()
-                    }
-                    
-                    // We can only delete messages on the server for `contact` and `group` conversations
-                    guard cellViewModel.threadVariant == .contact || cellViewModel.threadVariant == .group else {
-                        return completeServerDeletion()
-                    }
-                    
-                    deleteRemotely(
-                        from: self,
-                        request: dependencies[singleton: .storage]
-                            .readPublisher(using: dependencies) { db in
-                                try SnodeAPI
-                                    .preparedDeleteMessages(
-                                        serverHashes: [serverHash],
-                                        requireSuccessfulDeletion: false,
-                                        authMethod: try Authentication.with(
-                                            db,
-                                            sessionIdHexString: targetPublicKey,
-                                            using: dependencies
-                                        ),
-                                        using: dependencies
-                                    )
-                            }
-                            .flatMap { $0.send(using: dependencies) }
-                            .map { _ in () }
-                            .eraseToAnyPublisher()
-                    ) { completeServerDeletion() }
-                })
-
-                actionSheet.addAction(UIAlertAction.init(title: "TXT_CANCEL_TITLE".localized(), style: .cancel) { [weak self] _ in
-                    self?.showInputAccessoryView()
-                })
-
-                self.hideInputAccessoryView()
-                Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
-                self.present(actionSheet, animated: true)
+                },
+                afterClosed: { [weak self] in
+                    self?.becomeFirstResponder()
+                }
+            )
+        )
+        
+        /// Show the modal after a small delay so it doesn't look as weird with the context menu dismissal
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            self?.present(modal, animated: true)
+            self?.resignFirstResponder()
         }
     }
 
@@ -2493,15 +2318,13 @@ extension ConversationVC: UIDocumentInteractionControllerDelegate {
 // MARK: - Message Request Actions
 
 extension ConversationVC {
-    fileprivate func approveMessageRequestIfNeeded(
+    @discardableResult fileprivate func approveMessageRequestIfNeeded(
         for threadId: String,
         threadVariant: SessionThread.Variant,
         isNewThread: Bool,
         timestampMs: Int64,
         using dependencies: Dependencies = Dependencies()
-    ) {
-        guard threadVariant == .contact else { return }
-        
+    ) -> Job? {
         let updateNavigationBackStack: () -> Void = {
             // Remove the 'SessionTableViewController<MessageRequestsViewModel>' from the nav hierarchy if present
             DispatchQueue.main.async { [weak self] in
@@ -2519,54 +2342,137 @@ extension ConversationVC {
                 }
             }
         }
-
-        // If the contact doesn't exist then we should create it so we can store the 'isApproved' state
-        // (it'll be updated with correct profile info if they accept the message request so this
-        // shouldn't cause weird behaviours)
-        guard
-            let contact: Contact = Dependencies()[singleton: .storage].read({ db in Contact.fetchOrCreate(db, id: threadId) }),
-            !contact.isApproved
-        else { return }
         
-        Dependencies()[singleton: .storage]
-            .writePublisher { db in
-                // If we aren't creating a new thread (ie. sending a message request) then send a
-                // messageRequestResponse back to the sender (this allows the sender to know that
-                // they have been approved and can now use this contact in closed groups)
-                if !isNewThread {
-                    try MessageSender.send(
+        switch threadVariant {
+            case .contact:
+                // If the contact doesn't exist then we should create it so we can store the 'isApproved' state
+                // (it'll be updated with correct profile info if they accept the message request so this
+                // shouldn't cause weird behaviours)
+                guard
+                    let contact: Contact = dependencies[singleton: .storage].read({ db in Contact.fetchOrCreate(db, id: threadId) }),
+                    !contact.isApproved
+                else { return nil }
+                
+                dependencies[singleton: .storage]
+                    .writePublisher { db in
+                        // If we aren't creating a new thread (ie. sending a message request) then send a
+                        // messageRequestResponse back to the sender (this allows the sender to know that
+                        // they have been approved and can now use this contact in closed groups)
+                        if !isNewThread {
+                            try MessageSender.send(
+                                db,
+                                message: MessageRequestResponse(
+                                    isApproved: true,
+                                    sentTimestampMs: UInt64(timestampMs)
+                                ),
+                                interactionId: nil,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                using: dependencies
+                            )
+                        }
+                        
+                        // Default 'didApproveMe' to true for the person approving the message request
+                        try contact.upsert(db)
+                        try Contact
+                            .filter(id: contact.id)
+                            .updateAllAndConfig(
+                                db,
+                                Contact.Columns.isApproved.set(to: true),
+                                Contact.Columns.didApproveMe
+                                    .set(to: contact.didApproveMe || !isNewThread),
+                                using: dependencies
+                            )
+                    }
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                    .receive(on: DispatchQueue.main)
+                    .sinkUntilComplete(
+                        receiveCompletion: { _ in
+                            // Update the UI
+                            updateNavigationBackStack()
+                        }
+                    )
+                
+            case .group:
+                // If the group is not in the invited state then don't bother doing anything
+                guard
+                    let group: ClosedGroup = dependencies[singleton: .storage]
+                        .read({ db in try ClosedGroup.fetchOne(db, id: threadId) }),
+                    group.invited == true
+                else { return nil }
+                
+                let pollResponseJob: Job? = dependencies[singleton: .storage].write(using: dependencies) { db in
+                    dependencies[singleton: .jobRunner].add(
                         db,
-                        message: MessageRequestResponse(
-                            isApproved: true,
-                            sentTimestampMs: UInt64(timestampMs)
-                        ),
-                        interactionId: nil,
-                        threadId: threadId,
-                        threadVariant: threadVariant,
+                        job: Job(variant: .manualResultJob),
+                        canStartJob: true,
                         using: dependencies
                     )
                 }
                 
-                // Default 'didApproveMe' to true for the person approving the message request
-                try contact.save(db)
-                try Contact
-                    .filter(id: contact.id)
-                    .updateAllAndConfig(
-                        db,
-                        Contact.Columns.isApproved.set(to: true),
-                        Contact.Columns.didApproveMe
-                            .set(to: contact.didApproveMe || !isNewThread),
-                        using: dependencies
+                dependencies[singleton: .storage]
+                    .writePublisher(using: dependencies) { db in
+                        /// If we aren't creating a new thread (ie. sending a message request) then send a
+                        /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
+                        /// to know that the user has joined the group)
+                        if !isNewThread {
+                            try MessageSender.send(
+                                db,
+                                message: GroupUpdateInviteResponseMessage(
+                                    isApproved: true,
+                                    sentTimestamp: UInt64(timestampMs)
+                                ),
+                                interactionId: nil,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                after: pollResponseJob,
+                                using: dependencies
+                            )
+                        }
+                        
+                        /// Optimistically insert a `standard` member for the current user in this group (it'll be update to the correct
+                        /// one once we receive the first `GROUP_MEMBERS` config message but adding it here means the `canWrite`
+                        /// state of the group will continue to be `true` while we wait on the initial poll to get back)
+                        try GroupMember(
+                            groupId: group.id,
+                            profileId: getUserSessionId(db, using: dependencies).hexString,
+                            role: .standard,
+                            roleStatus: .accepted,
+                            isHidden: false
+                        ).upsert(db)
+                        
+                        /// Actually trigger the approval
+                        try ClosedGroup.approveGroup(
+                            db,
+                            group: group,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                    }
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                    .receive(on: DispatchQueue.main)
+                    .sinkUntilComplete(
+                        receiveCompletion: { _ in
+                            // Complete the `pollResponseJob` once the next group poll completes
+                            dependencies[singleton: .groupsPoller].afterNextPoll(for: threadId) { _ in
+                                dependencies[singleton: .jobRunner].manuallyTriggerResult(
+                                    pollResponseJob,
+                                    result: .succeeded,
+                                    using: dependencies
+                                )
+                            }
+                            
+                            // Update the UI
+                            updateNavigationBackStack()
+                        }
                     )
-            }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main)
-            .sinkUntilComplete(
-                receiveCompletion: { _ in
-                    // Update the UI
-                    updateNavigationBackStack()
-                }
-            )
+                
+                return pollResponseJob
+                
+            default: break
+        }
+        
+        return nil
     }
 
     @objc func acceptMessageRequest() {
