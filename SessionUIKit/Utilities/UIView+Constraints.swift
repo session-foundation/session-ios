@@ -56,7 +56,7 @@ extension UILayoutGuide: Anchorable {
     }
 }
 
-fileprivate extension NSLayoutConstraint {
+public extension NSLayoutConstraint {
     func setting(isActive: Bool) -> NSLayoutConstraint {
         self.isActive = isActive
         return self

@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
@@ -21,15 +23,16 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         case isHidden
     }
     
-    public enum Role: Int, Codable, DatabaseValueConvertible {
+    public enum Role: Int, Codable, Comparable, DatabaseValueConvertible {
         case standard
         case zombie
         case moderator
         case admin
     }
     
-    public enum RoleStatus: Int, Codable, DatabaseValueConvertible {
+    public enum RoleStatus: Int, Codable, Comparable, DatabaseValueConvertible {
         case accepted
+        case sending
         case pending
         case failed
     }
@@ -87,4 +90,35 @@ extension GroupMember {
             isHidden: ((try? container.decode(Bool.self, forKey: .isHidden)) ?? false)
         )
     }
+}
+
+// MARK: - Convenience
+
+public extension GroupMember {
+    var statusDescription: String? {
+        switch (role, roleStatus) {
+            case (_, .accepted): return nil                 // Nothing for "final" state
+            case (.zombie, _), (.moderator, _): return nil  // Unused cases
+            case (.standard, .sending): return "GROUP_MEMBER_STATUS_SENDING".localized()
+            case (.standard, .pending): return "GROUP_MEMBER_STATUS_SENT".localized()
+            case (.standard, .failed): return "GROUP_MEMBER_STATUS_FAILED".localized()
+            case (.admin, .sending): return "GROUP_ADMIN_STATUS_SENDING".localized()
+            case (.admin, .pending): return "GROUP_ADMIN_STATUS_SENT".localized()
+            case (.admin, .failed): return "GROUP_ADMIN_STATUS_FAILED".localized()
+        }
+    }
+    
+    var statusDescriptionColor: ThemeValue {
+        switch (role, roleStatus) {
+            case (.zombie, _), (.moderator, _): return .textPrimary
+            case (_, .failed): return .danger
+            default: return .textPrimary
+        }
+    }
+}
+
+extension GroupMember: ProfileAssociated {
+    public func itemDescription(using dependencies: Dependencies) -> String? { return statusDescription }
+    public func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return statusDescriptionColor }
+    
 }

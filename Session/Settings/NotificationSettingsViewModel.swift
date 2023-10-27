@@ -104,7 +104,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
 
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob.run(uploadOnlyIfStale: false)
-                                self?.forceRefresh()
+                                self?.forceRefresh(type: .postDatabaseQuery)
                             }
                         ),
                         SessionCell.Info(

@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionUIKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -10,6 +11,10 @@ public enum GroupInviteMemberJob: JobExecutor {
     public static var maxFailureCount: Int = 1
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
+    
+    private static let notificationThrottleDuration: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(1500)
+    private static var notifyFailurePublisher: AnyPublisher<Void, Never>?
+    private static let notifyFailureTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
     
     public static func run(
         _ job: Job,
@@ -78,7 +83,24 @@ public enum GroupInviteMemberJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: success(job, false, dependencies)
+                        case .finished:
+                            dependencies[singleton: .storage].write(using: dependencies) { db in
+                                try GroupMember
+                                    .filter(
+                                        GroupMember.Columns.groupId == threadId &&
+                                        GroupMember.Columns.profileId == details.memberSessionIdHexString &&
+                                        GroupMember.Columns.role == GroupMember.Role.standard &&
+                                        GroupMember.Columns.roleStatus != GroupMember.RoleStatus.accepted
+                                    )
+                                    .updateAllAndConfig(
+                                        db,
+                                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.pending),
+                                        using: dependencies
+                                    )
+                            }
+                            
+                            success(job, false, dependencies)
+                            
                         case .failure(let error):
                             SNLog("[GroupInviteMemberJob] Couldn't send message due to error: \(error).")
                             
@@ -98,6 +120,13 @@ public enum GroupInviteMemberJob: JobExecutor {
                                         using: dependencies
                                     )
                             }
+                            
+                            // Notify about the failure
+                            GroupInviteMemberJob.notifyOfFailure(
+                                groupId: threadId,
+                                memberId: details.memberSessionIdHexString,
+                                using: dependencies
+                            )
                             
                             // Register the failure
                             switch error {
@@ -119,6 +148,139 @@ public enum GroupInviteMemberJob: JobExecutor {
         
         // TODO: Need to batch errors together and send a toast indicating invitation failures
     }
+    
+    private static func notifyOfFailure(groupId: String, memberId: String, using dependencies: Dependencies) {
+        dependencies.mutate(cache: .groupInviteMemberJob) { cache in
+            cache.failedMemberIds.insert(memberId)
+        }
+        
+        /// This method can be triggered by each individual invitation failure so we want to throttle the updates to 250ms so that we can group failures
+        /// and show a single toast
+        if notifyFailurePublisher == nil {
+            notifyFailurePublisher = notifyFailureTrigger
+                .throttle(for: notificationThrottleDuration, scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
+                .handleEvents(
+                    receiveOutput: { [dependencies] _ in
+                        let failedIds: [String] = dependencies.mutate(cache: .groupInviteMemberJob) { cache in
+                            let result: Set<String> = cache.failedMemberIds
+                            cache.failedMemberIds.removeAll()
+                            return Array(result)
+                        }
+                        
+                        // Don't do anything if there are no 'failedIds' values or we can't get a window
+                        guard
+                            !failedIds.isEmpty,
+                            HasAppContext(),
+                            let mainWindow: UIWindow = CurrentAppContext().mainWindow
+                        else { return }
+                        
+                        typealias FetchedData = (groupName: String, profileInfo: [String: Profile])
+                        
+                        let data: FetchedData = dependencies[singleton: .storage]
+                            .read(using: dependencies) { db in
+                                (
+                                    try ClosedGroup
+                                        .filter(id: groupId)
+                                        .select(.name)
+                                        .asRequest(of: String.self)
+                                        .fetchOne(db),
+                                    try Profile.filter(ids: failedIds).fetchAll(db)
+                                )
+                            }
+                            .map { maybeName, profiles -> FetchedData in
+                                (
+                                    (maybeName ?? "GROUP_TITLE_FALLBACK".localized()),
+                                    profiles.reduce(into: [:]) { result, next in result[next.id] = next }
+                                )
+                            }
+                            .defaulting(to: ("GROUP_TITLE_FALLBACK".localized(), [:]))
+                        
+                        let message: String = {
+                            switch failedIds.count {
+                                case 1:
+                                    return String(
+                                        format: "GROUP_ACTION_INVITE_FAILED_ONE".localized(),
+                                        (
+                                            data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
+                                            Profile.truncated(id: failedIds[0], truncating: .middle)
+                                        ),
+                                        data.groupName
+                                    )
+                                    
+                                case 2:
+                                    return String(
+                                        format: "GROUP_ACTION_INVITE_FAILED_TWO".localized(),
+                                        (
+                                            data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
+                                            Profile.truncated(id: failedIds[0], truncating: .middle)
+                                        ),
+                                        (
+                                            data.profileInfo[failedIds[1]]?.displayName(for: .group) ??
+                                            Profile.truncated(id: failedIds[1], truncating: .middle)
+                                        ),
+                                        data.groupName
+                                    )
+                                    
+                                default:
+                                    let targetProfile: Profile? = data.profileInfo.values.first
+                                    
+                                    return String(
+                                        format: "GROUP_ACTION_INVITE_FAILED_MULTIPLE".localized(),
+                                        (
+                                            targetProfile?.displayName(for: .group) ??
+                                            Profile.truncated(id: failedIds[0], truncating: .middle)
+                                        ),
+                                        "\(failedIds.count - 1)",
+                                        data.groupName
+                                    )
+                            }
+                        }()
+                        
+                        DispatchQueue.main.async {
+                            let toastController: ToastController = ToastController(
+                                text: message,
+                                background: .backgroundSecondary
+                            )
+                            toastController.presentToastView(fromBottomOfView: mainWindow, inset: Values.largeSpacing)
+                        }
+                    }
+                )
+                .map { _ in () }
+                .eraseToAnyPublisher()
+            
+            notifyFailurePublisher?.sinkUntilComplete()
+        }
+        
+        notifyFailureTrigger.send(())
+    }
+}
+
+// MARK: - GroupInviteMemberJob Cache
+
+public extension GroupInviteMemberJob {
+    class Cache: GroupInviteMemberJobCacheType {
+        public var failedMemberIds: Set<String> = []
+    }
+}
+
+public extension Cache {
+    static let groupInviteMemberJob: CacheConfig<GroupInviteMemberJobCacheType, GroupInviteMemberJobImmutableCacheType> = Dependencies.create(
+        identifier: "groupInviteMemberJob",
+        createInstance: { _ in GroupInviteMemberJob.Cache() },
+        mutableInstance: { $0 },
+        immutableInstance: { $0 }
+    )
+}
+
+// MARK: - DisplayPictureCacheType
+
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
+public protocol GroupInviteMemberJobImmutableCacheType: ImmutableCacheType {
+    var failedMemberIds: Set<String> { get }
+}
+
+public protocol GroupInviteMemberJobCacheType: GroupInviteMemberJobImmutableCacheType, MutableCacheType {
+    var failedMemberIds: Set<String> { get set }
 }
 
 // MARK: - GroupInviteMemberJob.Details

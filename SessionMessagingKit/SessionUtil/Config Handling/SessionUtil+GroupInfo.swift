@@ -9,6 +9,10 @@ import SessionUtilitiesKit
 
 public extension SessionUtil {
     static var sizeMaxGroupDescriptionBytes: Int { GROUP_INFO_DESCRIPTION_MAX_LENGTH }
+    
+    static func isTooLong(groupDescription: String) -> Bool {
+        return (groupDescription.utf8CString.count > SessionUtil.sizeMaxGroupDescriptionBytes)
+    }
 }
 
 // MARK: - Group Info Handling
@@ -16,6 +20,7 @@ public extension SessionUtil {
 internal extension SessionUtil {
     static let columnsRelatedToGroupInfo: [ColumnExpression] = [
         ClosedGroup.Columns.name,
+        ClosedGroup.Columns.groupDescription,
         ClosedGroup.Columns.displayPictureUrl,
         ClosedGroup.Columns.displayPictureEncryptionKey,
         DisappearingMessagesConfiguration.Columns.isEnabled,
@@ -110,7 +115,22 @@ internal extension SessionUtil {
                     groupChanges
                 )
         }
-        if needsDisplayPictureUpdate && displayPictureUrl != nil {
+
+        // If we have a display picture then start downloading it
+        if needsDisplayPictureUpdate, let url: String = displayPictureUrl, let key: Data = displayPictureKey {
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .displayPictureDownload,
+                    shouldBeUnique: true,
+                    details: DisplayPictureDownloadJob.Details(
+                        target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
+                        timestamp: TimeInterval(Double(serverTimestampMs) / 1000)
+                    )
+                ),
+                canStartJob: true,
+                using: dependencies
+            )
         }
 
         // Update the disappearing messages configuration
@@ -176,6 +196,9 @@ internal extension SessionUtil {
                 var updatedName: [CChar] = group.name.cArray.nullTerminated()
                 groups_info_set_name(conf, &updatedName)
                 
+                var updatedDescription: [CChar] = (group.groupDescription ?? "").cArray.nullTerminated()
+                groups_info_set_description(conf, &updatedDescription)
+                
                 // Either assign the updated display pic, or sent a blank pic (to remove the current one)
                 var displayPic: user_profile_pic = user_profile_pic()
                 displayPic.url = group.displayPictureUrl.toLibSession()
@@ -238,8 +261,7 @@ public extension SessionUtil {
     static func update(
         _ db: Database,
         groupSessionId: SessionId,
-        name: String? = nil,
-        disappearingConfig: DisappearingMessagesConfiguration? = nil,
+        disappearingConfig: DisappearingMessagesConfiguration?,
         using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
@@ -249,11 +271,6 @@ public extension SessionUtil {
             using: dependencies
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
-            
-            if let name: String = name {
-                var updatedName: [CChar] = name.cArray.nullTerminated()
-                groups_info_set_name(conf, &updatedName)
-            }
             
             if let config: DisappearingMessagesConfiguration = disappearingConfig {
                 groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))

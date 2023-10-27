@@ -214,7 +214,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 receiveCompletion: { [weak self] result in
                     switch result {
                         case .failure(let error):
-                            let title: String = (self?.viewModel.title ?? "unknown")
+                            let title: String = (self?.viewModel.title ?? "unknown")    // stringlint:disable
                             
                             // If we got an error then try to restart the stream once, otherwise log the error
                             guard self?.dataStreamJustFailed == false else {
@@ -392,7 +392,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             .sink { [weak self] buttonInfo in
                 if let buttonInfo: SessionButton.Info = buttonInfo {
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)
-                    self?.footerButton.setStyle(buttonInfo.style)
+                    self?.footerButton.style = buttonInfo.style
                     self?.footerButton.isEnabled = buttonInfo.isEnabled
                     self?.footerButton.set(.width, greaterThanOrEqualTo: buttonInfo.minWidth)
                     self?.footerButton.accessibilityIdentifier = buttonInfo.accessibility?.identifier
@@ -579,8 +579,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             .enumerated()
             .first(where: { index, info in
                 switch (info.leftAccessory, info.rightAccessory) {
-                    case (_, .radio(_, let isSelected, _, _)): return isSelected()
-                    case (.radio(_, let isSelected, _, _), _): return isSelected()
+                    case (_, .radio(_, _, let liveIsSelected, _, _)): return liveIsSelected()
+                    case (.radio(_, _, let liveIsSelected, _, _), _): return liveIsSelected()
                     default: return false
                 }
             })

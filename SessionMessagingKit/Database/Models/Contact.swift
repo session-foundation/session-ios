@@ -87,3 +87,18 @@ public extension Contact {
         return ((try? fetchOne(db, id: id)) ?? Contact(db, id: id))
     }
 }
+
+// MARK: - Convenience
+
+extension Contact: ProfileAssociated {
+    public var profileId: String { id }
+    
+    public static func compare(lhs: WithProfile<Contact>, rhs: WithProfile<Contact>) -> Bool {
+        let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
+            .defaulting(to: Profile.truncated(id: lhs.profileId, threadVariant: .contact))
+        let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
+            .defaulting(to: Profile.truncated(id: rhs.profileId, threadVariant: .contact))
+        
+        return (lhsDisplayName < rhsDisplayName)
+    }
+}

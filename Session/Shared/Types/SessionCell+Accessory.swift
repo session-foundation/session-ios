@@ -32,8 +32,9 @@ extension SessionCell {
         )
         case radio(
             size: RadioSize,
-            isSelected: () -> Bool,
-            storedSelection: Bool,
+            initialIsSelected: Bool,
+            liveIsSelected: () -> Bool,
+            wasSavedSelection: Bool,
             accessibility: Accessibility?
         )
         
@@ -82,7 +83,7 @@ extension SessionCell {
         var currentBoolValue: Bool {
             switch self {
                 case .toggle(let dataSource, _), .dropDown(let dataSource, _): return dataSource.currentBoolValue
-                case .radio(_, let isSelected, _, _): return isSelected()
+                case .radio(_, _, let liveIsSelected, _, _): return liveIsSelected()
                 default: return false
             }
         }
@@ -112,10 +113,11 @@ extension SessionCell {
                     dataSource.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
                     
-                case .radio(let size, let isSelected, let storedSelection, let accessibility):
+                case .radio(let size, let initialIsSelected, let liveIsSelected, let wasSavedSelection, let accessibility):
                     size.hash(into: &hasher)
-                    isSelected().hash(into: &hasher)
-                    storedSelection.hash(into: &hasher)
+                    initialIsSelected.hash(into: &hasher)
+                    liveIsSelected().hash(into: &hasher)
+                    wasSavedSelection.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
                 
                 case .highlightingBackgroundLabel(let title, let accessibility):
@@ -188,11 +190,12 @@ extension SessionCell {
                         lhsAccessibility == rhsAccessibility
                     )
                     
-                case (.radio(let lhsSize, let lhsIsSelected, let lhsStoredSelection, let lhsAccessibility), .radio(let rhsSize, let rhsIsSelected, let rhsStoredSelection, let rhsAccessibility)):
+                case (.radio(let lhsSize, let lhsInitialIsSelected, let lhsLiveIsSelected, let lhsWasSavedSelection, let lhsAccessibility), .radio(let rhsSize, let rhsInitialIsSelected, let rhsLiveIsSelected, let rhsWasSavedSelection, let rhsAccessibility)):
                     return (
                         lhsSize == rhsSize &&
-                        lhsIsSelected() == rhsIsSelected() &&
-                        lhsStoredSelection == rhsStoredSelection &&
+                        lhsInitialIsSelected == rhsInitialIsSelected &&
+                        lhsLiveIsSelected() == rhsLiveIsSelected() &&
+                        lhsWasSavedSelection == rhsWasSavedSelection &&
                         lhsAccessibility == rhsAccessibility
                     )
                     
@@ -333,12 +336,16 @@ extension SessionCell.Accessory {
     
     // MARK: - .radio Variants
     
-    public static func radio(isSelected: @escaping () -> Bool) -> SessionCell.Accessory {
-        return .radio(size: .medium, isSelected: isSelected, storedSelection: false, accessibility: nil)
+    public static func radio(isSelected: Bool) -> SessionCell.Accessory {
+        return .radio(size: .medium, initialIsSelected: isSelected, liveIsSelected: { isSelected }, wasSavedSelection: false, accessibility: nil)
     }
     
-    public static func radio(isSelected: @escaping () -> Bool, storedSelection: Bool) -> SessionCell.Accessory {
-        return .radio(size: .medium, isSelected: isSelected, storedSelection: storedSelection, accessibility: nil)
+    public static func radio(liveIsSelected: @escaping () -> Bool) -> SessionCell.Accessory {
+        return .radio(size: .medium, initialIsSelected: liveIsSelected(), liveIsSelected: liveIsSelected, wasSavedSelection: false, accessibility: nil)
+    }
+    
+    public static func radio(isSelected: Bool, wasSavedSelection: Bool) -> SessionCell.Accessory {
+        return .radio(size: .medium, initialIsSelected: isSelected, liveIsSelected: { isSelected }, wasSavedSelection: wasSavedSelection, accessibility: nil)
     }
     
     // MARK: - .highlightingBackgroundLabel Variants

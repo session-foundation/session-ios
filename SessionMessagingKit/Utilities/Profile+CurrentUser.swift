@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 // MARK: - Current User Profile
 
 public extension Profile {
-    static func isToLong(profileName: String) -> Bool {
+    static func isTooLong(profileName: String) -> Bool {
         return (profileName.utf8CString.count > SessionUtil.sizeMaxNameBytes)
     }
     
@@ -47,10 +47,10 @@ public extension Profile {
                             dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = nil }
                         }
                         
-                        SNLog(.verbose, existingProfileUrl != nil ?
-                            "Updating local profile on service with cleared avatar." :
-                            "Updating local profile on service with no avatar."
-                        )
+                        switch existingProfileUrl {
+                            case .some: SNLog(.verbose, "Updating local profile on service with cleared avatar.")
+                            case .none: SNLog(.verbose, "Updating local profile on service with no avatar.")
+                        }
                     }
                     
                     try Profile.updateIfNeeded(
@@ -67,7 +67,7 @@ public extension Profile {
                 }
                 
             case .uploadImageData(let data):
-                prepareAndUploadDisplayPicture(
+                DisplayPictureManager.prepareAndUploadDisplayPicture(
                     queue: queue,
                     imageData: data,
                     success: { downloadUrl, fileName, newProfileKey in
@@ -80,7 +80,8 @@ public extension Profile {
                                 sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
                                 using: dependencies
                             )
-                                
+                            
+                            dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
                             SNLog("Successfully updated service with profile.")
                             try success?(db)
                         }
@@ -89,149 +90,7 @@ public extension Profile {
                     using: dependencies
                 )
         }
-    }
-    
-    private static func prepareAndUploadDisplayPicture(
-        queue: DispatchQueue,
-        imageData: Data,
-        success: @escaping ((downloadUrl: String, fileName: String, profileKey: Data)) -> (),
-        failure: ((DisplayPictureError) -> ())? = nil,
-        using dependencies: Dependencies
-    ) {
-        queue.async {
-            // If the profile avatar was updated or removed then encrypt with a new profile key
-            // to ensure that other users know that our profile picture was updated
-            let newProfileKey: Data
-            let finalImageData: Data
-            let fileExtension: String
-            
-            do {
-                let guessedFormat: ImageFormat = imageData.guessedImageFormat
-                
-                finalImageData = try {
-                    switch guessedFormat {
-                        case .gif, .webp:
-                            // Animated images can't be resized so if the data is too large we should error
-                            guard imageData.count <= DisplayPictureManager.maxBytes else {
-                                // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
-                                // be able to fit our profile photo (eg. generating pure noise at our resolution
-                                // compresses to ~200k)
-                                SNLog("Animated profile avatar was too large.")
-                                SNLog("Updating service with profile failed.")
-                                throw DisplayPictureError.uploadMaxFileSizeExceeded
-                            }
-                            
-                            return imageData
-                            
-                        default: break
-                    }
-                    
-                    // Process the image to ensure it meets our standards for size and compress it to
-                    // standardise the formwat and remove any metadata
-                    guard var image: UIImage = UIImage(data: imageData) else {
-                        throw DisplayPictureError.invalidCall
-                    }
-                    
-                    if image.size.width != DisplayPictureManager.maxDiameter || image.size.height != DisplayPictureManager.maxDiameter {
-                        // To help ensure the user is being shown the same cropping of their avatar as
-                        // everyone else will see, we want to be sure that the image was resized before this point.
-                        SNLog("Avatar image should have been resized before trying to upload")
-                        image = image.resizedImage(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
-                    }
-                    
-                    guard let data: Data = image.jpegData(compressionQuality: 0.95) else {
-                        SNLog("Updating service with profile failed.")
-                        throw DisplayPictureError.writeFailed
-                    }
-                    
-                    guard data.count <= DisplayPictureManager.maxBytes else {
-                        // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
-                        // be able to fit our profile photo (eg. generating pure noise at our resolution
-                        // compresses to ~200k)
-                        SNLog("Suprised to find profile avatar was too large. Was it scaled properly? image: \(image)")
-                        SNLog("Updating service with profile failed.")
-                        throw DisplayPictureError.uploadMaxFileSizeExceeded
-                    }
-                    
-                    return data
-                }()
-                
-                newProfileKey = try Randomness.generateRandomBytes(numberBytes: DisplayPictureManager.aes256KeyByteLength)
-                fileExtension = {
-                    switch guessedFormat {
-                        case .gif: return "gif"
-                        case .webp: return "webp"
-                        default: return "jpg"
-                    }
-                }()
-            }
-            // TODO: Test that this actually works
-            catch let error as DisplayPictureError { return (failure?(error) ?? {}()) }
-            catch {
-                return (failure?(DisplayPictureError.invalidCall) ?? {}())
-            }
-
-            // If we have a new avatar image, we must first:
-            //
-            // * Write it to disk.
-            // * Encrypt it
-            // * Upload it to asset service
-            // * Send asset service info to Signal Service
-            SNLog(.verbose, "Updating local profile on service with new avatar.")
-            
-            let fileName: String = UUID().uuidString.appendingFileExtension(fileExtension)
-            let filePath: String = DisplayPictureManager.filepath(for: fileName)
-            
-            // Write the avatar to disk
-            do { try finalImageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
-            catch {
-                SNLog("Updating service with profile failed.")
-                failure?(.writeFailed)
-                return
-            }
-            
-            // Encrypt the avatar for upload
-            guard let encryptedData: Data = DisplayPictureManager.encryptData(data: finalImageData, key: newProfileKey) else {
-                SNLog("Updating service with profile failed.")
-                failure?(.encryptionFailed)
-                return
-            }
-            
-            // Upload the avatar to the FileServer
-            guard let preparedUpload: HTTP.PreparedRequest<FileUploadResponse> = try? FileServerAPI.preparedUpload(encryptedData, using: dependencies) else {
-                SNLog("Updating service with profile failed.")
-                failure?(.uploadFailed)
-                return
-            }
-            
-            preparedUpload
-                .send(using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: queue)
-                .sinkUntilComplete(
-                    receiveCompletion: { result in
-                        switch result {
-                            case .finished: break
-                            case .failure(let error):
-                                SNLog("Updating service with profile failed.")
-                                
-                                let isMaxFileSizeExceeded: Bool = ((error as? HTTPError) == .maxFileSizeExceeded)
-                                failure?(isMaxFileSizeExceeded ? .uploadMaxFileSizeExceeded : .uploadFailed)
-                        }
-                    },
-                    receiveValue: { _, fileUploadResponse in
-                        let downloadUrl: String = "\(FileServerAPI.server)/file/\(fileUploadResponse.id)"
-                        
-                        // Update the cached avatar image value
-                        dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = finalImageData }
-                        dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
-                        
-                        SNLog("Successfully uploaded avatar image.")
-                        success((downloadUrl, fileName, newProfileKey))
-                    }
-                )
-        }
-    }
+    }    
     
     static func updateIfNeeded(
         _ db: Database,

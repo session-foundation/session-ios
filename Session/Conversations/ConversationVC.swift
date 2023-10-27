@@ -330,10 +330,14 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.translatesAutoresizingMaskIntoConstraints = false
         result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.font = UIFont.systemFont(ofSize: 12)
-        result.text = (self.viewModel.threadData.threadRequiresApproval == false ?
-            "MESSAGE_REQUESTS_INFO".localized() :
-            "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
-        )
+        result.text = {
+            switch (self.viewModel.threadData.threadVariant, self.viewModel.threadData.threadRequiresApproval) {
+                case (.contact, false): return "MESSAGE_REQUESTS_INFO".localized()
+                case (.contact, true): return "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
+                case (.group, _): return "GROUP_MESSAGE_REQUEST_INFO".localized()
+                default: return nil
+            }
+        }()
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.numberOfLines = 0
@@ -806,10 +810,14 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
             )
             
-            messageRequestDescriptionLabel.text = (updatedThreadData.threadRequiresApproval == false ?
-                "MESSAGE_REQUESTS_INFO".localized() :
-                "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
-            )
+            messageRequestDescriptionLabel.text = {
+                switch (updatedThreadData.threadVariant, updatedThreadData.threadRequiresApproval) {
+                    case (.contact, false): return "MESSAGE_REQUESTS_INFO".localized()
+                    case (.contact, true): return "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
+                    case (.group, _): return "GROUP_MESSAGE_REQUEST_INFO".localized()
+                    default: return nil
+                }
+            }()
             
             let messageRequestsViewWasVisible: Bool = (
                 messageRequestStackView.isHidden == false

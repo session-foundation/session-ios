@@ -186,7 +186,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     )
                                     return
                                 }
-                                guard !Profile.isToLong(profileName: updatedNickname) else {
+                                guard !Profile.isTooLong(profileName: updatedNickname) else {
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
@@ -218,7 +218,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     let title: String = "vc_settings_title".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { [weak self, dependencies] db -> Profile in
+        .databaseObservation(self) { [dependencies] db -> Profile in
             Profile.fetchOrCreateCurrentUser(db, using: dependencies)
         }
         .map { [weak self] profile -> [SectionModel] in

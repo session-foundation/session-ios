@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import DifferenceKit
+import SessionUIKit
 import SessionUtilitiesKit
 
 /// This type is duplicate in both the database and within the SessionUtil config so should only ever have it's data changes via the
@@ -393,6 +394,56 @@ public extension Profile {
                 // In open groups, where it's more likely that multiple users have the same name,
                 // we display a bit of the Session ID after a user's display name for added context
                 return "\(name) (\(Profile.truncated(id: id, truncating: .middle)))"
+        }
+    }
+}
+
+// MARK: - WithProfile<T>
+
+public struct WithProfile<T: ProfileAssociated>: Equatable, Hashable, Comparable {
+    public let value: T
+    public let profile: Profile?
+    
+    public var profileId: String { value.profileId }
+    
+    public func itemDescription(using dependencies: Dependencies) -> String? {
+        return value.itemDescription(using: dependencies)
+    }
+    
+    public func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue {
+        return value.itemDescriptionColor(using: dependencies)
+    }
+    
+    public static func < (lhs: WithProfile<T>, rhs: WithProfile<T>) -> Bool {
+        return T.compare(lhs: lhs, rhs: rhs)
+    }
+}
+
+public protocol ProfileAssociated: Equatable, Hashable {
+    var profileId: String { get }
+    
+    func itemDescription(using dependencies: Dependencies) -> String?
+    func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue
+    static func compare(lhs: WithProfile<Self>, rhs: WithProfile<Self>) -> Bool
+}
+
+public extension ProfileAssociated {
+    func itemDescription(using dependencies: Dependencies) -> String? { return nil }
+    func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return .textPrimary }
+}
+
+public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssociated {
+    func fetchAllWithProfiles(_ db: Database) throws -> [WithProfile<RowDecoder>] {
+        let originalResult: [RowDecoder] = try self.fetchAll(db)
+        let profiles: [String: Profile]? = try? Profile
+            .fetchAll(db, ids: originalResult.map { $0.profileId }.asSet())
+            .reduce(into: [:]) { result, next in result[next.id] = next }
+        
+        return originalResult.map {
+            WithProfile(
+                value: $0,
+                profile: profiles?[$0.profileId]
+            )
         }
     }
 }

@@ -52,10 +52,12 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
         case closedGroupProfileBack
         case closedGroupProfileBackFallback
         case closedGroupName
+        case closedGroupDescription
         case closedGroupUserCount
         case currentUserIsClosedGroupMember
         case currentUserIsClosedGroupAdmin
         case openGroupName
+        case openGroupDescription
         case openGroupServer
         case openGroupRoomToken
         case openGroupPublicKey
@@ -143,10 +145,12 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     private let closedGroupProfileBack: Profile?
     private let closedGroupProfileBackFallback: Profile?
     public let closedGroupName: String?
+    private let closedGroupDescription: String?
     private let closedGroupUserCount: Int?
     public let currentUserIsClosedGroupMember: Bool?
     public let currentUserIsClosedGroupAdmin: Bool?
     public let openGroupName: String?
+    private let openGroupDescription: String?
     public let openGroupServer: String?
     public let openGroupRoomToken: String?
     public let openGroupPublicKey: String?
@@ -208,6 +212,14 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             isNoteToSelf: threadIsNoteToSelf,
             profile: profile
         )
+    }
+    
+    public var threadDescription: String? {
+        switch threadVariant {
+            case .contact, .legacyGroup: return nil
+            case .community: return openGroupDescription
+            case .group: return closedGroupDescription
+        }
     }
     
     public var profile: Profile? {
@@ -430,10 +442,12 @@ public extension SessionThreadViewModel {
         self.closedGroupProfileBack = nil
         self.closedGroupProfileBackFallback = nil
         self.closedGroupName = nil
+        self.closedGroupDescription = nil
         self.closedGroupUserCount = nil
         self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
         self.currentUserIsClosedGroupAdmin = nil
         self.openGroupName = nil
+        self.openGroupDescription = nil
         self.openGroupServer = nil
         self.openGroupRoomToken = nil
         self.openGroupPublicKey = nil
@@ -496,10 +510,12 @@ public extension SessionThreadViewModel {
             closedGroupProfileBack: self.closedGroupProfileBack,
             closedGroupProfileBackFallback: self.closedGroupProfileBackFallback,
             closedGroupName: self.closedGroupName,
+            closedGroupDescription: self.closedGroupDescription,
             closedGroupUserCount: self.closedGroupUserCount,
             currentUserIsClosedGroupMember: self.currentUserIsClosedGroupMember,
             currentUserIsClosedGroupAdmin: self.currentUserIsClosedGroupAdmin,
             openGroupName: self.openGroupName,
+            openGroupDescription: self.openGroupDescription,
             openGroupServer: self.openGroupServer,
             openGroupRoomToken: self.openGroupRoomToken,
             openGroupPublicKey: self.openGroupPublicKey,
@@ -557,10 +573,12 @@ public extension SessionThreadViewModel {
             closedGroupProfileBack: self.closedGroupProfileBack,
             closedGroupProfileBackFallback: self.closedGroupProfileBackFallback,
             closedGroupName: self.closedGroupName,
+            closedGroupDescription: self.closedGroupDescription,
             closedGroupUserCount: self.closedGroupUserCount,
             currentUserIsClosedGroupMember: self.currentUserIsClosedGroupMember,
             currentUserIsClosedGroupAdmin: self.currentUserIsClosedGroupAdmin,
             openGroupName: self.openGroupName,
+            openGroupDescription: self.openGroupDescription,
             openGroupServer: self.openGroupServer,
             openGroupRoomToken: self.openGroupRoomToken,
             openGroupPublicKey: self.openGroupPublicKey,
@@ -1130,6 +1148,7 @@ public extension SessionThreadViewModel {
                 \(closedGroupProfileBackFallback.allColumns),
         
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
+                \(closedGroup[.groupDescription]) AS \(ViewModel.Columns.closedGroupDescription),
                 
                 EXISTS (
                     SELECT 1
@@ -1152,6 +1171,7 @@ public extension SessionThreadViewModel {
                 ) AS \(ViewModel.Columns.currentUserIsClosedGroupAdmin),
         
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
+                \(openGroup[.roomDescription]) AS \(ViewModel.Columns.openGroupDescription),
                 \(openGroup[.server]) AS \(ViewModel.Columns.openGroupServer),
                 \(openGroup[.roomToken]) AS \(ViewModel.Columns.openGroupRoomToken),
                 \(openGroup[.publicKey]) AS \(ViewModel.Columns.openGroupPublicKey),

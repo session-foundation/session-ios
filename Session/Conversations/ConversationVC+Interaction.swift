@@ -32,23 +32,17 @@ extension ConversationVC:
     }
     
     @objc func  openSettingsFromTitleView() {
-        switch self.titleView.currentLabelType {
-            case .userCount:
-                if self.viewModel.threadData.threadVariant == .group || self.viewModel.threadData.threadVariant == .legacyGroup {
-                    let viewController = EditClosedGroupVC(
+        switch (titleView.currentLabelType, viewModel.threadData.threadVariant, viewModel.threadData.currentUserIsClosedGroupAdmin) {
+            case (.userCount, .group, true), (.userCount, .legacyGroup, true):
+                let viewController = SessionTableViewController(
+                    viewModel: EditGroupViewModel(
                         threadId: self.viewModel.threadData.threadId,
-                        threadVariant: self.viewModel.threadData.threadVariant
+                        using: self.viewModel.dependencies
                     )
-                    navigationController?.pushViewController(viewController, animated: true)
-                } else {
-                    openSettings()
-                }
-                break
-            case .none, .notificationSettings:
-                openSettings()
-                break
-            
-            case .disappearingMessageSetting:
+                )
+                navigationController?.pushViewController(viewController, animated: true)
+                
+            case (.disappearingMessageSetting, _, _):
                 let viewController = SessionTableViewController(
                     viewModel: ThreadDisappearingMessagesSettingsViewModel(
                         threadId: self.viewModel.threadData.threadId,
@@ -59,7 +53,8 @@ extension ConversationVC:
                     )
                 )
                 navigationController?.pushViewController(viewController, animated: true)
-                break
+                
+            case (.userCount, _, _), (.none, _, _), (.notificationSettings, _, _): openSettings()
         }
     }
 

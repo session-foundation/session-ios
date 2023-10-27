@@ -352,7 +352,7 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
         subtitleLabel.text = info.subtitle?.text
-        subtitleLabel.themeTextColor = info.styling.tintColor
+        subtitleLabel.themeTextColor = info.styling.subtitleTintColor
         subtitleLabel.textAlignment = (info.subtitle?.textAlignment ?? .left)
         subtitleLabel.isHidden = (info.subtitle == nil)
         rightAccessoryView.update(
@@ -450,6 +450,14 @@ public class SessionCell: UITableViewCell {
                 cellBackgroundView.themeBackgroundColor = nil
                 cellBackgroundView.layer.cornerRadius = 0
                 cellSelectedBackgroundView.isHidden = true
+                
+            case .noBackgroundEdgeToEdge:
+                defaultEdgePadding = 0
+                backgroundLeftConstraint.constant = 0
+                backgroundRightConstraint.constant = 0
+                cellBackgroundView.themeBackgroundColor = nil
+                cellBackgroundView.layer.cornerRadius = 0
+                cellSelectedBackgroundView.isHidden = true
         }
         
         let fittedEdgePadding: CGFloat = {
@@ -479,28 +487,36 @@ public class SessionCell: UITableViewCell {
             case .top:
                 cellBackgroundView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
                 topSeparator.isHidden = (
-                    !info.styling.allowedSeparators.contains(.top) ||
-                    info.styling.backgroundStyle != .edgeToEdge
+                    !info.styling.allowedSeparators.contains(.top) || (
+                        info.styling.backgroundStyle != .edgeToEdge &&
+                        info.styling.backgroundStyle != .noBackgroundEdgeToEdge
+                    )
                 )
                 botSeparator.isHidden = (
-                    !info.styling.allowedSeparators.contains(.bottom) ||
-                    info.styling.backgroundStyle == .noBackground
+                    !info.styling.allowedSeparators.contains(.bottom) || (
+                        info.styling.backgroundStyle == .noBackground &&
+                        info.styling.backgroundStyle != .noBackgroundEdgeToEdge
+                    )
                 )
                 
             case .middle:
                 cellBackgroundView.layer.maskedCorners = []
                 topSeparator.isHidden = true
                 botSeparator.isHidden = (
-                    !info.styling.allowedSeparators.contains(.bottom) ||
-                    info.styling.backgroundStyle == .noBackground
+                    !info.styling.allowedSeparators.contains(.bottom) || (
+                        info.styling.backgroundStyle == .noBackground &&
+                        info.styling.backgroundStyle != .noBackgroundEdgeToEdge
+                    )
                 )
                 
             case .bottom:
                 cellBackgroundView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
                 topSeparator.isHidden = true
                 botSeparator.isHidden = (
-                    !info.styling.allowedSeparators.contains(.bottom) ||
-                    info.styling.backgroundStyle != .edgeToEdge
+                    !info.styling.allowedSeparators.contains(.bottom) || (
+                        info.styling.backgroundStyle != .edgeToEdge &&
+                        info.styling.backgroundStyle != .noBackgroundEdgeToEdge
+                    )
                 )
                 
             case .individual:
@@ -509,12 +525,16 @@ public class SessionCell: UITableViewCell {
                     .layerMinXMaxYCorner, .layerMaxXMaxYCorner
                 ]
                 topSeparator.isHidden = (
-                    !info.styling.allowedSeparators.contains(.top) ||
-                    info.styling.backgroundStyle != .edgeToEdge
+                    !info.styling.allowedSeparators.contains(.top) || (
+                        info.styling.backgroundStyle != .edgeToEdge &&
+                        info.styling.backgroundStyle != .noBackgroundEdgeToEdge
+                    )
                 )
                 botSeparator.isHidden = (
-                    !info.styling.allowedSeparators.contains(.bottom) ||
-                    info.styling.backgroundStyle != .edgeToEdge
+                    !info.styling.allowedSeparators.contains(.bottom) || (
+                        info.styling.backgroundStyle != .edgeToEdge &&
+                        info.styling.backgroundStyle != .noBackgroundEdgeToEdge
+                    )
                 )
         }
     }

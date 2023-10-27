@@ -12,7 +12,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     private static let loadingHeaderHeight: CGFloat = 40
     public static let newConversationButtonSize: CGFloat = 60
     
-    private let viewModel: HomeViewModel = HomeViewModel()
+    private let viewModel: HomeViewModel
     private var dataChangeObservable: DatabaseCancellable? {
         didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
     }
@@ -28,8 +28,10 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     
     // MARK: - Intialization
     
-    init() {
-        Dependencies()[singleton: .storage].addObserver(viewModel.pagedDataObserver)
+    init(using dependencies: Dependencies = Dependencies()) {
+        viewModel = HomeViewModel(using: dependencies)
+        
+        dependencies[singleton: .storage].addObserver(viewModel.pagedDataObserver)
         
         super.init(nibName: nil, bundle: nil)
     }

@@ -15,7 +15,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
-    private let selectedContactIdsSubject: CurrentValueSubject<Set<String>, Never> = CurrentValueSubject([])
+    private let selectedIdsSubject: CurrentValueSubject<Set<String>, Never> = CurrentValueSubject([])
     public private(set) var pagedDataObserver: PagedDatabaseObserver<Contact, TableItem>?
     
     // MARK: - Initialization
@@ -98,7 +98,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE".localized())
             .eraseToAnyPublisher()
     
-    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = selectedContactIdsSubject
+    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = selectedIdsSubject
         .prepend([])
         .map { selectedContactIds in
             SessionButton.Info(
@@ -127,7 +127,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                             
                             return (lhsValue < rhsValue)
                         }
-                        .map { [weak self] model -> SessionCell.Info<TableItem> in
+                        .map { [selectedIdsSubject] model -> SessionCell.Info<TableItem> in
                             SessionCell.Info(
                                 id: model,
                                 leftAccessory: .profile(id: model.id, profile: model.profile),
@@ -136,21 +136,15 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                     Profile.truncated(id: model.id, truncating: .middle)
                                 ),
                                 rightAccessory: .radio(
-                                    isSelected: {
-                                        self?.selectedContactIdsSubject.value.contains(model.id) == true
-                                    }
+                                    liveIsSelected: { selectedIdsSubject.value.contains(model.id) == true }
                                 ),
                                 onTap: {
-                                    var updatedSelectedIds: Set<String> = (self?.selectedContactIdsSubject.value ?? [])
-                                    
-                                    if !updatedSelectedIds.contains(model.id) {
-                                        updatedSelectedIds.insert(model.id)
+                                    if !selectedIdsSubject.value.contains(model.id) {
+                                        selectedIdsSubject.send(selectedIdsSubject.value.inserting(model.id))
                                     }
                                     else {
-                                        updatedSelectedIds.remove(model.id)
+                                        selectedIdsSubject.send(selectedIdsSubject.value.removing(model.id))
                                     }
-                                    
-                                    self?.selectedContactIdsSubject.send(updatedSelectedIds)
                                 }
                             )
                         }
@@ -164,9 +158,9 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     }
     
     private func unblockTapped(using dependencies: Dependencies = Dependencies()) {
-        guard !selectedContactIdsSubject.value.isEmpty else { return }
+        guard !selectedIdsSubject.value.isEmpty else { return }
         
-        let contactIds: Set<String> = selectedContactIdsSubject.value
+        let contactIds: Set<String> = selectedIdsSubject.value
         let contactNames: [String] = contactIds
             .compactMap { contactId in
                 guard
@@ -240,7 +234,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false), using: dependencies)
                 }
                 
-                self?.selectedContactIdsSubject.send([])
+                self?.selectedIdsSubject.send([])
             }
         )
         self.transitionToScreen(confirmationModal, transitionType: .present)

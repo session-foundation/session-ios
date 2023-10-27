@@ -210,9 +210,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 position: Position.with(indexPath.row, count: data[indexPath.section].elements.count),
                 leftAccessory: .profile(id: profile.id, profile: profile),
                 title: profile.displayName(),
-                rightAccessory: .radio(isSelected: { [weak self] in
-                    (self?.selectedProfiles[profile.id] != nil)
-                }),
+                rightAccessory: .radio(isSelected: (selectedProfiles[profile.id] != nil)),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 accessibility: Accessibility(
                     identifier: "Contact"

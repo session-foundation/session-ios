@@ -26,7 +26,6 @@ internal extension SessionUtil {
         displayPictureFilename: String?,
         displayPictureEncryptionKey: Data?,
         members: [(id: String, profile: Profile?)],
-        admins: [(id: String, profile: Profile?)],
         using dependencies: Dependencies
     ) throws -> CreatedGroupInfo {
         guard
@@ -41,18 +40,14 @@ internal extension SessionUtil {
         )
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let currentUserProfile: Profile? = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
-        let initialMembers: [String: (profile: Profile?, isAdmin: Bool)] = members
-            .map { ($0.id, $0.profile, false) }
-            .appending(contentsOf: admins.map { ($0.id, $0.profile, true) })
-            .appending((userSessionId.hexString, currentUserProfile, true))
-            .reduce(into: [:]) { result, next in result[next.0] = (profile: next.1, isAdmin: next.2)}
         
         // Create the new config objects
         let groupState: [ConfigDump.Variant: Config] = try createGroupState(
             groupSessionId: groupSessionId,
             userED25519KeyPair: userED25519KeyPair,
             groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
-            initialMembers: initialMembers,
+            initialMembers: members.filter { $0.id != userSessionId.hexString },
+            initialAdmin: (userSessionId.hexString, currentUserProfile),
             shouldLoadState: false, // We manually load the state after populating the configs
             using: dependencies
         )
@@ -106,15 +101,26 @@ internal extension SessionUtil {
                 groupIdentityPrivateKey: Data(groupIdentityKeyPair.secretKey),
                 invited: false
             ),
-            initialMembers.map { memberId, info -> GroupMember in
-                GroupMember(
-                    groupId: groupSessionId.hexString,
-                    profileId: memberId,
-                    role: (info.isAdmin ? .admin : .standard),
-                    roleStatus: (memberId == userSessionId.hexString ? .accepted : .pending),
-                    isHidden: false
+            members
+                .filter { $0.id != userSessionId.hexString }
+                .map { memberId, info -> GroupMember in
+                    GroupMember(
+                        groupId: groupSessionId.hexString,
+                        profileId: memberId,
+                        role: .standard,
+                        roleStatus: .pending,
+                        isHidden: false
+                    )
+                }
+                .appending(
+                    GroupMember(
+                        groupId: groupSessionId.hexString,
+                        profileId: userSessionId.hexString,
+                        role: .admin,
+                        roleStatus: .accepted,
+                        isHidden: false
+                    )
                 )
-            }
         )
     }
     
@@ -167,7 +173,8 @@ internal extension SessionUtil {
         groupSessionId: SessionId,
         userED25519KeyPair: KeyPair,
         groupIdentityPrivateKey: Data?,
-        initialMembers: [String: (profile: Profile?, isAdmin: Bool)] = [:],
+        initialMembers: [(id: String, profile: Profile?)] = [],
+        initialAdmin: (id: String, profile: Profile?)? = nil,
         shouldLoadState: Bool,
         using dependencies: Dependencies
     ) throws -> [ConfigDump.Variant: Config] {
@@ -181,36 +188,79 @@ internal extension SessionUtil {
         var error: [CChar] = [CChar](repeating: 0, count: 256)
         
         func loading(
-            members: [String: (profile: Profile?, isAdmin: Bool)],
+            admin: (id: String, profile: Profile?)?,
+            members: [(id: String, profile: Profile?)],
             into membersConf: UnsafeMutablePointer<config_object>?
         ) throws {
             guard !members.isEmpty else { return }
             
-            try members.forEach { memberId, info in
-                var profilePic: user_profile_pic = user_profile_pic()
-                
-                if
-                    let picUrl: String = info.profile?.profilePictureUrl,
-                    let picKey: Data = info.profile?.profileEncryptionKey
-                {
-                    profilePic.url = picUrl.toLibSession()
-                    profilePic.key = picKey.toLibSession()
-                }
-                
-                try CExceptionHelper.performSafely {
-                    var member: config_group_member = config_group_member(
-                        session_id: memberId.toLibSession(),
-                        name: (info.profile?.name ?? "").toLibSession(),
-                        profile_pic: profilePic,
-                        admin: info.isAdmin,
-                        invited: 0,
-                        promoted: 0,
-                        supplement: false
-                    )
-                    
-                    groups_members_set(membersConf, &member)
-                }
+            /// Store the admin data first
+            switch admin {
+                case .none: break
+                case .some((let id, let profile)):
+                    try CExceptionHelper.performSafely {
+                        var profilePic: user_profile_pic = user_profile_pic()
+                        
+                        if
+                            let picUrl: String = profile?.profilePictureUrl,
+                            let picKey: Data = profile?.profileEncryptionKey,
+                            !picUrl.isEmpty,
+                            picKey.count == DisplayPictureManager.aes256KeyByteLength
+                        {
+                            profilePic.url = picUrl.toLibSession()
+                            profilePic.key = picKey.toLibSession()
+                        }
+                        
+                        var member: config_group_member = config_group_member(
+                            session_id: id.toLibSession(),
+                            name: (profile?.name ?? "").toLibSession(),
+                            profile_pic: profilePic,
+                            admin: true,
+                            invited: 0,
+                            promoted: 0,
+                            supplement: false
+                        )
+                        
+                        groups_members_set(membersConf, &member)
+                    }
             }
+            
+            /// Then store the initial members
+            struct MemberInfo: Hashable {
+                let id: String
+                let profile: Profile?
+            }
+            
+            try members
+                .map { MemberInfo(id: $0.id, profile: $0.profile) }
+                .asSet()
+                .forEach { memberInfo in
+                    var profilePic: user_profile_pic = user_profile_pic()
+                    
+                    if
+                        let picUrl: String = memberInfo.profile?.profilePictureUrl,
+                        let picKey: Data = memberInfo.profile?.profileEncryptionKey,
+                        !picUrl.isEmpty,
+                        picKey.count == DisplayPictureManager.aes256KeyByteLength
+                    {
+                        profilePic.url = picUrl.toLibSession()
+                        profilePic.key = picKey.toLibSession()
+                    }
+                    
+                    try CExceptionHelper.performSafely {
+                        var member: config_group_member = config_group_member(
+                            session_id: memberInfo.id.toLibSession(),
+                            name: (memberInfo.profile?.name ?? "").toLibSession(),
+                            profile_pic: profilePic,
+                            admin: false,
+                            invited: 1,
+                            promoted: 0,
+                            supplement: false
+                        )
+                        
+                        groups_members_set(membersConf, &member)
+                    }
+                }
         }
         
         // It looks like C doesn't deal will passing pointers to null variables well so we need
@@ -235,7 +285,7 @@ internal extension SessionUtil {
                     0,
                     &error
                 ).orThrow(error: error)
-                try loading(members: initialMembers, into: groupMembersConf)
+                try loading(admin: initialAdmin, members: initialMembers, into: groupMembersConf)
                 
                 try groups_keys_init(
                     &groupKeysConf,
@@ -266,7 +316,7 @@ internal extension SessionUtil {
                     0,
                     &error
                 ).orThrow(error: error)
-                try loading(members: initialMembers, into: groupMembersConf)
+                try loading(admin: initialAdmin, members: initialMembers, into: groupMembersConf)
                 
                 try groups_keys_init(
                     &groupKeysConf,

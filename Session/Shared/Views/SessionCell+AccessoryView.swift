@@ -376,7 +376,7 @@ extension SessionCell {
                     dropDownStackViewConstraints.forEach { $0.isActive = true }
                     minWidthConstraint.isActive = true
                     
-                case .radio(let size, let isSelectedRetriever, let storedSelection, let accessibility):
+                case .radio(let size, _, let isSelectedRetriever, let storedSelection, let accessibility):
                     let isSelected: Bool = isSelectedRetriever()
                     let wasOldSelection: Bool = (!isSelected && storedSelection)
                     
@@ -477,7 +477,7 @@ extension SessionCell {
                     button.accessibilityIdentifier = accessibility?.identifier
                     button.accessibilityLabel = accessibility?.label
                     button.setTitle(title, for: .normal)
-                    button.setStyle(style)
+                    button.style = style
                     button.isHidden = false
                     minWidthConstraint.isActive = true
                     buttonConstraints.forEach { $0.isActive = true }

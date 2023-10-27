@@ -50,7 +50,6 @@ extension MessageSender {
                         displayPictureFilename: displayPictureInfo?.filename,
                         displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
                         members: members,
-                        admins: [(userSessionId.hexString, currentUserProfile)],
                         using: dependencies
                     )
                     
@@ -178,7 +177,7 @@ extension MessageSender {
     public static func updateGroup(
         groupSessionId: String,
         name: String,
-        displayPictureUpdate: DisplayPictureManager.Update,
+        groupDescription: String?,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
@@ -212,22 +211,27 @@ extension MessageSender {
                 let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
                 
-                // Update name if needed
-                if name != closedGroup.name {
-                    // Update the group
+                var groupChanges: [ConfigColumnAssignment] = []
+                
+                if name != closedGroup.name { groupChanges.append(ClosedGroup.Columns.name.set(to: name)) }
+                if groupDescription != closedGroup.groupDescription {
+                    groupChanges.append(ClosedGroup.Columns.groupDescription.set(to: groupDescription))
+                }
+                
+                // Update the group (this will be propagated to libSession configs automatically)
+                if !groupChanges.isEmpty {
                     _ = try ClosedGroup
                         .filter(id: sessionId.hexString)
-                        .updateAllAndConfig(db, ClosedGroup.Columns.name.set(to: name), using: dependencies)
-
-                    // Update libSession
-                    try SessionUtil.update(
-                        db,
-                        groupSessionId: sessionId,
-                        name: name,
-                        using: dependencies
-                    )
-                    
-                    // Add a record of the change to the conversation
+                        .updateAllAndConfig(
+                            db,
+                            ClosedGroup.Columns.name.set(to: name),
+                            ClosedGroup.Columns.groupDescription.set(to: groupDescription),
+                            using: dependencies
+                        )
+                }
+                
+                // Add a record of the name change to the conversation
+                if name != closedGroup.name {
                     _ = try Interaction(
                         threadId: groupSessionId,
                         authorId: userSessionId.hexString,
@@ -256,189 +260,53 @@ extension MessageSender {
             .eraseToAnyPublisher()
     }
     
-    public static func addGroupMembers(
+    public static func updateGroup(
         groupSessionId: String,
-        members: [(id: String, profile: Profile?)],
-        allowAccessToHistoricMessages: Bool,
+        displayPictureUpdate: DisplayPictureManager.Update,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
-            // FIXME: Fail with `MessageSenderError.invalidClosedGroupUpdate` once support for legacy groups is removed
-            let groupData: (name: String?, memberIds: Set<String>)? = dependencies[singleton: .storage].read(using: dependencies) { db in
-                let name: String? = try ClosedGroup
-                    .filter(id: groupSessionId)
-                    .select(.name)
-                    .asRequest(of: String.self)
-                    .fetchOne(db)
-                let memberIds: Set<String> = try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId)
-                    .select(GroupMember.Columns.profileId)
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-                
-                return (name, memberIds)
-            }
-            
-            guard let name: String = groupData?.name, let memberIds: Set<String> = groupData?.memberIds else {
-                return Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher()
-            }
-            
-            return MessageSender.update(
-                legacyGroupSessionId: groupSessionId,
-                with: memberIds.inserting(contentsOf: members.map { $0.0 }.asSet()),
-                name: name,
-                using: dependencies
-            )
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher()
         }
         
         return dependencies[singleton: .storage]
             .writePublisher { db in
-                guard
-                    let groupIdentityPrivateKey: Data = try? ClosedGroup
-                        .filter(id: sessionId.hexString)
-                        .select(.groupIdentityPrivateKey)
-                        .asRequest(of: Data.self)
-                        .fetchOne(db)
-                else { throw MessageSenderError.invalidClosedGroupUpdate }
-                
                 let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
                 
-                /// Add the members to the `GROUP_MEMBERS` config
-                try SessionUtil.addMembers(
-                    db,
-                    groupSessionId: sessionId,
-                    members: members,
-                    allowAccessToHistoricMessages: allowAccessToHistoricMessages,
-                    using: dependencies
-                )
-                
-                /// We need to update the group keys when adding new members, this should be done by either supplementing the
-                /// current keys (which allows access to existing messages) or by doing a full `rekey` which means new messages
-                /// will be encrypted using new keys
-                ///
-                /// **Note:** This **MUST** be called _after_ the new members have been added to the group, otherwise the
-                /// keys may not be generated correctly for the newly added members
-                if allowAccessToHistoricMessages {
-                    /// Since our state doesn't care about the `GROUP_KEYS` needed for other members triggering a `keySupplement`
-                    /// change won't result in the `GROUP_KEYS` config changing or the `ConfigurationSyncJob` getting triggered
-                    /// we need to push the change directly
-                    let supplementData: Data = try SessionUtil.keySupplement(
-                        db,
-                        groupSessionId: sessionId,
-                        memberIds: members.map { $0.id }.asSet(),
-                        using: dependencies
-                    )
-                    
-                    try SnodeAPI
-                        .preparedSendMessage(
-                            db,
-                            message: SnodeMessage(
-                                recipient: sessionId.hexString,
-                                data: supplementData.base64EncodedString(),
-                                ttl: ConfigDump.Variant.groupKeys.ttl,
-                                timestampMs: UInt64(changeTimestampMs)
-                            ),
-                            in: .configGroupKeys,
-                            authMethod: Authentication.groupAdmin(
-                                groupSessionId: sessionId,
-                                ed25519SecretKey: Array(groupIdentityPrivateKey)
-                            ),
-                            using: dependencies
-                        )
-                        .send(using: dependencies)
-                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                        .sinkUntilComplete()
-                }
-                else {
-                    try SessionUtil.rekey(
-                        db,
-                        groupSessionId: sessionId,
-                        using: dependencies
-                    )
-                }
-                
-                /// Generate the data needed to send the new members invitations to the group
-                let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details)] = try members
-                    .map { id, profile in
-                        // Generate authData for the newly added member
-                        let memberAuthInfo: Authentication.Info = try SessionUtil.generateAuthData(
-                            groupSessionId: sessionId,
-                            memberId: id,
-                            using: dependencies
-                        )
-                        let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
-                            memberSessionIdHexString: id,
-                            authInfo: memberAuthInfo
-                        )
-                        
-                        return (id, profile, inviteDetails)
-                    }
-                
-                /// Unrevoke the newly added members just in case they had previously gotten their access to the group
-                /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
-                /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
-                memberJobData
-                    .chunked(by: HTTP.BatchRequest.childRequestLimit)
-                    .forEach { memberJobDataChunk in
-                        try? SnodeAPI
-                            .preparedBatch(
+                switch displayPictureUpdate {
+                    case .remove:
+                        try ClosedGroup
+                            .filter(id: groupSessionId)
+                            .updateAllAndConfig(
                                 db,
-                                requests: try memberJobDataChunk.map { id, _, jobDetails in
-                                    try SnodeAPI.preparedUnrevokeSubaccount(
-                                        subaccountToUnrevoke: jobDetails.memberAuthData.toHexString(),
-                                        authMethod: Authentication.groupAdmin(
-                                            groupSessionId: sessionId,
-                                            ed25519SecretKey: Array(groupIdentityPrivateKey)
-                                        ),
-                                        using: dependencies
-                                    )
-                                },
-                                requireAllBatchResponses: false,
-                                associatedWith: sessionId.hexString,
-                                using: dependencies
+                                ClosedGroup.Columns.displayPictureUrl.set(to: nil),
+                                ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil),
+                                ClosedGroup.Columns.displayPictureFilename.set(to: nil),
+                                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow)
                             )
-                            .send(using: dependencies)
-                            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                            .sinkUntilComplete()
-                    }
-                
-                /// Make the required changes for each added member
-                try memberJobData.forEach { id, profile, inviteJobDetails in
-                    /// Add the member to the database
-                    try GroupMember(
-                        groupId: sessionId.hexString,
-                        profileId: id,
-                        role: .standard,
-                        roleStatus: .pending,
-                        isHidden: false
-                    ).upsert(db)
-                    
-                    /// Schedule a job to send an invitation to the newly added member
-                    dependencies[singleton: .jobRunner].add(
-                        db,
-                        job: Job(
-                            variant: .groupInviteMember,
-                            threadId: sessionId.hexString,
-                            details: inviteJobDetails
-                        ),
-                        canStartJob: true,
-                        using: dependencies
-                    )
+                        
+                    case .updateTo(let url, let key, let fileName):
+                        try ClosedGroup
+                            .filter(id: groupSessionId)
+                            .updateAllAndConfig(
+                                db,
+                                ClosedGroup.Columns.displayPictureUrl.set(to: url),
+                                ClosedGroup.Columns.displayPictureEncryptionKey.set(to: key),
+                                ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
+                                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow)
+                            )
+                        
+                    default: throw MessageSenderError.invalidClosedGroupUpdate
                 }
                 
-                /// Add a record of the change to the conversation
+                // Add a record of the change to the conversation
                 _ = try Interaction(
                     threadId: groupSessionId,
                     authorId: userSessionId.hexString,
-                    variant: .infoGroupMembersUpdated,
+                    variant: .infoGroupInfoUpdated,
                     body: ClosedGroup.MessageInfo
-                        .addedUsers(
-                            names: members.map { id, profile in
-                                profile?.displayName(for: .group) ??
-                                Profile.truncated(id: id, truncating: .middle)
-                            }
-                        )
+                        .updatedDisplayPicture
                         .infoString,
                     timestampMs: changeTimestampMs
                 ).inserted(db)
@@ -457,11 +325,258 @@ extension MessageSender {
                     using: dependencies
                 )
             }
+            .eraseToAnyPublisher()
     }
     
-    /// A backwards-compatible method to perform the `removeGroupMembers` logic that returns a publisher
-    ///
-    /// **Note:** This will start a `writePublisher` so shouldn't be called within another database closure
+    public static func addGroupMembers(
+        groupSessionId: String,
+        members: [(id: String, profile: Profile?)],
+        allowAccessToHistoricMessages: Bool,
+        using dependencies: Dependencies
+    ) {
+        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else { return }
+        
+        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+            guard
+                let groupIdentityPrivateKey: Data = try? ClosedGroup
+                    .filter(id: sessionId.hexString)
+                    .select(.groupIdentityPrivateKey)
+                    .asRequest(of: Data.self)
+                    .fetchOne(db)
+            else { throw MessageSenderError.invalidClosedGroupUpdate }
+            
+            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+            let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+            
+            /// Add the members to the `GROUP_MEMBERS` config
+            try SessionUtil.addMembers(
+                db,
+                groupSessionId: sessionId,
+                members: members,
+                allowAccessToHistoricMessages: allowAccessToHistoricMessages,
+                using: dependencies
+            )
+            
+            /// We need to update the group keys when adding new members, this should be done by either supplementing the
+            /// current keys (which allows access to existing messages) or by doing a full `rekey` which means new messages
+            /// will be encrypted using new keys
+            ///
+            /// **Note:** This **MUST** be called _after_ the new members have been added to the group, otherwise the
+            /// keys may not be generated correctly for the newly added members
+            if allowAccessToHistoricMessages {
+                /// Since our state doesn't care about the `GROUP_KEYS` needed for other members triggering a `keySupplement`
+                /// change won't result in the `GROUP_KEYS` config changing or the `ConfigurationSyncJob` getting triggered
+                /// we need to push the change directly
+                let supplementData: Data = try SessionUtil.keySupplement(
+                    db,
+                    groupSessionId: sessionId,
+                    memberIds: members.map { $0.id }.asSet(),
+                    using: dependencies
+                )
+                
+                try SnodeAPI
+                    .preparedSendMessage(
+                        db,
+                        message: SnodeMessage(
+                            recipient: sessionId.hexString,
+                            data: supplementData.base64EncodedString(),
+                            ttl: ConfigDump.Variant.groupKeys.ttl,
+                            timestampMs: UInt64(changeTimestampMs)
+                        ),
+                        in: .configGroupKeys,
+                        authMethod: Authentication.groupAdmin(
+                            groupSessionId: sessionId,
+                            ed25519SecretKey: Array(groupIdentityPrivateKey)
+                        ),
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                    .sinkUntilComplete()
+            }
+            else {
+                try SessionUtil.rekey(
+                    db,
+                    groupSessionId: sessionId,
+                    using: dependencies
+                )
+            }
+            
+            /// Generate the data needed to send the new members invitations to the group
+            let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details)] = try members
+                .map { id, profile in
+                    // Generate authData for the newly added member
+                    let memberAuthInfo: Authentication.Info = try SessionUtil.generateAuthData(
+                        groupSessionId: sessionId,
+                        memberId: id,
+                        using: dependencies
+                    )
+                    let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
+                        memberSessionIdHexString: id,
+                        authInfo: memberAuthInfo
+                    )
+                    
+                    return (id, profile, inviteDetails)
+                }
+            
+            /// Unrevoke the newly added members just in case they had previously gotten their access to the group
+            /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
+            /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
+            memberJobData
+                .chunked(by: HTTP.BatchRequest.childRequestLimit)
+                .forEach { memberJobDataChunk in
+                    try? SnodeAPI
+                        .preparedBatch(
+                            db,
+                            requests: try memberJobDataChunk.map { id, _, jobDetails in
+                                try SnodeAPI.preparedUnrevokeSubaccount(
+                                    subaccountToUnrevoke: jobDetails.memberAuthData.toHexString(),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: sessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    ),
+                                    using: dependencies
+                                )
+                            },
+                            requireAllBatchResponses: false,
+                            associatedWith: sessionId.hexString,
+                            using: dependencies
+                        )
+                        .send(using: dependencies)
+                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                        .sinkUntilComplete()
+                }
+            
+            /// Make the required changes for each added member
+            try memberJobData.forEach { id, profile, inviteJobDetails in
+                /// Add the member to the database
+                try GroupMember(
+                    groupId: sessionId.hexString,
+                    profileId: id,
+                    role: .standard,
+                    roleStatus: .pending,
+                    isHidden: false
+                ).upsert(db)
+                
+                /// Schedule a job to send an invitation to the newly added member
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .groupInviteMember,
+                        threadId: sessionId.hexString,
+                        details: inviteJobDetails
+                    ),
+                    canStartJob: true,
+                    using: dependencies
+                )
+            }
+            
+            /// Add a record of the change to the conversation
+            _ = try Interaction(
+                threadId: groupSessionId,
+                authorId: userSessionId.hexString,
+                variant: .infoGroupMembersUpdated,
+                body: ClosedGroup.MessageInfo
+                    .addedUsers(
+                        names: members.map { id, profile in
+                            profile?.displayName(for: .group) ??
+                            Profile.truncated(id: id, truncating: .middle)
+                        }
+                    )
+                    .infoString,
+                timestampMs: changeTimestampMs
+            ).inserted(db)
+            
+            /// Schedule the control message to be sent to the group
+            try MessageSender.send(
+                db,
+                message: GroupUpdateMemberChangeMessage(
+                    changeType: .added,
+                    memberSessionIds: members.map { $0.id },
+                    sentTimestamp: UInt64(changeTimestampMs)
+                ),
+                interactionId: nil,
+                threadId: sessionId.hexString,
+                threadVariant: .group,
+                using: dependencies
+            )
+        }
+    }
+    
+    public static func resendInvitation(
+        groupSessionId: String,
+        memberId: String,
+        using dependencies: Dependencies
+    ) {
+        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else { return }
+        
+        dependencies[singleton: .storage].writeAsync(using: dependencies) { [dependencies] db in
+            guard
+                let groupIdentityPrivateKey: Data = try? ClosedGroup
+                    .filter(id: groupSessionId)
+                    .select(.groupIdentityPrivateKey)
+                    .asRequest(of: Data.self)
+                    .fetchOne(db)
+            else { throw MessageSenderError.invalidClosedGroupUpdate }
+            
+            let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
+                memberSessionIdHexString: memberId,
+                authInfo: try SessionUtil.generateAuthData(
+                    groupSessionId: sessionId,
+                    memberId: memberId,
+                    using: dependencies
+                )
+            )
+            
+            /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
+            /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
+            try SnodeAPI
+                .preparedUnrevokeSubaccount(
+                    subaccountToUnrevoke: inviteDetails.memberAuthData.toHexString(),
+                    authMethod: Authentication.groupAdmin(
+                        groupSessionId: sessionId,
+                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                    ),
+                    using: dependencies
+                )
+                .send(using: dependencies)
+                .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                .sinkUntilComplete()
+            
+            /// If the current `GroupMember` is in the `failed` state then change them back to `sending`
+            let existingMember: GroupMember? = try GroupMember
+                .filter(GroupMember.Columns.groupId == groupSessionId)
+                .filter(GroupMember.Columns.profileId == memberId)
+                .fetchOne(db)
+            
+            switch (existingMember?.role, existingMember?.roleStatus) {
+                case (.standard, .failed):
+                    try GroupMember
+                        .filter(GroupMember.Columns.groupId == groupSessionId)
+                        .filter(GroupMember.Columns.profileId == memberId)
+                        .updateAllAndConfig(
+                            db,
+                            GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                            using: dependencies
+                        )
+                    
+                default: break
+            }
+            
+            /// Schedule a job to send an invitation to the newly added member
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .groupInviteMember,
+                    threadId: groupSessionId,
+                    details: inviteDetails
+                ),
+                canStartJob: true,
+                using: dependencies
+            )
+        }
+    }
+    
     public static func removeGroupMembers(
         groupSessionId: String,
         memberIds: Set<String>,
@@ -469,47 +584,19 @@ extension MessageSender {
         sendMemberChangedMessage: Bool,
         changeTimestampMs: Int64? = nil,
         using dependencies: Dependencies
-    ) -> AnyPublisher<Void, Error> {
-        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
-            // FIXME: Fail with `MessageSenderError.invalidClosedGroupUpdate` once support for legacy groups is removed
-            let groupData: (name: String?, memberIds: Set<String>)? = dependencies[singleton: .storage].read(using: dependencies) { db in
-                let name: String? = try ClosedGroup
-                    .filter(id: groupSessionId)
-                    .select(.name)
-                    .asRequest(of: String.self)
-                    .fetchOne(db)
-                let memberIds: Set<String> = try GroupMember
-                    .filter(GroupMember.Columns.groupId == groupSessionId)
-                    .select(GroupMember.Columns.profileId)
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-                
-                return (name, memberIds)
-            }
-            
-            guard let name: String = groupData?.name, let allMemberIds: Set<String> = groupData?.memberIds else {
-                return Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher()
-            }
-            
-            return MessageSender.update(
-                legacyGroupSessionId: groupSessionId,
-                with: allMemberIds.removing(contentsOf: memberIds),
-                name: name,
+    ) {
+        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else { return }
+        
+        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+            try MessageSender.removeGroupMembers(
+                db,
+                groupSessionId: sessionId,
+                memberIds: memberIds,
+                removeTheirMessages: removeTheirMessages,
+                sendMemberChangedMessage: sendMemberChangedMessage,
                 using: dependencies
             )
         }
-        
-        return dependencies[singleton: .storage]
-            .writePublisher { db in
-                try MessageSender.removeGroupMembers(
-                    db,
-                    groupSessionId: sessionId,
-                    memberIds: memberIds,
-                    removeTheirMessages: removeTheirMessages,
-                    sendMemberChangedMessage: sendMemberChangedMessage,
-                    using: dependencies
-                )
-            }
     }
     
     public static func removeGroupMembers(
@@ -715,37 +802,92 @@ extension MessageSender {
     
     public static func promoteGroupMembers(
         groupSessionId: SessionId,
-        memberIds: Set<String>,
+        members: [(id: String, profile: Profile?)],
+        sendAdminChangedMessage: Bool,
         using dependencies: Dependencies
-    ) -> AnyPublisher<Void, Error> {
-        return dependencies[singleton: .storage]
-            .writePublisher { db in
-                // Update the libSession status for each member and schedule a job to send
-                // the promotion message
-                try memberIds.forEach { memberId in
-                    try SessionUtil
-                        .updateMemberStatus(
-                            db,
-                            groupSessionId: groupSessionId,
-                            memberId: memberId,
-                            role: .admin,
-                            status: .pending,
-                            using: dependencies
-                        )
-                    
-                    dependencies[singleton: .jobRunner].add(
+    ) {
+        let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+        
+        return dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+            // Update the libSession status for each member and schedule a job to send
+            // the promotion message
+            try members.forEach { memberId, _ in
+                try SessionUtil
+                    .updateMemberStatus(
                         db,
-                        job: Job(
-                            variant: .groupPromoteMember,
-                            details: GroupPromoteMemberJob.Details(
-                                memberSessionIdHexString: memberId
-                            )
-                        ),
-                        canStartJob: true,
+                        groupSessionId: groupSessionId,
+                        memberId: memberId,
+                        role: .admin,
+                        status: .pending,
                         using: dependencies
                     )
+                
+                /// If the current `GroupMember` is in the `failed` state then change them back to `sending`
+                let existingMember: GroupMember? = try GroupMember
+                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                    .filter(GroupMember.Columns.profileId == memberId)
+                    .fetchOne(db)
+                
+                switch (existingMember?.role, existingMember?.roleStatus) {
+                    case (.admin, .failed):
+                        try GroupMember
+                            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                            .filter(GroupMember.Columns.profileId == memberId)
+                            .updateAllAndConfig(
+                                db,
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                                using: dependencies
+                            )
+                        
+                    default: break
                 }
+                
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .groupPromoteMember,
+                        details: GroupPromoteMemberJob.Details(
+                            memberSessionIdHexString: memberId
+                        )
+                    ),
+                    canStartJob: true,
+                    using: dependencies
+                )
             }
+            
+            /// Send the admin changed message if desired
+            if sendAdminChangedMessage {
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                _ = try Interaction(
+                    threadId: groupSessionId.hexString,
+                    authorId: userSessionId.hexString,
+                    variant: .infoGroupMembersUpdated,
+                    body: ClosedGroup.MessageInfo
+                        .addedUsers(
+                            names: members.map { id, profile in
+                                profile?.displayName(for: .group) ??
+                                Profile.truncated(id: id, truncating: .middle)
+                            }
+                        )
+                        .infoString,
+                    timestampMs: changeTimestampMs
+                ).inserted(db)
+                
+                /// Schedule the control message to be sent to the group
+                try MessageSender.send(
+                    db,
+                    message: GroupUpdateMemberChangeMessage(
+                        changeType: .promoted,
+                        memberSessionIds: members.map { $0.id },
+                        sentTimestamp: UInt64(changeTimestampMs)
+                    ),
+                    interactionId: nil,
+                    threadId: groupSessionId.hexString,
+                    threadVariant: .group,
+                    using: dependencies
+                )
+            }
+        }
     }
     
     /// Leave the group with the given `groupPublicKey`. If the current user is the only admin, the group is disbanded entirely.

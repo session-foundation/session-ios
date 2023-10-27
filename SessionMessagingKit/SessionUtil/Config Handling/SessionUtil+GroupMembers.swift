@@ -6,6 +6,12 @@ import SessionUtil
 import SessionSnodeKit
 import SessionUtilitiesKit
 
+// MARK: - Size Restrictions
+
+public extension SessionUtil {
+    static var sizeMaxGroupMemberCount: Int { 100 }
+}
+
 // MARK: - Group Info Handling
 
 internal extension SessionUtil {
@@ -156,6 +162,7 @@ internal extension SessionUtil {
                         return
                     }
                     
+                    // Don't override the existing name with an empty one
                     if let memberName: String = profile?.name, !memberName.isEmpty {
                         member.name = memberName.toLibSession()
                     }

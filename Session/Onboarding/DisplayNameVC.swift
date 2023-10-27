@@ -183,7 +183,7 @@ final class DisplayNameVC: BaseVC {
         guard !displayName.isEmpty else {
             return showError(title: "vc_display_name_display_name_missing_error".localized())
         }
-        guard !Profile.isToLong(profileName: displayName) else {
+        guard !Profile.isTooLong(profileName: displayName) else {
             return showError(title: "vc_display_name_display_name_too_long_error".localized())
         }
         
