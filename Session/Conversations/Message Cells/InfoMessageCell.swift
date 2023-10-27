@@ -5,7 +5,7 @@ import SessionUIKit
 import SessionMessagingKit
 
 final class InfoMessageCell: MessageCell {
-    private static let iconSize: CGFloat = 16
+    private static let iconSize: CGFloat = 12
     public static let inset = Values.mediumSpacing
     
     private var isHandlingLongPress: Bool = false
@@ -14,10 +14,21 @@ final class InfoMessageCell: MessageCell {
     
     // MARK: - UI
     
-    private lazy var iconImageViewWidthConstraint = iconImageView.set(.width, to: InfoMessageCell.iconSize)
-    private lazy var iconImageViewHeightConstraint = iconImageView.set(.height, to: InfoMessageCell.iconSize)
+    private lazy var iconContainerViewWidthConstraint = iconContainerView.set(.width, to: InfoMessageCell.iconSize)
+    private lazy var iconContainerViewHeightConstraint = iconContainerView.set(.height, to: InfoMessageCell.iconSize)
     
     private lazy var iconImageView: UIImageView = UIImageView()
+    private lazy var timerView = DisappearingMessageTimerView()
+    
+    private lazy var iconContainerView: UIView = {
+        let result: UIView = UIView()
+        result.addSubview(iconImageView)
+        result.addSubview(timerView)
+        iconImageView.pin(to: result)
+        timerView.pin(to: result)
+        
+        return result
+    }()
 
     private lazy var label: UILabel = {
         let result: UILabel = UILabel()
@@ -31,7 +42,7 @@ final class InfoMessageCell: MessageCell {
     }()
 
     private lazy var stackView: UIStackView = {
-        let result: UIStackView = UIStackView(arrangedSubviews: [ iconImageView, label ])
+        let result: UIStackView = UIStackView(arrangedSubviews: [ iconContainerView, label ])
         result.axis = .vertical
         result.alignment = .center
         result.spacing = Values.smallSpacing
@@ -44,8 +55,8 @@ final class InfoMessageCell: MessageCell {
     override func setUpViewHierarchy() {
         super.setUpViewHierarchy()
         
-        iconImageViewWidthConstraint.isActive = true
-        iconImageViewHeightConstraint.isActive = true
+        iconContainerViewWidthConstraint.isActive = true
+        iconContainerViewHeightConstraint.isActive = true
         addSubview(stackView)
         
         stackView.pin(.left, to: .left, of: self, withInset: Values.massiveSpacing)
@@ -90,8 +101,30 @@ final class InfoMessageCell: MessageCell {
             iconImageView.themeTintColor = .textPrimary
         }
         
-        iconImageViewWidthConstraint.constant = (icon != nil) ? InfoMessageCell.iconSize : 0
-        iconImageViewHeightConstraint.constant = (icon != nil) ? InfoMessageCell.iconSize : 0
+        // Timer
+        if
+            let expiresStartedAtMs: Double = cellViewModel.expiresStartedAtMs,
+            let expiresInSeconds: TimeInterval = cellViewModel.expiresInSeconds
+        {
+            let expirationTimestampMs: Double = (expiresStartedAtMs + (expiresInSeconds * 1000))
+            
+            timerView.configure(
+                expirationTimestampMs: expirationTimestampMs,
+                initialDurationSeconds: expiresInSeconds
+            )
+            timerView.themeTintColor = .textPrimary
+            timerView.isHidden = false
+            iconImageView.isHidden = true
+        }
+        else {
+            timerView.isHidden = true
+            iconImageView.isHidden = false
+        }
+        
+        let shouldShowIcon: Bool = (icon != nil) || ((cellViewModel.expiresInSeconds ?? 0) > 0)
+        
+        iconContainerViewWidthConstraint.constant = shouldShowIcon ? InfoMessageCell.iconSize : 0
+        iconContainerViewHeightConstraint.constant = shouldShowIcon ? InfoMessageCell.iconSize : 0
         
         self.label.text = cellViewModel.body
         self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textPrimary
