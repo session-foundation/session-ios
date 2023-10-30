@@ -884,3 +884,108 @@ The point that a message will disappear in a disappearing message update message
 
 /* Message within a conversation indicating the device was unable to delete a group conversation */
 "group_unable_to_delete" = "Unable to delete the Group, please try again.";
+
+/* Information displayed above the input when opening an invitation to join a group. */
+"GROUP_MESSAGE_REQUEST_INFO" = "Sending a message to this group will automatically accept the group invitation.";
+
+/* An error indicating we were unable to retrieve the required data for some reason. */
+"ERROR_UNABLE_TO_FIND_DATA" = "There is an issue retrieving the required data. Please try again later.";
+
+/* A title for the list of group members. */
+"GROUP_MEMBERS" = "Group Members";
+
+/* The status for a group member while their invite is being sent. */
+"GROUP_MEMBER_STATUS_SENDING" = "Sending invite";
+
+/* The status for a group member while their invite is pending. */
+"GROUP_MEMBER_STATUS_SENT" = "Invite sent";
+
+/* The status for a group member if their invitation failed to send. */
+"GROUP_MEMBER_STATUS_FAILED" = "Invite failed";
+
+/* The status for a group admin while their invite is being sent. */
+"GROUP_ADMIN_STATUS_SENDING" = "Sending admin promotion";
+
+/* The status for a group admin while their invite is pending. */
+"GROUP_ADMIN_STATUS_SENT" = "Admin promotion sent";
+
+/* The status for a group admin if their invitation failed to send. */
+"GROUP_ADMIN_STATUS_FAILED" = "Admin promotion failed";
+
+/* A title for the modal to edit the group display picture. */
+"EDIT_GROUP_DISPLAY_PICTURE" = "Set Group Display Picture";
+
+/* Error message when trying to update the display picture. */
+"EDIT_DISPLAY_PICTURE_ERROR" = "Couldn't update display picture.";
+
+/* Error message when trying to remove the display picture. */
+"EDIT_DISPLAY_PICTURE_ERROR_REMOVE" = "Unable to remove display picture.";
+
+/* Placeholder text for editing the name of a group. */
+"EDIT_GROUP_NAME_PLACEHOLDER" = "Enter group name";
+
+/* Error message when the edited name of a group is empty. */
+"EDIT_GROUP_NAME_ERROR_MISSING" = "Please pick a group name.";
+
+/* Error message when the edited name of a group is too long. */
+"EDIT_GROUP_NAME_ERROR_LONG" = "Please pick a shorter group name.";
+
+/* Placeholder text for editing the description of a group. */
+"EDIT_GROUP_DESCRIPTION_PLACEHOLDER" = "Enter group description";
+
+/* Error message when the edited description of a group is too long. */
+"EDIT_GROUP_DESCRIPTION_ERROR_LONG" = "Please pick a shorter group description.";
+
+/* Error message when the user attempts to remove an admin from a group. */
+"EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN" = "Admins cannot be removed";
+
+/* A title for the button to send invites for members to join groups. */
+"GROUP_ACTION_INVITE" = "Invite";
+
+/* A title for the button to send invites to contacts to join groups. */
+"GROUP_ACTION_INVITE_CONTACTS" = "Invite Contacts";
+
+/* Text which appears when all of the users contacts are already part of the group they want to invite contacts to. */
+"GROUP_ACTION_INVITE_EMPTY_STATE" = "You don't have any more contacts.";
+
+/* A toast which indicates that a single invitation to join the group is being sent. */
+"GROUP_ACTION_INVITE_SENDING" = "Sending invite";
+
+/* A toast which indicates that multiple invitations to join the group are being sent. */
+"GROUP_ACTION_INVITE_SENDING_MULTIPLE" = "Sending invites";
+
+/* A toast which indicates that a single invitation to join a group failed to send, the first '%@' will be the name of the member that couldn't be invited and the second '%@' will be the name of the group. */
+"GROUP_ACTION_INVITE_FAILED_ONE" = "Failed to invite %@ to %@";
+
+/* A toast which indicates that two invitation to join a group failed to send, the first '%@' will be the name of the first member that couldn't be invited, the second '%@' will be the name of the second member that couldn't be invited, and the third '%@' will be the name of the group. */
+"GROUP_ACTION_INVITE_FAILED_TWO" = "Failed to invite %@ and %@ to %@";
+
+/* A toast which indicates multiple invitations to join a group failed to send, the first '%@' will be the name of the first member that couldn't be invited, the second '%@' will be the number of other members that couldn't be invited, and the third '%@' will be the name of the group. */
+"GROUP_ACTION_INVITE_FAILED_MULTIPLE" = "Failed to invite %@ and %@ others to %@";
+
+/* A title for the screen to select which group members should receive promotions to admin. */
+"GROUP_ACTION_PROMOTE_ADMINS" = "Promote Admins";
+
+/* A title for the button to send promotions to members of a group. */
+"GROUP_ACTION_PROMOTE" = "Promote";
+
+/* Text which appears when all of the members of a group are already admins. */
+"GROUP_ACTION_PROMOTE_EMPTY_STATE" = "There are no more members in this group.";
+
+/* A toast which indicates that a single promotion to admin within a group is being sent. */
+"GROUP_ACTION_PROMOTE_SENDING" = "Sending promotion";
+
+/* A toast which indicates that multiple promotions to admin within a group are being sent. */
+"GROUP_ACTION_PROMOTE_SENDING_MULTIPLE" = "Sending promotions";
+
+/* A toast which indicates that a single promotion to admin within a group failed to send, the first '%@' will be the name of the member that couldn't be promoted and the second '%@' will be the name of the group. */
+"GROUP_ACTION_PROMOTE_FAILED_ONE" = "Failed to promote %@ in %@";
+
+/* A toast which indicates that two promotions to admin within a group failed to send, the first '%@' will be the name of the first member that couldn't be promoted, the second '%@' will be the name of the second member that couldn't be promoted, and the third '%@' will be the name of the group. */
+"GROUP_ACTION_PROMOTE_FAILED_TWO" = "Failed to promote %@ and %@ in %@";
+
+/* A toast which indicates multiple promotions to admin within a group failed to send, the first '%@' will be the name of the first member that couldn't be promoted, the second '%@' will be the number of other members that couldn't be promoted, and the third '%@' will be the name of the group. */
+"GROUP_ACTION_PROMOTE_FAILED_MULTIPLE" = "Failed to promote %@ and %@ others in %@";
+
+/* A warning shown at the top of a conversation to indicate that the conversation is a legacy group conversation which will stop functioning correctly on a certain date, the '%@' will be replaced with the date it will stop working. */
+"LEGACY_GROUPS_DEPRECATED_BANNER" = "Groups have been upgraded, create a new group to upgrade. Old group functionality will be degraded from %@.";
