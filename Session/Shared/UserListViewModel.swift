@@ -19,55 +19,32 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     
     public let title: String
     public let emptyState: String?
-    private let query: QueryInterfaceRequest<T>?
-    private let request: SQLRequest<T>?
-    private let onTapAction: OnTapAction
+    private let showProfileIcons: Bool
+    private let request: (any FetchRequest<T>)
     private let footerTitle: String?
-    private let blockingSubmission: Bool
-    private let onSubmit: ((UserListViewModel<T>?, Set<WithProfile<T>>) -> AnyPublisher<Void, UserListError>)?
+    private let onTapAction: OnTapAction
+    private let onSubmitAction: OnSubmitAction
     
     // MARK: - Initialization
     
     init(
         title: String,
         emptyState: String? = nil,
-        query: QueryInterfaceRequest<T>,
-        onTapAction: OnTapAction = .radio,
+        showProfileIcons: Bool,
+        request: (any FetchRequest<T>),
         footerTitle: String? = nil,
-        blockingSubmission: Bool = false,
-        onSubmit: ((UserListViewModel<T>?, Set<WithProfile<T>>) -> AnyPublisher<Void, UserListError>)? = nil,
+        onTap: OnTapAction = .radio,
+        onSubmit: OnSubmitAction = .none,
         using dependencies: Dependencies = Dependencies()
     ) {
         self.dependencies = dependencies
         self.title = title
         self.emptyState = emptyState
-        self.query = query
-        self.request = nil
-        self.onTapAction = onTapAction
-        self.footerTitle = footerTitle
-        self.blockingSubmission = blockingSubmission
-        self.onSubmit = onSubmit
-    }
-    
-    init(
-        title: String,
-        emptyState: String? = nil,
-        request: SQLRequest<T>,
-        onTapAction: OnTapAction = .radio,
-        footerTitle: String? = nil,
-        blockingSubmission: Bool = false,
-        onSubmit: ((UserListViewModel<T>?, Set<WithProfile<T>>) -> AnyPublisher<Void, UserListError>)? = nil,
-        using dependencies: Dependencies = Dependencies()
-    ) {
-        self.dependencies = dependencies
-        self.title = title
-        self.emptyState = emptyState
-        self.query = nil
+        self.showProfileIcons = showProfileIcons
         self.request = request
-        self.onTapAction = onTapAction
         self.footerTitle = footerTitle
-        self.blockingSubmission = blockingSubmission
-        self.onSubmit = onSubmit
+        self.onTapAction = onTap
+        self.onSubmitAction = onSubmit
     }
     
     // MARK: - Config
@@ -82,33 +59,54 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
 
     // MARK: - Content
     
-    public enum OnTapAction {
-        case callback((WithProfile<T>) -> Void)
+    public indirect enum OnTapAction {
+        case callback((UserListViewModel<T>?, WithProfile<T>) -> Void)
         case radio
-        case custom(rightAccessory: (WithProfile<T>) -> SessionCell.Accessory, onTap: (WithProfile<T>) -> Void)
+        case conditionalAction(action: (WithProfile<T>) -> OnTapAction)
+        case custom(rightAccessory: (WithProfile<T>) -> SessionCell.Accessory, onTap: (UserListViewModel<T>?, WithProfile<T>) -> Void)
+    }
+    
+    public enum OnSubmitAction {
+        case none
+        case callback((UserListViewModel<T>?, Set<WithProfile<T>>) throws -> Void)
+        case publisher((UserListViewModel<T>?, Set<WithProfile<T>>) -> AnyPublisher<Void, UserListError>)
+        
+        var hasAction: Bool {
+            switch self {
+                case .none: return false
+                default: return true
+            }
+        }
     }
     
     var emptyStateTextPublisher: AnyPublisher<String?, Never> { Just(emptyState).eraseToAnyPublisher() }
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { [query, request] db -> [WithProfile<T>] in
-            switch (query, request) {
-                case (.some(let query), _): return try query.fetchAllWithProfiles(db)
-                case (_, .some(let request)): return try request.fetchAllWithProfiles(db)
-                default: throw StorageError.invalidData
-            }
+        .databaseObservation(self) { [request] db -> [WithProfile<T>] in
+            try request.fetchAllWithProfiles(db)
         }
-        .map { [weak self, dependencies, onTapAction, selectedUsersSubject] (users: [WithProfile<T>]) -> [SectionModel] in
+        .map { [weak self, dependencies, showProfileIcons, onTapAction, selectedUsersSubject] (users: [WithProfile<T>]) -> [SectionModel] in
             return [
                 SectionModel(
                     model: .users,
                     elements: users
                         .sorted()
                         .map { userInfo -> SessionCell.Info in
-                            let rightAccessory: SessionCell.Accessory? = {
-                                switch onTapAction {
+                            func finalAction(for action: OnTapAction) -> OnTapAction {
+                                switch action {
+                                    case .conditionalAction(let targetAction):
+                                        return finalAction(for: targetAction(userInfo))
+                                        
+                                    default: return action
+                                }
+                            }
+                            func generateAccessory(_ action: OnTapAction) -> SessionCell.Accessory? {
+                                switch action {
                                     case .callback: return nil
                                     case .custom(let accessoryGenerator, _): return accessoryGenerator(userInfo)
+                                    case .conditionalAction(let targetAction):
+                                        return generateAccessory(targetAction(userInfo))
+                                        
                                     case .radio:
                                         return .radio(
                                             isSelected: selectedUsersSubject.value.contains(where: { selectedUserInfo in
@@ -116,11 +114,18 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                             })
                                         )
                                 }
-                            }()
+                            }
+                            
+                            let finalAction: OnTapAction = finalAction(for: onTapAction)
+                            let rightAccessory: SessionCell.Accessory? = generateAccessory(finalAction)
                             
                             return SessionCell.Info(
                                 id: .user(userInfo.profileId),
-                                leftAccessory: .profile(id: userInfo.profileId, profile: userInfo.profile),
+                                leftAccessory: .profile(
+                                    id: userInfo.profileId,
+                                    profile: userInfo.profile,
+                                    profileIcon: (showProfileIcons ? userInfo.value.profileIcon : .none)
+                                ),
                                 title: (
                                     userInfo.profile?.displayName() ??
                                     Profile.truncated(id: userInfo.profileId, truncating: .middle)
@@ -138,10 +143,11 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 ),
                                 onTap: {
                                     // Trigger any 'onTap' actions
-                                    switch onTapAction {
-                                        case .callback(let callback): callback(userInfo)
-                                        case .custom(_, let callback): callback(userInfo)
+                                    switch finalAction {
+                                        case .callback(let callback): callback(self, userInfo)
+                                        case .custom(_, let callback): callback(self, userInfo)
                                         case .radio: break
+                                        case .conditionalAction(_): return  // Shouldn't hit this case
                                     }
                                     
                                     // Only update the selection if the accessory is a 'radio'
@@ -166,19 +172,48 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     
     lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = selectedUsersSubject
         .prepend([])
-        .map { [weak self, dependencies, footerTitle, blockingSubmission, onSubmit] selectedUsers -> SessionButton.Info? in
-            guard
-                let title: String = footerTitle,
-                let onSubmit: (UserListViewModel<T>?, Set<WithProfile<T>>) -> AnyPublisher<Void, UserListError> = onSubmit
-            else { return nil }
+        .map { [weak self, dependencies, footerTitle] selectedUsers -> SessionButton.Info? in
+            guard self?.onSubmitAction.hasAction == true, let title: String = footerTitle else { return nil }
             
             return SessionButton.Info(
                 style: .bordered,
                 title: title,
                 isEnabled: !selectedUsers.isEmpty,
-                onTap: {
-                    let triggerSubmission: (ModalActivityIndicatorViewController?) -> () = { modalActivityIndicator in
-                        onSubmit(self, selectedUsers)
+                onTap: { self?.submit(with: selectedUsers) }
+            )
+        }
+        .eraseToAnyPublisher()
+    
+    // MARK: - Functions
+    
+    private func submit(with selectedUsers: Set<WithProfile<T>>) {
+        switch onSubmitAction {
+            case .none: return
+            
+            case .callback(let submission):
+                do {
+                    try submission(self, selectedUsers)
+                    selectedUsersSubject.send([])
+                    forceRefresh()    // Just in case the filter was impacted
+                }
+                catch {
+                    transitionToScreen(
+                        ConfirmationModal(
+                            info: ConfirmationModal.Info(
+                                title: "ALERT_ERROR_TITLE".localized(),
+                                body: .text(error.localizedDescription),
+                                cancelTitle: "BUTTON_OK".localized(),
+                                cancelStyle: .alert_text
+                            )
+                        ),
+                        transitionType: .present
+                    )
+                }
+                
+            case .publisher(let submission):
+                transitionToScreen(
+                    ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] modalActivityIndicator in
+                        submission(self, selectedUsers)
                             .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                             .receive(on: DispatchQueue.main, using: dependencies)
                             .sinkUntilComplete(
@@ -187,57 +222,40 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                         case .finished:
                                             self?.selectedUsersSubject.send([])
                                             self?.forceRefresh()    // Just in case the filter was impacted
-                                            modalActivityIndicator?.dismiss(completion: {})
+                                            modalActivityIndicator.dismiss(completion: {})
                                             
                                         case .failure(let error):
-                                            let showAlert: () -> () = {
+                                            modalActivityIndicator.dismiss(completion: {
                                                 self?.transitionToScreen(
                                                     ConfirmationModal(
                                                         info: ConfirmationModal.Info(
                                                             title: "ALERT_ERROR_TITLE".localized(),
-                                                            body: error.body,
+                                                            body: .text(error.localizedDescription),
                                                             cancelTitle: "BUTTON_OK".localized(),
                                                             cancelStyle: .alert_text
                                                         )
                                                     ),
                                                     transitionType: .present
                                                 )
-                                            }
-                                            
-                                            switch blockingSubmission {
-                                                case false: showAlert()
-                                                case true: modalActivityIndicator?.dismiss(completion: { showAlert() })
-                                            }
+                                            })
                                     }
                                 }
                             )
-                    }
-                    
-                    // Only show the blocking loading indicator if the submission should be blocking
-                    switch blockingSubmission {
-                        case false: triggerSubmission(nil)
-                        case true:
-                            self?.transitionToScreen(
-                                ModalActivityIndicatorViewController(canCancel: false) { modalActivityIndicator in
-                                    triggerSubmission(modalActivityIndicator)
-                                },
-                                transitionType: .present
-                            )
-                    }
-                }
-            )
+                    },
+                    transitionType: .present
+                )
         }
-        .eraseToAnyPublisher()
+    }
 }
 
 // MARK: - UserListError
 
-public enum UserListError: Error {
+public enum UserListError: LocalizedError {
     case error(String)
     
-    var body: ConfirmationModal.Info.Body {
+    public var errorDescription: String? {
         switch self {
-            case .error(let content): return .text(content)
+            case .error(let content): content
         }
     }
 }

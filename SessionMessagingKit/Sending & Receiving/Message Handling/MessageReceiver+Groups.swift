@@ -338,31 +338,52 @@ extension MessageReceiver {
         // Replace the member key with the admin key in the database
         try ClosedGroup
             .filter(id: groupSessionId.hexString)
-            .updateAll( // Intentionally not calling 'updateAllAndConfig' as we want to explicitly make changes
+            .updateAllAndConfig(
                 db,
                 ClosedGroup.Columns.groupIdentityPrivateKey.set(to: Data(groupIdentityKeyPair.secretKey)),
                 ClosedGroup.Columns.authData.set(to: nil)
             )
         
-        // Upsert the 'GroupMember' entry into the database (this will trigger a libSession update)
-        try GroupMember(
-            groupId: groupSessionId.hexString,
-            profileId: userSessionId.hexString,
-            role: .admin,
-            roleStatus: .accepted,
-            isHidden: false
-        ).upsert(db)
+        let existingMember: GroupMember? = try GroupMember
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+            .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+            .fetchOne(db)
         
-        // Update the current user to be an admin in the 'GROUP_MEMBERS' state
-        try SessionUtil
-            .updateMemberStatus(
-                db,
-                groupSessionId: groupSessionId,
-                memberId: userSessionId.hexString,
-                role: .admin,
-                status: .accepted,
-                using: dependencies
-            )
+        switch (existingMember?.role, existingMember?.roleStatus) {
+            case (.standard, _):
+                try GroupMember
+                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.role.set(to: GroupMember.Role.admin),
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                        using: dependencies
+                    )
+                
+            case (.admin, .failed), (.admin, .pending), (.admin, .sending):
+                try GroupMember
+                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                    .filter(GroupMember.Columns.profileId == userSessionId.hexString)
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                        using: dependencies
+                    )
+                
+            default:
+                // If there is no value in the database then just update libSession directly (this
+                // will trigger an updated `GROUP_MEMBERS` message if there are changes which will
+                // result in the database getting updated to the correct state)
+                try SessionUtil.updateMemberStatus(
+                    db,
+                    groupSessionId: groupSessionId,
+                    memberId: userSessionId.hexString,
+                    role: .admin,
+                    status: .accepted,
+                    using: dependencies
+                )
+        }
     }
     
     private static func handleGroupInfoChanged(
@@ -638,10 +659,8 @@ extension MessageReceiver {
         else { return }
         
         let existingMember: GroupMember? = try GroupMember
-            .filter(
-                GroupMember.Columns.groupId == groupSessionId.hexString &&
-                GroupMember.Columns.profileId == senderSessionId
-            )
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+            .filter(GroupMember.Columns.profileId == senderSessionId)
             .fetchOne(db)
         
         switch existingMember?.role {
@@ -660,13 +679,17 @@ extension MessageReceiver {
                 )
                 
             case .standard:
-                try GroupMember(
-                    groupId: groupSessionId.hexString,
-                    profileId: senderSessionId,
-                    role: .standard,
-                    roleStatus: .accepted,
-                    isHidden: false
-                ).update(db)
+                guard existingMember?.roleStatus != .accepted else { return }
+                
+                try GroupMember
+                    .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                    .filter(GroupMember.Columns.profileId == senderSessionId)
+                    .updateAllAndConfig(
+                        db,
+                        GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                        calledFromConfigHandling: false,
+                        using: dependencies
+                    )
                 
             default: break  // Invalid cases
         }

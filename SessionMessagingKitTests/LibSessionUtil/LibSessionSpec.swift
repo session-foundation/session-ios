@@ -2166,7 +2166,8 @@ fileprivate extension LibSessionSpec {
                         ),
                         admin: true,
                         invited: 0,
-                        promoted: 0
+                        promoted: 0,
+                        supplement: false
                     )
                     
                     groups_members_set(conf, &member)
@@ -2184,7 +2185,8 @@ fileprivate extension LibSessionSpec {
                         ),
                         admin: false,
                         invited: 0,
-                        promoted: 0
+                        promoted: 0,
+                        supplement: false
                     )
                     
                     groups_members_set(conf, &member)

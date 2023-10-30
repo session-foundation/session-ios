@@ -26,7 +26,9 @@ public extension SessionUtil {
 
 internal extension SessionUtil {
     static let columnsRelatedToUserGroups: [ColumnExpression] = [
-        ClosedGroup.Columns.name
+        ClosedGroup.Columns.name,
+        ClosedGroup.Columns.authData,
+        ClosedGroup.Columns.groupIdentityPrivateKey
     ]
     
     // MARK: - Incoming Changes
@@ -665,7 +667,7 @@ internal extension SessionUtil {
                 guard user_groups_get_or_construct_group(conf, &userGroup, &cGroupSessionId) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert group conversation to SessionUtil: \(config.lastError)")
+                    SNLog("Unable to upsert group conversation to SessionUtil: \(String(describing: config.lastError))")
                     throw SessionUtilError.getOrConstructFailedUnexpectedly
                 }
                 
@@ -720,13 +722,51 @@ internal extension SessionUtil {
                 guard user_groups_get_or_construct_community(conf, &userCommunity, &cBaseUrl, &cRoom, &cPubkey) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert community conversation to SessionUtil: \(config.lastError)")
+                    SNLog("Unable to upsert community conversation to SessionUtil: \(String(describing: config.lastError))")
                     throw SessionUtilError.getOrConstructFailedUnexpectedly
                 }
                 
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
                 user_groups_set_community(conf, &userCommunity)
             }
+    }
+    
+    @discardableResult static func updatingGroups<T>(
+        _ db: Database,
+        _ updated: [T],
+        using dependencies: Dependencies
+    ) throws -> [T] {
+        guard let updatedGroups: [ClosedGroup] = updated as? [ClosedGroup] else { throw StorageError.generic }
+        
+        // Exclude legacy groups as they aren't managed via SessionUtil
+        let targetGroups: [ClosedGroup] = updatedGroups
+            .filter { (try? SessionId(from: $0.id))?.prefix == .group }
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        
+        // If we only updated the current user contact then no need to continue
+        guard !targetGroups.isEmpty else { return updated }
+        
+        // Apply the changes
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .userGroups,
+            sessionId: userSessionId,
+            using: dependencies
+        ) { config in
+            try upsert(
+                groups: targetGroups.map { group -> GroupInfo in
+                    GroupInfo(
+                        groupSessionId: group.threadId,
+                        groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+                        name: group.name,
+                        authData: group.authData
+                    )
+                },
+                in: config
+            )
+        }
+        
+        return updated
     }
 }
 

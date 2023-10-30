@@ -421,6 +421,7 @@ public struct WithProfile<T: ProfileAssociated>: Equatable, Hashable, Comparable
 
 public protocol ProfileAssociated: Equatable, Hashable {
     var profileId: String { get }
+    var profileIcon: ProfilePictureView.ProfileIcon { get }
     
     func itemDescription(using dependencies: Dependencies) -> String?
     func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue
@@ -428,6 +429,8 @@ public protocol ProfileAssociated: Equatable, Hashable {
 }
 
 public extension ProfileAssociated {
+    var profileIcon: ProfilePictureView.ProfileIcon { return .none }
+    
     func itemDescription(using dependencies: Dependencies) -> String? { return nil }
     func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return .textPrimary }
 }

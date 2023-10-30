@@ -331,7 +331,11 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                         .map { memberInfo -> SessionCell.Info in
                             SessionCell.Info(
                                 id: .member(memberInfo.profileId),
-                                leftAccessory: .profile(id: memberInfo.profileId, profile: memberInfo.profile),
+                                leftAccessory: .profile(
+                                    id: memberInfo.profileId,
+                                    profile: memberInfo.profile,
+                                    profileIcon: memberInfo.value.profileIcon
+                                ),
                                 title: (
                                     memberInfo.profile?.displayName() ??
                                     Profile.truncated(id: memberInfo.profileId, truncating: .middle)
@@ -494,7 +498,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                 viewModel: UserListViewModel<Contact>(
                     title: "GROUP_ACTION_INVITE_CONTACTS".localized(),
                     emptyState: "GROUP_ACTION_INVITE_EMPTY_STATE".localized(),
-                    request: """
+                    showProfileIcons: true,
+                    request: SQLRequest("""
                         SELECT \(contact.allColumns)
                         FROM \(contact)
                         LEFT JOIN \(groupMember) ON (
@@ -502,49 +507,59 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                             \(groupMember[.profileId]) = \(contact[.id])
                         )
                         WHERE \(groupMember[.profileId]) IS NULL
-                    """,
+                    """),
                     footerTitle: "GROUP_ACTION_INVITE".localized(),
-                    onSubmit: { [dependencies, threadId, oldDisplayName] viewModel, selectedMemberInfo in
-                        let updatedMemberIds: Set<String> = currentMemberIds
-                            .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
-                        
-                        guard updatedMemberIds.count <= SessionUtil.sizeMaxGroupMemberCount else {
-                            return Fail(error: .error("vc_create_closed_group_too_many_group_members_error".localized()))
-                                .eraseToAnyPublisher()
-                        }
-                        
+                    onSubmit: {
                         switch try? SessionId.Prefix(from: threadId) {
                             case .group:
-                                MessageSender.addGroupMembers(
-                                    groupSessionId: threadId,
-                                    members: selectedMemberInfo.map { ($0.profileId, $0.profile) },
-                                    allowAccessToHistoricMessages: false,
-                                    using: dependencies
-                                )
-                                viewModel?.showToast(
-                                    text: (selectedMemberInfo.count == 1 ?
-                                        "GROUP_ACTION_INVITE_SENDING".localized() :
-                                        "GROUP_ACTION_INVITE_SENDING_MULTIPLE".localized()
-                                    ),
-                                    backgroundColor: .backgroundSecondary
-                                )
-                                return Just(()).setFailureType(to: UserListError.self).eraseToAnyPublisher()
+                                return .callback { [dependencies, threadId] viewModel, selectedMemberInfo in
+                                    let updatedMemberIds: Set<String> = currentMemberIds
+                                        .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
+                                    
+                                    guard updatedMemberIds.count <= SessionUtil.sizeMaxGroupMemberCount else {
+                                        throw UserListError.error(
+                                            "vc_create_closed_group_too_many_group_members_error".localized()
+                                        )
+                                    }
+                                    
+                                    MessageSender.addGroupMembers(
+                                        groupSessionId: threadId,
+                                        members: selectedMemberInfo.map { ($0.profileId, $0.profile) },
+                                        allowAccessToHistoricMessages: false,
+                                        using: dependencies
+                                    )
+                                    viewModel?.showToast(
+                                        text: (selectedMemberInfo.count == 1 ?
+                                            "GROUP_ACTION_INVITE_SENDING".localized() :
+                                            "GROUP_ACTION_INVITE_SENDING_MULTIPLE".localized()
+                                        ),
+                                        backgroundColor: .backgroundSecondary
+                                    )
+                                }
                                 
                             case .standard: // Assume it's a legacy group
-                                return MessageSender.update(
-                                    legacyGroupSessionId: threadId,
-                                    with: updatedMemberIds,
-                                    name: oldDisplayName,
-                                    using: dependencies
-                                )
-                                .mapError { _ in UserListError.error("GROUP_UPDATE_ERROR_TITLE".localized()) }
-                                .eraseToAnyPublisher()
-                                
-                            default:
-                                return Fail(error: UserListError.error("GROUP_UPDATE_ERROR_TITLE".localized()))
+                                return .publisher { [dependencies, threadId, oldDisplayName] _, selectedMemberInfo in
+                                    let updatedMemberIds: Set<String> = currentMemberIds
+                                        .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
+                                    
+                                    guard updatedMemberIds.count <= SessionUtil.sizeMaxGroupMemberCount else {
+                                        return Fail(error: .error("vc_create_closed_group_too_many_group_members_error".localized()))
+                                            .eraseToAnyPublisher()
+                                    }
+                                    
+                                    return MessageSender.update(
+                                        legacyGroupSessionId: threadId,
+                                        with: updatedMemberIds,
+                                        name: oldDisplayName,
+                                        using: dependencies
+                                    )
+                                    .mapError { _ in UserListError.error("GROUP_UPDATE_ERROR_TITLE".localized()) }
                                     .eraseToAnyPublisher()
+                                }
+                                
+                            default: return .none
                         }
-                    },
+                    }(),
                     using: dependencies
                 )
             ),

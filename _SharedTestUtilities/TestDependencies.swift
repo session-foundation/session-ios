@@ -6,9 +6,9 @@ import Quick
 @testable import SessionUtilitiesKit
 
 public class TestDependencies: Dependencies {
-    private var singletonInstances: [Int: Any] = [:]
-    private var cacheInstances: [Int: MutableCacheType] = [:]
-    private var defaultsInstances: [Int: (any UserDefaultsType)] = [:]
+    private var singletonInstances: [String: Any] = [:]
+    private var cacheInstances: [String: MutableCacheType] = [:]
+    private var defaultsInstances: [String: (any UserDefaultsType)] = [:]
     private var mockedValues: [Int: Any] = [:]
     
     // MARK: - Subscript Access
@@ -18,8 +18,8 @@ public class TestDependencies: Dependencies {
     }
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S? {
-        get { return (singletonInstances[singleton.key] as? S) }
-        set { singletonInstances[singleton.key] = newValue }
+        get { return (singletonInstances[singleton.identifier] as? S) }
+        set { singletonInstances[singleton.identifier] = newValue }
     }
     
     override public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
@@ -27,8 +27,8 @@ public class TestDependencies: Dependencies {
     }
     
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> M? {
-        get { return (cacheInstances[cache.key] as? M) }
-        set { cacheInstances[cache.key] = newValue.map { cache.mutableInstance($0) } }
+        get { return (cacheInstances[cache.identifier] as? M) }
+        set { cacheInstances[cache.identifier] = newValue.map { cache.mutableInstance($0) } }
     }
     
     override public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
@@ -36,8 +36,8 @@ public class TestDependencies: Dependencies {
     }
     
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType? {
-        get { return defaultsInstances[defaults.key] }
-        set { defaultsInstances[defaults.key] = newValue }
+        get { return defaultsInstances[defaults.identifier] }
+        set { defaultsInstances[defaults.identifier] = newValue }
     }
     
     // MARK: - Timing and Async Handling
@@ -92,7 +92,7 @@ public class TestDependencies: Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) -> R
     ) -> R {
-        var value: M = ((cacheInstances[cache.key] as? M) ?? cache.createInstance(self))
+        var value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
         return mutation(&value)
     }
     
@@ -100,7 +100,7 @@ public class TestDependencies: Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) throws -> R
     ) throws -> R {
-        var value: M = ((cacheInstances[cache.key] as? M) ?? cache.createInstance(self))
+        var value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
         return try mutation(&value)
     }
     
@@ -147,11 +147,11 @@ public class TestDependencies: Dependencies {
     
     @discardableResult private func getValueSettingIfNull<S>(
         singleton: SingletonConfig<S>,
-        _ store: inout [Int: Any]
+        _ store: inout [String: Any]
     ) -> S {
-        guard let value: S = (store[singleton.key] as? S) else {
+        guard let value: S = (store[singleton.identifier] as? S) else {
             let value: S = singleton.createInstance(self)
-            store[singleton.key] = value
+            store[singleton.identifier] = value
             return value
         }
 
@@ -160,12 +160,12 @@ public class TestDependencies: Dependencies {
     
     @discardableResult private func getValueSettingIfNull<M, I>(
         cache: CacheConfig<M, I>,
-        _ store: inout [Int: MutableCacheType]
+        _ store: inout [String: MutableCacheType]
     ) -> I {
-        guard let value: M = (store[cache.key] as? M) else {
+        guard let value: M = (store[cache.identifier] as? M) else {
             let value: M = cache.createInstance(self)
             let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-            store[cache.key] = mutableInstance
+            store[cache.identifier] = mutableInstance
             return cache.immutableInstance(value)
         }
         
@@ -174,11 +174,11 @@ public class TestDependencies: Dependencies {
     
     @discardableResult private func getValueSettingIfNull(
         defaults: UserDefaultsConfig,
-        _ store: inout [Int: (any UserDefaultsType)]
+        _ store: inout [String: (any UserDefaultsType)]
     ) -> UserDefaultsType {
-        guard let value: UserDefaultsType = store[defaults.key] else {
+        guard let value: UserDefaultsType = store[defaults.identifier] else {
             let value: UserDefaultsType = defaults.createInstance(self)
-            store[defaults.key] = value
+            store[defaults.identifier] = value
             return value
         }
 

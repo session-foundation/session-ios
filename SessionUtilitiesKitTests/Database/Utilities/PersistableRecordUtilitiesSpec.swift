@@ -155,27 +155,30 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- succeeds when using the migration safe save and the item does not already exist
+                // MARK: ---- succeeds when using the migration safe upsert and the item does not already exist
                 it("succeeds when using the migration safe save and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            try TestType(columnA: "Test10", columnB: "Test10B").migrationSafeSave(db)
+                            try TestType(columnA: "Test10", columnB: "Test10B").migrationSafeUpsert(db)
                         }
                         .toNot(throwError())
                     }
                 }
                 
-                // MARK: ---- succeeds when using the migration safe saved and the item does not already exist
+                // MARK: ---- succeeds when using the migration safe upsert and the item does not already exist
                 it("succeeds when using the migration safe saved and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            try MutableTestType(columnA: "Test11", columnB: "Test11B").migrationSafeupserted(db)
+                            try MutableTestType(columnA: "Test11", columnB: "Test11B").migrationSafeUpsert(db)
                         }
                         .toNot(throwError())
                         
                         expect {
-                            try MutableTestType(columnA: "Test12", columnB: "Test12B")
-                                .migrationSafeupserted(db)
+                            try MutableTestType(columnA: "Test12", columnB: "Test12B").migrationSafeUpsert(db)
+                            return try MutableTestType
+                                .filter(MutableTestType.Columns.columnA == "Test12")
+                                .filter(MutableTestType.Columns.columnB == "Test12B")
+                                .fetchOne(db)?
                                 .id
                         }
                         .toNot(beNil())
@@ -484,64 +487,27 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- succeeds when using the migration safe save and the item does not already exist
-                it("succeeds when using the migration safe save and the item does not already exist") {
+                // MARK: ---- succeeds when using the migration safe insert and the item does not already exist
+                it("succeeds when using the migration safe insert and the item does not already exist") {
                     mockStorage.write { db in
                         expect {
-                            try TestType(columnA: "Test15", columnB: "Test15B").migrationSafeSave(db)
+                            try TestType(columnA: "Test15", columnB: "Test15B").migrationSafeInsert(db)
                         }
                         .toNot(throwError())
                     }
                 }
                 
-                // MARK: ---- succeeds when using the migration safe saved and the item does not already exist
-                it("succeeds when using the migration safe saved and the item does not already exist") {
-                    mockStorage.write { db in
-                        expect {
-                            try MutableTestType(columnA: "Test16", columnB: "Test16B").migrationSafeSaved(db)
-                        }
-                        .toNot(throwError())
-                    }
-                }
-                
-                // MARK: ---- succeeds when using the migration safe save and the item already exists
-                it("succeeds when using the migration safe save and the item already exists") {
+                // MARK: ---- succeeds when using the migration safe insert and the item already exists
+                it("succeeds when using the migration safe insert and the item already exists") {
                     mockStorage.write { db in
                         expect {
                             try db.execute(
                                 sql: "INSERT INTO TestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test17"])
                             )
-                            try TestType(columnA: "Test17", columnB: "Test17B").migrationSafeSave(db)
+                            try TestType(columnA: "Test17", columnB: "Test17B").migrationSafeInsert(db)
                         }
                         .toNot(throwError())
-                    }
-                }
-                
-                // MARK: ---- succeeds when using the migration safe saved and the item already exists
-                it("succeeds when using the migration safe saved and the item already exists") {
-                    /// **Note:** The built-in 'update' method won't update the id as that only happens on insert
-                    mockStorage.write { db in
-                        expect {
-                            try db.execute(
-                                sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
-                                arguments: StatementArguments(["Test18"])
-                            )
-                            _ = try MutableTestType(id: 1, columnA: "Test18", columnB: "Test18B")
-                                .migrationSafeSaved(db)
-                        }
-                        .toNot(throwError())
-                        
-                        expect {
-                            try db.execute(
-                                sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
-                                arguments: StatementArguments(["Test19"])
-                            )
-                            return try MutableTestType(id: 2, columnA: "Test19", columnB: "Test19B")
-                                .migrationSafeSaved(db)
-                                .id
-                        }
-                        .toNot(beNil())
                     }
                     
                     mockStorage.read { db in

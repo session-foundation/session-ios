@@ -142,6 +142,9 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
                 return try SessionUtil.updatingThreads(db, updatedData, using: dependencies)
             
             case is QueryInterfaceRequest<ClosedGroup>:
+                // Group data is stored both in the `USER_GROUPS` config and it's own `GROUP_INFO` config so we
+                // need to update both
+                try SessionUtil.updatingGroups(db, updatedData, using: dependencies)
                 return try SessionUtil.updatingGroupInfo(db, updatedData, using: dependencies)
                 
             case is QueryInterfaceRequest<GroupMember>:

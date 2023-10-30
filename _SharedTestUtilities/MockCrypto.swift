@@ -21,4 +21,16 @@ class MockCrypto: Mock<CryptoType>, CryptoType {
     func generate(_ keyPairType: Crypto.KeyPairType) -> KeyPair? {
         return accept(funcName: "generate(\(keyPairType.id))", args: keyPairType.args) as? KeyPair
     }
+    
+    func generate(_ authInfo: Crypto.AuthenticationInfo) throws -> Authentication.Info {
+        return try accept(funcName: "generate(\(authInfo.id))", args: authInfo.args) as? Authentication.Info ?? {
+            throw CryptoError.failedToGenerateOutput
+        }()
+    }
+    
+    func generate(_ authSignature: Crypto.AuthenticationSignature) throws -> Authentication.Signature {
+        return try accept(funcName: "generate(\(authSignature.id))", args: authSignature.args) as? Authentication.Signature ?? {
+            throw CryptoError.failedToGenerateOutput
+        }()
+    }
 }

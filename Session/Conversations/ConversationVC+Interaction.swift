@@ -31,9 +31,9 @@ extension ConversationVC:
         openSettingsFromTitleView()
     }
     
-    @objc func  openSettingsFromTitleView() {
-        switch (titleView.currentLabelType, viewModel.threadData.threadVariant, viewModel.threadData.currentUserIsClosedGroupAdmin) {
-            case (.userCount, .group, true), (.userCount, .legacyGroup, true):
+    func openSettingsFromTitleView(using dependencies: Dependencies = Dependencies()) {
+        switch (titleView.currentLabelType, viewModel.threadData.threadVariant, viewModel.threadData.currentUserIsClosedGroupMember, viewModel.threadData.currentUserIsClosedGroupAdmin) {
+            case (.userCount, .group, _, true), (.userCount, .legacyGroup, _, true):
                 let viewController = SessionTableViewController(
                     viewModel: EditGroupViewModel(
                         threadId: self.viewModel.threadData.threadId,
@@ -42,7 +42,39 @@ extension ConversationVC:
                 )
                 navigationController?.pushViewController(viewController, animated: true)
                 
-            case (.disappearingMessageSetting, _, _):
+            case (.userCount, .group, true, _), (.userCount, .legacyGroup, true, _):
+                let viewController: SessionTableViewController = SessionTableViewController(
+                    viewModel: UserListViewModel(
+                        title: "GROUP_MEMBERS".localized(),
+                        showProfileIcons: true,
+                        request: GroupMember
+                            .filter(GroupMember.Columns.groupId == self.viewModel.threadData.threadId),
+                        onTap: .callback { [weak self] _, memberInfo in
+                            dependencies[singleton: .storage].write { db in
+                                try SessionThread.fetchOrCreate(
+                                    db,
+                                    id: memberInfo.profileId,
+                                    variant: .contact,
+                                    shouldBeVisible: nil,
+                                    calledFromConfigHandling: false,
+                                    using: dependencies
+                                )
+                            }
+                            
+                            self?.navigationController?.pushViewController(
+                                ConversationVC(
+                                    threadId: memberInfo.profileId,
+                                    threadVariant: .contact
+                                ),
+                                animated: true
+                            )
+                        },
+                        using: dependencies
+                    )
+                )
+                navigationController?.pushViewController(viewController, animated: true)
+                
+            case (.disappearingMessageSetting, _, _, _):
                 let viewController = SessionTableViewController(
                     viewModel: ThreadDisappearingMessagesSettingsViewModel(
                         threadId: self.viewModel.threadData.threadId,
@@ -54,7 +86,7 @@ extension ConversationVC:
                 )
                 navigationController?.pushViewController(viewController, animated: true)
                 
-            case (.userCount, _, _), (.none, _, _), (.notificationSettings, _, _): openSettings()
+            case (.userCount, _, _, _), (.none, _, _, _), (.notificationSettings, _, _, _): openSettings()
         }
     }
 

@@ -24,7 +24,6 @@ class MockPoller: Mock<PollerType>, PollerType {
         accept(args: [publicKey])
     }
     
-    
     func poll(
         namespaces: [SnodeAPI.Namespace],
         for publicKey: String,
@@ -41,5 +40,13 @@ class MockPoller: Mock<PollerType>, PollerType {
             drainBehaviour,
             dependencies
         ]) as! AnyPublisher<[ProcessedMessage], Error>
+    }
+    
+    func afterNextPoll(
+        for publicKey: String,
+        closure: @escaping ([ProcessedMessage]) -> ()
+    ) {
+        accept(args: [publicKey, closure])
+        closure([])
     }
 }

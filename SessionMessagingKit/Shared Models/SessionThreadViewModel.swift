@@ -1049,6 +1049,16 @@ public extension SessionThreadViewModel {
                         \(SQL("\(groupMember[.profileId]) = \(userSessionId.hexString)"))
                     )
                 ) AS \(ViewModel.Columns.currentUserIsClosedGroupMember),
+        
+                EXISTS (
+                    SELECT 1
+                    FROM \(GroupMember.self)
+                    WHERE (
+                        \(groupMember[.groupId]) = \(closedGroup[.threadId]) AND
+                        \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)")) AND
+                        \(SQL("\(groupMember[.profileId]) = \(userSessionId.hexString)"))
+                    )
+                ) AS \(ViewModel.Columns.currentUserIsClosedGroupAdmin),
                 
                 \(openGroup[.name]) AS \(ViewModel.Columns.openGroupName),
                 \(openGroup[.server]) AS \(ViewModel.Columns.openGroupServer),

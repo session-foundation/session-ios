@@ -29,7 +29,9 @@ class MessageReceiverSpec: QuickSpec {
                     db,
                     id: "TestId",
                     variant: .contact,
-                    shouldBeVisible: true
+                    shouldBeVisible: true,
+                    calledFromConfigHandling: false,
+                    using: dependencies
                 )
             }
         )

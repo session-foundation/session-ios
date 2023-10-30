@@ -59,12 +59,25 @@ public extension SessionUtil {
             }
         }
         
-        var lastError: String {
-            switch self {
-                case .invalid: return "Invalid"
-                case .object(let conf): return String(cString: conf.pointee.last_error)
-                case .groupKeys(let conf, _, _): return String(cString: conf.pointee.last_error)
-            }
+        var lastError: SessionUtilError? {
+            let maybeErrorString: String? = {
+                switch self {
+                    case .invalid: return "Invalid"
+                    case .object(let conf):
+                        guard conf.pointee.last_error != nil else { return nil }
+                        
+                        return String(cString: conf.pointee.last_error)
+                        
+                    case .groupKeys(let conf, _, _):
+                        guard conf.pointee.last_error != nil else { return nil }
+                        
+                        return String(cString: conf.pointee.last_error)
+                }
+            }()
+            
+            guard let errorString: String = maybeErrorString, !errorString.isEmpty else { return nil }
+            
+            return SessionUtilError.libSessionError(errorString)
         }
         
         // MARK: - Functions
@@ -338,10 +351,10 @@ public extension Optional where Wrapped == SessionUtil.Config {
         }
     }
     
-    var lastError: String {
+    var lastError: SessionUtilError? {
         switch self {
             case .some(let config): return config.lastError
-            case .none: return "Nil Config"
+            case .none: return SessionUtilError.invalidConfigObject
         }
     }
     

@@ -4,6 +4,7 @@
 
 import Foundation
 import GRDB
+import SessionUIKit
 import SessionUtilitiesKit
 
 public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
@@ -28,13 +29,25 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         case zombie
         case moderator
         case admin
+        
+        public static func < (lhs: Role, rhs: Role) -> Bool { lhs.rawValue < rhs.rawValue }
     }
     
-    public enum RoleStatus: Int, Codable, Comparable, DatabaseValueConvertible {
-        case accepted
+    public enum RoleStatus: Int, Codable, DatabaseValueConvertible {
+        case accepted = 0   // Matching libSession
+        case pending = 1    // Matching libSession
+        case failed = 2     // Matching libSession
+        
         case sending
-        case pending
-        case failed
+        
+        var libSessionValue: Int32 {
+            switch self {
+                case .accepted, .pending, .failed: return Int32(self.rawValue)
+                    
+                /// libSession doens't have a `sending` status (it's a local-only thing) so register it as the standard `pending` status
+                case .sending: return Int32(RoleStatus.pending.rawValue)
+            }
+        }
     }
 
     public let groupId: String
@@ -118,7 +131,78 @@ public extension GroupMember {
 }
 
 extension GroupMember: ProfileAssociated {
+    public var profileIcon: ProfilePictureView.ProfileIcon {
+        switch role {
+            case .moderator, .admin: return .crown
+            default: return .none
+        }
+    }
+    
     public func itemDescription(using dependencies: Dependencies) -> String? { return statusDescription }
     public func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return statusDescriptionColor }
     
+    public static func compare(lhs: WithProfile<GroupMember>, rhs: WithProfile<GroupMember>) -> Bool {
+        let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: lhs.value.groupId)) ?? .group) == .group)
+        let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
+            .defaulting(to: Profile.truncated(id: lhs.profileId, threadVariant: .contact))
+        let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
+            .defaulting(to: Profile.truncated(id: rhs.profileId, threadVariant: .contact))
+        
+        // Legacy groups have a different sorting behaviour
+        guard isUpdatedGroup else {
+            switch (lhs.value.role, rhs.value.role) {
+                case (.zombie, .standard), (.zombie, .moderator), (.zombie, .admin): return true
+                case (.standard, .zombie), (.moderator, .zombie), (.admin, .zombie): return false
+                default:
+                    guard lhs.value.role == rhs.value.role else { return lhs.value.role < rhs.value.role }
+                    
+                    return (lhsDisplayName < rhsDisplayName)
+            }
+        }
+        
+        /// We want to sort the member list so the most important info is at the top of the list, this means that we want to prioritise
+        /// • Failed invitations
+        /// • Pending invitations
+        /// • Failed promotions
+        /// • Pending promotions
+        /// • Admins
+        /// • Members
+        ///
+        /// And the current user should appear at the top of their respective group
+        let userSessionId: SessionId = getUserSessionId()
+        
+        /// If the role and status match then we want to sort by current user, no-name members by id, then by name
+        guard lhs.value.role != rhs.value.role || lhs.value.roleStatus != rhs.value.roleStatus else {
+            switch (lhs.profileId, rhs.profileId, lhs.profile?.name, rhs.profile?.name) {
+                case (userSessionId.hexString, _, _, _): return true
+                case (_, userSessionId.hexString, _, _): return false
+                case (_, _, .none, .some): return true
+                case (_, _, .some, .none): return false
+                case (_, _, .none, .none): return (lhsDisplayName < rhsDisplayName)
+                case (_, _, .some, .some): return (lhsDisplayName < rhsDisplayName)
+            }
+        }
+        
+        switch (lhs.value.role, lhs.value.roleStatus, rhs.value.role, rhs.value.roleStatus) {
+            /// Non-accepted standard before admin
+            case (.standard, .failed, .admin, _), (.standard, .sending, .admin, _), (.standard, .pending, .admin, _):
+                return true
+            
+            /// Non-accepted admin before accepted standard
+            case (.standard, _, .admin, .failed), (.standard, _, .admin, .sending), (.standard, _, .admin, .pending):
+                return true
+            
+            /// Failed before sending, sending before pending
+            case (_, .failed, _, .sending), (_, .failed, _, .pending), (_, .sending, _, .pending): return true
+                
+            /// Other statuses before accepted
+            case (_, .failed, _, .accepted), (_, .sending, _, .accepted), (_, .pending, _, .accepted): return true
+            
+            /// Accepted admin before accepted standard
+            case (.admin, .accepted, .standard, .accepted): return true
+                
+            /// All other cases are in the wrong order
+            default: return false
+        }
+    }
 }

@@ -361,7 +361,6 @@ internal extension SessionUtil {
         return groupState
     }
     
-    
     static func encrypt(
         message: Data,
         groupSessionId: SessionId,

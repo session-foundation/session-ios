@@ -38,7 +38,9 @@ class MessageSendJobSpec: QuickSpec {
                     db,
                     id: "Test1",
                     variant: .contact,
-                    shouldBeVisible: true
+                    shouldBeVisible: true,
+                    calledFromConfigHandling: false,
+                    using: dependencies
                 )
             }
         )

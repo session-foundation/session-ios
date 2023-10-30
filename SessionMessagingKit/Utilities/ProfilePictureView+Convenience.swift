@@ -16,7 +16,12 @@ public extension ProfilePictureView {
         // If we are given an explicit 'displayPictureFilename' then only use that (this could be for
         // either Community conversations or updated groups)
         if let displayPictureFilename: String = displayPictureFilename {
-            update(Info(imageData: DisplayPictureManager.displayPicture(owner: .file(displayPictureFilename))))
+            update(
+                Info(
+                    imageData: DisplayPictureManager.displayPicture(owner: .file(displayPictureFilename)),
+                    icon: profileIcon
+                )
+            )
             return
         }
         

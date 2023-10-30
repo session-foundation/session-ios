@@ -47,7 +47,6 @@ class OpenGroupManagerSpec: QuickSpec {
             name: "Test",
             roomDescription: nil,
             imageId: nil,
-            imageData: nil,
             userCount: 0,
             infoUpdates: 10,
             sequenceNumber: 5
@@ -152,15 +151,8 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     .thenReturn("TestSogsSignature".bytes)
                 crypto
-                    .when {
-                        try $0.perform(
-                            .signature(
-                                message: anyArray(),
-                                secretKey: anyArray()
-                            )
-                        )
-                    }
-                    .thenReturn("TestSignature".bytes)
+                    .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
                 crypto.when { $0.size(.nonce16) }.thenReturn(16)
                 crypto
                     .when { try $0.perform(.generateNonce16()) }
@@ -185,9 +177,6 @@ class OpenGroupManagerSpec: QuickSpec {
                 cache.when { $0.isPolling = any() }.thenReturn(())
                 cache
                     .when { $0.defaultRoomsPublisher = any(type: [OpenGroupManager.DefaultRoomInfo].self) }
-                    .thenReturn(())
-                cache
-                    .when { $0.groupImagePublishers = any(typeA: String.self, typeB: AnyPublisher<Data, Error>.self) }
                     .thenReturn(())
                 cache
                     .when { $0.pendingChanges = any(type: OpenGroupAPI.PendingChange.self) }
@@ -271,7 +260,6 @@ class OpenGroupManagerSpec: QuickSpec {
                             name: "Test1",
                             roomDescription: nil,
                             imageId: nil,
-                            imageData: nil,
                             userCount: 0,
                             infoUpdates: 0
                         ).insert(db)
@@ -337,7 +325,6 @@ class OpenGroupManagerSpec: QuickSpec {
                             name: "Test1",
                             roomDescription: nil,
                             imageId: nil,
-                            imageData: nil,
                             userCount: 0,
                             infoUpdates: 0
                         ).insert(db)
@@ -1032,7 +1019,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                 name: "Test1",
                                 roomDescription: nil,
                                 imageId: nil,
-                                imageData: nil,
                                 userCount: 0,
                                 infoUpdates: 0,
                                 sequenceNumber: 0,
@@ -1072,7 +1058,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                 name: "Test1",
                                 roomDescription: nil,
                                 imageId: nil,
-                                imageData: nil,
                                 userCount: 0,
                                 infoUpdates: 0,
                                 sequenceNumber: 0,
@@ -1087,7 +1072,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                 name: "Test1",
                                 roomDescription: nil,
                                 imageId: nil,
-                                imageData: nil,
                                 userCount: 0,
                                 infoUpdates: 0,
                                 sequenceNumber: 0,

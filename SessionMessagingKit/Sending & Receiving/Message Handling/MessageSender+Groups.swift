@@ -311,12 +311,11 @@ extension MessageSender {
                     timestampMs: changeTimestampMs
                 ).inserted(db)
                 
-                /// Schedule the control message to be sent to the group
+                // Schedule the control message to be sent to the group
                 try MessageSender.send(
                     db,
-                    message: GroupUpdateMemberChangeMessage(
-                        changeType: .added,
-                        memberSessionIds: members.map { $0.id },
+                    message: GroupUpdateInfoChangeMessage(
+                        changeType: .avatar,
                         sentTimestamp: UInt64(changeTimestampMs)
                     ),
                     interactionId: nil,
@@ -454,7 +453,7 @@ extension MessageSender {
                     groupId: sessionId.hexString,
                     profileId: id,
                     role: .standard,
-                    roleStatus: .pending,
+                    roleStatus: .sending,
                     isHidden: false
                 ).upsert(db)
                 
@@ -542,6 +541,15 @@ extension MessageSender {
                 .send(using: dependencies)
                 .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
                 .sinkUntilComplete()
+            
+            try SessionUtil.updateMemberStatus(
+                db,
+                groupSessionId: SessionId(.group, hex: groupSessionId),
+                memberId: memberId,
+                role: .standard,
+                status: .sending,
+                using: dependencies
+            )
             
             /// If the current `GroupMember` is in the `failed` state then change them back to `sending`
             let existingMember: GroupMember? = try GroupMember
@@ -678,10 +686,8 @@ extension MessageSender {
         
         /// Remove the members from the database
         try GroupMember
-            .filter(
-                GroupMember.Columns.groupId == groupSessionId.hexString &&
-                memberIds.contains(GroupMember.Columns.profileId)
-            )
+            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+            .filter(memberIds.contains(GroupMember.Columns.profileId))
             .deleteAll(db)
         
         /// Schedule a `GroupUpdateDeleteMessage` to each of the members (instruct their clients to delete the group content)
@@ -709,20 +715,17 @@ extension MessageSender {
         /// to other members to remove the messages as well
         if removeTheirMessages {
             let messageHashesToRemove: Set<String> = try Interaction
-                .filter(
-                    Interaction.Columns.threadId == groupSessionId.hexString &&
-                    memberIds.contains(Interaction.Columns.authorId)
-                )
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(memberIds.contains(Interaction.Columns.authorId))
+                .filter(Interaction.Columns.serverHash != nil)
                 .select(.serverHash)
                 .asRequest(of: String.self)
                 .fetchSet(db)
             
             /// Delete the messages from my device
             try Interaction
-                .filter(
-                    Interaction.Columns.threadId == groupSessionId.hexString &&
-                    memberIds.contains(Interaction.Columns.authorId)
-                )
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(memberIds.contains(Interaction.Columns.authorId))
                 .deleteAll(db)
             
             /// Tell other members devices to delete the messages
@@ -808,19 +811,18 @@ extension MessageSender {
     ) {
         let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
         
-        return dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
+        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
             // Update the libSession status for each member and schedule a job to send
             // the promotion message
             try members.forEach { memberId, _ in
-                try SessionUtil
-                    .updateMemberStatus(
-                        db,
-                        groupSessionId: groupSessionId,
-                        memberId: memberId,
-                        role: .admin,
-                        status: .pending,
-                        using: dependencies
-                    )
+                try SessionUtil.updateMemberStatus(
+                    db,
+                    groupSessionId: groupSessionId,
+                    memberId: memberId,
+                    role: .admin,
+                    status: .sending,
+                    using: dependencies
+                )
                 
                 /// If the current `GroupMember` is in the `failed` state then change them back to `sending`
                 let existingMember: GroupMember? = try GroupMember
@@ -829,6 +831,17 @@ extension MessageSender {
                     .fetchOne(db)
                 
                 switch (existingMember?.role, existingMember?.roleStatus) {
+                    case (.standard, _):
+                        try GroupMember
+                            .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
+                            .filter(GroupMember.Columns.profileId == memberId)
+                            .updateAllAndConfig(
+                                db,
+                                GroupMember.Columns.role.set(to: GroupMember.Role.admin),
+                                GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                                using: dependencies
+                            )
+                        
                     case (.admin, .failed):
                         try GroupMember
                             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -846,6 +859,7 @@ extension MessageSender {
                     db,
                     job: Job(
                         variant: .groupPromoteMember,
+                        threadId: groupSessionId.hexString,
                         details: GroupPromoteMemberJob.Details(
                             memberSessionIdHexString: memberId
                         )
@@ -863,7 +877,7 @@ extension MessageSender {
                     authorId: userSessionId.hexString,
                     variant: .infoGroupMembersUpdated,
                     body: ClosedGroup.MessageInfo
-                        .addedUsers(
+                        .promotedUsers(
                             names: members.map { id, profile in
                                 profile?.displayName(for: .group) ??
                                 Profile.truncated(id: id, truncating: .middle)

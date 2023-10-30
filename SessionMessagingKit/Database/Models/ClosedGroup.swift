@@ -306,14 +306,15 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.authDetails) {
+            /// Need to explicitly trigger config updates here because relying on `updateAllAndConfig` will result in an
+            /// error being thrown by `libSession` because it'll attempt to update the `GROUP_INFO` config if the user
+            /// was an admin (which will fail because we have removed the auth data for the group)
             try ClosedGroup
                 .filter(ids: threadIds)
-                .updateAllAndConfig(
+                .updateAll(
                     db,
                     ClosedGroup.Columns.groupIdentityPrivateKey.set(to: nil),
-                    ClosedGroup.Columns.authData.set(to: nil),
-                    calledFromConfigHandling: calledFromConfigHandling,
-                    using: dependencies
+                    ClosedGroup.Columns.authData.set(to: nil)
                 )
             
             try SessionUtil.markAsKicked(
@@ -338,12 +339,13 @@ public extension ClosedGroup {
         // If we remove the poller but don't remove the thread then update the group so it doesn't poll
         // on the next launch
         if dataToRemove.contains(.poller) && !dataToRemove.contains(.thread) {
+            /// Should not call `updateAllAndConfig` here as that can result in an error being thrown by `libSession` if the current
+            /// user was an admin as it'll attempt, and fail, to update the `GROUP_INFO` because we have already removed the auth data
             try ClosedGroup
                 .filter(ids: threadIds)
-                .updateAllAndConfig(
+                .updateAll(
                     db,
-                    ClosedGroup.Columns.shouldPoll.set(to: false),
-                    using: dependencies
+                    ClosedGroup.Columns.shouldPoll.set(to: false)
                 )
         }
         

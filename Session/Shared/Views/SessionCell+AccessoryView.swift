@@ -286,6 +286,7 @@ extension SessionCell {
             self.isHidden = false
 
             switch accessory {
+                // MARK: -- .icon
                 case .icon(let image, let iconSize, let customTint, let shouldFill, let accessibility):
                     imageView.accessibilityIdentifier = accessibility?.identifier
                     imageView.accessibilityLabel = accessibility?.label
@@ -317,6 +318,7 @@ extension SessionCell {
                     imageViewHeightConstraint.isActive = true
                     imageViewConstraints.forEach { $0.isActive = true }
                 
+                // MARK: -- .iconAsync
                 case .iconAsync(let iconSize, let customTint, let shouldFill, let accessibility, let setter):
                     setter(imageView)
                     imageView.accessibilityIdentifier = accessibility?.identifier
@@ -348,6 +350,7 @@ extension SessionCell {
                     imageViewHeightConstraint.isActive = true
                     imageViewConstraints.forEach { $0.isActive = true }
                     
+                // MARK: -- .toggle
                 case .toggle(let dataSource, let accessibility):
                     toggleSwitch.accessibilityIdentifier = accessibility?.identifier
                     toggleSwitch.accessibilityLabel = accessibility?.label
@@ -368,6 +371,7 @@ extension SessionCell {
                         }
                     }
                     
+                // MARK: -- .dropDown
                 case .dropDown(let dataSource, let accessibility):
                     dropDownLabel.accessibilityIdentifier = accessibility?.identifier
                     dropDownLabel.accessibilityLabel = accessibility?.label
@@ -376,6 +380,7 @@ extension SessionCell {
                     dropDownStackViewConstraints.forEach { $0.isActive = true }
                     minWidthConstraint.isActive = true
                     
+                // MARK: -- .radio
                 case .radio(let size, _, let isSelectedRetriever, let storedSelection, let accessibility):
                     let isSelected: Bool = isSelectedRetriever()
                     let wasOldSelection: Bool = (!isSelected && storedSelection)
@@ -423,6 +428,7 @@ extension SessionCell {
                     radioBorderViewHeightConstraint.isActive = true
                     radioBorderViewConstraints.forEach { $0.isActive = true }
                     
+                // MARK: -- .highlightingBackgroundLabel
                 case .highlightingBackgroundLabel(let title, let accessibility):
                     highlightingBackgroundLabel.accessibilityIdentifier = accessibility?.identifier
                     highlightingBackgroundLabel.accessibilityLabel = accessibility?.label
@@ -432,6 +438,7 @@ extension SessionCell {
                     highlightingBackgroundLabelConstraints.forEach { $0.isActive = true }
                     minWidthConstraint.isActive = true
                     
+                // MARK: -- .profile
                 case .profile(
                     let profileId,
                     let profileSize,
@@ -464,6 +471,7 @@ extension SessionCell {
                     fixedWidthConstraint.isActive = true
                     profilePictureViewConstraints.forEach { $0.isActive = true }
                     
+                // MARK: -- .search
                 case .search(let placeholder, let accessibility, let searchTermChanged):
                     self.searchTermChanged = searchTermChanged
                     searchBar.accessibilityIdentifier = accessibility?.identifier
@@ -472,6 +480,7 @@ extension SessionCell {
                     searchBar.isHidden = false
                     searchBarConstraints.forEach { $0.isActive = true }
                     
+                // MARK: -- .button
                 case .button(let style, let title, let accessibility, let onTap):
                     self.onTap = onTap
                     button.accessibilityIdentifier = accessibility?.identifier
@@ -482,6 +491,7 @@ extension SessionCell {
                     minWidthConstraint.isActive = true
                     buttonConstraints.forEach { $0.isActive = true }
                     
+                // MARK: -- .customView
                 case .customView(_, let viewGenerator):
                     let generatedView: UIView = viewGenerator()
                     addSubview(generatedView)

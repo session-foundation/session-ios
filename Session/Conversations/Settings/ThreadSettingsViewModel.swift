@@ -503,38 +503,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     identifier: "Group members",
                                     label: "Group members"
                                 ),
-                                onTap: { [weak self] in
-                                    self?.transitionToScreen(
-                                        SessionTableViewController(
-                                            viewModel: UserListViewModel(
-                                                title: "GROUP_MEMBERS".localized(),
-                                                query: GroupMember
-                                                    .filter(GroupMember.Columns.groupId == threadViewModel.threadId),
-                                                onTapAction: .callback { memberInfo in
-                                                    dependencies[singleton: .storage].write { db in
-                                                        try SessionThread.fetchOrCreate(
-                                                            db,
-                                                            id: memberInfo.profileId,
-                                                            variant: .contact,
-                                                            shouldBeVisible: nil,
-                                                            calledFromConfigHandling: false,
-                                                            using: dependencies
-                                                        )
-                                                    }
-                                                    
-                                                    self?.transitionToScreen(
-                                                        ConversationVC(
-                                                            threadId: memberInfo.profileId,
-                                                            threadVariant: .contact
-                                                        ),
-                                                        transitionType: .push
-                                                    )
-                                                },
-                                                using: dependencies
-                                            )
-                                        )
-                                    )
-                                }
+                                onTap: { [weak self] in self?.viewMembers() }
                             )
                         ),
 
@@ -813,12 +782,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 viewModel: UserListViewModel<Contact>(
                     title: "vc_conversation_settings_invite_button_title".localized(),
                     emptyState: "GROUP_ACTION_INVITE_EMPTY_STATE".localized(),
-                    query: Contact
+                    showProfileIcons: false,
+                    request: Contact
                         .filter(Contact.Columns.isApproved == true)
                         .filter(Contact.Columns.didApproveMe == true)
                         .filter(Contact.Columns.id != threadViewModel.currentUserSessionId),
                     footerTitle: "GROUP_ACTION_INVITE".localized(),
-                    onSubmit: { [dependencies] _, selectedUserInfo in
+                    onSubmit: .publisher { [dependencies] _, selectedUserInfo in
                         dependencies[singleton: .storage]
                             .writePublisher(using: dependencies) { db in
                                 try selectedUserInfo.forEach { userInfo in
@@ -882,6 +852,40 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 )
             ),
             transitionType: .push
+        )
+    }
+    
+    private func viewMembers() {
+        self.transitionToScreen(
+            SessionTableViewController(
+                viewModel: UserListViewModel(
+                    title: "GROUP_MEMBERS".localized(),
+                    showProfileIcons: true,
+                    request: GroupMember
+                        .filter(GroupMember.Columns.groupId == threadId),
+                    onTap: .callback { [weak self, dependencies] _, memberInfo in
+                        dependencies[singleton: .storage].write { db in
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: memberInfo.profileId,
+                                variant: .contact,
+                                shouldBeVisible: nil,
+                                calledFromConfigHandling: false,
+                                using: dependencies
+                            )
+                        }
+                        
+                        self?.transitionToScreen(
+                            ConversationVC(
+                                threadId: memberInfo.profileId,
+                                threadVariant: .contact
+                            ),
+                            transitionType: .push
+                        )
+                    },
+                    using: dependencies
+                )
+            )
         )
     }
     

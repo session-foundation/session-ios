@@ -280,11 +280,11 @@ internal extension SessionUtil {
                     case .admin:
                         groupMember.admin = true
                         groupMember.invited = 0
-                        groupMember.promoted = Int32(member.roleStatus.rawValue)
+                        groupMember.promoted = member.roleStatus.libSessionValue
                         
                     default:
                         groupMember.admin = false
-                        groupMember.invited = Int32(member.roleStatus.rawValue)
+                        groupMember.invited = member.roleStatus.libSessionValue
                         groupMember.promoted = 0
                 }
                 

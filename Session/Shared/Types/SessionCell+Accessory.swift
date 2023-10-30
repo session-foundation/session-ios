@@ -370,6 +370,20 @@ extension SessionCell.Accessory {
         )
     }
     
+    public static func profile(id: String, profile: Profile?, profileIcon: ProfilePictureView.ProfileIcon) -> SessionCell.Accessory {
+        return .profile(
+            id: id,
+            size: .list,
+            threadVariant: .contact,
+            displayPictureFilename: nil,
+            profile: profile,
+            profileIcon: profileIcon,
+            additionalProfile: nil,
+            additionalProfileIcon: .none,
+            accessibility: nil
+        )
+    }
+    
     public static func profile(id: String, size: ProfilePictureView.Size, profile: Profile?) -> SessionCell.Accessory {
         return .profile(
             id: id,

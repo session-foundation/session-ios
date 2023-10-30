@@ -37,7 +37,7 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     
     // MARK: - Job Scheduling
     
-    @discardableResult func add(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) -> Job? {
+    @discardableResult func add(_ db: Database, job: Job?, dependantJob: Job?, canStartJob: Bool, using dependencies: Dependencies) -> Job? {
         return accept(args: [db, job, canStartJob]) as? Job
     }
     
@@ -49,7 +49,11 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
         return accept(args: [db, job, otherJob]) as? (Int64, Job)
     }
     
-    func afterCurrentlyRunningJob(_ job: Job?, callback: @escaping (JobRunner.JobResult) -> ()) {
+    func enqueueDependenciesIfNeeded(_ jobs: [Job], using dependencies: Dependencies) {
+        accept(args: [jobs, dependencies])
+    }
+    
+    func afterJob(_ job: Job?, state: JobRunner.JobState, callback: @escaping (JobRunner.JobResult) -> ()) {
         accept(args: [job, callback])
         callback(.succeeded)
     }

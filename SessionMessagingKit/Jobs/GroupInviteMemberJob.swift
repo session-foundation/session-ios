@@ -12,7 +12,7 @@ public enum GroupInviteMemberJob: JobExecutor {
     public static var requiresThreadId: Bool = true
     public static var requiresInteractionId: Bool = false
     
-    private static let notificationThrottleDuration: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(1500)
+    private static let notificationDebounceDuration: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(1500)
     private static var notifyFailurePublisher: AnyPublisher<Void, Never>?
     private static let notifyFailureTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
     
@@ -145,8 +145,6 @@ public enum GroupInviteMemberJob: JobExecutor {
                     }
                 }
             )
-        
-        // TODO: Need to batch errors together and send a toast indicating invitation failures
     }
     
     private static func notifyOfFailure(groupId: String, memberId: String, using dependencies: Dependencies) {
@@ -158,7 +156,7 @@ public enum GroupInviteMemberJob: JobExecutor {
         /// and show a single toast
         if notifyFailurePublisher == nil {
             notifyFailurePublisher = notifyFailureTrigger
-                .throttle(for: notificationThrottleDuration, scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
+                .debounce(for: notificationDebounceDuration, scheduler: DispatchQueue.global(qos: .userInitiated))
                 .handleEvents(
                     receiveOutput: { [dependencies] _ in
                         let failedIds: [String] = dependencies.mutate(cache: .groupInviteMemberJob) { cache in
@@ -272,7 +270,7 @@ public extension Cache {
     )
 }
 
-// MARK: - DisplayPictureCacheType
+// MARK: - GroupInviteMemberJobCacheType
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol GroupInviteMemberJobImmutableCacheType: ImmutableCacheType {

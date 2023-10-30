@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtil
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 // MARK: - Size Restrictions
@@ -159,6 +160,101 @@ internal extension SessionUtil {
                 lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
             ).upsert(db)
         }
+        
+        // Check if the user is an admin in the group
+        var messageHashesToDelete: Set<String> = []
+        let isAdmin: Bool = ((try? ClosedGroup
+            .filter(id: groupSessionId.hexString)
+            .select(.groupIdentityPrivateKey)
+            .asRequest(of: Data.self)
+            .fetchOne(db)) != nil)
+
+        // If there is a `delete_before` setting then delete all messages before the provided timestamp
+        let deleteBeforeTimestamp: Int64 = groups_info_get_delete_before(conf)
+        
+        if deleteBeforeTimestamp > 0 {
+            if isAdmin {
+                let hashesToDelete: Set<String>? = try? Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
+                    .filter(Interaction.Columns.serverHash != nil)
+                    .select(.serverHash)
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                messageHashesToDelete.insert(contentsOf: hashesToDelete)
+            }
+            
+            let deletionCount: Int = try Interaction
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
+                .deleteAll(db)
+            
+            if deletionCount > 0 {
+                SNLog("[SessionUtil] Deleted \(deletionCount) message\(deletionCount == 1 ? "" : "s") from \(groupSessionId.hexString) due to 'delete_before' value.")
+            }
+        }
+        
+        // If there is a `attach_delete_before` setting then delete all messages that have attachments before
+        // the provided timestamp and schedule a garbage collection job
+        let attachDeleteBeforeTimestamp: Int64 = groups_info_get_attach_delete_before(conf)
+        
+        if attachDeleteBeforeTimestamp > 0 {
+            if isAdmin {
+                let hashesToDelete: Set<String>? = try? Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
+                    .filter(Interaction.Columns.serverHash != nil)
+                    .joining(required: Interaction.interactionAttachments)
+                    .select(.serverHash)
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                messageHashesToDelete.insert(contentsOf: hashesToDelete)
+            }
+            
+            let deletionCount: Int = try Interaction
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
+                .joining(required: Interaction.interactionAttachments)
+                .deleteAll(db)
+            
+            if deletionCount > 0 {
+                SNLog("[SessionUtil] Deleted \(deletionCount) message\(deletionCount == 1 ? "" : "s") with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")
+                
+                // Schedule a grabage collection job to clean up any now-orphaned attachment files
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .garbageCollection,
+                        details: GarbageCollectionJob.Details(
+                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles]
+                        )
+                    ),
+                    canStartJob: true,
+                    using: dependencies
+                )
+            }
+        }
+        
+        // If the current user is a group admin and there are message hashes which should be deleted then
+        // send a fire-and-forget API call to delete the messages from the swarm
+        if isAdmin && !messageHashesToDelete.isEmpty {
+            (try? Authentication.with(
+                db,
+                sessionIdHexString: groupSessionId.hexString,
+                using: dependencies
+            )).map { authMethod in
+                try? SnodeAPI
+                    .preparedDeleteMessages(
+                        serverHashes: Array(messageHashesToDelete),
+                        requireSuccessfulDeletion: false,
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                    .sinkUntilComplete()
+            }
+        }
     }
 }
 
@@ -275,6 +371,48 @@ public extension SessionUtil {
             if let config: DisappearingMessagesConfiguration = disappearingConfig {
                 groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
             }
+        }
+    }
+    
+    static func deleteMessagesBefore(
+        _ db: Database,
+        groupSessionId: SessionId,
+        timestamp: TimeInterval,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupInfo,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            // Do nothing if the timestamp isn't newer than the current value
+            guard Int64(timestamp) > groups_info_get_delete_before(conf) else { return }
+            
+            groups_info_set_delete_before(conf, Int64(timestamp))
+        }
+    }
+    
+    static func deleteAttachmentsBefore(
+        _ db: Database,
+        groupSessionId: SessionId,
+        timestamp: TimeInterval,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupInfo,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            // Do nothing if the timestamp isn't newer than the current value
+            guard Int64(timestamp) > groups_info_get_attach_delete_before(conf) else { return }
+            
+            groups_info_set_attach_delete_before(conf, Int64(timestamp))
         }
     }
     
