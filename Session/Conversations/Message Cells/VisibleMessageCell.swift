@@ -120,7 +120,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return result
     }()
 
-    private lazy var timerView = DisappearingMessageTimerView()
+    private lazy var timerView: DisappearingMessageTimerView = DisappearingMessageTimerView()
     
     lazy var underBubbleStackView: UIStackView = {
         let result = UIStackView(arrangedSubviews: [])

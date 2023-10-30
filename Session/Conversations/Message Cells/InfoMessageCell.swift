@@ -18,7 +18,7 @@ final class InfoMessageCell: MessageCell {
     private lazy var iconContainerViewHeightConstraint = iconContainerView.set(.height, to: InfoMessageCell.iconSize)
     
     private lazy var iconImageView: UIImageView = UIImageView()
-    private lazy var timerView = DisappearingMessageTimerView()
+    private lazy var timerView: DisappearingMessageTimerView = DisappearingMessageTimerView()
     
     private lazy var iconContainerView: UIView = {
         let result: UIView = UIView()
@@ -33,7 +33,7 @@ final class InfoMessageCell: MessageCell {
     private lazy var label: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
-        result.themeTextColor = .textPrimary
+        result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
@@ -98,7 +98,7 @@ final class InfoMessageCell: MessageCell {
         
         if let icon = icon {
             iconImageView.image = icon.withRenderingMode(.alwaysTemplate)
-            iconImageView.themeTintColor = .textPrimary
+            iconImageView.themeTintColor = .textSecondary
         }
         
         // Timer
@@ -112,7 +112,7 @@ final class InfoMessageCell: MessageCell {
                 expirationTimestampMs: expirationTimestampMs,
                 initialDurationSeconds: expiresInSeconds
             )
-            timerView.themeTintColor = .textPrimary
+            timerView.themeTintColor = .textSecondary
             timerView.isHidden = false
             iconImageView.isHidden = true
         }
@@ -127,7 +127,7 @@ final class InfoMessageCell: MessageCell {
         iconContainerViewHeightConstraint.constant = shouldShowIcon ? InfoMessageCell.iconSize : 0
         
         self.label.text = cellViewModel.body
-        self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textPrimary
+        self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textSecondary
     }
     
     override func dynamicUpdate(with cellViewModel: MessageViewModel, playbackInfo: ConversationViewModel.PlaybackInfo?) {
