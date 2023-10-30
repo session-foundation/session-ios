@@ -19,6 +19,12 @@ struct DocumentView_SwiftUI: View {
             spacing: Values.mediumSpacing
         ) {
             ZStack {
+                Rectangle()
+                    .foregroundColor(themeColor: .messageBubble_overlay)
+                    .frame(
+                        width: <#T##CGFloat?#>
+                    )
+                
                 Image(systemName: "doc")
                     .resizable()
                     .renderingMode(.template)
@@ -82,6 +88,10 @@ struct DocumentView_SwiftUI_Previews: PreviewProvider {
                 ),
                 textColor: .messageBubble_outgoingText
             )
+            .frame(
+                width: 300,
+                height: 100
+            )
             
             DocumentView_SwiftUI(
                 attachment: Attachment(
@@ -90,6 +100,10 @@ struct DocumentView_SwiftUI_Previews: PreviewProvider {
                     byteCount: 1000
                 ),
                 textColor: .messageBubble_outgoingText
+            )
+            .frame(
+                width: 300,
+                height: 100
             )
         }
     }
