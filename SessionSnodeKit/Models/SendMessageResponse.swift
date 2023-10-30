@@ -102,7 +102,6 @@ extension SendMessagesResponse: ValidatableResponse {
             /// Signature of `hash` signed by the node's ed25519 pubkey
             let verificationBytes: [UInt8] = hash.bytes
             
-            
             result[next.key] = dependencies[singleton: .crypto].verify(
                 .signature(
                     message: verificationBytes,

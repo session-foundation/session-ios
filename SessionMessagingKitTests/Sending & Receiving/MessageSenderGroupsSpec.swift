@@ -172,7 +172,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPicture: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -199,7 +199,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .createGroup(
                             name: "Test",
                             description: nil,
-                            displayPicture: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -226,7 +226,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPicture: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -253,7 +253,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPicture: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -286,7 +286,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPicture: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -361,7 +361,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPicture: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -395,7 +395,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPicture: nil,
+                                displayPictureData: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
@@ -413,7 +413,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPicture: nil,
+                                displayPictureData: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
@@ -442,7 +442,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPicture: nil,
+                                displayPictureData: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],

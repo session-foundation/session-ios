@@ -91,6 +91,22 @@ internal extension SessionUtil {
             } ?? { throw SessionUtilError.invalidConfigObject }()
     }
     
+    static func generateSubaccountToken(
+        groupSessionId: SessionId,
+        memberId: String,
+        using dependencies: Dependencies
+    ) throws -> [UInt8] {
+        try dependencies[singleton: .crypto].perform(
+            .subaccountToken(
+                config: dependencies[cache: .sessionUtil]
+                    .config(for: .groupKeys, sessionId: groupSessionId)
+                    .wrappedValue,
+                groupSessionId: groupSessionId,
+                memberId: memberId
+            )
+        )
+    }
+    
     static func generateAuthData(
         groupSessionId: SessionId,
         memberId: String,

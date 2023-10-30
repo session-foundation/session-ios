@@ -9,7 +9,7 @@ public class UnrevokeSubaccountResponse: SnodeRecursiveResponse<SnodeSwarmItem> 
 // MARK: - ValidatableResponse
 
 extension UnrevokeSubaccountResponse: ValidatableResponse {
-    typealias ValidationData = String
+    typealias ValidationData = (subaccountToUnrevoke: [UInt8], timestampMs: UInt64)
     typealias ValidationResponse = Bool
     
     /// All responses in the swarm must be valid
@@ -17,7 +17,7 @@ extension UnrevokeSubaccountResponse: ValidatableResponse {
     
     internal func validResultMap(
         publicKey: String,
-        validationData: String,
+        validationData: (subaccountToUnrevoke: [UInt8], timestampMs: UInt64),
         using dependencies: Dependencies
     ) throws -> [String: Bool] {
         let validationMap: [String: Bool] = try swarm.reduce(into: [:]) { result, next in
@@ -35,10 +35,11 @@ extension UnrevokeSubaccountResponse: ValidatableResponse {
                 return
             }
             
-            /// Signature of `( PUBKEY_HEX || SUBKEY_TAG_BYTES )` where `SUBKEY_TAG_BYTES` is the
+            /// Signature of `( PUBKEY_HEX || timestamp || SUBKEY_TAG_BYTES )` where `SUBKEY_TAG_BYTES` is the
             /// requested subkey tag for revocation
             let verificationBytes: [UInt8] = publicKey.bytes
-                .appending(contentsOf: validationData.bytes)
+                .appending(contentsOf: "\(validationData.timestampMs)".data(using: .ascii)?.bytes)
+                .appending(contentsOf: validationData.subaccountToUnrevoke)
             
             let isValid: Bool = dependencies[singleton: .crypto].verify(
                 .signature(

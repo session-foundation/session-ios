@@ -1238,7 +1238,7 @@ extension SessionUtil {
                 ) \(lastKeyPair, asSubquery: true) ON \(lastKeyPair[.threadId]) = \(closedGroup[.threadId])
                 LEFT JOIN \(disappearingConfig) ON \(disappearingConfig[.threadId]) = \(closedGroup[.threadId])
                 
-                WHERE \(SQL("\(closedGroup[.threadId]) LIKE '\(SessionId.Prefix.standard)%'"))
+                WHERE \(closedGroup[.threadId]) LIKE '\(SessionId.Prefix.standard)%'
             """
             
             let legacyGroupInfoNoMembers: [LegacyGroupInfo] = try request

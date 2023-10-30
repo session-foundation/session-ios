@@ -4,6 +4,32 @@ import Foundation
 import SessionUtil
 import SessionUtilitiesKit
 
+public extension Crypto.Action {
+    static func subaccountToken(
+        config: SessionUtil.Config?,
+        groupSessionId: SessionId,
+        memberId: String
+    ) -> Crypto.Action {
+        return Crypto.Action(
+            id: "subaccountToken",
+            args: [config, groupSessionId, memberId]
+        ) {
+            guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            var cMemberId: [CChar] = memberId.cArray
+            var tokenData: [UInt8] = [UInt8](repeating: 0, count: SessionUtil.sizeSubaccountBytes)
+            
+            guard groups_keys_swarm_subaccount_token(
+                conf,
+                &cMemberId,
+                &tokenData
+            ) else { throw SessionUtilError.failedToMakeSubAccountInGroup }
+            
+            return tokenData
+        }
+    }
+}
+
 public extension Crypto.AuthenticationInfo {
     static func memberAuthData(
         config: SessionUtil.Config?,

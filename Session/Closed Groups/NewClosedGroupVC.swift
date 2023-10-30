@@ -332,7 +332,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         ModalActivityIndicatorViewController.present(fromViewController: navigationController!) { [weak self] _ in
             MessageSender
 //                .createLegacyClosedGroup(name: name, members: selectedProfiles.map { $0.0 }.asSet())
-                .createGroup(name: name, description: nil, displayPicture: nil, members: selectedProfiles)
+                .createGroup(name: name, description: nil, displayPictureData: nil, members: selectedProfiles)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(

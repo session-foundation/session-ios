@@ -20,34 +20,42 @@ extension MessageSender {
     public static func createGroup(
         name: String,
         description: String?,
-        displayPicture: SignalAttachment?,
+        displayPictureData: Data?,
         members: [(String, Profile?)],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<SessionThread, Error> {
+        typealias ImageUploadResponse = (downloadUrl: String, fileName: String, encryptionKey: Data)
+        
         return Just(())
             .setFailureType(to: Error.self)
-            .flatMap { _ -> AnyPublisher<(url: String, filename: String, encryptionKey: Data)?, Error> in
-                guard let displayPicture: SignalAttachment = displayPicture else {
+            .flatMap { _ -> AnyPublisher<ImageUploadResponse?, Error> in
+                guard let displayPictureData: Data = displayPictureData else {
                     return Just(nil)
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
-                // TODO: Upload group image first
-                return Just(nil)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
+                
+                return Deferred {
+                    Future<ImageUploadResponse?, Error> { resolver in
+                        DisplayPictureManager.prepareAndUploadDisplayPicture(
+                            queue: DispatchQueue.global(qos: .userInitiated),
+                            imageData: displayPictureData,
+                            success: { resolver(Result.success($0)) },
+                            failure: { resolver(Result.failure($0)) },
+                            using: dependencies
+                        )
+                    }
+                }.eraseToAnyPublisher()
             }
             .flatMap { displayPictureInfo -> AnyPublisher<PreparedGroupData, Error> in
                 dependencies[singleton: .storage].writePublisher(using: dependencies) { db -> PreparedGroupData in
                     // Create and cache the libSession entries
-                    let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-                    let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser(db, using: dependencies)
                     let createdInfo: SessionUtil.CreatedGroupInfo = try SessionUtil.createGroup(
                         db,
                         name: name,
                         description: description,
-                        displayPictureUrl: displayPictureInfo?.url,
-                        displayPictureFilename: displayPictureInfo?.filename,
+                        displayPictureUrl: displayPictureInfo?.downloadUrl,
+                        displayPictureFilename: displayPictureInfo?.fileName,
                         displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
                         members: members,
                         using: dependencies
@@ -402,9 +410,14 @@ extension MessageSender {
             }
             
             /// Generate the data needed to send the new members invitations to the group
-            let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details)] = try members
+            let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details, subaccountToken: [UInt8])] = try members
                 .map { id, profile in
                     // Generate authData for the newly added member
+                    let subaccountToken: [UInt8] = try SessionUtil.generateSubaccountToken(
+                        groupSessionId: sessionId,
+                        memberId: id,
+                        using: dependencies
+                    )
                     let memberAuthInfo: Authentication.Info = try SessionUtil.generateAuthData(
                         groupSessionId: sessionId,
                         memberId: id,
@@ -415,7 +428,7 @@ extension MessageSender {
                         authInfo: memberAuthInfo
                     )
                     
-                    return (id, profile, inviteDetails)
+                    return (id, profile, inviteDetails, subaccountToken)
                 }
             
             /// Unrevoke the newly added members just in case they had previously gotten their access to the group
@@ -427,9 +440,9 @@ extension MessageSender {
                     try? SnodeAPI
                         .preparedBatch(
                             db,
-                            requests: try memberJobDataChunk.map { id, _, jobDetails in
+                            requests: try memberJobDataChunk.map { id, _, _, subaccountToken in
                                 try SnodeAPI.preparedUnrevokeSubaccount(
-                                    subaccountToUnrevoke: jobDetails.memberAuthData.toHexString(),
+                                    subaccountToUnrevoke: subaccountToken,
                                     authMethod: Authentication.groupAdmin(
                                         groupSessionId: sessionId,
                                         ed25519SecretKey: Array(groupIdentityPrivateKey)
@@ -447,7 +460,7 @@ extension MessageSender {
                 }
             
             /// Make the required changes for each added member
-            try memberJobData.forEach { id, profile, inviteJobDetails in
+            try memberJobData.forEach { id, profile, inviteJobDetails, _ in
                 /// Add the member to the database
                 try GroupMember(
                     groupId: sessionId.hexString,
@@ -518,6 +531,11 @@ extension MessageSender {
                     .fetchOne(db)
             else { throw MessageSenderError.invalidClosedGroupUpdate }
             
+            let subaccountToken: [UInt8] = try SessionUtil.generateSubaccountToken(
+                groupSessionId: sessionId,
+                memberId: memberId,
+                using: dependencies
+            )
             let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
                 memberSessionIdHexString: memberId,
                 authInfo: try SessionUtil.generateAuthData(
@@ -531,7 +549,7 @@ extension MessageSender {
             /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
             try SnodeAPI
                 .preparedUnrevokeSubaccount(
-                    subaccountToUnrevoke: inviteDetails.memberAuthData.toHexString(),
+                    subaccountToUnrevoke: subaccountToken,
                     authMethod: Authentication.groupAdmin(
                         groupSessionId: sessionId,
                         ed25519SecretKey: Array(groupIdentityPrivateKey)
@@ -658,16 +676,15 @@ extension MessageSender {
                         requests: memberIdsChunk.compactMap { id -> HTTP.PreparedRequest<Void>? in
                             // Generate authData for the removed member
                             guard
-                                let memberAuthInfo: Authentication.Info = try? SessionUtil.generateAuthData(
+                                let subaccountToken: [UInt8] = try? SessionUtil.generateSubaccountToken(
                                     groupSessionId: groupSessionId,
                                     memberId: id,
                                     using: dependencies
-                                ),
-                                case .groupMember(_, let memberAuthData) = memberAuthInfo
+                                )
                             else { return nil }
                             
                             return try? SnodeAPI.preparedRevokeSubaccount(
-                                subaccountToRevoke: memberAuthData.toHexString(),
+                                subaccountToRevoke: subaccountToken,
                                 authMethod: Authentication.groupAdmin(
                                     groupSessionId: groupSessionId,
                                     ed25519SecretKey: Array(groupIdentityPrivateKey)

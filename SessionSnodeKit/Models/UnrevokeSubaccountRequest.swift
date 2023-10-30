@@ -9,24 +9,29 @@ extension SnodeAPI {
             case subaccountToUnrevoke = "unrevoke"
         }
         
-        let subaccountToUnrevoke: String
+        let subaccountToUnrevoke: [UInt8]
         
         override var verificationBytes: [UInt8] {
-            /// Ed25519 signature of `("unrevoke_subaccount" || subaccount)`; this signs the subkey tag,
+            /// Ed25519 signature of `("unrevoke_subaccount" || timestamp || subaccount)`; this signs the subkey tag,
             /// using `pubkey` to sign. Must be base64 encoded for json requests; binary for OMQ requests.
             SnodeAPI.Endpoint.unrevokeSubaccount.path.bytes
-                .appending(contentsOf: subaccountToUnrevoke.bytes)
+                .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
+                .appending(contentsOf: subaccountToUnrevoke)
         }
         
         // MARK: - Init
         
         public init(
-            subaccountToUnrevoke: String,
-            authMethod: AuthenticationMethod
+            subaccountToUnrevoke: [UInt8],
+            authMethod: AuthenticationMethod,
+            timestampMs: UInt64
         ) {
             self.subaccountToUnrevoke = subaccountToUnrevoke
             
-            super.init(authMethod: authMethod)
+            super.init(
+                authMethod: authMethod,
+                timestampMs: timestampMs
+            )
         }
         
         // MARK: - Coding
@@ -34,7 +39,8 @@ extension SnodeAPI {
         override public func encode(to encoder: Encoder) throws {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             
-            try container.encode(subaccountToUnrevoke, forKey: .subaccountToUnrevoke)
+            /// The `subaccountToRevoke` should be sent as a hex string
+            try container.encode(subaccountToUnrevoke.toHexString(), forKey: .subaccountToUnrevoke)
             
             try super.encode(to: encoder)
         }

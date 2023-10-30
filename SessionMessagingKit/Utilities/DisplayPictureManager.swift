@@ -244,14 +244,14 @@ public struct DisplayPictureManager {
     public static func prepareAndUploadDisplayPicture(
         queue: DispatchQueue,
         imageData: Data,
-        success: @escaping ((downloadUrl: String, fileName: String, profileKey: Data)) -> (),
+        success: @escaping ((downloadUrl: String, fileName: String, encryptionKey: Data)) -> (),
         failure: ((DisplayPictureError) -> ())? = nil,
         using dependencies: Dependencies
     ) {
         queue.async {
             // If the profile avatar was updated or removed then encrypt with a new profile key
             // to ensure that other users know that our profile picture was updated
-            let newProfileKey: Data
+            let newEncryptionKey: Data
             let finalImageData: Data
             let fileExtension: String
             
@@ -306,7 +306,9 @@ public struct DisplayPictureManager {
                     return data
                 }()
                 
-                newProfileKey = try Randomness.generateRandomBytes(numberBytes: DisplayPictureManager.aes256KeyByteLength)
+                newEncryptionKey = try Randomness.generateRandomBytes(
+                    numberBytes: DisplayPictureManager.aes256KeyByteLength
+                )
                 fileExtension = {
                     switch guessedFormat {
                         case .gif: return "gif"     // stringlint:disable
@@ -338,7 +340,7 @@ public struct DisplayPictureManager {
             }
             
             // Encrypt the avatar for upload
-            guard let encryptedData: Data = DisplayPictureManager.encryptData(data: finalImageData, key: newProfileKey) else {
+            guard let encryptedData: Data = DisplayPictureManager.encryptData(data: finalImageData, key: newEncryptionKey) else {
                 SNLog("Updating service with profile failed.")
                 failure?(.encryptionFailed)
                 return
@@ -373,7 +375,7 @@ public struct DisplayPictureManager {
                         dependencies.mutate(cache: .displayPicture) { $0.imageData[fileName] = finalImageData }
                         
                         SNLog("Successfully uploaded avatar image.")
-                        success((downloadUrl, fileName, newProfileKey))
+                        success((downloadUrl, fileName, newEncryptionKey))
                     }
                 )
         }

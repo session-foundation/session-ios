@@ -77,6 +77,6 @@ public extension SQLInterpolation {
     ///     let request: SQLRequest<User> = "SELECT * FROM \(user) WHERE \(user[.id]) LIKE '\(SessionId.Prefix.standard)%'"
     @_disfavoredOverload
     mutating func appendInterpolation(_ idPrefix: SessionId.Prefix) {
-        appendLiteral("\(SQL(stringLiteral: "\(idPrefix.rawValue)"))")
+        appendLiteral(idPrefix.rawValue)
     }
 }

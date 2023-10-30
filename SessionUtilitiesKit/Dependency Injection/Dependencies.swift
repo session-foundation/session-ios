@@ -56,6 +56,7 @@ public class Dependencies {
         /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
         /// random instance that will go out of memory as soon as the mutation is completed
         getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
+        
         let cacheWrapper: Atomic<MutableCacheType> = (
             Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
             Atomic(cache.mutableInstance(cache.createInstance(self)))  // Should never be called

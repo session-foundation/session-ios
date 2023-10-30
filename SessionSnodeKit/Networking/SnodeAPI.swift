@@ -658,10 +658,12 @@ public final class SnodeAPI {
     }
     
     public static func preparedRevokeSubaccount(
-        subaccountToRevoke: String,
+        subaccountToRevoke: [UInt8],
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<Void> {
+        let timestampMs: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+        
         return try SnodeAPI
             .prepareRequest(
                 request: Request(
@@ -669,7 +671,8 @@ public final class SnodeAPI {
                     publicKey: authMethod.sessionId.hexString,
                     body: RevokeSubaccountRequest(
                         subaccountToRevoke: subaccountToRevoke,
-                        authMethod: authMethod
+                        authMethod: authMethod,
+                        timestampMs: timestampMs
                     )
                 ),
                 responseType: RevokeSubaccountResponse.self
@@ -677,7 +680,7 @@ public final class SnodeAPI {
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
                     publicKey: authMethod.sessionId.hexString,
-                    validationData: subaccountToRevoke,
+                    validationData: (subaccountToRevoke, timestampMs),
                     using: dependencies
                 )
                 
@@ -686,10 +689,12 @@ public final class SnodeAPI {
     }
     
     public static func preparedUnrevokeSubaccount(
-        subaccountToUnrevoke: String,
+        subaccountToUnrevoke: [UInt8],
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<Void> {
+        let timestampMs: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+        
         return try SnodeAPI
             .prepareRequest(
                 request: Request(
@@ -697,7 +702,8 @@ public final class SnodeAPI {
                     publicKey: authMethod.sessionId.hexString,
                     body: UnrevokeSubaccountRequest(
                         subaccountToUnrevoke: subaccountToUnrevoke,
-                        authMethod: authMethod
+                        authMethod: authMethod,
+                        timestampMs: timestampMs
                     )
                 ),
                 responseType: UnrevokeSubaccountResponse.self
@@ -705,7 +711,7 @@ public final class SnodeAPI {
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
                     publicKey: authMethod.sessionId.hexString,
-                    validationData: subaccountToUnrevoke,
+                    validationData: (subaccountToUnrevoke, timestampMs),
                     using: dependencies
                 )
                 
