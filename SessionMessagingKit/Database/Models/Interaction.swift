@@ -847,7 +847,7 @@ public extension Interaction {
     // MARK: - Variables
     
     var isExpiringMessage: Bool {
-        guard variant == .standardIncoming || variant == .standardOutgoing else { return false }
+        guard variant.shouldFollowDisappearingMessagesConfiguration else { return false }
         
         return (expiresInSeconds ?? 0 > 0)
     }

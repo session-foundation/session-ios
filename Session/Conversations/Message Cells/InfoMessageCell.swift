@@ -101,6 +101,15 @@ final class InfoMessageCell: MessageCell {
             iconImageView.themeTintColor = .textSecondary
         }
         
+        self.label.text = cellViewModel.body
+        self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textSecondary
+        
+        let shouldShowIcon: Bool = (icon != nil) || ((cellViewModel.expiresInSeconds ?? 0) > 0)
+        
+        iconContainerViewWidthConstraint.constant = shouldShowIcon ? InfoMessageCell.iconSize : 0
+        iconContainerViewHeightConstraint.constant = shouldShowIcon ? InfoMessageCell.iconSize : 0
+        
+        guard shouldShowIcon else { return }
         // Timer
         if
             let expiresStartedAtMs: Double = cellViewModel.expiresStartedAtMs,
@@ -120,14 +129,6 @@ final class InfoMessageCell: MessageCell {
             timerView.isHidden = true
             iconImageView.isHidden = false
         }
-        
-        let shouldShowIcon: Bool = (icon != nil) || ((cellViewModel.expiresInSeconds ?? 0) > 0)
-        
-        iconContainerViewWidthConstraint.constant = shouldShowIcon ? InfoMessageCell.iconSize : 0
-        iconContainerViewHeightConstraint.constant = shouldShowIcon ? InfoMessageCell.iconSize : 0
-        
-        self.label.text = cellViewModel.body
-        self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textSecondary
     }
     
     override func dynamicUpdate(with cellViewModel: MessageViewModel, playbackInfo: ConversationViewModel.PlaybackInfo?) {
