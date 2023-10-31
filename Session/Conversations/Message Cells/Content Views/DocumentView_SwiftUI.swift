@@ -16,13 +16,13 @@ struct DocumentView_SwiftUI: View {
     var body: some View {
         HStack(
             alignment: .center,
-            spacing: Values.mediumSpacing
+            spacing: 0
         ) {
             ZStack {
                 Rectangle()
                     .foregroundColor(themeColor: .messageBubble_overlay)
                     .frame(
-                        width: <#T##CGFloat?#>
+                        width: 24 + Values.mediumSpacing
                     )
                 
                 Image(systemName: "doc")
@@ -55,6 +55,7 @@ struct DocumentView_SwiftUI: View {
                 alignment: .leading
             ) {
                 Text(attachment.documentFileName)
+                    .lineLimit(1)
                     .font(.system(size: Values.mediumFontSize))
                     .foregroundColor(themeColor: textColor)
                 
@@ -62,6 +63,8 @@ struct DocumentView_SwiftUI: View {
                     .font(.system(size: Values.verySmallFontSize))
                     .foregroundColor(themeColor: textColor)
             }
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Values.mediumSpacing)
             
             Image(systemName: (attachment.isAudio ? "play.fill" : "arrow.down"))
                 .resizable()
@@ -72,7 +75,6 @@ struct DocumentView_SwiftUI: View {
                     width:24,
                     height: 24
                 )
-            
         }
     }
 }
@@ -89,8 +91,8 @@ struct DocumentView_SwiftUI_Previews: PreviewProvider {
                 textColor: .messageBubble_outgoingText
             )
             .frame(
-                width: 300,
-                height: 100
+                width: 200,
+                height: 58
             )
             
             DocumentView_SwiftUI(
@@ -102,8 +104,8 @@ struct DocumentView_SwiftUI_Previews: PreviewProvider {
                 textColor: .messageBubble_outgoingText
             )
             .frame(
-                width: 300,
-                height: 100
+                width: 200,
+                height: 58
             )
         }
     }
