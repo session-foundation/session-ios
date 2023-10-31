@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import DifferenceKit
+import SessionUIKit
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -389,88 +390,92 @@ public extension ClosedGroup {
         case memberLeft(name: String)
         case promotedUsers(names: [String])
         
-        var previewText: String {
+        var attributedPreviewText: NSAttributedString {
+            // FIXME: Including styling within SessionMessagingKit is bad so we should remove this as part of Strings
             switch self {
                 case .invited(let adminName, let groupName):
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_INVITED".localized(),
-                        adminName,
-                        groupName
+                        .font(adminName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
                 case .updatedName(let name):
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_NAME_UPDATED_TO".localized(),
-                        name
+                        .font(name, .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
-                case .updatedNameFallback: return "GROUP_MESSAGE_INFO_NAME_UPDATED".localized()
-                case .updatedDisplayPicture: return "GROUP_MESSAGE_INFO_PICTURE_UPDATED".localized()
+                case .updatedNameFallback:
+                    return NSAttributedString(string: "GROUP_MESSAGE_INFO_NAME_UPDATED".localized())
+                    
+                case .updatedDisplayPicture:
+                    return NSAttributedString(string: "GROUP_MESSAGE_INFO_PICTURE_UPDATED".localized())
                 
                 case .addedUsers(let names) where names.count > 2:
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED".localized(),
-                        names[0],
-                        "\(names.count - 1)"
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .plain("\(names.count - 1)")
                     )
                     
                 case .addedUsers(let names) where names.count == 2:
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED".localized(),
-                        names[0],
-                        names[1]
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
                 case .addedUsers(let names):
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MEMBER_ADDED".localized(),
-                        (names.first ?? "Anonymous")
+                        .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
                 case .removedUsers(let names) where names.count > 2:
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED".localized(),
-                        names[0],
-                        "\(names.count - 1)"
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .plain("\(names.count - 1)")
                     )
                     
                 case .removedUsers(let names) where names.count == 2:
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED".localized(),
-                        names[0],
-                        names[1]
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
                 case .removedUsers(let names):
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MEMBER_REMOVED".localized(),
-                        (names.first ?? "Anonymous")
+                        .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
                 case .memberLeft(let name):
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MEMBER_LEFT".localized(),
-                        name
+                        .font(name, .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
                 case .promotedUsers(let names) where names.count > 2:
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED".localized(),
-                        names[0],
-                        "\(names.count - 1)"
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .plain("\(names.count - 1)")
                     )
                     
                 case .promotedUsers(let names) where names.count == 2:
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED".localized(),
-                        names[0],
-                        names[1]
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
                 case .promotedUsers(let names):
-                    return String(
+                    return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MEMBER_PROMOTED".localized(),
-                        (names.first ?? "Anonymous")
+                        .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
             }
         }

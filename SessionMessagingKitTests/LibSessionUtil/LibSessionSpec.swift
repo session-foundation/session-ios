@@ -1821,7 +1821,7 @@ fileprivate extension LibSessionSpec {
                 
                 let pushData1: UnsafeMutablePointer<config_push_data> = config_push(conf)
                 expect(pushData1.pointee.seqno).to(equal(1))
-                expect(pushData1.pointee.config_len).to(equal(256))
+                expect(pushData1.pointee.config_len).to(equal(512))
                 expect(pushData1.pointee.obsolete_len).to(equal(0))
                 
                 let fakeHash1: String = "fakehash1"
@@ -1877,9 +1877,6 @@ fileprivate extension LibSessionSpec {
                 let fakeHash2: String = "fakehash2"
                 var cFakeHash2: [CChar] = fakeHash2.cArray.nullTerminated()
                 config_confirm_pushed(conf2, pushData2.pointee.seqno, &cFakeHash2)
-                
-                expect(groups_info_set_name(conf, "Better name!")).to(equal(0))
-                expect(groups_info_set_description(conf, "Test New Name Really long abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")).to(equal(0))
 
                 var mergeHashes2: [UnsafePointer<CChar>?] = [cFakeHash2].unsafeCopy()
                 var mergeData2: [UnsafePointer<UInt8>?] = [UnsafePointer(pushData2.pointee.config)]
@@ -1889,6 +1886,9 @@ fileprivate extension LibSessionSpec {
                     .to(equal(["fakehash2"]))
                 mergeHashes2.forEach { $0?.deallocate() }
                 mergedHashes2?.deallocate()
+                
+                expect(groups_info_set_name(conf, "Better name!")).to(equal(0))
+                expect(groups_info_set_description(conf, "Test New Name Really long abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")).to(equal(0))
                 
                 expect(config_needs_push(conf)).to(beTrue())
                 
@@ -1911,6 +1911,9 @@ fileprivate extension LibSessionSpec {
                 expect(groups_info_get_delete_before(conf)).to(equal(createTime + (50 * 86400)))
                 expect(groups_info_get_attach_delete_before(conf)).to(equal(createTime + (70 * 86400)))
                 expect(groups_info_is_destroyed(conf)).to(beTrue())
+                
+                expect(groups_info_set_name(conf, "Better name!")).to(equal(0))
+                expect(groups_info_set_description(conf, "Test New Name Really long abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")).to(equal(0))
                 
                 let fakeHash3: String = "fakehash3"
                 var cFakeHash3: [CChar] = fakeHash3.cArray.nullTerminated()
@@ -2135,7 +2138,7 @@ fileprivate extension LibSessionSpec {
                     }
 
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(289))
+                    expect(numRecords).to(equal(288))
                 }
             }
             
@@ -2728,6 +2731,8 @@ fileprivate extension LibSessionSpec {
                 
                 var membersConf: UnsafeMutablePointer<config_object>? = nil
                 expect(groups_members_init(&membersConf, &edPK, &edSK, nil, 0, &error)).to(equal(0))
+                
+                expect(groups_keys_size(conf)).to(equal(1))
             }
         }
     }

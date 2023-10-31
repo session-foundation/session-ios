@@ -67,6 +67,12 @@ class MessageSenderGroupsSpec: QuickSpec {
                 crypto
                     .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+                crypto
+                    .when { try $0.generate(.memberAuthData(config: any(), groupSessionId: any(), memberId: any())) }
+                    .thenReturn(Authentication.Info.groupMember(
+                        groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                        authData: "TestAuthData".data(using: .utf8)!
+                    ))
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(

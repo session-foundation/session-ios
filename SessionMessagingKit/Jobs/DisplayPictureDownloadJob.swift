@@ -192,7 +192,18 @@ extension DisplayPictureDownloadJob {
         public init?(target: Target, timestamp: TimeInterval) {
             guard target.isValid else { return nil }
             
-            self.target = target
+            self.target = {
+                switch target {
+                    case .community(let imageId, let roomToken, let server):
+                        return .community(
+                            imageId: imageId,
+                            roomToken: roomToken,
+                            server: server.lowercased()   // Always in lowercase on `OpenGroup`
+                        )
+                        
+                    default: return target
+                }
+            }()
             self.timestamp = timestamp
         }
         

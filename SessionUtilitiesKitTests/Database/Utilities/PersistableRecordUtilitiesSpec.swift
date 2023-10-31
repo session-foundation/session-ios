@@ -177,7 +177,6 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                             try MutableTestType(columnA: "Test12", columnB: "Test12B").migrationSafeUpsert(db)
                             return try MutableTestType
                                 .filter(MutableTestType.Columns.columnA == "Test12")
-                                .filter(MutableTestType.Columns.columnB == "Test12B")
                                 .fetchOne(db)?
                                 .id
                         }
@@ -226,7 +225,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO TestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test16"])
                             )
-                            try TestType(columnA: "Test16", columnB: "Test16B").upsert(db)
+                            try TestType(columnA: "Test16", columnB: "Test16B").save(db)
                         }
                         .toNot(throwError())
                     }
@@ -242,7 +241,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 sql: "INSERT INTO MutableTestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test17"])
                             )
-                            _ = try MutableTestType(id: 1, columnA: "Test17", columnB: "Test17B").upserted(db)
+                            _ = try MutableTestType(id: 1, columnA: "Test17", columnB: "Test17B").saved(db)
                         }
                         .toNot(throwError())
                         
@@ -252,7 +251,7 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                                 arguments: StatementArguments(["Test18"])
                             )
                             return try MutableTestType(id: 2, columnA: "Test18", columnB: "Test18B")
-                                .upserted(db)
+                                .saved(db)
                                 .id
                         }
                         .toNot(beNil())
@@ -497,15 +496,15 @@ class PersistableRecordUtilitiesSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- succeeds when using the migration safe insert and the item already exists
-                it("succeeds when using the migration safe insert and the item already exists") {
+                // MARK: ---- succeeds when using the migration safe upsert and the item already exists
+                it("succeeds when using the migration safe upsert and the item already exists") {
                     mockStorage.write { db in
                         expect {
                             try db.execute(
                                 sql: "INSERT INTO TestType (columnA) VALUES (?)",
                                 arguments: StatementArguments(["Test17"])
                             )
-                            try TestType(columnA: "Test17", columnB: "Test17B").migrationSafeInsert(db)
+                            try TestType(columnA: "Test17", columnB: "Test17B").migrationSafeUpsert(db)
                         }
                         .toNot(throwError())
                     }

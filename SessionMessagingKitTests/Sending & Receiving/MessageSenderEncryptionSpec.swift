@@ -44,8 +44,8 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .when { try $0.perform(.seal(message: anyArray(), recipientPublicKey: anyArray())) }
                         .thenReturn([1, 2, 3])
                     mockCrypto
-                        .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
-                        .thenReturn([])
+                        .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                        .thenReturn(Authentication.Signature.standard(signature: []))
                 }
                 
                 // MARK: ---- can encrypt correctly
@@ -101,7 +101,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if the signature generation fails
                 it("throws an error if the signature generation fails") {
                     mockCrypto
-                        .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
+                        .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
                         .thenReturn(nil)
                     
                     mockStorage.read { db in

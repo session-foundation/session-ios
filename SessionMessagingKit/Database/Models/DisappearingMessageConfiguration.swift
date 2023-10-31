@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionUIKit
 import SessionUtil
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -129,48 +130,73 @@ public extension DisappearingMessagesConfiguration {
         public let type: DisappearingMessageType?
         public let isPreviousOff: Bool?
         
-        var previewText: String {
-            guard Features.useNewDisappearingMessagesConfig else { return legacyPreviewText }
+        var attributedPreviewText: NSAttributedString {
+            guard Features.useNewDisappearingMessagesConfig else { return NSAttributedString(string: legacyPreviewText) }
             
             guard let senderName: String = senderName else {
                 // Changed by this device or via synced transcript
                 guard isEnabled, durationSeconds > 0 else {
-                    return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized()
+                    return NSAttributedString(string: "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized())
                 }
                 
                 guard isPreviousOff == true else {
-                    return String(
-                        format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE".localized(),
-                        floor(durationSeconds).formatted(format: .long),
-                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                    return NSAttributedString(
+                        string: String(
+                            format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE".localized(),
+                            floor(durationSeconds).formatted(format: .long),
+                            (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                        )
                     )
                 }
                 
-                return String(
-                    format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                return NSAttributedString(
+                    string: String(
+                        format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
+                        floor(durationSeconds).formatted(format: .long),
+                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                    )
                 )
             }
             
             guard isEnabled, durationSeconds > 0 else {
-                return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(), senderName)
-            }
-            
-            guard isPreviousOff == true else {
-                return String(
-                    format: "DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
-                    senderName,
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                return NSAttributedString(
+                    format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(),
+                    .font(senderName, .boldSystemFont(ofSize: Values.verySmallFontSize))
                 )
             }
             
-            return String(
+            guard isPreviousOff == true else {
+                return NSAttributedString(
+                    format: "DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
+                    .font(senderName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                    .font(
+                        floor(durationSeconds).formatted(format: .long),
+                        .boldSystemFont(ofSize: Values.verySmallFontSize)
+                    ),
+                    .font(
+                        (type == .disappearAfterRead ?
+                            "DISAPPEARING_MESSAGE_STATE_READ".localized() :
+                            "DISAPPEARING_MESSAGE_STATE_SENT".localized()
+                        ),
+                        .boldSystemFont(ofSize: Values.verySmallFontSize)
+                    )
+                )
+            }
+            
+            return NSAttributedString(
                 format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
-                senderName,
-                floor(durationSeconds).formatted(format: .long),
-                (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                .font(senderName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                .font(
+                    floor(durationSeconds).formatted(format: .long),
+                    .boldSystemFont(ofSize: Values.verySmallFontSize)
+                ),
+                .font(
+                    (type == .disappearAfterRead ?
+                        "DISAPPEARING_MESSAGE_STATE_READ".localized() :
+                        "DISAPPEARING_MESSAGE_STATE_SENT".localized()
+                    ),
+                    .boldSystemFont(ofSize: Values.verySmallFontSize)
+                )
             )
         }
         

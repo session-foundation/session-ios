@@ -90,7 +90,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: true
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
@@ -109,7 +109,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { false }
+                                    isSelected: false
                                 ),
                                 isEnabled: Features.useNewDisappearingMessagesConfig,
                                 accessibility: Accessibility(
@@ -163,7 +163,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { false }
+                                    isSelected: false
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
@@ -182,7 +182,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: true
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
@@ -203,7 +203,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: true
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Time option",
@@ -274,7 +274,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: true
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
@@ -295,7 +295,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
-                                    isSelected: { true }
+                                    isSelected: true
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Time option",

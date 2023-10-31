@@ -28,12 +28,40 @@ public class Mock<T> {
     
     // MARK: - MockFunctionHandler
     
-    @discardableResult internal func accept(funcName: String = #function, args: [Any?] = []) -> Any? {
-        return accept(funcName: funcName, checkArgs: args, actionArgs: args)
+    @discardableResult internal func mock<Output>(funcName: String = #function, args: [Any?] = []) -> Output {
+        return mock(funcName: funcName, checkArgs: args, actionArgs: args)
     }
     
-    @discardableResult internal func accept(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?]) -> Any? {
-        return functionHandler.accept(
+    @discardableResult internal func mock<Output>(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?]) -> Output {
+        return functionHandler.mock(
+            funcName,
+            parameterCount: checkArgs.count,
+            parameterSummary: summary(for: checkArgs),
+            allParameterSummaryCombinations: summaries(for: checkArgs),
+            actionArgs: actionArgs
+        )
+    }
+    
+    internal func mockNoReturn(funcName: String = #function, args: [Any?] = []) {
+        mockNoReturn(funcName: funcName, checkArgs: args, actionArgs: args)
+    }
+    
+    internal func mockNoReturn(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?]) {
+        functionHandler.mockNoReturn(
+            funcName,
+            parameterCount: checkArgs.count,
+            parameterSummary: summary(for: checkArgs),
+            allParameterSummaryCombinations: summaries(for: checkArgs),
+            actionArgs: actionArgs
+        )
+    }
+    
+    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, args: [Any?] = []) throws -> Output {
+        return try mockThrowing(funcName: funcName, checkArgs: args, actionArgs: args)
+    }
+    
+    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?]) throws -> Output {
+        return try functionHandler.mockThrowing(
             funcName,
             parameterCount: checkArgs.count,
             parameterSummary: summary(for: checkArgs),
@@ -93,13 +121,29 @@ public class Mock<T> {
 // MARK: - MockFunctionHandler
 
 protocol MockFunctionHandler {
-    func accept(
+    func mock<Output>(
         _ functionName: String,
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
         actionArgs: [Any?]
-    ) -> Any?
+    ) -> Output
+    
+    func mockNoReturn(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        actionArgs: [Any?]
+    )
+    
+    func mockThrowing<Output>(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        actionArgs: [Any?]
+    ) throws -> Output
 }
 
 // MARK: - CallDetails
@@ -124,6 +168,7 @@ internal class MockFunction {
     var parameterSummary: String
     var allParameterSummaryCombinations: [ParameterCombination]
     var actions: [([Any?]) -> Void]
+    var returnError: (any Error)?
     var returnValue: Any?
     
     init(
@@ -132,6 +177,7 @@ internal class MockFunction {
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
         actions: [([Any?]) -> Void],
+        returnError: (any Error)?,
         returnValue: Any?
     ) {
         self.name = name
@@ -139,6 +185,7 @@ internal class MockFunction {
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
         self.actions = actions
+        self.returnError = returnError
         self.returnValue = returnValue
     }
 }
@@ -155,6 +202,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     private var actions: [([Any?]) -> Void] = []
     private var returnValue: R?
     internal var returnValueGenerator: ((String, Int, String, [ParameterCombination]) -> R?)?
+    private var returnError: Error?
     
     // MARK: - Initialization
     
@@ -174,24 +222,68 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         returnValue = value
     }
     
+    func thenThrow(_ error: Error) {
+        returnError = error
+    }
+    
     // MARK: - MockFunctionHandler
     
-    func accept(
+    func mock<Output>(
         _ functionName: String,
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
         actionArgs: [Any?]
-    ) -> Any? {
+    ) -> Output {
         self.functionName = functionName
         self.parameterCount = parameterCount
         self.parameterSummary = parameterSummary
         self.allParameterSummaryCombinations = allParameterSummaryCombinations
         
-        return (
+        let result: Any? = (
             returnValue ??
             returnValueGenerator?(functionName, parameterCount, parameterSummary, allParameterSummaryCombinations)
         )
+        
+        return (result as! Output)
+    }
+    
+    func mockNoReturn(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        actionArgs: [Any?]
+    ) {
+        self.functionName = functionName
+        self.parameterCount = parameterCount
+        self.parameterSummary = parameterSummary
+        self.allParameterSummaryCombinations = allParameterSummaryCombinations
+    }
+    
+    func mockThrowing<Output>(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        actionArgs: [Any?]
+    ) throws -> Output {
+        self.functionName = functionName
+        self.parameterCount = parameterCount
+        self.parameterSummary = parameterSummary
+        self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        
+        if let returnError: Error = returnError { throw returnError }
+        
+        let anyResult: Any? = (
+            returnValue ??
+            returnValueGenerator?(functionName, parameterCount, parameterSummary, allParameterSummaryCombinations)
+        )
+        
+        switch anyResult {
+            case let value as Output: return value
+            default: throw MockError.mockedData
+        }
     }
     
     // MARK: - Build
@@ -213,6 +305,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
             actions: actions,
+            returnError: returnError,
             returnValue: returnValue
         )
     }
@@ -231,13 +324,13 @@ internal class FunctionConsumer: MockFunctionHandler {
     var functionHandlers: [Key: [String: MockFunction]] = [:]
     var calls: Atomic<[Key: [CallDetails]]> = Atomic([:])
     
-    func accept(
+    private func getExpectation(
         _ functionName: String,
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
         actionArgs: [Any?]
-    ) -> Any? {
+    ) -> MockFunction {
         let key: Key = Key(name: functionName, paramCount: parameterCount)
         
         if !functionBuilders.isEmpty {
@@ -282,8 +375,64 @@ internal class FunctionConsumer: MockFunctionHandler {
         for action in expectation.actions {
             action(actionArgs)
         }
+        
+        return expectation
+    }
+    
+    func mock<Output>(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        actionArgs: [Any?]
+    ) -> Output {
+        let expectation: MockFunction = getExpectation(
+            functionName,
+            parameterCount: parameterCount,
+            parameterSummary: parameterSummary,
+            allParameterSummaryCombinations: allParameterSummaryCombinations,
+            actionArgs: actionArgs
+        )
+// TODO: If 'Output' is optional and there is no 'returnValue' then just return 'nil'
+        return (expectation.returnValue as! Output)
+    }
+    
+    func mockNoReturn(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        actionArgs: [Any?]
+    ) {
+        _ = getExpectation(
+            functionName,
+            parameterCount: parameterCount,
+            parameterSummary: parameterSummary,
+            allParameterSummaryCombinations: allParameterSummaryCombinations,
+            actionArgs: actionArgs
+        )
+    }
+    
+    func mockThrowing<Output>(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        actionArgs: [Any?]
+    ) throws -> Output {
+        let expectation: MockFunction = getExpectation(
+            functionName,
+            parameterCount: parameterCount,
+            parameterSummary: parameterSummary,
+            allParameterSummaryCombinations: allParameterSummaryCombinations,
+            actionArgs: actionArgs
+        )
 
-        return expectation.returnValue
+        switch (expectation.returnError, expectation.returnValue) {
+            case (.some(let error), _): throw error
+            case (_, .some(let value as Output)): return value
+            default: throw MockError.mockedData
+        }
     }
     
     func firstFunction(

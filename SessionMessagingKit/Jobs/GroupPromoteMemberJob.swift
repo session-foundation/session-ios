@@ -179,43 +179,55 @@ public enum GroupPromoteMemberJob: JobExecutor {
                             }
                             .defaulting(to: ("GROUP_TITLE_FALLBACK".localized(), [:]))
                         
-                        let message: String = {
+                        let message: NSAttributedString = {
                             switch failedIds.count {
                                 case 1:
-                                    return String(
+                                    return NSAttributedString(
                                         format: "GROUP_ACTION_PROMOTE_FAILED_ONE".localized(),
-                                        (
-                                            data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
-                                            Profile.truncated(id: failedIds[0], truncating: .middle)
+                                        .font(
+                                            (
+                                                data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
+                                                Profile.truncated(id: failedIds[0], truncating: .middle)
+                                            ),
+                                            ToastController.boldFont
                                         ),
-                                        data.groupName
+                                        .font(data.groupName, ToastController.boldFont)
                                     )
                                     
                                 case 2:
-                                    return String(
+                                    return NSAttributedString(
                                         format: "GROUP_ACTION_PROMOTE_FAILED_TWO".localized(),
-                                        (
-                                            data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
-                                            Profile.truncated(id: failedIds[0], truncating: .middle)
+                                        .font(
+                                            (
+                                                data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
+                                                Profile.truncated(id: failedIds[0], truncating: .middle)
+                                            ),
+                                            ToastController.boldFont
                                         ),
-                                        (
-                                            data.profileInfo[failedIds[1]]?.displayName(for: .group) ??
-                                            Profile.truncated(id: failedIds[1], truncating: .middle)
+                                        .font(
+                                            (
+                                                data.profileInfo[failedIds[1]]?.displayName(for: .group) ??
+                                                Profile.truncated(id: failedIds[1], truncating: .middle)
+                                            ),
+                                            ToastController.boldFont
                                         ),
-                                        data.groupName
+                                        .font(data.groupName, ToastController.boldFont)
                                     )
                                     
                                 default:
                                     let targetProfile: Profile? = data.profileInfo.values.first
                                     
-                                    return String(
+                                    return NSAttributedString(
                                         format: "GROUP_ACTION_PROMOTE_FAILED_MULTIPLE".localized(),
-                                        (
-                                            targetProfile?.displayName(for: .group) ??
-                                            Profile.truncated(id: failedIds[0], truncating: .middle)
+                                        .font(
+                                            (
+                                                targetProfile?.displayName(for: .group) ??
+                                                Profile.truncated(id: failedIds[0], truncating: .middle)
+                                            ),
+                                            ToastController.boldFont
                                         ),
-                                        "\(failedIds.count - 1)",
-                                        data.groupName
+                                        .plain("\(failedIds.count - 1)"),
+                                        .font(data.groupName, ToastController.boldFont)
                                     )
                             }
                         }()

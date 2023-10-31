@@ -12,7 +12,7 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
     func send<T>(_ request: Network.RequestType<T>) -> AnyPublisher<(ResponseInfoType, T), Error> {
         requestData = request.data
         
-        return accept(funcName: "send<\(T.self)>(\(request.id))", args: request.args) as! AnyPublisher<(ResponseInfoType, T), Error>
+        return mock(funcName: "send<\(T.self)>(\(request.id))", args: request.args)
     }
     
     static func response<T: Encodable>(info: MockResponseInfo = .mockValue, with value: T) -> AnyPublisher<(ResponseInfoType, Data?), Error> {

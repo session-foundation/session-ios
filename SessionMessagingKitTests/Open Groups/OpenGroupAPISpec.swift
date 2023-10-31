@@ -80,8 +80,8 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     .thenReturn("TestSogsSignature".bytes)
                 crypto
-                    .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
-                    .thenReturn("TestSignature".bytes)
+                    .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
                 crypto
                     .when { try $0.perform(.signEd25519(data: anyArray(), keyPair: any())) }
                     .thenReturn("TestStandardSignature".bytes)
@@ -1798,8 +1798,8 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ fails when the signature is not generated
                     it("fails when the signature is not generated") {
                         mockCrypto
-                            .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
-                            .thenReturn(nil)
+                            .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                            .thenThrow(CryptoError.failedToGenerateOutput)
                         
                         var preparationError: Error?
                         let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in

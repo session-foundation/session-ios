@@ -1017,8 +1017,28 @@ public extension Interaction {
         attachmentCount: Int? = nil,
         isOpenGroupInvitation: Bool = false
     ) -> String {
+        return attributedPreviewText(
+            variant: variant,
+            body: body,
+            threadContactDisplayName: threadContactDisplayName,
+            authorDisplayName: authorDisplayName,
+            attachmentDescriptionInfo: attachmentDescriptionInfo,
+            attachmentCount: attachmentCount,
+            isOpenGroupInvitation: isOpenGroupInvitation
+        ).string
+    }
+    
+    static func attributedPreviewText(
+        variant: Variant,
+        body: String?,
+        threadContactDisplayName: String = "",
+        authorDisplayName: String = "",
+        attachmentDescriptionInfo: Attachment.DescriptionInfo? = nil,
+        attachmentCount: Int? = nil,
+        isOpenGroupInvitation: Bool = false
+    ) -> NSAttributedString {
         switch variant {
-            case .standardIncomingDeleted: return ""
+            case .standardIncomingDeleted: return NSAttributedString(string: "")
                 
             case .standardIncoming, .standardOutgoing:
                 let attachmentDescription: String? = Attachment.description(
@@ -1033,40 +1053,51 @@ public extension Interaction {
                     !body.isEmpty
                 {
                     if CurrentAppContext().isRTL {
-                        return "\(body): \(attachmentDescription)"
+                        return NSAttributedString(string: "\(body): \(attachmentDescription)")
                     }
                     
-                    return "\(attachmentDescription): \(body)"
+                    return NSAttributedString(string: "\(attachmentDescription): \(body)")
                 }
                 
                 if let body: String = body, !body.isEmpty {
-                    return body
+                    return NSAttributedString(string: body)
                 }
                 
                 if let attachmentDescription: String = attachmentDescription, !attachmentDescription.isEmpty {
-                    return attachmentDescription
+                    return NSAttributedString(string: attachmentDescription)
                 }
                 
                 if isOpenGroupInvitation {
-                    return "😎 Open group invitation"
+                    return NSAttributedString(string: "😎 Open group invitation")
                 }
                 
                 // TODO: We should do better here
-                return ""
+                return NSAttributedString(string: "")
                 
             case .infoMediaSavedNotification:
                 // TODO: Use referencedAttachmentTimestamp to tell the user * which * media was saved
-                return String(format: "media_saved".localized(), authorDisplayName)
+                return NSAttributedString(string: String(format: "media_saved".localized(), authorDisplayName))
                 
             case .infoScreenshotNotification:
-                return String(format: "screenshot_taken".localized(), authorDisplayName)
+                return NSAttributedString(string: String(format: "screenshot_taken".localized(), authorDisplayName))
                 
-            case .infoLegacyGroupCreated: return "GROUP_CREATED".localized()
-            case .infoLegacyGroupCurrentUserLeft: return "GROUP_YOU_LEFT".localized()
-            case .infoGroupCurrentUserLeaving: return "group_you_leaving".localized()
-            case .infoGroupCurrentUserErrorLeaving: return "group_unable_to_leave".localized()
-            case .infoLegacyGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
-            case .infoMessageRequestAccepted: return (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized())
+            case .infoLegacyGroupCreated:
+                return NSAttributedString(string: "GROUP_CREATED".localized())
+                
+            case .infoLegacyGroupCurrentUserLeft:
+                return NSAttributedString(string: "GROUP_YOU_LEFT".localized())
+                
+            case .infoGroupCurrentUserLeaving:
+                return NSAttributedString(string: "group_you_leaving".localized())
+                
+            case .infoGroupCurrentUserErrorLeaving:
+                return NSAttributedString(string: "group_unable_to_leave".localized())
+                
+            case .infoLegacyGroupUpdated:
+                return NSAttributedString(string: (body ?? "GROUP_UPDATED".localized()))
+                
+            case .infoMessageRequestAccepted:
+                return NSAttributedString(string: (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized()))
                 
             case .infoGroupInfoInvited, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                 guard
@@ -1075,9 +1106,9 @@ public extension Interaction {
                         ClosedGroup.MessageInfo.self,
                         from: infoMessageData
                     )
-                else { return (body ?? "") }
+                else { return NSAttributedString(string: (body ?? "")) }
                 
-                return messageInfo.previewText
+                return messageInfo.attributedPreviewText
             
             case .infoDisappearingMessagesUpdate:
                 guard
@@ -1086,9 +1117,9 @@ public extension Interaction {
                         DisappearingMessagesConfiguration.MessageInfo.self,
                         from: infoMessageData
                     )
-                else { return (body ?? "") }
+                else { return NSAttributedString(string: (body ?? "")) }
                 
-                return messageInfo.previewText
+                return messageInfo.attributedPreviewText
                 
             case .infoCall:
                 guard
@@ -1097,9 +1128,11 @@ public extension Interaction {
                         CallMessage.MessageInfo.self,
                         from: infoMessageData
                     )
-                else { return (body ?? "") }
+                else { return NSAttributedString(string: (body ?? "")) }
                 
-                return messageInfo.previewText(threadContactDisplayName: threadContactDisplayName)
+                return NSAttributedString(
+                    string: messageInfo.previewText(threadContactDisplayName: threadContactDisplayName)
+                )
         }
     }
     

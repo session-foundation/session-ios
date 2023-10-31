@@ -116,6 +116,13 @@ class OpenGroupManagerSpec: QuickSpec {
                 try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
             }
         )
+        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
+            initialSetup: { jobRunner in
+                jobRunner
+                    .when { $0.add(any(), job: any(), dependantJob: any(), canStartJob: any(), using: any()) }
+                    .thenReturn(nil)
+            }
+        )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
@@ -1201,10 +1208,8 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(didCallComplete).to(beTrue())
                 }
                 
-                // MARK: ---- calls the room image completion block when waiting but there is no image
-                it("calls the room image completion block when waiting but there is no image") {
-                    var didCallComplete: Bool = false
-                    
+                // MARK: ---- does not schedule the displayPictureDownload job if there is no image
+                it("does not schedule the displayPictureDownload job if there is no image") {
                     mockStorage.write { db in
                         try OpenGroupManager.handlePollInfo(
                             db,
@@ -1212,18 +1217,35 @@ class OpenGroupManagerSpec: QuickSpec {
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
                             on: "testServer",
-                            waitForImageToComplete: true,
                             using: dependencies
-                        ) { didCallComplete = true }
+                        )
                     }
                     
-                    expect(didCallComplete).to(beTrue())
+                    expect(mockJobRunner)
+                        .toNot(call(matchingParameters: .all) {
+                            $0.add(
+                                any(),
+                                job: Job(
+                                    variant: .displayPictureDownload,
+                                    shouldBeUnique: true,
+                                    details: DisplayPictureDownloadJob.Details(
+                                        target: .community(
+                                            imageId: "12",
+                                            roomToken: "testRoom",
+                                            server: "testServer"
+                                        ),
+                                        timestamp: 1234567890
+                                    )
+                                ),
+                                dependantJob: nil,
+                                canStartJob: true,
+                                using: dependencies
+                            )
+                        })
                 }
                 
-                // MARK: ---- calls the room image completion block when waiting and there is an image
-                it("calls the room image completion block when waiting and there is an image") {
-                    var didCallComplete: Bool = false
-                    
+                // MARK: ---- schedules the displayPictureDownload job if there is an image
+                it("schedules the displayPictureDownload job if there is an image") {
                     mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
                         try OpenGroup(
@@ -1233,16 +1255,10 @@ class OpenGroupManagerSpec: QuickSpec {
                             isActive: true,
                             name: "Test",
                             imageId: "12",
-                            imageData: nil,
                             userCount: 0,
                             infoUpdates: 10
                         ).insert(db)
                     }
-                    
-                    mockOGMCache.when { $0.groupImagePublishers }
-                        .thenReturn([
-                            OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Just(Data()).setFailureType(to: Error.self).eraseToAnyPublisher()
-                        ])
                     
                     mockStorage.write { db in
                         try OpenGroupManager.handlePollInfo(
@@ -1251,12 +1267,31 @@ class OpenGroupManagerSpec: QuickSpec {
                             publicKey: TestConstants.publicKey,
                             for: "testRoom",
                             on: "testServer",
-                            waitForImageToComplete: true,
                             using: dependencies
-                        ) { didCallComplete = true }
+                        )
                     }
                     
-                    expect(didCallComplete).to(beTrue())
+                    expect(mockJobRunner)
+                        .to(call(matchingParameters: .all) {
+                            $0.add(
+                                any(),
+                                job: Job(
+                                    variant: .displayPictureDownload,
+                                    shouldBeUnique: true,
+                                    details: DisplayPictureDownloadJob.Details(
+                                        target: .community(
+                                            imageId: "12",
+                                            roomToken: "testRoom",
+                                            server: "testServer"
+                                        ),
+                                        timestamp: 1234567890
+                                    )
+                                ),
+                                dependantJob: nil,
+                                canStartJob: true,
+                                using: dependencies
+                            )
+                        })
                 }
                 
                 // MARK: ---- and updating the moderator list
@@ -1586,275 +1621,6 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(mockOGMCache).to(call(.exactly(times: 1)) { $0.pollers })
-                    }
-                }
-                
-                // MARK: ---- when trying to get the room image
-                context("when trying to get the room image") {
-                    beforeEach {
-                        let image: UIImage = UIImage(color: .red, size: CGSize(width: 1, height: 1))
-                        let imageData: Data = image.pngData()!
-                        
-                        mockStorage.write { db in
-                            try OpenGroup
-                                .updateAll(db, OpenGroup.Columns.imageData.set(to: nil))
-                        }
-                        
-                        mockOGMCache.when { $0.groupImagePublishers }
-                            .thenReturn([
-                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Just(imageData).setFailureType(to: Error.self).eraseToAnyPublisher()
-                            ])
-                    }
-                    
-                    // MARK: ------ uses the provided room image id if available
-                    it("uses the provided room image id if available") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
-                            token: "testRoom",
-                            activeUsers: 10,
-                            details: OpenGroupAPI.Room.mockValue.with(
-                                token: "test",
-                                name: "test",
-                                imageId: "10"
-                            )
-                        )
-                        
-                        mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
-                                db,
-                                pollInfo: testPollInfo,
-                                publicKey: TestConstants.publicKey,
-                                for: "testRoom",
-                                on: "testServer",
-                                waitForImageToComplete: true,
-                                using: dependencies
-                            )
-                        }
-                        
-                        expect(
-                            mockStorage.read { db -> String? in
-                                try OpenGroup
-                                    .select(.imageId)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            }
-                        ).to(equal("10"))
-                        expect(
-                            mockStorage.read { db -> Data? in
-                                try OpenGroup
-                                    .select(.imageData)
-                                    .asRequest(of: Data.self)
-                                    .fetchOne(db)
-                            }
-                        ).toNot(beNil())
-                    }
-                    
-                    // MARK: ------ uses the existing room image id if none is provided
-                    it("uses the existing room image id if none is provided") {
-                        mockStorage.write { db in
-                            try OpenGroup.deleteAll(db)
-                            try OpenGroup(
-                                server: "testServer",
-                                roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey,
-                                isActive: true,
-                                name: "Test",
-                                imageId: "12",
-                                imageData: Data([1, 2, 3]),
-                                userCount: 0,
-                                infoUpdates: 10
-                            ).insert(db)
-                        }
-                        
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
-                            token: "testRoom",
-                            activeUsers: 10,
-                            details: nil
-                        )
-                        
-                        mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
-                                db,
-                                pollInfo: testPollInfo,
-                                publicKey: TestConstants.publicKey,
-                                for: "testRoom",
-                                on: "testServer",
-                                waitForImageToComplete: true,
-                                using: dependencies
-                            )
-                        }
-                        
-                        expect(
-                            mockStorage.read { db -> String? in
-                                try OpenGroup
-                                    .select(.imageId)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            }
-                        ).to(equal("12"))
-                        expect(
-                            mockStorage.read { db -> Data? in
-                                try OpenGroup
-                                    .select(.imageData)
-                                    .asRequest(of: Data.self)
-                                    .fetchOne(db)
-                            }
-                        ).toNot(beNil())
-                    }
-                    
-                    // MARK: ------ uses the new room image id if there is an existing one
-                    it("uses the new room image id if there is an existing one") {
-                        mockStorage.write { db in
-                            try OpenGroup.deleteAll(db)
-                            try OpenGroup(
-                                server: "testServer",
-                                roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey,
-                                isActive: true,
-                                name: "Test",
-                                imageId: "12",
-                                imageData: UIImage(color: .blue, size: CGSize(width: 1, height: 1)).pngData(),
-                                userCount: 0,
-                                infoUpdates: 10
-                            ).insert(db)
-                        }
-                        
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
-                            token: "testRoom",
-                            activeUsers: 10,
-                            details: OpenGroupAPI.Room.mockValue.with(
-                                token: "test",
-                                name: "test",
-                                infoUpdates: 10,
-                                imageId: "10"
-                            )
-                        )
-                        
-                        mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
-                                db,
-                                pollInfo: testPollInfo,
-                                publicKey: TestConstants.publicKey,
-                                for: "testRoom",
-                                on: "testServer",
-                                waitForImageToComplete: true,
-                                using: dependencies
-                            )
-                        }
-                        
-                        expect(
-                            mockStorage.read { db -> String? in
-                                try OpenGroup
-                                    .select(.imageId)
-                                    .asRequest(of: String.self)
-                                    .fetchOne(db)
-                            }
-                        ).to(equal("10"))
-                        expect(
-                            mockStorage.read { db -> Data? in
-                                try OpenGroup
-                                    .select(.imageData)
-                                    .asRequest(of: Data.self)
-                                    .fetchOne(db)
-                            }
-                        ).toNot(beNil())
-                        expect(mockOGMCache).to(call(.exactly(times: 1)) { $0.groupImagePublishers })
-                    }
-                    
-                    // MARK: ------ does nothing if there is no room image
-                    it("does nothing if there is no room image") {
-                        mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
-                                db,
-                                pollInfo: testPollInfo,
-                                publicKey: TestConstants.publicKey,
-                                for: "testRoom",
-                                on: "testServer",
-                                waitForImageToComplete: true,
-                                using: dependencies
-                            )
-                        }
-                        
-                        expect(
-                            mockStorage.read { db -> Data? in
-                                try OpenGroup
-                                    .select(.imageData)
-                                    .asRequest(of: Data.self)
-                                    .fetchOne(db)
-                            }
-                        ).to(beNil())
-                    }
-                    
-                    // MARK: ------ does nothing if it fails to retrieve the room image
-                    it("does nothing if it fails to retrieve the room image") {
-                        mockOGMCache.when { $0.groupImagePublishers }
-                            .thenReturn([
-                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Fail(error: HTTPError.generic).eraseToAnyPublisher()
-                            ])
-                        
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
-                            token: "testRoom",
-                            activeUsers: 10,
-                            details: OpenGroupAPI.Room.mockValue.with(
-                                token: "test",
-                                name: "test",
-                                imageId: "10"
-                            )
-                        )
-                        
-                        mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
-                                db,
-                                pollInfo: testPollInfo,
-                                publicKey: TestConstants.publicKey,
-                                for: "testRoom",
-                                on: "testServer",
-                                waitForImageToComplete: true,
-                                using: dependencies
-                            )
-                        }
-                        
-                        expect(
-                            mockStorage.read { db -> Data? in
-                                try OpenGroup
-                                    .select(.imageData)
-                                    .asRequest(of: Data.self)
-                                    .fetchOne(db)
-                            }
-                        ).to(beNil())
-                    }
-                    
-                    // MARK: ------ saves the retrieved room image
-                    it("saves the retrieved room image") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
-                            token: "testRoom",
-                            activeUsers: 10,
-                            details: OpenGroupAPI.Room.mockValue.with(
-                                token: "test",
-                                name: "test",
-                                infoUpdates: 10,
-                                imageId: "10"
-                            )
-                        )
-                        mockStorage.write { db in
-                            try OpenGroupManager.handlePollInfo(
-                                db,
-                                pollInfo: testPollInfo,
-                                publicKey: TestConstants.publicKey,
-                                for: "testRoom",
-                                on: "testServer",
-                                waitForImageToComplete: true,
-                                using: dependencies
-                            )
-                        }
-                        
-                        expect(
-                            mockStorage.read { db -> Data? in
-                                try OpenGroup
-                                    .select(.imageData)
-                                    .asRequest(of: Data.self)
-                                    .fetchOne(db)
-                            }
-                        ).toNot(beNil())
                     }
                 }
             }
@@ -2524,24 +2290,30 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- uses an empty set for moderators by default
                 it("uses an empty set for moderators by default") {
                     expect(
-                        OpenGroupManager.isUserModeratorOrAdmin(
-                            "05\(TestConstants.publicKey)",
-                            for: "testRoom",
-                            on: "testServer",
-                            using: dependencies
-                        )
+                        mockStorage.read(using: dependencies) { db in
+                            OpenGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                for: "testRoom",
+                                on: "testServer",
+                                using: dependencies
+                            )
+                        }
                     ).to(beFalse())
                 }
                 
                 // MARK: ---- uses an empty set for admins by default
                 it("uses an empty set for admins by default") {
                     expect(
-                        OpenGroupManager.isUserModeratorOrAdmin(
-                            "05\(TestConstants.publicKey)",
-                            for: "testRoom",
-                            on: "testServer",
-                            using: dependencies
-                        )
+                        mockStorage.read(using: dependencies) { db in
+                            OpenGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                for: "testRoom",
+                                on: "testServer",
+                                using: dependencies
+                            )
+                        }
                     ).to(beFalse())
                 }
                 
@@ -2558,12 +2330,15 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     expect(
-                        OpenGroupManager.isUserModeratorOrAdmin(
-                            "05\(TestConstants.publicKey)",
-                            for: "testRoom",
-                            on: "testServer",
-                            using: dependencies
-                        )
+                        mockStorage.read(using: dependencies) { db in
+                            OpenGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                for: "testRoom",
+                                on: "testServer",
+                                using: dependencies
+                            )
+                        }
                     ).to(beTrue())
                 }
                 
@@ -2580,12 +2355,15 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     expect(
-                        OpenGroupManager.isUserModeratorOrAdmin(
-                            "05\(TestConstants.publicKey)",
-                            for: "testRoom",
-                            on: "testServer",
-                            using: dependencies
-                        )
+                        mockStorage.read(using: dependencies) { db in
+                            OpenGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                for: "testRoom",
+                                on: "testServer",
+                                using: dependencies
+                            )
+                        }
                     ).to(beTrue())
                 }
                 
@@ -2602,12 +2380,15 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     expect(
-                        OpenGroupManager.isUserModeratorOrAdmin(
-                            "05\(TestConstants.publicKey)",
-                            for: "testRoom",
-                            on: "testServer",
-                            using: dependencies
-                        )
+                        mockStorage.read(using: dependencies) { db in
+                            OpenGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                for: "testRoom",
+                                on: "testServer",
+                                using: dependencies
+                            )
+                        }
                     ).to(beTrue())
                 }
                 
@@ -2624,24 +2405,30 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     expect(
-                        OpenGroupManager.isUserModeratorOrAdmin(
-                            "05\(TestConstants.publicKey)",
-                            for: "testRoom",
-                            on: "testServer",
-                            using: dependencies
-                        )
+                        mockStorage.read(using: dependencies) { db in
+                            OpenGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: "05\(TestConstants.publicKey)",
+                                for: "testRoom",
+                                on: "testServer",
+                                using: dependencies
+                            )
+                        }
                     ).to(beTrue())
                 }
                 
                 // MARK: ---- returns false if the key is not a valid session id
                 it("returns false if the key is not a valid session id") {
                     expect(
-                        OpenGroupManager.isUserModeratorOrAdmin(
-                            "InvalidValue",
-                            for: "testRoom",
-                            on: "testServer",
-                            using: dependencies
-                        )
+                        mockStorage.read(using: dependencies) { db in
+                            OpenGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: "InvalidValue",
+                                for: "testRoom",
+                                on: "testServer",
+                                using: dependencies
+                            )
+                        }
                     ).to(beFalse())
                 }
                 
@@ -2657,12 +2444,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "05\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "05\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beFalse())
                     }
                     
@@ -2684,12 +2474,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "05\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "05\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beTrue())
                     }
                     
@@ -2723,12 +2516,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "05\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "05\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beTrue())
                     }
                 }
@@ -2743,12 +2539,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "00\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "00\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beFalse())
                     }
                     
@@ -2762,12 +2561,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "00\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "00\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beFalse())
                     }
                     
@@ -2791,12 +2593,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "00\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "00\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beTrue())
                     }
                     
@@ -2835,12 +2640,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "00\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "00\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beTrue())
                     }
                 }
@@ -2855,12 +2663,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "15\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "15\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beFalse())
                     }
                     
@@ -2879,12 +2690,15 @@ class OpenGroupManagerSpec: QuickSpec {
                             .thenReturn(nil)
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "15\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "15\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beFalse())
                     }
                     
@@ -2909,12 +2723,15 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "15\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "15\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beFalse())
                     }
                     
@@ -2954,12 +2771,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "15\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "15\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beTrue())
                     }
                     
@@ -2999,12 +2819,15 @@ class OpenGroupManagerSpec: QuickSpec {
                         }
                         
                         expect(
-                            OpenGroupManager.isUserModeratorOrAdmin(
-                                "15\(TestConstants.publicKey)",
-                                for: "testRoom",
-                                on: "testServer",
-                                using: dependencies
-                            )
+                            mockStorage.read(using: dependencies) { db in
+                                OpenGroupManager.isUserModeratorOrAdmin(
+                                    db,
+                                    publicKey: "15\(TestConstants.publicKey)",
+                                    for: "testRoom",
+                                    on: "testServer",
+                                    using: dependencies
+                                )
+                            }
                         ).to(beTrue())
                     }
                 }
@@ -3034,7 +2857,6 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     mockOGMCache.when { $0.defaultRoomsPublisher }.thenReturn(nil)
-                    mockOGMCache.when { $0.groupImagePublishers }.thenReturn([:])
                     mockUserDefaults.when { (defaults: inout any UserDefaultsType) -> Any? in
                         defaults.object(forKey: any())
                     }.thenReturn(nil)
@@ -3059,8 +2881,17 @@ class OpenGroupManagerSpec: QuickSpec {
                         token: "UniqueId",
                         name: ""
                     )
+                    let group: OpenGroup = OpenGroup(
+                        server: "testServer",
+                        roomToken: "UniqueId",
+                        publicKey: "",
+                        isActive: true,
+                        name: "",
+                        userCount: 0,
+                        infoUpdates: 0
+                    )
                     let publisher = Future<[OpenGroupManager.DefaultRoomInfo], Error> { resolver in
-                        resolver(Result.success([(uniqueRoomInstance, nil)]))
+                        resolver(Result.success([(uniqueRoomInstance, group)]))
                     }
                     .shareReplay(1)
                     .eraseToAnyPublisher()
@@ -3153,8 +2984,8 @@ class OpenGroupManagerSpec: QuickSpec {
                         })
                 }
                 
-                // MARK: ---- fetches the image for any rooms with images
-                it("fetches the image for any rooms with images") {
+                // MARK: ---- schedules jobs to download any room images
+                it("schedules jobs to download any room images") {
                     mockNetwork
                         .when {
                             $0.send(.onionRequest(
@@ -3181,291 +3012,32 @@ class OpenGroupManagerSpec: QuickSpec {
                                 ]
                             )
                         )
-                    mockNetwork
-                        .when {
-                            $0.send(
-                                .onionRequest(
-                                    URLRequest(url: URL(string: "https://open.getsession.org/room/test2/file/12")!),
-                                    to: OpenGroupAPI.defaultServer,
-                                    with: OpenGroupAPI.defaultServerPublicKey,
-                                    timeout: FileServerAPI.fileDownloadTimeout
-                                )
-                            )
-                        }
-                        .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-
-                    let testDate: Date = Date(timeIntervalSince1970: 1234567890)
-                    dependencies.dateNow = testDate
                     
                     OpenGroupManager
                         .getDefaultRoomsIfNeeded(using: dependencies)
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockUserDefaults)
+                    expect(mockJobRunner)
                         .to(call(matchingParameters: .all) {
-                            $0.set(
-                                testDate,
-                                forKey: UserDefaults.DateKey.lastOpenGroupImageUpdate.rawValue
-                            )
-                        })
-                    expect(
-                        mockStorage.read { db -> Data? in
-                            try OpenGroup
-                                .select(.imageData)
-                                .filter(id: OpenGroup.idFor(roomToken: "test2", server: OpenGroupAPI.defaultServer))
-                                .asRequest(of: Data.self)
-                                .fetchOne(db)
-                        }
-                    ).to(equal(Data([1, 2, 3])))
-                }
-            }
-            
-            // MARK: -- when getting a room image
-            context("when getting a room image") {
-                beforeEach {
-                    mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
-                        .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-                    
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in defaults.object(forKey: any()) }
-                        .thenReturn(nil)
-                    mockUserDefaults
-                        .when { (defaults: inout any UserDefaultsType) -> Any? in defaults.set(anyAny(), forKey: any()) }
-                        .thenReturn(())
-                    mockOGMCache.when { $0.groupImagePublishers }.thenReturn([:])
-                    
-                    mockStorage.write { db in
-                        _ = try OpenGroup(
-                            server: OpenGroupAPI.defaultServer,
-                            roomToken: "testRoom",
-                            publicKey: OpenGroupAPI.defaultServerPublicKey,
-                            isActive: false,
-                            name: "",
-                            userCount: 0,
-                            infoUpdates: 0
-                        )
-                        .insert(db)
-                    }
-                }
-                
-                // MARK: ---- retrieves the image retrieval publisher from the cache if it exists
-                it("retrieves the image retrieval publisher from the cache if it exists") {
-                    let publisher = Future<Data, Error> { resolver in
-                        resolver(Result.success(Data([5, 4, 3, 2, 1])))
-                    }
-                    .shareReplay(1)
-                    .eraseToAnyPublisher()
-                    mockOGMCache
-                        .when { $0.groupImagePublishers }
-                        .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher])
-                    
-                    var result: Data?
-                    OpenGroupManager
-                        .roomImage(
-                            fileId: "1",
-                            for: "testRoom",
-                            on: "testServer",
-                            existingData: nil,
-                            using: dependencies
-                        )
-                        .handleEvents(receiveOutput: { result = $0 })
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(result).to(equal(publisher.firstValue()))
-                }
-                
-                // MARK: ---- does not save the fetched image to storage
-                it("does not save the fetched image to storage") {
-                    OpenGroupManager
-                        .roomImage(
-                            fileId: "1",
-                            for: "testRoom",
-                            on: "testServer",
-                            existingData: nil,
-                            using: dependencies
-                        )
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(
-                        mockStorage.read { db -> Data? in
-                            try OpenGroup
-                                .select(.imageData)
-                                .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"))
-                                .asRequest(of: Data.self)
-                                .fetchOne(db)
-                        }
-                    ).to(beNil())
-                }
-                
-                // MARK: ---- does not update the image update timestamp
-                it("does not update the image update timestamp") {
-                    OpenGroupManager
-                        .roomImage(
-                            fileId: "1",
-                            for: "testRoom",
-                            on: "testServer",
-                            existingData: nil,
-                            using: dependencies
-                        )
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(mockUserDefaults)
-                        .toNot(call(matchingParameters: .all) {
-                            $0.set(
-                                dependencies.dateNow,
-                                forKey: UserDefaults.DateKey.lastOpenGroupImageUpdate.rawValue
-                            )
-                        })
-                }
-                
-                // MARK: ---- adds the image retrieval publisher to the cache
-                it("adds the image retrieval publisher to the cache") {
-                    let publisher = OpenGroupManager
-                        .roomImage(
-                            fileId: "1",
-                            for: "testRoom",
-                            on: "testServer",
-                            existingData: nil,
-                            using: dependencies
-                        )
-                    publisher.sinkAndStore(in: &disposables)
-                    
-                    expect(mockOGMCache)
-                        .to(call(matchingParameters: .all) {
-                            $0.groupImagePublishers = [OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher]
-                        })
-                }
-                
-                // MARK: ---- for the default server
-                context("for the default server") {
-                    // MARK: ------ fetches a new image if there is no cached one
-                    it("fetches a new image if there is no cached one") {
-                        var result: Data?
-                        
-                        OpenGroupManager
-                            .roomImage(
-                                fileId: "1",
-                                for: "testRoom",
-                                on: OpenGroupAPI.defaultServer,
-                                existingData: nil,
-                                using: dependencies
-                            )
-                            .handleEvents(receiveOutput: { (data: Data) in result = data })
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(result).to(equal(Data([1, 2, 3])))
-                    }
-                    
-                    // MARK: ------ saves the fetched image to storage
-                    it("saves the fetched image to storage") {
-                        OpenGroupManager
-                            .roomImage(
-                                fileId: "1",
-                                for: "testRoom",
-                                on: OpenGroupAPI.defaultServer,
-                                existingData: nil,
-                                using: dependencies
-                            )
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(
-                            mockStorage.read { db -> Data? in
-                                try OpenGroup
-                                    .select(.imageData)
-                                    .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer))
-                                    .asRequest(of: Data.self)
-                                    .fetchOne(db)
-                            }
-                        ).toNot(beNil())
-                    }
-                    
-                    // MARK: ------ updates the image update timestamp
-                    it("updates the image update timestamp") {
-                        OpenGroupManager
-                            .roomImage(
-                                fileId: "1",
-                                for: "testRoom",
-                                on: OpenGroupAPI.defaultServer,
-                                existingData: nil,
-                                using: dependencies
-                            )
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(mockUserDefaults)
-                            .to(call(matchingParameters: .all) {
-                                $0.set(
-                                    dependencies.dateNow,
-                                    forKey: UserDefaults.DateKey.lastOpenGroupImageUpdate.rawValue
-                                )
-                            })
-                    }
-                    
-                    // MARK: ------ and there is a cached image
-                    context("and there is a cached image") {
-                        beforeEach {
-                            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
-                            mockUserDefaults
-                                .when { (defaults: inout any UserDefaultsType) -> Any? in
-                                    defaults.object(forKey: any())
-                                }
-                                .thenReturn(dependencies.dateNow)
-                            mockStorage.write(updates: { db in
-                                try OpenGroup
-                                    .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer))
-                                    .updateAll(
-                                        db,
-                                        OpenGroup.Columns.imageData.set(to: Data([2, 3, 4]))
+                            $0.add(
+                                any(),
+                                job: Job(
+                                    variant: .displayPictureDownload,
+                                    shouldBeUnique: true,
+                                    details: DisplayPictureDownloadJob.Details(
+                                        target: .community(
+                                            imageId: "12",
+                                            roomToken: "test2",
+                                            server: OpenGroupAPI.defaultServer
+                                        ),
+                                        timestamp: 1234567890
                                     )
-                            })
-                        }
-                        
-                        // MARK: -------- retrieves the cached image
-                        it("retrieves the cached image") {
-                            var result: Data?
-                            
-                            OpenGroupManager
-                                .roomImage(
-                                    fileId: "1",
-                                    for: "testRoom",
-                                    on: OpenGroupAPI.defaultServer,
-                                    existingData: Data([2, 3, 4]),
-                                    using: dependencies
-                                )
-                                .handleEvents(receiveOutput: { (data: Data) in result = data })
-                                .sinkAndStore(in: &disposables)
-                            
-                            expect(result).to(equal(Data([2, 3, 4])))
-                        }
-                        
-                        // MARK: -------- fetches a new image if the cached on is older than a week
-                        it("fetches a new image if the cached on is older than a week") {
-                            let weekInSeconds: TimeInterval = (7 * 24 * 60 * 60)
-                            let targetTimestamp: TimeInterval = (
-                                dependencies.dateNow.timeIntervalSince1970 - weekInSeconds - 1
+                                ),
+                                dependantJob: nil,
+                                canStartJob: true,
+                                using: dependencies
                             )
-                            mockUserDefaults
-                                .when { (defaults: inout any UserDefaultsType) -> Any? in
-                                    defaults.object(forKey: any())
-                                }
-                                .thenReturn(Date(timeIntervalSince1970: targetTimestamp))
-                            
-                            var result: Data?
-                            
-                            OpenGroupManager
-                                .roomImage(
-                                    fileId: "1",
-                                    for: "testRoom",
-                                    on: OpenGroupAPI.defaultServer,
-                                    existingData: Data([2, 3, 4]),
-                                    using: dependencies
-                                )
-                                .handleEvents(receiveOutput: { (data: Data) in result = data })
-                                .sinkAndStore(in: &disposables)
-                            
-                            expect(result).to(equal(Data([1, 2, 3])))
-                        }
-                    }
+                        })
                 }
             }
         }

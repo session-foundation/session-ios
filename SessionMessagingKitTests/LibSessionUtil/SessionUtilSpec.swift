@@ -455,13 +455,6 @@ class SessionUtilSpec: QuickSpec {
                                     profileEncryptionKey: Data([1, 2, 3])
                                 )
                             )],
-                            admins: [(
-                                id: "05\(TestConstants.publicKey)",
-                                profile: Profile(
-                                    id: "05\(TestConstants.publicKey)",
-                                    name: "TestName2"
-                                )
-                            )],
                             using: dependencies
                         )
                     }

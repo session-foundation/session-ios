@@ -21,7 +21,7 @@ final class InfoMessageCell: MessageCell {
 
     private lazy var label: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -93,8 +93,12 @@ final class InfoMessageCell: MessageCell {
         iconImageViewWidthConstraint.constant = (icon != nil) ? InfoMessageCell.iconSize : 0
         iconImageViewHeightConstraint.constant = (icon != nil) ? InfoMessageCell.iconSize : 0
         
-        self.label.text = cellViewModel.body
-        self.label.themeTextColor = (cellViewModel.variant == .infoGroupCurrentUserErrorLeaving) ? .danger : .textPrimary
+        switch cellViewModel.attributedBody {
+            case .some(let attrText): self.label.attributedText = attrText
+            case .none: self.label.text = cellViewModel.body
+        }
+        
+        self.label.themeTextColor = (cellViewModel.variant == .infoGroupCurrentUserErrorLeaving ? .danger : .textSecondary)
     }
     
     override func dynamicUpdate(with cellViewModel: MessageViewModel, playbackInfo: ConversationViewModel.PlaybackInfo?) {

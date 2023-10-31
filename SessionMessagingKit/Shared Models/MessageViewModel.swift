@@ -198,6 +198,37 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     /// This is a temporary id used before an outgoing message is persisted into the database
     public let optimisticMessageId: UUID?
+    
+    public var attributedBody: NSAttributedString? {
+        let authorDisplayName: String = Profile.displayName(
+            for: self.threadVariant,
+            id: self.authorId,
+            name: self.authorNameInternal,
+            nickname: nil  // Folded into 'authorName' within the Query
+        )
+        
+        return Interaction.attributedPreviewText(
+            variant: self.variant,
+            body: self.body,
+            threadContactDisplayName: Profile.displayName(
+                for: self.threadVariant,
+                id: self.threadId,
+                name: self.threadContactNameInternal,
+                nickname: nil  // Folded into 'threadContactNameInternal' within the Query
+            ),
+            authorDisplayName: authorDisplayName,
+            attachmentDescriptionInfo: self.attachments?.first.map { firstAttachment in
+                Attachment.DescriptionInfo(
+                    id: firstAttachment.id,
+                    variant: firstAttachment.variant,
+                    contentType: firstAttachment.contentType,
+                    sourceFilename: firstAttachment.sourceFilename
+                )
+            },
+            attachmentCount: self.attachments?.count,
+            isOpenGroupInvitation: (self.linkPreview?.variant == .openGroupInvitation)
+        )
+    }
 
     // MARK: - Mutation
     
@@ -391,31 +422,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             receivedAtTimestampMs: self.receivedAtTimestampMs,
             authorId: self.authorId,
             authorNameInternal: self.authorNameInternal,
-            body: (!self.variant.isInfoMessage ?
-                self.body :
-                // Info messages might not have a body so we should use the 'previewText' value instead
-                Interaction.previewText(
-                    variant: self.variant,
-                    body: self.body,
-                    threadContactDisplayName: Profile.displayName(
-                        for: self.threadVariant,
-                        id: self.threadId,
-                        name: self.threadContactNameInternal,
-                        nickname: nil  // Folded into 'threadContactNameInternal' within the Query
-                    ),
-                    authorDisplayName: authorDisplayName,
-                    attachmentDescriptionInfo: self.attachments?.first.map { firstAttachment in
-                        Attachment.DescriptionInfo(
-                            id: firstAttachment.id,
-                            variant: firstAttachment.variant,
-                            contentType: firstAttachment.contentType,
-                            sourceFilename: firstAttachment.sourceFilename
-                        )
-                    },
-                    attachmentCount: self.attachments?.count,
-                    isOpenGroupInvitation: (self.linkPreview?.variant == .openGroupInvitation)
-                )
-            ),
+            body: self.body,
             rawBody: self.body,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,

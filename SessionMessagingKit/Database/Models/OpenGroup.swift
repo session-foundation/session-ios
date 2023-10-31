@@ -75,6 +75,8 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
     public let threadId: String
     
     /// The server for the group
+    ///
+    /// **Note:** The `server` value will always be in lowercase
     public let server: String
     
     /// The specific room on the server for the group
@@ -261,8 +263,8 @@ extension OpenGroup: CustomStringConvertible, CustomDebugStringConvertible {
             inboxLatestMessageId: \(inboxLatestMessageId),
             outboxLatestMessageId: \(outboxLatestMessageId),
             pollFailureCount: \(pollFailureCount),
-            permissions: \(permissions?.toString() ?? "---")),
-            displayPictureFilename: \"\(displayPictureFilename ?? "null")\",
+            permissions: \(permissions?.toString() ?? "---"),
+            displayPictureFilename: \(displayPictureFilename.map { "\"\($0)\"" } ?? "null"),
             lastDisplayPictureUpdate: \(lastDisplayPictureUpdate ?? 0)
         )
         """

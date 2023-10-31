@@ -3,6 +3,8 @@
 import UIKit
 
 public class ToastController: ToastViewDelegate {
+    public static let font: UIFont = .systemFont(ofSize: Values.mediumFontSize)
+    public static let boldFont: UIFont = .boldSystemFont(ofSize: Values.mediumFontSize)
     static var currentToastController: ToastController?
 
     private let id: UUID
@@ -10,11 +12,15 @@ public class ToastController: ToastViewDelegate {
     private var isDismissing: Bool
 
     // MARK: Initializers
+    
+    public convenience init(text: String, background: ThemeValue) {
+        self.init(text: NSAttributedString(string: text), background: background)
+    }
 
-    required public init(text: String, background: ThemeValue) {
+    required public init(text: NSAttributedString, background: ThemeValue) {
         id = UUID()
         toastView = ToastView(background: background)
-        toastView.text = text
+        toastView.attributedText = text
         isDismissing = false
         toastView.delegate = self
     }
@@ -98,15 +104,15 @@ protocol ToastViewDelegate: AnyObject {
 
 class ToastView: UIView {
 
-    var text: String? {
-        get { return label.text }
-        set { label.text = newValue }
+    var attributedText: NSAttributedString? {
+        get { return label.attributedText }
+        set { label.attributedText = newValue }
     }
     weak var delegate: ToastViewDelegate?
 
     private let label: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.mediumFontSize)
+        result.font = ToastController.font
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.numberOfLines = 0

@@ -885,7 +885,7 @@ The point that a message will disappear in a disappearing message update message
 "group_unable_to_delete" = "Unable to delete the Group, please try again.";
 
 /* Information displayed above the input when opening an invitation to join a group. */
-"GROUP_MESSAGE_REQUEST_INFO" = "Sending a message to this group will automatically accept the group invitation.";
+"GROUP_MESSAGE_REQUEST_INFO" = "Sending a message to this group will automatically accept the group request.";
 
 /* An error indicating we were unable to retrieve the required data for some reason. */
 "ERROR_UNABLE_TO_FIND_DATA" = "There is an issue retrieving the required data. Please try again later.";

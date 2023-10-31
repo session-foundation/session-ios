@@ -637,6 +637,7 @@
 		FD3FAB5F2AE9BC2200DC5421 /* EditGroupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB5E2AE9BC2200DC5421 /* EditGroupViewModel.swift */; };
 		FD3FAB612AEA194E00DC5421 /* UserListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */; };
 		FD3FAB632AEB9A1500DC5421 /* ToastController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB622AEB9A1500DC5421 /* ToastController.swift */; };
+		FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB662AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift */; };
 		FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */; };
 		FD4324302999F0BC008A0213 /* ValidatableResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */; };
 		FD432432299C6933008A0213 /* _011_AddPendingReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */; };
@@ -1846,6 +1847,7 @@
 		FD3FAB5E2AE9BC2200DC5421 /* EditGroupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGroupViewModel.swift; sourceTree = "<group>"; };
 		FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserListViewModel.swift; sourceTree = "<group>"; };
 		FD3FAB622AEB9A1500DC5421 /* ToastController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastController.swift; sourceTree = "<group>"; };
+		FD3FAB662AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayPictureDownloadJobSpec.swift; sourceTree = "<group>"; };
 		FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidatableResponse.swift; sourceTree = "<group>"; };
 		FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _011_AddPendingReadReceipts.swift; sourceTree = "<group>"; };
 		FD432433299C6985008A0213 /* PendingReadReceipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingReadReceipt.swift; sourceTree = "<group>"; };
@@ -4391,17 +4393,10 @@
 		FD96F3A229DBC3BA00401309 /* Jobs */ = {
 			isa = PBXGroup;
 			children = (
-				FD96F3A329DBC3D000401309 /* Types */,
+				FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */,
+				FD3FAB662AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift */,
 			);
 			path = Jobs;
-			sourceTree = "<group>";
-		};
-		FD96F3A329DBC3D000401309 /* Types */ = {
-			isa = PBXGroup;
-			children = (
-				FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */,
-			);
-			path = Types;
 			sourceTree = "<group>";
 		};
 		FD9B30F1293EA0AF008DEE3E /* Networking */ = {
@@ -6848,6 +6843,7 @@
 				FD0969F92A69FFE700C5C365 /* Mocked.swift in Sources */,
 				FDC2908F27D70938005DAE71 /* SendDirectMessageRequestSpec.swift in Sources */,
 				FDA1E83929A5771A00C5C3BD /* LibSessionSpec.swift in Sources */,
+				FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */,
 				FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */,
 				FDFD645D27F273F300808CA1 /* MockGeneralCache.swift in Sources */,
 				FD3C906D27E43C4B00CD579F /* MessageSenderEncryptionSpec.swift in Sources */,

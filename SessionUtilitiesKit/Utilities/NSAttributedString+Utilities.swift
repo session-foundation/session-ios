@@ -5,6 +5,33 @@
 import Foundation
 
 public extension NSAttributedString {
+    enum FormattedValue {
+        case plain(String)
+        case font(String, UIFont)
+    }
+    
+    convenience init(
+        format: String,
+        _ arguments: FormattedValue...
+    ) {
+        // FIXME: This styling approach breaks with RTL languages and should be replaced as part of the Strings project
+        self.init(
+            attributedString: zip(format.components(separatedBy: "%@"), arguments.appending(.plain("")))
+                .map { text, value -> (text: String, value: FormattedValue) in (text, value) }
+                .enumerated()
+                .reduce(into: NSMutableAttributedString()) { result, next in
+                    result.append(NSAttributedString(string: next.element.text))
+                    
+                    switch next.element.value {
+                        case .plain(let value): result.append(NSAttributedString(string: value))
+                            
+                        case .font(let value, let font):
+                            result.append(NSAttributedString(string: value, attributes: [.font: font]))
+                    }
+                }
+        )
+    }
+    
     static func with(_ attrStrings: [NSAttributedString]) -> NSAttributedString {
         let mutableString: NSMutableAttributedString = NSMutableAttributedString()
         
