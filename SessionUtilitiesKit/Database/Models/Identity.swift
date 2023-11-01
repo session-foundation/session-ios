@@ -51,11 +51,11 @@ public extension Identity {
             let ed25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: (seed + padding), using: dependencies)
             ),
-            let x25519PublicKey: [UInt8] = try? dependencies[singleton: .crypto].perform(
-                .toX25519(ed25519PublicKey: ed25519KeyPair.publicKey)
+            let x25519PublicKey: [UInt8] = dependencies[singleton: .crypto].generate(
+                .x25519(ed25519PublicKey: ed25519KeyPair.publicKey)
             ),
-            let x25519SecretKey: [UInt8] = try? dependencies[singleton: .crypto].perform(
-                .toX25519(ed25519SecretKey: ed25519KeyPair.secretKey)
+            let x25519SecretKey: [UInt8] = dependencies[singleton: .crypto].generate(
+                .x25519(ed25519SecretKey: ed25519KeyPair.secretKey)
             )
         else { throw GeneralError.keyGenerationFailed }
         

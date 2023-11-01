@@ -15,6 +15,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         // MARK: Configuration
         
         @TestState var job: Job!
+        @TestState var profile: Profile!
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
@@ -33,19 +34,83 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
             }
         )
+        @TestState var imageData: Data! = Data(
+            hex: "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c" +
+            "489000000017352474200aece1ce90000000d49444154185763f8cfc0f01f0005000" +
+            "1ffa65c9b5d0000000049454e44ae426082"
+        )
+        @TestState var encryptionKey: Data! = Data(hex: "c8e52eb1016702a663ac9a1ab5522daa128ab40762a514de271eddf598e3b8d4")
+        @TestState var encryptedData: Data! = Data(
+            hex: "778921bdd0e432227b53ee49c23421aeb796b7e5663468ff79daffb1af08cd1" +
+            "a68343377fe05ab01917ce0fb8732c746a60f157f7798cdf999364b37ff9016ab2fe" +
+            "673120e153a5cb6b869380744d493068ebc418266d6596d728cfc60b30662a089376" +
+            "f2761e3bb6ee837a26b24b5"
+        )
+        @TestState var filenameUuid: UUID! = UUID(uuidString: "00000000-0000-0000-0000-000000001234")
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { mockNetwork in
-                mockNetwork
-                    .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
-                    .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-                
-                mockNetwork
+            initialSetup: { network in
+                network
                     .when {
                         $0.send(
                             .onionRequest(any(), to: any(), with: any(), timeout: FileServerAPI.fileDownloadTimeout)
                         )
                     }
-                    .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+                    .thenReturn(MockNetwork.response(data: encryptedData))
+            }
+        )
+        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
+            initialSetup: { fileManager in
+                fileManager
+                    .when { $0.createFile(atPath: any(), contents: any(), attributes: any()) }
+                    .thenReturn(true)
+                
+                fileManager
+                    .when { $0.containerURL(forSecurityApplicationGroupIdentifier: any()) }
+                    .thenReturn(URL(fileURLWithPath: "/test"))
+            }
+        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
+            initialSetup: { crypto in
+                crypto.when { $0.generate(.uuid()) }.thenReturn(filenameUuid)
+                crypto
+                    .when { $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any())) }
+                    .thenReturn(imageData)
+                crypto
+                    .when { $0.generate(.hash(message: anyArray(), outputLength: any())) }
+                    .thenReturn([])
+                crypto
+                    .when { crypto in
+                        crypto.generate(
+                            .blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())
+                        )
+                    }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Data(hex: TestConstants.publicKey).bytes,
+                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                        )
+                    )
+                crypto
+                    .when { $0.generate(.nonce16()) }
+                    .thenReturn(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!.bytes)
+                crypto
+                    .when {
+                        $0.generate(
+                            .signatureSOGS(
+                                message: anyArray(),
+                                secretKey: anyArray(),
+                                blindedSecretKey: anyArray(),
+                                blindedPublicKey: anyArray()
+                            )
+                        )
+                    }
+                    .thenReturn("TestSogsSignature".bytes)
+            }
+        )
+        @TestState(cache: .displayPicture, in: dependencies) var mockDisplayPictureCache: MockDisplayPictureCache! = MockDisplayPictureCache(
+            initialSetup: { displayPictureCache in
+                displayPictureCache.when { $0.imageData }.thenReturn([:])
+                displayPictureCache.when { $0.imageData = any() }.thenReturn(())
             }
         )
         
@@ -76,11 +141,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
             
             // MARK: -- when initialising details
             context("when initialising details") {
-                // MARK: -- for a profile
+                // MARK: ---- for a profile
                 context("for a profile") {
-                    // MARK: -- with a target
+                    // MARK: ------ with a target
                     context("with a target") {
-                        // MARK: ---- returns nil when given an empty url
+                        // MARK: -------- returns nil when given an empty url
                         it("returns nil when given an empty url") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -90,7 +155,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns nil when given a url which does not have a file id
+                        // MARK: -------- returns nil when given a url which does not have a file id
                         it("returns nil when given a url which does not have a file id") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -100,7 +165,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns nil when given a url which does not have a file id
+                        // MARK: -------- returns nil when given a url which does not have a file id
                         it("returns nil when given a url which does not have a file id") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -110,7 +175,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns nil when given encryption key data with the wrong length
+                        // MARK: -------- returns nil when given encryption key data with the wrong length
                         it("returns nil when given encryption key data with the wrong length") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -120,14 +185,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns a value when given valid data
+                        // MARK: -------- returns a value when given valid data
                         it("returns a value when given valid data") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
                                     target: .profile(
                                         id: "",
                                         url: "http://oxen.io/1234/",
-                                        encryptionKey: Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength)
+                                        encryptionKey: encryptionKey
                                     ),
                                     timestamp: 0
                                 )
@@ -135,9 +200,9 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: -- with an owner
+                    // MARK: ------ with an owner
                     context("with an owner") {
-                        // MARK: ---- returns nil when given a null url
+                        // MARK: -------- returns nil when given a null url
                         it("returns nil when given a null url") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -146,17 +211,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                             id: "1234",
                                             name: "test",
                                             profilePictureUrl: nil,
-                                            profileEncryptionKey: Data(
-                                                repeating: 0,
-                                                count: DisplayPictureManager.aes256KeyByteLength
-                                            )
+                                            profileEncryptionKey: encryptionKey
                                         )
                                     )
                                 )
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns nil when given a null encryption key
+                        // MARK: -------- returns nil when given a null encryption key
                         it("returns nil when given a null encryption key") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -172,7 +234,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns a value when given valid data
+                        // MARK: -------- returns a value when given valid data
                         it("returns a value when given valid data") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -181,10 +243,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                             id: "1234",
                                             name: "test",
                                             profilePictureUrl: "http://oxen.io/1234/",
-                                            profileEncryptionKey: Data(
-                                                repeating: 0,
-                                                count: DisplayPictureManager.aes256KeyByteLength
-                                            )
+                                            profileEncryptionKey: encryptionKey
                                         )
                                     )
                                 )
@@ -193,11 +252,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- for a group
+                // MARK: ---- for a group
                 context("for a group") {
-                    // MARK: -- with a target
+                    // MARK: ------ with a target
                     context("with a target") {
-                        // MARK: ---- returns nil when given an empty url
+                        // MARK: -------- returns nil when given an empty url
                         it("returns nil when given an empty url") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -207,7 +266,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns nil when given a url which does not have a file id
+                        // MARK: -------- returns nil when given a url which does not have a file id
                         it("returns nil when given a url which does not have a file id") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -217,7 +276,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns nil when given a url which does not have a file id
+                        // MARK: -------- returns nil when given a url which does not have a file id
                         it("returns nil when given a url which does not have a file id") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -227,7 +286,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns nil when given encryption key data with the wrong length
+                        // MARK: -------- returns nil when given encryption key data with the wrong length
                         it("returns nil when given encryption key data with the wrong length") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -237,14 +296,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns a value when given valid data
+                        // MARK: -------- returns a value when given valid data
                         it("returns a value when given valid data") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
                                     target: .group(
                                         id: "",
                                         url: "http://oxen.io/1234/",
-                                        encryptionKey: Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength)
+                                        encryptionKey: encryptionKey
                                     ),
                                     timestamp: 0
                                 )
@@ -252,9 +311,9 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: -- with an owner
+                    // MARK: ------ with an owner
                     context("with an owner") {
-                        // MARK: ---- returns nil when given a null url
+                        // MARK: -------- returns nil when given a null url
                         it("returns nil when given a null url") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -264,10 +323,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                             name: "test",
                                             formationTimestamp: 0,
                                             displayPictureUrl: nil,
-                                            displayPictureEncryptionKey: Data(
-                                                repeating: 0,
-                                                count: DisplayPictureManager.aes256KeyByteLength
-                                            ),
+                                            displayPictureEncryptionKey: encryptionKey,
                                             shouldPoll: nil,
                                             invited: nil
                                         )
@@ -276,7 +332,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns nil when given a null encryption key
+                        // MARK: -------- returns nil when given a null encryption key
                         it("returns nil when given a null encryption key") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -295,7 +351,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns a value when given valid data
+                        // MARK: -------- returns a value when given valid data
                         it("returns a value when given valid data") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -305,10 +361,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                             name: "test",
                                             formationTimestamp: 0,
                                             displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: Data(
-                                                repeating: 0,
-                                                count: DisplayPictureManager.aes256KeyByteLength
-                                            ),
+                                            displayPictureEncryptionKey: encryptionKey,
                                             shouldPoll: nil,
                                             invited: nil
                                         )
@@ -319,11 +372,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- for a community
+                // MARK: ---- for a community
                 context("for a community") {
-                    // MARK: -- with a target
+                    // MARK: ------ with a target
                     context("with a target") {
-                        // MARK: ---- returns nil when given an empty imageId
+                        // MARK: -------- returns nil when given an empty imageId
                         it("returns nil when given an empty imageId") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -333,7 +386,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns a value when given valid data
+                        // MARK: -------- returns a value when given valid data
                         it("returns a value when given valid data") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -344,9 +397,9 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         }
                     }
                     
-                    // MARK: -- with an owner
+                    // MARK: ------ with an owner
                     context("with an owner") {
-                        // MARK: ---- returns nil when given an empty imageId
+                        // MARK: -------- returns nil when given an empty imageId
                         it("returns nil when given an empty imageId") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -366,7 +419,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             ).to(beNil())
                         }
                         
-                        // MARK: ---- returns a value when given valid data
+                        // MARK: -------- returns a value when given valid data
                         it("returns a value when given valid data") {
                             expect(
                                 DisplayPictureDownloadJob.Details(
@@ -446,7 +499,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         target: .profile(
                             id: "",
                             url: "http://oxen.io/1234/",
-                            encryptionKey: Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength)
+                            encryptionKey: encryptionKey
                         ),
                         timestamp: 0
                     )
@@ -539,6 +592,286 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             )
                         )
                     })
+            }
+            
+            // MARK: -- checking if a downloaded display picture is valid
+            context("checking if a downloaded display picture is valid") {
+                @TestState var jobResult: JobRunner.JobResult! = .notFound
+                
+                beforeEach {
+                    profile = Profile(
+                        id: "1234",
+                        name: "test",
+                        profilePictureUrl: nil,
+                        profilePictureFileName: nil,
+                        profileEncryptionKey: nil,
+                        lastProfilePictureUpdate: nil
+                    )
+                    mockStorage.write(using: dependencies) { db in try profile.insert(db) }
+                    job = Job(
+                        variant: .displayPictureDownload,
+                        shouldBeUnique: true,
+                        details: DisplayPictureDownloadJob.Details(
+                            target: .profile(
+                                id: "1234",
+                                url: "http://oxen.io/100/",
+                                encryptionKey: encryptionKey
+                            ),
+                            timestamp: 1234567891
+                        )
+                    )
+                }
+                
+                justBeforeEach {
+                    DisplayPictureDownloadJob.run(
+                        job,
+                        queue: .main,
+                        success: { _, _, _ in jobResult = .succeeded },
+                        failure: { _, error, permanent, _ in jobResult = .failed(error, permanent) },
+                        deferred: { _, _ in jobResult = .deferred },
+                        using: dependencies
+                    )
+                }
+                
+                // MARK: ---- when it fails to decrypt the data
+                context("when it fails to decrypt the data") {
+                    beforeEach {
+                        mockCrypto
+                            .when { $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any())) }
+                            .thenReturn(nil)
+                    }
+                    
+                    // MARK: ------ does not save the picture
+                    it("does not save the picture") {
+                        expect(mockFileManager)
+                            .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
+                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                        expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
+                    }
+                }
+                
+                // MARK: ---- when it decrypts invalid image data
+                context("when it decrypts invalid image data") {
+                    beforeEach {
+                        mockCrypto
+                            .when { $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any())) }
+                            .thenReturn(Data([1, 2, 3]))
+                    }
+                    
+                    // MARK: ------ does not save the picture
+                    it("does not save the picture") {
+                        expect(mockFileManager)
+                            .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
+                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                        expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
+                    }
+                }
+                
+                // MARK: ---- when it fails to write to disk
+                context("when it fails to write to disk") {
+                    beforeEach {
+                        mockFileManager
+                            .when { $0.createFile(atPath: any(), contents: any(), attributes: any()) }
+                            .thenReturn(false)
+                    }
+                    
+                    // MARK: ------ does not save the picture
+                    it("does not save the picture") {
+                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                        expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
+                    }
+                }
+                
+                // MARK: ---- writes the file to disk
+                it("writes the file to disk") {
+                    expect(mockFileManager)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { mockFileManager in
+                            mockFileManager.createFile(
+                                atPath: "/test/ProfileAvatars/\(filenameUuid.uuidString).jpg",
+                                contents: imageData,
+                                attributes: nil
+                            )
+                        })
+                }
+                
+                // MARK: ---- adds the image data to the displayPicture cache
+                it("adds the image data to the displayPicture cache") {
+                    expect(mockDisplayPictureCache)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.imageData = ["\(filenameUuid.uuidString).jpg": imageData]
+                        })
+                }
+                
+                // MARK: ---- successfully completes the job
+                it("successfully completes the job") {
+                    expect(jobResult).to(equal(.succeeded))
+                }
+                
+                // MARK: ---- for a profile
+                context("for a profile") {
+                    beforeEach {
+                        profile = Profile(
+                            id: "1234",
+                            name: "test",
+                            profilePictureUrl: "http://oxen.io/100/",
+                            profilePictureFileName: nil,
+                            profileEncryptionKey: encryptionKey,
+                            lastProfilePictureUpdate: 1234567890
+                        )
+                        mockStorage.write(using: dependencies) { db in
+                            _ = try Profile.deleteAll(db)
+                            try profile.insert(db)
+                        }
+                    }
+                    
+                    // MARK: ------ that does not exist
+                    context("that does not exist") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in try Profile.deleteAll(db) }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            expect(mockCrypto)
+                                .toNot(call {
+                                    $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any()))
+                                })
+                            expect(mockFileManager)
+                                .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                            expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(beNil())
+                        }
+                    }
+                    
+                    // MARK: ------ that has a different encryption key and more recent update
+                    context("that has a different encryption key and more recent update") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in
+                                try Profile
+                                    .updateAll(
+                                        db,
+                                        Profile.Columns.profileEncryptionKey.set(to: Data([1, 2, 3])),
+                                        Profile.Columns.lastProfilePictureUpdate.set(to: 9999999999)
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            expect(mockCrypto)
+                                .toNot(call {
+                                    $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any()))
+                                })
+                            expect(mockFileManager)
+                                .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                            expect(mockStorage.read { db in try Profile.fetchOne(db) })
+                                .toNot(equal(
+                                    Profile(
+                                        id: "1234",
+                                        name: "test",
+                                        profilePictureUrl: "test",
+                                        profilePictureFileName: "\(filenameUuid.uuidString).jpg",
+                                        profileEncryptionKey: encryptionKey,
+                                        lastProfilePictureUpdate: 1234567891
+                                    )
+                                ))
+                        }
+                    }
+                    
+                    // MARK: ------ that has a different url and more recent update
+                    context("that has a different url and more recent update") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in
+                                try Profile
+                                    .updateAll(
+                                        db,
+                                        Profile.Columns.profilePictureUrl.set(to: "testUrl"),
+                                        Profile.Columns.lastProfilePictureUpdate.set(to: 9999999999)
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            expect(mockCrypto)
+                                .toNot(call {
+                                    $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any()))
+                                })
+                            expect(mockFileManager)
+                                .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                            expect(mockStorage.read { db in try Profile.fetchOne(db) })
+                                .toNot(equal(
+                                    Profile(
+                                        id: "1234",
+                                        name: "test",
+                                        profilePictureUrl: "test",
+                                        profilePictureFileName: "\(filenameUuid.uuidString).jpg",
+                                        profileEncryptionKey: encryptionKey,
+                                        lastProfilePictureUpdate: 1234567891
+                                    )
+                                ))
+                        }
+                    }
+                    
+                    // MARK: ------ that has a more recent update but the same url and encryption key
+                    context("that has a more recent update but the same url and encryption key") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in
+                                try Profile
+                                    .updateAll(
+                                        db,
+                                        Profile.Columns.lastProfilePictureUpdate.set(to: 9999999999)
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- saves the picture
+                        it("saves the picture") {
+                            expect(mockCrypto)
+                                .to(call {
+                                    $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any()))
+                                })
+                            expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.createFile(
+                                    atPath: "/test/ProfileAvatars/\(filenameUuid.uuidString).jpg",
+                                    contents: imageData,
+                                    attributes: nil
+                                )
+                            })
+                            expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.imageData = ["\(filenameUuid.uuidString).jpg": imageData]
+                            })
+                            expect(mockStorage.read { db in try Profile.fetchOne(db) })
+                                .to(equal(
+                                    Profile(
+                                        id: "1234",
+                                        name: "test",
+                                        profilePictureUrl: "http://oxen.io/100/",
+                                        profilePictureFileName: "\(filenameUuid.uuidString).jpg",
+                                        profileEncryptionKey: encryptionKey,
+                                        lastProfilePictureUpdate: 1234567891
+                                    )
+                                ))
+                        }
+                    }
+                    
+                    // MARK: ------ updates the database values
+                    it("updates the database values") {
+                        expect(mockStorage.read { db in try Profile.fetchOne(db) })
+                            .to(equal(
+                                Profile(
+                                    id: "1234",
+                                    name: "test",
+                                    profilePictureUrl: "http://oxen.io/100/",
+                                    profilePictureFileName: "\(filenameUuid.uuidString).jpg",
+                                    profileEncryptionKey: encryptionKey,
+                                    lastProfilePictureUpdate: 1234567891
+                                )
+                            ))
+                    }
+                }
             }
         }
     }

@@ -132,7 +132,7 @@ public extension Profile {
                     profileChanges.append(Profile.Columns.profilePictureFileName.set(to: nil))
                     profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))
                     
-                case .updateTo(let url, let key, .some(let fileName)) where FileManager.default.fileExists(atPath: DisplayPictureManager.filepath(for: fileName)):
+                case .updateTo(let url, let key, .some(let fileName)) where FileManager.default.fileExists(atPath: DisplayPictureManager.filepath(for: fileName, using: dependencies)):
                     // Update the 'lastProfilePictureUpdate' timestamp for either external or local changes
                     profileChanges.append(Profile.Columns.profilePictureFileName.set(to: fileName))
                     profileChanges.append(Profile.Columns.lastProfilePictureUpdate.set(to: sentTimestamp))

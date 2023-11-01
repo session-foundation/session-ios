@@ -638,6 +638,11 @@
 		FD3FAB612AEA194E00DC5421 /* UserListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */; };
 		FD3FAB632AEB9A1500DC5421 /* ToastController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB622AEB9A1500DC5421 /* ToastController.swift */; };
 		FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB662AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift */; };
+		FD3FAB692AF1ADCA00DC5421 /* FileManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB682AF1ADCA00DC5421 /* FileManagerType.swift */; };
+		FD3FAB6C2AF1B28B00DC5421 /* MockFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB6A2AF1B27800DC5421 /* MockFileManager.swift */; };
+		FD3FAB6D2AF1B28B00DC5421 /* MockFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB6A2AF1B27800DC5421 /* MockFileManager.swift */; };
+		FD3FAB6E2AF1B28C00DC5421 /* MockFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB6A2AF1B27800DC5421 /* MockFileManager.swift */; };
+		FD3FAB702AF1F2F800DC5421 /* MockDisplayPictureCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB6F2AF1F2F800DC5421 /* MockDisplayPictureCache.swift */; };
 		FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */; };
 		FD4324302999F0BC008A0213 /* ValidatableResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */; };
 		FD432432299C6933008A0213 /* _011_AddPendingReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */; };
@@ -758,7 +763,6 @@
 		FD8ECF892935AB7200C0D1BB /* SessionUtilError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */; };
 		FD8ECF9029381FC200C0D1BB /* SessionUtil+UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF8F29381FC200C0D1BB /* SessionUtil+UserProfile.swift */; };
 		FD8ECF922938552800C0D1BB /* Threading.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF912938552800C0D1BB /* Threading.swift */; };
-		FD8ECF94293856AF00C0D1BB /* Randomness.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8ECF93293856AF00C0D1BB /* Randomness.swift */; };
 		FD9004122818ABDC00ABAAF6 /* Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73F280402C4004C14C5 /* Job.swift */; };
 		FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */; };
 		FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7432804EF1B004C14C5 /* JobRunner.swift */; };
@@ -1848,6 +1852,9 @@
 		FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserListViewModel.swift; sourceTree = "<group>"; };
 		FD3FAB622AEB9A1500DC5421 /* ToastController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastController.swift; sourceTree = "<group>"; };
 		FD3FAB662AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayPictureDownloadJobSpec.swift; sourceTree = "<group>"; };
+		FD3FAB682AF1ADCA00DC5421 /* FileManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileManagerType.swift; sourceTree = "<group>"; };
+		FD3FAB6A2AF1B27800DC5421 /* MockFileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFileManager.swift; sourceTree = "<group>"; };
+		FD3FAB6F2AF1F2F800DC5421 /* MockDisplayPictureCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDisplayPictureCache.swift; sourceTree = "<group>"; };
 		FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidatableResponse.swift; sourceTree = "<group>"; };
 		FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _011_AddPendingReadReceipts.swift; sourceTree = "<group>"; };
 		FD432433299C6985008A0213 /* PendingReadReceipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingReadReceipt.swift; sourceTree = "<group>"; };
@@ -1961,7 +1968,6 @@
 		FD8ECF882935AB7200C0D1BB /* SessionUtilError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionUtilError.swift; sourceTree = "<group>"; };
 		FD8ECF8F29381FC200C0D1BB /* SessionUtil+UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionUtil+UserProfile.swift"; sourceTree = "<group>"; };
 		FD8ECF912938552800C0D1BB /* Threading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Threading.swift; sourceTree = "<group>"; };
-		FD8ECF93293856AF00C0D1BB /* Randomness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Randomness.swift; sourceTree = "<group>"; };
 		FD9004132818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
 		FD9401A42ABD04AC003A4834 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		FD9401A52ABD04AC003A4834 /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -3789,13 +3795,13 @@
 				FD12A84A2AD6458800EEBA0D /* DifferenceKit+Utilities.swift */,
 				FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */,
 				FD09796A27F6C67500936362 /* Failable.swift */,
+				FD3FAB682AF1ADCA00DC5421 /* FileManagerType.swift */,
 				FD47E0AE2AA692F400A55E41 /* JSONDecoder+Utilities.swift */,
 				FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */,
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
 				FD09797C27FBDB2000936362 /* Notification+Utilities.swift */,
 				FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */,
 				FD8ECF912938552800C0D1BB /* Threading.swift */,
-				FD8ECF93293856AF00C0D1BB /* Randomness.swift */,
 				FDE519F62AB7CDC700450C53 /* Result+Utilities.swift */,
 				C33FDB38255A580B00E217F9 /* OWSBackgroundTask.h */,
 				C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */,
@@ -4295,6 +4301,7 @@
 				FDC290A527D860CE005DAE71 /* Mock.swift */,
 				FD0969F82A69FFE700C5C365 /* Mocked.swift */,
 				FD23CE272A67755C0000B97C /* MockCrypto.swift */,
+				FD3FAB6A2AF1B27800DC5421 /* MockFileManager.swift */,
 				FDFD645C27F273F300808CA1 /* MockGeneralCache.swift */,
 				FD83B9D127D59495005E1583 /* MockUserDefaults.swift */,
 				FD23CE312A67C38D0000B97C /* MockNetwork.swift */,
@@ -4592,6 +4599,7 @@
 			isa = PBXGroup;
 			children = (
 				FD3765DB2AD8CC8B00DC1489 /* MockPoller.swift */,
+				FD3FAB6F2AF1F2F800DC5421 /* MockDisplayPictureCache.swift */,
 				FD078E4C27E17156000769AF /* MockOGMCache.swift */,
 				FDB947162A9D69A8001F271A /* MockSessionUtilCache.swift */,
 				FDB9471A2A9D70A6001F271A /* CommonSMKMockExtensions.swift */,
@@ -6196,7 +6204,6 @@
 				FD17D7BA27F51F2100122BE0 /* TargetMigrations.swift in Sources */,
 				FD17D7C327F5204C00122BE0 /* Database+Utilities.swift in Sources */,
 				FD17D7C527F5206300122BE0 /* ColumnDefinition+Utilities.swift in Sources */,
-				FD8ECF94293856AF00C0D1BB /* Randomness.swift in Sources */,
 				FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */,
 				FD77289E284EF1C50018502F /* Sodium+Utilities.swift in Sources */,
 				B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */,
@@ -6210,6 +6217,7 @@
 				FD52090028AF6153006098F6 /* OWSBackgroundTask.m in Sources */,
 				C32C5DDB256DD9FF003C73A2 /* ContentProxy.swift in Sources */,
 				C3A71F892558BA9F0043A11F /* Mnemonic.swift in Sources */,
+				FD3FAB692AF1ADCA00DC5421 /* FileManagerType.swift in Sources */,
 				B8F5F58325EC94A6003BF8D4 /* Collection+Utilities.swift in Sources */,
 				7BD477A827EC39F5004E2822 /* Atomic.swift in Sources */,
 				B8BC00C0257D90E30032E807 /* General.swift in Sources */,
@@ -6732,6 +6740,7 @@
 				FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */,
 				FD0969FA2A6A00B000C5C365 /* Mocked.swift in Sources */,
 				FD23EA5C28ED00F80058676E /* Mock.swift in Sources */,
+				FD3FAB6C2AF1B28B00DC5421 /* MockFileManager.swift in Sources */,
 				FD23EA6128ED0B260058676E /* CombineExtensions.swift in Sources */,
 				FDFE75B32ABD469500655640 /* MockJobRunner.swift in Sources */,
 				FD9DD2712A72516D00ECB68E /* TestExtensions.swift in Sources */,
@@ -6752,6 +6761,7 @@
 				FDFBB7542A2023EB00CA7350 /* BencodeSpec.swift in Sources */,
 				FD9DD2732A72516D00ECB68E /* TestExtensions.swift in Sources */,
 				FDB5DB0E2A981FA0002C8721 /* MockJobRunner.swift in Sources */,
+				FD3FAB6E2AF1B28C00DC5421 /* MockFileManager.swift in Sources */,
 				FDFE75B22ABD469500655640 /* MockJobRunner.swift in Sources */,
 				FD83B9BB27CF20AF005E1583 /* SessionIdSpec.swift in Sources */,
 				FDC290A927D9B46D005DAE71 /* NimbleExtensions.swift in Sources */,
@@ -6841,6 +6851,7 @@
 				FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */,
 				FDC439632AC2492700A56963 /* MessageReceiverSpec.swift in Sources */,
 				FD0969F92A69FFE700C5C365 /* Mocked.swift in Sources */,
+				FD3FAB702AF1F2F800DC5421 /* MockDisplayPictureCache.swift in Sources */,
 				FDC2908F27D70938005DAE71 /* SendDirectMessageRequestSpec.swift in Sources */,
 				FDA1E83929A5771A00C5C3BD /* LibSessionSpec.swift in Sources */,
 				FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */,
@@ -6851,6 +6862,7 @@
 				FD078E5427E197CA000769AF /* OpenGroupManagerSpec.swift in Sources */,
 				FD3C906727E416AF00CD579F /* BlindedIdLookupSpec.swift in Sources */,
 				FD83B9D227D59495005E1583 /* MockUserDefaults.swift in Sources */,
+				FD3FAB6D2AF1B28B00DC5421 /* MockFileManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

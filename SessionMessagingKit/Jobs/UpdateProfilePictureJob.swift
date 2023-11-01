@@ -44,7 +44,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
         // Note: The user defaults flag is updated in DisplayPictureManager
         let profile: Profile = Profile.fetchOrCreateCurrentUser(using: dependencies)
         let displayPictureData: Data? = profile.profilePictureFileName
-            .map { DisplayPictureManager.loadDisplayPictureFromDisk(for: $0) }
+            .map { DisplayPictureManager.loadDisplayPictureFromDisk(for: $0, using: dependencies) }
         
         Profile.updateLocal(
             queue: queue,

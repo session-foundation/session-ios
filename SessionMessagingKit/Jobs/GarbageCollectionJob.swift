@@ -450,7 +450,7 @@ public enum GarbageCollectionJob: JobExecutor {
                     // Orphaned display picture files (actual deletion)
                     if finalTypesToCollect.contains(.orphanedDisplayPictures) {
                         let allDisplayPictureFilenames: Set<String> = (try? FileManager.default
-                            .contentsOfDirectory(atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath))
+                            .contentsOfDirectory(atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath(using: dependencies)))
                             .defaulting(to: [])
                             .asSet()
                         let orphanedFiles: Set<String> = allDisplayPictureFilenames
@@ -461,7 +461,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             // each one and store the error to be used to determine success/failure of the job
                             do {
                                 try FileManager.default.removeItem(
-                                    atPath: DisplayPictureManager.filepath(for: filename)
+                                    atPath: DisplayPictureManager.filepath(for: filename, using: dependencies)
                                 )
                             }
                             catch { deletionErrors.append(error) }

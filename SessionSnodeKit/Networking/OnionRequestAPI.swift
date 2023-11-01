@@ -393,7 +393,7 @@ public enum OnionRequestAPI {
                 guardSnode = path.first!
                 
                 // Encrypt in reverse order, i.e. the destination first
-                return encrypt(payload, for: destination)
+                return encrypt(payload, for: destination, using: dependencies)
                     .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                         targetSnodeSymmetricKey = r.symmetricKey
                         
@@ -411,7 +411,7 @@ public enum OnionRequestAPI {
                             
                             let lhs = OnionRequestAPIDestination.snode(path.removeLast())
                             return OnionRequestAPI
-                                .encryptHop(from: lhs, to: rhs, using: encryptionResult)
+                                .encryptHop(from: lhs, to: rhs, using: encryptionResult, using: dependencies)
                                 .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                                     encryptionResult = r
                                     rhs = lhs

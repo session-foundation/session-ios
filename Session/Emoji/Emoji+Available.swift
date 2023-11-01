@@ -5,7 +5,7 @@ import SessionUtilitiesKit
 extension Emoji {
     private static let availableCache: Atomic<[Emoji:Bool]> = Atomic([:])
     private static let iosVersionKey = "iosVersion"
-    private static let cacheUrl = URL(fileURLWithPath: OWSFileSystem.appSharedDataDirectoryPath())
+    private static let cacheUrl = URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
         .appendingPathComponent("Library")
         .appendingPathComponent("Caches")
         .appendingPathComponent("emoji.plist")

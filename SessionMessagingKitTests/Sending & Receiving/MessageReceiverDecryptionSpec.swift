@@ -31,8 +31,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
             initialSetup: { crypto in
                 crypto
                     .when { crypto in
-                        try crypto.perform(
-                            .encryptAeadXChaCha20(
+                        crypto.generate(
+                            .encryptedBytesAeadXChaCha20(
                                 message: anyArray(),
                                 secretKey: anyArray(),
                                 nonce: anyArray(),
@@ -43,8 +43,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     .thenReturn(nil)
                 crypto
                     .when {
-                        try $0.perform(
-                            .open(
+                        $0.generate(
+                            .openedBytes(
                                 anonymousCipherText: anyArray(),
                                 recipientPublicKey: anyArray(),
                                 recipientSecretKey: anyArray()
@@ -70,7 +70,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     )
                 crypto
                     .when { crypto in
-                        try crypto.perform(
+                        crypto.generate(
                             .sharedBlindedEncryptionKey(
                                 secretKey: anyArray(),
                                 otherBlindedPublicKey: anyArray(),
@@ -82,25 +82,21 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                     }
                     .thenReturn([])
                 crypto
-                    .when { crypto in
-                        try crypto.perform(
-                            .generateBlindingFactor(serverPublicKey: any(), using: any())
-                        )
-                    }
+                    .when { crypto in crypto.generate(.blindingFactor(serverPublicKey: any(), using: any())) }
                     .thenReturn([])
                 crypto
-                    .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
+                    .when { $0.generate(.combinedKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
                     .thenReturn(Data(hex: TestConstants.blindedPublicKey).bytes)
                 crypto
-                    .when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }
+                    .when { $0.generate(.x25519(ed25519PublicKey: anyArray())) }
                     .thenReturn(Data(hex: TestConstants.publicKey).bytes)
                 crypto
                     .when { $0.verify(.signature(message: anyArray(), publicKey: anyArray(), signature: anyArray())) }
                     .thenReturn(true)
                 crypto
                     .when {
-                        try $0.perform(
-                            .decryptAeadXChaCha20(
+                        $0.generate(
+                            .decryptedBytesAeadXChaCha20(
                                 authenticatedCipherText: anyArray(),
                                 secretKey: anyArray(),
                                 nonce: anyArray()
@@ -112,7 +108,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 crypto.when { $0.size(.publicKey) }.thenReturn(32)
                 crypto.when { $0.size(.signature) }.thenReturn(64)
                 crypto
-                    .when { try $0.perform(.generateNonce24()) }
+                    .when { $0.generate(.nonce24()) }
                     .thenReturn(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!.bytes)
             }
         )
@@ -145,8 +141,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 it("throws an error if it cannot open the message") {
                     mockCrypto
                         .when {
-                            try $0.perform(
-                                .open(
+                            $0.generate(
+                                .openedBytes(
                                     anonymousCipherText: anyArray(),
                                     recipientPublicKey: anyArray(),
                                     recipientSecretKey: anyArray()
@@ -172,8 +168,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 it("throws an error if the open message is too short") {
                     mockCrypto
                         .when {
-                            try $0.perform(
-                                .open(
+                            $0.generate(
+                                .openedBytes(
                                     anonymousCipherText: anyArray(),
                                     recipientPublicKey: anyArray(),
                                     recipientSecretKey: anyArray()
@@ -216,7 +212,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 
                 // MARK: ---- throws an error if it cannot get the senders x25519 public key
                 it("throws an error if it cannot get the senders x25519 public key") {
-                    mockCrypto.when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }.thenReturn(nil)
+                    mockCrypto.when { $0.generate(.x25519(ed25519PublicKey: anyArray())) }.thenReturn(nil)
                     
                     expect {
                         try MessageReceiver.decryptWithSessionProtocol(
@@ -301,15 +297,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if it cannot get the blinded keyPair
                 it("throws an error if it cannot get the blinded keyPair") {
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            crypto.generate(
-                                .blindedKeyPair(
-                                    serverPublicKey: any(),
-                                    edKeyPair: any(),
-                                    using: dependencies
-                                )
-                            )
-                        }
+                        .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
                         .thenReturn(nil)
                     
                     expect {
@@ -335,14 +323,14 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if it cannot get the decryption key
                 it("throws an error if it cannot get the decryption key") {
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            try crypto.perform(
+                        .when {
+                            $0.generate(
                                 .sharedBlindedEncryptionKey(
                                     secretKey: anyArray(),
                                     otherBlindedPublicKey: anyArray(),
                                     fromBlindedPublicKey: anyArray(),
                                     toBlindedPublicKey: anyArray(),
-                                    using: dependencies
+                                    using: any()
                                 )
                             )
                         }
@@ -394,8 +382,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 it("throws an error if it cannot decrypt the data") {
                     mockCrypto
                         .when {
-                            try $0.perform(
-                                .decryptAeadXChaCha20(
+                            $0.generate(
+                                .decryptedBytesAeadXChaCha20(
                                     authenticatedCipherText: anyArray(),
                                     secretKey: anyArray(),
                                     nonce: anyArray()
@@ -428,8 +416,8 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 it("throws an error if the inner bytes are too short") {
                     mockCrypto
                         .when {
-                            try $0.perform(
-                                .decryptAeadXChaCha20(
+                            $0.generate(
+                                .decryptedBytesAeadXChaCha20(
                                     authenticatedCipherText: anyArray(),
                                     secretKey: anyArray(),
                                     nonce: anyArray()
@@ -461,9 +449,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if it cannot generate the blinding factor
                 it("throws an error if it cannot generate the blinding factor") {
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            try crypto.perform(.generateBlindingFactor(serverPublicKey: any(), using: dependencies))
-                        }
+                        .when { $0.generate(.blindingFactor(serverPublicKey: any(), using: any())) }
                         .thenReturn(nil)
                     
                     expect {
@@ -489,7 +475,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if it cannot generate the combined key
                 it("throws an error if it cannot generate the combined key") {
                     mockCrypto
-                        .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
+                        .when { $0.generate(.combinedKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
                         .thenReturn(nil)
                     
                     expect {
@@ -515,7 +501,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if the combined key does not match kA
                 it("throws an error if the combined key does not match kA") {
                     mockCrypto
-                        .when { try $0.perform(.combineKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
+                        .when { $0.generate(.combinedKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
                         .thenReturn(Data(hex: TestConstants.publicKey).bytes)
                     
                     expect {
@@ -541,7 +527,7 @@ class MessageReceiverDecryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if it cannot get the senders x25519 public key
                 it("throws an error if it cannot get the senders x25519 public key") {
                     mockCrypto
-                        .when { try $0.perform(.toX25519(ed25519PublicKey: anyArray())) }
+                        .when { $0.generate(.x25519(ed25519PublicKey: anyArray())) }
                         .thenReturn(nil)
                     
                     expect {

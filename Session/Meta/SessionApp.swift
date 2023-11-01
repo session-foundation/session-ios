@@ -122,7 +122,7 @@ public struct SessionApp {
         
         SessionUtil.clearMemoryState(using: dependencies)
         Storage.resetAllStorage()
-        DisplayPictureManager.resetStorage()
+        DisplayPictureManager.resetStorage(using: dependencies)
         Attachment.resetAttachmentStorage()
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
 

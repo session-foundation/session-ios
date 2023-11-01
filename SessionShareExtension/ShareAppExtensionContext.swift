@@ -155,15 +155,6 @@ final class ShareAppExtensionContext: NSObject, AppContext {
         return (targetPath ?? "")
     }
     
-    func appSharedDataDirectoryPath() -> String {
-        let targetPath: String? = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?
-            .path
-        owsAssertDebug(targetPath != nil)
-        
-        return (targetPath ?? "")
-    }
-    
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) {
         OWSLogger.info("Ignoring request to show/hide status bar since we're in an app extension")
     }

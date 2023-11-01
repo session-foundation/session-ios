@@ -23,8 +23,6 @@ void ClearOldTemporaryDirectoriesSync(void);
 
 + (NSString *)appLibraryDirectoryPath;
 
-+ (NSString *)appSharedDataDirectoryPath;
-
 + (NSString *)cachesDirectoryPath;
 
 + (nullable NSError *)renameFilePathUsingRandomExtension:(NSString *)oldFilePath;

@@ -70,11 +70,6 @@ NS_ASSUME_NONNULL_BEGIN
     return CurrentAppContext().appDocumentDirectoryPath;
 }
 
-+ (NSString *)appSharedDataDirectoryPath
-{
-    return CurrentAppContext().appSharedDataDirectoryPath;
-}
-
 + (NSString *)cachesDirectoryPath
 {
     NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);

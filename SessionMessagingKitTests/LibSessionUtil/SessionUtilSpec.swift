@@ -316,14 +316,7 @@ class SessionUtilSpec: QuickSpec {
                     var resultError: Error? = nil
                     
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            crypto.generate(
-                                .ed25519KeyPair(
-                                    seed: any(),
-                                    using: dependencies
-                                )
-                            )
-                        }
+                        .when { $0.generate(.ed25519KeyPair(seed: any(), using: any())) }
                         .thenReturn(nil)
                     
                     mockStorage.write { db in

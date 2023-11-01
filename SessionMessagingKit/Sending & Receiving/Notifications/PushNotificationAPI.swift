@@ -433,8 +433,8 @@ public enum PushNotificationAPI {
         let payload: Data = encData[dependencies[singleton: .crypto].size(.aeadXChaCha20NonceBytes)...]
         
         guard
-            let paddedData: [UInt8] = try? dependencies[singleton: .crypto].perform(
-                .decryptAeadXChaCha20(
+            let paddedData: [UInt8] = dependencies[singleton: .crypto].generate(
+                .decryptedBytesAeadXChaCha20(
                     authenticatedCipherText: payload.bytes,
                     secretKey: notificationsEncryptionKey.bytes,
                     nonce: nonce.bytes
@@ -482,7 +482,8 @@ public enum PushNotificationAPI {
                 case (StorageError.invalidKeySpec, _), (_, errSecItemNotFound):
                     // No keySpec was found so we need to generate a new one
                     do {
-                        var keySpec: Data = try Randomness.generateRandomBytes(numberBytes: encryptionKeyLength)
+                        var keySpec: Data = try Data(dependencies[singleton: .crypto]
+                            .tryGenerate(.randomBytes(numberBytes: encryptionKeyLength)))
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
                         try SSKDefaultKeychainStorage.shared.set(

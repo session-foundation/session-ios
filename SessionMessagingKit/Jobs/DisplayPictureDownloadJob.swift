@@ -53,8 +53,8 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             return
         }
             
-        let fileName: String = DisplayPictureManager.generateFilename()
-        let filePath: String = DisplayPictureManager.filepath(for: fileName)
+        let fileName: String = DisplayPictureManager.generateFilename(using: dependencies)
+        let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
         
         preparedDownload
             .send(using: dependencies)
@@ -78,7 +78,9 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             switch details.target {
                                 case .community: return data    // Community data is unencrypted
                                 case .profile(_, _, let encryptionKey), .group(_, _, let encryptionKey):
-                                    return DisplayPictureManager.decryptData(data: data, key: encryptionKey)
+                                    return dependencies[singleton: .crypto].generate(
+                                        .decryptedDataDisplayPicture(data: data, key: encryptionKey, using: dependencies)
+                                    )
                             }
                         }()
                     else {
@@ -87,10 +89,14 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         return
                     }
                     
-                    // Save the decrypted display picture to disk
-                    try? decryptedData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
-                    
-                    guard UIImage(contentsOfFile: filePath) != nil else {
+                    // Ensure the data is actually image data and then save it to disk
+                    guard
+                        UIImage(data: decryptedData) != nil,
+                        dependencies[singleton: .fileManager].createFile(
+                            atPath: filePath,
+                            contents: decryptedData
+                        )
+                    else {
                         SNLog("[DisplayPictureDownloadJob] Failed to load display picture for \(details.target)")
                         failure(job, DisplayPictureError.writeFailed, true, dependencies)
                         return

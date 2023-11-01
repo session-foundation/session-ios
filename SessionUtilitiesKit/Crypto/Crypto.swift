@@ -21,11 +21,9 @@ public extension Singleton {
 
 public protocol CryptoType {
     func size(_ size: Crypto.Size) -> Int
-    func perform(_ action: Crypto.Action) throws -> Array<UInt8>
+    func generate<R>(_ generator: Crypto.Generator<R>) -> R?
+    func tryGenerate<R>(_ generator: Crypto.Generator<R>) throws -> R
     func verify(_ verification: Crypto.Verification) -> Bool
-    func generate(_ keyPairType: Crypto.KeyPairType) -> KeyPair?
-    func generate(_ authInfo: Crypto.AuthenticationInfo) throws -> Authentication.Info
-    func generate(_ authSignature: Crypto.AuthenticationSignature) throws -> Authentication.Signature
 }
 
 // MARK: - CryptoError
@@ -63,33 +61,33 @@ public struct Crypto: CryptoType {
         }
     }
     
-    public struct Action {
+    public struct Generator<T> {
         public let id: String
         public let args: [Any?]
-        let perform: (Sodium) throws -> Array<UInt8>
+        let generate: (Sodium) throws -> T
         
-        public init(id: String, args: [Any?] = [], perform: @escaping (Sodium) throws -> Array<UInt8>) {
+        public init(id: String, args: [Any?] = [], generate: @escaping (Sodium) throws -> T) {
             self.id = id
             self.args = args
-            self.perform = perform
+            self.generate = generate
         }
         
-        public init(id: String, args: [Any?] = [], perform: @escaping () throws -> Array<UInt8>) {
+        public init(id: String, args: [Any?] = [], generate: @escaping () throws -> T) {
             self.id = id
             self.args = args
-            self.perform = { _ in try perform() }
+            self.generate = { _ in try generate() }
         }
         
-        public init(id: String, args: [Any?] = [], perform: @escaping (Sodium) -> Array<UInt8>?) {
+        public init(id: String, args: [Any?] = [], generate: @escaping (Sodium) -> T?) {
             self.id = id
             self.args = args
-            self.perform = { try perform($0) ?? { throw CryptoError.failedToGenerateOutput }() }
+            self.generate = { try generate($0) ?? { throw CryptoError.failedToGenerateOutput }() }
         }
         
-        public init(id: String, args: [Any?] = [], perform: @escaping () -> Array<UInt8>?) {
+        public init(id: String, args: [Any?] = [], generate: @escaping () -> T?) {
             self.id = id
             self.args = args
-            self.perform = { _ in try perform() ?? { throw CryptoError.failedToGenerateOutput }() }
+            self.generate = { _ in try generate() ?? { throw CryptoError.failedToGenerateOutput }() }
         }
     }
     
@@ -111,95 +109,9 @@ public struct Crypto: CryptoType {
         }
     }
     
-    public struct KeyPairType {
-        public let id: String
-        public let args: [Any?]
-        let generate: (Sodium) -> KeyPair?
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping (Sodium) -> KeyPair?) {
-            self.id = id
-            self.args = args
-            self.generate = generate
-        }
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping () -> KeyPair?) {
-            self.id = id
-            self.args = args
-            self.generate = { _ in generate() }
-        }
-    }
-    
-    public struct AuthenticationInfo {
-        public let id: String
-        public let args: [Any?]
-        let generate: (Sodium) throws -> Authentication.Info
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping (Sodium) throws -> Authentication.Info) {
-            self.id = id
-            self.args = args
-            self.generate = generate
-        }
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping () throws -> Authentication.Info) {
-            self.id = id
-            self.args = args
-            self.generate = { _ in try generate() }
-        }
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping (Sodium) -> Authentication.Info?) {
-            self.id = id
-            self.args = args
-            self.generate = { try generate($0) ?? { throw CryptoError.failedToGenerateOutput }() }
-        }
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping () -> Authentication.Info?) {
-            self.id = id
-            self.args = args
-            self.generate = { _ in try generate() ?? { throw CryptoError.failedToGenerateOutput }() }
-        }
-    }
-    
-    public struct AuthenticationSignature {
-        public let id: String
-        public let args: [Any?]
-        let generate: (Sodium) throws -> Authentication.Signature
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping (Sodium) throws -> Authentication.Signature) {
-            self.id = id
-            self.args = args
-            self.generate = generate
-        }
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping () throws -> Authentication.Signature) {
-            self.id = id
-            self.args = args
-            self.generate = { _ in try generate() }
-        }
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping (Sodium) -> Authentication.Signature?) {
-            self.id = id
-            self.args = args
-            self.generate = { try generate($0) ?? { throw CryptoError.failedToGenerateOutput }() }
-        }
-        
-        public init(id: String, args: [Any?] = [], generate: @escaping () -> Authentication.Signature?) {
-            self.id = id
-            self.args = args
-            self.generate = { _ in try generate() ?? { throw CryptoError.failedToGenerateOutput }() }
-        }
-    }
-    
     public init() {}
     public func size(_ size: Crypto.Size) -> Int { return size.get(sodium) }
-    public func perform(_ action: Crypto.Action) throws -> Array<UInt8> { return try action.perform(sodium) }
+    public func generate<R>(_ generator: Crypto.Generator<R>) -> R? { return try? generator.generate(sodium) }
+    public func tryGenerate<R>(_ generator: Crypto.Generator<R>) throws -> R { return try generator.generate(sodium) }
     public func verify(_ verification: Crypto.Verification) -> Bool { return verification.verify(sodium) }
-    public func generate(_ keyPairType: Crypto.KeyPairType) -> KeyPair? { return keyPairType.generate(sodium) }
-    
-    public func generate(_ authInfo: Crypto.AuthenticationInfo) throws -> Authentication.Info {
-        return try authInfo.generate(sodium)
-    }
-    
-    public func generate(_ authSignature: Crypto.AuthenticationSignature) throws -> Authentication.Signature {
-        return try authSignature.generate(sodium)
-    }
 }

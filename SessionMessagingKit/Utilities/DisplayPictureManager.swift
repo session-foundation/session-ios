@@ -19,30 +19,23 @@ public struct DisplayPictureManager {
     public static let maxBytes: UInt = (5 * 1000 * 1000)
     public static let maxDiameter: CGFloat = 640
     public static let aes256KeyByteLength: Int = 32
-    private static let nonceLength: Int = 12
-    private static let tagLength: Int = 16
+    internal static let nonceLength: Int = 12
+    internal static let tagLength: Int = 16
     
     private static var scheduleDownloadsPublisher: AnyPublisher<Void, Never>?
     private static let scheduleDownloadsTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
     
-    public static let sharedDataDisplayPictureDirPath: String = {
-        let path: String = URL(fileURLWithPath: OWSFileSystem.appSharedDataDirectoryPath())
+    public static func isTooLong(profileUrl: String) -> Bool {
+        return (profileUrl.utf8CString.count > SessionUtil.sizeMaxProfileUrlBytes)
+    }
+    
+    public static func sharedDataDisplayPictureDirPath(using dependencies: Dependencies) -> String {
+        let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
             .appendingPathComponent("ProfileAvatars")   // stringlint:disable
             .path
         OWSFileSystem.ensureDirectoryExists(path)
         
         return path
-    }()
-    
-    private static let displayPictureDirPath: String = {
-        let path: String = DisplayPictureManager.sharedDataDisplayPictureDirPath
-        OWSFileSystem.ensureDirectoryExists(path)
-        
-        return path
-    }()
-    
-    public static func isTooLong(profileUrl: String) -> Bool {
-        return (profileUrl.utf8CString.count > SessionUtil.sizeMaxProfileUrlBytes)
     }
     
     // MARK: - Loading
@@ -92,7 +85,7 @@ public struct DisplayPictureManager {
         
         guard
             !fileName.isEmpty,
-            let data: Data = loadDisplayPictureFromDisk(for: fileName),
+            let data: Data = loadDisplayPictureFromDisk(for: fileName, using: dependencies),
             data.isValidImage
         else {
             // If we can't load the avatar or it's an invalid/corrupted image then clear it out and re-download
@@ -104,48 +97,10 @@ public struct DisplayPictureManager {
         return data
     }
     
-    public static func loadDisplayPictureFromDisk(for fileName: String) -> Data? {
-        let filePath: String = DisplayPictureManager.filepath(for: fileName)
+    public static func loadDisplayPictureFromDisk(for fileName: String, using dependencies: Dependencies) -> Data? {
+        let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
 
         return try? Data(contentsOf: URL(fileURLWithPath: filePath))
-    }
-    
-    // MARK: - Encryption
-    
-    internal static func encryptData(data: Data, key: Data) -> Data? {
-        // The key structure is: nonce || ciphertext || authTag
-        guard
-            key.count == DisplayPictureManager.aes256KeyByteLength,
-            let nonceData: Data = try? Randomness.generateRandomBytes(numberBytes: DisplayPictureManager.nonceLength),
-            let nonce: AES.GCM.Nonce = try? AES.GCM.Nonce(data: nonceData),
-            let sealedData: AES.GCM.SealedBox = try? AES.GCM.seal(
-                data,
-                using: SymmetricKey(data: key),
-                nonce: nonce
-            ),
-            let encryptedContent: Data = sealedData.combined
-        else { return nil }
-        
-        return encryptedContent
-    }
-    
-    internal static func decryptData(data: Data, key: Data) -> Data? {
-        guard key.count == DisplayPictureManager.aes256KeyByteLength else { return nil }
-        
-        // The key structure is: nonce || ciphertext || authTag
-        let cipherTextLength: Int = (data.count - (DisplayPictureManager.nonceLength + DisplayPictureManager.tagLength))
-        
-        guard
-            cipherTextLength > 0,
-            let sealedData: AES.GCM.SealedBox = try? AES.GCM.SealedBox(
-                nonce: AES.GCM.Nonce(data: data.subdata(in: 0..<DisplayPictureManager.nonceLength)),
-                ciphertext: data.subdata(in: DisplayPictureManager.nonceLength..<(DisplayPictureManager.nonceLength + cipherTextLength)),
-                tag: data.subdata(in: (data.count - DisplayPictureManager.tagLength)..<data.count)
-            ),
-            let decryptedData: Data = try? AES.GCM.open(sealedData, using: SymmetricKey(data: key))
-        else { return nil }
-        
-        return decryptedData
     }
     
     // MARK: - File Paths
@@ -165,23 +120,27 @@ public struct DisplayPictureManager {
             .asRequest(of: String.self)
             .fetchOne(db)
         
-        return maybeFileName.map { DisplayPictureManager.filepath(for: $0) }
+        return maybeFileName.map { DisplayPictureManager.filepath(for: $0, using: dependencies) }
     }
     
-    public static func generateFilename() -> String {
-        return UUID().uuidString.appendingFileExtension("jpg")  // stringlint:disable
+    public static func generateFilename(using dependencies: Dependencies) -> String {
+        return dependencies[singleton: .crypto]
+            .generate(.uuid())
+            .defaulting(to: UUID())
+            .uuidString
+            .appendingFileExtension("jpg")  // stringlint:disable
     }
     
-    public static func filepath(for filename: String) -> String {
+    public static func filepath(for filename: String, using dependencies: Dependencies) -> String {
         guard !filename.isEmpty else { return "" }
         
-        return URL(fileURLWithPath: sharedDataDisplayPictureDirPath)
+        return URL(fileURLWithPath: sharedDataDisplayPictureDirPath(using: dependencies))
             .appendingPathComponent(filename)
             .path
     }
     
-    public static func resetStorage() {
-        try? FileManager.default.removeItem(atPath: DisplayPictureManager.displayPictureDirPath)
+    public static func resetStorage(using dependencies: Dependencies) {
+        try? FileManager.default.removeItem(atPath: DisplayPictureManager.sharedDataDisplayPictureDirPath(using: dependencies))
     }
     
     // MARK: - Downloading
@@ -306,9 +265,8 @@ public struct DisplayPictureManager {
                     return data
                 }()
                 
-                newEncryptionKey = try Randomness.generateRandomBytes(
-                    numberBytes: DisplayPictureManager.aes256KeyByteLength
-                )
+                newEncryptionKey = try dependencies[singleton: .crypto]
+                    .tryGenerate(.randomBytes(numberBytes: DisplayPictureManager.aes256KeyByteLength))
                 fileExtension = {
                     switch guessedFormat {
                         case .gif: return "gif"     // stringlint:disable
@@ -328,8 +286,11 @@ public struct DisplayPictureManager {
             // * Send asset service info to Signal Service
             SNLog(.verbose, "Updating local profile on service with new avatar.")
             
-            let fileName: String = UUID().uuidString.appendingFileExtension(fileExtension)
-            let filePath: String = DisplayPictureManager.filepath(for: fileName)
+            let fileName: String = dependencies[singleton: .crypto].generate(.uuid())
+                .defaulting(to: UUID())
+                .uuidString
+                .appendingFileExtension(fileExtension)
+            let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
             
             // Write the avatar to disk
             do { try finalImageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic]) }
@@ -340,7 +301,11 @@ public struct DisplayPictureManager {
             }
             
             // Encrypt the avatar for upload
-            guard let encryptedData: Data = DisplayPictureManager.encryptData(data: finalImageData, key: newEncryptionKey) else {
+            guard
+                let encryptedData: Data = dependencies[singleton: .crypto].generate(
+                    .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey, using: dependencies)
+                )
+            else {
                 SNLog("Updating service with profile failed.")
                 failure?(.encryptionFailed)
                 return

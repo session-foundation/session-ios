@@ -18,17 +18,15 @@ extension MessageReceiver {
         
         // 1. ) Decrypt the message
         guard
-            let plaintextWithMetadata = try? dependencies[singleton: .crypto].perform(
-                .open(
+            let plaintextWithMetadata = dependencies[singleton: .crypto].generate(
+                .openedBytes(
                     anonymousCipherText: Bytes(ciphertext),
                     recipientPublicKey: Box.PublicKey(Bytes(recipientX25519PublicKey)),
                     recipientSecretKey: Bytes(recipientX25519PrivateKey)
                 )
             ),
             plaintextWithMetadata.count > (signatureSize + ed25519PublicKeySize)
-        else {
-            throw MessageReceiverError.decryptionFailed
-        }
+        else { throw MessageReceiverError.decryptionFailed }
         
         // 2. ) Get the message parts
         let signature = Bytes(plaintextWithMetadata[plaintextWithMetadata.count - signatureSize ..< plaintextWithMetadata.count])
@@ -46,8 +44,8 @@ extension MessageReceiver {
         
         // 4. ) Get the sender's X25519 public key
         guard
-            let senderX25519PublicKey = try? dependencies[singleton: .crypto].perform(
-                .toX25519(ed25519PublicKey: senderED25519PublicKey)
+            let senderX25519PublicKey = dependencies[singleton: .crypto].generate(
+                .x25519(ed25519PublicKey: senderED25519PublicKey)
             )
         else { throw MessageReceiverError.decryptionFailed }
         
@@ -75,7 +73,7 @@ extension MessageReceiver {
         /// Step one: calculate the shared encryption key, receiving from A to B
         let kA: Bytes = (isOutgoing ? blindedKeyPair.publicKey : otherSessionId.publicKey)
         guard
-            let dec_key: Bytes = try? dependencies[singleton: .crypto].perform(
+            let dec_key: Bytes = dependencies[singleton: .crypto].generate(
                 .sharedBlindedEncryptionKey(
                     secretKey: userEd25519KeyPair.secretKey,
                     otherBlindedPublicKey: otherSessionId.publicKey,
@@ -96,8 +94,8 @@ extension MessageReceiver {
 
         /// Decrypt
         guard
-            let innerBytes: Bytes = try? dependencies[singleton: .crypto].perform(
-                .decryptAeadXChaCha20(
+            let innerBytes: Bytes = dependencies[singleton: .crypto].generate(
+                .decryptedBytesAeadXChaCha20(
                     authenticatedCipherText: ciphertext,
                     secretKey: dec_key,
                     nonce: nonce
@@ -118,19 +116,19 @@ extension MessageReceiver {
         
         /// Verify that the inner sender_edpk (A) yields the same outer kA we got with the message
         guard
-            let blindingFactor: Bytes = try? dependencies[singleton: .crypto].perform(
-                .generateBlindingFactor(serverPublicKey: openGroupPublicKey, using: dependencies)
+            let blindingFactor: Bytes = dependencies[singleton: .crypto].generate(
+                .blindingFactor(serverPublicKey: openGroupPublicKey, using: dependencies)
             ),
-            let sharedSecret: Bytes = try? dependencies[singleton: .crypto].perform(
-                .combineKeys(lhsKeyBytes: blindingFactor, rhsKeyBytes: sender_edpk)
+            let sharedSecret: Bytes = dependencies[singleton: .crypto].generate(
+                .combinedKeys(lhsKeyBytes: blindingFactor, rhsKeyBytes: sender_edpk)
             ),
             kA == sharedSecret
         else { throw MessageReceiverError.invalidSignature }
         
         /// Get the sender's X25519 public key
         guard
-            let senderSessionIdBytes: Bytes = try? dependencies[singleton: .crypto].perform(
-                .toX25519(ed25519PublicKey: sender_edpk)
+            let senderSessionIdBytes: Bytes = dependencies[singleton: .crypto].generate(
+                .x25519(ed25519PublicKey: sender_edpk)
             )
         else { throw MessageReceiverError.decryptionFailed }
         

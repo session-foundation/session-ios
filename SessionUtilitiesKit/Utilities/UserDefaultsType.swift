@@ -40,6 +40,8 @@ public protocol UserDefaultsType: AnyObject {
 
 extension UserDefaults: UserDefaultsType {}
 
+// MARK: - Convenience
+
 public extension UserDefaults {
     static let applicationGroup: String = "group.com.loki-project.loki-messenger"
     

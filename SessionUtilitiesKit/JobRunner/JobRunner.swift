@@ -159,11 +159,27 @@ public final class JobRunner: JobRunnerType {
         public static let any: JobState = [ .pending, .running ]
     }
     
-    public enum JobResult {
+    public enum JobResult: Equatable {
         case succeeded
         case failed(Error?, Bool)
         case deferred
         case notFound
+        
+        
+        public static func == (lhs: JobRunner.JobResult, rhs: JobRunner.JobResult) -> Bool {
+            switch (lhs, rhs) {
+                case (.succeeded, .succeeded): return true
+                case (.failed(let lhsError, let lhsPermanent), .failed(let rhsError, let rhsPermanent)):
+                    return (
+                        // Not a perfect solution but should be good enough
+                        lhsError?.localizedDescription == rhsError?.localizedDescription &&
+                        lhsPermanent == rhsPermanent
+                    )
+                    
+                case (.deferred, .deferred): return true
+                default: return false
+            }
+        }
     }
 
     public struct JobInfo: Equatable, CustomDebugStringConvertible {

@@ -18,7 +18,7 @@ public extension Authentication {
         // MARK: - SignatureGenerator
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
-            return try dependencies[singleton: .crypto].generate(
+            return try dependencies[singleton: .crypto].tryGenerate(
                 .signature(message: verificationBytes, secretKey: ed25519KeyPair.secretKey)
             )
         }
@@ -34,7 +34,7 @@ public extension Authentication {
         // MARK: - SignatureGenerator
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
-            return try dependencies[singleton: .crypto].generate(
+            return try dependencies[singleton: .crypto].tryGenerate(
                 .signature(message: verificationBytes, secretKey: ed25519SecretKey)
             )
         }

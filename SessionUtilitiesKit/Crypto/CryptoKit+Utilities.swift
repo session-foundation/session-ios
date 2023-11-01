@@ -71,14 +71,18 @@ public extension AES.GCM {
     }
 
     /// - Note: Sync. Don't call from the main thread.
-    static func encrypt(_ plaintext: Data, with symmetricKey: Data) throws -> Data {
+    static func encrypt(
+        _ plaintext: Data,
+        with symmetricKey: Data,
+        using dependencies: Dependencies
+    ) throws -> Data {
         #if DEBUG
         if Thread.isMainThread {
             preconditionFailure("It's illegal to call encrypt(_:usingAESGCMWithSymmetricKey:) from the main thread.")
         }
         #endif
         
-        let nonceData: Data = try Randomness.generateRandomBytes(numberBytes: ivSize)
+        let nonceData: Data = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(numberBytes: ivSize))
         let sealedData: AES.GCM.SealedBox = try AES.GCM.seal(
             plaintext,
             using: SymmetricKey(data: symmetricKey),
@@ -93,7 +97,11 @@ public extension AES.GCM {
     }
 
     /// - Note: Sync. Don't call from the main thread.
-    static func encrypt(_ plaintext: Data, for hexEncodedX25519PublicKey: String) throws -> EncryptionResult {
+    static func encrypt(
+        _ plaintext: Data,
+        for hexEncodedX25519PublicKey: String,
+        using dependencies: Dependencies
+    ) throws -> EncryptionResult {
         #if DEBUG
         if Thread.isMainThread {
             preconditionFailure("It's illegal to call encrypt(_:forSnode:) from the main thread.")
@@ -102,7 +110,7 @@ public extension AES.GCM {
         let x25519PublicKey = Data(hex: hexEncodedX25519PublicKey)
         let ephemeralKeyPair = Curve25519.generateKeyPair()
         let symmetricKey = try generateSymmetricKey(x25519PublicKey: x25519PublicKey, x25519PrivateKey: ephemeralKeyPair.privateKey)
-        let ciphertext = try encrypt(plaintext, with: Data(symmetricKey))
+        let ciphertext = try encrypt(plaintext, with: Data(symmetricKey), using: dependencies)
         
         return EncryptionResult(ciphertext: ciphertext, symmetricKey: Data(symmetricKey), ephemeralPublicKey: ephemeralKeyPair.publicKey)
     }

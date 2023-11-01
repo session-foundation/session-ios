@@ -602,7 +602,7 @@ extension Attachment {
     }()
     
     private static var sharedDataAttachmentsDirPath: String = {
-        URL(fileURLWithPath: OWSFileSystem.appSharedDataDirectoryPath())
+        URL(fileURLWithPath: FileManager.default.appSharedDataDirectoryPath)
             .appendingPathComponent("Attachments")
             .path
     }()

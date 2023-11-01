@@ -96,8 +96,8 @@ internal extension SessionUtil {
         memberId: String,
         using dependencies: Dependencies
     ) throws -> [UInt8] {
-        try dependencies[singleton: .crypto].perform(
-            .subaccountToken(
+        try dependencies[singleton: .crypto].tryGenerate(
+            .tokenSubaccount(
                 config: dependencies[cache: .sessionUtil]
                     .config(for: .groupKeys, sessionId: groupSessionId)
                     .wrappedValue,
@@ -112,7 +112,7 @@ internal extension SessionUtil {
         memberId: String,
         using dependencies: Dependencies
     ) throws -> Authentication.Info {
-        try dependencies[singleton: .crypto].generate(
+        try dependencies[singleton: .crypto].tryGenerate(
             .memberAuthData(
                 config: dependencies[cache: .sessionUtil]
                     .config(for: .groupKeys, sessionId: groupSessionId)
@@ -129,8 +129,8 @@ internal extension SessionUtil {
         memberAuthData: Data,
         using dependencies: Dependencies
     ) throws -> Authentication.Signature {
-        try dependencies[singleton: .crypto].generate(
-            .subaccountSignature(
+        try dependencies[singleton: .crypto].tryGenerate(
+            .signatureSubaccount(
                 config: dependencies[cache: .sessionUtil]
                     .config(for: .groupKeys, sessionId: groupSessionId)
                     .wrappedValue,

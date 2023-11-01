@@ -49,7 +49,7 @@ extension SnodeAPI {
                 ).bytes
                 
                 guard
-                    let key: [UInt8] = try? dependencies[singleton: .crypto].perform(
+                    let key: [UInt8] = dependencies[singleton: .crypto].generate(
                         .legacyArgon2PWHash(
                             passwd: nameBytes,
                             salt: salt
@@ -63,8 +63,8 @@ extension SnodeAPI {
                 ).bytes
                 
                 guard
-                    let sessionIdAsData: [UInt8] = try? dependencies[singleton: .crypto].perform(
-                        .legacyArgon2SecretBoxOpen(
+                    let sessionIdAsData: [UInt8] = dependencies[singleton: .crypto].generate(
+                        .legacyArgon2SecretBoxOpenedBytes(
                             authenticatedCipherText: ciphertext,
                             secretKey: key,
                             nonce: nonce
@@ -80,15 +80,15 @@ extension SnodeAPI {
             // xchacha-based encryption
             // key = H(name, key=H(name))
             guard
-                let key: [UInt8] = try? dependencies[singleton: .crypto].perform(
+                let key: [UInt8] = dependencies[singleton: .crypto].generate(
                     .hash(message: nameBytes, key: nameHashBytes)
                 )
             else { throw SnodeAPIError.hashingFailed }
             guard
                 // Should always be equal in practice
                 ciphertext.count >= (SessionId.byteCount + dependencies[singleton: .crypto].size(.aeadXChaCha20ABytes)),
-                let sessionIdAsData = try? dependencies[singleton: .crypto].perform(
-                    .decryptAeadXChaCha20(
+                let sessionIdAsData = dependencies[singleton: .crypto].generate(
+                    .decryptedBytesAeadXChaCha20(
                         authenticatedCipherText: ciphertext,
                         secretKey: key,
                         nonce: nonceBytes

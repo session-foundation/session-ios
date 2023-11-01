@@ -5,6 +5,32 @@ import Sodium
 import Clibsodium
 import Curve25519Kit
 
+// MARK: - Randomness
+
+public extension Crypto.Generator {
+    static func uuid() -> Crypto.Generator<UUID> {
+        return Crypto.Generator(id: "uuid") { UUID() }
+    }
+    
+    /// Returns `size` bytes of random data generated using the default secure random number generator. See
+    /// [SecRandomCopyBytes](https://developer.apple.com/documentation/security/1399291-secrandomcopybytes) for more information.
+    static func randomBytes(numberBytes: Int) -> Crypto.Generator<Data> {
+        return Crypto.Generator(id: "randomBytes", args: [numberBytes]) {
+            var randomBytes: Data = Data(count: numberBytes)
+            let result = randomBytes.withUnsafeMutableBytes {
+                SecRandomCopyBytes(kSecRandomDefault, numberBytes, $0.baseAddress!)
+            }
+            
+            guard result == errSecSuccess, randomBytes.count == numberBytes else {
+                SNLog(.warn, "Problem generating random bytes")
+                throw GeneralError.randomGenerationFailed
+            }
+            
+            return randomBytes
+        }
+    }
+}
+
 // MARK: - Box
 
 public extension Crypto.Size {
@@ -14,23 +40,21 @@ public extension Crypto.Size {
 
 // MARK: - Sign
 
-public extension Crypto.Action {
-    static func toX25519(ed25519PublicKey: Bytes) -> Crypto.Action {
-        return Crypto.Action(id: "toX25519", args: [ed25519PublicKey]) { sodium in
+public extension Crypto.Generator {
+    static func x25519(ed25519PublicKey: Bytes) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(id: "x25519Ed25519PublicKey", args: [ed25519PublicKey]) { sodium in
             sodium.sign.toX25519(ed25519PublicKey: ed25519PublicKey)
         }
     }
     
-    static func toX25519(ed25519SecretKey: Bytes) -> Crypto.Action {
-        return Crypto.Action(id: "toX25519", args: [ed25519SecretKey]) { sodium in
+    static func x25519(ed25519SecretKey: Bytes) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(id: "x25519Ed25519SecretKey", args: [ed25519SecretKey]) { sodium in
             sodium.sign.toX25519(ed25519SecretKey: ed25519SecretKey)
         }
     }
-}
-
-public extension Crypto.AuthenticationSignature {
-    static func signature(message: Bytes, secretKey: Bytes) -> Crypto.AuthenticationSignature {
-        return Crypto.AuthenticationSignature(id: "signature", args: [message, secretKey]) { sodium in
+    
+    static func signature(message: Bytes, secretKey: Bytes) -> Crypto.Generator<Authentication.Signature> {
+        return Crypto.Generator(id: "signature", args: [message, secretKey]) { sodium in
             sodium.sign.signature(message: message, secretKey: secretKey).map { .standard(signature: $0) }
         }
     }
@@ -46,9 +70,9 @@ public extension Crypto.Verification {
 
 // MARK: - Ed25519
 
-public extension Crypto.KeyPairType {
-    static func x25519KeyPair() -> Crypto.KeyPairType {
-        return Crypto.KeyPairType(id: "x25519KeyPair") {
+public extension Crypto.Generator {
+    static func x25519KeyPair() -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator<KeyPair>(id: "x25519KeyPair") { () -> KeyPair in
             let keyPair: ECKeyPair = Curve25519.generateKeyPair()
             
             return KeyPair(publicKey: Array(keyPair.publicKey), secretKey: Array(keyPair.privateKey))
@@ -58,13 +82,14 @@ public extension Crypto.KeyPairType {
     static func ed25519KeyPair(
         seed: Data? = nil,
         using dependencies: Dependencies = Dependencies()
-    ) -> Crypto.KeyPairType {
-        return Crypto.KeyPairType(id: "ed25519KeyPair") {
+    ) -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator<KeyPair>(id: "ed25519KeyPair") {
             let pkSize: Int = dependencies[singleton: .crypto].size(.publicKey)
             let skSize: Int = dependencies[singleton: .crypto].size(.secretKey)
             var edPK: [UInt8] = [UInt8](repeating: 0, count: pkSize)
             var edSK: [UInt8] = [UInt8](repeating: 0, count: skSize)
-            var targetSeed: [UInt8] = ((seed ?? (try? Randomness.generateRandomBytes(numberBytes: skSize)))
+            var targetSeed: [UInt8] = ((seed ?? dependencies[singleton: .crypto]
+                .generate(.randomBytes(numberBytes: skSize)))
                 .map { Array($0) })
                 .defaulting(to: [])
             
@@ -76,11 +101,9 @@ public extension Crypto.KeyPairType {
             return KeyPair(publicKey: edPK, secretKey: edSK)
         }
     }
-}
-
-public extension Crypto.Action {
-    static func signEd25519(data: Bytes, keyPair: KeyPair) -> Crypto.Action {
-        return Crypto.Action(id: "signEd25519", args: [data, keyPair]) {
+    
+    static func signatureEd25519(data: Bytes, keyPair: KeyPair) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(id: "signatureEd25519", args: [data, keyPair]) {
             let ecKeyPair: ECKeyPair = try ECKeyPair(
                 publicKeyData: Data(keyPair.publicKey),
                 privateKeyData: Data(keyPair.secretKey)

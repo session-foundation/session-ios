@@ -4,14 +4,14 @@ import Foundation
 import SessionUtil
 import SessionUtilitiesKit
 
-public extension Crypto.Action {
-    static func subaccountToken(
+public extension Crypto.Generator {
+    static func tokenSubaccount(
         config: SessionUtil.Config?,
         groupSessionId: SessionId,
         memberId: String
-    ) -> Crypto.Action {
-        return Crypto.Action(
-            id: "subaccountToken",
+    ) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(
+            id: "tokenSubaccount",
             args: [config, groupSessionId, memberId]
         ) {
             guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
@@ -28,15 +28,13 @@ public extension Crypto.Action {
             return tokenData
         }
     }
-}
-
-public extension Crypto.AuthenticationInfo {
+    
     static func memberAuthData(
         config: SessionUtil.Config?,
         groupSessionId: SessionId,
         memberId: String
-    ) -> Crypto.AuthenticationInfo {
-        return Crypto.AuthenticationInfo(
+    ) -> Crypto.Generator<Authentication.Info> {
+        return Crypto.Generator(
             id: "memberAuthData",
             args: [config, groupSessionId, memberId]
         ) {
@@ -54,16 +52,14 @@ public extension Crypto.AuthenticationInfo {
             return .groupMember(groupSessionId: groupSessionId, authData: Data(authData))
         }
     }
-}
-
-public extension Crypto.AuthenticationSignature {
-    static func subaccountSignature(
+    
+    static func signatureSubaccount(
         config: SessionUtil.Config?,
         verificationBytes: [UInt8],
         memberAuthData: Data
-    ) -> Crypto.AuthenticationSignature {
-        return Crypto.AuthenticationSignature(
-            id: "subaccountSignature",
+    ) -> Crypto.Generator<Authentication.Signature> {
+        return Crypto.Generator(
+            id: "signatureSubaccount",
             args: [config, verificationBytes, memberAuthData]
         ) {
             guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }

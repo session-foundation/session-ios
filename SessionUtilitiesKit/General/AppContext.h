@@ -92,8 +92,6 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 
 - (NSString *)appDocumentDirectoryPath;
 
-- (NSString *)appSharedDataDirectoryPath;
-
 @end
 
 id<AppContext> CurrentAppContext(void);

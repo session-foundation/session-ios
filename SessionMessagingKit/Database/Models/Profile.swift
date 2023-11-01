@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 /// This type is duplicate in both the database and within the SessionUtil config so should only ever have it's data changes via the
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
-public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, CustomStringConvertible, Differentiable {
+public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
     public static var databaseTableName: String { "profile" }
     internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
     internal static let contactForeignKey = ForeignKey([Columns.id], to: [Contact.Columns.id])
@@ -88,15 +88,34 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.lastBlocksCommunityMessageRequests = lastBlocksCommunityMessageRequests
     }
-    
-    // MARK: - Description
-    
+}
+
+// MARK: - Description
+
+extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {
         """
         Profile(
             name: \(name),
             profileKey: \(profileEncryptionKey?.description ?? "null"),
             profilePictureUrl: \(profilePictureUrl ?? "null")
+        )
+        """
+    }
+    
+    public var debugDescription: String {
+        return """
+        Profile(
+            id: \(id),
+            name: \(name),
+            lastNameUpdate: \(lastNameUpdate.map { "\($0)" } ?? "null"),
+            nickname: \(nickname.map { "\($0)" } ?? "null"),
+            profilePictureUrl: \(profilePictureUrl.map { "\"\($0)\"" } ?? "null"),
+            profilePictureFileName: \(profilePictureFileName.map { "\"\($0)\"" } ?? "null"),
+            profileEncryptionKey: \(profileEncryptionKey?.toHexString() ?? "null"),
+            lastProfilePictureUpdate: \(lastProfilePictureUpdate.map { "\($0)" } ?? "null"),
+            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
+            lastBlocksCommunityMessageRequests: \(lastBlocksCommunityMessageRequests.map { "\($0)" } ?? "null")
         )
         """
     }

@@ -65,8 +65,8 @@ enum _018_GroupsRebuildChanges: Migration {
             .fetchAll(db)
         
         existingImageInfo.forEach { imageInfo in
-            let fileName: String = DisplayPictureManager.generateFilename()
-            let filePath: String = DisplayPictureManager.filepath(for: fileName)
+            let fileName: String = DisplayPictureManager.generateFilename(using: dependencies)
+            let filePath: String = DisplayPictureManager.filepath(for: fileName, using: dependencies)
             
             // Save the decrypted display picture to disk
             try? imageInfo.data.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
