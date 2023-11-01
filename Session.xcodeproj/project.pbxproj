@@ -127,6 +127,7 @@
 		7B8D5FC428332600008324D9 /* VisibleMessage+Reaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D5FC328332600008324D9 /* VisibleMessage+Reaction.swift */; };
 		7B93D07127CF194000811CB6 /* MessageRequestResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B93D06F27CF194000811CB6 /* MessageRequestResponse.swift */; };
 		7B93D07727CF1A8A00811CB6 /* MockDataGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B93D07527CF1A8900811CB6 /* MockDataGenerator.swift */; };
+		7B9C1C7D2AF206CD003FEAE9 /* AttributedText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9C1C7C2AF206CD003FEAE9 /* AttributedText.swift */; };
 		7B9F71C928470667006DFE7B /* ReactionListSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9F71C828470667006DFE7B /* ReactionListSheet.swift */; };
 		7B9F71D02852EEE2006DFE7B /* Emoji+Category.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9F71CB2852EEE2006DFE7B /* Emoji+Category.swift */; };
 		7B9F71D12852EEE2006DFE7B /* EmojiWithSkinTones+String.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9F71CC2852EEE2006DFE7B /* EmojiWithSkinTones+String.swift */; };
@@ -1257,6 +1258,7 @@
 		7B8D5FC328332600008324D9 /* VisibleMessage+Reaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VisibleMessage+Reaction.swift"; sourceTree = "<group>"; };
 		7B93D06F27CF194000811CB6 /* MessageRequestResponse.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageRequestResponse.swift; sourceTree = "<group>"; };
 		7B93D07527CF1A8900811CB6 /* MockDataGenerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MockDataGenerator.swift; sourceTree = "<group>"; };
+		7B9C1C7C2AF206CD003FEAE9 /* AttributedText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttributedText.swift; sourceTree = "<group>"; };
 		7B9F71C828470667006DFE7B /* ReactionListSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReactionListSheet.swift; sourceTree = "<group>"; };
 		7B9F71CB2852EEE2006DFE7B /* Emoji+Category.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Emoji+Category.swift"; sourceTree = "<group>"; };
 		7B9F71CC2852EEE2006DFE7B /* EmojiWithSkinTones+String.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "EmojiWithSkinTones+String.swift"; sourceTree = "<group>"; };
@@ -2434,6 +2436,17 @@
 			path = "Message Requests";
 			sourceTree = "<group>";
 		};
+		7B9C1C7B2AF1F236003FEAE9 /* SwiftUI */ = {
+			isa = PBXGroup;
+			children = (
+				7BA37AFC2AEF7C3D002438F8 /* VoiceMessageView_SwiftUI.swift */,
+				7BA37AF82AEB365C002438F8 /* DocumentView_SwiftUI.swift */,
+				7BAFA7592AAEA281001DA43E /* LinkPreviewView_SwiftUI.swift */,
+				7B5802982AAEF1B50050EEB1 /* OpenGroupInvitationView_SwiftUI.swift */,
+			);
+			path = SwiftUI;
+			sourceTree = "<group>";
+		};
 		7B9F71CA2852EEE2006DFE7B /* Emoji */ = {
 			isa = PBXGroup;
 			children = (
@@ -2492,6 +2505,7 @@
 		B8041A7325C8F758003C2166 /* Content Views */ = {
 			isa = PBXGroup;
 			children = (
+				7B9C1C7B2AF1F236003FEAE9 /* SwiftUI */,
 				34A8B3502190A40E00218A25 /* MediaAlbumView.swift */,
 				3488F9352191CC4000E524CC /* MediaView.swift */,
 				B8041A9425C8FA1D003C2166 /* MediaLoaderView.swift */,
@@ -2499,14 +2513,10 @@
 				C328251E25CA3A900062D0A7 /* QuoteView.swift */,
 				34B6A902218B3F62007C4606 /* TypingIndicatorView.swift */,
 				C328250E25CA06020062D0A7 /* VoiceMessageView.swift */,
-				7BA37AFC2AEF7C3D002438F8 /* VoiceMessageView_SwiftUI.swift */,
 				B8569AE225CBB19A00DBA3DB /* DocumentView.swift */,
-				7BA37AF82AEB365C002438F8 /* DocumentView_SwiftUI.swift */,
 				B849789525D4A2F500D0D0B3 /* LinkPreviewView.swift */,
-				7BAFA7592AAEA281001DA43E /* LinkPreviewView_SwiftUI.swift */,
 				B8D84EA225DF745A005A043E /* LinkPreviewState.swift */,
 				B8EB20EF2640F7F000773E52 /* OpenGroupInvitationView.swift */,
-				7B5802982AAEF1B50050EEB1 /* OpenGroupInvitationView_SwiftUI.swift */,
 				7B4C75CC26BB92060000AC89 /* DeletedMessageView.swift */,
 				7B7037422834B81F000DCF35 /* ReactionContainerView.swift */,
 				7B7037442834BCC0000DCF35 /* ReactionView.swift */,
@@ -2998,6 +3008,7 @@
 				C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */,
 				FD71165A28E6DDBC00B47552 /* StyledNavigationController.swift */,
 				FD0B77AF29B69A65009169BA /* TopBannerController.swift */,
+				7B9C1C7C2AF206CD003FEAE9 /* AttributedText.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -5664,6 +5675,7 @@
 				FD37EA0128A60473003AE748 /* UIKit+Theme.swift in Sources */,
 				FD37E9CF28A1EB1B003AE748 /* Theme.swift in Sources */,
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
+				7B9C1C7D2AF206CD003FEAE9 /* AttributedText.swift in Sources */,
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
 				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
