@@ -68,7 +68,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
             
             let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
-                notificationContent: notificationContent
+                notificationContent: notificationContent,
+                using: dependencies
             )
             
             guard

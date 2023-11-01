@@ -278,7 +278,7 @@
 		C32C5A88256DBCF9003C73A2 /* MessageReceiver+LegacyClosedGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32C5A87256DBCF9003C73A2 /* MessageReceiver+LegacyClosedGroups.swift */; };
 		C32C5C3D256DCBAF003C73A2 /* AppReadiness.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB75255A581000E217F9 /* AppReadiness.m */; };
 		C32C5C46256DCBB2003C73A2 /* AppReadiness.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDB01255A580700E217F9 /* AppReadiness.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		C32C5D83256DD5B6003C73A2 /* SSKKeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBBC255A581600E217F9 /* SSKKeychainStorage.swift */; };
+		C32C5D83256DD5B6003C73A2 /* KeychainStorageType.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBBC255A581600E217F9 /* KeychainStorageType.swift */; };
 		C32C5DBF256DD743003C73A2 /* GroupPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB34255A580B00E217F9 /* GroupPoller.swift */; };
 		C32C5DC9256DD935003C73A2 /* ProxiedContentDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDAF2255A580500E217F9 /* ProxiedContentDownloader.swift */; };
 		C32C5DD2256DD9E5003C73A2 /* LRUCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDAFD255A580600E217F9 /* LRUCache.swift */; };
@@ -1548,7 +1548,7 @@
 		C33FDBA8255A581500E217F9 /* LinkPreviewDraft.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LinkPreviewDraft.swift; sourceTree = "<group>"; };
 		C33FDBAB255A581500E217F9 /* OWSFileSystem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OWSFileSystem.h; sourceTree = "<group>"; };
 		C33FDBB6255A581600E217F9 /* DataSource.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DataSource.m; sourceTree = "<group>"; };
-		C33FDBBC255A581600E217F9 /* SSKKeychainStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SSKKeychainStorage.swift; sourceTree = "<group>"; };
+		C33FDBBC255A581600E217F9 /* KeychainStorageType.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KeychainStorageType.swift; sourceTree = "<group>"; };
 		C33FDBD3255A581800E217F9 /* OWSSignalAddress.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OWSSignalAddress.swift; sourceTree = "<group>"; };
 		C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PushNotificationAPI.swift; sourceTree = "<group>"; };
 		C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OWSBackgroundTask.m; sourceTree = "<group>"; };
@@ -2747,7 +2747,6 @@
 				FD28A4F527EAD44C00FF65E7 /* Storage.swift */,
 				C33FDBAB255A581500E217F9 /* OWSFileSystem.h */,
 				C33FDA8E255A57FD00E217F9 /* OWSFileSystem.m */,
-				C33FDBBC255A581600E217F9 /* SSKKeychainStorage.swift */,
 			);
 			path = Database;
 			sourceTree = "<group>";
@@ -3790,6 +3789,7 @@
 				FDFBB74A2A1EFF4900CA7350 /* Bencode.swift */,
 				FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */,
 				FDA8EB0F280F8238002B68E5 /* Codable+Utilities.swift */,
+				C33FDBBC255A581600E217F9 /* KeychainStorageType.swift */,
 				FD3003692A3ADD6000B5A5FB /* CExceptionHelper.h */,
 				FD30036D2A3AE26000B5A5FB /* CExceptionHelper.mm */,
 				FD12A84A2AD6458800EEBA0D /* DifferenceKit+Utilities.swift */,
@@ -6144,7 +6144,7 @@
 				FDE658A129418C7900A33BC1 /* CryptoKit+Utilities.swift in Sources */,
 				FDFD645927F26C6800808CA1 /* Array+Utilities.swift in Sources */,
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
-				C32C5D83256DD5B6003C73A2 /* SSKKeychainStorage.swift in Sources */,
+				C32C5D83256DD5B6003C73A2 /* KeychainStorageType.swift in Sources */,
 				FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */,
 				FDF8488329405A12007DCAE5 /* BatchResponse.swift in Sources */,
 				C3D9E39B256763C20040E4F3 /* AppContext.m in Sources */,

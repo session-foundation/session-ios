@@ -263,7 +263,8 @@ extension MessageReceiver {
                     )
                     .asRequest(of: String.self)
                     .fetchSet(db)
-                    .inserting(legacyGroupSessionId)  // Insert the new key just to be sure
+                    .inserting(legacyGroupSessionId),  // Insert the new key just to be sure
+                using: dependencies
             )?
             .send(using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)

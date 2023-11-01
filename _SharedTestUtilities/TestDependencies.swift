@@ -14,7 +14,13 @@ public class TestDependencies: Dependencies {
     // MARK: - Subscript Access
     
     override public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
-        return getValueSettingIfNull(singleton: singleton, &singletonInstances)
+        guard let value: S = (singletonInstances[singleton.identifier] as? S) else {
+            let value: S = singleton.createInstance(self)
+            singletonInstances[singleton.identifier] = value
+            return value
+        }
+
+        return value
     }
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S? {
@@ -23,7 +29,14 @@ public class TestDependencies: Dependencies {
     }
     
     override public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
-        return getValueSettingIfNull(cache: cache, &cacheInstances)
+        guard let value: M = (cacheInstances[cache.identifier] as? M) else {
+            let value: M = cache.createInstance(self)
+            let mutableInstance: MutableCacheType = cache.mutableInstance(value)
+            cacheInstances[cache.identifier] = mutableInstance
+            return cache.immutableInstance(value)
+        }
+        
+        return cache.immutableInstance(value)
     }
     
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> M? {
@@ -32,7 +45,13 @@ public class TestDependencies: Dependencies {
     }
     
     override public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
-        return getValueSettingIfNull(defaults: defaults, &defaultsInstances)
+        guard let value: UserDefaultsType = defaultsInstances[defaults.identifier] else {
+            let value: UserDefaultsType = defaults.createInstance(self)
+            defaultsInstances[defaults.identifier] = value
+            return value
+        }
+
+        return value
     }
     
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType? {
@@ -141,48 +160,6 @@ public class TestDependencies: Dependencies {
             .first
         
         return result.map { elements.remove($0) }
-    }
-    
-    // MARK: - Instance upserting
-    
-    @discardableResult private func getValueSettingIfNull<S>(
-        singleton: SingletonConfig<S>,
-        _ store: inout [String: Any]
-    ) -> S {
-        guard let value: S = (store[singleton.identifier] as? S) else {
-            let value: S = singleton.createInstance(self)
-            store[singleton.identifier] = value
-            return value
-        }
-
-        return value
-    }
-    
-    @discardableResult private func getValueSettingIfNull<M, I>(
-        cache: CacheConfig<M, I>,
-        _ store: inout [String: MutableCacheType]
-    ) -> I {
-        guard let value: M = (store[cache.identifier] as? M) else {
-            let value: M = cache.createInstance(self)
-            let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-            store[cache.identifier] = mutableInstance
-            return cache.immutableInstance(value)
-        }
-        
-        return cache.immutableInstance(value)
-    }
-    
-    @discardableResult private func getValueSettingIfNull(
-        defaults: UserDefaultsConfig,
-        _ store: inout [String: (any UserDefaultsType)]
-    ) -> UserDefaultsType {
-        guard let value: UserDefaultsType = store[defaults.identifier] else {
-            let value: UserDefaultsType = defaults.createInstance(self)
-            store[defaults.identifier] = value
-            return value
-        }
-
-        return value
     }
 }
 

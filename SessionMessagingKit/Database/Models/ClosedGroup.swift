@@ -225,6 +225,19 @@ public extension ClosedGroup {
         
         /// Start polling
         dependencies[singleton: .groupsPoller].startIfNeeded(for: group.id, using: dependencies)
+        
+        /// Subscribe for group push notifications
+        if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+            try? PushNotificationAPI
+                .preparedSubscribe(
+                    db,
+                    token: Data(hex: token),
+                    sessionId: SessionId(.group, hex: group.id),
+                    using: dependencies
+                )
+                .send(using: dependencies)
+                .sinkUntilComplete()
+        }
     }
     
     static func removeData(
@@ -271,13 +284,24 @@ public extension ClosedGroup {
                                 try? PushNotificationAPI
                                     .preparedUnsubscribeFromLegacyGroup(
                                         legacyGroupId: threadId,
-                                        userSessionId: userSessionId
+                                        userSessionId: userSessionId,
+                                        using: dependencies
                                     )
                                     .send(using: dependencies)
                                     .sinkUntilComplete()
                                 
                             case .group:
-                                break
+                                if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                                    try? PushNotificationAPI
+                                        .preparedUnsubscribe(
+                                            db,
+                                            token: Data(hex: token),
+                                            sessionId: userSessionId,
+                                            using: dependencies
+                                        )
+                                        .send(using: dependencies)
+                                        .sinkUntilComplete()
+                                }
                                 
                             default: break
                         }

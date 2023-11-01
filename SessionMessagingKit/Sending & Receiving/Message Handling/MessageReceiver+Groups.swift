@@ -132,6 +132,10 @@ extension MessageReceiver {
         /// or modified clients
         let inviteSenderIsApproved: Bool = ((try? Contact.fetchOne(db, id: sender))?.isApproved == true)
         let threadAlreadyExisted: Bool = ((try? SessionThread.exists(db, id: message.groupSessionId.hexString)) ?? false)
+        let wasKickedFromGroup: Bool = SessionUtil.wasKickedFromGroup(
+            groupSessionId: message.groupSessionId,
+            using: dependencies
+        )
         
         try MessageReceiver.handleNewGroup(
             db,
@@ -155,7 +159,7 @@ extension MessageReceiver {
         ).upsert(db)
         
         /// If the thread didn't already exist then insert an 'invited' info message
-        guard !threadAlreadyExisted else { return }
+        guard !threadAlreadyExisted || wasKickedFromGroup else { return }
         
         let interaction: Interaction = try Interaction(
             threadId: message.groupSessionId.hexString,

@@ -121,10 +121,11 @@ public struct SessionApp {
         DDLog.flushLog()
         
         SessionUtil.clearMemoryState(using: dependencies)
-        Storage.resetAllStorage()
+        Storage.resetAllStorage(using: dependencies)
         DisplayPictureManager.resetStorage(using: dependencies)
         Attachment.resetAttachmentStorage()
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
+        dependencies[singleton: .keychain].removeAll()
 
         onReset?()
         exit(0)

@@ -144,7 +144,8 @@ extension MessageSender {
                                 try? PushNotificationAPI
                                     .preparedSubscribeToLegacyGroups(
                                         userSessionId: userSessionId,
-                                        legacyGroupIds: allActiveLegacyGroupIds
+                                        legacyGroupIds: allActiveLegacyGroupIds,
+                                        using: dependencies
                                     )?
                                     .map { _, _ in () }
                             )

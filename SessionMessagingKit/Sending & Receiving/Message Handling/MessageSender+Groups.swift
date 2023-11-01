@@ -75,12 +75,17 @@ extension MessageSender {
                     try createdInfo.members.forEach { try $0.insert(db) }
                     
                     // Prepare the notification subscription
-                    let preparedNotificationSubscription = try? PushNotificationAPI
-                        .preparedSubscribe(
-                            db,
-                            sessionId: createdInfo.groupSessionId,
-                            using: dependencies
-                        )
+                    var preparedNotificationSubscription: HTTP.PreparedRequest<PushNotificationAPI.SubscribeResponse>?
+                    
+                    if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                        preparedNotificationSubscription = try? PushNotificationAPI
+                            .preparedSubscribe(
+                                db,
+                                token: Data(hex: token),
+                                sessionId: createdInfo.groupSessionId,
+                                using: dependencies
+                            )
+                    }
                     
                     return (
                         createdInfo.groupSessionId,

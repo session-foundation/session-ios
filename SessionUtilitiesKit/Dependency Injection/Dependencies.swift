@@ -15,15 +15,27 @@ public class Dependencies {
     // MARK: - Subscript Access
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
-        getValueSettingIfNull(singleton: singleton, &Dependencies.singletonInstances)
+        guard let value: S = (Dependencies.singletonInstances.wrappedValue[singleton.identifier] as? S) else {
+            let value: S = singleton.createInstance(self)
+            Dependencies.singletonInstances.mutate { $0[singleton.identifier] = value }
+            return value
+        }
+
+        return value
     }
     
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
-        getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
+        getValueSettingIfNull(cache: cache)
     }
     
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
-        getValueSettingIfNull(defaults: defaults, &Dependencies.userDefaultsInstances)
+        guard let value: UserDefaultsType = Dependencies.userDefaultsInstances.wrappedValue[defaults.identifier] else {
+            let value: UserDefaultsType = defaults.createInstance(self)
+            Dependencies.userDefaultsInstances.mutate { $0[defaults.identifier] = value }
+            return value
+        }
+        
+        return value
     }
     
     // MARK: - Timing and Async Handling
@@ -55,7 +67,7 @@ public class Dependencies {
         /// the below code we first call `getValueSettingIfNull` to ensure we have a proper instance stored
         /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
         /// random instance that will go out of memory as soon as the mutation is completed
-        getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
+        getValueSettingIfNull(cache: cache)
         
         let cacheWrapper: Atomic<MutableCacheType> = (
             Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
@@ -77,7 +89,7 @@ public class Dependencies {
         /// the below code we first call `getValueSettingIfNull` to ensure we have a proper instance stored
         /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
         /// random instance that will go out of memory as soon as the mutation is completed
-        getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
+        getValueSettingIfNull(cache: cache)
         
         let cacheWrapper: Atomic<MutableCacheType> = (
             Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
@@ -106,44 +118,15 @@ public class Dependencies {
 
     // MARK: - Instance upserting
     
-    @discardableResult private func getValueSettingIfNull<S>(
-        singleton: SingletonConfig<S>,
-        _ store: inout Atomic<[String: Any]>
-    ) -> S {
-        guard let value: S = (store.wrappedValue[singleton.identifier] as? S) else {
-            let value: S = singleton.createInstance(self)
-            store.mutate { $0[singleton.identifier] = value }
-            return value
-        }
-
-        return value
-    }
-    
-    @discardableResult private func getValueSettingIfNull<M, I>(
-        cache: CacheConfig<M, I>,
-        _ store: inout Atomic<[String: Atomic<MutableCacheType>]>
-    ) -> I {
-        guard let value: M = (store.wrappedValue[cache.identifier]?.wrappedValue as? M) else {
+    @discardableResult private func getValueSettingIfNull<M, I>(cache: CacheConfig<M, I>) -> I {
+        guard let value: M = (Dependencies.cacheInstances.wrappedValue[cache.identifier]?.wrappedValue as? M) else {
             let value: M = cache.createInstance(self)
             let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-            store.mutate { $0[cache.identifier] = Atomic(mutableInstance) }
+            Dependencies.cacheInstances.mutate { $0[cache.identifier] = Atomic(mutableInstance) }
             return cache.immutableInstance(value)
         }
         
         return cache.immutableInstance(value)
-    }
-    
-    @discardableResult private func getValueSettingIfNull(
-        defaults: UserDefaultsConfig,
-        _ store: inout Atomic<[String: UserDefaultsType]>
-    ) -> UserDefaultsType {
-        guard let value: UserDefaultsType = store.wrappedValue[defaults.identifier] else {
-            let value: UserDefaultsType = defaults.createInstance(self)
-            store.mutate { $0[defaults.identifier] = value }
-            return value
-        }
-        
-        return value
     }
 }
 

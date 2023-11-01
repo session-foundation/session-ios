@@ -123,6 +123,9 @@ enum Onboarding {
         ) {
             let sessionId: SessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
             
+            // Reset the PushNotificationAPI keys (just in case they were left over from a prior install)
+            PushNotificationAPI.deleteKeys(using: dependencies)
+            
             // Store the user identity information
             dependencies[singleton: .storage].write { db in
                 try Identity.store(
@@ -185,7 +188,7 @@ enum Onboarding {
             // Only continue if this isn't a new account
             guard self != .register else { return }
             
-            // Fetch the
+            // Fetch the profile name
             Onboarding.profileNamePublisher
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .sinkUntilComplete()
