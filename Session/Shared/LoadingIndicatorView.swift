@@ -1,21 +1,30 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import SessionUIKit
 
 public struct ActivityIndicator: View {
     @State private var strokeStart: Double = 0.95
     @State private var strokeEnd: Double = 1.0
     @State private var shorten: Bool = false
     @State private var isRotating: Bool = false
+    
+    private var themeColor: ThemeValue
+    private var width: CGFloat
+    
+    public init(themeColor: ThemeValue, width: CGFloat) {
+        self.themeColor = themeColor
+        self.width = width
+    }
 
     public var body: some View {
         GeometryReader { (geometry: GeometryProxy) in
             Circle()
                 .trim(from: strokeStart, to: strokeEnd)
                 .stroke(
-                    themeColor: .borderSeparator,
+                    themeColor: themeColor,
                     style: StrokeStyle(
-                        lineWidth: 2,
+                        lineWidth: width,
                         lineCap: .round
                     )
                 )
@@ -36,7 +45,7 @@ public struct ActivityIndicator: View {
             }
             
             self.trimStroke()
-            Timer.scheduledTimerOnMainThread(withTimeInterval: 1.5, repeats: true) { _ in
+            Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
                 self.trimStroke()
             }
         }
@@ -65,8 +74,7 @@ public struct ActivityIndicator: View {
 
 struct ActivityIndicator_Previews: PreviewProvider {
     static var previews: some View {
-        ActivityIndicator()
-            .foregroundColor(.black)
+        ActivityIndicator(themeColor: .textPrimary, width: 2)
             .frame(
                 width: 40,
                 height: 40

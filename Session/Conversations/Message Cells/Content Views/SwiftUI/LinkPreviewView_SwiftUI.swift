@@ -35,10 +35,17 @@ public struct LinkPreviewView_SwiftUI: View {
     }
     
     public var body: some View {
-        VStack(
-            alignment: .leading,
-            spacing: Values.mediumSpacing
+        ZStack(
+            alignment: .leading
         ) {
+            if state is LinkPreview.SentState {
+                if #available(iOS 14.0, *) {
+                    ThemeManager.currentTheme.colorSwiftUI(for: .messageBubble_overlay).ignoresSafeArea()
+                } else {
+                    ThemeManager.currentTheme.colorSwiftUI(for: .messageBubble_overlay)
+                }
+            }
+            
             HStack(
                 alignment: .center,
                 spacing: Values.mediumSpacing
@@ -63,20 +70,27 @@ public struct LinkPreviewView_SwiftUI: View {
                     state is LinkPreview.DraftState || state is LinkPreview.SentState,
                     let defaultImage: UIImage = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
                 {
-                    Image(uiImage: defaultImage)
-                        .foregroundColor(
-                            themeColor: isOutgoing ?
-                                .messageBubble_outgoingText :
-                                .messageBubble_incomingText
-                        )
-                        .frame(
-                            width: imageSize,
-                            height: imageSize
-                        )
-                        .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
+                    ZStack {
+                        if #available(iOS 14.0, *) {
+                            ThemeManager.currentTheme.colorSwiftUI(for: .messageBubble_overlay).ignoresSafeArea()
+                        } else {
+                            ThemeManager.currentTheme.colorSwiftUI(for: .messageBubble_overlay)
+                        }
+                        
+                        Image(uiImage: defaultImage)
+                            .foregroundColor(
+                                themeColor: isOutgoing ?
+                                    .messageBubble_outgoingText :
+                                    .messageBubble_incomingText
+                            )
+                            .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
+                    }
+                    .frame(
+                        width: imageSize,
+                        height: imageSize
+                    )
                 } else {
-                    ActivityIndicator()
-                        .foregroundColor(.black)
+                    ActivityIndicator(themeColor: .borderSeparator, width: 2)
                         .frame(
                             width: Self.loaderSize,
                             height: Self.loaderSize
@@ -94,6 +108,8 @@ public struct LinkPreviewView_SwiftUI: View {
                                 .messageBubble_outgoingText :
                                 .messageBubble_incomingText
                         )
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.trailing, Values.mediumSpacing)
                 }
                 
                 // Cancel button

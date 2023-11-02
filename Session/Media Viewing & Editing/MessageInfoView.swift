@@ -384,68 +384,73 @@ struct MessageBubble: View {
         ZStack {
             switch messageViewModel.cellType {
                 case .textOnlyMessage:
-                let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel) - 2 * Self.inset)
+                    let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel) - 2 * Self.inset)
                     
-                    if let linkPreview: LinkPreview = messageViewModel.linkPreview {
-                        switch linkPreview.variant {
-                        case .standard:
-                            LinkPreviewView_SwiftUI(
-                                state: LinkPreview.SentState(
-                                    linkPreview: linkPreview,
-                                    imageAttachment: messageViewModel.linkPreviewAttachment
-                                ),
-                                isOutgoing: (messageViewModel.variant == .standardOutgoing),
-                                maxWidth: maxWidth,
-                                messageViewModel: messageViewModel,
-                                bodyLabelTextColor: bodyLabelTextColor,
-                                lastSearchText: nil
-                            )
-                            
-                        case .openGroupInvitation:
-                            OpenGroupInvitationView_SwiftUI(
-                                name: (linkPreview.title ?? ""),
-                                url: linkPreview.url,
-                                textColor: bodyLabelTextColor,
-                                isOutgoing: (messageViewModel.variant == .standardOutgoing))
-                        }
-                    }
-                    //                    else {
-                    //                        // Stack view
-                    //                        let stackView = UIStackView(arrangedSubviews: [])
-                    //                        stackView.axis = .vertical
-                    //                        stackView.spacing = 2
-                    //
-                    //                        // Quote view
-                    //                        if let quote: Quote = messageViewModel.quote {
-                    //                            let hInset: CGFloat = 2
-                    //                            let quoteView: QuoteView = QuoteView(
-                    //                                for: .regular,
-                    //                                authorId: quote.authorId,
-                    //                                quotedText: quote.body,
-                    //                                threadVariant: cellViewModel.threadVariant,
-                    //                                currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                    //                                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-                    //                                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
-                    //                                direction: (cellViewModel.variant == .standardOutgoing ?
-                    //                                    .outgoing :
-                    //                                    .incoming
-                    //                                ),
-                    //                                attachment: cellViewModel.quoteAttachment,
-                    //                                hInset: hInset,
-                    //                                maxWidth: maxWidth
-                    //                            )
-                    //                            let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
-                    //                            stackView.addArrangedSubview(quoteViewContainer)
-                    //                        }
-                    if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
-                        for: messageViewModel,
-                        theme: ThemeManager.currentTheme,
-                        primaryColor: ThemeManager.primaryColor,
-                        textColor: bodyLabelTextColor,
-                        searchText: nil
+                    VStack(
+                        alignment: .leading,
+                        spacing: 0
                     ) {
-                        AttributedText(bodyText)
-                            .padding(.all, Self.inset)
+                        if let linkPreview: LinkPreview = messageViewModel.linkPreview {
+                            switch linkPreview.variant {
+                            case .standard:
+                                LinkPreviewView_SwiftUI(
+                                    state: LinkPreview.SentState(
+                                        linkPreview: linkPreview,
+                                        imageAttachment: messageViewModel.linkPreviewAttachment
+                                    ),
+                                    isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                    maxWidth: maxWidth,
+                                    messageViewModel: messageViewModel,
+                                    bodyLabelTextColor: bodyLabelTextColor,
+                                    lastSearchText: nil
+                                )
+                                
+                            case .openGroupInvitation:
+                                OpenGroupInvitationView_SwiftUI(
+                                    name: (linkPreview.title ?? ""),
+                                    url: linkPreview.url,
+                                    textColor: bodyLabelTextColor,
+                                    isOutgoing: (messageViewModel.variant == .standardOutgoing))
+                            }
+                        }
+                        //                    else {
+                        //                        // Stack view
+                        //                        let stackView = UIStackView(arrangedSubviews: [])
+                        //                        stackView.axis = .vertical
+                        //                        stackView.spacing = 2
+                        //
+                        //                        // Quote view
+                        //                        if let quote: Quote = messageViewModel.quote {
+                        //                            let hInset: CGFloat = 2
+                        //                            let quoteView: QuoteView = QuoteView(
+                        //                                for: .regular,
+                        //                                authorId: quote.authorId,
+                        //                                quotedText: quote.body,
+                        //                                threadVariant: cellViewModel.threadVariant,
+                        //                                currentUserPublicKey: cellViewModel.currentUserPublicKey,
+                        //                                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
+                        //                                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
+                        //                                direction: (cellViewModel.variant == .standardOutgoing ?
+                        //                                    .outgoing :
+                        //                                    .incoming
+                        //                                ),
+                        //                                attachment: cellViewModel.quoteAttachment,
+                        //                                hInset: hInset,
+                        //                                maxWidth: maxWidth
+                        //                            )
+                        //                            let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
+                        //                            stackView.addArrangedSubview(quoteViewContainer)
+                        //                        }
+                        if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
+                            for: messageViewModel,
+                            theme: ThemeManager.currentTheme,
+                            primaryColor: ThemeManager.primaryColor,
+                            textColor: bodyLabelTextColor,
+                            searchText: nil
+                        ) {
+                            AttributedText(bodyText)
+                                .padding(.all, Self.inset)
+                        }
                     }
                 case .mediaMessage:
                     if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
@@ -458,13 +463,12 @@ struct MessageBubble: View {
                         AttributedText(bodyText)
                             .padding(.all, Self.inset)
                     }
-                case .audio:
+                case .voiceMessage:
                     if let attachment: Attachment = messageViewModel.attachments?.first(where: { $0.isAudio }){
                         // TODO: Playback Info and check if playing function is needed
-                        VoiceMessageView_SwiftUI()
-                            .padding(.all, Self.inset)
+                        VoiceMessageView_SwiftUI(attachment: attachment)
                     }
-                case .genericAttachment:
+                case .audio, .genericAttachment:
                     if let attachment: Attachment = messageViewModel.attachments?.first {
                         VStack(spacing: Values.smallSpacing) {
                             DocumentView_SwiftUI(attachment: attachment, textColor: bodyLabelTextColor)
