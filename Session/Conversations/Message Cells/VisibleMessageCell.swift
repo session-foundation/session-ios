@@ -1101,6 +1101,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     ) -> NSMutableAttributedString?
     {
         guard
+            let body: String = cellViewModel.body,
+            !body.isEmpty,
             let actualTextColor: UIColor = theme.color(for: textColor),
             let backgroundPrimaryColor: UIColor = theme.color(for: .backgroundPrimary),
             let textPrimaryColor: UIColor = theme.color(for: .textPrimary)
@@ -1110,7 +1112,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         let attributedText: NSMutableAttributedString = NSMutableAttributedString(
             attributedString: MentionUtilities.highlightMentions(
-                in: (cellViewModel.body ?? ""),
+                in: body,
                 threadVariant: cellViewModel.threadVariant,
                 currentUserPublicKey: cellViewModel.currentUserPublicKey,
                 currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,

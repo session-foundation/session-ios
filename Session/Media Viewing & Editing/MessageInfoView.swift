@@ -53,7 +53,7 @@ struct MessageInfoView: View {
                             maxHeight: .infinity,
                             alignment: .topLeading
                         )
-                        .fixedSize(horizontal: true, vertical: true)
+                        .fixedSize()
                         .padding(.top, Values.smallSpacing)
                         .padding(.bottom, Values.verySmallSpacing)
                         .padding(.horizontal, Values.largeSpacing)
@@ -85,7 +85,9 @@ struct MessageInfoView: View {
                             .padding(.horizontal, Values.largeSpacing)
                         }
                         
-                        if let attachments = messageViewModel.attachments {
+                        if let attachments = messageViewModel.attachments,
+                           messageViewModel.cellType == .mediaMessage
+                        {
                             let attachment: Attachment = attachments[(index - 1 + attachments.count) % attachments.count]
                             
                             ZStack(alignment: .bottomTrailing) {

@@ -5,6 +5,8 @@ import SessionUIKit
 import SessionMessagingKit
 
 struct DocumentView_SwiftUI: View {
+    static private let inset: CGFloat = 12
+    
     private let attachment: Attachment
     private let textColor: ThemeValue
     
@@ -21,20 +23,11 @@ struct DocumentView_SwiftUI: View {
             ZStack {
                 Rectangle()
                     .foregroundColor(themeColor: .messageBubble_overlay)
-                    .frame(
-                        width: 24 + Values.mediumSpacing
-                    )
                 
                 Image(systemName: "doc")
-                    .resizable()
-                    .renderingMode(.template)
+                    .font(.system(size: Values.largeFontSize))
                     .foregroundColor(themeColor: textColor)
-                    .scaledToFit()
-                    .frame(
-                        width: 24,
-                        height: 32
-                    )
-                
+
                 if attachment.isAudio {
                     Image(systemName: "music.note")
                         .resizable()
@@ -48,6 +41,10 @@ struct DocumentView_SwiftUI: View {
                         )
                 }
             }
+            .frame(
+                width: 24 + Values.mediumSpacing * 2,
+                height: 32 + Values.smallSpacing * 2
+            )
             
             Spacer(minLength: 0)
 
@@ -67,14 +64,9 @@ struct DocumentView_SwiftUI: View {
             .padding(.horizontal, Values.mediumSpacing)
             
             Image(systemName: (attachment.isAudio ? "play.fill" : "arrow.down"))
-                .resizable()
-                .renderingMode(.template)
+                .font(.system(size: Values.mediumFontSize))
                 .foregroundColor(themeColor: textColor)
-                .scaledToFit()
-                .frame(
-                    width:24,
-                    height: 24
-                )
+                .padding(.trailing, Self.inset)
         }
     }
 }
