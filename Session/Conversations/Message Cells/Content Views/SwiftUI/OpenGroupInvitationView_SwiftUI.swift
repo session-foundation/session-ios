@@ -79,6 +79,7 @@ struct OpenGroupInvitationView_SwiftUI: View {
                     .multilineTextAlignment(.leading)
             }
         }
+        .padding(.all, Values.mediumSpacing)
     }
 }
 
