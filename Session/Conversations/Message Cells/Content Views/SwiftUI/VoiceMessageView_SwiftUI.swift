@@ -79,9 +79,13 @@ struct VoiceMessageView_SwiftUI: View {
     }
 }
 
-struct VoiceMessageView_SwiftUI_Previews: PreviewProvider {
-    static var previews: some View {
-        VoiceMessageView_SwiftUI(attachment: Attachment(variant: .voiceMessage, contentType: "mp4", byteCount: 100))
-            .frame(height: 58)
-    }
+#Preview {
+    VoiceMessageView_SwiftUI(
+        attachment: Attachment(
+            variant: .voiceMessage,
+            contentType: "mp4",
+            byteCount: 100
+        )
+    )
+    .frame(height: 58)
 }

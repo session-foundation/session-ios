@@ -207,7 +207,22 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
                 Color.black
             }
             
-            SessionCarouselView_SwiftUI(index: $index, isOutgoing: true, contentInfos: [])
+            SessionCarouselView_SwiftUI(
+                index: $index,
+                isOutgoing: true,
+                contentInfos: [
+                    Attachment(
+                        variant: .standard,
+                        contentType: "jpeg",
+                        byteCount: 100
+                    ),
+                    Attachment(
+                        variant: .standard,
+                        contentType: "jpeg",
+                        byteCount: 100
+                    )
+                ]
+            )
         }
     }
 }

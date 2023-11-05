@@ -134,30 +134,28 @@ public struct LinkPreviewView_SwiftUI: View {
     }
 }
 
-struct LinkPreviewView_SwiftUI_Previews: PreviewProvider {
-    static var previews: some View {
-        VStack {
-            LinkPreviewView_SwiftUI(
-                state: LinkPreview.DraftState(
-                    linkPreviewDraft: .init(
-                        urlString: "https://github.com/oxen-io",
-                        title: "Github - oxen-io/session-ios: A private messenger for iOS.",
-                        jpegImageData: UIImage(named: "AppIcon")?.jpegData(compressionQuality: 1)
-                    )
-                ),
-                isOutgoing: true
-            )
-            .padding(.horizontal, Values.mediumSpacing)
-            
-            LinkPreviewView_SwiftUI(
-                state: LinkPreview.LoadingState(),
-                isOutgoing: true
-            )
-            .frame(
-                width: .infinity,
-                height: 80
-            )
-            .padding(.horizontal, Values.mediumSpacing)
-        }
+#Preview {
+    VStack {
+        LinkPreviewView_SwiftUI(
+            state: LinkPreview.DraftState(
+                linkPreviewDraft: .init(
+                    urlString: "https://github.com/oxen-io",
+                    title: "Github - oxen-io/session-ios: A private messenger for iOS.",
+                    jpegImageData: UIImage(named: "AppIcon")?.jpegData(compressionQuality: 1)
+                )
+            ),
+            isOutgoing: true
+        )
+        .padding(.horizontal, Values.mediumSpacing)
+        
+        LinkPreviewView_SwiftUI(
+            state: LinkPreview.LoadingState(),
+            isOutgoing: true
+        )
+        .frame(
+            width: .infinity,
+            height: 80
+        )
+        .padding(.horizontal, Values.mediumSpacing)
     }
 }
