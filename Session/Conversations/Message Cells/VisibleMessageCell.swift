@@ -547,9 +547,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                 .outgoing :
                                 .incoming
                             ),
-                            attachment: cellViewModel.quoteAttachment,
-                            hInset: hInset,
-                            maxWidth: maxWidth
+                            attachment: cellViewModel.quoteAttachment
                         )
                         let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
                         stackView.addArrangedSubview(quoteViewContainer)
