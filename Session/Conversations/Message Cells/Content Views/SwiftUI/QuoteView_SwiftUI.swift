@@ -149,6 +149,7 @@ struct QuoteView_SwiftUI: View {
                     Text(author)
                         .bold()
                         .font(.system(size: Values.smallFontSize))
+                        .lineLimit(1)
                         .foregroundColor(themeColor: targetThemeColor)
                 }
                 
@@ -170,6 +171,7 @@ struct QuoteView_SwiftUI: View {
                             ]
                         )
                     )
+                    .lineLimit(2)
                 } else {
                     Text("QUOTED_MESSAGE_NOT_FOUND".localized())
                         .font(.system(size: Values.smallFontSize))

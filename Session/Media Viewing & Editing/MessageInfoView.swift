@@ -413,34 +413,27 @@ struct MessageBubble: View {
                                     isOutgoing: (messageViewModel.variant == .standardOutgoing))
                             }
                         }
-                        //                    else {
-                        //                        // Stack view
-                        //                        let stackView = UIStackView(arrangedSubviews: [])
-                        //                        stackView.axis = .vertical
-                        //                        stackView.spacing = 2
-                        //
-                        //                        // Quote view
-                        //                        if let quote: Quote = messageViewModel.quote {
-                        //                            let hInset: CGFloat = 2
-                        //                            let quoteView: QuoteView = QuoteView(
-                        //                                for: .regular,
-                        //                                authorId: quote.authorId,
-                        //                                quotedText: quote.body,
-                        //                                threadVariant: cellViewModel.threadVariant,
-                        //                                currentUserPublicKey: cellViewModel.currentUserPublicKey,
-                        //                                currentUserBlinded15PublicKey: cellViewModel.currentUserBlinded15PublicKey,
-                        //                                currentUserBlinded25PublicKey: cellViewModel.currentUserBlinded25PublicKey,
-                        //                                direction: (cellViewModel.variant == .standardOutgoing ?
-                        //                                    .outgoing :
-                        //                                    .incoming
-                        //                                ),
-                        //                                attachment: cellViewModel.quoteAttachment,
-                        //                                hInset: hInset,
-                        //                                maxWidth: maxWidth
-                        //                            )
-                        //                            let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
-                        //                            stackView.addArrangedSubview(quoteViewContainer)
-                        //                        }
+                        else {
+                            if let quote = messageViewModel.quote {
+                                QuoteView_SwiftUI(
+                                    info: .init(
+                                        mode: .regular,
+                                        authorId: quote.authorId,
+                                        quotedText: quote.body,
+                                        threadVariant: messageViewModel.threadVariant,
+                                        currentUserPublicKey: messageViewModel.currentUserPublicKey,
+                                        currentUserBlinded15PublicKey: messageViewModel.currentUserBlinded15PublicKey,
+                                        currentUserBlinded25PublicKey: messageViewModel.currentUserBlinded25PublicKey,
+                                        direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
+                                        attachment: messageViewModel.quoteAttachment
+                                    )
+                                )
+                                .padding(.top, Self.inset)
+                                .padding(.horizontal, Self.inset)
+                                .padding(.bottom, -Values.smallSpacing)
+                            }
+                        }
+                        
                         if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
                             for: messageViewModel,
                             theme: ThemeManager.currentTheme,
