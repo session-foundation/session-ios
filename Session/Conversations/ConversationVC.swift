@@ -249,6 +249,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     private lazy var emptyStateLabel: UILabel = {
         let text: String = emptyStateText(for: viewModel.threadData)
         let result: UILabel = UILabel()
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = "Empty state label"
         result.accessibilityLabel = "Empty state label"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
