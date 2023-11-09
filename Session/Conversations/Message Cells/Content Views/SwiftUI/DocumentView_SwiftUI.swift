@@ -45,8 +45,6 @@ struct DocumentView_SwiftUI: View {
                 width: 24 + Values.mediumSpacing * 2,
                 height: 32 + Values.smallSpacing * 2
             )
-            
-            Spacer(minLength: 0)
 
             VStack(
                 alignment: .leading
