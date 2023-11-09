@@ -47,11 +47,13 @@ struct VoiceMessageView_SwiftUI: View {
                             )
                     }
                     
-//                    ActivityIndicator(themeColor: .textPrimary, width: 2)
-//                        .frame(
-//                            width: Self.toggleContainerSize,
-//                            height: Self.toggleContainerSize
-//                        )
+                    if attachment.state == .downloading {
+                        ActivityIndicator(themeColor: .textPrimary, width: 2)
+                            .frame(
+                                width: Self.toggleContainerSize,
+                                height: Self.toggleContainerSize
+                            )
+                    }
                 }
                 
                 Rectangle()

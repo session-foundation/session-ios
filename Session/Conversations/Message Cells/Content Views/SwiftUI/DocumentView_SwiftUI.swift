@@ -21,9 +21,6 @@ struct DocumentView_SwiftUI: View {
             spacing: 0
         ) {
             ZStack {
-                Rectangle()
-                    .foregroundColor(themeColor: .messageBubble_overlay)
-                
                 Image(systemName: "doc")
                     .font(.system(size: Values.largeFontSize))
                     .foregroundColor(themeColor: textColor)
@@ -45,6 +42,7 @@ struct DocumentView_SwiftUI: View {
                 width: 24 + Values.mediumSpacing * 2,
                 height: 32 + Values.smallSpacing * 2
             )
+            .background(themeColor: .messageBubble_overlay)
 
             VStack(
                 alignment: .leading

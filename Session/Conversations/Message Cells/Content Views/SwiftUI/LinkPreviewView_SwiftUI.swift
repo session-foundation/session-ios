@@ -70,25 +70,18 @@ public struct LinkPreviewView_SwiftUI: View {
                     state is LinkPreview.DraftState || state is LinkPreview.SentState,
                     let defaultImage: UIImage = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
                 {
-                    ZStack {
-                        if #available(iOS 14.0, *) {
-                            ThemeManager.currentTheme.colorSwiftUI(for: .messageBubble_overlay).ignoresSafeArea()
-                        } else {
-                            ThemeManager.currentTheme.colorSwiftUI(for: .messageBubble_overlay)
-                        }
-                        
-                        Image(uiImage: defaultImage)
-                            .foregroundColor(
-                                themeColor: isOutgoing ?
-                                    .messageBubble_outgoingText :
-                                    .messageBubble_incomingText
-                            )
-                            .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
-                    }
-                    .frame(
-                        width: imageSize,
-                        height: imageSize
-                    )
+                    Image(uiImage: defaultImage)
+                        .foregroundColor(
+                            themeColor: isOutgoing ?
+                                .messageBubble_outgoingText :
+                                .messageBubble_incomingText
+                        )
+                        .frame(
+                            width: imageSize,
+                            height: imageSize
+                        )
+                        .background(themeColor: .messageBubble_overlay)
+                        .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
                 } else {
                     ActivityIndicator(themeColor: .borderSeparator, width: 2)
                         .frame(

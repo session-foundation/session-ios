@@ -96,16 +96,17 @@ struct QuoteView_SwiftUI: View {
                     }
                     
                     let fallbackImageName: String = (MIMETypeUtil.isAudio(attachment.contentType) ? "attachment_audio" : "actionsheet_document_black")
-                    return UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate)
+                    return UIImage(named: fallbackImageName)?
+                        .resizedImage(to: CGSize(width: Self.iconSize, height: Self.iconSize))?
+                        .withRenderingMode(.alwaysTemplate)
                 }() {
                     Image(uiImage: image)
-                        .resizable()
                         .foregroundColor(themeColor: {
                             switch info.mode {
-                            case .regular: return (info.direction == .outgoing ?
-                                    .messageBubble_outgoingText :
-                                    .messageBubble_incomingText
-                                )
+                                case .regular: return (info.direction == .outgoing ?
+                                        .messageBubble_outgoingText :
+                                        .messageBubble_incomingText
+                                    )
                                 case .draft: return .textPrimary
                             }
                         }())
@@ -114,6 +115,7 @@ struct QuoteView_SwiftUI: View {
                             height: Self.thumbnailSize,
                             alignment: .center
                         )
+                        .background(themeColor: .messageBubble_overlay)
                         .cornerRadius(Self.cornerRadius)
                 }
             } else {

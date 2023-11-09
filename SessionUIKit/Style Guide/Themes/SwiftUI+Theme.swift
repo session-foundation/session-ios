@@ -8,6 +8,12 @@ public extension View {
             ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
         )
     }
+    
+    func background(themeColor: ThemeValue) -> some View {
+        return self.background(
+            ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
+        )
+    }
 }
 
 public extension Shape {

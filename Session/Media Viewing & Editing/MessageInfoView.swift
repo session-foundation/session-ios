@@ -137,9 +137,6 @@ struct MessageInfoView: View {
                             
                             // Attachment Info
                             ZStack {
-                                RoundedRectangle(cornerRadius: Self.cornerRadius)
-                                    .fill(themeColor: .backgroundSecondary)
-                                    
                                 VStack(
                                     alignment: .leading,
                                     spacing: Values.mediumSpacing
@@ -205,6 +202,8 @@ struct MessageInfoView: View {
                                 .padding(.all, Values.largeSpacing)
                             }
                             .frame(maxHeight: .infinity)
+                            .background(themeColor: .backgroundSecondary)
+                            .cornerRadius(Self.cornerRadius)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.vertical, Values.verySmallSpacing)
                             .padding(.horizontal, Values.largeSpacing)
@@ -212,9 +211,6 @@ struct MessageInfoView: View {
 
                         // Message Info
                         ZStack {
-                            RoundedRectangle(cornerRadius: Self.cornerRadius)
-                                .fill(themeColor: .backgroundSecondary)
-                                
                             VStack(
                                 alignment: .leading,
                                 spacing: Values.mediumSpacing
@@ -293,6 +289,8 @@ struct MessageInfoView: View {
                             .padding(.all, Values.largeSpacing)
                         }
                         .frame(maxHeight: .infinity)
+                        .background(themeColor: .backgroundSecondary)
+                        .cornerRadius(Self.cornerRadius)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.vertical, Values.verySmallSpacing)
                         .padding(.horizontal, Values.largeSpacing)
@@ -300,9 +298,6 @@ struct MessageInfoView: View {
                         // Actions
                         if !actions.isEmpty {
                             ZStack {
-                                RoundedRectangle(cornerRadius: Self.cornerRadius)
-                                    .fill(themeColor: .backgroundSecondary)
-                                
                                 VStack(
                                     alignment: .leading,
                                     spacing: 0
@@ -348,6 +343,8 @@ struct MessageInfoView: View {
                                 .padding(.horizontal, Values.largeSpacing)
                             }
                             .frame(maxHeight: .infinity)
+                            .background(themeColor: .backgroundSecondary)
+                            .cornerRadius(Self.cornerRadius)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.vertical, Values.verySmallSpacing)
                             .padding(.horizontal, Values.largeSpacing)
