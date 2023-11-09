@@ -116,20 +116,22 @@ struct MessageInfoView: View {
                                     .padding(.horizontal, Values.largeSpacing)
                                 }
                                 
-                                Button {
-                                    self.showMediaFullScreen(attachment: attachment)
-                                } label: {
-                                    ZStack {
-                                        Circle()
-                                            .foregroundColor(.init(white: 0, opacity: 0.4))
-                                        Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.white)
+                                if [ .downloaded, .uploaded ].contains(attachment.state) {
+                                    Button {
+                                        self.showMediaFullScreen(attachment: attachment)
+                                    } label: {
+                                        ZStack {
+                                            Circle()
+                                                .foregroundColor(.init(white: 0, opacity: 0.4))
+                                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                                .font(.system(size: 13))
+                                                .foregroundColor(.white)
+                                        }
+                                        .frame(width: 26, height: 26)
                                     }
-                                    .frame(width: 26, height: 26)
+                                    .padding(.bottom, Values.smallSpacing)
+                                    .padding(.trailing, 38)
                                 }
-                                .padding(.bottom, Values.smallSpacing)
-                                .padding(.trailing, 38)
                             }
                             .padding(.vertical, Values.verySmallSpacing)
                             
