@@ -7,10 +7,9 @@ import SessionUtilitiesKit
 import SessionMessagingKit
 
 struct MessageInfoView: View {
-    @Environment(\.viewController) private var viewControllerHolder: UIViewController?
+    @EnvironmentObject var host: HostWrapper
     
     @State var index = 1
-    @State var showingAttachmentFullScreen = false
     
     static private let cornerRadius: CGFloat = 17
     
@@ -19,8 +18,6 @@ struct MessageInfoView: View {
     var isMessageFailed: Bool {
         return [.failed, .failedToSync].contains(messageViewModel.state)
     }
-    
-    var dismiss: (() -> Void)?
     
     var body: some View {
         NavigationView {
@@ -120,15 +117,7 @@ struct MessageInfoView: View {
                                 }
                                 
                                 Button {
-                                    self.viewControllerHolder?.present(style: .fullScreen) {
-                                        MediaGalleryViewModel.createDetailViewSwiftUI(
-                                            for: messageViewModel.threadId,
-                                            threadVariant: messageViewModel.threadVariant,
-                                            interactionId: messageViewModel.id,
-                                            selectedAttachmentId: attachment.id,
-                                            options: [ .sliderEnabled ]
-                                        )
-                                    }
+                                    self.showMediaFullScreen(attachment: attachment)
                                 } label: {
                                     ZStack {
                                         Circle()
@@ -324,7 +313,7 @@ struct MessageInfoView: View {
                                         Button(
                                             action: {
                                                 actions[index].work()
-                                                dismiss?()
+                                                dismiss()
                                             },
                                             label: {
                                                 HStack(spacing: Values.largeSpacing) {
@@ -365,6 +354,23 @@ struct MessageInfoView: View {
                 }
             }
         }
+    }
+    
+    private func showMediaFullScreen(attachment: Attachment) {
+        if let mediaGalleryView = MediaGalleryViewModel.createDetailViewController(
+            for: messageViewModel.threadId,
+            threadVariant: messageViewModel.threadVariant,
+            interactionId: messageViewModel.id,
+            selectedAttachmentId: attachment.id,
+            options: [ .sliderEnabled ],
+            useTransitioningDelegate: false
+        ) {
+            self.host.controller?.present(mediaGalleryView, animated: true)
+        }
+    }
+    
+    func dismiss() {
+        self.host.controller?.navigationController?.popViewController(animated: true)
     }
 }
 
@@ -519,7 +525,6 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoV
         )
         
         super.init(rootView: messageInfoView)
-        rootView.dismiss = dismiss
     }
     
     @MainActor required dynamic init?(coder aDecoder: NSCoder) {
@@ -531,10 +536,6 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoV
         
         let customTitleFontSize = Values.largeFontSize
         setNavBarTitle("message_info_title".localized(), customFontSize: customTitleFontSize)
-    }
-    
-    func dismiss() {
-        self.navigationController?.popViewController(animated: true)
     }
 }
 
