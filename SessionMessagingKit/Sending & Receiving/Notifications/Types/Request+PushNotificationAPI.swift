@@ -11,13 +11,14 @@ public extension Request where Endpoint == PushNotificationAPI.Endpoint {
         endpoint: Endpoint,
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
-        body: T? = nil
+        body: T? = nil,
+        using dependencies: Dependencies
     ) {
         self = Request(
             method: method,
             endpoint: endpoint,
             target: HTTP.ServerTarget(
-                server: endpoint.server,
+                server: endpoint.server(using: dependencies),
                 path: endpoint.path,
                 queryParameters: queryParameters,
                 x25519PublicKey: endpoint.serverPublicKey

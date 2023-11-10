@@ -93,7 +93,8 @@ public class NotificationPresenter: NotificationsProtocol {
         _ db: Database,
         for interaction: Interaction,
         in thread: SessionThread,
-        applicationState: UIApplication.State
+        applicationState: UIApplication.State,
+        using dependencies: Dependencies
     ) {
         let isMessageRequest: Bool = SessionThread.isMessageRequest(
             db,
@@ -113,7 +114,7 @@ public class NotificationPresenter: NotificationsProtocol {
         )
 
         // While batch processing, some of the necessary changes have not been commited.
-        let rawMessageText = interaction.previewText(db)
+        let rawMessageText = interaction.previewText(db, using: dependencies)
 
         // iOS strips anything that looks like a printf formatting character from
         // the notification body, so if we want to dispay a literal "%" in a notification

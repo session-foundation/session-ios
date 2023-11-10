@@ -132,6 +132,7 @@ public enum HTTP {
     public static func execute(
         _ method: HTTPMethod,
         _ url: String,
+        headers: [String: String]? = nil,
         body: Data?,
         timeout: TimeInterval = HTTP.defaultTimeout,
         useSeedNodeURLSession: Bool = false
@@ -150,6 +151,9 @@ public enum HTTP {
         request.allHTTPHeaderFields?.removeValue(forKey: "User-Agent")
         request.setValue("WhatsApp", forHTTPHeaderField: "User-Agent") // Set a fake value
         request.setValue("en-us", forHTTPHeaderField: "Accept-Language") // Set a fake value
+        headers?.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
         
         return urlSession
             .dataTaskPublisher(for: request)
@@ -160,6 +164,7 @@ public enum HTTP {
                 // in sendOnionRequest(invoking:on:with:)
                 switch (error as NSError).code {
                     case NSURLErrorTimedOut: return HTTPError.timeout
+                    case NSURLErrorCancelled: return HTTPError.cancelled
                     default: return HTTPError.httpRequestFailed(statusCode: 0, data: nil)
                 }
             }

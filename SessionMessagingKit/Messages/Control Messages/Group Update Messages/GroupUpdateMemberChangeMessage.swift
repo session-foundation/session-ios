@@ -8,6 +8,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     private enum CodingKeys: String, CodingKey {
         case changeType
         case memberSessionIds
+        case adminSignature
     }
     
     public enum ChangeType: Int, Codable {
@@ -18,6 +19,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     
     public var changeType: ChangeType
     public var memberSessionIds: [String]
+    public var adminSignature: Authentication.Signature
     
     override public var processWithBlockedSender: Bool { true }
     
@@ -26,14 +28,47 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     public init(
         changeType: ChangeType,
         memberSessionIds: [String],
-        sentTimestamp: UInt64? = nil
-    ) {
+        sentTimestamp: UInt64,
+        authMethod: AuthenticationMethod,
+        using dependencies: Dependencies
+    ) throws {
         self.changeType = changeType
         self.memberSessionIds = memberSessionIds
+        self.adminSignature = try authMethod.generateSignature(
+            with: GroupUpdateMemberChangeMessage.generateVerificationBytes(
+                changeType: changeType,
+                timestampMs: sentTimestamp
+            ),
+            using: dependencies
+        )
         
         super.init(
             sentTimestamp: sentTimestamp
         )
+    }
+    
+    public init(
+        changeType: ChangeType,
+        memberSessionIds: [String],
+        adminSignature: Authentication.Signature
+    ) {
+        self.changeType = changeType
+        self.memberSessionIds = memberSessionIds
+        self.adminSignature = adminSignature
+        
+        super.init()
+    }
+    
+    // MARK: - Signature Generation
+    
+    public static func generateVerificationBytes(
+        changeType: ChangeType,
+        timestampMs: UInt64
+    ) -> [UInt8] {
+        /// Ed25519 signature of `("MEMBER_CHANGE" || type || timestamp)`
+        return "MEMBER_CHANGE".bytes
+            .appending(contentsOf: "\(changeType.rawValue)".data(using: .ascii)?.bytes)
+            .appending(contentsOf: "\(timestampMs)".data(using: .ascii)?.bytes)
     }
     
     // MARK: - Codable
@@ -43,6 +78,9 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         
         changeType = try container.decode(ChangeType.self, forKey: .changeType)
         memberSessionIds = try container.decode([String].self, forKey: .memberSessionIds)
+        adminSignature = Authentication.Signature.standard(
+            signature: try container.decode([UInt8].self, forKey: .adminSignature)
+        )
         
         try super.init(from: decoder)
     }
@@ -54,6 +92,11 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         
         try container.encode(changeType, forKey: .changeType)
         try container.encode(memberSessionIds, forKey: .memberSessionIds)
+        
+        switch adminSignature {
+            case .standard(let signature): try container.encode(signature, forKey: .adminSignature)
+            case .subaccount: throw MessageSenderError.signingFailed
+        }
     }
 
     // MARK: - Proto Conversion
@@ -67,7 +110,10 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         
         return GroupUpdateMemberChangeMessage(
             changeType: changeType,
-            memberSessionIds: groupMemberChangeMessage.memberSessionIds
+            memberSessionIds: groupMemberChangeMessage.memberSessionIds,
+            adminSignature: Authentication.Signature.standard(
+                signature: Array(groupMemberChangeMessage.adminSignature)
+            )
         )
     }
 
@@ -79,6 +125,12 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
                         case .added: return .added
                         case .removed: return .removed
                         case .promoted: return .promoted
+                    }
+                }(),
+                adminSignature: try {
+                    switch adminSignature {
+                        case .standard(let signature): return Data(signature)
+                        case .subaccount: throw MessageSenderError.signingFailed
                     }
                 }()
             )
@@ -106,7 +158,8 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         """
         GroupUpdateMemberChangeMessage(
             changeType: \(changeType),
-            memberSessionIds: \(memberSessionIds)
+            memberSessionIds: \(memberSessionIds),
+            adminSignature: \(adminSignature)
         )
         """
     }

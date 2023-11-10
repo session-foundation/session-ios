@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtilitiesKit
@@ -23,7 +25,7 @@ extension SnodeAPI {
         /// `expiry` timestamp then expiry will not be changed
         ///
         /// **Note:** This option is only supported starting at network version 19.3).  This option is not permitted when using
-        /// subkey authentication
+        /// subaccount authentication
         let shorten: Bool?
         
         /// If provided and set to true then the expiry is only extended, but not shortened.  If the expiry is already at or beyond

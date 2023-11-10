@@ -130,12 +130,12 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .map { [selectedIdsSubject] model -> SessionCell.Info<TableItem> in
                             SessionCell.Info(
                                 id: model,
-                                leftAccessory: .profile(id: model.id, profile: model.profile),
+                                leadingAccessory: .profile(id: model.id, profile: model.profile),
                                 title: (
                                     model.profile?.displayName() ??
                                     Profile.truncated(id: model.id, truncating: .middle)
                                 ),
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     liveIsSelected: { selectedIdsSubject.value.contains(model.id) == true }
                                 ),
                                 onTap: {

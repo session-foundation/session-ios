@@ -4,14 +4,14 @@ import UIKit
 import SessionUtilitiesKit
 
 // FIXME: Refactor as part of the Groups Rebuild
-public class ConfirmationModal: Modal, UITextFieldDelegate {
+public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     private static let closeSize: CGFloat = 24
     
     public private(set) var info: Info
     private var internalOnConfirm: ((ConfirmationModal) -> ())? = nil
     private var internalOnCancel: ((ConfirmationModal) -> ())? = nil
     private var internalOnBodyTap: (() -> ())? = nil
-    private var internalOnTextChanged: ((String) -> ())? = nil
+    private var internalOnTextChanged: ((String, String) -> ())? = nil
     
     // MARK: - Components
     
@@ -80,6 +80,38 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         return result
     }()
     
+    private lazy var textViewContainer: UIView = {
+        let result: UIView = UIView()
+        result.themeBorderColor = .borderSeparator
+        result.layer.cornerRadius = 11
+        result.layer.borderWidth = 1
+        result.isHidden = true
+        result.set(.height, to: 75)
+        
+        return result
+    }()
+    
+    private lazy var textView: UITextView = {
+        let result: UITextView = UITextView()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textPrimary
+        result.themeBackgroundColor = .clear
+        result.textContainerInset = .zero
+        result.textContainer.lineFragmentPadding = 0
+        result.delegate = self
+        
+        return result
+    }()
+    
+    private lazy var textViewPlaceholder: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textSecondary
+        result.alpha = 0.5
+        
+        return result
+    }()
+    
     private lazy var imageViewContainer: UIView = {
         let result: UIView = UIView()
         result.isHidden = true
@@ -108,7 +140,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     }()
     
     private lazy var contentStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, textFieldContainer, imageViewContainer ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, explanationLabel, textFieldContainer, textViewContainer, imageViewContainer ])
         result.axis = .vertical
         result.spacing = Values.smallSpacing
         result.isLayoutMarginsRelativeArrangement = true
@@ -184,6 +216,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         textFieldContainer.addSubview(textField)
         textField.pin(to: textFieldContainer, withInset: 12)
         
+        textViewContainer.addSubview(textView)
+        textViewContainer.addSubview(textViewPlaceholder)
+        textView.pin(to: textViewContainer, withInset: 12)
+        textViewPlaceholder.pin(.top, to: .top, of: textViewContainer, withInset: 12)
+        textViewPlaceholder.pin(.leading, to: .leading, of: textViewContainer, withInset: 12)
+        textViewPlaceholder.pin(.trailing, to: .trailing, of: textViewContainer, withInset: -12)
+        
         imageViewContainer.addSubview(profileView)
         profileView.center(.horizontal, in: imageViewContainer)
         profileView.pin(.top, to: .top, of: imageViewContainer)
@@ -232,13 +271,26 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
                 explanationLabel.attributedText = attributedText
                 explanationLabel.isHidden = false
                 
-            case .input(let explanation, let placeholder, let value, let clearButton, let onTextChanged):
+            case .input(let explanation, let inputInfo, let onTextChanged):
                 explanationLabel.attributedText = explanation
                 explanationLabel.isHidden = (explanation == nil)
-                textField.placeholder = placeholder
-                textField.text = (value ?? "")
-                textField.clearButtonMode = (clearButton ? .always : .never)
+                textField.placeholder = inputInfo.placeholder
+                textField.text = (inputInfo.initialValue ?? "")
+                textField.clearButtonMode = (inputInfo.clearButton ? .always : .never)
                 textFieldContainer.isHidden = false
+                internalOnTextChanged = { text, _ in onTextChanged(text) }
+                
+            case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
+                explanationLabel.attributedText = explanation
+                explanationLabel.isHidden = (explanation == nil)
+                textField.placeholder = firstInputInfo.placeholder
+                textField.text = (firstInputInfo.initialValue ?? "")
+                textField.clearButtonMode = (firstInputInfo.clearButton ? .always : .never)
+                textFieldContainer.isHidden = false
+                textView.text = (secondInputInfo.initialValue ?? "")
+                textViewPlaceholder.text = secondInputInfo.placeholder
+                textViewPlaceholder.isHidden = !textView.text.isEmpty
+                textViewContainer.isHidden = false
                 internalOnTextChanged = onTextChanged
                 
             case .radio(let explanation, let options):
@@ -322,7 +374,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     }
     
     public func textFieldShouldClear(_ textField: UITextField) -> Bool {
-        internalOnTextChanged?("")
+        internalOnTextChanged?("", textView.text)
         return true
     }
     
@@ -330,10 +382,17 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
         if let text: String = textField.text, let textRange: Range = Range(range, in: text) {
             let updatedText = text.replacingCharacters(in: textRange, with: string)
             
-            internalOnTextChanged?(updatedText)
+            internalOnTextChanged?(updatedText, textView.text)
         }
         
         return true
+    }
+    
+    // MARK: - UITextViewDelegate
+    
+    public func textViewDidChange(_ textView: UITextView) {
+        textViewPlaceholder.isHidden = !textView.text.isEmpty
+        internalOnTextChanged?((textField.text ?? ""), textView.text)
     }
     
     // MARK: - Interaction
@@ -341,6 +400,9 @@ public class ConfirmationModal: Modal, UITextFieldDelegate {
     @objc private func contentViewTapped() {
         if textField.isFirstResponder {
             textField.resignFirstResponder()
+        }
+        if textView.isFirstResponder {
+            textView.resignFirstResponder()
         }
         
         internalOnBodyTap?()
@@ -520,6 +582,21 @@ public extension ConfirmationModal.Info {
     // MARK: - Body
     
     enum Body: Equatable, Hashable {
+        public struct InputInfo: Equatable, Hashable {
+            public let placeholder: String
+            public let initialValue: String?
+            public let clearButton: Bool
+            
+            public init(
+                placeholder: String,
+                initialValue: String? = nil,
+                clearButton: Bool = false
+            ) {
+                self.placeholder = placeholder
+                self.initialValue = initialValue
+                self.clearButton = clearButton
+            }
+        }
         public enum ImageStyle: Equatable, Hashable {
             case inherit
             case circular
@@ -530,10 +607,14 @@ public extension ConfirmationModal.Info {
         case attributedText(NSAttributedString)
         case input(
             explanation: NSAttributedString?,
-            placeholder: String,
-            initialValue: String?,
-            clearButton: Bool,
+            info: InputInfo,
             onChange: (String) -> ()
+        )
+        case dualInput(
+            explanation: NSAttributedString?,
+            firstInfo: InputInfo,
+            secondInfo: InputInfo,
+            onChange: (String, String) -> ()
         )
         case radio(
             explanation: NSAttributedString?,
@@ -558,12 +639,17 @@ public extension ConfirmationModal.Info {
                 case (.text(let lhsText), .text(let rhsText)): return (lhsText == rhsText)
                 case (.attributedText(let lhsText), .attributedText(let rhsText)): return (lhsText == rhsText)
                 
-                case (.input(let lhsExplanation, let lhsPlaceholder, let lhsInitialValue, let lhsClearButton, _), .input(let rhsExplanation, let rhsPlaceholder, let rhsInitialValue, let rhsClearButton, _)):
+                case (.input(let lhsExplanation, let lhsInfo, _), .input(let rhsExplanation, let rhsInfo, _)):
                    return (
                        lhsExplanation == rhsExplanation &&
-                       lhsPlaceholder == rhsPlaceholder &&
-                       lhsInitialValue == rhsInitialValue &&
-                       lhsClearButton == rhsClearButton
+                       lhsInfo == rhsInfo
+                   )
+                    
+                case (.dualInput(let lhsExplanation, let lhsFirstInfo, let lhsSecondInfo, _), .dualInput(let rhsExplanation, let rhsFirstInfo, let rhsSecondInfo, _)):
+                   return (
+                       lhsExplanation == rhsExplanation &&
+                       lhsFirstInfo == rhsFirstInfo &&
+                       lhsSecondInfo == rhsSecondInfo
                    )
                 
                 case (.radio(let lhsExplanation, let lhsOptions), .radio(let rhsExplanation, let rhsOptions)):
@@ -591,11 +677,14 @@ public extension ConfirmationModal.Info {
                 case .text(let text): text.hash(into: &hasher)
                 case .attributedText(let text): text.hash(into: &hasher)
                     
-                case .input(let explanation, let placeholder, let initialValue, let clearButton, _):
+                case .input(let explanation, let info, _):
                     explanation.hash(into: &hasher)
-                    placeholder.hash(into: &hasher)
-                    initialValue.hash(into: &hasher)
-                    clearButton.hash(into: &hasher)
+                    info.hash(into: &hasher)
+                    
+                case .dualInput(let explanation, let firstInfo, let secondInfo, _):
+                    explanation.hash(into: &hasher)
+                    firstInfo.hash(into: &hasher)
+                    secondInfo.hash(into: &hasher)
                     
                 case .radio(let explanation, let options):
                     explanation.hash(into: &hasher)

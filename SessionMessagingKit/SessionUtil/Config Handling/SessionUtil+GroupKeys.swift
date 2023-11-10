@@ -91,6 +91,20 @@ internal extension SessionUtil {
             } ?? { throw SessionUtilError.invalidConfigObject }()
     }
     
+    static func currentGeneration(
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws -> Int {
+        try dependencies[cache: .sessionUtil]
+            .config(for: .groupKeys, sessionId: groupSessionId)
+            .wrappedValue
+            .map { config -> Int in
+                guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
+                
+                return Int(groups_keys_current_generation(conf))
+            } ?? { throw SessionUtilError.invalidConfigObject }()
+    }
+    
     static func generateSubaccountToken(
         groupSessionId: SessionId,
         memberId: String,

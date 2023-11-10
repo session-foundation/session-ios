@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import Sodium
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -22,16 +23,17 @@ extension MessageReceiver {
                     using: dependencies
                 )
                 
-            case (let message as GroupUpdateDeleteMessage, _):
-                try MessageReceiver.handleGroupDelete(
+            case (let message as GroupUpdatePromoteMessage, _):
+                try MessageReceiver.handleGroupPromotion(
                     db,
                     message: message,
                     using: dependencies
                 )
                 
-            case (let message as GroupUpdatePromoteMessage, _):
-                try MessageReceiver.handleGroupPromotion(
+            case (let message as GroupUpdateDeleteMessage, .some(let sessionId)) where sessionId.prefix == .group:
+                try MessageReceiver.handleGroupDelete(
                     db,
+                    groupSessionId: sessionId,
                     message: message,
                     using: dependencies
                 )
@@ -199,7 +201,8 @@ extension MessageReceiver {
                     calledFromConfigHandling: false,
                     using: dependencies
                 ),
-                applicationState: (isMainAppActive ? .active : .background)
+                applicationState: (isMainAppActive ? .active : .background),
+                using: dependencies
             )
     }
     
@@ -254,62 +257,6 @@ extension MessageReceiver {
             db,
             group: closedGroup,
             calledFromConfigHandling: calledFromConfigHandling,
-            using: dependencies
-        )
-    }
-    
-    /// Logic for handling the `GroupUpdateDeleteMessage`, this message should only be processed if it was sent
-    /// after the user joined the group (while unlikely, it's possible to receive this message when re-joining a group after
-    /// previously being kicked in which case we don't want to delete the data)
-    ///
-    /// **Note:** Admins can't be removed from a group so this only clears the `authData`
-    private static func handleGroupDelete(
-        _ db: Database,
-        message: GroupUpdateDeleteMessage,
-        using dependencies: Dependencies
-    ) throws {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        
-        guard
-            let sentTimestampMs: UInt64 = message.sentTimestamp,
-            let groupJoinedAt: TimeInterval = try? ClosedGroup
-                .filter(id: message.groupSessionId.hexString)
-                .select(ClosedGroup.Columns.formationTimestamp)
-                .asRequest(of: TimeInterval.self)
-                .fetchOne(db),
-            sentTimestampMs > UInt64(groupJoinedAt * 1000),
-            Authentication.verify(
-                signature: message.adminSignature,
-                publicKey: message.groupSessionId.publicKey,
-                verificationBytes: GroupUpdateDeleteMessage.generateVerificationBytes(
-                    recipientSessionIdHexString: userSessionId.hexString,
-                    timestampMs: sentTimestampMs
-                ),
-                using: dependencies
-            )
-        else { throw MessageReceiverError.invalidMessage }
-        
-        /// Delete the group data (if the group is a message request then delete it entirely, otherwise we want to keep a shell of group around because
-        /// the UX of conversations randomly disappearing isn't great)
-        let isInvite: Bool = (try? ClosedGroup
-            .filter(id: message.groupSessionId.hexString)
-            .select(ClosedGroup.Columns.invited)
-            .asRequest(of: Bool.self)
-            .fetchOne(db))
-            .defaulting(to: false)
-        
-        try ClosedGroup.removeData(
-            db,
-            threadIds: [message.groupSessionId.hexString],
-            dataToRemove: {
-                guard !isInvite else { return .allData }
-                
-                return [
-                    .poller, .pushNotifications, .messages, .members,
-                    .encryptionKeys, .authDetails, .libSessionState
-                ]
-            }(),
-            calledFromConfigHandling: false,
             using: dependencies
         )
     }
@@ -388,6 +335,86 @@ extension MessageReceiver {
                     using: dependencies
                 )
         }
+    }
+    
+    /// Logic for handling the `GroupUpdateDeleteMessage`, this message should only be processed if it was sent
+    /// after the user joined the group (while unlikely, it's possible to receive this message when re-joining a group after
+    /// previously being kicked in which case we don't want to delete the data)
+    ///
+    /// **Note:** Admins can't be removed from a group so this only clears the `authData`
+    private static func handleGroupDelete(
+        _ db: Database,
+        groupSessionId: SessionId,
+        message: GroupUpdateDeleteMessage,
+        using dependencies: Dependencies
+    ) throws {
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        
+        /// Ignore the message if the `memberSessionIds` doesn't contain the current users session id,
+        /// it was sent before the user joined the group or if the `adminSignature` isn't valid
+        guard
+            let currentKeysGen: Int = try? SessionUtil.currentGeneration(
+                groupSessionId: groupSessionId,
+                using: dependencies
+            ),
+            let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies),
+            let deletedMemberIds: [String] = Optional(message.content.encryptedDeletedMemberIdData)?
+                .compactMap({ ciphertext -> String? in
+                    guard
+                        let (plaintext, groupIdHex): (Data, String) = try? MessageReceiver.decryptWithSessionProtocol(
+                            ciphertext: ciphertext,
+                            using: userEd25519KeyPair,
+                            using: dependencies
+                        ),
+                        groupIdHex == groupSessionId.hexString,                                 // Ignore wrong group
+                        plaintext.count >= GroupUpdateDeleteMessage.minDeletedMemberIdLength,   // Ignore too short
+                        let memberSessionId: SessionId = try? SessionId(
+                            from: String(data: plaintext.prefix(SessionId.byteCount), encoding: .utf8)
+                        ),
+                        let keysGenString: String = String(
+                            data: plaintext.suffix(from: SessionId.byteCount),
+                            encoding: .utf8
+                        ),
+                        let keysGen: Int = Int(keysGenString),
+                        keysGen >= currentKeysGen                                               // Ignore if old gen
+                    else { return nil }
+                    
+                    return memberSessionId.hexString
+                }),
+            deletedMemberIds.contains(userSessionId.hexString),
+            Authentication.verify(
+                signature: message.adminSignature,
+                publicKey: groupSessionId.publicKey,
+                verificationBytes: GroupUpdateDeleteMessage.generateVerificationBytes(
+                    content: message.content
+                ),
+                using: dependencies
+            )
+        else { throw MessageReceiverError.invalidMessage }
+        
+        /// Delete the group data (if the group is a message request then delete it entirely, otherwise we want to keep a shell of group around because
+        /// the UX of conversations randomly disappearing isn't great)
+        let isInvite: Bool = (try? ClosedGroup
+            .filter(id: groupSessionId.hexString)
+            .select(ClosedGroup.Columns.invited)
+            .asRequest(of: Bool.self)
+            .fetchOne(db))
+            .defaulting(to: false)
+        
+        try ClosedGroup.removeData(
+            db,
+            threadIds: [groupSessionId.hexString],
+            dataToRemove: {
+                guard !isInvite else { return .allData }
+                
+                return [
+                    .poller, .pushNotifications, .messages, .members,
+                    .encryptionKeys, .authDetails, .libSessionState
+                ]
+            }(),
+            calledFromConfigHandling: false,
+            using: dependencies
+        )
     }
     
     private static func handleGroupInfoChanged(
@@ -547,16 +574,20 @@ extension MessageReceiver {
                 .fetchOne(db)) != nil
         else { return }
         
-        try MessageSender
-            .removeGroupMembers(
-                db,
-                groupSessionId: groupSessionId,
-                memberIds: [sender],
-                removeTheirMessages: false,
-                sendMemberChangedMessage: false,
-                changeTimestampMs: Int64(sentTimestampMs),
-                using: dependencies
-            )
+        // Trigger this removal in a separate process because it requires a number of requests to be made
+        db.afterNextTransactionNested { _ in
+            MessageSender
+                .removeGroupMembers(
+                    groupSessionId: groupSessionId.hexString,
+                    memberIds: [sender],
+                    removeTheirMessages: false,
+                    sendMemberChangedMessage: false,
+                    changeTimestampMs: Int64(sentTimestampMs),
+                    using: dependencies
+                )
+                .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                .sinkUntilComplete()
+        }
     }
     
     private static func handleGroupInviteResponse(
@@ -609,41 +640,95 @@ extension MessageReceiver {
         message: GroupUpdateDeleteMemberContentMessage,
         using dependencies: Dependencies
     ) throws {
-        guard
-            let sentTimestampMs: UInt64 = message.sentTimestamp,
-            Authentication.verify(
-                signature: message.adminSignature,
-                publicKey: groupSessionId.publicKey,
-                verificationBytes: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
-                    memberSessionIds: message.memberSessionIds,
-                    messageHashes: message.messageHashes,
-                    timestampMs: sentTimestampMs
-                ),
-                using: dependencies
-            )
-        else { throw MessageReceiverError.invalidMessage }
+        guard let sentTimestampMs: UInt64 = message.sentTimestamp else { throw MessageReceiverError.invalidMessage }
+        
+        let memberSessionIdsToRemove: [String]
+        let messageHashesToRemove: [String]
+        let messageHashesToDeleteFromServer: [String]
+        
+        switch (message.adminSignature, message.sender) {
+            case (.some(let adminSignature), _):
+                guard
+                    Authentication.verify(
+                        signature: adminSignature,
+                        publicKey: groupSessionId.publicKey,
+                        verificationBytes: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
+                            memberSessionIds: message.memberSessionIds,
+                            messageHashes: message.messageHashes,
+                            timestampMs: sentTimestampMs
+                        ),
+                        using: dependencies
+                    )
+                else { throw MessageReceiverError.invalidMessage }
+                
+                /// Admins can remove anything so just use the values included in the message, they will have already deleted the messages
+                /// from the server as well so we can just leave that empty
+                memberSessionIdsToRemove = message.memberSessionIds
+                messageHashesToRemove = message.messageHashes
+                messageHashesToDeleteFromServer = []
+                
+            case (.none, .some(let sender)):
+                /// Members can only remove messages they sent so filter the values included to only include values that match the sender
+                memberSessionIdsToRemove = message.memberSessionIds.filter { $0 == sender }
+                messageHashesToRemove = try Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(Interaction.Columns.authorId == sender)
+                    .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
+                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .select(.serverHash)
+                    .asRequest(of: String.self)
+                    .fetchAll(db)
+                messageHashesToDeleteFromServer = try Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(memberSessionIdsToRemove.asSet().contains(Interaction.Columns.authorId))
+                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .select(.serverHash)
+                    .asRequest(of: String.self)
+                    .fetchAll(db)
+                    .appending(contentsOf: messageHashesToRemove)
+                
+            case (.none, .none): throw MessageReceiverError.invalidMessage
+        }
         
         /// Remove all messages sent but any of the `memberSessionIds`
-        if !message.memberSessionIds.isEmpty {
+        if !memberSessionIdsToRemove.isEmpty {
             try Interaction
-                .filter(
-                    Interaction.Columns.threadId == groupSessionId.hexString &&
-                    message.memberSessionIds.asSet().contains(Interaction.Columns.authorId) &&
-                    Interaction.Columns.timestampMs < sentTimestampMs
-                )
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(memberSessionIdsToRemove.asSet().contains(Interaction.Columns.authorId))
+                .filter(Interaction.Columns.timestampMs < sentTimestampMs)
                 .deleteAll(db)
         }
         
         /// Remove all messages in the `messageHashes`
-        if !message.messageHashes.isEmpty {
+        if !messageHashesToRemove.isEmpty {
             try Interaction
-                .filter(
-                    Interaction.Columns.threadId == groupSessionId.hexString &&
-                    message.messageHashes.asSet().contains(Interaction.Columns.serverHash) &&
-                    Interaction.Columns.timestampMs < sentTimestampMs
-                )
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(messageHashesToRemove.asSet().contains(Interaction.Columns.serverHash))
+                .filter(Interaction.Columns.timestampMs < sentTimestampMs)
                 .deleteAll(db)
         }
+        
+        /// If the message wasn't sent by an admin and the current user is an admin then we want to try to delete the
+        /// messages from the swarm as well
+        guard
+            !messageHashesToDeleteFromServer.isEmpty,
+            SessionUtil.isAdmin(groupSessionId: groupSessionId, using: dependencies),
+            let authMethod: AuthenticationMethod = try? Authentication.with(
+                db,
+                sessionIdHexString: groupSessionId.hexString,
+                using: dependencies
+            )
+        else { return }
+        
+        try? SnodeAPI
+            .preparedDeleteMessages(
+                serverHashes: messageHashesToDeleteFromServer,
+                requireSuccessfulDeletion: false,
+                authMethod: authMethod
+            )
+            .send(using: dependencies)
+            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+            .sinkUntilComplete()
     }
     
     internal static func updateMemberApprovalStatusIfNeeded(

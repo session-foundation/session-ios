@@ -9,6 +9,7 @@ final class ConversationTitleView: UIView {
     private static let leftInset: CGFloat = 8
     private static let leftInsetWithCallButton: CGFloat = 54
     
+    private let dependencies: Dependencies
     private var oldSize: CGSize = .zero
     
     override var intrinsicContentSize: CGSize {
@@ -53,7 +54,9 @@ final class ConversationTitleView: UIView {
 
     // MARK: - Initialization
     
-    init() {
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
         super.init(frame: .zero)
         
         addSubview(stackView)
@@ -166,7 +169,7 @@ final class ConversationTitleView: UIView {
         // No need to add themed subtitle content if we aren't adding the subtitle carousel
         guard shouldHaveSubtitle else { return }
         
-        ThemeManager.onThemeChange(observer: self.labelCarouselView) { [weak self] theme, _ in
+        ThemeManager.onThemeChange(observer: self.labelCarouselView) { [weak self, dependencies] theme, _ in
             guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
             
             var labelInfos: [SessionLabelCarouselView.LabelInfo] = []
@@ -251,7 +254,7 @@ final class ConversationTitleView: UIView {
                 )
                 
                 let disappearingMessageSettingLabelString: NSAttributedString = {
-                    guard Features.useNewDisappearingMessagesConfig else {
+                    guard dependencies[feature: .updatedDisappearingMessages] else {
                         return NSAttributedString(attachment: imageAttachment)
                             .appending(string: " ")
                             .appending(string: String(

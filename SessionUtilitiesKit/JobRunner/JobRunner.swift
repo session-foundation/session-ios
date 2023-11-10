@@ -273,7 +273,8 @@ public final class JobRunner: JobRunnerType {
                     jobVariants.remove(.groupLeaving),
                     jobVariants.remove(.configurationSync),
                     jobVariants.remove(.groupInviteMember),
-                    jobVariants.remove(.groupPromoteMember)
+                    jobVariants.remove(.groupPromoteMember),
+                    jobVariants.remove(.processPendingGroupMemberRemovals)
                 ].compactMap { $0 }
             ),
             

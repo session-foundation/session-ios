@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 let kMaxMessageBodyCharacterCount = 2000
 
 protocol AttachmentTextToolbarDelegate: AnyObject {
-    func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar, using dependencies: Dependencies)
+    func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar)
     func attachmentTextToolbarDidBeginEditing(_ attachmentTextToolbar: AttachmentTextToolbar)
     func attachmentTextToolbarDidEndEditing(_ attachmentTextToolbar: AttachmentTextToolbar)
     func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar)
@@ -212,10 +212,8 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
 
     // MARK: - Actions
     
-    @objc func didTapSend() { onSend() }
-
-    private func onSend(using dependencies: Dependencies = Dependencies()) {
-        attachmentTextToolbarDelegate?.attachmentTextToolbarDidTapSend(self, using: dependencies)
+    @objc func didTapSend() {
+        attachmentTextToolbarDelegate?.attachmentTextToolbarDidTapSend(self)
     }
 
     // MARK: - UITextViewDelegate

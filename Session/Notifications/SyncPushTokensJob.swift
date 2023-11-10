@@ -87,13 +87,12 @@ public enum SyncPushTokensJob: JobExecutor {
         PushRegistrationManager.shared.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
                 /// For our `subscribe` endpoint we only want to call it if:
-                /// • It's been longer than `SyncPushTokensJob.maxFrequency` since the last subscription;
+                /// • It's been longer than `SyncPushTokensJob.maxFrequency` since the last successful subscription;
                 /// • The token has changed; or
                 /// • We want to force an update
-                let timeSinceLastSubscription: TimeInterval = dependencies.dateNow
+                let timeSinceLastSuccessfulUpload: TimeInterval = dependencies.dateNow
                     .timeIntervalSince(
-                        dependencies[defaults: .standard, key: .lastPushNotificationSync]
-                            .defaulting(to: Date.distantPast)
+                        Date(timeIntervalSince1970: dependencies[defaults: .standard, key: .lastDeviceTokenUpload])
                     )
                 let uploadOnlyIfStale: Bool? = {
                     guard
@@ -105,7 +104,7 @@ public enum SyncPushTokensJob: JobExecutor {
                 }()
                 
                 guard
-                    timeSinceLastSubscription >= SyncPushTokensJob.maxFrequency ||
+                    timeSinceLastSuccessfulUpload >= SyncPushTokensJob.maxFrequency ||
                     dependencies[singleton: .storage, key: .lastRecordedPushToken] != pushToken ||
                     uploadOnlyIfStale == false
                 else {
@@ -131,7 +130,6 @@ public enum SyncPushTokensJob: JobExecutor {
                                 case .finished:
                                     Logger.warn("Recording push tokens locally. pushToken: \(redact(pushToken)), voipToken: \(redact(voipToken))")
                                     SNLog("[SyncPushTokensJob] Completed")
-                                    dependencies[defaults: .standard, key: .lastPushNotificationSync] = dependencies.dateNow
 
                                     dependencies[singleton: .storage].write(using: dependencies) { db in
                                         db[.lastRecordedPushToken] = pushToken

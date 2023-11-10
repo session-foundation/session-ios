@@ -20,7 +20,7 @@ public enum DisappearingMessagesJob: JobExecutor {
         using dependencies: Dependencies
     ) {
         // The 'backgroundTask' gets captured and cleared within the 'completion' block
-        let timestampNowMs: Double = Double(SnodeAPI.currentOffsetTimestampMs())
+        let timestampNowMs: Double = Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: #function)
         var numDeleted: Int = -1
         

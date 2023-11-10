@@ -16,17 +16,33 @@ extension MessageSender {
             throw MessageSenderError.noUserED25519KeyPair
         }
         
+        return try encryptWithSessionProtocol(
+            db,
+            plaintext: plaintext,
+            for: recipientHexEncodedX25519PublicKey,
+            from: userEd25519KeyPair,
+            using: dependencies
+        )
+    }
+    
+    internal static func encryptWithSessionProtocol(
+        _ db: Database,
+        plaintext: Data,
+        for recipientHexEncodedX25519PublicKey: String,
+        from senderEd25519KeyPair: KeyPair,
+        using dependencies: Dependencies
+    ) throws -> Data {
         let recipientX25519PublicKey: Data = Data(SessionId(.standard, hex: recipientHexEncodedX25519PublicKey).publicKey)
         
-        let verificationData = plaintext + Data(userEd25519KeyPair.publicKey) + recipientX25519PublicKey
+        let verificationData = plaintext + Data(senderEd25519KeyPair.publicKey) + recipientX25519PublicKey
         guard
             let signature: Authentication.Signature = dependencies[singleton: .crypto].generate(
-                .signature(message: Bytes(verificationData), secretKey: userEd25519KeyPair.secretKey)
+                .signature(message: Bytes(verificationData), secretKey: senderEd25519KeyPair.secretKey)
             ),
             case .standard(let signatureBytes) = signature
         else { throw MessageSenderError.signingFailed }
         
-        let plaintextWithMetadata = plaintext + Data(userEd25519KeyPair.publicKey) + Data(signatureBytes)
+        let plaintextWithMetadata = plaintext + Data(senderEd25519KeyPair.publicKey) + Data(signatureBytes)
         guard
             let ciphertext = dependencies[singleton: .crypto].generate(
                 .sealedBytes(

@@ -13,7 +13,7 @@ extension MessageSender {
     public static func createLegacyClosedGroup(
         name: String,
         members: Set<String>,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<SessionThread, Error> {
         dependencies[singleton: .storage]
             .writePublisher { db -> (SessionId, SessionThread, [HTTP.PreparedRequest<Void>], Set<String>) in

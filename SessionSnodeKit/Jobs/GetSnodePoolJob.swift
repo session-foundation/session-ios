@@ -53,13 +53,13 @@ public enum GetSnodePoolJob: JobExecutor {
             )
     }
     
-    public static func run(using dependencies: Dependencies) {
+    public static func run(onComplete: ((Bool) -> Void)? = nil, using dependencies: Dependencies) {
         GetSnodePoolJob.run(
             Job(variant: .getSnodePool),
             queue: .global(qos: .background),
-            success: { _, _, _ in },
-            failure: { _, _, _, _ in },
-            deferred: { _, _ in },
+            success: { _, _, _ in onComplete?(true) },
+            failure: { _, _, _, _ in onComplete?(false) },
+            deferred: { _, _ in onComplete?(false) },
             using: dependencies
         )
     }

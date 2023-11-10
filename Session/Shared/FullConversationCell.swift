@@ -268,7 +268,11 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     
     // MARK: --Search Results
     
-    public func updateForMessageSearchResult(with cellViewModel: SessionThreadViewModel, searchText: String) {
+    public func updateForMessageSearchResult(
+        with cellViewModel: SessionThreadViewModel,
+        searchText: String,
+        using dependencies: Dependencies
+    ) {
         profilePictureView.update(
             publicKey: cellViewModel.threadId,
             threadVariant: cellViewModel.threadVariant,
@@ -304,7 +308,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     authorDisplayName: cellViewModel.authorName(for: .contact),
                     attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
                     attachmentCount: cellViewModel.interactionAttachmentCount,
-                    isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true)
+                    isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
+                    using: dependencies
                 ),
                 authorName: (cellViewModel.authorId != cellViewModel.currentUserSessionId ?
                     cellViewModel.authorName(for: .contact) :
@@ -374,7 +379,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
 
     // MARK: --Standard
     
-    public func update(with cellViewModel: SessionThreadViewModel) {
+    public func update(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
         let unreadCount: UInt = (cellViewModel.threadUnreadCount ?? 0)
         let threadIsUnread: Bool = (
             unreadCount > 0 ||
@@ -445,21 +450,24 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                     
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
-                        textColor: textColor
+                        textColor: textColor,
+                        using: dependencies
                     )
                 } else if cellViewModel.interactionVariant == .infoGroupCurrentUserErrorLeaving {
                     guard let textColor: UIColor = theme.color(for: .danger) else { return }
                     
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
-                        textColor: textColor
+                        textColor: textColor,
+                        using: dependencies
                     )
                 } else {
                     guard let textColor: UIColor = theme.color(for: .textPrimary) else { return }
                     
                     snippetLabel?.attributedText = self?.getSnippet(
                         cellViewModel: cellViewModel,
-                        textColor: textColor
+                        textColor: textColor,
+                        using: dependencies
                     )
                 }
             }
@@ -540,7 +548,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
 
     private func getSnippet(
         cellViewModel: SessionThreadViewModel,
-        textColor: UIColor
+        textColor: UIColor,
+        using dependencies: Dependencies
     ) -> NSMutableAttributedString {
         // If we don't have an interaction then do nothing
         guard cellViewModel.interactionId != nil else { return NSMutableAttributedString() }
@@ -593,7 +602,8 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 authorDisplayName: cellViewModel.authorName(for: cellViewModel.threadVariant),
                 attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
                 attachmentCount: cellViewModel.interactionAttachmentCount,
-                isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true)
+                isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
+                using: dependencies
             )
         }()
         

@@ -2170,6 +2170,7 @@ fileprivate extension LibSessionSpec {
                         admin: true,
                         invited: 0,
                         promoted: 0,
+                        removed: 0,
                         supplement: false
                     )
                     
@@ -2189,6 +2190,7 @@ fileprivate extension LibSessionSpec {
                         admin: false,
                         invited: 0,
                         promoted: 0,
+                        removed: 0,
                         supplement: false
                     )
                     
@@ -2236,6 +2238,7 @@ fileprivate extension LibSessionSpec {
                     expect(String(libSessionVal: member.session_id)).to(equal(sids[index]))
                     expect(member.invited).to(equal(0))
                     expect(member.promoted).to(equal(0))
+                    expect(member.removed).to(equal(0))
                     
                     switch index {
                         case 0..<10:
@@ -2297,6 +2300,13 @@ fileprivate extension LibSessionSpec {
                     member.promoted = (index < 60 ? 1 : 2) // Promotion Sent/Failed
                     groups_members_set(conf2, &member)
                 }
+                (62..<66).forEach { index in
+                    var cSessionId: [CChar] = sids[index].cArray
+                    var member: config_group_member = config_group_member()
+                    expect(groups_members_get_or_construct(conf2, &member, &cSessionId)).to(beTrue())
+                    member.removed = (index < 64 ? 1 : 2)
+                    groups_members_set(conf2, &member)
+                }
                 
                 var cSessionId1: [CChar] = sids[23].cArray
                 var member1: config_group_member = config_group_member()
@@ -2346,6 +2356,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beTrue())
                             expect(member.invited).to(equal(0))
                             expect(member.promoted).to(equal(0))
+                            expect(member.removed).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
                             expect(Data(libSessionVal: member.profile_pic.key, count: DisplayPictureManager.aes256KeyByteLength))
@@ -2358,6 +2369,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beFalse())
                             expect(member.invited).to(equal(0))
                             expect(member.promoted).to(equal(0))
+                            expect(member.removed).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).toNot(beEmpty())
                             expect(Data(libSessionVal: member.profile_pic.key, count: DisplayPictureManager.aes256KeyByteLength))
@@ -2368,6 +2380,9 @@ fileprivate extension LibSessionSpec {
                         case 22..<50:
                             expect(String(libSessionVal: member.name)).to(equal("Member \(index)"))
                             expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(0))
+                            expect(member.promoted).to(equal(0))
+                            expect(member.removed).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
                             expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
@@ -2377,6 +2392,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beFalse())
                             expect(member.invited).to(equal(1))
                             expect(member.promoted).to(equal(0))
+                            expect(member.removed).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
                             expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
@@ -2386,6 +2402,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beFalse())
                             expect(member.invited).to(equal(2))
                             expect(member.promoted).to(equal(0))
+                            expect(member.removed).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
                             expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
@@ -2395,6 +2412,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beFalse())
                             expect(member.invited).to(equal(0))
                             expect(member.promoted).to(equal(1))
+                            expect(member.removed).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
                             expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
@@ -2404,6 +2422,7 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beFalse())
                             expect(member.invited).to(equal(0))
                             expect(member.promoted).to(equal(0))
+                            expect(member.removed).to(equal(0))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
                             expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
@@ -2413,6 +2432,27 @@ fileprivate extension LibSessionSpec {
                             expect(member.admin).to(beFalse())
                             expect(member.invited).to(equal(0))
                             expect(member.promoted).to(equal(2))
+                            expect(member.removed).to(equal(0))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        case 62..<64:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(0))
+                            expect(member.promoted).to(equal(0))
+                            expect(member.removed).to(equal(1))
+                            expect(member.profile_pic).toNot(beNil())
+                            expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
+                            expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
+                            
+                        case 64..<66:
+                            expect(String(libSessionVal: member.name)).to(beEmpty())
+                            expect(member.admin).to(beFalse())
+                            expect(member.invited).to(equal(0))
+                            expect(member.promoted).to(equal(0))
+                            expect(member.removed).to(equal(2))
                             expect(member.profile_pic).toNot(beNil())
                             expect(String(libSessionVal: member.profile_pic.url)).to(beEmpty())
                             expect(String(libSessionVal: member.profile_pic.key)).to(beEmpty())
@@ -2424,7 +2464,7 @@ fileprivate extension LibSessionSpec {
                 var cSessionId: [CChar] = []
                 var member: config_group_member = config_group_member()
                 
-                (0..<62).forEach { index in
+                (0..<66).forEach { index in
                     cSessionId = sids[index].cArray
                     member = config_group_member()
                     
@@ -2477,7 +2517,7 @@ fileprivate extension LibSessionSpec {
 
                 expect(groups_members_size(conf2)).to(equal(44))    // 18 deleted earlier
                 
-                (0..<62).forEach { index in
+                (0..<66).forEach { index in
                     var cSessionId: [CChar] = sids[index].cArray
                     var member: config_group_member = config_group_member()
                     
@@ -2541,6 +2581,13 @@ fileprivate extension LibSessionSpec {
                         case 58: expect(member.promoted).to(equal(0))    // Reset by setting `admin = true`
                         case 60, 61: expect(member.promoted).to(equal(2))
                         default: expect(member.promoted).to(equal(0))
+                    }
+                    
+                    // Removed
+                    switch index {
+                        case 62, 63: expect(member.removed).to(equal(1))
+                        case 64, 65: expect(member.removed).to(equal(2))
+                        default: expect(member.removed).to(equal(0))
                     }
                 }
             }

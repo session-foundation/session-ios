@@ -115,7 +115,7 @@ public final class MessageSender {
         message.sentTimestamp = sentTimestamp
         
         // Ensure the message is valid
-        try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds)
+        try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds, using: dependencies)
         
         // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync
         // messages as they will be managed by the user config handling
@@ -139,25 +139,31 @@ public final class MessageSender {
         // Perform any pre-send actions
         handleMessageWillSend(db, message: message, interactionId: interactionId, isSyncMessage: isSyncMessage)
         
-        // Convert it to protobuf
+        // Convert and prepare the data for sending
         let threadId: String = Message.threadId(forMessage: message, destination: destination)
-        
-        guard let proto = message.toProto(db, threadId: threadId) else {
-            throw MessageSenderError.protoConversionFailed
-        }
-        
-        // Serialize the protobuf
-        let plaintext: Data = try Result(proto.serializedData())
-            .map { serialisedData -> Data in
-                switch destination {
-                    case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
-                        return serialisedData
-                        
-                    default: return serialisedData.paddedMessageBody()
-                }
+        let plaintext: Data = try {
+            switch namespace {
+                case .revokedRetrievableGroupMessages:
+                    return try BencodeEncoder(using: dependencies).encode(message)
+                    
+                default:
+                    guard let proto = message.toProto(db, threadId: threadId) else {
+                        throw MessageSenderError.protoConversionFailed
+                    }
+                    
+                    return try Result(proto.serializedData())
+                        .map { serialisedData -> Data in
+                            switch destination {
+                                case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
+                                    return serialisedData
+                                    
+                                default: return serialisedData.paddedMessageBody()
+                            }
+                        }
+                        .mapError { MessageSenderError.other("Couldn't serialize proto", $0) }
+                        .successOrThrow()
             }
-            .mapError { MessageSenderError.other("Couldn't serialize proto", $0) }
-            .successOrThrow()
+        }()
         let base64EncodedData: String = try {
             switch (destination, namespace) {
                 // Standard one-to-one messages
@@ -198,6 +204,10 @@ public final class MessageSender {
                             using: dependencies
                         )
                         .base64EncodedString()
+                    
+                // revokedRetrievableGroupMessages should be sent in plaintext (their content has custom encryption)
+                case (.closedGroup(let groupId), .revokedRetrievableGroupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
+                    return plaintext.base64EncodedString()
                     
                 // Config messages should be sent directly rather than via this method
                 case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
@@ -396,7 +406,7 @@ public final class MessageSender {
         }()
         
         // Ensure the message is valid
-        try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds)
+        try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds, using: dependencies)
         
         // Attach the user's profile
         message.profile = VisibleMessage.VMProfile(
@@ -583,10 +593,11 @@ public final class MessageSender {
     private static func ensureValidMessage(
         _ message: Message,
         destination: Message.Destination,
-        fileIds: [String]
+        fileIds: [String],
+        using dependencies: Dependencies
     ) throws {
         /// Check the message itself is valid
-        guard message.isValid else { throw MessageSenderError.invalidMessage }
+        guard message.isValid(using: dependencies) else { throw MessageSenderError.invalidMessage }
         
         /// We now allow the creation of message data without validating it's attachments have finished uploading first, this is here to
         /// ensure we don't send a message which should have uploaded files

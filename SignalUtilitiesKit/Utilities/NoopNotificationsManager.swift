@@ -3,12 +3,19 @@
 import Foundation
 import GRDB
 import SessionMessagingKit
+import SessionUtilitiesKit
 import SignalCoreKit
 
 public class NoopNotificationsManager: NotificationsProtocol {
     public init() {}
     
-    public func notifyUser(_ db: Database, for interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State) {
+    public func notifyUser(
+        _ db: Database,
+        for interaction: Interaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State,
+        using dependencies: Dependencies
+    ) {
         owsFailDebug("")
     }
     

@@ -236,7 +236,7 @@ public extension Profile {
     static func fetchAllContactProfiles(
         excluding: Set<String> = [],
         excludeCurrentUser: Bool = true,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> [Profile] {
         return dependencies[singleton: .storage]
             .read { db in

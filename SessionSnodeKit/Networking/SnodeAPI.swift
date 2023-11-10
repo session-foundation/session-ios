@@ -18,17 +18,16 @@ public final class SnodeAPI {
     
     internal static let maxRetryCount: Int = 8
     private static let minSwarmSnodeCount: Int = 3
-    private static let seedNodePool: Set<String> = {
-        guard !Features.useTestnet else {
-            return [ "http://public.loki.foundation:38157" ]
+    private static let seedNodePool: FeatureValue<Set<String>> = FeatureValue(feature: .serviceNetwork) { feature in
+        switch feature {
+            case .testnet: return [ "http://public.loki.foundation:38157" ]
+            case .mainnet: return [
+                "https://seed1.getsession.org:4432",
+                "https://seed2.getsession.org:4432",
+                "https://seed3.getsession.org:4432"
+            ]
         }
-        
-        return [
-            "https://seed1.getsession.org:4432",
-            "https://seed2.getsession.org:4432",
-            "https://seed3.getsession.org:4432"
-        ]
-    }()
+    }
     private static let snodeFailureThreshold: Int = 3
     private static let minSnodePoolCount: Int = 12
     
@@ -657,8 +656,8 @@ public final class SnodeAPI {
             }
     }
     
-    public static func preparedRevokeSubaccount(
-        subaccountToRevoke: [UInt8],
+    public static func preparedRevokeSubaccounts(
+        subaccountsToRevoke: [[UInt8]],
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<Void> {
@@ -670,7 +669,7 @@ public final class SnodeAPI {
                     endpoint: .revokeSubaccount,
                     publicKey: authMethod.sessionId.hexString,
                     body: RevokeSubaccountRequest(
-                        subaccountToRevoke: subaccountToRevoke,
+                        subaccountsToRevoke: subaccountsToRevoke,
                         authMethod: authMethod,
                         timestampMs: timestampMs
                     )
@@ -680,7 +679,7 @@ public final class SnodeAPI {
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
                     publicKey: authMethod.sessionId.hexString,
-                    validationData: (subaccountToRevoke, timestampMs),
+                    validationData: (subaccountsToRevoke, timestampMs),
                     using: dependencies
                 )
                 
@@ -688,8 +687,8 @@ public final class SnodeAPI {
             }
     }
     
-    public static func preparedUnrevokeSubaccount(
-        subaccountToUnrevoke: [UInt8],
+    public static func preparedUnrevokeSubaccounts(
+        subaccountsToUnrevoke: [[UInt8]],
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies = Dependencies()
     ) throws -> HTTP.PreparedRequest<Void> {
@@ -701,7 +700,7 @@ public final class SnodeAPI {
                     endpoint: .unrevokeSubaccount,
                     publicKey: authMethod.sessionId.hexString,
                     body: UnrevokeSubaccountRequest(
-                        subaccountToUnrevoke: subaccountToUnrevoke,
+                        subaccountsToUnrevoke: subaccountsToUnrevoke,
                         authMethod: authMethod,
                         timestampMs: timestampMs
                     )
@@ -711,7 +710,7 @@ public final class SnodeAPI {
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
                     publicKey: authMethod.sessionId.hexString,
-                    validationData: (subaccountToUnrevoke, timestampMs),
+                    validationData: (subaccountsToUnrevoke, timestampMs),
                     using: dependencies
                 )
                 
@@ -879,7 +878,7 @@ public final class SnodeAPI {
             )
         )
         
-        guard let target: String = seedNodePool.randomElement() else {
+        guard let target: String = seedNodePool.value(using: dependencies).randomElement() else {
             return Fail(error: SnodeAPIError.snodePoolUpdatingFailed)
                 .eraseToAnyPublisher()
         }
@@ -1007,35 +1006,8 @@ public final class SnodeAPI {
                 .eraseToAnyPublisher()
         }
         
-        guard Features.useOnionRequests else {
-            return HTTP
-                .execute(
-                    .post,
-                    "\(snode.address):\(snode.port)/storage_rpc/v1",
-                    body: payload
-                )
-                .map { response in (HTTP.ResponseInfo(code: -1, headers: [:]), response) }
-                .mapError { error in
-                    switch error {
-                        case HTTPError.httpRequestFailed(let statusCode, let data):
-                            return SnodeAPI
-                                .handleError(
-                                    withStatusCode: statusCode,
-                                    data: data,
-                                    forSnode: snode,
-                                    associatedWith: publicKey,
-                                    using: dependencies
-                                )
-                                .defaulting(to: error)
-                            
-                        default: return error
-                    }
-                }
-                .eraseToAnyPublisher()
-        }
-        
         return dependencies[singleton: .network]
-            .send(.onionRequest(payload, to: snode))
+            .send(.selectedNetworkRequest(payload, to: snode, using: dependencies))
             .mapError { error in
                 switch error {
                     case HTTPError.httpRequestFailed(let statusCode, let data):

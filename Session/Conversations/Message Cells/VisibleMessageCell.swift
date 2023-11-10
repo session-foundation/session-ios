@@ -279,7 +279,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         mediaCache: NSCache<NSString, AnyObject>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
-        lastSearchText: String?
+        lastSearchText: String?,
+        using dependencies: Dependencies
     ) {
         self.viewModel = cellViewModel
         
@@ -863,9 +864,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         isHandlingLongPress = true
     }
 
-    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) { onTap(gestureRecognizer) }
-    
-    private func onTap(_ gestureRecognizer: UITapGestureRecognizer, using dependencies: Dependencies = Dependencies()) {
+    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
         let location = gestureRecognizer.location(in: self)
@@ -879,8 +878,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 delegate?.startThread(
                     with: cellViewModel.authorId,
                     openGroupServer: cellViewModel.threadOpenGroupServer,
-                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey,
-                    using: dependencies
+                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
                 )
                 return
             }
@@ -888,8 +886,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             delegate?.startThread(
                 with: cellViewModel.authorId,
                 openGroupServer: nil,
-                openGroupPublicKey: nil,
-                using: dependencies
+                openGroupPublicKey: nil
             )
         }
         else if replyButton.alpha > 0 && replyButton.bounds.contains(replyButton.convert(location, from: self)) {
@@ -903,10 +900,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 if reactionContainerView.convert(reactionView.frame, from: reactionView.superview).contains(convertedLocation) {
                     
                     if reactionView.viewModel.showBorder {
-                        delegate?.removeReact(cellViewModel, for: reactionView.viewModel.emoji, using: dependencies)
+                        delegate?.removeReact(cellViewModel, for: reactionView.viewModel.emoji)
                     }
                     else {
-                        delegate?.react(cellViewModel, with: reactionView.viewModel.emoji, using: dependencies)
+                        delegate?.react(cellViewModel, with: reactionView.viewModel.emoji)
                     }
                     return
                 }
@@ -923,7 +920,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             }
         }
         else if snContentView.bounds.contains(snContentView.convert(location, from: self)) {
-            delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer, using: dependencies)
+            delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer)
         }
     }
 
@@ -991,11 +988,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
     }
 
-    private func reply(using dependencies: Dependencies = Dependencies()) {
+    private func reply() {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
         resetReply()
-        delegate?.handleReplyButtonTapped(for: cellViewModel, using: dependencies)
+        delegate?.handleReplyButtonTapped(for: cellViewModel)
     }
 
     // MARK: - Convenience

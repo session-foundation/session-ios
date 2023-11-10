@@ -34,6 +34,9 @@ public extension SnodeAPI {
         /// `GROUP_MEMBERS` config messages (member information for a specific group)
         case configGroupMembers = 14
         
+        /// Messages sent to an updated closed group which should be able to be retrieved by revoked members are stored in this namespace
+        case revokedRetrievableGroupMessages = -11
+        
         /// Messages sent to legacy group conversations are stored in this namespace
         case legacyClosedGroup = -10
         
@@ -72,7 +75,9 @@ public extension SnodeAPI {
         /// re-processing of a previously processed message
         public var shouldDedupeMessages: Bool {
             switch self {
-                case .`default`, .legacyClosedGroup, .groupMessages: return true
+                case .`default`, .legacyClosedGroup, .groupMessages,
+                    .revokedRetrievableGroupMessages:
+                    return true
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
@@ -96,7 +101,8 @@ public extension SnodeAPI {
                     .configGroupInfo, .configGroupMembers, .configGroupKeys:
                     return true
                     
-                case .`default`, .legacyClosedGroup, .groupMessages, .unknown, .all:
+                case .`default`, .legacyClosedGroup, .groupMessages, .revokedRetrievableGroupMessages,
+                    .unknown, .all:
                     return false
             }
         }
@@ -112,7 +118,8 @@ public extension SnodeAPI {
                 case .configUserGroups, .configGroupInfo, .configGroupMembers: return 1
                 case .configConvoInfoVolatile: return 2
                     
-                case .`default`, .legacyClosedGroup, .groupMessages, .unknown, .all:
+                case .`default`, .legacyClosedGroup, .groupMessages, .revokedRetrievableGroupMessages,
+                    .unknown, .all:
                     return 3
             }
         }
@@ -124,7 +131,7 @@ public extension SnodeAPI {
                 case .configGroupKeys: return true
                 case .`default`, .legacyClosedGroup, .groupMessages, .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups, .configGroupInfo, .configGroupMembers,
-                    .unknown, .all:
+                    .revokedRetrievableGroupMessages, .unknown, .all:
                     return false
             }
         }
@@ -153,7 +160,7 @@ public extension SnodeAPI {
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
                     .configGroupInfo, .configGroupMembers, .configGroupKeys,
-                    .unknown, .all:
+                    .revokedRetrievableGroupMessages, .unknown, .all:
                     return 1
             }
         }
@@ -190,6 +197,7 @@ public extension SnodeAPI {
                 case .configGroupInfo: return "configGroupInfo"
                 case .configGroupMembers: return "configGroupMembers"
                 case .configGroupKeys: return "configGroupKeys"
+                case .revokedRetrievableGroupMessages: return "revokedRetrievableGroupMessages"
                 case .legacyClosedGroup: return "legacyClosedGroup"
                 
                 case .unknown: return "unknown"

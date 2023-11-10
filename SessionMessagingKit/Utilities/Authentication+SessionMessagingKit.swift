@@ -31,6 +31,11 @@ public extension Authentication {
         
         public var info: Info { .groupAdmin(groupSessionId: groupSessionId, ed25519SecretKey: ed25519SecretKey) }
         
+        public init(groupSessionId: SessionId, ed25519SecretKey: [UInt8]) {
+            self.groupSessionId = groupSessionId
+            self.ed25519SecretKey = ed25519SecretKey
+        }
+        
         // MARK: - SignatureGenerator
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
@@ -46,6 +51,11 @@ public extension Authentication {
         public let authData: Data
         
         public var info: Info { .groupMember(groupSessionId: groupSessionId, authData: authData) }
+        
+        public init(groupSessionId: SessionId, authData: Data) {
+            self.groupSessionId = groupSessionId
+            self.authData = authData
+        }
         
         // MARK: - SignatureGenerator
         

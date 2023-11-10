@@ -459,7 +459,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<SessionThreadViewModel>):
                 cell.accessibilityIdentifier = info.accessibility?.identifier
                 cell.isAccessibilityElement = (info.accessibility != nil)
-                cell.update(with: threadInfo.id)
+                cell.update(with: threadInfo.id, using: viewModel.dependencies)
                 
             default:
                 SNLog("[SessionTableViewController] Got invalid combination of cellType: \(viewModel.cellType) and tableData: \(SessionCell.Info<TableItem>.self)")
@@ -564,12 +564,12 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 return nil
             }
             
-            switch (info.leftAccessory, info.rightAccessory) {
+            switch (info.leadingAccessory, info.trailingAccessory) {
                 case (_, .highlightingBackgroundLabel(_, _)):
-                    return (!cell.rightAccessoryView.isHidden ? cell.rightAccessoryView : cell)
+                    return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell)
                     
                 case (.highlightingBackgroundLabel(_, _), _):
-                    return (!cell.leftAccessoryView.isHidden ? cell.leftAccessoryView : cell)
+                    return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell)
                 
                 default:
                     return cell
@@ -578,7 +578,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         let maybeOldSelection: (Int, SessionCell.Info<TableItem>)? = section.elements
             .enumerated()
             .first(where: { index, info in
-                switch (info.leftAccessory, info.rightAccessory) {
+                switch (info.leadingAccessory, info.trailingAccessory) {
                     case (_, .radio(_, _, let liveIsSelected, _, _)): return liveIsSelected()
                     case (.radio(_, _, let liveIsSelected, _, _), _): return liveIsSelected()
                     default: return false

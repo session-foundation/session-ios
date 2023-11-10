@@ -30,7 +30,7 @@ public class HomeViewModel {
         let userProfile: Profile
     }
     
-    private let dependencies: Dependencies
+    public let dependencies: Dependencies
     
     // MARK: - Initialization
     

@@ -9,7 +9,7 @@ public class UnrevokeSubaccountResponse: SnodeRecursiveResponse<SnodeSwarmItem> 
 // MARK: - ValidatableResponse
 
 extension UnrevokeSubaccountResponse: ValidatableResponse {
-    typealias ValidationData = (subaccountToUnrevoke: [UInt8], timestampMs: UInt64)
+    typealias ValidationData = (subaccountsToUnrevoke: [[UInt8]], timestampMs: UInt64)
     typealias ValidationResponse = Bool
     
     /// All responses in the swarm must be valid
@@ -17,7 +17,7 @@ extension UnrevokeSubaccountResponse: ValidatableResponse {
     
     internal func validResultMap(
         publicKey: String,
-        validationData: (subaccountToUnrevoke: [UInt8], timestampMs: UInt64),
+        validationData: (subaccountsToUnrevoke: [[UInt8]], timestampMs: UInt64),
         using dependencies: Dependencies
     ) throws -> [String: Bool] {
         let validationMap: [String: Bool] = try swarm.reduce(into: [:]) { result, next in
@@ -27,19 +27,19 @@ extension UnrevokeSubaccountResponse: ValidatableResponse {
                 let encodedSignature: Data = Data(base64Encoded: signatureBase64)
             else {
                 if let reason: String = next.value.reason, let statusCode: Int = next.value.code {
-                    SNLog("Couldn't revoke subkey from: \(next.key) due to error: \(reason) (\(statusCode)).")
+                    SNLog("Couldn't revoke subaccount from: \(next.key) due to error: \(reason) (\(statusCode)).")
                 }
                 else {
-                    SNLog("Couldn't revoke subkey from: \(next.key).")
+                    SNLog("Couldn't revoke subaccount from: \(next.key).")
                 }
                 return
             }
             
-            /// Signature of `( PUBKEY_HEX || timestamp || SUBKEY_TAG_BYTES )` where `SUBKEY_TAG_BYTES` is the
-            /// requested subkey tag for revocation
+            /// Signature of `( PUBKEY_HEX || timestamp || SUBACCOUNT_TOKEN_BYTES... )` where `SUBACCOUNT_TOKEN_BYTES` is the
+            /// requested subaccount token for revocation
             let verificationBytes: [UInt8] = publicKey.bytes
                 .appending(contentsOf: "\(validationData.timestampMs)".data(using: .ascii)?.bytes)
-                .appending(contentsOf: validationData.subaccountToUnrevoke)
+                .appending(contentsOf: Array(validationData.subaccountsToUnrevoke.joined()))
             
             let isValid: Bool = dependencies[singleton: .crypto].verify(
                 .signature(

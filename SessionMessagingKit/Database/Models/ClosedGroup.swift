@@ -232,10 +232,11 @@ public extension ClosedGroup {
                 .preparedSubscribe(
                     db,
                     token: Data(hex: token),
-                    sessionId: SessionId(.group, hex: group.id),
+                    sessionIds: [SessionId(.group, hex: group.id)],
                     using: dependencies
                 )
                 .send(using: dependencies)
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .sinkUntilComplete()
         }
     }
@@ -296,7 +297,7 @@ public extension ClosedGroup {
                                         .preparedUnsubscribe(
                                             db,
                                             token: Data(hex: token),
-                                            sessionId: userSessionId,
+                                            sessionIds: [userSessionId],
                                             using: dependencies
                                         )
                                         .send(using: dependencies)
@@ -350,8 +351,34 @@ public extension ClosedGroup {
         }
         
         if dataToRemove.contains(.messages) {
+            let messageHashes: Set<String> = try Interaction
+                .filter(threadIds.contains(Interaction.Columns.threadId))
+                .filter(Interaction.Columns.serverHash != nil)
+                .select(.serverHash)
+                .asRequest(of: String.self)
+                .fetchSet(db)
+            
             try Interaction
                 .filter(threadIds.contains(Interaction.Columns.threadId))
+                .deleteAll(db)
+            
+            /// Delete any `ControlMessageProcessRecord` entries that we want to reprocess if the member gets
+            /// re-invited to the group with historic access (these are repeatable records so won't cause issues if we re-run them)
+            try ControlMessageProcessRecord
+                .filter(threadIds.contains(ControlMessageProcessRecord.Columns.threadId))
+                .filter([
+                    ControlMessageProcessRecord.Variant.visibleMessageDedupe,
+                    ControlMessageProcessRecord.Variant.groupUpdateInfoChange,
+                    ControlMessageProcessRecord.Variant.groupUpdateMemberChange,
+                    ControlMessageProcessRecord.Variant.groupUpdateMemberLeft,
+                    ControlMessageProcessRecord.Variant.groupUpdateDeleteMemberContent
+                ].contains(ControlMessageProcessRecord.Columns.variant))
+                .deleteAll(db)
+            
+            /// Also want to delete the `SnodeReceivedMessageInfo` so if the member gets re-invited to the group with
+            /// historic access they can re-download and process all of the old messages
+            try SnodeReceivedMessageInfo
+                .filter(messageHashes.contains(SnodeReceivedMessageInfo.Columns.hash))
                 .deleteAll(db)
         }
         

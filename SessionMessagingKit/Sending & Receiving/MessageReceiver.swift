@@ -18,6 +18,8 @@ public enum MessageReceiver {
     ) throws -> ProcessedMessage {
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         var plaintext: Data
+        var customProto: SNProtoContent? = nil
+        var customMessage: Message? = nil
         let sender: String
         let sentTimestamp: UInt64
         let openGroupServerMessageId: UInt64?
@@ -122,6 +124,17 @@ public enum MessageReceiver {
                         threadVariant = .group
                         threadIdGenerator = { _ in publicKey }
                         
+                    case .revokedRetrievableGroupMessages:
+                        plaintext = data    // Has custom bencoding handling
+                        customProto = try SNProtoContent.builder().build()
+                        customMessage = try BencodeDecoder(using: dependencies)
+                            .decode(GroupUpdateDeleteMessage.self, from: plaintext)
+                        sender = publicKey  // The "group" sends these messages
+                        sentTimestamp = 0
+                        openGroupServerMessageId = nil
+                        threadVariant = .group
+                        threadIdGenerator = { _ in publicKey }
+                        
                     // FIXME: Remove once updated groups has been around for long enough
                     case .legacyClosedGroup:
                         guard
@@ -181,10 +194,10 @@ public enum MessageReceiver {
                 }
         }
         
-        let proto: SNProtoContent = try Result(SNProtoContent.parseData(plaintext))
+        let proto: SNProtoContent = try (customProto ?? Result(SNProtoContent.parseData(plaintext))
            .onFailure { SNLog("Couldn't parse proto due to error: \($0).") }
-           .successOrThrow()
-        let message: Message = try Message.createMessageFrom(proto, sender: sender)
+           .successOrThrow())
+        let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender))
         message.sender = sender
         message.recipient = userSessionId.hexString
         message.serverHash = origin.serverHash
@@ -205,8 +218,8 @@ public enum MessageReceiver {
         
         // Validate
         guard
-            message.isValid ||
-            (message as? VisibleMessage)?.isValidWithDataMessageAttachments == true
+            message.isValid(using: dependencies) ||
+            (message as? VisibleMessage)?.isValidWithDataMessageAttachments(using: dependencies) == true
         else {
             throw MessageReceiverError.invalidMessage
         }
@@ -351,7 +364,8 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
-                    associatedWithProto: proto
+                    associatedWithProto: proto,
+                    using: dependencies
                 )
                 
             default: throw MessageReceiverError.unknownMessage

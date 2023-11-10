@@ -3589,13 +3589,14 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
     // MARK: - SNProtoGroupUpdateDeleteMessageBuilder
 
-    @objc public class func builder(groupSessionID: String, adminSignature: Data) -> SNProtoGroupUpdateDeleteMessageBuilder {
-        return SNProtoGroupUpdateDeleteMessageBuilder(groupSessionID: groupSessionID, adminSignature: adminSignature)
+    @objc public class func builder(adminSignature: Data) -> SNProtoGroupUpdateDeleteMessageBuilder {
+        return SNProtoGroupUpdateDeleteMessageBuilder(adminSignature: adminSignature)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdateDeleteMessageBuilder {
-        let builder = SNProtoGroupUpdateDeleteMessageBuilder(groupSessionID: groupSessionID, adminSignature: adminSignature)
+        let builder = SNProtoGroupUpdateDeleteMessageBuilder(adminSignature: adminSignature)
+        builder.setMemberSessionIds(memberSessionIds)
         return builder
     }
 
@@ -3605,15 +3606,20 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(groupSessionID: String, adminSignature: Data) {
+        @objc fileprivate init(adminSignature: Data) {
             super.init()
 
-            setGroupSessionID(groupSessionID)
             setAdminSignature(adminSignature)
         }
 
-        @objc public func setGroupSessionID(_ valueParam: String) {
-            proto.groupSessionID = valueParam
+        @objc public func addMemberSessionIds(_ valueParam: String) {
+            var items = proto.memberSessionIds
+            items.append(valueParam)
+            proto.memberSessionIds = items
+        }
+
+        @objc public func setMemberSessionIds(_ wrappedItems: [String]) {
+            proto.memberSessionIds = wrappedItems
         }
 
         @objc public func setAdminSignature(_ valueParam: Data) {
@@ -3631,15 +3637,15 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
 
     fileprivate let proto: SessionProtos_GroupUpdateDeleteMessage
 
-    @objc public let groupSessionID: String
-
     @objc public let adminSignature: Data
 
+    @objc public var memberSessionIds: [String] {
+        return proto.memberSessionIds
+    }
+
     private init(proto: SessionProtos_GroupUpdateDeleteMessage,
-                 groupSessionID: String,
                  adminSignature: Data) {
         self.proto = proto
-        self.groupSessionID = groupSessionID
         self.adminSignature = adminSignature
     }
 
@@ -3654,11 +3660,6 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
     }
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateDeleteMessage) throws -> SNProtoGroupUpdateDeleteMessage {
-        guard proto.hasGroupSessionID else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: groupSessionID")
-        }
-        let groupSessionID = proto.groupSessionID
-
         guard proto.hasAdminSignature else {
             throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
         }
@@ -3669,7 +3670,6 @@ extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder
         // MARK: - End Validation Logic for SNProtoGroupUpdateDeleteMessage -
 
         let result = SNProtoGroupUpdateDeleteMessage(proto: proto,
-                                                     groupSessionID: groupSessionID,
                                                      adminSignature: adminSignature)
         return result
     }
@@ -3822,13 +3822,13 @@ extension SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuild
 
     // MARK: - SNProtoGroupUpdateInfoChangeMessageBuilder
 
-    @objc public class func builder(type: SNProtoGroupUpdateInfoChangeMessageType) -> SNProtoGroupUpdateInfoChangeMessageBuilder {
-        return SNProtoGroupUpdateInfoChangeMessageBuilder(type: type)
+    @objc public class func builder(type: SNProtoGroupUpdateInfoChangeMessageType, adminSignature: Data) -> SNProtoGroupUpdateInfoChangeMessageBuilder {
+        return SNProtoGroupUpdateInfoChangeMessageBuilder(type: type, adminSignature: adminSignature)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdateInfoChangeMessageBuilder {
-        let builder = SNProtoGroupUpdateInfoChangeMessageBuilder(type: type)
+        let builder = SNProtoGroupUpdateInfoChangeMessageBuilder(type: type, adminSignature: adminSignature)
         if let _value = updatedName {
             builder.setUpdatedName(_value)
         }
@@ -3844,10 +3844,11 @@ extension SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuild
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(type: SNProtoGroupUpdateInfoChangeMessageType) {
+        @objc fileprivate init(type: SNProtoGroupUpdateInfoChangeMessageType, adminSignature: Data) {
             super.init()
 
             setType(type)
+            setAdminSignature(adminSignature)
         }
 
         @objc public func setType(_ valueParam: SNProtoGroupUpdateInfoChangeMessageType) {
@@ -3862,6 +3863,10 @@ extension SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuild
             proto.updatedExpiration = valueParam
         }
 
+        @objc public func setAdminSignature(_ valueParam: Data) {
+            proto.adminSignature = valueParam
+        }
+
         @objc public func build() throws -> SNProtoGroupUpdateInfoChangeMessage {
             return try SNProtoGroupUpdateInfoChangeMessage.parseProto(proto)
         }
@@ -3874,6 +3879,8 @@ extension SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuild
     fileprivate let proto: SessionProtos_GroupUpdateInfoChangeMessage
 
     @objc public let type: SNProtoGroupUpdateInfoChangeMessageType
+
+    @objc public let adminSignature: Data
 
     @objc public var updatedName: String? {
         guard proto.hasUpdatedName else {
@@ -3893,9 +3900,11 @@ extension SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuild
     }
 
     private init(proto: SessionProtos_GroupUpdateInfoChangeMessage,
-                 type: SNProtoGroupUpdateInfoChangeMessageType) {
+                 type: SNProtoGroupUpdateInfoChangeMessageType,
+                 adminSignature: Data) {
         self.proto = proto
         self.type = type
+        self.adminSignature = adminSignature
     }
 
     @objc
@@ -3914,12 +3923,18 @@ extension SNProtoGroupUpdatePromoteMessage.SNProtoGroupUpdatePromoteMessageBuild
         }
         let type = SNProtoGroupUpdateInfoChangeMessageTypeWrap(proto.type)
 
+        guard proto.hasAdminSignature else {
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
+        }
+        let adminSignature = proto.adminSignature
+
         // MARK: - Begin Validation Logic for SNProtoGroupUpdateInfoChangeMessage -
 
         // MARK: - End Validation Logic for SNProtoGroupUpdateInfoChangeMessage -
 
         let result = SNProtoGroupUpdateInfoChangeMessage(proto: proto,
-                                                         type: type)
+                                                         type: type,
+                                                         adminSignature: adminSignature)
         return result
     }
 
@@ -3974,13 +3989,13 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
 
     // MARK: - SNProtoGroupUpdateMemberChangeMessageBuilder
 
-    @objc public class func builder(type: SNProtoGroupUpdateMemberChangeMessageType) -> SNProtoGroupUpdateMemberChangeMessageBuilder {
-        return SNProtoGroupUpdateMemberChangeMessageBuilder(type: type)
+    @objc public class func builder(type: SNProtoGroupUpdateMemberChangeMessageType, adminSignature: Data) -> SNProtoGroupUpdateMemberChangeMessageBuilder {
+        return SNProtoGroupUpdateMemberChangeMessageBuilder(type: type, adminSignature: adminSignature)
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdateMemberChangeMessageBuilder {
-        let builder = SNProtoGroupUpdateMemberChangeMessageBuilder(type: type)
+        let builder = SNProtoGroupUpdateMemberChangeMessageBuilder(type: type, adminSignature: adminSignature)
         builder.setMemberSessionIds(memberSessionIds)
         return builder
     }
@@ -3991,10 +4006,11 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(type: SNProtoGroupUpdateMemberChangeMessageType) {
+        @objc fileprivate init(type: SNProtoGroupUpdateMemberChangeMessageType, adminSignature: Data) {
             super.init()
 
             setType(type)
+            setAdminSignature(adminSignature)
         }
 
         @objc public func setType(_ valueParam: SNProtoGroupUpdateMemberChangeMessageType) {
@@ -4011,6 +4027,10 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
             proto.memberSessionIds = wrappedItems
         }
 
+        @objc public func setAdminSignature(_ valueParam: Data) {
+            proto.adminSignature = valueParam
+        }
+
         @objc public func build() throws -> SNProtoGroupUpdateMemberChangeMessage {
             return try SNProtoGroupUpdateMemberChangeMessage.parseProto(proto)
         }
@@ -4024,14 +4044,18 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
 
     @objc public let type: SNProtoGroupUpdateMemberChangeMessageType
 
+    @objc public let adminSignature: Data
+
     @objc public var memberSessionIds: [String] {
         return proto.memberSessionIds
     }
 
     private init(proto: SessionProtos_GroupUpdateMemberChangeMessage,
-                 type: SNProtoGroupUpdateMemberChangeMessageType) {
+                 type: SNProtoGroupUpdateMemberChangeMessageType,
+                 adminSignature: Data) {
         self.proto = proto
         self.type = type
+        self.adminSignature = adminSignature
     }
 
     @objc
@@ -4050,12 +4074,18 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
         }
         let type = SNProtoGroupUpdateMemberChangeMessageTypeWrap(proto.type)
 
+        guard proto.hasAdminSignature else {
+            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
+        }
+        let adminSignature = proto.adminSignature
+
         // MARK: - Begin Validation Logic for SNProtoGroupUpdateMemberChangeMessage -
 
         // MARK: - End Validation Logic for SNProtoGroupUpdateMemberChangeMessage -
 
         let result = SNProtoGroupUpdateMemberChangeMessage(proto: proto,
-                                                           type: type)
+                                                           type: type,
+                                                           adminSignature: adminSignature)
         return result
     }
 
@@ -4260,15 +4290,18 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
 
     // MARK: - SNProtoGroupUpdateDeleteMemberContentMessageBuilder
 
-    @objc public class func builder(adminSignature: Data) -> SNProtoGroupUpdateDeleteMemberContentMessageBuilder {
-        return SNProtoGroupUpdateDeleteMemberContentMessageBuilder(adminSignature: adminSignature)
+    @objc public class func builder() -> SNProtoGroupUpdateDeleteMemberContentMessageBuilder {
+        return SNProtoGroupUpdateDeleteMemberContentMessageBuilder()
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoGroupUpdateDeleteMemberContentMessageBuilder {
-        let builder = SNProtoGroupUpdateDeleteMemberContentMessageBuilder(adminSignature: adminSignature)
+        let builder = SNProtoGroupUpdateDeleteMemberContentMessageBuilder()
         builder.setMemberSessionIds(memberSessionIds)
         builder.setMessageHashes(messageHashes)
+        if let _value = adminSignature {
+            builder.setAdminSignature(_value)
+        }
         return builder
     }
 
@@ -4277,12 +4310,6 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
         private var proto = SessionProtos_GroupUpdateDeleteMemberContentMessage()
 
         @objc fileprivate override init() {}
-
-        @objc fileprivate init(adminSignature: Data) {
-            super.init()
-
-            setAdminSignature(adminSignature)
-        }
 
         @objc public func addMemberSessionIds(_ valueParam: String) {
             var items = proto.memberSessionIds
@@ -4319,8 +4346,6 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
 
     fileprivate let proto: SessionProtos_GroupUpdateDeleteMemberContentMessage
 
-    @objc public let adminSignature: Data
-
     @objc public var memberSessionIds: [String] {
         return proto.memberSessionIds
     }
@@ -4329,10 +4354,18 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
         return proto.messageHashes
     }
 
-    private init(proto: SessionProtos_GroupUpdateDeleteMemberContentMessage,
-                 adminSignature: Data) {
+    @objc public var adminSignature: Data? {
+        guard proto.hasAdminSignature else {
+            return nil
+        }
+        return proto.adminSignature
+    }
+    @objc public var hasAdminSignature: Bool {
+        return proto.hasAdminSignature
+    }
+
+    private init(proto: SessionProtos_GroupUpdateDeleteMemberContentMessage) {
         self.proto = proto
-        self.adminSignature = adminSignature
     }
 
     @objc
@@ -4346,17 +4379,11 @@ extension SNProtoGroupUpdateInviteResponseMessage.SNProtoGroupUpdateInviteRespon
     }
 
     fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateDeleteMemberContentMessage) throws -> SNProtoGroupUpdateDeleteMemberContentMessage {
-        guard proto.hasAdminSignature else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
-        }
-        let adminSignature = proto.adminSignature
-
         // MARK: - Begin Validation Logic for SNProtoGroupUpdateDeleteMemberContentMessage -
 
         // MARK: - End Validation Logic for SNProtoGroupUpdateDeleteMemberContentMessage -
 
-        let result = SNProtoGroupUpdateDeleteMemberContentMessage(proto: proto,
-                                                                  adminSignature: adminSignature)
+        let result = SNProtoGroupUpdateDeleteMemberContentMessage(proto: proto)
         return result
     }
 

@@ -10,7 +10,13 @@ import SessionUtilitiesKit
 public class NSENotificationPresenter: NSObject, NotificationsProtocol {
     private var notifications: [String: UNNotificationRequest] = [:]
      
-    public func notifyUser(_ db: Database, for interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State) {
+    public func notifyUser(
+        _ db: Database,
+        for interaction: Interaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State,
+        using dependencies: Dependencies
+    ) {
         let isMessageRequest: Bool = SessionThread.isMessageRequest(
             db,
             threadId: thread.id,
@@ -45,7 +51,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             )
         }
         
-        let snippet: String = (interaction.previewText(db)
+        let snippet: String = (interaction.previewText(db, using: dependencies)
             .filterForDisplay?
             .replacingMentions(for: thread.id))
             .defaulting(to: "APN_Message".localized())

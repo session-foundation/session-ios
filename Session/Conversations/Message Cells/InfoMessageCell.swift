@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 
 final class InfoMessageCell: MessageCell {
     private static let iconSize: CGFloat = 16
@@ -66,7 +67,8 @@ final class InfoMessageCell: MessageCell {
         mediaCache: NSCache<NSString, AnyObject>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
-        lastSearchText: String?
+        lastSearchText: String?,
+        using dependencies: Dependencies
     ) {
         guard cellViewModel.variant.isInfoMessage else { return }
         
@@ -93,7 +95,7 @@ final class InfoMessageCell: MessageCell {
         iconImageViewWidthConstraint.constant = (icon != nil) ? InfoMessageCell.iconSize : 0
         iconImageViewHeightConstraint.constant = (icon != nil) ? InfoMessageCell.iconSize : 0
         
-        switch cellViewModel.attributedBody {
+        switch cellViewModel.attributedBody(using: dependencies) {
             case .some(let attrText): self.label.attributedText = attrText
             case .none: self.label.text = cellViewModel.body
         }

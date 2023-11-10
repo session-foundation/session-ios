@@ -34,8 +34,8 @@ public final class VisibleMessage: Message {
     
     // MARK: - Validation
     
-    public override var isValid: Bool {
-        guard super.isValid else { return false }
+    public override func isValid(using dependencies: Dependencies) -> Bool {
+        guard super.isValid(using: dependencies) else { return false }
         if !attachmentIds.isEmpty { return true }
         if openGroupInvitation != nil { return true }
         if reaction != nil { return true }
@@ -43,10 +43,10 @@ public final class VisibleMessage: Message {
         return false
     }
     
-    public var isValidWithDataMessageAttachments: Bool {
+    public func isValidWithDataMessageAttachments(using dependencies: Dependencies) -> Bool {
         // If the message is valid using the default method, or it has attachmentIds then just use the
         // default logic, otherwise we want to check
-        guard !isValid || attachmentIds.isEmpty else { return isValid }
+        guard !isValid(using: dependencies) || attachmentIds.isEmpty else { return isValid(using: dependencies) }
         
         return (dataMessageHasAttachments == true)
     }

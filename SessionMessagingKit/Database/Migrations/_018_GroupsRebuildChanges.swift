@@ -45,6 +45,13 @@ enum _018_GroupsRebuildChanges: Migration {
                 .defaults(to: GroupMember.RoleStatus.accepted)
         }
         
+        // Schedule the ProcessPendingGroupMemberRemovalsJob to run on launch
+        _ = try Job(
+            variant: .processPendingGroupMemberRemovals,
+            behaviour: .recurringOnLaunch,
+            shouldBlock: false
+        ).migrationSafeInserted(db)
+        
         // Update existing groups where the current user is a member to have `shouldPoll` as `true`
         try ClosedGroup
             .joining(

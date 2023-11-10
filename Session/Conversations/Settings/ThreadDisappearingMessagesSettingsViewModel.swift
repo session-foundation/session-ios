@@ -82,7 +82,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     
     let title: String = "DISAPPEARING_MESSAGES".localized()
     lazy var subtitle: String? = {
-        guard Features.useNewDisappearingMessagesConfig else {
+        guard dependencies[feature: .updatedDisappearingMessages] else {
             return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized())
         }
         
@@ -125,7 +125,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     
     lazy var observation: TargetObservation = ObservationBuilder
         .subject(configSubject)
-        .map { [weak self, threadVariant, isNoteToSelf, originalConfig, currentUserIsClosedGroupMember, currentUserIsClosedGroupAdmin] currentConfig -> [SectionModel] in
+        .map { [weak self, dependencies, threadVariant, isNoteToSelf, originalConfig, currentUserIsClosedGroupMember, currentUserIsClosedGroupAdmin] currentConfig -> [SectionModel] in
             switch (threadVariant, isNoteToSelf) {
                 case (.contact, false):
                     return [
@@ -135,7 +135,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                 SessionCell.Info(
                                     id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                     title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                                    rightAccessory: .radio(
+                                    trailingAccessory: .radio(
                                         isSelected: !currentConfig.isEnabled
                                     ),
                                     accessibility: Accessibility(
@@ -152,15 +152,15 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         )
                                     }
                                 ),
-                                (Features.useNewDisappearingMessagesConfig ? nil :
+                                (dependencies[feature: .updatedDisappearingMessages] ? nil :
                                     SessionCell.Info(
                                         id: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                         title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                         subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
-                                        rightAccessory: .radio(
+                                        trailingAccessory: .radio(
                                             isSelected: (
                                                 currentConfig.isEnabled &&
-                                                !Features.useNewDisappearingMessagesConfig
+                                                !dependencies[feature: .updatedDisappearingMessages]
                                             )
                                         ),
                                         onTap: {
@@ -182,20 +182,20 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     id: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
                                     title: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE".localized(),
                                     subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION".localized(),
-                                    rightAccessory: .radio(
+                                    trailingAccessory: .radio(
                                         isSelected: (
                                             currentConfig.isEnabled &&
                                             currentConfig.type == .disappearAfterRead &&
-                                            Features.useNewDisappearingMessagesConfig
+                                            dependencies[feature: .updatedDisappearingMessages]
                                         )
                                     ),
                                     styling: SessionCell.StyleInfo(
-                                        tintColor: (Features.useNewDisappearingMessagesConfig ?
+                                        tintColor: (dependencies[feature: .updatedDisappearingMessages] ?
                                             .textPrimary :
                                             .disabled
                                         )
                                     ),
-                                    isEnabled: Features.useNewDisappearingMessagesConfig,
+                                    isEnabled: dependencies[feature: .updatedDisappearingMessages],
                                     accessibility: Accessibility(
                                         identifier: "Disappear after read option",
                                         label: "Disappear after read option"
@@ -218,20 +218,20 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                     title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                     subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
-                                    rightAccessory: .radio(
+                                    trailingAccessory: .radio(
                                         isSelected: (
                                             currentConfig.isEnabled &&
                                             currentConfig.type == .disappearAfterSend &&
-                                            Features.useNewDisappearingMessagesConfig
+                                            dependencies[feature: .updatedDisappearingMessages]
                                         )
                                     ),
                                     styling: SessionCell.StyleInfo(
-                                        tintColor: (Features.useNewDisappearingMessagesConfig ?
+                                        tintColor: (dependencies[feature: .updatedDisappearingMessages] ?
                                             .textPrimary :
                                             .disabled
                                         )
                                     ),
-                                    isEnabled: Features.useNewDisappearingMessagesConfig,
+                                    isEnabled: dependencies[feature: .updatedDisappearingMessages],
                                     accessibility: Accessibility(
                                         identifier: "Disappear after send option",
                                         label: "Disappear after send option"
@@ -266,7 +266,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         return SessionCell.Info(
                                             id: title,
                                             title: title,
-                                            rightAccessory: .radio(
+                                            trailingAccessory: .radio(
                                                 isSelected: (
                                                     currentConfig.isEnabled &&
                                                     currentConfig.durationSeconds == duration
@@ -292,14 +292,14 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
 
                 case (.legacyGroup, _), (.group, _), (_, true):
                     return [
-                        (Features.useNewDisappearingMessagesConfig ? nil :
+                        (dependencies[feature: .updatedDisappearingMessages] ? nil :
                             SectionModel(
                                 model: .type,
                                 elements: [
                                     SessionCell.Info(
                                         id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                         title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                                        rightAccessory: .radio(
+                                        trailingAccessory: .radio(
                                             isSelected: !currentConfig.isEnabled
                                         ),
                                         isEnabled: (
@@ -324,10 +324,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         id: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                         title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
                                         subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
-                                        rightAccessory: .radio(
+                                        trailingAccessory: .radio(
                                             isSelected: (
                                                 currentConfig.isEnabled &&
-                                                !Features.useNewDisappearingMessagesConfig
+                                                !dependencies[feature: .updatedDisappearingMessages]
                                             )
                                         ),
                                         isEnabled: (
@@ -352,17 +352,17 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                         title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                         subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
-                                        rightAccessory: .radio(isSelected: false),
+                                        trailingAccessory: .radio(isSelected: false),
                                         styling: SessionCell.StyleInfo(tintColor: .disabled),
                                         isEnabled: false
                                     )
                                 ]
                             )
                         ),
-                        (!Features.useNewDisappearingMessagesConfig && !currentConfig.isEnabled ? nil :
+                        (!dependencies[feature: .updatedDisappearingMessages] && !currentConfig.isEnabled ? nil :
                             SectionModel(
                                 model: {
-                                    guard Features.useNewDisappearingMessagesConfig else {
+                                    guard dependencies[feature: .updatedDisappearingMessages] else {
                                         return (currentConfig.type == .disappearAfterSend ?
                                             .timerDisappearAfterSend :
                                             .timerDisappearAfterRead
@@ -372,11 +372,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     return (isNoteToSelf ? .noteToSelf : .group)
                                 }(),
                                 elements: [
-                                    (!Features.useNewDisappearingMessagesConfig ? nil :
+                                    (!dependencies[feature: .updatedDisappearingMessages] ? nil :
                                         SessionCell.Info(
                                             id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                             title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                                            rightAccessory: .radio(
+                                            trailingAccessory: .radio(
                                                 isSelected: !currentConfig.isEnabled
                                             ),
                                             isEnabled: (
@@ -409,7 +409,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             return SessionCell.Info(
                                                 id: title,
                                                 title: title,
-                                                rightAccessory: .radio(
+                                                trailingAccessory: .radio(
                                                     isSelected: (
                                                         currentConfig.isEnabled &&
                                                         currentConfig.durationSeconds == duration
@@ -430,12 +430,12 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                     // setting
                                                     self?.configSubject.send(
                                                         currentConfig.with(
-                                                            isEnabled: (Features.useNewDisappearingMessagesConfig ?
+                                                            isEnabled: (dependencies[feature: .updatedDisappearingMessages] ?
                                                                 true :
                                                                 nil
                                                             ),
                                                             durationSeconds: duration,
-                                                            type: (Features.useNewDisappearingMessagesConfig ?
+                                                            type: (dependencies[feature: .updatedDisappearingMessages] ?
                                                                 .disappearAfterSend :
                                                                nil
                                                             ),
@@ -484,7 +484,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             .inserted(db)
             
             let duration: UInt32? = {
-                guard !Features.useNewDisappearingMessagesConfig else { return nil }
+                guard !dependencies[feature: .updatedDisappearingMessages] else { return nil }
                 return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
             }()
 

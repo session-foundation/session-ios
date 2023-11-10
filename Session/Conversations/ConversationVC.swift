@@ -125,7 +125,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     var messageRequestDescriptionLabelBottomConstraint: NSLayoutConstraint?
     
     lazy var titleView: ConversationTitleView = {
-        let result: ConversationTitleView = ConversationTitleView()
+        let result: ConversationTitleView = ConversationTitleView(using: viewModel.dependencies)
         let tapGestureRecognizer = UITapGestureRecognizer(
             target: self,
             action: #selector(handleTitleViewTapped)
@@ -448,10 +448,20 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
 
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil) {
-        self.viewModel = ConversationViewModel(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo)
+    init(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        focusedInteractionInfo: Interaction.TimestampInfo? = nil,
+        using dependencies: Dependencies
+    ) {
+        self.viewModel = ConversationViewModel(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            focusedInteractionInfo: focusedInteractionInfo,
+            using: dependencies
+        )
         
-        Dependencies()[singleton: .storage].addObserver(viewModel.pagedDataObserver)
+        dependencies[singleton: .storage].addObserver(viewModel.pagedDataObserver)
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -1544,7 +1554,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     
     func addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: Bool) {
         // Do not show the banner until the new disappearing messages is enabled
-        guard Features.useNewDisappearingMessagesConfig else {
+        guard viewModel.dependencies[feature: .updatedDisappearingMessages] else {
             self.outdatedClientBanner.isHidden = true
             self.emptyStatePaddingView.isHidden = (stateStackView
                 .arrangedSubviews
@@ -1658,7 +1668,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     },
                     showExpandedReactions: viewModel.reactionExpandedInteractionIds
                         .contains(cellViewModel.id),
-                    lastSearchText: viewModel.lastSearchedText
+                    lastSearchText: viewModel.lastSearchedText,
+                    using: viewModel.dependencies
                 )
                 cell.delegate = self
                 

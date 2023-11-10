@@ -15,7 +15,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     
     public var memberSessionIds: [String]
     public var messageHashes: [String]
-    public var adminSignature: Authentication.Signature
+    public var adminSignature: Authentication.Signature?
     
     override public var processWithBlockedSender: Bool { true }
     
@@ -25,19 +25,21 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         memberSessionIds: [String],
         messageHashes: [String],
         sentTimestamp: UInt64,
-        authMethod: AuthenticationMethod,
+        authMethod: AuthenticationMethod?,
         using dependencies: Dependencies
     ) throws {
         self.memberSessionIds = memberSessionIds
         self.messageHashes = messageHashes
-        self.adminSignature = try authMethod.generateSignature(
-            with: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
-                memberSessionIds: memberSessionIds,
-                messageHashes: messageHashes,
-                timestampMs: sentTimestamp
-            ),
-            using: dependencies
-        )
+        self.adminSignature = try authMethod.map { method in
+            try method.generateSignature(
+                with: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
+                    memberSessionIds: memberSessionIds,
+                    messageHashes: messageHashes,
+                    timestampMs: sentTimestamp
+                ),
+                using: dependencies
+            )
+        }
         
         super.init(
             sentTimestamp: sentTimestamp
@@ -47,7 +49,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
     private init(
         memberSessionIds: [String],
         messageHashes: [String],
-        adminSignature: Authentication.Signature
+        adminSignature: Authentication.Signature?
     ) {
         self.memberSessionIds = memberSessionIds
         self.messageHashes = messageHashes
@@ -78,9 +80,9 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         
         memberSessionIds = try container.decode([String].self, forKey: .memberSessionIds)
         messageHashes = try container.decode([String].self, forKey: .messageHashes)
-        adminSignature = Authentication.Signature.standard(
-            signature: try container.decode([UInt8].self, forKey: .adminSignature)
-        )
+        adminSignature = (try? container.decode([UInt8].self, forKey: .adminSignature)).map {
+            Authentication.Signature.standard(signature: $0)
+        }
         
         try super.init(from: decoder)
     }
@@ -94,8 +96,9 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         try container.encode(messageHashes, forKey: .messageHashes)
         
         switch adminSignature {
-            case .standard(let signature): try container.encode(signature, forKey: .adminSignature)
-            case .subaccount: throw MessageSenderError.signingFailed
+            case .some(.standard(let signature)): try container.encode(signature, forKey: .adminSignature)
+            case .some(.subaccount): throw MessageSenderError.signingFailed
+            case .none: break   // Valid case (member deleting their own sent messages)
         }
     }
 
@@ -107,24 +110,23 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         return GroupUpdateDeleteMemberContentMessage(
             memberSessionIds: groupDeleteMemberContentMessage.memberSessionIds,
             messageHashes: groupDeleteMemberContentMessage.messageHashes,
-            adminSignature: Authentication.Signature.standard(
-                signature: Array(groupDeleteMemberContentMessage.adminSignature)
-            )
+            adminSignature: groupDeleteMemberContentMessage.adminSignature.map {
+                Authentication.Signature.standard(signature: Array($0))
+            }
         )
     }
 
     public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         do {
-            let deleteMemberContentMessageBuilder: SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteMemberContentMessageBuilder = SNProtoGroupUpdateDeleteMemberContentMessage.builder(
-                adminSignature: try {
-                    switch adminSignature {
-                        case .standard(let signature): return Data(signature)
-                        case .subaccount: throw MessageSenderError.signingFailed
-                    }
-                }()
-            )
+            let deleteMemberContentMessageBuilder: SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteMemberContentMessageBuilder = SNProtoGroupUpdateDeleteMemberContentMessage.builder()
             deleteMemberContentMessageBuilder.setMemberSessionIds(memberSessionIds)
             deleteMemberContentMessageBuilder.setMessageHashes(messageHashes)
+            
+            switch adminSignature {
+                case .some(.standard(let signature)): deleteMemberContentMessageBuilder.setAdminSignature(Data(signature))
+                case .some(.subaccount): throw MessageSenderError.signingFailed
+                case .none: break    // Valid case (member deleting their own sent messages)
+            }
             
             let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
             groupUpdateMessage.setDeleteMemberContent(try deleteMemberContentMessageBuilder.build())
@@ -148,7 +150,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         GroupUpdateDeleteMemberContentMessage(
             memberSessionIds: \(memberSessionIds),
             messageHashes: \(messageHashes),
-            adminSignature: \(adminSignature)
+            adminSignature: \(adminSignature.map { "\($0)" } ?? "null")
         )
         """
     }

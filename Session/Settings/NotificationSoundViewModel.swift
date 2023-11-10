@@ -100,7 +100,7 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
                                     
                                     return sound.displayName
                                 }(),
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     isSelected: (selectedSound == sound)
                                 ),
                                 onTap: {

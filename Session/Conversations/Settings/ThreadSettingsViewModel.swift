@@ -80,6 +80,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         case disappearingMessagesDuration
         case groupMembers
         case editGroup
+        case promoteAdmins
         case leaveGroup
         case notificationMentionsOnly
         case notificationMute
@@ -257,7 +258,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         ),
                         SessionCell.Info(
                             id: .nickname,
-                            leftAccessory: (threadViewModel.threadVariant != .contact ? nil :
+                            leadingAccessory: (threadViewModel.threadVariant != .contact ? nil :
                                 .icon(
                                     editIcon?.withRenderingMode(.alwaysTemplate),
                                     size: .medium,
@@ -352,7 +353,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         (threadViewModel.threadVariant == .legacyGroup || threadViewModel.threadVariant == .group ? nil :
                             SessionCell.Info(
                                 id: .copyThreadId,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(named: "ic_copy")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
@@ -393,7 +394,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
 
                         SessionCell.Info(
                             id: .allMedia,
-                            leftAccessory: .icon(
+                            leadingAccessory: .icon(
                                 UIImage(named: "actionsheet_camera_roll_black")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
@@ -415,7 +416,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
 
                         SessionCell.Info(
                             id: .searchConversation,
-                            leftAccessory: .icon(
+                            leadingAccessory: .icon(
                                 UIImage(named: "conversation_settings_search")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
@@ -432,7 +433,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         (threadViewModel.threadVariant != .community ? nil :
                             SessionCell.Info(
                                 id: .addToOpenGroup,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(named: "ic_plus_24")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
@@ -447,7 +448,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         (threadViewModel.threadVariant == .community || threadViewModel.threadIsBlocked == true ? nil :
                             SessionCell.Info(
                                 id: .disappearingMessages,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(systemName: "timer")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
@@ -456,7 +457,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     guard current.disappearingMessagesConfig.isEnabled else {
                                         return "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
                                     }
-                                    guard Features.useNewDisappearingMessagesConfig else {
+                                    guard dependencies[feature: .updatedDisappearingMessages] else {
                                         return String(
                                             format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY".localized(),
                                             current.disappearingMessagesConfig.durationString
@@ -494,7 +495,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         (!currentUserIsClosedGroupMember ? nil :
                             SessionCell.Info(
                                 id: .groupMembers,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(named: "icon_members")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
@@ -510,7 +511,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         (!currentUserIsClosedGroupAdmin ? nil :
                             SessionCell.Info(
                                 id: .editGroup,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(named: "table_ic_group_edit")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
@@ -531,11 +532,27 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 }
                             )
                         ),
+                        
+                        (!currentUserIsClosedGroupAdmin || !dependencies[feature: .updatedGroupsAllowPromotions] ? nil :
+                            SessionCell.Info(
+                                id: .promoteAdmins,
+                                leadingAccessory: .icon(
+                                    UIImage(named: "table_ic_group_edit")?
+                                        .withRenderingMode(.alwaysTemplate)
+                                ),
+                                title: "GROUP_ACTION_PROMOTE_ADMINS".localized(),
+                                accessibility: Accessibility(
+                                    identifier: "Promote admins",
+                                    label: "Promote admins"
+                                ),
+                                onTap: { [weak self] in self?.promoteAdmins() }
+                            )
+                        ),
 
                         (!currentUserIsClosedGroupMember ? nil :
                             SessionCell.Info(
                                 id: .leaveGroup,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(named: "table_ic_group_leave")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
@@ -586,13 +603,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         (threadViewModel.threadVariant == .contact ? nil :
                             SessionCell.Info(
                                 id: .notificationMentionsOnly,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(named: "NotifyMentions")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "vc_conversation_settings_notify_for_mentions_only_title".localized(),
                                 subtitle: "vc_conversation_settings_notify_for_mentions_only_explanation".localized(),
-                                rightAccessory: .toggle(
+                                trailingAccessory: .toggle(
                                     .boolValue(
                                         threadViewModel.threadOnlyNotifyForMentions == true,
                                         oldValue: ((previous?.threadViewModel ?? threadViewModel).threadOnlyNotifyForMentions == true)
@@ -628,12 +645,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         (threadViewModel.threadIsNoteToSelf ? nil :
                             SessionCell.Info(
                                 id: .notificationMute,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(named: "Mute")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "CONVERSATION_SETTINGS_MUTE_LABEL".localized(),
-                                rightAccessory: .toggle(
+                                trailingAccessory: .toggle(
                                     .boolValue(
                                         threadViewModel.threadMutedUntilTimestamp != nil,
                                         oldValue: ((previous?.threadViewModel ?? threadViewModel).threadMutedUntilTimestamp != nil)
@@ -677,12 +694,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
                             SessionCell.Info(
                                 id: .blockUser,
-                                leftAccessory: .icon(
+                                leadingAccessory: .icon(
                                     UIImage(named: "table_ic_block")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "CONVERSATION_SETTINGS_BLOCK_THIS_USER".localized(),
-                                rightAccessory: .toggle(
+                                trailingAccessory: .toggle(
                                     .boolValue(
                                         threadViewModel.threadIsBlocked == true,
                                         oldValue: ((previous?.threadViewModel ?? threadViewModel).threadIsBlocked == true)
@@ -878,7 +895,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         self?.transitionToScreen(
                             ConversationVC(
                                 threadId: memberInfo.profileId,
-                                threadVariant: .contact
+                                threadVariant: .contact,
+                                using: dependencies
                             ),
                             transitionType: .push
                         )
@@ -886,6 +904,82 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     using: dependencies
                 )
             )
+        )
+    }
+    
+    private func promoteAdmins() {
+        guard dependencies[feature: .updatedGroupsAllowPromotions] else { return }
+        
+        let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
+        
+        /// Submitting and resending using the same logic
+        func send(
+            _ viewModel: UserListViewModel<GroupMember>?,
+            _ memberInfo: [(id: String, profile: Profile?)],
+            isResend: Bool
+        ) {
+            MessageSender.promoteGroupMembers(
+                groupSessionId: SessionId(.group, hex: threadId),
+                members: memberInfo,
+                sendAdminChangedMessage: !isResend,
+                using: dependencies
+            )
+            viewModel?.showToast(
+                text: (memberInfo.count == 1 ?
+                    "GROUP_ACTION_PROMOTE_SENDING".localized() :
+                    "GROUP_ACTION_PROMOTE_SENDING_MULTIPLE".localized()
+                ),
+                backgroundColor: .backgroundSecondary
+            )
+        }
+        
+        /// Show the selection list
+        self.transitionToScreen(
+            SessionTableViewController(
+                viewModel: UserListViewModel<GroupMember>(
+                    title: "GROUP_ACTION_PROMOTE_ADMINS".localized(),
+                    emptyState: "GROUP_ACTION_PROMOTE_EMPTY_STATE".localized(),
+                    showProfileIcons: true,
+                    request: SQLRequest("""
+                        SELECT \(groupMember.allColumns)
+                        FROM \(groupMember)
+                        WHERE (
+                            \(groupMember[.groupId]) == \(threadId) AND
+                            (
+                                \(groupMember[.role]) != \(GroupMember.Role.admin) AND
+                                \(groupMember[.roleStatus]) == \(GroupMember.RoleStatus.accepted)
+                            ) OR (
+                                \(groupMember[.role]) == \(GroupMember.Role.admin) AND
+                                \(groupMember[.roleStatus]) != \(GroupMember.RoleStatus.accepted)
+                            )
+                        )
+                    """),
+                    footerTitle: "GROUP_ACTION_PROMOTE".localized(),
+                    onTap: .conditionalAction(
+                        action: { memberInfo in
+                            switch memberInfo.value.roleStatus {
+                                case .accepted: return .radio
+                                default:
+                                    return .custom(
+                                        rightAccessory: { _ in
+                                            .highlightingBackgroundLabel(
+                                                title: "context_menu_resend".localized()
+                                            )
+                                        },
+                                        onTap: { viewModel, info in
+                                            send(viewModel, [(info.profileId, info.profile)], isResend: true)
+                                        }
+                                    )
+                            }
+                        }
+                    ),
+                    onSubmit: .callback { viewModel, selectedInfo in
+                        send(viewModel, selectedInfo.map { ($0.profileId, $0.profile) }, isResend: false)
+                    },
+                    using: dependencies
+                )
+            ),
+            transitionType: .push
         )
     }
     

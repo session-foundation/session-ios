@@ -194,7 +194,11 @@ enum Onboarding {
                 .sinkUntilComplete()
         }
         
-        func completeRegistration(using dependencies: Dependencies = Dependencies()) {
+        func completeRegistration(
+            suppressDidRegisterNotification: Bool = false,
+            onComplete: ((Bool) -> Void)? = nil,
+            using dependencies: Dependencies = Dependencies()
+        ) {
             // Set the `lastNameUpdate` to the current date, so that we don't overwrite
             // what the user set in the display name step with whatever we find in their
             // swarm (otherwise the user could enter a display name and have it immediately
@@ -204,17 +208,19 @@ enum Onboarding {
                     .filter(id: getUserSessionId(db, using: dependencies).hexString)
                     .updateAllAndConfig(
                         db,
-                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970),
+                        Profile.Columns.lastNameUpdate.set(to: dependencies.dateNow.timeIntervalSince1970),
                         using: dependencies
                     )
             }
             
             // Notify the app that registration is complete
-            Identity.didRegister()
+            if !suppressDidRegisterNotification {
+                Identity.didRegister()
+            }
             
             // Now that we have registered get the Snode pool (just in case) - other non-blocking
             // launch jobs will automatically be run because the app activation was triggered
-            GetSnodePoolJob.run(using: dependencies)
+            GetSnodePoolJob.run(onComplete: onComplete, using: dependencies)
         }
     }
 }

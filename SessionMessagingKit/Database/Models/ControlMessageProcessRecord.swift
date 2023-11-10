@@ -103,6 +103,10 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         if case .new = (message as? ClosedGroupControlMessage)?.kind { return nil }
         if case .encryptionKeyPair = (message as? ClosedGroupControlMessage)?.kind { return nil }
         
+        // The `GroupUpdateDeleteMessage` doesn't have enough metadata to be able to dedupe via
+        // the `ControlMessageProcessRecord` so just always process it
+        if message is GroupUpdateDeleteMessage { return nil }
+        
         /// For all other cases we want to prevent duplicate handling of the message (this can happen in a number of situations, primarily
         /// with sync messages though hence why we don't include the 'serverHash' as part of this record
         ///

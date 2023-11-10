@@ -300,6 +300,16 @@ public enum ObservationBuilder {
                 .eraseToAnyPublisher()
         }
     }
+    
+    static func refreshableData<S: ObservableTableSource, T: Equatable>(_ source: S, fetch: @escaping () -> T) -> TableObservation<T> {
+        return TableObservation { viewModel, dependencies in
+            source.observableState.forcedRequery
+                .prepend(())
+                .setFailureType(to: Error.self)
+                .map { _ in fetch() }
+                .manualRefreshFrom(source.observableState.forcedPostQueryRefresh)
+        }
+    }
 }
 
 // MARK: - Convenience Transforms

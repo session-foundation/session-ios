@@ -11,7 +11,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
+class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let editableState: EditableState<TableItem> = EditableState()
@@ -24,15 +24,11 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
         onImageDataPicked: { [weak self] resultImageData in
-            guard let oldDisplayName: String = self?.oldDisplayName else { return }
-            
             self?.updatedDisplayPictureSelected(update: .uploadImageData(resultImageData))
         }
     )
-    fileprivate var oldDisplayName: String
-    fileprivate var oldDescription: String?
-    private var editedName: String?
-    private var editedDescription: String?
+    fileprivate var newDisplayName: String?
+    fileprivate var newGroupDescription: String?
     private var editDisplayPictureModal: ConfirmationModal?
     private var editDisplayPictureModalInfo: ConfirmationModal.Info?
     
@@ -42,25 +38,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
         self.dependencies = dependencies
         self.threadId = threadId
         self.userSessionId = getUserSessionId(using: dependencies)
-        
-        let closedGroup: ClosedGroup? = dependencies[singleton: .storage].read(using: dependencies) { db in
-            try ClosedGroup.fetchOne(db, id: threadId)
-        }
-        self.oldDisplayName = (closedGroup?.name ?? "")
-        self.oldDescription = closedGroup?.groupDescription
     }
     
     // MARK: - Config
-    
-    enum NavState {
-        case standard
-        case editing
-    }
-    
-    enum NavItem: Equatable {
-        case cancel
-        case done
-    }
     
     public enum Section: SessionTableSection {
         case groupInfo
@@ -91,77 +71,6 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
         
         case member(String)
     }
-    
-    // MARK: - NavigationItemSource
-    
-    lazy var navState: AnyPublisher<NavState, Never> = Publishers
-        .CombineLatest(
-            isEditing,
-            textChanged
-                .handleEvents(
-                    receiveOutput: { [weak self] value, item in
-                        switch item {
-                            case .groupName: self?.editedName = value
-                            case .groupDescription: self?.editedDescription = value
-                            default: break
-                        }
-                    }
-                )
-                .filter { _ in false }
-                .prepend((nil, .groupName))
-        )
-        .map { isEditing, _ -> NavState in (isEditing ? .editing : .standard) }
-        .removeDuplicates()
-        .prepend(.standard)     // Initial value
-        .shareReplay(1)
-        .eraseToAnyPublisher()
-
-    lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
-        .map { navState -> [SessionNavItem<NavItem>] in
-            switch navState {
-                case .standard: return []
-                case .editing:
-                    return [
-                        SessionNavItem(
-                            id: .cancel,
-                            systemItem: .cancel,
-                            accessibilityIdentifier: "Cancel button"
-                        ) { [weak self] in
-                            self?.setIsEditing(false)
-                            self?.editedName = self?.oldDisplayName
-                            self?.editedDescription = self?.oldDescription
-                        }
-                    ]
-            }
-        }
-        .eraseToAnyPublisher()
-    
-    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
-        .map { [weak self] navState -> [SessionNavItem<NavItem>] in
-            switch navState {
-                case .standard: return []
-                case .editing:
-                    return [
-                        SessionNavItem(
-                            id: .done,
-                            systemItem: .done,
-                            accessibilityIdentifier: "Done"
-                        ) { [weak self] in
-                            self?.updateGroupNameAndDescription(
-                                updatedName: self?.editedName,
-                                updatedDescription: self?.editedDescription
-                            ) { didComplete, finalName, finalDescription in
-                                guard didComplete else { return }
-                                
-                                self?.oldDisplayName = finalName
-                                self?.oldDescription = finalDescription
-                                self?.setIsEditing(false)
-                            }
-                        }
-                    ]
-            }
-        }
-        .eraseToAnyPublisher()
 
     // MARK: - Content
     
@@ -251,6 +160,18 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
             let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: threadId)) ?? .group) == .group)
             let threadVariant: SessionThread.Variant = (isUpdatedGroup ? .group : .legacyGroup)
             let editIcon: UIImage? = UIImage(systemName: "pencil")
+            let sortedMembers: [WithProfile<GroupMember>] = {
+                guard !isUpdatedGroup else { return state.members }
+                
+                // FIXME: Remove this once legacy groups are deprecated
+                /// In legacy groups there would be both `standard` and `admin` `GroupMember` entries for admins so
+                /// pre-process the members in order to remove the duplicates
+                return Array(state.members
+                    .sorted(by: { lhs, rhs in lhs.value.role.rawValue < rhs.value.role.rawValue })
+                    .reduce(into: [:]) { result, next in result[next.profileId] = next }
+                    .values)
+            }()
+            .sorted()
             
             return [
                 SectionModel(
@@ -264,9 +185,23 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                                 threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
                                 displayPictureFilename: state.group.displayPictureFilename,
                                 profile: state.profileFront,
-                                profileIcon: .none,
+                                profileIcon: {
+                                    guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
+                                        return .none
+                                    }
+                                    
+                                    // If we already have a display picture then the main profile gets the icon
+                                    return (state.group.displayPictureFilename != nil ? .rightPlus : .none)
+                                }(),
                                 additionalProfile: state.profileBack,
-                                additionalProfileIcon: .none,
+                                additionalProfileIcon: {
+                                    guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
+                                        return .none
+                                    }
+                                    
+                                    // No display picture means the dual-profile so the additionalProfile gets the icon
+                                    return .rightPlus
+                                }(),
                                 accessibility: nil
                             ),
                             styling: SessionCell.StyleInfo(
@@ -276,10 +211,18 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                             ),
                             accessibility: Accessibility(
                                 label: "Profile picture"
-                            )
+                            ),
+                            onTap: {
+                                guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
+                                    return
+                                }
+                                
+                                self?.updateDisplayPicture(currentFileName: state.group.displayPictureFilename)
+                            }
+                        ),
                         SessionCell.Info(
                             id: .groupName,
-                            leftAccessory: .icon(
+                            leadingAccessory: .icon(
                                 editIcon?.withRenderingMode(.alwaysTemplate),
                                 size: .medium,
                                 customTint: .textSecondary
@@ -288,8 +231,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                                 state.group.name,
                                 font: .titleLarge,
                                 alignment: .center,
-                                editingPlaceholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized(),
-                                interaction: .editable
+                                editingPlaceholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized()
                             ),
                             styling: SessionCell.StyleInfo(
                                 alignment: .centerHugging,
@@ -305,33 +247,69 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                                 identifier: "Group name",
                                 label: state.group.name
                             ),
-                            onTap: { self?.setIsEditing(true) }
-                        )
-                    ]
+                            onTap: {
+                                self?.updateGroupNameAndDescription(
+                                    isUpdatedGroup: isUpdatedGroup,
+                                    currentName: state.group.name,
+                                    currentDescription: state.group.groupDescription
+                                )
+                            }
+                        ),
+                        ((state.group.groupDescription ?? "").isEmpty ? nil :
+                            SessionCell.Info(
+                                id: .groupDescription,
+                                title: SessionCell.TextInfo(
+                                    (state.group.groupDescription ?? ""),
+                                    font: .subtitle,
+                                    alignment: .center,
+                                    editingPlaceholder: "EDIT_GROUP_DESCRIPTION_PLACEHOLDER".localized()
+                                ),
+                                styling: SessionCell.StyleInfo(
+                                    tintColor: .textSecondary,
+                                    alignment: .centerHugging,
+                                    customPadding: SessionCell.Padding(
+                                        top: 0,
+                                        bottom: Values.smallSpacing
+                                    ),
+                                    backgroundStyle: .noBackground
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Group description",
+                                    label: (state.group.groupDescription ?? "")
+                                ),
+                                onTap: {
+                                   self?.updateGroupNameAndDescription(
+                                       isUpdatedGroup: isUpdatedGroup,
+                                       currentName: state.group.name,
+                                       currentDescription: state.group.groupDescription
+                                   )
+                               }
+                            )
+                         )
+                    ].compactMap { $0 }
                 ),
                 SectionModel(
                     model: .invite,
                     elements: [
                         SessionCell.Info(
                             id: .invite,
-                            leftAccessory: .icon(UIImage(named: "icon_invite")?.withRenderingMode(.alwaysTemplate)),
+                            leadingAccessory:  .icon(UIImage(named: "icon_invite")?.withRenderingMode(.alwaysTemplate)),
                             title: "GROUP_ACTION_INVITE_CONTACTS".localized(),
                             accessibility: Accessibility(
                                 identifier: "Invite Contacts",
                                 label: "Invite Contacts"
                             ),
-                            onTap: { self?.inviteContacts() }
+                            onTap: { self?.inviteContacts(currentGroupName: state.group.name) }
                         )
                     ]
                 ),
                 SectionModel(
                     model: .members,
-                    elements: state.members
-                        .sorted()
+                    elements: sortedMembers
                         .map { memberInfo -> SessionCell.Info in
                             SessionCell.Info(
                                 id: .member(memberInfo.profileId),
-                                leftAccessory: .profile(
+                                leadingAccessory:  .profile(
                                     id: memberInfo.profileId,
                                     profile: memberInfo.profile,
                                     profileIcon: memberInfo.value.profileIcon
@@ -341,7 +319,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                                     Profile.truncated(id: memberInfo.profileId, truncating: .middle)
                                 ),
                                 subtitle: (isUpdatedGroup ? memberInfo.value.statusDescription : nil),
-                                rightAccessory: {
+                                trailingAccessory: {
                                     switch (memberInfo.value.role, memberInfo.value.roleStatus) {
                                         case (.admin, _), (.moderator, _): return nil
                                         case (.standard, .failed), (.standard, .sending):
@@ -412,73 +390,304 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
     
     // MARK: - Functions
     
-    
-    private func updateGroupNameAndDescription(
-        updatedName: String?,
-        updatedDescription: String?,
-        onComplete: ((Bool, String, String?) -> ())? = nil
-    ) {
-        let finalName: String = (updatedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalDescription: String? = updatedDescription.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private func updateDisplayPicture(currentFileName: String?) {
+        guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
-        /// Check if the data violates any of the size constraints
-        let maybeErrorString: String? = {
-            guard !finalName.isEmpty else { return "EDIT_GROUP_NAME_ERROR_MISSING".localized() }
-            guard !Profile.isTooLong(profileName: finalName) else { return "EDIT_GROUP_NAME_ERROR_LONG".localized() }
-            guard !SessionUtil.isTooLong(groupDescription: (finalDescription ?? "")) else {
-                return "EDIT_GROUP_DESCRIPTION_ERROR_LONG".localized()
-            }
-            
-            return nil
-        }()
-        
-        if let errorString: String = maybeErrorString {
-            self.transitionToScreen(
-                ConfirmationModal(
-                    info: ConfirmationModal.Info(
-                        title: "ALERT_ERROR_TITLE".localized(),
-                        body: .text(errorString),
-                        cancelTitle: "BUTTON_OK".localized(),
-                        cancelStyle: .alert_text
-                    )
+        let existingImageData: Data? = dependencies[singleton: .storage].read(using: dependencies) { [threadId] db in
+            DisplayPictureManager.displayPicture(db, id: .group(threadId))
+        }
+        let editDisplayPictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
+            title: "EDIT_GROUP_DISPLAY_PICTURE".localized(),
+            body: .image(
+                placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                valueData: existingImageData,
+                icon: .rightPlus,
+                style: .circular,
+                accessibility: Accessibility(
+                    identifier: "Image picker",
+                    label: "Image picker"
                 ),
-                transitionType: .present
+                onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
+            ),
+            confirmTitle: "update_profile_modal_save".localized(),
+            confirmEnabled: false,
+            cancelTitle: "update_profile_modal_remove".localized(),
+            cancelEnabled: (existingImageData != nil),
+            hasCloseButton: true,
+            dismissOnConfirm: false,
+            onConfirm: { modal in modal.close() },
+            onCancel: { [weak self] modal in
+                self?.updateDisplayPicture(
+                    displayPictureUpdate: .remove,
+                    onComplete: { [weak modal] in modal?.close() }
+                )
+            },
+            afterClosed: { [weak self] in
+                self?.editDisplayPictureModal = nil
+                self?.editDisplayPictureModalInfo = nil
+            }
+        )
+        let modal: ConfirmationModal = ConfirmationModal(info: editDisplayPictureModalInfo)
+            
+        self.editDisplayPictureModalInfo = editDisplayPictureModalInfo
+        self.editDisplayPictureModal = modal
+        self.transitionToScreen(modal, transitionType: .present)
+    }
+
+    private func updatedDisplayPictureSelected(update: DisplayPictureManager.Update) {
+        guard let info: ConfirmationModal.Info = self.editDisplayPictureModalInfo else { return }
+        
+        self.editDisplayPictureModal?.updateContent(
+            with: info.with(
+                body: .image(
+                    placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
+                    valueData: {
+                        switch update {
+                            case .uploadImageData(let imageData): return imageData
+                            default: return nil
+                        }
+                    }(),
+                    icon: .rightPlus,
+                    style: .circular,
+                    accessibility: Accessibility(
+                        identifier: "Image picker",
+                        label: "Image picker"
+                    ),
+                    onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
+                ),
+                confirmEnabled: true,
+                onConfirm: { [weak self] modal in
+                    self?.updateDisplayPicture(
+                        displayPictureUpdate: update,
+                        onComplete: { [weak modal] in modal?.close() }
+                    )
+                }
             )
-            onComplete?(false, finalName, finalDescription)
-            return
+        )
+    }
+    
+    private func showPhotoLibraryForAvatar() {
+        Permissions.requestLibraryPermissionIfNeeded { [weak self] in
+            DispatchQueue.main.async {
+                let picker: UIImagePickerController = UIImagePickerController()
+                picker.sourceType = .photoLibrary
+                picker.mediaTypes = [ "public.image" ]  // stringlint:disable
+                picker.delegate = self?.imagePickerHandler
+                
+                self?.transitionToScreen(picker, transitionType: .present)
+            }
+        }
+    }
+    
+    private func updateDisplayPicture(
+        displayPictureUpdate: DisplayPictureManager.Update,
+        onComplete: (() -> ())? = nil
+    ) {
+        switch displayPictureUpdate {
+            case .none: onComplete?()
+            default: break
         }
         
-        /// Update the group appropriately
-        MessageSender
-            .updateGroup(
-                groupSessionId: threadId,
-                name: finalName,
-                groupDescription: finalDescription,
-                using: dependencies
-            )
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: onComplete?(true, finalName, finalDescription)
-                        case .failure:
+        func performChanges(_ viewController: ModalActivityIndicatorViewController, _ displayPictureUpdate: DisplayPictureManager.Update) {
+            let existingFileName: String? = dependencies[singleton: .storage].read(using: dependencies) { [threadId] db in
+                try? ClosedGroup
+                    .filter(id: threadId)
+                    .select(.displayPictureFilename)
+                    .asRequest(of: String.self)
+                    .fetchOne(db)
+            }
+            
+            MessageSender
+                .updateGroup(
+                    groupSessionId: threadId,
+                    displayPictureUpdate: displayPictureUpdate,
+                    using: dependencies
+                )
+                .sinkUntilComplete(
+                    receiveCompletion: { [dependencies] result in
+                        // Remove any cached avatar image value
+                        if let existingFileName: String = existingFileName {
+                            dependencies.mutate(cache: .displayPicture) { $0.imageData[existingFileName] = nil }
+                        }
+                        
+                        DispatchQueue.main.async {
+                            viewController.dismiss(completion: {
+                                onComplete?()
+                            })
+                        }
+                    }
+                )
+        }
+        
+        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] viewController in
+            switch displayPictureUpdate {
+                case .none: break // Shouldn't get called
+                case .remove, .updateTo: performChanges(viewController, displayPictureUpdate)
+                case .uploadImageData(let data):
+                    DisplayPictureManager.prepareAndUploadDisplayPicture(
+                        queue: DispatchQueue.global(qos: .background),
+                        imageData: data,
+                        success: { url, fileName, key in
+                            performChanges(viewController, .updateTo(url: url, key: key, fileName: fileName))
+                        },
+                        failure: { error in
+                            DispatchQueue.main.async {
+                                viewController.dismiss {
+                                    let title: String = {
+                                        switch (displayPictureUpdate, error) {
+                                            case (_, .uploadMaxFileSizeExceeded):
+                                                return "update_profile_modal_max_size_error_title".localized()
+                                            
+                                            default: return "ALERT_ERROR_TITLE".localized()
+                                        }
+                                    }()
+                                    let message: String? = {
+                                        switch (displayPictureUpdate, error) {
+                                            case (.remove, _): return "EDIT_DISPLAY_PICTURE_ERROR_REMOVE".localized()
+                                            case (_, .uploadMaxFileSizeExceeded):
+                                                return "update_profile_modal_max_size_error_message".localized()
+                                            
+                                            default: return "EDIT_DISPLAY_PICTURE_ERROR".localized()
+                                        }
+                                    }()
+                                    
+                                    self?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: title,
+                                                body: (message.map { .text($0) } ?? .none),
+                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelStyle: .alert_text,
+                                                dismissType: .single
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                }
+                            }
+                        },
+                        using: dependencies
+                    )
+            }
+        }
+        self.transitionToScreen(viewController, transitionType: .present)
+    }
+    
+    private func updateGroupNameAndDescription(
+        isUpdatedGroup: Bool,
+        currentName: String,
+        currentDescription: String?
+    ) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: (isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] ?
+                        "EDIT_GROUP_INFO_TITLE".localized() :
+                        "EDIT_LEGACY_GROUP_INFO_TITLE".localized()
+                    ),
+                    body: { [weak self, dependencies] in
+                        guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDescriptionEditing] else {
+                            return .input(
+                                explanation: NSAttributedString(string: "EDIT_LEGACY_GROUP_INFO_MESSAGE".localized()),
+                                info: ConfirmationModal.Info.Body.InputInfo(
+                                    placeholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized(),
+                                    initialValue: currentName
+                                ),
+                                onChange: { updatedName in
+                                    self?.newDisplayName = updatedName
+                                }
+                            )
+                        }
+                        
+                        return .dualInput(
+                            explanation: NSAttributedString(string: "EDIT_GROUP_INFO_MESSAGE".localized()),
+                            firstInfo: ConfirmationModal.Info.Body.InputInfo(
+                                placeholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized(),
+                                initialValue: currentName
+                            ),
+                            secondInfo: ConfirmationModal.Info.Body.InputInfo(
+                                placeholder: "EDIT_GROUP_DESCRIPTION_PLACEHOLDER".localized(),
+                                initialValue: currentDescription
+                            ),
+                            onChange: { updatedName, updatedDescription in
+                                self?.newDisplayName = updatedName
+                                self?.newGroupDescription = updatedDescription
+                            }
+                        )
+                    }(),
+                    confirmTitle: "update_profile_modal_save".localized(),
+                    cancelStyle: .danger,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self, dependencies, threadId] modal in
+                        let finalName: String = (self?.newDisplayName ?? "")
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        let finalDescription: String? = self?.newGroupDescription
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        
+                        /// Check if the data violates any of the size constraints
+                        let maybeErrorString: String? = {
+                            guard !finalName.isEmpty else { return "EDIT_GROUP_NAME_ERROR_MISSING".localized() }
+                            guard !Profile.isTooLong(profileName: finalName) else { return "EDIT_GROUP_NAME_ERROR_LONG".localized() }
+                            guard !SessionUtil.isTooLong(groupDescription: (finalDescription ?? "")) else {
+                                return "EDIT_GROUP_DESCRIPTION_ERROR_LONG".localized()
+                            }
+                            
+                            return nil
+                        }()
+                        
+                        if let errorString: String = maybeErrorString {
                             self?.transitionToScreen(
                                 ConfirmationModal(
                                     info: ConfirmationModal.Info(
                                         title: "ALERT_ERROR_TITLE".localized(),
-                                        body: .text("DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE".localized()),
+                                        body: .text(errorString),
                                         cancelTitle: "BUTTON_OK".localized(),
-                                        cancelStyle: .alert_text
+                                        cancelStyle: .alert_text,
+                                        dismissType: .single
                                     )
                                 ),
                                 transitionType: .present
                             )
-                            onComplete?(false, finalName, finalDescription)
+                            return
+                        }
+                        
+                        /// Update the group appropriately
+                        MessageSender
+                            .updateGroup(
+                                groupSessionId: threadId,
+                                name: finalName,
+                                groupDescription: finalDescription,
+                                using: dependencies
+                            )
+                            .sinkUntilComplete(
+                                receiveCompletion: { [weak self] result in
+                                    switch result {
+                                        case .finished: modal.dismiss(animated: true)
+                                        case .failure:
+                                            self?.transitionToScreen(
+                                                ConfirmationModal(
+                                                    info: ConfirmationModal.Info(
+                                                        title: "ALERT_ERROR_TITLE".localized(),
+                                                        body: .text("DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE".localized()),
+                                                        cancelTitle: "BUTTON_OK".localized(),
+                                                        cancelStyle: .alert_text
+                                                    )
+                                                ),
+                                                transitionType: .present
+                                            )
+                                    }
+                                }
+                            )
                     }
-                }
-            )
+                )
+            ),
+            transitionType: .present
+        )
     }
     
-    private func inviteContacts() {
+    private func inviteContacts(
+        currentGroupName: String
+    ) {
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let currentMemberIds: Set<String> = (tableData
@@ -525,7 +734,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                                     MessageSender.addGroupMembers(
                                         groupSessionId: threadId,
                                         members: selectedMemberInfo.map { ($0.profileId, $0.profile) },
-                                        allowAccessToHistoricMessages: false,
+                                        allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
                                         using: dependencies
                                     )
                                     viewModel?.showToast(
@@ -538,7 +747,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                                 }
                                 
                             case .standard: // Assume it's a legacy group
-                                return .publisher { [dependencies, threadId, oldDisplayName] _, selectedMemberInfo in
+                                return .publisher { [dependencies, threadId] _, selectedMemberInfo in
                                     let updatedMemberIds: Set<String> = currentMemberIds
                                         .inserting(contentsOf: selectedMemberInfo.map { $0.profileId }.asSet())
                                     
@@ -550,7 +759,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                                     return MessageSender.update(
                                         legacyGroupSessionId: threadId,
                                         with: updatedMemberIds,
-                                        name: oldDisplayName,
+                                        name: currentGroupName,
                                         using: dependencies
                                     )
                                     .mapError { _ in UserListError.error("GROUP_UPDATE_ERROR_TITLE".localized()) }
@@ -581,13 +790,16 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
         
         switch try? SessionId.Prefix(from: threadId) {
             case .group:
-                MessageSender.removeGroupMembers(
-                    groupSessionId: threadId,
-                    memberIds: memberIds,
-                    removeTheirMessages: false,
-                    sendMemberChangedMessage: true,
-                    using: dependencies
-                )
+                MessageSender
+                    .removeGroupMembers(
+                        groupSessionId: threadId,
+                        memberIds: memberIds,
+                        removeTheirMessages: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
+                        sendMemberChangedMessage: true,
+                        using: dependencies
+                    )
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                    .sinkUntilComplete()
                 self.selectedIdsSubject.send([])
             
             case .standard: // Assume it's a legacy group
@@ -604,12 +816,22 @@ class EditGroupViewModel: SessionTableViewModel, NavigationItemSource, Navigatab
                     .asSet()
                     .removing(contentsOf: memberIds)
                 
-                let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies, threadId, oldDisplayName] modalActivityIndicator in
+                let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies, threadId] modalActivityIndicator in
+                    let currentGroupName: String = dependencies[singleton: .storage]
+                        .read { db in
+                            try ClosedGroup
+                                .filter(id: threadId)
+                                .select(.name)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                        }
+                        .defaulting(to: "GROUP_TITLE_FALLBACK".localized())
+                    
                         MessageSender
                             .update(
                                 legacyGroupSessionId: threadId,
                                 with: updatedMemberIds,
-                                name: oldDisplayName,
+                                name: currentGroupName,
                                 using: dependencies
                             )
                             .eraseToAnyPublisher()

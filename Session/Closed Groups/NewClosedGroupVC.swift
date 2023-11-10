@@ -1,10 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 private protocol TableViewTouchDelegate {
@@ -27,13 +29,27 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         case contacts
     }
     
-    private let contactProfiles: [Profile] = Profile.fetchAllContactProfiles(excludeCurrentUser: true)
+    private let dependencies: Dependencies
+    private let contactProfiles: [Profile]
     private lazy var data: [ArraySection<Section, Profile>] = [
         ArraySection(model: .contacts, elements: contactProfiles)
     ]
     private var selectedProfiles: [String: Profile] = [:]
     private var searchText: String = ""
-
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        self.contactProfiles = Profile.fetchAllContactProfiles(excludeCurrentUser: true, using: dependencies)
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     // MARK: - Components
     
     private static let textFieldHeight: CGFloat = 50
@@ -208,9 +224,9 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             with: SessionCell.Info(
                 id: profile,
                 position: Position.with(indexPath.row, count: data[indexPath.section].elements.count),
-                leftAccessory: .profile(id: profile.id, profile: profile),
+                leadingAccessory: .profile(id: profile.id, profile: profile),
                 title: profile.displayName(),
-                rightAccessory: .radio(isSelected: (selectedProfiles[profile.id] != nil)),
+                trailingAccessory: .radio(isSelected: (selectedProfiles[profile.id] != nil)),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 accessibility: Accessibility(
                     identifier: "Contact"
@@ -324,15 +340,35 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         guard selectedProfiles.count >= 1 else {
             return showError(title: "GROUP_ERROR_NO_MEMBER_SELECTION".localized())
         }
-        guard selectedProfiles.count < 100 else { // Minus one because we're going to include self later
+        /// Minus one because we're going to include self later
+        guard selectedProfiles.count < (SessionUtil.sizeMaxGroupMemberCount - 1) else {
             return showError(title: "vc_create_closed_group_too_many_group_members_error".localized())
         }
         let selectedProfiles: [(String, Profile?)] = self.selectedProfiles
             .reduce(into: []) { result, next in result.append((next.key, next.value)) }
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController!) { [weak self] _ in
-            MessageSender
-//                .createLegacyClosedGroup(name: name, members: selectedProfiles.map { $0.0 }.asSet())
-                .createGroup(name: name, description: nil, displayPictureData: nil, members: selectedProfiles)
+        
+        ModalActivityIndicatorViewController.present(fromViewController: navigationController!) { [weak self, dependencies] _ in
+            let createPublisher: AnyPublisher<SessionThread, Error> = {
+                switch dependencies[feature: .updatedGroups] {
+                    case true:
+                        return MessageSender.createGroup(
+                            name: name,
+                            description: nil,
+                            displayPictureData: nil,
+                            members: selectedProfiles,
+                            using: dependencies
+                        )
+                        
+                    case false:
+                        return MessageSender.createLegacyClosedGroup(
+                            name: name,
+                            members: selectedProfiles.map { $0.0 }.asSet(),
+                            using: dependencies
+                        )
+                }
+            }()
+            
+            createPublisher
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
@@ -359,7 +395,8 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                             for: thread.id,
                             variant: thread.variant,
                             dismissing: self?.presentingViewController,
-                            animated: false
+                            animated: false,
+                            using: dependencies
                         )
                     }
                 )

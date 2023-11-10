@@ -74,6 +74,7 @@ final class PathStatusView: UIView {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        dependencies.removeFeatureObserver(self)
     }
     
     // MARK: - Layout
@@ -96,22 +97,18 @@ final class PathStatusView: UIView {
     private func registerObservers() {
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleBuildingPathsNotification),
-            name: .buildingPaths,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handlePathsBuiltNotification),
-            name: .pathsBuilt,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
             selector: #selector(reachabilityChanged),
             name: .reachabilityChanged,
             object: nil
         )
+        
+        dependencies.addFeatureObserver(self, for: .networkLayers, events: [.buildingPaths, .pathsBuilt]) { [weak self] _, event in
+            switch event {
+                case .buildingPaths: self?.handleBuildingPathsNotification()
+                case .pathsBuilt: self?.handlePathsBuiltNotification()
+                default: break
+            }
+        }
     }
 
     private func setStatus(to status: Status) {
@@ -131,7 +128,7 @@ final class PathStatusView: UIView {
         }
     }
 
-    @objc private func handleBuildingPathsNotification() {
+    private func handleBuildingPathsNotification() {
         guard reachability?.isReachable() == true else {
             setStatus(to: .error)
             return
@@ -140,7 +137,7 @@ final class PathStatusView: UIView {
         setStatus(to: .connecting)
     }
 
-    @objc private func handlePathsBuiltNotification() {
+    private func handlePathsBuiltNotification() {
         guard reachability?.isReachable() == true  else {
             setStatus(to: .error)
             return

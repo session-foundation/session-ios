@@ -120,11 +120,12 @@ public enum GroupLeavingJob: JobExecutor {
                 }
             }
             .tryCatch { error -> AnyPublisher<Void, Error> in
-                /// If it failed due to one of these errors then clear out any associated data (as somehow the `SessionThread`
-                /// exists but not the data required to send the `MEMBER_LEFT` message which would leave the user in a state
-                /// where they can't leave the group)
-                switch error as? MessageSenderError {
-                    case .invalidClosedGroupUpdate, .noKeyPair, .encryptionFailed:
+                /// If it failed due to one of these errors then clear out any associated data (as the `SessionThread` exists but
+                /// either the data required to send the `MEMBER_LEFT` message doesn't or the user has had their access to the
+                /// group revoked which would leave the user in a state where they can't leave the group)
+                switch (error as? MessageSenderError, error as? SnodeAPIError) {
+                    case (.invalidClosedGroupUpdate, _), (.noKeyPair, _), (.encryptionFailed, _),
+                        (_, .unauthorised):
                         return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
                     
                     default: throw error

@@ -154,7 +154,7 @@ public enum OnionRequestAPI {
             
             SNLog("Building onion request paths.")
             DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .buildingPaths, object: nil)
+                dependencies.notifyObservers(for: .networkLayers, with: .buildingPaths)
             }
             
             /// Need to include the post-request code and a `shareReplay` within the publisher otherwise it can still be executed
@@ -207,7 +207,7 @@ public enum OnionRequestAPI {
                         }
                         
                         DispatchQueue.main.async {
-                            NotificationCenter.default.post(name: .pathsBuilt, object: nil)
+                            dependencies.notifyObservers(for: .networkLayers, with: .pathsBuilt)
                         }
                     },
                     receiveCompletion: { _ in
@@ -706,8 +706,8 @@ public enum OnionRequestAPI {
                     }
                     
                     if statusCode == 401 { // Signature verification failed
-                        SNLog("Failed to verify the signature.")
-                        return Fail(error: SnodeAPIError.signatureVerificationFailed)
+                        SNLog("Failed due to unauthorised error (potentially due to failed signature verification).")
+                        return Fail(error: SnodeAPIError.unauthorised)
                             .eraseToAnyPublisher()
                     }
                     
@@ -776,7 +776,7 @@ public enum OnionRequestAPI {
                     let data: Data = try AES.GCM.decrypt(responseData, with: destinationSymmetricKey)
                     
                     // Process the bencoded response
-                    guard let processedResponse: (info: ResponseInfoType, body: Data?) = process(bencodedData: data) else {
+                    guard let processedResponse: (info: ResponseInfoType, body: Data?) = process(bencodedData: data, using: dependencies) else {
                         return Fail(error: HTTPError.invalidResponse)
                             .eraseToAnyPublisher()
                     }
@@ -790,8 +790,8 @@ public enum OnionRequestAPI {
                     }
                     
                     guard processedResponse.info.code != 401 else { // Signature verification failed
-                        SNLog("Failed to verify the signature.")
-                        return Fail(error: SnodeAPIError.signatureVerificationFailed)
+                        SNLog("Failed due to unauthorised error (potentially due to failed signature verification).")
+                        return Fail(error: SnodeAPIError.unauthorised)
                             .eraseToAnyPublisher()
                     }
                     
@@ -815,10 +815,14 @@ public enum OnionRequestAPI {
         }
     }
     
-    public static func process(bencodedData data: Data) -> (info: ResponseInfoType, body: Data?)? {
-        guard let response: BencodeResponse<HTTP.ResponseInfo> = try? Bencode.decodeResponse(from: data) else {
-            return nil
-        }
+    public static func process(
+        bencodedData data: Data,
+        using dependencies: Dependencies = Dependencies()
+    ) -> (info: ResponseInfoType, body: Data?)? {
+        guard
+            let response: BencodeResponse<HTTP.ResponseInfo> = try? BencodeDecoder(using: dependencies)
+                .decode(BencodeResponse<HTTP.ResponseInfo>.self, from: data)
+        else { return nil }
         
         // Custom handle a clock out of sync error (v4 returns '425' but included the '406' just
         // in case)

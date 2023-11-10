@@ -19,7 +19,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
     
     // MARK: - Initialization
     
-    init(shouldShowCloseButton: Bool = false, using dependencies: Dependencies = Dependencies()) {
+    init(shouldShowCloseButton: Bool = false, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.shouldShowCloseButton = shouldShowCloseButton
     }
@@ -109,7 +109,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .screenLock,
                             title: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE".localized(),
                             subtitle: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .isScreenLockEnabled,
                                     value: current.isScreenLockEnabled,
@@ -151,7 +151,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .communityMessageRequests,
                             title: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE".localized(),
                             subtitle: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .checkForCommunityMessageRequests,
                                     value: current.checkForCommunityMessageRequests,
@@ -177,7 +177,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .readReceipts,
                             title: "PRIVACY_READ_RECEIPTS_TITLE".localized(),
                             subtitle: "PRIVACY_READ_RECEIPTS_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .areReadReceiptsEnabled,
                                     value: current.areReadReceiptsEnabled,
@@ -235,7 +235,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     return result
                                 }
                             ),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .typingIndicatorsEnabled,
                                     value: current.typingIndicatorsEnabled,
@@ -261,7 +261,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .linkPreviews,
                             title: "PRIVACY_LINK_PREVIEWS_TITLE".localized(),
                             subtitle: "PRIVACY_LINK_PREVIEWS_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .areLinkPreviewsEnabled,
                                     value: current.areLinkPreviewsEnabled,
@@ -287,7 +287,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             id: .calls,
                             title: "PRIVACY_CALLS_TITLE".localized(),
                             subtitle: "PRIVACY_CALLS_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .areCallsEnabled,
                                     value: current.areCallsEnabled,

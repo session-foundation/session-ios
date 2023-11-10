@@ -218,6 +218,7 @@ internal extension SessionUtil {
                             admin: true,
                             invited: 0,
                             promoted: 0,
+                            removed: 0,
                             supplement: false
                         )
                         
@@ -255,6 +256,7 @@ internal extension SessionUtil {
                             admin: false,
                             invited: 1,
                             promoted: 0,
+                            removed: 0,
                             supplement: false
                         )
                         
@@ -359,6 +361,21 @@ internal extension SessionUtil {
         }
         
         return groupState
+    }
+    
+    static func isAdmin(
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) -> Bool {
+        return (try? dependencies[cache: .sessionUtil]
+            .config(for: .groupKeys, sessionId: groupSessionId)
+            .wrappedValue
+            .map { config in
+                guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
+                
+                return groups_keys_is_admin(conf)
+            })
+            .defaulting(to: false)
     }
     
     static func encrypt(

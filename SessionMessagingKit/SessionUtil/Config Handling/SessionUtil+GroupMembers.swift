@@ -33,11 +33,7 @@ internal extension SessionUtil {
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // Get the two member sets
-        let updatedMembers: Set<GroupMember> = try extractMembers(
-            from: conf,
-            groupSessionId: groupSessionId,
-            serverTimestampMs: serverTimestampMs
-        )
+        let updatedMembers: Set<GroupMember> = try extractMembers(from: conf, groupSessionId: groupSessionId)
         let existingMembers: Set<GroupMember> = (try? GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
             .fetchSet(db))
@@ -68,6 +64,22 @@ internal extension SessionUtil {
                 )
             )
             .deleteAll(db)
+        
+        // Schedule a job to process the removals
+        if (try? extractPendingRemovals(from: conf, groupSessionId: groupSessionId))?.isEmpty == false {
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .processPendingGroupMemberRemovals,
+                    threadId: groupSessionId.hexString,
+                    details: ProcessPendingGroupMemberRemovalsJob.Details(
+                        changeTimestampMs: serverTimestampMs
+                    )
+                ),
+                canStartJob: true,
+                using: dependencies
+            )
+        }
         
         // If there were members then also extract and update the profile information for the members
         // if we don't have newer data locally
@@ -118,8 +130,24 @@ internal extension SessionUtil {
                 
                 return try extractMembers(
                     from: conf,
-                    groupSessionId: groupSessionId,
-                    serverTimestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+                    groupSessionId: groupSessionId
+                )
+            } ?? { throw SessionUtilError.failedToRetrieveConfigData }()
+    }
+    
+    static func getPendingMemberRemovals(
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws -> [String: Bool] {
+        return try dependencies[cache: .sessionUtil]
+            .config(for: .groupMembers, sessionId: groupSessionId)
+            .wrappedValue
+            .map { config in
+                guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+                
+                return try extractPendingRemovals(
+                    from: conf,
+                    groupSessionId: groupSessionId
                 )
             } ?? { throw SessionUtilError.failedToRetrieveConfigData }()
     }
@@ -218,6 +246,34 @@ internal extension SessionUtil {
         }
     }
     
+    static func flagMembersForRemoval(
+        _ db: Database,
+        groupSessionId: SessionId,
+        memberIds: Set<String>,
+        removeMessages: Bool,
+        using dependencies: Dependencies
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupMembers,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            memberIds.forEach { memberId in
+                // Only update members if they already exist in the group
+                var cMemberId: [CChar] = memberId.cArray
+                var groupMember: config_group_member = config_group_member()
+                
+                guard groups_members_get(conf, &groupMember, &cMemberId) else { return }
+                
+                groupMember.removed = (removeMessages ? 2 : 1)
+                groups_members_set(conf, &groupMember)
+            }
+        }
+    }
+    
     static func removeMembers(
         _ db: Database,
         groupSessionId: SessionId,
@@ -311,8 +367,7 @@ private struct MemberData {
 private extension SessionUtil {
     static func extractMembers(
         from conf: UnsafeMutablePointer<config_object>?,
-        groupSessionId: SessionId,
-        serverTimestampMs: Int64
+        groupSessionId: SessionId
     ) throws -> Set<GroupMember> {
         var infiniteLoopGuard: Int = 0
         var result: [GroupMember] = []
@@ -321,6 +376,9 @@ private extension SessionUtil {
         
         while !groups_members_iterator_done(membersIterator, &member) {
             try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            
+            // Ignore members pending removal
+            guard member.removed == 0 else { continue }
             
             let memberId: String = String(cString: withUnsafeBytes(of: member.session_id) { [UInt8]($0) }
                 .map { CChar($0) }
@@ -350,6 +408,36 @@ private extension SessionUtil {
         return result.asSet()
     }
     
+    static func extractPendingRemovals(
+        from conf: UnsafeMutablePointer<config_object>?,
+        groupSessionId: SessionId
+    ) throws -> [String: Bool] {
+        var infiniteLoopGuard: Int = 0
+        var result: [String: Bool] = [:]
+        var member: config_group_member = config_group_member()
+        let membersIterator: UnsafeMutablePointer<groups_members_iterator> = groups_members_iterator_new(conf)
+        
+        while !groups_members_iterator_done(membersIterator, &member) {
+            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            
+            guard member.removed > 0 else {
+                groups_members_iterator_advance(membersIterator)
+                continue
+            }
+            
+            let memberId: String = String(cString: withUnsafeBytes(of: member.session_id) { [UInt8]($0) }
+                .map { CChar($0) }
+                .nullTerminated()
+            )
+            
+            result[memberId] = (member.removed == 2)
+            groups_members_iterator_advance(membersIterator)
+        }
+        groups_members_iterator_free(membersIterator) // Need to free the iterator
+        
+        return result
+    }
+    
     static func extractProfiles(
         from conf: UnsafeMutablePointer<config_object>?,
         groupSessionId: SessionId,
@@ -362,6 +450,9 @@ private extension SessionUtil {
         
         while !groups_members_iterator_done(membersIterator, &member) {
             try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .groupMembers)
+            
+            // Ignore members pending removal
+            guard member.removed == 0 else { continue }
             
             let memberId: String = String(cString: withUnsafeBytes(of: member.session_id) { [UInt8]($0) }
                 .map { CChar($0) }

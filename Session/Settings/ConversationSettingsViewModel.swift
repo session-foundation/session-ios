@@ -17,7 +17,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
 
     // MARK: - Initialization
 
-    init(using dependencies: Dependencies = Dependencies()) {
+    init(using dependencies: Dependencies) {
         self.dependencies = dependencies
     }
 
@@ -69,7 +69,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             id: .messageTrimming,
                             title: "CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE".localized(),
                             subtitle: "CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .trimOpenGroupMessagesOlderThanSixMonths,
                                     value: current.trimOpenGroupMessagesOlderThanSixMonths,
@@ -91,7 +91,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             id: .audioMessages,
                             title: "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE".localized(),
                             subtitle: "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .shouldAutoPlayConsecutiveAudioMessages,
                                     value: current.shouldAutoPlayConsecutiveAudioMessages,

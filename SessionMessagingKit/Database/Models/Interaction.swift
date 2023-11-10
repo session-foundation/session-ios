@@ -975,7 +975,7 @@ public extension Interaction {
     
     /// Use the `Interaction.previewText` method directly where possible rather than this method as it
     /// makes it's own database queries
-    func previewText(_ db: Database) -> String {
+    func previewText(_ db: Database, using dependencies: Dependencies) -> String {
         switch variant {
             case .standardIncoming, .standardOutgoing:
                 return Interaction.previewText(
@@ -988,7 +988,8 @@ public extension Interaction {
                     attachmentCount: try? attachments.fetchCount(db),
                     isOpenGroupInvitation: linkPreview
                         .filter(LinkPreview.Columns.variant == LinkPreview.Variant.openGroupInvitation)
-                        .isNotEmpty(db)
+                        .isNotEmpty(db),
+                    using: dependencies
                 )
 
             case .infoMediaSavedNotification, .infoScreenshotNotification, .infoCall:
@@ -997,12 +998,14 @@ public extension Interaction {
                 return Interaction.previewText(
                     variant: self.variant,
                     body: self.body,
-                    authorDisplayName: Profile.displayName(db, id: threadId)
+                    authorDisplayName: Profile.displayName(db, id: threadId),
+                    using: dependencies
                 )
 
             default: return Interaction.previewText(
                 variant: self.variant,
-                body: self.body
+                body: self.body,
+                using: dependencies
             )
         }
     }
@@ -1015,7 +1018,8 @@ public extension Interaction {
         authorDisplayName: String = "",
         attachmentDescriptionInfo: Attachment.DescriptionInfo? = nil,
         attachmentCount: Int? = nil,
-        isOpenGroupInvitation: Bool = false
+        isOpenGroupInvitation: Bool = false,
+        using dependencies: Dependencies
     ) -> String {
         return attributedPreviewText(
             variant: variant,
@@ -1024,7 +1028,8 @@ public extension Interaction {
             authorDisplayName: authorDisplayName,
             attachmentDescriptionInfo: attachmentDescriptionInfo,
             attachmentCount: attachmentCount,
-            isOpenGroupInvitation: isOpenGroupInvitation
+            isOpenGroupInvitation: isOpenGroupInvitation,
+            using: dependencies
         ).string
     }
     
@@ -1035,7 +1040,8 @@ public extension Interaction {
         authorDisplayName: String = "",
         attachmentDescriptionInfo: Attachment.DescriptionInfo? = nil,
         attachmentCount: Int? = nil,
-        isOpenGroupInvitation: Bool = false
+        isOpenGroupInvitation: Bool = false,
+        using dependencies: Dependencies
     ) -> NSAttributedString {
         switch variant {
             case .standardIncomingDeleted: return NSAttributedString(string: "")
@@ -1119,7 +1125,7 @@ public extension Interaction {
                     )
                 else { return NSAttributedString(string: (body ?? "")) }
                 
-                return messageInfo.attributedPreviewText
+                return messageInfo.attributedPreviewText(using: dependencies)
                 
             case .infoCall:
                 guard

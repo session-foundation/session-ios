@@ -12,7 +12,7 @@ extension MessageReceiver {
         message: ExpirationTimerUpdate,
         using dependencies: Dependencies
     ) throws {
-        guard !Features.useNewDisappearingMessagesConfig else { return }
+        guard !dependencies[feature: .updatedDisappearingMessages] else { return }
         guard
             // Only process these for contact and legacy groups (new groups handle it separately)
             (threadVariant == .contact || threadVariant == .legacyGroup),
@@ -164,7 +164,7 @@ extension MessageReceiver {
             )
         
         guard
-            Features.useNewDisappearingMessagesConfig,
+            dependencies[feature: .updatedDisappearingMessages],
             proto.hasLastDisappearingMessageChangeTimestamp
         else { return }
         

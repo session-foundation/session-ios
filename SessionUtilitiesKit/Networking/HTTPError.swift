@@ -15,6 +15,8 @@ public enum HTTPError: LocalizedError, Equatable {
     case maxFileSizeExceeded
     case httpRequestFailed(statusCode: UInt, data: Data?)
     case timeout
+    case cancelled
+    case networkWrappersNotReady
     
     public var errorDescription: String? {
         switch self {
@@ -27,6 +29,8 @@ public enum HTTPError: LocalizedError, Equatable {
             case .maxFileSizeExceeded: return "Maximum file size exceeded."
             case .httpRequestFailed(let statusCode, _): return "HTTP request failed with status code: \(statusCode)."
             case .timeout: return "The request timed out."
+            case .cancelled: return "The request was cancelled."
+            case .networkWrappersNotReady: return "The network wrapper was not ready."
         }
     }
 }

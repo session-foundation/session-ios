@@ -26,7 +26,7 @@ public class Message: Codable {
 
     // MARK: - Validation
     
-    public var isValid: Bool {
+    public func isValid(using dependencies: Dependencies) -> Bool {
         if let sentTimestamp = sentTimestamp { guard sentTimestamp > 0 else { return false } }
         if let receivedTimestamp = receivedTimestamp { guard receivedTimestamp > 0 else { return false } }
         return sender != nil && recipient != nil
@@ -98,6 +98,8 @@ public class Message: Codable {
 
 // MARK: - Message Parsing/Processing
 
+public protocol NotProtoConvertible {}
+
 public enum ProcessedMessage {
     case standard(
         threadId: String,
@@ -142,7 +144,7 @@ public enum ProcessedMessage {
 }
 
 public extension Message {
-    enum Variant: String, Codable {
+    enum Variant: String, Codable, CaseIterable {
         case readReceipt
         case typingIndicator
         case closedGroupControlMessage
@@ -205,6 +207,34 @@ public extension Message {
                 case .groupUpdateDeleteMemberContent: return GroupUpdateDeleteMemberContentMessage.self
             }
         }
+        
+        /// This value ensures the variants can be ordered to ensure the correct types are processed and aren't parsed as the wrong type
+        /// due to the structures being close enough matches
+        var protoPriority: Int {
+            switch self {
+                case .readReceipt: return 0
+                case .typingIndicator: return 1
+                case .closedGroupControlMessage: return 2
+                case .dataExtractionNotification: return 11
+                case .expirationTimerUpdate: return 12
+                case .unsendRequest: return 13
+                case .messageRequestResponse: return 14
+                case .visibleMessage: return 15
+                case .callMessage: return 16
+                case .groupUpdateInvite: return 3
+                case .groupUpdateDelete: return 4
+                case .groupUpdatePromote: return 5
+                case .groupUpdateInfoChange: return 6
+                case .groupUpdateMemberChange: return 7
+                case .groupUpdateMemberLeft: return 8
+                case .groupUpdateInviteResponse: return 9
+                case .groupUpdateDeleteMemberContent: return 10
+            }
+        }
+        
+        var isProtoConvetible: Bool {
+            return !(self.messageType is NotProtoConvertible.Type)
+        }
 
         func decode<CodingKeys: CodingKey>(from container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys) throws -> Message {
             switch self {
@@ -247,28 +277,10 @@ public extension Message {
     }
     
     static func createMessageFrom(_ proto: SNProtoContent, sender: String) throws -> Message {
-        // Note: This array is ordered intentionally to ensure the correct types are processed
-        // and aren't parsed as the wrong type
-        let prioritisedVariants: [Variant] = [
-            .readReceipt,
-            .typingIndicator,
-            .closedGroupControlMessage,
-            .groupUpdateInvite,
-            .groupUpdateDelete,
-            .groupUpdatePromote,
-            .groupUpdateInfoChange,
-            .groupUpdateMemberChange,
-            .groupUpdateMemberLeft,
-            .groupUpdateInviteResponse,
-            .groupUpdateDeleteMemberContent,
-            .dataExtractionNotification,
-            .expirationTimerUpdate,
-            .unsendRequest,
-            .messageRequestResponse,
-            .visibleMessage,
-            .callMessage
-        ]
-        let decodedMessage: Message? = prioritisedVariants
+        let decodedMessage: Message? = Variant
+            .allCases
+            .sorted { lhs, rhs -> Bool in lhs.protoPriority < rhs.protoPriority }
+            .filter { variant -> Bool in variant.isProtoConvetible }
             .reduce(nil) { prev, variant in
                 guard prev == nil else { return prev }
                 

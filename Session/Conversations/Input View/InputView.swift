@@ -425,7 +425,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         // because if something goes wrong it'll trigger `hideVoiceMessageUI` and we don't want it to
         // end up in a state with the input content hidden
         showVoiceMessageUI()
-        delegate?.startVoiceMessageRecording(using: dependencies)
+        delegate?.startVoiceMessageRecording()
     }
 
     func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?) {

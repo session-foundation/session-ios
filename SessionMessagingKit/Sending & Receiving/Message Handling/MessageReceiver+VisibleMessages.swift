@@ -12,7 +12,7 @@ extension MessageReceiver {
         threadVariant: SessionThread.Variant,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> Int64 {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
             throw MessageReceiverError.invalidMessage
@@ -372,7 +372,8 @@ extension MessageReceiver {
                 db,
                 for: interaction,
                 in: thread,
-                applicationState: (isMainAppActive ? .active : .background)
+                applicationState: (isMainAppActive ? .active : .background),
+                using: dependencies
             )
         
         return interactionId

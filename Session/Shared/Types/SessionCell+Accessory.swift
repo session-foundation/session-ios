@@ -384,14 +384,14 @@ extension SessionCell.Accessory {
         )
     }
     
-    public static func profile(id: String, size: ProfilePictureView.Size, profile: Profile?) -> SessionCell.Accessory {
+    public static func profile(id: String, size: ProfilePictureView.Size, profile: Profile?, profileIcon: ProfilePictureView.ProfileIcon) -> SessionCell.Accessory {
         return .profile(
             id: id,
             size: size,
             threadVariant: .contact,
             displayPictureFilename: nil,
             profile: profile,
-            profileIcon: .none,
+            profileIcon: profileIcon,
             additionalProfile: nil,
             additionalProfileIcon: .none,
             accessibility: nil

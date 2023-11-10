@@ -22,22 +22,22 @@ public class SessionCell: UITableViewCell {
     
     private var backgroundLeftConstraint: NSLayoutConstraint = NSLayoutConstraint()
     private var backgroundRightConstraint: NSLayoutConstraint = NSLayoutConstraint()
-    private var topSeparatorLeftConstraint: NSLayoutConstraint = NSLayoutConstraint()
-    private var topSeparatorRightConstraint: NSLayoutConstraint = NSLayoutConstraint()
-    private var botSeparatorLeftConstraint: NSLayoutConstraint = NSLayoutConstraint()
-    private var botSeparatorRightConstraint: NSLayoutConstraint = NSLayoutConstraint()
+    private var topSeparatorLeadingConstraint: NSLayoutConstraint = NSLayoutConstraint()
+    private var topSeparatorTrailingConstraint: NSLayoutConstraint = NSLayoutConstraint()
+    private var botSeparatorLeadingConstraint: NSLayoutConstraint = NSLayoutConstraint()
+    private var botSeparatorTrailingConstraint: NSLayoutConstraint = NSLayoutConstraint()
     private lazy var contentStackViewTopConstraint: NSLayoutConstraint = contentStackView.pin(.top, to: .top, of: cellBackgroundView)
     private lazy var contentStackViewLeadingConstraint: NSLayoutConstraint = contentStackView.pin(.leading, to: .leading, of: cellBackgroundView)
     private lazy var contentStackViewTrailingConstraint: NSLayoutConstraint = contentStackView.pin(.trailing, to: .trailing, of: cellBackgroundView)
     private lazy var contentStackViewBottomConstraint: NSLayoutConstraint = contentStackView.pin(.bottom, to: .bottom, of: cellBackgroundView)
     private lazy var contentStackViewHorizontalCenterConstraint: NSLayoutConstraint = contentStackView.center(.horizontal, in: cellBackgroundView)
-    private lazy var leftAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: leftAccessoryView)
+    private lazy var leadingAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: leadingAccessoryView)
     private lazy var titleTextFieldLeadingConstraint: NSLayoutConstraint = titleTextField.pin(.leading, to: .leading, of: cellBackgroundView)
     private lazy var titleTextFieldTrailingConstraint: NSLayoutConstraint = titleTextField.pin(.trailing, to: .trailing, of: cellBackgroundView)
     private lazy var titleMinHeightConstraint: NSLayoutConstraint = titleStackView.heightAnchor
         .constraint(greaterThanOrEqualTo: titleTextField.heightAnchor)
-    private lazy var rightAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: rightAccessoryView)
-    private lazy var accessoryWidthMatchConstraint: NSLayoutConstraint = leftAccessoryView.set(.width, to: .width, of: rightAccessoryView)
+    private lazy var trailingAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: trailingAccessoryView)
+    private lazy var accessoryWidthMatchConstraint: NSLayoutConstraint = leadingAccessoryView.set(.width, to: .width, of: trailingAccessoryView)
     
     private let cellBackgroundView: UIView = {
         let result: UIView = UIView()
@@ -76,7 +76,7 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    public let leftAccessoryView: AccessoryView = {
+    public let leadingAccessoryView: AccessoryView = {
         let result: AccessoryView = AccessoryView()
         result.isHidden = true
         
@@ -132,7 +132,7 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    public let rightAccessoryView: AccessoryView = {
+    public let trailingAccessoryView: AccessoryView = {
         let result: AccessoryView = AccessoryView()
         result.isHidden = true
         
@@ -171,9 +171,9 @@ public class SessionCell: UITableViewCell {
         cellBackgroundView.addSubview(contentStackView)
         cellBackgroundView.addSubview(botSeparator)
         
-        contentStackView.addArrangedSubview(leftAccessoryView)
+        contentStackView.addArrangedSubview(leadingAccessoryView)
         contentStackView.addArrangedSubview(titleStackView)
-        contentStackView.addArrangedSubview(rightAccessoryView)
+        contentStackView.addArrangedSubview(trailingAccessoryView)
         
         titleStackView.addArrangedSubview(titleLabel)
         titleStackView.addArrangedSubview(subtitleLabel)
@@ -192,16 +192,16 @@ public class SessionCell: UITableViewCell {
         cellSelectedBackgroundView.pin(to: cellBackgroundView)
         
         topSeparator.pin(.top, to: .top, of: cellBackgroundView)
-        topSeparatorLeftConstraint = topSeparator.pin(.left, to: .left, of: cellBackgroundView)
-        topSeparatorRightConstraint = topSeparator.pin(.right, to: .right, of: cellBackgroundView)
+        topSeparatorLeadingConstraint = topSeparator.pin(.leading, to: .leading, of: cellBackgroundView)
+        topSeparatorTrailingConstraint = topSeparator.pin(.trailing, to: .trailing, of: cellBackgroundView)
         
         contentStackViewTopConstraint.isActive = true
         contentStackViewBottomConstraint.isActive = true
         
         titleTextField.center(.vertical, in: titleLabel)
         
-        botSeparatorLeftConstraint = botSeparator.pin(.left, to: .left, of: cellBackgroundView)
-        botSeparatorRightConstraint = botSeparator.pin(.right, to: .right, of: cellBackgroundView)
+        botSeparatorLeadingConstraint = botSeparator.pin(.leading, to: .leading, of: cellBackgroundView)
+        botSeparatorTrailingConstraint = botSeparator.pin(.trailing, to: .trailing, of: cellBackgroundView)
         botSeparator.pin(.bottom, to: .bottom, of: cellBackgroundView)
     }
     
@@ -289,9 +289,9 @@ public class SessionCell: UITableViewCell {
         contentStackViewTrailingConstraint.isActive = false
         contentStackViewHorizontalCenterConstraint.isActive = false
         titleMinHeightConstraint.isActive = false
-        leftAccessoryView.prepareForReuse()
-        leftAccessoryView.alpha = 1
-        leftAccessoryFillConstraint.isActive = false
+        leadingAccessoryView.prepareForReuse()
+        leadingAccessoryView.alpha = 1
+        leadingAccessoryFillConstraint.isActive = false
         titleLabel.text = ""
         titleLabel.textAlignment = .left
         titleLabel.themeTextColor = .textPrimary
@@ -302,11 +302,11 @@ public class SessionCell: UITableViewCell {
         titleTextField.isHidden = true
         titleTextField.alpha = 0
         subtitleLabel.isUserInteractionEnabled = false
-        subtitleLabel.text = ""
+        subtitleLabel.attributedText = nil
         subtitleLabel.themeTextColor = .textPrimary
-        rightAccessoryView.prepareForReuse()
-        rightAccessoryView.alpha = 1
-        rightAccessoryFillConstraint.isActive = false
+        trailingAccessoryView.prepareForReuse()
+        trailingAccessoryView.alpha = 1
+        trailingAccessoryFillConstraint.isActive = false
         accessoryWidthMatchConstraint.isActive = false
         
         topSeparator.isHidden = true
@@ -325,13 +325,13 @@ public class SessionCell: UITableViewCell {
         originalInputValue = info.title?.text
         
         // Convenience Flags
-        let leftFitToEdge: Bool = (info.leftAccessory?.shouldFitToEdge == true)
-        let rightFitToEdge: Bool = (!leftFitToEdge && info.rightAccessory?.shouldFitToEdge == true)
+        let leadingFitToEdge: Bool = (info.leadingAccessory?.shouldFitToEdge == true)
+        let trailingFitToEdge: Bool = (!leadingFitToEdge && info.trailingAccessory?.shouldFitToEdge == true)
         
         // Content
         contentStackView.spacing = (info.styling.customPadding?.interItem ?? Values.mediumSpacing)
-        leftAccessoryView.update(
-            with: info.leftAccessory,
+        leadingAccessoryView.update(
+            with: info.leadingAccessory,
             tintColor: info.styling.tintColor,
             isEnabled: info.isEnabled,
             isManualReload: isManualReload
@@ -351,12 +351,14 @@ public class SessionCell: UITableViewCell {
         titleTextField.accessibilityLabel = info.accessibility?.label
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
-        subtitleLabel.text = info.subtitle?.text
+        subtitleLabel.attributedText = info.subtitle.map { subtitle -> NSAttributedString? in
+            NSAttributedString(stringWithHTMLTags: subtitle.text, font: subtitle.font)
+        }
         subtitleLabel.themeTextColor = info.styling.subtitleTintColor
         subtitleLabel.textAlignment = (info.subtitle?.textAlignment ?? .left)
         subtitleLabel.isHidden = (info.subtitle == nil)
-        rightAccessoryView.update(
-            with: info.rightAccessory,
+        trailingAccessoryView.update(
+            with: info.trailingAccessory,
             tintColor: info.styling.tintColor,
             isEnabled: info.isEnabled,
             isManualReload: isManualReload
@@ -366,20 +368,20 @@ public class SessionCell: UITableViewCell {
         contentStackViewTrailingConstraint.isActive = (info.styling.alignment == .leading)
         contentStackViewHorizontalCenterConstraint.constant = ((info.styling.customPadding?.leading ?? 0) + (info.styling.customPadding?.trailing ?? 0))
         contentStackViewHorizontalCenterConstraint.isActive = (info.styling.alignment == .centerHugging)
-        leftAccessoryFillConstraint.isActive = leftFitToEdge
-        rightAccessoryFillConstraint.isActive = rightFitToEdge
+        leadingAccessoryFillConstraint.isActive = leadingFitToEdge
+        trailingAccessoryFillConstraint.isActive = trailingFitToEdge
         accessoryWidthMatchConstraint.isActive = {
-            switch (info.leftAccessory, info.rightAccessory) {
+            switch (info.leadingAccessory, info.trailingAccessory) {
                 case (.button, .button): return true
                 default: return false
             }
         }()
         titleLabel.setContentHuggingPriority(
-            (info.rightAccessory != nil ? .defaultLow : .required),
+            (info.trailingAccessory != nil ? .defaultLow : .required),
             for: .horizontal
         )
         titleLabel.setContentCompressionResistancePriority(
-            (info.rightAccessory != nil ? .defaultLow : .required),
+            (info.trailingAccessory != nil ? .defaultLow : .required),
             for: .horizontal
         )
         contentStackViewTopConstraint.constant = {
@@ -387,38 +389,38 @@ public class SessionCell: UITableViewCell {
                 return customPadding
             }
             
-            return (leftFitToEdge || rightFitToEdge ? 0 : Values.mediumSpacing)
+            return (leadingFitToEdge || trailingFitToEdge ? 0 : Values.mediumSpacing)
         }()
         contentStackViewLeadingConstraint.constant = {
             if let customPadding: CGFloat = info.styling.customPadding?.leading {
                 return customPadding
             }
             
-            return (leftFitToEdge ? 0 : Values.mediumSpacing)
+            return (leadingFitToEdge ? 0 : Values.mediumSpacing)
         }()
         contentStackViewTrailingConstraint.constant = {
             if let customPadding: CGFloat = info.styling.customPadding?.trailing {
                 return -customPadding
             }
             
-            return -(rightFitToEdge ? 0 : Values.mediumSpacing)
+            return -(trailingFitToEdge ? 0 : Values.mediumSpacing)
         }()
         contentStackViewBottomConstraint.constant = {
             if let customPadding: CGFloat = info.styling.customPadding?.bottom {
                 return -customPadding
             }
             
-            return -(leftFitToEdge || rightFitToEdge ? 0 : Values.mediumSpacing)
+            return -(leadingFitToEdge || trailingFitToEdge ? 0 : Values.mediumSpacing)
         }()
         titleTextFieldLeadingConstraint.constant = {
             guard info.styling.backgroundStyle != .noBackground else { return 0 }
             
-            return (leftFitToEdge ? 0 : Values.mediumSpacing)
+            return (leadingFitToEdge ? 0 : Values.mediumSpacing)
         }()
         titleTextFieldTrailingConstraint.constant = {
             guard info.styling.backgroundStyle != .noBackground else { return 0 }
             
-            return -(rightFitToEdge ? 0 : Values.mediumSpacing)
+            return -(trailingFitToEdge ? 0 : Values.mediumSpacing)
         }()
         
         // Styling and positioning
@@ -470,18 +472,18 @@ public class SessionCell: UITableViewCell {
                 }
             }
             
-            guard leftFitToEdge else {
-                guard rightFitToEdge else { return defaultEdgePadding }
+            guard leadingFitToEdge else {
+                guard trailingFitToEdge else { return defaultEdgePadding }
                 
-                return targetSize(accessory: info.rightAccessory)
+                return targetSize(accessory: info.trailingAccessory)
             }
             
-            return targetSize(accessory: info.leftAccessory)
+            return targetSize(accessory: info.leadingAccessory)
         }()
-        topSeparatorLeftConstraint.constant = (leftFitToEdge ? fittedEdgePadding : defaultEdgePadding)
-        topSeparatorRightConstraint.constant = (rightFitToEdge ? -fittedEdgePadding : -defaultEdgePadding)
-        botSeparatorLeftConstraint.constant = (leftFitToEdge ? fittedEdgePadding : defaultEdgePadding)
-        botSeparatorRightConstraint.constant = (rightFitToEdge ? -fittedEdgePadding : -defaultEdgePadding)
+        topSeparatorLeadingConstraint.constant = (leadingFitToEdge ? fittedEdgePadding : defaultEdgePadding)
+        topSeparatorTrailingConstraint.constant = (trailingFitToEdge ? -fittedEdgePadding : -defaultEdgePadding)
+        botSeparatorLeadingConstraint.constant = (leadingFitToEdge ? fittedEdgePadding : defaultEdgePadding)
+        botSeparatorTrailingConstraint.constant = (trailingFitToEdge ? -fittedEdgePadding : -defaultEdgePadding)
         
         switch info.position {
             case .top:
@@ -549,8 +551,8 @@ public class SessionCell: UITableViewCell {
         let changes = { [weak self] in
             self?.titleLabel.alpha = (isEditing ? 0 : 1)
             self?.titleTextField.alpha = (isEditing ? 1 : 0)
-            self?.leftAccessoryView.alpha = (isEditing ? 0 : 1)
-            self?.rightAccessoryView.alpha = (isEditing ? 0 : 1)
+            self?.leadingAccessoryView.alpha = (isEditing ? 0 : 1)
+            self?.trailingAccessoryView.alpha = (isEditing ? 0 : 1)
             self?.titleMinHeightConstraint.isActive = isEditing
         }
         let completion: (Bool) -> Void = { [weak self] complete in
@@ -595,15 +597,15 @@ public class SessionCell: UITableViewCell {
         }
 
         cellSelectedBackgroundView.alpha = (highlighted ? 1 : 0)
-        leftAccessoryView.setHighlighted(highlighted, animated: animated)
-        rightAccessoryView.setHighlighted(highlighted, animated: animated)
+        leadingAccessoryView.setHighlighted(highlighted, animated: animated)
+        trailingAccessoryView.setHighlighted(highlighted, animated: animated)
     }
     
     public override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
 
-        leftAccessoryView.setSelected(selected, animated: animated)
-        rightAccessoryView.setSelected(selected, animated: animated)
+        leadingAccessoryView.setSelected(selected, animated: animated)
+        trailingAccessoryView.setSelected(selected, animated: animated)
     }
 }
 

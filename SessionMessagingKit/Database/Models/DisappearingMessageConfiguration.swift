@@ -130,8 +130,10 @@ public extension DisappearingMessagesConfiguration {
         public let type: DisappearingMessageType?
         public let isPreviousOff: Bool?
         
-        var attributedPreviewText: NSAttributedString {
-            guard Features.useNewDisappearingMessagesConfig else { return NSAttributedString(string: legacyPreviewText) }
+        func attributedPreviewText(using dependencies: Dependencies) -> NSAttributedString {
+            guard dependencies[feature: .updatedDisappearingMessages] else {
+                return NSAttributedString(string: legacyPreviewText)
+            }
             
             guard let senderName: String = senderName else {
                 // Changed by this device or via synced transcript

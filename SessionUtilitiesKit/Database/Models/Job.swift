@@ -141,6 +141,11 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// wait during promotions
         case groupPromoteMember
         
+        /// This is a job which checks for any pending group member removals and performs the tasks required to remove
+        /// them if any exist - only one job can run at a time (if there is already a running job then any subsequent job will
+        /// be deferred until it completes)
+        case processPendingGroupMemberRemovals
+        
         /// This is a job which does nothing but never completes by itself, the code will need to manually trigger a resolution
         /// for the job; it can be beneficial when there is another `Job` which needs to be blocked by a non-job process as
         /// it can be added as a dependency and can be added to any job queue

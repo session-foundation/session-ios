@@ -65,7 +65,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 // Should only show one section of Disappearing Messages Type
                 expect(viewModel.tableData.count).to(equal(1))
                 
-                if Features.useNewDisappearingMessagesConfig {
+                if dependencies[feature: .updatedDisappearingMessages] {
                     // Off
                     // Disappear After Read
                     // Disappear After Send
@@ -89,7 +89,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     isSelected: true
                                 ),
                                 accessibility: Accessibility(
@@ -108,10 +108,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     isSelected: false
                                 ),
-                                isEnabled: Features.useNewDisappearingMessagesConfig,
+                                isEnabled: dependencies[feature: .updatedDisappearingMessages],
                                 accessibility: Accessibility(
                                     identifier: "Disappear after send option",
                                     label: "Disappear after send option"
@@ -162,7 +162,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     isSelected: false
                                 ),
                                 accessibility: Accessibility(
@@ -181,7 +181,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     isSelected: true
                                 ),
                                 accessibility: Accessibility(
@@ -202,7 +202,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 id: title,
                                 position: .bottom,
                                 title: title,
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     isSelected: true
                                 ),
                                 accessibility: Accessibility(
@@ -273,7 +273,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 position: .bottom,
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     isSelected: true
                                 ),
                                 accessibility: Accessibility(
@@ -294,7 +294,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 id: title,
                                 position: .bottom,
                                 title: title,
-                                rightAccessory: .radio(
+                                trailingAccessory: .radio(
                                     isSelected: true
                                 ),
                                 accessibility: Accessibility(

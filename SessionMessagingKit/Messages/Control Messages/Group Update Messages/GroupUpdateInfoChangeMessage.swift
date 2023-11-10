@@ -9,6 +9,7 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         case changeType
         case updatedName
         case updatedExpiration
+        case adminSignature
     }
     
     public enum ChangeType: Int, Codable {
@@ -20,6 +21,7 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
     public var changeType: ChangeType
     public var updatedName: String?
     public var updatedExpiration: UInt32?
+    public var adminSignature: Authentication.Signature
     
     override public var processWithBlockedSender: Bool { true }
     
@@ -29,15 +31,50 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         changeType: ChangeType,
         updatedName: String? = nil,
         updatedExpiration: UInt32? = nil,
-        sentTimestamp: UInt64? = nil
-    ) {
+        sentTimestamp: UInt64,
+        authMethod: AuthenticationMethod,
+        using dependencies: Dependencies
+    ) throws {
         self.changeType = changeType
         self.updatedName = updatedName
         self.updatedExpiration = updatedExpiration
+        self.adminSignature = try authMethod.generateSignature(
+            with: GroupUpdateInfoChangeMessage.generateVerificationBytes(
+                changeType: changeType,
+                timestampMs: sentTimestamp
+            ),
+            using: dependencies
+        )
         
         super.init(
             sentTimestamp: sentTimestamp
         )
+    }
+    
+    public init(
+        changeType: ChangeType,
+        updatedName: String? = nil,
+        updatedExpiration: UInt32? = nil,
+        adminSignature: Authentication.Signature
+    ) {
+        self.changeType = changeType
+        self.updatedName = updatedName
+        self.updatedExpiration = updatedExpiration
+        self.adminSignature = adminSignature
+        
+        super.init()
+    }
+    
+    // MARK: - Signature Generation
+    
+    public static func generateVerificationBytes(
+        changeType: ChangeType,
+        timestampMs: UInt64
+    ) -> [UInt8] {
+        /// Ed25519 signature of `("INFO_CHANGE" || type || timestamp)`
+        return "INFO_CHANGE".bytes
+            .appending(contentsOf: "\(changeType.rawValue)".data(using: .ascii)?.bytes)
+            .appending(contentsOf: "\(timestampMs)".data(using: .ascii)?.bytes)
     }
     
     // MARK: - Codable
@@ -48,6 +85,9 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         changeType = try container.decode(ChangeType.self, forKey: .changeType)
         updatedName = try? container.decode(String.self, forKey: .updatedName)
         updatedExpiration = try? container.decode(UInt32.self, forKey: .updatedExpiration)
+        adminSignature = Authentication.Signature.standard(
+            signature: try container.decode([UInt8].self, forKey: .adminSignature)
+        )
         
         try super.init(from: decoder)
     }
@@ -60,6 +100,11 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         try container.encode(changeType, forKey: .changeType)
         try container.encodeIfPresent(updatedName, forKey: .updatedName)
         try container.encodeIfPresent(updatedExpiration, forKey: .updatedExpiration)
+        
+        switch adminSignature {
+            case .standard(let signature): try container.encode(signature, forKey: .adminSignature)
+            case .subaccount: throw MessageSenderError.signingFailed
+        }
     }
 
     // MARK: - Proto Conversion
@@ -74,7 +119,10 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         return GroupUpdateInfoChangeMessage(
             changeType: changeType,
             updatedName: groupInfoChangeMessage.updatedName,
-            updatedExpiration: groupInfoChangeMessage.updatedExpiration
+            updatedExpiration: groupInfoChangeMessage.updatedExpiration,
+            adminSignature: Authentication.Signature.standard(
+                signature: Array(groupInfoChangeMessage.adminSignature)
+            )
         )
     }
 
@@ -86,6 +134,12 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
                         case .name: return .name
                         case .avatar: return .avatar
                         case .disappearingMessages: return .disappearingMessages
+                    }
+                }(),
+                adminSignature: try {
+                    switch adminSignature {
+                        case .standard(let signature): return Data(signature)
+                        case .subaccount: throw MessageSenderError.signingFailed
                     }
                 }()
             )
@@ -120,7 +174,8 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         GroupUpdateInfoChangeMessage(
             changeType: \(changeType),
             updatedName: \(String(describing: updatedName)),
-            updatedExpiration: \(String(describing: updatedExpiration))
+            updatedExpiration: \(String(describing: updatedExpiration)),
+            adminSignature: \(adminSignature)
         )
         """
     }

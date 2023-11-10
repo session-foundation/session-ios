@@ -20,7 +20,7 @@ public extension Singleton {
 public final class GroupPoller: Poller {
     public static var legacyNamespaces: [SnodeAPI.Namespace] = [.legacyClosedGroup ]
     public static var namespaces: [SnodeAPI.Namespace] = [
-        .groupMessages, .configGroupInfo, .configGroupMembers, .configGroupKeys
+        .groupMessages, .configGroupInfo, .configGroupMembers, .configGroupKeys, .revokedRetrievableGroupMessages
     ]
 
     // MARK: - Settings

@@ -117,11 +117,11 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                             }
                             
                             let finalAction: OnTapAction = finalAction(for: onTapAction)
-                            let rightAccessory: SessionCell.Accessory? = generateAccessory(finalAction)
+                            let trailingAccessory: SessionCell.Accessory? = generateAccessory(finalAction)
                             
                             return SessionCell.Info(
                                 id: .user(userInfo.profileId),
-                                leftAccessory: .profile(
+                                leadingAccessory: .profile(
                                     id: userInfo.profileId,
                                     profile: userInfo.profile,
                                     profileIcon: (showProfileIcons ? userInfo.value.profileIcon : .none)
@@ -131,7 +131,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                     Profile.truncated(id: userInfo.profileId, truncating: .middle)
                                 ),
                                 subtitle: userInfo.itemDescription(using: dependencies),
-                                rightAccessory: rightAccessory,
+                                trailingAccessory: trailingAccessory,
                                 styling: SessionCell.StyleInfo(
                                     subtitleTintColor: userInfo.itemDescriptionColor(using: dependencies),
                                     allowedSeparators: [],
@@ -151,7 +151,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                     }
                                     
                                     // Only update the selection if the accessory is a 'radio'
-                                    guard case .radio = rightAccessory else { return }
+                                    guard case .radio = trailingAccessory else { return }
                                     
                                     // Toggle the selection
                                     if !selectedUsersSubject.value.contains(userInfo) {

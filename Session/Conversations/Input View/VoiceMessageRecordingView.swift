@@ -310,9 +310,9 @@ final class VoiceMessageRecordingView: UIView {
         }
     }
 
-    func handleLongPressEnded(at location: CGPoint, using dependencies: Dependencies = Dependencies()) {
+    func handleLongPressEnded(at location: CGPoint) {
         if pulseView.frame.contains(location) {
-            delegate?.endVoiceMessageRecording(using: dependencies)
+            delegate?.endVoiceMessageRecording()
         }
         else if isValidLockViewLocation(location) {
             let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(onCircleViewTap))
@@ -332,10 +332,8 @@ final class VoiceMessageRecordingView: UIView {
         }
     }
 
-    @objc private func onCircleViewTap() { handleCircleViewTap() }
-    
-    private func handleCircleViewTap(using dependencies: Dependencies = Dependencies()) {
-        delegate?.endVoiceMessageRecording(using: dependencies)
+    @objc private func onCircleViewTap() {
+        delegate?.endVoiceMessageRecording()
     }
 
     @objc private func handleCancelButtonTapped() {
@@ -476,7 +474,7 @@ extension VoiceMessageRecordingView {
 // MARK: - Delegate
 
 protocol VoiceMessageRecordingViewDelegate: AnyObject {
-    func startVoiceMessageRecording(using dependencies: Dependencies)
-    func endVoiceMessageRecording(using dependencies: Dependencies)
+    func startVoiceMessageRecording()
+    func endVoiceMessageRecording()
     func cancelVoiceMessageRecording()
 }

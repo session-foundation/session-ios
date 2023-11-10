@@ -12,7 +12,25 @@ final class PathVC: BaseVC {
     public static let dotSize: CGFloat = 8
     public static let expandedDotSize: CGFloat = 16
     private static let rowHeight: CGFloat = (isIPhone5OrSmaller ? 52 : 75)
-
+    
+    // MARK: - Initialization
+    
+    private let dependencies: Dependencies
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    deinit {
+        dependencies.removeFeatureObserver(self)
+    }
+    
     // MARK: - Components
     
     private lazy var pathStackView: UIStackView = {
@@ -117,22 +135,13 @@ final class PathVC: BaseVC {
     }
 
     private func registerObservers() {
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.addObserver(self, selector: #selector(handleBuildingPathsNotification), name: .buildingPaths, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(handlePathsBuiltNotification), name: .pathsBuilt, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(handleOnionRequestPathCountriesLoadedNotification), name: .onionRequestPathCountriesLoaded, object: nil)
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
+        dependencies.addFeatureObserver(self, for: .networkLayers) { [weak self] _, _ in
+            self?.update()
+        }
     }
 
     // MARK: - Updating
     
-    @objc private func handleBuildingPathsNotification() { update() }
-    @objc private func handlePathsBuiltNotification() { update() }
-    @objc private func handleOnionRequestPathCountriesLoadedNotification() { update() }
-
     private func update() {
         pathStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
@@ -187,7 +196,8 @@ final class PathVC: BaseVC {
         let lineView = LineView(
             location: location,
             dotAnimationStartDelay: dotAnimationStartDelay,
-            dotAnimationRepeatInterval: dotAnimationRepeatInterval
+            dotAnimationRepeatInterval: dotAnimationRepeatInterval,
+            using: dependencies
         )
         lineView.set(.width, to: PathVC.expandedDotSize)
         lineView.set(.height, to: PathVC.rowHeight)
@@ -259,7 +269,44 @@ private final class LineView: UIView {
     enum Location {
         case top, middle, bottom
     }
-
+    
+    // MARK: - Initialization
+    
+    private let dependencies: Dependencies
+    
+    init(
+        location: Location,
+        dotAnimationStartDelay: Double,
+        dotAnimationRepeatInterval: Double,
+        using dependencies: Dependencies
+    ) {
+        self.location = location
+        self.dotAnimationStartDelay = dotAnimationStartDelay
+        self.dotAnimationRepeatInterval = dotAnimationRepeatInterval
+        self.dependencies = dependencies
+        
+        super.init(frame: CGRect.zero)
+        
+        setUpViewHierarchy()
+        registerObservers()
+    }
+    
+    override init(frame: CGRect) {
+        preconditionFailure("Use init(location:dotAnimationStartDelay:dotAnimationRepeatInterval:) instead.")
+    }
+    
+    required init?(coder: NSCoder) {
+        preconditionFailure("Use init(location:dotAnimationStartDelay:dotAnimationRepeatInterval:) instead.")
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        dependencies.removeFeatureObserver(self)
+        dotViewAnimationTimer?.invalidate()
+    }
+    
+    // MARK: - Components
+    
     private lazy var dotView: UIView = {
         let result = UIView()
         result.themeBackgroundColor = .path_connected
@@ -281,30 +328,7 @@ private final class LineView: UIView {
         return result
     }()
     
-    init(location: Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double) {
-        self.location = location
-        self.dotAnimationStartDelay = dotAnimationStartDelay
-        self.dotAnimationRepeatInterval = dotAnimationRepeatInterval
-        
-        super.init(frame: CGRect.zero)
-        
-        setUpViewHierarchy()
-        registerObservers()
-    }
-    
-    override init(frame: CGRect) {
-        preconditionFailure("Use init(location:dotAnimationStartDelay:dotAnimationRepeatInterval:) instead.")
-    }
-    
-    required init?(coder: NSCoder) {
-        preconditionFailure("Use init(location:dotAnimationStartDelay:dotAnimationRepeatInterval:) instead.")
-    }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-        
-        dotViewAnimationTimer?.invalidate()
-    }
+    // MARK: - Layout
     
     private func setUpViewHierarchy() {
         let lineView = UIView()
@@ -349,22 +373,18 @@ private final class LineView: UIView {
     private func registerObservers() {
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleBuildingPathsNotification),
-            name: .buildingPaths,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handlePathsBuiltNotification),
-            name: .pathsBuilt,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
             selector: #selector(reachabilityChanged),
             name: .reachabilityChanged,
             object: nil
         )
+        
+        dependencies.addFeatureObserver(self, for: .networkLayers) { [weak self] _, event in
+            switch event {
+                case .buildingPaths: self?.handleBuildingPathsNotification()
+                case .pathsBuilt: self?.handlePathsBuiltNotification()
+                default: break
+            }
+        }
     }
 
     private func animate() {
@@ -392,7 +412,7 @@ private final class LineView: UIView {
         dotView.layer.themeShadowColor = status.themeColor
     }
     
-    @objc private func handleBuildingPathsNotification() {
+    private func handleBuildingPathsNotification() {
         guard reachability?.isReachable() == true else {
             setStatus(to: .error)
             return
@@ -401,7 +421,7 @@ private final class LineView: UIView {
         setStatus(to: .connecting)
     }
 
-    @objc private func handlePathsBuiltNotification() {
+    private func handlePathsBuiltNotification() {
         guard reachability?.isReachable() == true else {
             setStatus(to: .error)
             return

@@ -2,9 +2,17 @@
 
 import Foundation
 import GRDB
+import SessionUtilitiesKit
 
 public protocol NotificationsProtocol {
-    func notifyUser(_ db: Database, for interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State)
+    func notifyUser(
+        _ db: Database,
+        for interaction: Interaction,
+        in thread: SessionThread,
+        applicationState: UIApplication.State,
+        using dependencies: Dependencies
+    )
+    
     func notifyUser(_ db: Database, forIncomingCall interaction: Interaction, in thread: SessionThread, applicationState: UIApplication.State)
     func notifyUser(_ db: Database, forReaction reaction: Reaction, in thread: SessionThread, applicationState: UIApplication.State)
     func cancelNotifications(identifiers: [String])
