@@ -11,47 +11,13 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
-class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.NavButton, ThreadSettingsViewModel.Section, ThreadSettingsViewModel.Setting> {
-    // MARK: - Config
+class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let editableState: EditableState<TableItem> = EditableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
-    enum NavState {
-        case standard
-        case editing
-    }
-    
-    enum NavButton: Equatable {
-        case edit
-        case cancel
-        case done
-    }
-    
-    public enum Section: SessionTableSection {
-        case conversationInfo
-        case content
-    }
-    
-    public enum Setting: Differentiable {
-        case avatar
-        case nickname
-        case sessionId
-        
-        case copyThreadId
-        case allMedia
-        case searchConversation
-        case addToOpenGroup
-        case disappearingMessages
-        case disappearingMessagesDuration
-        case editGroup
-        case leaveGroup
-        case notificationSound
-        case notificationMentionsOnly
-        case notificationMute
-        case blockUser
-    }
-    
-    // MARK: - Variables
-    
-    private let dependencies: Dependencies
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private let didTriggerSearch: () -> ()
@@ -82,6 +48,43 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
        )
     }
     
+    // MARK: - Config
+    
+    enum NavState {
+        case standard
+        case editing
+    }
+    
+    enum NavItem: Equatable {
+        case edit
+        case cancel
+        case done
+    }
+    
+    public enum Section: SessionTableSection {
+        case conversationInfo
+        case content
+    }
+    
+    public enum TableItem: Differentiable {
+        case avatar
+        case nickname
+        case sessionId
+        
+        case copyThreadId
+        case allMedia
+        case searchConversation
+        case addToOpenGroup
+        case disappearingMessages
+        case disappearingMessagesDuration
+        case editGroup
+        case leaveGroup
+        case notificationSound
+        case notificationMentionsOnly
+        case notificationMute
+        case blockUser
+    }
+    
     // MARK: - Navigation
     
     lazy var navState: AnyPublisher<NavState, Never> = {
@@ -104,113 +107,97 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             .eraseToAnyPublisher()
     }()
 
-    override var leftNavItems: AnyPublisher<[NavItem]?, Never> {
-       navState
-           .map { [weak self] navState -> [NavItem] in
-               // Only show the 'Edit' button if it's a contact thread
-               guard self?.threadVariant == .contact else { return [] }
-               guard navState == .editing else { return [] }
+    lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
+       .map { [weak self] navState -> [SessionNavItem<NavItem>] in
+           // Only show the 'Edit' button if it's a contact thread
+           guard self?.threadVariant == .contact else { return [] }
+           guard navState == .editing else { return [] }
 
-               return [
-                   NavItem(
-                       id: .cancel,
-                       systemItem: .cancel,
-                       accessibilityIdentifier: "Cancel button"
-                   ) { [weak self] in
-                       self?.setIsEditing(false)
-                       self?.editedDisplayName = self?.oldDisplayName
-                   }
-               ]
-           }
-           .eraseToAnyPublisher()
-    }
-
-    override var rightNavItems: AnyPublisher<[NavItem]?, Never> {
-       navState
-           .map { [weak self, dependencies] navState -> [NavItem] in
-               // Only show the 'Edit' button if it's a contact thread
-               guard self?.threadVariant == .contact else { return [] }
-
-               switch navState {
-                   case .editing:
-                       return [
-                           NavItem(
-                               id: .done,
-                               systemItem: .done,
-                               accessibilityIdentifier: "Done"
-                           ) { [weak self] in
-                               self?.setIsEditing(false)
-                               
-                               guard
-                                   self?.threadVariant == .contact,
-                                   let threadId: String = self?.threadId,
-                                   let editedDisplayName: String = self?.editedDisplayName
-                               else { return }
-                               
-                               let updatedNickname: String = editedDisplayName
-                                   .trimmingCharacters(in: .whitespacesAndNewlines)
-                               self?.oldDisplayName = (updatedNickname.isEmpty ? nil : editedDisplayName)
-
-                               dependencies.storage.writeAsync(using: dependencies) { db in
-                                   try Profile
-                                       .filter(id: threadId)
-                                       .updateAllAndConfig(
-                                           db,
-                                           Profile.Columns.nickname
-                                               .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName))
-                                       )
-                               }
-                           }
-                       ]
-
-                   case .standard:
-                       return [
-                           NavItem(
-                               id: .edit,
-                               systemItem: .edit,
-                               accessibilityIdentifier: "Edit button",
-                               accessibilityLabel: "Edit user nickname"
-                           ) { [weak self] in self?.setIsEditing(true) }
-                       ]
+           return [
+            SessionNavItem(
+                   id: .cancel,
+                   systemItem: .cancel,
+                   accessibilityIdentifier: "Cancel button"
+               ) { [weak self] in
+                   self?.setIsEditing(false)
+                   self?.editedDisplayName = self?.oldDisplayName
                }
-           }
-           .eraseToAnyPublisher()
-    }
+           ]
+       }
+       .eraseToAnyPublisher()
+
+    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
+        .map { [weak self, dependencies] navState -> [SessionNavItem<NavItem>] in
+            // Only show the 'Edit' button if it's a contact thread
+            guard self?.threadVariant == .contact else { return [] }
+
+            switch navState {
+                case .editing:
+                    return [
+                        SessionNavItem(
+                            id: .done,
+                            systemItem: .done,
+                            accessibilityIdentifier: "Done"
+                        ) { [weak self] in
+                            self?.setIsEditing(false)
+                            
+                            guard
+                                self?.threadVariant == .contact,
+                                let threadId: String = self?.threadId,
+                                let editedDisplayName: String = self?.editedDisplayName
+                            else { return }
+                            
+                            let updatedNickname: String = editedDisplayName
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            self?.oldDisplayName = (updatedNickname.isEmpty ? nil : editedDisplayName)
+
+                            dependencies.storage.writeAsync(using: dependencies) { db in
+                                try Profile
+                                    .filter(id: threadId)
+                                    .updateAllAndConfig(
+                                        db,
+                                        Profile.Columns.nickname
+                                            .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName))
+                                    )
+                            }
+                        }
+                    ]
+
+                case .standard:
+                    return [
+                        SessionNavItem(
+                            id: .edit,
+                            systemItem: .edit,
+                            accessibilityIdentifier: "Edit button",
+                            accessibilityLabel: "Edit user nickname"
+                        ) { [weak self] in self?.setIsEditing(true) }
+                    ]
+            }
+        }
+        .eraseToAnyPublisher()
     
     // MARK: - Content
     
-    private var originalState: SessionThreadViewModel?
-    override var title: String {
+    private struct State: Equatable {
+        let threadViewModel: SessionThreadViewModel?
+        let notificationSound: Preferences.Sound
+        let disappearingMessagesConfig: DisappearingMessagesConfiguration
+    }
+    
+    var title: String {
         switch threadVariant {
             case .contact: return "vc_settings_title".localized()
             case .legacyGroup, .group, .community: return "vc_group_settings_title".localized()
         }
     }
     
-    public override var observableTableData: ObservableData { _observableTableData }
-    
-    /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
-    /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    ///
-    /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-    /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-    /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-    /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self, dependencies, threadId = self.threadId, threadVariant = self.threadVariant] db -> [SectionModel] in
+    lazy var observation: TargetObservation = ObservationBuilder
+        .databaseObservation(self) { [dependencies, threadId = self.threadId] db -> State in
             let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-            let maybeThreadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
+            let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userPublicKey: userPublicKey)
                 .fetchOne(db)
             
-            // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
-            // so dismiss the screen
-            guard let threadViewModel: SessionThreadViewModel = maybeThreadViewModel else {
-                self?.dismissScreen(type: .popToRoot)
-                return []
-            }
-            
-            // Additional Queries
             let fallbackSound: Preferences.Sound = db[.defaultNotificationSound]
                 .defaulting(to: Preferences.Sound.defaultNotificationSound)
             let notificationSound: Preferences.Sound = try SessionThread
@@ -222,23 +209,36 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
             let disappearingMessagesConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
                 .fetchOne(db, id: threadId)
                 .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
+            
+            return State(
+                threadViewModel: threadViewModel,
+                notificationSound: notificationSound,
+                disappearingMessagesConfig: disappearingMessagesConfig
+            )
+        }
+        .mapWithPrevious { [weak self, dependencies] previous, current -> [SectionModel] in
+            // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
+            // so dismiss the screen
+            guard let threadViewModel: SessionThreadViewModel = current.threadViewModel else {
+                self?.dismissScreen(type: .popToRoot)
+                return []
+            }
+            
             let currentUserIsClosedGroupMember: Bool = (
                 (
-                    threadVariant == .legacyGroup ||
-                    threadVariant == .group
+                    threadViewModel.threadVariant == .legacyGroup ||
+                    threadViewModel.threadVariant == .group
                 ) &&
                 threadViewModel.currentUserIsClosedGroupMember == true
             )
             let currentUserIsClosedGroupAdmin: Bool = (
                 (
-                    threadVariant == .legacyGroup ||
-                    threadVariant == .group
+                    threadViewModel.threadVariant == .legacyGroup ||
+                    threadViewModel.threadVariant == .group
                 ) &&
                 threadViewModel.currentUserIsClosedGroupAdmin == true
             )
             let editIcon: UIImage? = UIImage(named: "icon_edit")
-            let originalState: SessionThreadViewModel = (self?.originalState ?? threadViewModel)
-            self?.originalState = threadViewModel
             
             return [
                 SectionModel(
@@ -249,7 +249,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             accessory: .profile(
                                 id: threadViewModel.id,
                                 size: .hero,
-                                threadVariant: threadVariant,
+                                threadVariant: threadViewModel.threadVariant,
                                 customImageData: threadViewModel.openGroupProfilePictureData,
                                 profile: threadViewModel.profile,
                                 profileIcon: .none,
@@ -266,7 +266,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                         ),
                         SessionCell.Info(
                             id: .nickname,
-                            leftAccessory: (threadVariant != .contact ? nil :
+                            leftAccessory: (threadViewModel.threadVariant != .contact ? nil :
                                 .icon(
                                     editIcon?.withRenderingMode(.alwaysTemplate),
                                     size: .fit,
@@ -278,17 +278,17 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 font: .titleLarge,
                                 alignment: .center,
                                 editingPlaceholder: "CONTACT_NICKNAME_PLACEHOLDER".localized(),
-                                interaction: (threadVariant == .contact ? .editable : .none)
+                                interaction: (threadViewModel.threadVariant == .contact ? .editable : .none)
                             ),
                             styling: SessionCell.StyleInfo(
                                 alignment: .centerHugging,
                                 customPadding: SessionCell.Padding(
                                     top: Values.smallSpacing,
-                                    trailing: (threadVariant != .contact ?
+                                    trailing: (threadViewModel.threadVariant != .contact ?
                                         nil :
                                         -(((editIcon?.size.width ?? 0) + (Values.smallSpacing * 2)) / 2)
                                     ),
-                                    bottom: (threadVariant != .contact ?
+                                    bottom: (threadViewModel.threadVariant != .contact ?
                                         nil :
                                         Values.smallSpacing
                                     ),
@@ -306,7 +306,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             }
                         ),
 
-                        (threadVariant != .contact ? nil :
+                        (threadViewModel.threadVariant != .contact ? nil :
                             SessionCell.Info(
                                 id: .sessionId,
                                 subtitle: SessionCell.TextInfo(
@@ -333,14 +333,14 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 SectionModel(
                     model: .content,
                     elements: [
-                        (threadVariant == .legacyGroup || threadVariant == .group ? nil :
+                        (threadViewModel.threadVariant == .legacyGroup || threadViewModel.threadVariant == .group ? nil :
                             SessionCell.Info(
                                 id: .copyThreadId,
                                 leftAccessory: .icon(
                                     UIImage(named: "ic_copy")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: (threadVariant == .community ?
+                                title: (threadViewModel.threadVariant == .community ?
                                     "COPY_GROUP_URL".localized() :
                                     "vc_conversation_settings_copy_session_id_button_title".localized()
                                 ),
@@ -349,9 +349,9 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     label: "Copy Session ID"
                                 ),
                                 onTap: {
-                                    switch threadVariant {
+                                    switch threadViewModel.threadVariant {
                                         case .contact, .legacyGroup, .group:
-                                            UIPasteboard.general.string = threadId
+                                            UIPasteboard.general.string = threadViewModel.threadId
 
                                         case .community:
                                             guard
@@ -389,8 +389,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             onTap: { [weak self] in
                                 self?.transitionToScreen(
                                     MediaGalleryViewModel.createAllMediaViewController(
-                                        threadId: threadId,
-                                        threadVariant: threadVariant,
+                                        threadId: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
                                         focusedAttachmentId: nil
                                     )
                                 )
@@ -413,7 +413,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             }
                         ),
 
-                        (threadVariant != .community ? nil :
+                        (threadViewModel.threadVariant != .community ? nil :
                             SessionCell.Info(
                                 id: .addToOpenGroup,
                                 leftAccessory: .icon(
@@ -440,7 +440,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             )
                         ),
 
-                        (threadVariant == .community || threadViewModel.threadIsBlocked == true ? nil :
+                        (threadViewModel.threadVariant == .community || threadViewModel.threadIsBlocked == true ? nil :
                             SessionCell.Info(
                                 id: .disappearingMessages,
                                 leftAccessory: .icon(
@@ -448,13 +448,25 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "DISAPPEARING_MESSAGES".localized(),
-                                subtitle: (disappearingMessagesConfig.isEnabled ?
-                                    String(
-                                        format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER".localized(),
-                                        arguments: [disappearingMessagesConfig.durationString]
-                                    ) :
-                                    "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
-                                ),
+                                subtitle: {
+                                    guard current.disappearingMessagesConfig.isEnabled else {
+                                        return "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
+                                    }
+                                    guard Features.useNewDisappearingMessagesConfig else {
+                                        return String(
+                                            format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY".localized(),
+                                            current.disappearingMessagesConfig.durationString
+                                        )
+                                    }
+                                    
+                                    return String(
+                                        format: (current.disappearingMessagesConfig.type == .disappearAfterRead ?
+                                            "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ".localized() :
+                                            "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND".localized()
+                                        ),
+                                        current.disappearingMessagesConfig.durationString
+                                    )
+                                }(),
                                 accessibility: Accessibility(
                                     identifier: "Disappearing messages",
                                     label: "\(ThreadSettingsViewModel.self).disappearing_messages"
@@ -463,11 +475,11 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     self?.transitionToScreen(
                                         SessionTableViewController(
                                             viewModel: ThreadDisappearingMessagesSettingsViewModel(
-                                                threadId: threadId,
+                                                threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
                                                 currentUserIsClosedGroupMember: threadViewModel.currentUserIsClosedGroupMember,
                                                 currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
-                                                config: disappearingMessagesConfig
+                                                config: current.disappearingMessagesConfig
                                             )
                                         )
                                     )
@@ -489,7 +501,10 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
-                                        EditClosedGroupVC(threadId: threadId, threadVariant: threadVariant)
+                                        EditClosedGroupVC(
+                                            threadId: threadViewModel.threadId,
+                                            threadVariant: threadViewModel.threadVariant
+                                        )
                                     )
                                 }
                             )
@@ -535,8 +550,8 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     dependencies.storage.write { db in
                                         try SessionThread.deleteOrLeave(
                                             db,
-                                            threadId: threadId,
-                                            threadVariant: threadVariant,
+                                            threadId: threadViewModel.threadId,
+                                            threadVariant: threadViewModel.threadVariant,
                                             groupLeaveType: .standard,
                                             calledFromConfigHandling: false
                                         )
@@ -554,19 +569,19 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 ),
                                 title: "SETTINGS_ITEM_NOTIFICATION_SOUND".localized(),
                                 rightAccessory: .dropDown(
-                                    .dynamicString { notificationSound.displayName }
+                                    .dynamicString { current.notificationSound.displayName }
                                 ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
                                         SessionTableViewController(
-                                            viewModel: NotificationSoundViewModel(threadId: threadId)
+                                            viewModel: NotificationSoundViewModel(threadId: threadViewModel.threadId)
                                         )
                                     )
                                 }
                             )
                         ),
                         
-                        (threadVariant == .contact ? nil :
+                        (threadViewModel.threadVariant == .contact ? nil :
                             SessionCell.Info(
                                 id: .notificationMentionsOnly,
                                 leftAccessory: .icon(
@@ -578,7 +593,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 rightAccessory: .toggle(
                                     .boolValue(
                                         threadViewModel.threadOnlyNotifyForMentions == true,
-                                        oldValue: (originalState.threadOnlyNotifyForMentions == true)
+                                        oldValue: ((previous?.threadViewModel ?? threadViewModel).threadOnlyNotifyForMentions == true)
                                     )
                                 ),
                                 isEnabled: (
@@ -597,7 +612,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     
                                     dependencies.storage.writeAsync { db in
                                         try SessionThread
-                                            .filter(id: threadId)
+                                            .filter(id: threadViewModel.threadId)
                                             .updateAll(
                                                 db,
                                                 SessionThread.Columns.onlyNotifyForMentions
@@ -619,7 +634,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 rightAccessory: .toggle(
                                     .boolValue(
                                         threadViewModel.threadMutedUntilTimestamp != nil,
-                                        oldValue: (originalState.threadMutedUntilTimestamp != nil)
+                                        oldValue: ((previous?.threadViewModel ?? threadViewModel).threadMutedUntilTimestamp != nil)
                                     )
                                 ),
                                 isEnabled: (
@@ -636,13 +651,13 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 onTap: {
                                     dependencies.storage.writeAsync { db in
                                         let currentValue: TimeInterval? = try SessionThread
-                                            .filter(id: threadId)
+                                            .filter(id: threadViewModel.threadId)
                                             .select(.mutedUntilTimestamp)
                                             .asRequest(of: TimeInterval.self)
                                             .fetchOne(db)
                                         
                                         try SessionThread
-                                            .filter(id: threadId)
+                                            .filter(id: threadViewModel.threadId)
                                             .updateAll(
                                                 db,
                                                 SessionThread.Columns.mutedUntilTimestamp.set(
@@ -657,7 +672,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                             )
                         ),
                         
-                        (threadViewModel.threadIsNoteToSelf || threadVariant != .contact ? nil :
+                        (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
                             SessionCell.Info(
                                 id: .blockUser,
                                 leftAccessory: .icon(
@@ -668,7 +683,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                 rightAccessory: .toggle(
                                     .boolValue(
                                         threadViewModel.threadIsBlocked == true,
-                                        oldValue: (originalState.threadIsBlocked == true)
+                                        oldValue: ((previous?.threadViewModel ?? threadViewModel).threadIsBlocked == true)
                                     )
                                 ),
                                 accessibility: Accessibility(
@@ -706,7 +721,7 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                                     self?.updateBlockedState(
                                         from: isBlocked,
                                         isBlocked: !isBlocked,
-                                        threadId: threadId,
+                                        threadId: threadViewModel.threadId,
                                         displayName: threadViewModel.displayName
                                     )
                                 }
@@ -716,10 +731,6 @@ class ThreadSettingsViewModel: SessionTableViewModel<ThreadSettingsViewModel.Nav
                 )
             ]
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[ThreadSettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: dependencies.storage, scheduling: dependencies.scheduler)
-        .mapToSessionTableViewData(for: self)
     
     // MARK: - Functions
     

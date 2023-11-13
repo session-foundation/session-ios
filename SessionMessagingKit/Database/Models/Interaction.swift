@@ -388,7 +388,6 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             }
             
             self.expiresInSeconds = disappearingMessagesConfiguration.durationSeconds
-            self.expiresStartedAtMs = disappearingMessagesConfiguration.type == .disappearAfterSend ? Double(self.timestampMs) : nil
         }
     }
     
@@ -848,7 +847,7 @@ public extension Interaction {
     // MARK: - Variables
     
     var isExpiringMessage: Bool {
-        guard variant == .standardIncoming || variant == .standardOutgoing else { return false }
+        guard variant.shouldFollowDisappearingMessagesConfiguration else { return false }
         
         return (expiresInSeconds ?? 0 > 0)
     }

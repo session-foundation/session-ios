@@ -263,6 +263,25 @@ public class SignalAttachment: Equatable, Hashable {
         
         return text
     }
+    
+    public func duration() -> TimeInterval? {
+        switch (isAudio, isVideo) {
+            case (true, _):
+                let audioPlayer: AVAudioPlayer? = try? AVAudioPlayer(data: dataSource.data())
+                
+                return (audioPlayer?.duration).map { $0 > 0 ? $0 : nil }
+                
+            case (_, true):
+                return dataUrl.map { url in
+                    let asset: AVURLAsset = AVURLAsset(url: url, options: nil)
+                    
+                    // According to the CMTime docs "value/timescale = seconds"
+                    return (TimeInterval(asset.duration.value) / TimeInterval(asset.duration.timescale))
+                }
+                
+            default: return nil
+        }
+    }
 
     // Returns the MIME type for this attachment or nil if no MIME type
     // can be identified.

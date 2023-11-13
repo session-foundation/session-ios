@@ -963,25 +963,44 @@ public final class MessageSender {
                         openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
                     ).update(db)
                     
-                    if
-                        interaction.isExpiringMessage && isSyncMessage,
-                        let startedAtMs: Double = interaction.expiresStartedAtMs,
-                        let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
-                        let serverHash: String = message.serverHash
-                    {
-                        let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
-                        JobRunner.add(
+                    if interaction.isExpiringMessage {
+                        // Start disappearing messages job after a message is successfully sent.
+                        // For DAR and DAS outgoing messages, the expiration start time are the
+                        // same as message sentTimestamp. So do this once, DAR and DAS messages
+                        // should all be covered.
+                        dependencies.jobRunner.upsert(
                             db,
-                            job: Job(
-                                variant: .expirationUpdate,
-                                behaviour: .runOnce,
-                                threadId: interaction.threadId,
-                                details: ExpirationUpdateJob.Details(
-                                    serverHashes: [serverHash],
-                                    expirationTimestampMs: expirationTimestampMs
-                                )
-                            )
+                            job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                                db,
+                                interaction: interaction,
+                                startedAtMs: Double(interaction.timestampMs)
+                            ),
+                            canStartJob: true,
+                            using: dependencies
                         )
+                        
+                        if
+                            isSyncMessage,
+                            let startedAtMs: Double = interaction.expiresStartedAtMs,
+                            let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
+                            let serverHash: String = message.serverHash
+                        {
+                            let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
+                            dependencies.jobRunner.add(
+                                db,
+                                job: Job(
+                                    variant: .expirationUpdate,
+                                    behaviour: .runOnce,
+                                    threadId: interaction.threadId,
+                                    details: ExpirationUpdateJob.Details(
+                                        serverHashes: [serverHash],
+                                        expirationTimestampMs: expirationTimestampMs
+                                    )
+                                ),
+                                canStartJob: true,
+                                using: dependencies
+                            )
+                        }
                     }
                 }
                 

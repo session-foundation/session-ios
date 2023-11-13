@@ -249,6 +249,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     private lazy var emptyStateLabel: UILabel = {
         let text: String = emptyStateText(for: viewModel.threadData)
         let result: UILabel = UILabel()
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = "Empty state label"
         result.accessibilityLabel = "Empty state label"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
@@ -537,6 +539,9 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         
         startObservingChanges()
         
+        /// If the view is removed and readded to the view hierarchy then `viewWillDisappear` will be called but `viewDidDisappear`
+        /// **won't**, as a result `viewIsDisappearing` would never get set to `false` - do so here to handle this case
+        viewIsDisappearing = false
         viewIsAppearing = true
     }
 

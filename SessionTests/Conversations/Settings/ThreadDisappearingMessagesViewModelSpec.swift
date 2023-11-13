@@ -43,7 +43,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         )
         
         @TestState var cancellables: [AnyCancellable]! = [
-            viewModel.observableTableData
+            viewModel.tableDataPublisher
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
                     receiveCompletion: { _ in },
@@ -85,9 +85,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
-                                    title: "DISAPPEARING_MESSAGES_OFF".localized()
-                                ),
+                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
@@ -105,9 +103,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
-                                    title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()
-                                ),
+                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 position: .bottom,
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
@@ -146,7 +142,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     using: dependencies
                 )
                 cancellables.append(
-                    viewModel.observableTableData
+                    viewModel.tableDataPublisher
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -162,9 +158,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
-                                    title: "DISAPPEARING_MESSAGES_OFF".localized()
-                                ),
+                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 position: .top,
                                 title: "DISAPPEARING_MESSAGES_OFF".localized(),
                                 rightAccessory: .radio(
@@ -182,9 +176,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
-                                    title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()
-                                ),
+                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 position: .bottom,
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
@@ -206,7 +198,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(title: title),
+                                id: title,
                                 position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
@@ -221,6 +213,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     )
             }
             
+            // MARK: -- has no footer button
             it("has no footer button") {
                 var footerButtonInfo: SessionButton.Info?
                 
@@ -236,7 +229,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 expect(footerButtonInfo).to(beNil())
             }
             
-            it("change to another setting and change back") {
+            // MARK: -- can change to another setting and change back
+            it("can change to another setting and change back") {
                 // Test config: Disappear After Send - 2 weeks
                 let config: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
                     .defaultWith("TestId")
@@ -257,7 +251,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     using: dependencies
                 )
                 cancellables.append(
-                    viewModel.observableTableData
+                    viewModel.tableDataPublisher
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
@@ -274,9 +268,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(
-                                    title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized()
-                                ),
+                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 position: .bottom,
                                 title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
@@ -298,7 +290,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: ThreadDisappearingMessagesSettingsViewModel.Item(title: title),
+                                id: title,
                                 position: .bottom,
                                 title: title,
                                 rightAccessory: .radio(
@@ -343,7 +335,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
-                // MARK: ---- shows the save button
+                // MARK: ---- shows the set button
                 it("shows the set button") {
                     expect(footerButtonInfo)
                         .to(
@@ -370,7 +362,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         var didDismissScreen: Bool = false
                         
                         cancellables.append(
-                            viewModel.dismissScreen
+                            viewModel.navigatableState.dismissScreen
                                 .receive(on: ImmediateScheduler.shared)
                                 .sink(
                                     receiveCompletion: { _ in },

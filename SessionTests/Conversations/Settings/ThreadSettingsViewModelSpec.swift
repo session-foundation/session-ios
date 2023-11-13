@@ -57,7 +57,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
         )
         
         @TestState var disposables: [AnyCancellable]! = [
-            viewModel.observableTableData
+            viewModel.tableDataPublisher
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
                     receiveCompletion: { _ in },
@@ -149,7 +149,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         using: dependencies
                     )
                     disposables.append(
-                        viewModel.observableTableData
+                        viewModel.tableDataPublisher
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
@@ -171,7 +171,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     expect(viewModel.leftNavItems.firstValue()).to(equal([]))
                     expect(viewModel.rightNavItems.firstValue())
                         .to(equal([
-                            ParentType.NavItem(
+                            SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                 id: .edit,
                                 systemItem: .edit,
                                 accessibilityIdentifier: "Edit button"
@@ -193,7 +193,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 context("when entering edit mode") {
                     beforeEach {
                         viewModel.navState.sinkAndStore(in: &disposables)
-                        viewModel.rightNavItems.firstValue()??.first?.action?()
+                        viewModel.rightNavItems.firstValue()?.first?.action?()
                         viewModel.textChanged("TestNew", for: .nickname)
                     }
                     
@@ -204,7 +204,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         expect(viewModel.leftNavItems.firstValue())
                             .to(equal([
-                                ParentType.NavItem(
+                                SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                     id: .cancel,
                                     systemItem: .cancel,
                                     accessibilityIdentifier: "Cancel button"
@@ -212,7 +212,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             ]))
                         expect(viewModel.rightNavItems.firstValue())
                             .to(equal([
-                                ParentType.NavItem(
+                                SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                     id: .done,
                                     systemItem: .done,
                                     accessibilityIdentifier: "Done"
@@ -223,7 +223,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     // MARK: ------ when cancelling edit mode
                     context("when cancelling edit mode") {
                         beforeEach {
-                            viewModel.leftNavItems.firstValue()??.first?.action?()
+                            viewModel.leftNavItems.firstValue()?.first?.action?()
                         }
                         
                         // MARK: -------- exits editing mode
@@ -234,7 +234,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             expect(viewModel.leftNavItems.firstValue()).to(equal([]))
                             expect(viewModel.rightNavItems.firstValue())
                                 .to(equal([
-                                    ParentType.NavItem(
+                                    SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                         id: .edit,
                                         systemItem: .edit,
                                         accessibilityIdentifier: "Edit button"
@@ -258,7 +258,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     // MARK: ------ when saving edit mode
                     context("when saving edit mode") {
                         beforeEach {
-                            viewModel.rightNavItems.firstValue()??.first?.action?()
+                            viewModel.rightNavItems.firstValue()?.first?.action?()
                         }
                         
                         // MARK: -------- exits editing mode
@@ -269,7 +269,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             expect(viewModel.leftNavItems.firstValue()).to(equal([]))
                             expect(viewModel.rightNavItems.firstValue())
                                 .to(equal([
-                                    ParentType.NavItem(
+                                    SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                         id: .edit,
                                         systemItem: .edit,
                                         accessibilityIdentifier: "Edit button"
@@ -318,7 +318,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     expect(viewModel.leftNavItems.firstValue()).to(equal([]))
                     expect(viewModel.rightNavItems.firstValue())
                         .to(equal([
-                            ParentType.NavItem(
+                            SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                 id: .edit,
                                 systemItem: .edit,
                                 accessibilityIdentifier: "Edit button"
@@ -330,7 +330,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                 context("when entering edit mode") {
                     beforeEach {
                         viewModel.navState.sinkAndStore(in: &disposables)
-                        viewModel.rightNavItems.firstValue()??.first?.action?()
+                        viewModel.rightNavItems.firstValue()?.first?.action?()
                         viewModel.textChanged("TestUserNew", for: .nickname)
                     }
                     
@@ -341,7 +341,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         
                         expect(viewModel.leftNavItems.firstValue())
                             .to(equal([
-                                ParentType.NavItem(
+                                SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                     id: .cancel,
                                     systemItem: .cancel,
                                     accessibilityIdentifier: "Cancel button"
@@ -349,7 +349,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             ]))
                         expect(viewModel.rightNavItems.firstValue())
                             .to(equal([
-                                ParentType.NavItem(
+                                SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                     id: .done,
                                     systemItem: .done,
                                     accessibilityIdentifier: "Done"
@@ -360,7 +360,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     // MARK: ------ when cancelling edit mode
                     context("when cancelling edit mode") {
                         beforeEach {
-                            viewModel.leftNavItems.firstValue()??.first?.action?()
+                            viewModel.leftNavItems.firstValue()?.first?.action?()
                         }
                         
                         // MARK: -------- exits editing mode
@@ -371,7 +371,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             expect(viewModel.leftNavItems.firstValue()).to(equal([]))
                             expect(viewModel.rightNavItems.firstValue())
                                 .to(equal([
-                                    ParentType.NavItem(
+                                    SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                         id: .edit,
                                         systemItem: .edit,
                                         accessibilityIdentifier: "Edit button"
@@ -393,7 +393,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                     // MARK: ------ when saving edit mode
                     context("when saving edit mode") {
                         beforeEach {
-                            viewModel.rightNavItems.firstValue()??.first?.action?()
+                            viewModel.rightNavItems.firstValue()?.first?.action?()
                         }
                         
                         // MARK: -------- exits editing mode
@@ -404,7 +404,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                             expect(viewModel.leftNavItems.firstValue()).to(equal([]))
                             expect(viewModel.rightNavItems.firstValue())
                                 .to(equal([
-                                    ParentType.NavItem(
+                                    SessionNavItem<ThreadSettingsViewModel.NavItem>(
                                         id: .edit,
                                         systemItem: .edit,
                                         accessibilityIdentifier: "Edit button"
@@ -446,7 +446,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         using: dependencies
                     )
                     disposables.append(
-                        viewModel.observableTableData
+                        viewModel.tableDataPublisher
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
@@ -491,7 +491,7 @@ class ThreadSettingsViewModelSpec: QuickSpec {
                         using: dependencies
                     )
                     disposables.append(
-                        viewModel.observableTableData
+                        viewModel.tableDataPublisher
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
@@ -517,7 +517,3 @@ class ThreadSettingsViewModelSpec: QuickSpec {
         }
     }
 }
-
-// MARK: - Test Types
-
-fileprivate typealias ParentType = SessionTableViewModel<ThreadSettingsViewModel.NavButton, ThreadSettingsViewModel.Section, ThreadSettingsViewModel.Setting>

@@ -1,6 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import AVKit
+import AVFoundation
 import Combine
 import CoreServices
 import Photos
@@ -619,18 +621,6 @@ extension ConversationVC:
                         threadVariant: threadVariant,
                         using: dependencies
                     )
-                    
-                    // Trigger disappear after read
-                    dependencies.jobRunner.upsert(
-                        db,
-                        job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                            db,
-                            interaction: insertedInteraction,
-                            startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
-                        ),
-                        canStartJob: true,
-                        using: dependencies
-                    )
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .sinkUntilComplete(
@@ -939,7 +929,7 @@ extension ConversationVC:
         }
         
         switch cellViewModel.cellType {
-            case .audio: viewModel.playOrPauseAudio(for: cellViewModel)
+            case .voiceMessage: viewModel.playOrPauseAudio(for: cellViewModel)
             
             case .mediaMessage:
                 guard
@@ -989,6 +979,18 @@ extension ConversationVC:
                         // Ignore invalid media
                         guard mediaView.attachment.isValid else { return }
                         
+                        guard albumView.numItems > 1 || !mediaView.attachment.isVideo else {
+                            guard
+                                let originalFilePath: String = mediaView.attachment.originalFilePath,
+                                FileManager.default.fileExists(atPath: originalFilePath)
+                            else { return SNLog("Missing video file") }
+                            
+                            let viewController: AVPlayerViewController = AVPlayerViewController()
+                            viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
+                            self.navigationController?.present(viewController, animated: true)
+                            return
+                        }
+                        
                         let viewController: UIViewController? = MediaGalleryViewModel.createDetailViewController(
                             for: self.viewModel.threadData.threadId,
                             threadVariant: self.viewModel.threadData.threadVariant,
@@ -1018,6 +1020,17 @@ extension ConversationVC:
                             }
                         }
                 }
+                
+            case .audio:
+                guard
+                    let attachment: Attachment = cellViewModel.attachments?.first,
+                    let originalFilePath: String = attachment.originalFilePath
+                else { return }
+                
+                // Use the native player to play audio files
+                let viewController: AVPlayerViewController = AVPlayerViewController()
+                viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
+                self.navigationController?.present(viewController, animated: true)
                 
             case .genericAttachment:
                 guard
@@ -1082,7 +1095,7 @@ extension ConversationVC:
     func handleItemDoubleTapped(_ cellViewModel: MessageViewModel) {
         switch cellViewModel.cellType {
             // The user can double tap a voice message when it's playing to speed it up
-            case .audio: self.viewModel.speedUpAudio(for: cellViewModel)
+            case .voiceMessage: self.viewModel.speedUpAudio(for: cellViewModel)
             default: break
         }
     }
@@ -1821,7 +1834,7 @@ extension ConversationVC:
                 
                 UIPasteboard.general.string = cellViewModel.body
             
-            case .audio, .genericAttachment, .mediaMessage:
+            case .audio, .voiceMessage, .genericAttachment, .mediaMessage:
                 guard
                     cellViewModel.attachments?.count == 1,
                     let attachment: Attachment = cellViewModel.attachments?.first,
@@ -2488,11 +2501,14 @@ extension ConversationVC {
         guard threadVariant == .contact else { return }
         
         let updateNavigationBackStack: () -> Void = {
-            // Remove the 'MessageRequestsViewController' from the nav hierarchy if present
+            // Remove the 'SessionTableViewController<MessageRequestsViewModel>' from the nav hierarchy if present
             DispatchQueue.main.async { [weak self] in
                 if
                     let viewControllers: [UIViewController] = self?.navigationController?.viewControllers,
-                    let messageRequestsIndex = viewControllers.firstIndex(where: { $0 is MessageRequestsViewController }),
+                    let messageRequestsIndex = viewControllers
+                        .firstIndex(where: { viewCon -> Bool in
+                            (viewCon as? SessionViewModelAccessible)?.viewModelType == MessageRequestsViewModel.self
+                        }),
                     messageRequestsIndex > 0
                 {
                     var newViewControllers = viewControllers
