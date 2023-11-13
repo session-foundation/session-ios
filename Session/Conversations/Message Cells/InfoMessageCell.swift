@@ -108,7 +108,10 @@ final class InfoMessageCell: MessageCell {
             case .none: self.label.text = cellViewModel.body
         }
         
-        self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving ? .danger : .textSecondary)
+        self.label.themeTextColor = (cellViewModel.variant == .infoGroupCurrentUserErrorLeaving ?
+            .danger :
+            .textSecondary
+        )
         
         let shouldShowIcon: Bool = (icon != nil) || ((cellViewModel.expiresInSeconds ?? 0) > 0)
         

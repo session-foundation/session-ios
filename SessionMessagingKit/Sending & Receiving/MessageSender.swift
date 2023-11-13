@@ -685,12 +685,13 @@ public final class MessageSender {
                         // For DAR and DAS outgoing messages, the expiration start time are the
                         // same as message sentTimestamp. So do this once, DAR and DAS messages
                         // should all be covered.
-                        dependencies.jobRunner.upsert(
+                        dependencies[singleton: .jobRunner].upsert(
                             db,
                             job: DisappearingMessagesJob.updateNextRunIfNeeded(
                                 db,
                                 interaction: interaction,
-                                startedAtMs: Double(interaction.timestampMs)
+                                startedAtMs: Double(interaction.timestampMs),
+                                using: dependencies
                             ),
                             canStartJob: true,
                             using: dependencies
@@ -703,7 +704,7 @@ public final class MessageSender {
                             let serverHash: String = message.serverHash
                         {
                             let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
-                            dependencies.jobRunner.add(
+                            dependencies[singleton: .jobRunner].add(
                                 db,
                                 job: Job(
                                     variant: .expirationUpdate,

@@ -258,17 +258,20 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         (!currentConfig.isEnabled ? nil :
                             SectionModel(
                                 model: {
-                                    guard Features.useNewDisappearingMessagesConfig else { return .timerLegacy }
+                                    guard dependencies[feature: .updatedDisappearingMessages] else { return .timerLegacy }
 
-                                    return currentSelection.type == .disappearAfterSend ?
+                                    return (currentConfig.type == .disappearAfterSend ?
                                         .timerDisappearAfterSend :
                                         .timerDisappearAfterRead
+                                    )
                                 }(),
                                 elements: DisappearingMessagesConfiguration
                                     .validDurationsSeconds({
-                                        guard Features.useNewDisappearingMessagesConfig else { return .disappearAfterSend }
+                                        guard dependencies[feature: .updatedDisappearingMessages] else {
+                                            return .disappearAfterSend
+                                        }
 
-                                        return (currentSelection.type ?? .disappearAfterSend)
+                                        return (currentConfig.type ?? .disappearAfterSend)
                                     }())
                                     .map { duration in
                                         let title: String = duration.formatted(format: .long)
