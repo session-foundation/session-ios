@@ -247,6 +247,7 @@ public extension DisappearingMessagesConfiguration {
 // MARK: - UI Constraints
 
 extension DisappearingMessagesConfiguration {
+    // TODO: Remove this when disappearing messages V2 is up and running
     public static var validDurationsSeconds: [TimeInterval] {
         return [
             5,

@@ -1418,8 +1418,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             let currentIndex: Int = messageSection.elements
                 .firstIndex(where: { $0.id == interactionId }),
             currentIndex < (messageSection.elements.count - 1),
-            messageSection.elements[currentIndex + 1].cellType == .audio,
-            dependencies[singleton: .storage, key: .shouldAutoPlayConsecutiveAudioMessages]
+            messageSection.elements[currentIndex + 1].cellType == .voiceMessage,
+            Storage.shared[.shouldAutoPlayConsecutiveAudioMessages] == true
         else { return }
         
         let nextItem: MessageViewModel = messageSection.elements[currentIndex + 1]

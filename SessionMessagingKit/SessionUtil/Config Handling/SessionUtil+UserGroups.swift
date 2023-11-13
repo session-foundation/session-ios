@@ -100,6 +100,7 @@ internal extension SessionUtil {
                             .with(
                                 isEnabled: (legacyGroup.disappearing_timer > 0),
                                 durationSeconds: TimeInterval(legacyGroup.disappearing_timer),
+                                type: .disappearAfterSend,
                                 lastChangeTimestampMs: serverTimestampMs
                             ),
                         groupMembers: members

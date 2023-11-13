@@ -50,8 +50,10 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
         updateTitle(item: item)
         updateCaption(item: item)
-        setViewControllers([galleryPage], direction: direction, animated: isAnimated)
-        updateFooterBarButtonItems(isPlayingVideo: false)
+        setViewControllers([galleryPage], direction: direction, animated: isAnimated) { [weak galleryPage] _ in
+            galleryPage?.parentDidAppear() // Trigger any custom appearance animations
+        }
+        updateFooterBarButtonItems()
         updateMediaRail(item: item)
     }
 
@@ -204,7 +206,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         updateTitle(item: currentItem)
         updateCaption(item: currentItem)
         updateMediaRail(item: currentItem)
-        updateFooterBarButtonItems(isPlayingVideo: false)
+        updateFooterBarButtonItems()
 
         // Gestures
 
@@ -237,6 +239,15 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         
         hasAppeared = true
         becomeFirstResponder()
+        
+        children.forEach { child in
+            switch child {
+                case let detailViewController as MediaDetailViewController:
+                    detailViewController.parentDidAppear()
+                    
+                default: break
+            }
+        }
     }
     
     public override func viewWillDisappear(_ animated: Bool) {
@@ -291,7 +302,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     // MARK: View Helpers
 
     public func willBePresentedAgain() {
-        updateFooterBarButtonItems(isPlayingVideo: false)
+        updateFooterBarButtonItems()
     }
 
     public func wasPresented() {
@@ -309,7 +320,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             self.navigationController?.setNavigationBarHidden(shouldHideToolbars, animated: false)
 
             UIView.animate(withDuration: 0.1) {
-                self.currentViewController.setShouldHideToolbars(self.shouldHideToolbars)
                 self.bottomContainer.isHidden = self.shouldHideToolbars
             }
         }
@@ -354,24 +364,12 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         return videoPlayBarButton
     }()
 
-    lazy var videoPauseBarButton: UIBarButtonItem = {
-        let videoPauseBarButton = UIBarButtonItem(
-            barButtonSystemItem: .pause,
-            target: self,
-            action: #selector(didPressPauseBarButton)
-        )
-        videoPauseBarButton.themeTintColor = .textPrimary
-        
-        return videoPauseBarButton
-    }()
-
-    private func updateFooterBarButtonItems(isPlayingVideo: Bool) {
+    private func updateFooterBarButtonItems() {
         self.footerBar.setItems(
             [
                 shareBarButton,
                 buildFlexibleSpace(),
-                (self.currentItem.isVideo && isPlayingVideo ? self.videoPauseBarButton : nil),
-                (self.currentItem.isVideo && !isPlayingVideo ? self.videoPlayBarButton : nil),
+                (self.currentItem.isVideo ? self.videoPlayBarButton : nil),
                 (self.currentItem.isVideo ? buildFlexibleSpace() : nil),
                 deleteBarButton
             ].compactMap { $0 },
@@ -465,8 +463,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     // MARK: - Actions
 
     @objc public func didPressAllMediaButton(sender: Any) {
-        currentViewController.stopAnyVideo()
-        
         // If the screen wasn't presented or it was presented from a location which isn't the
         // MediaTileViewController then just pop/dismiss the screen
         let parentNavController: UINavigationController? = {
@@ -624,15 +620,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         currentViewController.didPressPlayBarButton()
     }
 
-    @objc public func didPressPauseBarButton() {
-        guard let currentViewController = self.viewControllers?.first as? MediaDetailViewController else {
-            SNLog("currentViewController was unexpectedly nil")
-            return
-        }
-        
-        currentViewController.didPressPauseBarButton()
-    }
-
     // MARK: UIPageViewControllerDelegate
 
     var pendingViewController: MediaDetailViewController?
@@ -652,9 +639,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             } else {
                 self.captionContainerView.pendingText = nil
             }
-
-            // Ensure upcoming page respects current toolbar status
-            pendingViewController.setShouldHideToolbars(self.shouldHideToolbars)
         }
     }
 
@@ -678,11 +662,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                     captionContainerView.completePagerTransition()
                 }
 
+                currentViewController.parentDidAppear() // Trigger any custom appearance animations
                 updateTitle(item: currentItem)
                 updateMediaRail(item: currentItem)
                 previousPage.zoomOut(animated: false)
-                previousPage.stopAnyVideo()
-                updateFooterBarButtonItems(isPlayingVideo: false)
+                updateFooterBarButtonItems()
             } else {
                 captionContainerView.pendingText = nil
             }
@@ -803,7 +787,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         // Swapping mediaView for presentationView will be perceptible if we're not zoomed out all the way.
         // currentVC
         currentViewController.zoomOut(animated: true)
-        currentViewController.stopAnyVideo()
 
         self.navigationController?.view.isUserInteractionEnabled = false
         self.navigationController?.dismiss(animated: true, completion: { [weak self] in
@@ -823,16 +806,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         Logger.debug("")
 
         self.shouldHideToolbars = !self.shouldHideToolbars
-    }
-
-    public func mediaDetailViewController(_ mediaDetailViewController: MediaDetailViewController, isPlayingVideo: Bool) {
-        guard mediaDetailViewController == currentViewController else {
-            Logger.verbose("ignoring stale delegate.")
-            return
-        }
-
-        self.shouldHideToolbars = isPlayingVideo
-        self.updateFooterBarButtonItems(isPlayingVideo: isPlayingVideo)
     }
 
     // MARK: - Dynamic Header

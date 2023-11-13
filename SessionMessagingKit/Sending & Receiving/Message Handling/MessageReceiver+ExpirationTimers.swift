@@ -5,6 +5,7 @@ import GRDB
 import SessionUtilitiesKit
 
 extension MessageReceiver {
+    // TODO: Remove this when disappearing messages V2 is up and running
     internal static func handleExpirationTimerUpdate(
         _ db: Database,
         threadId: String,

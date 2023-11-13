@@ -18,6 +18,7 @@ extension MediaInfoVC {
             let result: MediaView = MediaView.init(
                 attachment: attachment,
                 isOutgoing: isOutgoing,
+                shouldSupressControls: false,
                 cornerRadius: 0
             )
             

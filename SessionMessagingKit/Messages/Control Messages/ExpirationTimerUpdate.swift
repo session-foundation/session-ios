@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+// TODO: Refactor this when disappearing messages V2 is up and running
 public final class ExpirationTimerUpdate: ControlMessage {
     private enum CodingKeys: String, CodingKey {
         case syncTarget

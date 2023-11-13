@@ -22,6 +22,7 @@ public class MediaView: UIView {
     private let mediaCache: NSCache<NSString, AnyObject>?
     public let attachment: Attachment
     private let isOutgoing: Bool
+    private let shouldSupressControls: Bool
     private var loadBlock: (() -> Void)?
     private var unloadBlock: (() -> Void)?
 
@@ -51,11 +52,13 @@ public class MediaView: UIView {
         mediaCache: NSCache<NSString, AnyObject>? = nil,
         attachment: Attachment,
         isOutgoing: Bool,
+        shouldSupressControls: Bool,
         cornerRadius: CGFloat
     ) {
         self.mediaCache = mediaCache
         self.attachment = attachment
         self.isOutgoing = isOutgoing
+        self.shouldSupressControls = shouldSupressControls
 
         super.init(frame: .zero)
 
@@ -275,7 +278,29 @@ public class MediaView: UIView {
         addSubview(stillImageView)
         stillImageView.autoPinEdgesToSuperviewEdges()
 
-        if !addUploadProgressIfNecessary(stillImageView) {
+        if !addUploadProgressIfNecessary(stillImageView) && !shouldSupressControls {
+            if let duration: TimeInterval = attachment.duration {
+                let fadeView: GradientView = GradientView()
+                fadeView.themeBackgroundGradient = [
+                    .value(.black, alpha: 0),
+                    .value(.black, alpha: 0.4)
+                ]
+                stillImageView.addSubview(fadeView)
+                fadeView.set(.height, to: 40)
+                fadeView.pin(.leading, to: .leading, of: stillImageView)
+                fadeView.pin(.trailing, to: .trailing, of: stillImageView)
+                fadeView.pin(.bottom, to: .bottom, of: stillImageView)
+                
+                let durationLabel: UILabel = UILabel()
+                durationLabel.font = .systemFont(ofSize: Values.smallFontSize)
+                durationLabel.text = Format.duration(duration)
+                durationLabel.themeTextColor = .white
+                stillImageView.addSubview(durationLabel)
+                durationLabel.pin(.trailing, to: .trailing, of: stillImageView, withInset: -Values.smallSpacing)
+                durationLabel.pin(.bottom, to: .bottom, of: stillImageView, withInset: -Values.smallSpacing)
+            }
+            
+            // Add the play button above the duration label and fade
             let videoPlayIcon = UIImage(named: "CirclePlay")
             let videoPlayButton = UIImageView(image: videoPlayIcon)
             videoPlayButton.set(.width, to: 72)

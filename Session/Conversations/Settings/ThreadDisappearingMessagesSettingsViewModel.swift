@@ -53,6 +53,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     
     public enum Section: SessionTableSection {
         case type
+        case timerLegacy
         case timerDisappearAfterSend
         case timerDisappearAfterRead
         case noteToSelf
@@ -61,8 +62,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         var title: String? {
             switch self {
                 case .type: return "DISAPPERING_MESSAGES_TYPE_TITLE".localized()
-                case .timerDisappearAfterSend: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
-                case .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
+                // We need to keep these although the titles of them are the same
+                // because we need them to trigger timer section to refresh when
+                // the user selects different disappearing messages type
+                case .timerLegacy, .timerDisappearAfterSend, .timerDisappearAfterRead: return "DISAPPERING_MESSAGES_TIMER_TITLE".localized()
                 case .noteToSelf: return nil
                 case .group: return nil
             }
@@ -254,12 +257,19 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         ),
                         (!currentConfig.isEnabled ? nil :
                             SectionModel(
-                                model: (currentConfig.type == .disappearAfterSend ?
-                                    .timerDisappearAfterSend :
-                                    .timerDisappearAfterRead
-                                ),
+                                model: {
+                                    guard Features.useNewDisappearingMessagesConfig else { return .timerLegacy }
+
+                                    return currentSelection.type == .disappearAfterSend ?
+                                        .timerDisappearAfterSend :
+                                        .timerDisappearAfterRead
+                                }(),
                                 elements: DisappearingMessagesConfiguration
-                                    .validDurationsSeconds(currentConfig.type ?? .disappearAfterSend)
+                                    .validDurationsSeconds({
+                                        guard Features.useNewDisappearingMessagesConfig else { return .disappearAfterSend }
+
+                                        return (currentSelection.type ?? .disappearAfterSend)
+                                    }())
                                     .map { duration in
                                         let title: String = duration.formatted(format: .long)
 

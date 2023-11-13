@@ -375,13 +375,33 @@ public final class OpenGroupManager {
                 )
         }
         
-        // Remove the thread and associated data
-        _ = try? SessionThread
-            .filter(id: openGroupId)
-            .deleteAll(db)
-        
         if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
             try? SessionUtil.remove(db, server: server, roomToken: roomToken, using: dependencies)
+        }
+    }
+    
+    private func cleanMessageRequests(
+        _ db: Database,
+        openGroupId: String,
+        openGroupServer: String?,
+        calledFromConfigHandling: Bool,
+        using dependencies: Dependencies = Dependencies()
+    ) {
+        // Remove threads with only message requests from open group
+        _ = try? SessionThread
+            .filter(SessionThread.isMessageRequest(userPublicKey: getUserHexEncodedPublicKey(db, using: dependencies)))
+            .fetchAll(db)
+            .filter { $0.isMessageRequestFromCommunity(db, openGroupId: openGroupId)}
+            .map { try $0.delete(db)}
+        
+        if !calledFromConfigHandling, let server: String = openGroupServer {
+            //Remove inbox messages
+            if let data = try? OpenGroupAPI.preparedClearInbox(db, on: server) {
+                OpenGroupAPI
+                    .send(data: data)
+                    .map { _ in [server: true] }
+                    .sinkUntilComplete()
+            }
         }
     }
     
