@@ -48,12 +48,17 @@ public extension Network {
         
         public static var defaultOption: Layers = .onionRequest
         
+        /// Looks like we can init this with a `0` value and it'll successfully create the instance (as an empty set), this state
+        /// is invalid so should be marked as such
+        public var isValidOption: Bool { !isEmpty }
+        
         public var title: String {
             let individualLayerNames: [String] = [
                 (self.contains(.onionRequest) ? "Onion Requests" : nil),
                 (self.contains(.direct) ? "Direct" : nil)
             ].compactMap { $0 }
             
+            guard !individualLayerNames.isEmpty else { return "Onion Requests" }
             guard individualLayerNames.count > 1 else { return individualLayerNames[0] }
             
             return [
