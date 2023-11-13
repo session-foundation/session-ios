@@ -462,34 +462,6 @@ public extension SessionThread {
         )
     }
     
-    func isMessageRequestFromCommunity(_ db: Database, openGroupId: String) -> Bool {
-        var isMessageRequestFromCommunity: Bool = false
-        if let currentUserBlinded15PublicKey: String = Self.getUserHexEncodedBlindedKey(
-            db,
-            threadId: openGroupId,
-            threadVariant: .community,
-            blindingPrefix: .blinded15
-        ) {
-            isMessageRequestFromCommunity = isMessageRequestFromCommunity || ((try? Interaction
-                .filter(Interaction.Columns.threadId == self.id)
-                .filter(Interaction.Columns.openGroupWhisperTo == currentUserBlinded15PublicKey)
-                .isNotEmpty(db)) ?? false)
-        }
-        if let currentUserBlinded25PublicKey: String = Self.getUserHexEncodedBlindedKey(
-            db,
-            threadId: openGroupId,
-            threadVariant: .community,
-            blindingPrefix: .blinded25
-        ) {
-            isMessageRequestFromCommunity = isMessageRequestFromCommunity || ((try? Interaction
-                .filter(Interaction.Columns.threadId == self.id)
-                .filter(Interaction.Columns.openGroupWhisperTo == currentUserBlinded25PublicKey)
-                .isNotEmpty(db)) ?? false)
-        }
-        
-        return isMessageRequestFromCommunity
-    }
-    
     func isNoteToSelf(_ db: Database? = nil) -> Bool {
         return (
             variant == .contact &&
