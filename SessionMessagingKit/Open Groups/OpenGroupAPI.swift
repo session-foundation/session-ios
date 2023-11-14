@@ -1423,7 +1423,7 @@ public enum OpenGroupAPI {
         request: Request<T, Endpoint>,
         responseType: R.Type,
         timeout: TimeInterval = HTTP.defaultTimeout,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<R> {
         return HTTP.PreparedRequest(
             request: request,

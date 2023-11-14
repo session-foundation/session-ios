@@ -9,6 +9,7 @@ import SessionUtilitiesKit
 import Quick
 import Nimble
 
+@testable import SessionSnodeKit
 @testable import SessionMessagingKit
 
 class SessionUtilSpec: QuickSpec {
@@ -18,6 +19,7 @@ class SessionUtilSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
+            dependencies.setMockableValue(JSONEncoder.OutputFormatting.sortedKeys)  // Deterministic ordering
         }
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
             initialSetup: { cache in
@@ -41,7 +43,7 @@ class SessionUtilSpec: QuickSpec {
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { crypto in crypto.generate(.ed25519KeyPair(seed: any(), using: any())) }
+                    .when { $0.generate(.ed25519KeyPair(seed: any(), using: any())) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data.data(
@@ -53,6 +55,27 @@ class SessionUtilSpec: QuickSpec {
                             )!.bytes
                         )
                     )
+                crypto
+                    .when { try $0.tryGenerate(.signature(message: anyArray(), secretKey: anyArray())) }
+                    .thenReturn(
+                        Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
+                    )
+            }
+        )
+        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
+            initialSetup: { [dependencies = dependencies!] network in
+                network
+                    .when {
+                        $0.send(
+                            .selectedNetworkRequest(
+                                any(),
+                                to: any(),
+                                timeout: any(),
+                                using: dependencies
+                            )
+                        )
+                    }
+                    .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
             }
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
@@ -77,6 +100,33 @@ class SessionUtilSpec: QuickSpec {
                  )
             }
         }()
+        @TestState var mockSwarmCache: Set<Snode>! = [
+            Snode(
+                address: "test",
+                port: 0,
+                ed25519PublicKey: TestConstants.edPublicKey,
+                x25519PublicKey: TestConstants.publicKey
+            ),
+            Snode(
+                address: "test",
+                port: 1,
+                ed25519PublicKey: TestConstants.edPublicKey,
+                x25519PublicKey: TestConstants.publicKey
+            ),
+            Snode(
+                address: "test",
+                port: 2,
+                ed25519PublicKey: TestConstants.edPublicKey,
+                x25519PublicKey: TestConstants.publicKey
+            )
+        ]
+        @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
+            initialSetup: { cache in
+                cache.when { $0.clockOffsetMs }.thenReturn(0)
+                cache.when { $0.loadedSwarms }.thenReturn([createGroupOutput.groupSessionId.hexString])
+                cache.when { $0.swarmCache }.thenReturn([createGroupOutput.groupSessionId.hexString: mockSwarmCache])
+            }
+        )
         @TestState(cache: .sessionUtil, in: dependencies) var mockSessionUtilCache: MockSessionUtilCache! = MockSessionUtilCache(
             initialSetup: { cache in
                 var conf: UnsafeMutablePointer<config_object>!
@@ -958,6 +1008,454 @@ class SessionUtilSpec: QuickSpec {
                     expect(initialDisappearingConfig?.durationSeconds).to(equal(0))
                     expect(latestDisappearingConfig?.isEnabled).to(beTrue())
                     expect(latestDisappearingConfig?.durationSeconds).to(equal(10))
+                }
+                
+                // MARK: ---- containing a deleteBefore timestamp
+                context("containing a deleteBefore timestamp") {
+                    @TestState var numInteractions: Int!
+                    
+                    // MARK: ------ deletes messages before the timestamp
+                    it("deletes messages before the timestamp") {
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: createGroupOutput.group.threadId,
+                                variant: .contact,
+                                shouldBeVisible: true,
+                                calledFromConfigHandling: false,
+                                using: dependencies
+                            )
+                            _ = try Interaction(
+                                serverHash: "1234",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4321",
+                                variant: .standardIncoming,
+                                timestampMs: 100000000
+                            ).inserted(db)
+                        }
+                        
+                        createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
+                        dependencies.setMockableValue(key: "needsDump", true)
+                        
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: createGroupOutput.groupState[.groupInfo],
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        
+                        numInteractions = mockStorage.read(using: dependencies) { db in
+                            try Interaction.fetchCount(db)
+                        }
+                        expect(numInteractions).to(equal(0))
+                    }
+                    
+                    // MARK: ------ does not delete messages after the timestamp
+                    it("does not delete messages after the timestamp") {
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: createGroupOutput.group.threadId,
+                                variant: .contact,
+                                shouldBeVisible: true,
+                                calledFromConfigHandling: false,
+                                using: dependencies
+                            )
+                            _ = try Interaction(
+                                serverHash: "1234",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4321",
+                                variant: .standardIncoming,
+                                timestampMs: 100000000
+                            ).inserted(db)
+                            _ = try Interaction(
+                                serverHash: "1235",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4322",
+                                variant: .standardIncoming,
+                                timestampMs: 200000000
+                            ).inserted(db)
+                        }
+                        
+                        createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
+                        dependencies.setMockableValue(key: "needsDump", true)
+                        
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: createGroupOutput.groupState[.groupInfo],
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        
+                        numInteractions = mockStorage.read(using: dependencies) { db in
+                            try Interaction.fetchCount(db)
+                        }
+                        expect(numInteractions).to(equal(1))
+                    }
+                }
+                
+                // MARK: ---- containing a deleteAttachmentsBefore timestamp
+                context("containing a deleteAttachmentsBefore timestamp") {
+                    @TestState var numInteractions: Int!
+                    
+                    // MARK: ------ deletes messages with attachments before the timestamp
+                    it("deletes messages with attachments before the timestamp") {
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: createGroupOutput.group.threadId,
+                                variant: .contact,
+                                shouldBeVisible: true,
+                                calledFromConfigHandling: false,
+                                using: dependencies
+                            )
+                            let interaction: Interaction = try Interaction(
+                                serverHash: "1234",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4321",
+                                variant: .standardIncoming,
+                                timestampMs: 100000000
+                            ).inserted(db)
+                            _ = try Attachment(
+                                id: "AttachmentId",
+                                variant: .standard,
+                                contentType: "Test",
+                                byteCount: 1234
+                            ).inserted(db)
+                            _ = try InteractionAttachment(
+                                albumIndex: 1,
+                                interactionId: interaction.id!,
+                                attachmentId: "AttachmentId"
+                            ).inserted(db)
+                        }
+                        
+                        createGroupOutput.groupState[.groupInfo]?.conf.map {
+                            groups_info_set_attach_delete_before($0, 123456)
+                        }
+                        dependencies.setMockableValue(key: "needsDump", true)
+                        
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: createGroupOutput.groupState[.groupInfo],
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        
+                        numInteractions = mockStorage.read(using: dependencies) { db in
+                            try Interaction.fetchCount(db)
+                        }
+                        expect(numInteractions).to(equal(0))
+                    }
+                    
+                    // MARK: ------ schedules a garbage collection job to clean up the attachments
+                    it("schedules a garbage collection job to clean up the attachments") {
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: createGroupOutput.group.threadId,
+                                variant: .contact,
+                                shouldBeVisible: true,
+                                calledFromConfigHandling: false,
+                                using: dependencies
+                            )
+                            let interaction: Interaction = try Interaction(
+                                serverHash: "1234",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4321",
+                                variant: .standardIncoming,
+                                timestampMs: 100000000
+                            ).inserted(db)
+                            _ = try Attachment(
+                                id: "AttachmentId",
+                                variant: .standard,
+                                contentType: "Test",
+                                byteCount: 1234
+                            ).inserted(db)
+                            _ = try InteractionAttachment(
+                                albumIndex: 1,
+                                interactionId: interaction.id!,
+                                attachmentId: "AttachmentId"
+                            ).inserted(db)
+                        }
+                        
+                        createGroupOutput.groupState[.groupInfo]?.conf.map {
+                            groups_info_set_attach_delete_before($0, 123456)
+                        }
+                        dependencies.setMockableValue(key: "needsDump", true)
+                        
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: createGroupOutput.groupState[.groupInfo],
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(mockJobRunner)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
+                                jobRunner.add(
+                                    any(),
+                                    job: Job(
+                                        variant: .garbageCollection,
+                                        behaviour: .runOnce,
+                                        shouldBlock: false,
+                                        shouldBeUnique: false,
+                                        shouldSkipLaunchBecomeActive: false,
+                                        details: GarbageCollectionJob.Details(
+                                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles]
+                                        )
+                                    ),
+                                    canStartJob: true,
+                                    using: any()
+                                )
+                            })
+                    }
+                    
+                    // MARK: ------ does not delete messages with attachments after the timestamp
+                    it("does not delete messages with attachments after the timestamp") {
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: createGroupOutput.group.threadId,
+                                variant: .contact,
+                                shouldBeVisible: true,
+                                calledFromConfigHandling: false,
+                                using: dependencies
+                            )
+                            let interaction1: Interaction = try Interaction(
+                                serverHash: "1234",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4321",
+                                variant: .standardIncoming,
+                                timestampMs: 100000000
+                            ).inserted(db)
+                            let interaction2: Interaction = try Interaction(
+                                serverHash: "1235",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4321",
+                                variant: .standardIncoming,
+                                timestampMs: 200000000
+                            ).inserted(db)
+                            _ = try Attachment(
+                                id: "AttachmentId",
+                                variant: .standard,
+                                contentType: "Test",
+                                byteCount: 1234
+                            ).inserted(db)
+                            _ = try Attachment(
+                                id: "AttachmentId2",
+                                variant: .standard,
+                                contentType: "Test",
+                                byteCount: 1234
+                            ).inserted(db)
+                            _ = try InteractionAttachment(
+                                albumIndex: 1,
+                                interactionId: interaction1.id!,
+                                attachmentId: "AttachmentId"
+                            ).inserted(db)
+                            _ = try InteractionAttachment(
+                                albumIndex: 1,
+                                interactionId: interaction2.id!,
+                                attachmentId: "AttachmentId2"
+                            ).inserted(db)
+                        }
+                        
+                        createGroupOutput.groupState[.groupInfo]?.conf.map {
+                            groups_info_set_attach_delete_before($0, 123456)
+                        }
+                        dependencies.setMockableValue(key: "needsDump", true)
+                        
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: createGroupOutput.groupState[.groupInfo],
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        
+                        numInteractions = mockStorage.read(using: dependencies) { db in
+                            try Interaction.fetchCount(db)
+                        }
+                        expect(numInteractions).to(equal(1))
+                    }
+                    
+                    // MARK: ------ does not delete messages before the timestamp that have no attachments
+                    it("does not delete messages before the timestamp that have no attachments") {
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: createGroupOutput.group.threadId,
+                                variant: .contact,
+                                shouldBeVisible: true,
+                                calledFromConfigHandling: false,
+                                using: dependencies
+                            )
+                            let interaction1: Interaction = try Interaction(
+                                serverHash: "1234",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4321",
+                                variant: .standardIncoming,
+                                timestampMs: 100000000
+                            ).inserted(db)
+                            _ = try Interaction(
+                                serverHash: "1235",
+                                threadId: createGroupOutput.group.threadId,
+                                authorId: "4321",
+                                variant: .standardIncoming,
+                                timestampMs: 200000000
+                            ).inserted(db)
+                            _ = try Attachment(
+                                id: "AttachmentId",
+                                variant: .standard,
+                                contentType: "Test",
+                                byteCount: 1234
+                            ).inserted(db)
+                            _ = try InteractionAttachment(
+                                albumIndex: 1,
+                                interactionId: interaction1.id!,
+                                attachmentId: "AttachmentId"
+                            ).inserted(db)
+                        }
+                        
+                        createGroupOutput.groupState[.groupInfo]?.conf.map {
+                            groups_info_set_attach_delete_before($0, 123456)
+                        }
+                        dependencies.setMockableValue(key: "needsDump", true)
+                        
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: createGroupOutput.groupState[.groupInfo],
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        
+                        numInteractions = mockStorage.read(using: dependencies) { db in
+                            try Interaction.fetchCount(db)
+                        }
+                        expect(numInteractions).to(equal(1))
+                    }
+                }
+                
+                // MARK: ---- deletes from the server after deleting messages before a given timestamp
+                it("deletes from the server after deleting messages before a given timestamp") {
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: createGroupOutput.group.threadId,
+                            variant: .contact,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                        _ = try Interaction(
+                            serverHash: "1234",
+                            threadId: createGroupOutput.group.threadId,
+                            authorId: "4321",
+                            variant: .standardIncoming,
+                            timestampMs: 100000000
+                        ).inserted(db)
+                    }
+                    
+                    createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
+                    dependencies.setMockableValue(key: "needsDump", true)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.handleGroupInfoUpdate(
+                            db,
+                            in: createGroupOutput.groupState[.groupInfo],
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                            serverTimestampMs: 1234567891000,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let expectedRequest: URLRequest = try SnodeAPI
+                        .preparedDeleteMessages(
+                            serverHashes: ["1234"],
+                            requireSuccessfulDeletion: false,
+                            authMethod: Authentication.groupAdmin(
+                                groupSessionId: createGroupOutput.groupSessionId,
+                                ed25519SecretKey: createGroupOutput.identityKeyPair.secretKey
+                            ),
+                            using: dependencies
+                        )
+                        .request
+                    expect(mockNetwork)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { [dependencies = dependencies!] network in
+                            network.send(
+                                .selectedNetworkRequest(
+                                    expectedRequest.httpBody!,
+                                    to: dependencies.randomElement(mockSwarmCache)!,
+                                    timeout: HTTP.defaultTimeout,
+                                    using: any()
+                                )
+                            )
+                        })
+                }
+                
+                // MARK: ---- does not delete from the server if there is no server hash
+                it("does not delete from the server if there is no server hash") {
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: createGroupOutput.group.threadId,
+                            variant: .contact,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                        _ = try Interaction(
+                            threadId: createGroupOutput.group.threadId,
+                            authorId: "4321",
+                            variant: .standardIncoming,
+                            timestampMs: 100000000
+                        ).inserted(db)
+                    }
+                    
+                    createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
+                    dependencies.setMockableValue(key: "needsDump", true)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.handleGroupInfoUpdate(
+                            db,
+                            in: createGroupOutput.groupState[.groupInfo],
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                            serverTimestampMs: 1234567891000,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let numInteractions: Int? = mockStorage.read(using: dependencies) { db in
+                        try Interaction.fetchCount(db)
+                    }
+                    expect(numInteractions).to(equal(0))
+                    expect(mockNetwork)
+                        .toNot(call { [dependencies = dependencies!] network in
+                            network.send(
+                                .selectedNetworkRequest(
+                                    any(),
+                                    to: any(),
+                                    timeout: any(),
+                                    using: dependencies
+                                )
+                            )
+                        })
                 }
             }
         }

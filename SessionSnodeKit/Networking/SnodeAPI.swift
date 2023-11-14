@@ -272,7 +272,8 @@ public final class SnodeAPI {
                             authMethod: authMethod
                         )
                     ),
-                    responseType: UpdateExpiryResponse.self
+                    responseType: UpdateExpiryResponse.self,
+                    using: dependencies
                 )
             )
         }
@@ -442,7 +443,8 @@ public final class SnodeAPI {
                             maxSize: maxSize
                         )
                     ),
-                    responseType: GetMessagesResponse.self
+                    responseType: GetMessagesResponse.self,
+                    using: dependencies
                 )
             }
 
@@ -458,7 +460,8 @@ public final class SnodeAPI {
                         maxSize: maxSize
                     )
                 ),
-                responseType: GetMessagesResponse.self
+                responseType: GetMessagesResponse.self,
+                using: dependencies
             )
         }()
         
@@ -564,7 +567,8 @@ public final class SnodeAPI {
                         timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     )
                 ),
-                responseType: GetExpiriesResponse.self
+                responseType: GetExpiriesResponse.self,
+                using: dependencies
             )
     }
     
@@ -589,7 +593,8 @@ public final class SnodeAPI {
                             namespace: namespace
                         )
                     ),
-                    responseType: SendMessagesResponse.self
+                    responseType: SendMessagesResponse.self,
+                    using: dependencies
                 )
             }
             
@@ -604,7 +609,8 @@ public final class SnodeAPI {
                         timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
                     )
                 ),
-                responseType: SendMessagesResponse.self
+                responseType: SendMessagesResponse.self,
+                using: dependencies
             )
         }()
         
@@ -645,7 +651,8 @@ public final class SnodeAPI {
                         authMethod: authMethod
                     )
                 ),
-                responseType: UpdateExpiryResponse.self
+                responseType: UpdateExpiryResponse.self,
+                using: dependencies
             )
             .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
                 try response.validResultMap(
@@ -674,7 +681,8 @@ public final class SnodeAPI {
                         timestampMs: timestampMs
                     )
                 ),
-                responseType: RevokeSubaccountResponse.self
+                responseType: RevokeSubaccountResponse.self,
+                using: dependencies
             )
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
@@ -705,7 +713,8 @@ public final class SnodeAPI {
                         timestampMs: timestampMs
                     )
                 ),
-                responseType: UnrevokeSubaccountResponse.self
+                responseType: UnrevokeSubaccountResponse.self,
+                using: dependencies
             )
             .tryMap { _, response -> Void in
                 try response.validateResultMap(
@@ -737,7 +746,8 @@ public final class SnodeAPI {
                         authMethod: authMethod
                     )
                 ),
-                responseType: DeleteMessagesResponse.self
+                responseType: DeleteMessagesResponse.self,
+                using: dependencies
             )
             .tryMap { _, response -> [String: Bool] in
                 let validResultMap: [String: Bool] = try response.validResultMap(
@@ -780,7 +790,8 @@ public final class SnodeAPI {
                     )
                 ),
                 responseType: DeleteAllMessagesResponse.self,
-                retryCount: maxRetryCount
+                retryCount: maxRetryCount,
+                using: dependencies
             )
             .tryMap { info, response -> [String: Bool] in
                 guard let targetInfo: LatestTimestampResponseInfo = info as? LatestTimestampResponseInfo else {
@@ -816,7 +827,8 @@ public final class SnodeAPI {
                     )
                 ),
                 responseType: DeleteAllMessagesResponse.self,
-                retryCount: maxRetryCount
+                retryCount: maxRetryCount,
+                using: dependencies
             )
             .tryMap { _, response -> [String: Bool] in
                 try response.validResultMap(
@@ -840,7 +852,8 @@ public final class SnodeAPI {
                     snode: snode,
                     body: [:]
                 ),
-                responseType: GetNetworkTimestampResponse.self
+                responseType: GetNetworkTimestampResponse.self,
+                using: dependencies
             )
             .map { _, response in
                 // Assume we've fetched the networkTime in order to send a message to the specified snode, in
@@ -1179,7 +1192,7 @@ public final class SnodeAPI {
         requireAllBatchResponses: Bool = true,
         retryCount: Int = 0,
         timeout: TimeInterval = HTTP.defaultTimeout,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<R> {
         return HTTP.PreparedRequest<R>(
             request: request,
@@ -1189,14 +1202,6 @@ public final class SnodeAPI {
             retryCount: retryCount,
             timeout: timeout
         )
-    }
-}
-
-@objc(SNSnodeAPI)
-public final class SNSnodeAPI: NSObject {
-    @objc(currentOffsetTimestampMs)
-    public static func currentOffsetTimestampMs() -> UInt64 {
-        return UInt64(SnodeAPI.currentOffsetTimestampMs())
     }
 }
 
