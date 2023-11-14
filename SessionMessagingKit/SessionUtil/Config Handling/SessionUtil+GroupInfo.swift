@@ -40,7 +40,7 @@ internal extension SessionUtil {
     ) throws {
         typealias GroupData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
-        guard config.needsDump else { return }
+        guard config.needsDump(using: dependencies) else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // If the group is destroyed then remove the group date (want to keep the group itself around because
@@ -67,11 +67,16 @@ internal extension SessionUtil {
         let groupName: String = String(cString: groupNamePtr)
         let groupDesc: String? = groupDescPtr.map { String(cString: $0) }
         let formationTimestamp: TimeInterval = TimeInterval(groups_info_get_created(conf))
+        
+        // The `displayPic.key` can contain junk data so if the `displayPictureUrl` is null then just
+        // set the `displayPictureKey` to null as well
         let displayPic: user_profile_pic = groups_info_get_pic(conf)
         let displayPictureUrl: String? = String(libSessionVal: displayPic.url, nullIfEmpty: true)
-        let displayPictureKey: Data? = Data(
-            libSessionVal: displayPic.key,
-            count: DisplayPictureManager.aes256KeyByteLength
+        let displayPictureKey: Data? = (displayPictureUrl == nil ? nil :
+            Data(
+                libSessionVal: displayPic.key,
+                count: DisplayPictureManager.aes256KeyByteLength
+            )
         )
 
         // Update the group name
@@ -90,7 +95,7 @@ internal extension SessionUtil {
             ((existingGroup?.groupDescription == groupDesc) ? nil :
                 ClosedGroup.Columns.groupDescription.set(to: groupDesc)
             ),
-            ((existingGroup?.formationTimestamp != formationTimestamp && formationTimestamp != 0) ? nil :
+            ((existingGroup?.formationTimestamp == formationTimestamp || formationTimestamp == 0) ? nil :
                 ClosedGroup.Columns.formationTimestamp.set(to: formationTimestamp)
             ),
             // If we are removing the display picture do so here
@@ -104,7 +109,7 @@ internal extension SessionUtil {
                 ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil)
             ),
             (!needsDisplayPictureUpdate || displayPictureUrl != nil ? nil :
-                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow)
+                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: (serverTimestampMs / 1000))
             )
         ].compactMap { $0 }
 

@@ -57,9 +57,9 @@ class MessageSendJobSpec: QuickSpec {
                     .thenReturn([:])
                 jobRunner
                     .when { $0.insert(any(), job: any(), before: any()) }
-                    .then { args in
-                        let db: Database = args[0] as! Database
-                        var job: Job = args[1] as! Job
+                    .then { args, untrackedArgs in
+                        let db: Database = untrackedArgs[0] as! Database
+                        var job: Job = args[0] as! Job
                         job.id = 1000
                         
                         try! job.insert(db)

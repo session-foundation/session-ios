@@ -152,7 +152,8 @@ internal extension SessionUtil {
                 config: config,
                 for: variant,
                 sessionId: SessionId(.group, hex: group.id),
-                timestampMs: Int64(floor(group.formationTimestamp * 1000))
+                timestampMs: Int64(floor(group.formationTimestamp * 1000)),
+                using: dependencies
             )?.upsert(db)
         }
         

@@ -798,7 +798,6 @@ public extension ValueObservation {
 
 // MARK: - Debug Convenience
 
-#if DEBUG
 public extension Storage {
     func exportInfo(password: String) throws -> (dbPath: String, keyPath: String) {
         var keySpec: Data = try Storage.getOrGenerateDatabaseKeySpec()
@@ -829,4 +828,3 @@ public extension Storage {
         )
     }
 }
-#endif

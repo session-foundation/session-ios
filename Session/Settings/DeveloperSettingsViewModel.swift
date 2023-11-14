@@ -63,6 +63,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case debugDisappearingMessageDurations
         
         case updatedGroups
+        case updatedGroupsDisableAutoApprove
         case updatedGroupsRemoveMessagesOnKick
         case updatedGroupsAllowHistoricAccessOnInvite
         case updatedGroupsAllowDisplayPicture
@@ -84,6 +85,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedDisappearingMessages: Bool
         
         let updatedGroups: Bool
+        let updatedGroupsDisableAutoApprove: Bool
         let updatedGroupsRemoveMessagesOnKick: Bool
         let updatedGroupsAllowHistoricAccessOnInvite: Bool
         let updatedGroupsAllowDisplayPicture: Bool
@@ -102,6 +104,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 updatedDisappearingMessages: dependencies[feature: .updatedDisappearingMessages],
                 updatedGroups: dependencies[feature: .updatedGroups],
+                updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
                 updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
                 updatedGroupsAllowHistoricAccessOnInvite: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
                 updatedGroupsAllowDisplayPicture: dependencies[feature: .updatedGroupsAllowDisplayPicture],
@@ -258,6 +261,27 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             onTap: { self?.updateFlag(for: .updatedGroups, to: !current.updatedGroups) }
                         ),
                         SessionCell.Info(
+                            id: .updatedGroupsDisableAutoApprove,
+                            title: "Disable Auto Approve",
+                            subtitle: """
+                            Prevents a group from automatically getting approved if the admin is already approved.
+                            
+                            <b>Note:</b> The default behaviour is to automatically approve new groups if the admin that sent the invitation is an approved contact.
+                            """,
+                            trailingAccessory: .toggle(
+                                .boolValue(
+                                    current.updatedGroupsDisableAutoApprove,
+                                    oldValue: (previous ?? current).updatedGroupsDisableAutoApprove
+                                )
+                            ),
+                            onTap: {
+                                self?.updateFlag(
+                                    for: .updatedGroupsDisableAutoApprove,
+                                    to: !current.updatedGroupsDisableAutoApprove
+                                )
+                            }
+                        ),
+                        SessionCell.Info(
                             id: .updatedGroupsRemoveMessagesOnKick,
                             title: "Remove Messages on Kick",
                             subtitle: """
@@ -403,6 +427,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedDisappearingMessages: updateFlag(for: .updatedDisappearingMessages, to: nil)
                     
                 case .updatedGroups: updateFlag(for: .updatedGroups, to: nil)
+                case .updatedGroupsDisableAutoApprove: updateFlag(for: .updatedGroupsDisableAutoApprove, to: nil)
                 case .updatedGroupsRemoveMessagesOnKick: updateFlag(for: .updatedGroupsRemoveMessagesOnKick, to: nil)
                 case .updatedGroupsAllowHistoricAccessOnInvite:
                     updateFlag(for: .updatedGroupsAllowHistoricAccessOnInvite, to: nil)
@@ -472,6 +497,13 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             networkCache.currentRequests = [:]
         }
         
+        /// Unsubscribe from push notifications (do this after cancelling pending network requests as we don't want these to be cancelled)
+        if let existingToken: String = dependencies[singleton: .storage, key: .lastRecordedPushToken] {
+            PushNotificationAPI
+                .unsubscribeAll(token: Data(hex: existingToken), using: dependencies)
+                .sinkUntilComplete()
+        }
+        
         /// Clear the snodeAPI and getSnodePool caches
         dependencies.mutate(cache: .snodeAPI) {
             $0.snodePool = []
@@ -535,6 +567,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             onComplete: { [dependencies] _ in
                 /// Restart the current user poller (there won't be any other pollers though)
                 dependencies[singleton: .currentUserPoller].start(using: dependencies)
+                
+                /// Re-sync the push tokens (if there are any)
+                SyncPushTokensJob.run(uploadOnlyIfStale: false)
             },
             using: dependencies
         )

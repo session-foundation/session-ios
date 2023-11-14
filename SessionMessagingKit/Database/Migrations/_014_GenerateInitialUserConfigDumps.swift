@@ -55,13 +55,14 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     in: config
                 )
                 
-                if config.needsDump {
+                if config.needsDump(using: dependencies) {
                     try SessionUtil
                         .createDump(
                             config: config,
                             for: .userProfile,
                             sessionId: userSessionId,
-                            timestampMs: timestampMs
+                            timestampMs: timestampMs,
+                            using: dependencies
                         )?
                         .upsert(db)
                 }
@@ -121,13 +122,14 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     in: config
                 )
                 
-                if config.needsDump {
+                if config.needsDump(using: dependencies) {
                     try SessionUtil
                         .createDump(
                             config: config,
                             for: .contacts,
                             sessionId: userSessionId,
-                            timestampMs: timestampMs
+                            timestampMs: timestampMs,
+                            using: dependencies
                         )?
                         .upsert(db)
                 }
@@ -146,13 +148,14 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     in: config
                 )
                 
-                if config.needsDump {
+                if config.needsDump(using: dependencies) {
                     try SessionUtil
                         .createDump(
                             config: config,
                             for: .convoInfoVolatile,
                             sessionId: userSessionId,
-                            timestampMs: timestampMs
+                            timestampMs: timestampMs,
+                            using: dependencies
                         )?
                         .upsert(db)
                 }
@@ -182,13 +185,14 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     in: config
                 )
                 
-                if config.needsDump {
+                if config.needsDump(using: dependencies) {
                     try SessionUtil
                         .createDump(
                             config: config,
                             for: .userGroups,
                             sessionId: userSessionId,
-                            timestampMs: timestampMs
+                            timestampMs: timestampMs,
+                            using: dependencies
                         )?
                         .upsert(db)
                 }

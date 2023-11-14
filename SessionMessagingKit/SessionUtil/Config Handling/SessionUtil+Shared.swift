@@ -79,13 +79,14 @@ internal extension SessionUtil {
                     if let lastError: SessionUtilError = config?.lastError { throw lastError }
 
                     // If we don't need to dump the data the we can finish early
-                    guard config.needsDump else { return config.needsPush }
+                    guard config.needsDump(using: dependencies) else { return config.needsPush }
 
                     try SessionUtil.createDump(
                         config: config,
                         for: variant,
                         sessionId: sessionId,
-                        timestampMs: SnodeAPI.currentOffsetTimestampMs()
+                        timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies),
+                        using: dependencies
                     )?.upsert(db)
 
                     return config.needsPush

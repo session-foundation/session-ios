@@ -37,7 +37,7 @@ internal extension SessionUtil {
         serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
-        guard config.needsDump else { return }
+        guard config.needsDump(using: dependencies) else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // The current users contact data is handled separately so exclude it if it's present (as that's

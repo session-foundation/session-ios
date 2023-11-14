@@ -51,14 +51,6 @@ public extension SessionUtil {
             }
         }
         
-        var needsDump: Bool {
-            switch self {
-                case .invalid: return false
-                case .object(let conf): return config_needs_dump(conf)
-                case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
-            }
-        }
-        
         var lastError: SessionUtilError? {
             let maybeErrorString: String? = {
                 switch self {
@@ -81,6 +73,19 @@ public extension SessionUtil {
         }
         
         // MARK: - Functions
+        
+        func needsDump(using dependencies: Dependencies) -> Bool {
+            return dependencies.mockableValue(
+                key: "needsDump",
+                {
+                    switch self {
+                        case .invalid: return false
+                        case .object(let conf): return config_needs_dump(conf)
+                        case .groupKeys(let conf, _, _): return groups_keys_needs_dump(conf)
+                    }
+                }()
+            )
+        }
         
         func addingLogger() -> Config {
             switch self {
@@ -344,13 +349,6 @@ public extension Optional where Wrapped == SessionUtil.Config {
         }
     }
     
-    var needsDump: Bool {
-        switch self {
-            case .some(let config): return config.needsDump
-            case .none: return false
-        }
-    }
-    
     var lastError: SessionUtilError? {
         switch self {
             case .some(let config): return config.lastError
@@ -359,6 +357,13 @@ public extension Optional where Wrapped == SessionUtil.Config {
     }
     
     // MARK: - Functions
+    
+    func needsDump(using dependencies: Dependencies) -> Bool {
+        switch self {
+            case .some(let config): return config.needsDump(using: dependencies)
+            case .none: return false
+        }
+    }
     
     func confirmPushed(seqNo: Int64, hash: String) {
         switch self {
@@ -386,5 +391,14 @@ public extension Optional where Wrapped == SessionUtil.Config {
 
 public extension Atomic where Value == Optional<SessionUtil.Config> {
     var needsPush: Bool { return wrappedValue.needsPush }
-    var needsDump: Bool { return wrappedValue.needsDump }
+    
+    func needsDump(using dependencies: Dependencies) -> Bool { return wrappedValue.needsDump(using: dependencies) }
+}
+
+// MARK: - Formatting
+
+extension String.StringInterpolation {
+    mutating func appendInterpolation(_ error: SessionUtilError?) {
+        appendLiteral(error.map { "\($0)" } ?? "Unknown Error") // stringlint:disable
+    }
 }

@@ -55,6 +55,28 @@ class SessionUtilSpec: QuickSpec {
                     )
             }
         )
+        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
+            initialSetup: { jobRunner in
+                jobRunner
+                    .when { $0.add(any(), job: any(), dependantJob: any(), canStartJob: any(), using: any()) }
+                    .thenReturn(nil)
+            }
+        )
+        
+        @TestState var createGroupOutput: SessionUtil.CreatedGroupInfo! = {
+            mockStorage.write(using: dependencies) { db in
+                 try SessionUtil.createGroup(
+                    db,
+                    name: "TestGroup",
+                    description: nil,
+                    displayPictureUrl: nil,
+                    displayPictureFilename: nil,
+                    displayPictureEncryptionKey: nil,
+                    members: [],
+                    using: dependencies
+                 )
+            }
+        }()
         @TestState(cache: .sessionUtil, in: dependencies) var mockSessionUtilCache: MockSessionUtilCache! = MockSessionUtilCache(
             initialSetup: { cache in
                 var conf: UnsafeMutablePointer<config_object>!
@@ -64,9 +86,14 @@ class SessionUtilSpec: QuickSpec {
                 cache.when { $0.setConfig(for: any(), sessionId: any(), to: any()) }.thenReturn(())
                 cache.when { $0.config(for: .userGroups, sessionId: any()) }
                     .thenReturn(Atomic(.object(conf)))
+                cache.when { $0.config(for: .groupInfo, sessionId: any()) }
+                    .thenReturn(Atomic(createGroupOutput.groupState[.groupInfo]))
+                cache.when { $0.config(for: .groupMembers, sessionId: any()) }
+                    .thenReturn(Atomic(createGroupOutput.groupState[.groupMembers]))
+                cache.when { $0.config(for: .groupKeys, sessionId: any()) }
+                    .thenReturn(Atomic(createGroupOutput.groupState[.groupKeys]))
             }
         )
-        @TestState var createGroupOutput: SessionUtil.CreatedGroupInfo!
         @TestState var userGroupsConfig: SessionUtil.Config!
         
         // MARK: - SessionUtil
@@ -272,7 +299,7 @@ class SessionUtilSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when creating a group
+            // MARK: -- when creating a group
             context("when creating a group") {
                 beforeEach {
                     var userGroupsConf: UnsafeMutablePointer<config_object>!
@@ -285,7 +312,7 @@ class SessionUtilSpec: QuickSpec {
                         .thenReturn(Atomic(userGroupsConfig))
                 }
                 
-                // MARK: -- throws when there is no user ed25519 keyPair
+                // MARK: ---- throws when there is no user ed25519 keyPair
                 it("throws when there is no user ed25519 keyPair") {
                     var resultError: Error? = nil
                     
@@ -311,7 +338,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(resultError).to(matchError(MessageSenderError.noKeyPair))
                 }
                 
-                // MARK: -- throws when it fails to generate a new identity ed25519 keyPair
+                // MARK: ---- throws when it fails to generate a new identity ed25519 keyPair
                 it("throws when it fails to generate a new identity ed25519 keyPair") {
                     var resultError: Error? = nil
                     
@@ -338,7 +365,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(resultError).to(matchError(MessageSenderError.noKeyPair))
                 }
                 
-                // MARK: -- throws when given an invalid member id
+                // MARK: ---- throws when given an invalid member id
                 it("throws when given an invalid member id") {
                     var resultError: Error? = nil
                     
@@ -375,7 +402,7 @@ class SessionUtilSpec: QuickSpec {
                     ))
                 }
                 
-                // MARK: -- returns the correct identity keyPair
+                // MARK: ---- returns the correct identity keyPair
                 it("returns the correct identity keyPair") {
                     createGroupOutput = mockStorage.write(using: dependencies) { db in
                         try SessionUtil.createGroup(
@@ -399,7 +426,7 @@ class SessionUtilSpec: QuickSpec {
                         ))
                 }
                 
-                // MARK: -- returns a closed group with the correct data set
+                // MARK: ---- returns a closed group with the correct data set
                 it("returns a closed group with the correct data set") {
                     createGroupOutput = mockStorage.write(using: dependencies) { db in
                         try SessionUtil.createGroup(
@@ -429,7 +456,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(createGroupOutput.group.invited).to(beFalse())
                 }
                 
-                // MARK: -- returns the members setup correctly
+                // MARK: ---- returns the members setup correctly
                 it("returns the members setup correctly") {
                     createGroupOutput = mockStorage.write(using: dependencies) { db in
                         try SessionUtil.createGroup(
@@ -475,7 +502,7 @@ class SessionUtilSpec: QuickSpec {
                         ]))
                 }
                 
-                // MARK: -- adds the current user as an admin when not provided
+                // MARK: ---- adds the current user as an admin when not provided
                 it("adds the current user as an admin when not provided") {
                     createGroupOutput = mockStorage.write(using: dependencies) { db in
                         try SessionUtil.createGroup(
@@ -503,7 +530,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(createGroupOutput.members.map { $0.role }).to(contain(.admin))
                 }
                 
-                // MARK: -- handles members without profile data correctly
+                // MARK: ---- handles members without profile data correctly
                 it("handles members without profile data correctly") {
                     createGroupOutput = mockStorage.write(using: dependencies) { db in
                         try SessionUtil.createGroup(
@@ -529,7 +556,7 @@ class SessionUtilSpec: QuickSpec {
                     expect(createGroupOutput.members.map { $0.role }).to(contain(.standard))
                 }
                 
-                // MARK: -- stores the config states in the cache correctly
+                // MARK: ---- stores the config states in the cache correctly
                 it("stores the config states in the cache correctly") {
                     createGroupOutput = mockStorage.write(using: dependencies) { db in
                         try SessionUtil.createGroup(
@@ -586,9 +613,9 @@ class SessionUtilSpec: QuickSpec {
                 }
             }
             
-            // MARK: - when saving a created a group
+            // MARK: -- when saving a created a group
             context("when saving a created a group") {
-                // MARK: -- saves config dumps for the stored configs
+                // MARK: ---- saves config dumps for the stored configs
                 it("saves config dumps for the stored configs") {
                     mockStorage.write(using: dependencies) { db in
                         createGroupOutput = try SessionUtil.createGroup(
@@ -630,7 +657,7 @@ class SessionUtilSpec: QuickSpec {
                         .to(contain([1234567890000]))
                 }
                 
-                // MARK: -- adds the group to the user groups config
+                // MARK: ---- adds the group to the user groups config
                 it("adds the group to the user groups config") {
                     mockStorage.write(using: dependencies) { db in
                         createGroupOutput = try SessionUtil.createGroup(
@@ -663,6 +690,287 @@ class SessionUtilSpec: QuickSpec {
                     expect(result?.map { $0.timestampMs }.asSet()).to(contain([1234567890000]))
                 }
             }
+            
+            // MARK: -- when receiving a GROUP_INFO update
+            context("when receiving a GROUP_INFO update") {
+                @TestState var latestGroup: ClosedGroup?
+                @TestState var initialDisappearingConfig: DisappearingMessagesConfiguration?
+                @TestState var latestDisappearingConfig: DisappearingMessagesConfiguration?
+                
+                beforeEach {
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: createGroupOutput.group.threadId,
+                            variant: .group,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                        try createGroupOutput.group.insert(db)
+                        try createGroupOutput.members.forEach { try $0.insert(db) }
+                        initialDisappearingConfig = try DisappearingMessagesConfiguration
+                            .fetchOne(db, id: createGroupOutput.group.threadId)
+                            .defaulting(
+                                to: DisappearingMessagesConfiguration.defaultWith(createGroupOutput.group.threadId)
+                            )
+                    }
+                }
+                
+                // MARK: ---- does nothing if there are no changes
+                it("does nothing if there are no changes") {
+                    dependencies.setMockableValue(key: "needsDump", false)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.handleGroupInfoUpdate(
+                            db,
+                            in: createGroupOutput.groupState[.groupInfo],
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                            serverTimestampMs: 1234567891000,
+                            using: dependencies
+                        )
+                    }
+                    
+                    latestGroup = mockStorage.read(using: dependencies) { db in
+                        try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
+                    }
+                    expect(createGroupOutput.groupState[.groupInfo]).toNot(beNil())
+                    expect(createGroupOutput.group).to(equal(latestGroup))
+                }
+                
+                // MARK: ---- throws if the config is invalid
+                it("throws if the config is invalid") {
+                    dependencies.setMockableValue(key: "needsDump", true)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        expect {
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: .invalid,
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError())
+                    }
+                }
+                
+                // MARK: ---- removes group data if the group is destroyed
+                it("removes group data if the group is destroyed") {
+                    createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_destroy_group($0) }
+                    dependencies.setMockableValue(key: "needsDump", true)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.handleGroupInfoUpdate(
+                            db,
+                            in: createGroupOutput.groupState[.groupInfo],
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                            serverTimestampMs: 1234567891000,
+                            using: dependencies
+                        )
+                    }
+                    
+                    latestGroup = mockStorage.read(using: dependencies) { db in
+                        try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
+                    }
+                    expect(latestGroup?.authData).to(beNil())
+                    expect(latestGroup?.groupIdentityPrivateKey).to(beNil())
+                }
+                
+                // MARK: ---- updates the name if it changed
+                it("updates the name if it changed") {
+                    createGroupOutput.groupState[.groupInfo]?.conf.map {
+                        var updatedName: [CChar] = "UpdatedName".cArray.nullTerminated()
+                        groups_info_set_name($0, &updatedName)
+                    }
+                    dependencies.setMockableValue(key: "needsDump", true)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.handleGroupInfoUpdate(
+                            db,
+                            in: createGroupOutput.groupState[.groupInfo],
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                            serverTimestampMs: 1234567891000,
+                            using: dependencies
+                        )
+                    }
+                    
+                    latestGroup = mockStorage.read(using: dependencies) { db in
+                        try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
+                    }
+                    expect(createGroupOutput.group.name).to(equal("TestGroup"))
+                    expect(latestGroup?.name).to(equal("UpdatedName"))
+                }
+                
+                // MARK: ---- updates the description if it changed
+                it("updates the description if it changed") {
+                    createGroupOutput.groupState[.groupInfo]?.conf.map {
+                        var updatedDesc: [CChar] = "UpdatedDesc".cArray.nullTerminated()
+                        groups_info_set_description($0, &updatedDesc)
+                    }
+                    dependencies.setMockableValue(key: "needsDump", true)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.handleGroupInfoUpdate(
+                            db,
+                            in: createGroupOutput.groupState[.groupInfo],
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                            serverTimestampMs: 1234567891000,
+                            using: dependencies
+                        )
+                    }
+                    
+                    latestGroup = mockStorage.read(using: dependencies) { db in
+                        try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
+                    }
+                    expect(createGroupOutput.group.groupDescription).to(beNil())
+                    expect(latestGroup?.groupDescription).to(equal("UpdatedDesc"))
+                }
+                
+                // MARK: ---- updates the formation timestamp if it changed
+                it("updates the formation timestamp if it changed") {
+                    createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_created($0, 54321) }
+                    dependencies.setMockableValue(key: "needsDump", true)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.handleGroupInfoUpdate(
+                            db,
+                            in: createGroupOutput.groupState[.groupInfo],
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                            serverTimestampMs: 1234567891000,
+                            using: dependencies
+                        )
+                    }
+                    
+                    latestGroup = mockStorage.read(using: dependencies) { db in
+                        try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
+                    }
+                    expect(createGroupOutput.group.formationTimestamp).to(equal(1234567890))
+                    expect(latestGroup?.formationTimestamp).to(equal(54321))
+                }
+                
+                // MARK: ---- and the display picture was changed
+                context("and the display picture was changed") {
+                    // MARK: ------ removes the display picture
+                    it("removes the display picture") {
+                        mockStorage.write(using: dependencies) { db in
+                            try ClosedGroup
+                                .updateAll(
+                                    db,
+                                    ClosedGroup.Columns.displayPictureUrl.set(to: "TestUrl"),
+                                    ClosedGroup.Columns.displayPictureEncryptionKey.set(to: Data([1, 2, 3])),
+                                    ClosedGroup.Columns.displayPictureFilename.set(to: "TestFilename")
+                                )
+                        }
+                        dependencies.setMockableValue(key: "needsDump", true)
+                        
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: createGroupOutput.groupState[.groupInfo],
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        
+                        latestGroup = mockStorage.read(using: dependencies) { db in
+                            try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
+                        }
+                        expect(latestGroup?.displayPictureUrl).to(beNil())
+                        expect(latestGroup?.displayPictureEncryptionKey).to(beNil())
+                        expect(latestGroup?.displayPictureFilename).to(beNil())
+                        expect(latestGroup?.lastDisplayPictureUpdate).to(equal(1234567891))
+                    }
+                    
+                    // MARK: ------ schedules a display picture download job if there is a new one
+                    it("schedules a display picture download job if there is a new one") {
+                        createGroupOutput.groupState[.groupInfo]?.conf.map {
+                            var displayPic: user_profile_pic = user_profile_pic()
+                            displayPic.url = "https://www.oxen.io/file/1234".toLibSession()
+                            displayPic.key = Data(
+                                repeating: 1,
+                                count: DisplayPictureManager.aes256KeyByteLength
+                            ).toLibSession()
+                            groups_info_set_pic($0, displayPic)
+                        }
+                        dependencies.setMockableValue(key: "needsDump", true)
+                        
+                        mockStorage.write(using: dependencies) { db in
+                            try SessionUtil.handleGroupInfoUpdate(
+                                db,
+                                in: createGroupOutput.groupState[.groupInfo],
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                                serverTimestampMs: 1234567891000,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(mockJobRunner)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
+                                jobRunner.add(
+                                    any(),
+                                    job: Job(
+                                        variant: .displayPictureDownload,
+                                        behaviour: .runOnce,
+                                        shouldBlock: false,
+                                        shouldBeUnique: true,
+                                        shouldSkipLaunchBecomeActive: false,
+                                        details: DisplayPictureDownloadJob.Details(
+                                            target: .group(
+                                                id: createGroupOutput.group.threadId,
+                                                url: "https://www.oxen.io/file/1234",
+                                                encryptionKey: Data(
+                                                    repeating: 1,
+                                                    count: DisplayPictureManager.aes256KeyByteLength
+                                                )
+                                            ),
+                                            timestamp: 1234567891
+                                        )
+                                    ),
+                                    canStartJob: true,
+                                    using: any()
+                                )
+                            })
+                    }
+                }
+                
+                // MARK: ---- updates the disappearing messages config
+                it("updates the disappearing messages config") {
+                    createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_expiry_timer($0, 10) }
+                    dependencies.setMockableValue(key: "needsDump", true)
+                    
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionUtil.handleGroupInfoUpdate(
+                            db,
+                            in: createGroupOutput.groupState[.groupInfo],
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
+                            serverTimestampMs: 1234567891000,
+                            using: dependencies
+                        )
+                    }
+                    
+                    latestDisappearingConfig = mockStorage.read(using: dependencies) { db in
+                        try DisappearingMessagesConfiguration.fetchOne(db, id: createGroupOutput.group.threadId)
+                    }
+                    expect(initialDisappearingConfig?.isEnabled).to(beFalse())
+                    expect(initialDisappearingConfig?.durationSeconds).to(equal(0))
+                    expect(latestDisappearingConfig?.isEnabled).to(beTrue())
+                    expect(latestDisappearingConfig?.durationSeconds).to(equal(10))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Convenience
+
+private extension SessionUtil.Config {
+    var conf: UnsafeMutablePointer<config_object>? {
+        switch self {
+            case .object(let conf): return conf
+            default: return nil
         }
     }
 }

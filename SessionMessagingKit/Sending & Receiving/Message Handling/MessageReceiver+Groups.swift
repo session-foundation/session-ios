@@ -132,7 +132,11 @@ extension MessageReceiver {
         /// With updated groups they should be considered message requests (`invited: true`) unless person sending the invitation is
         /// an approved contact of the user, this is designed to reduce spam via groups getting around message requests if users are on old
         /// or modified clients
-        let inviteSenderIsApproved: Bool = ((try? Contact.fetchOne(db, id: sender))?.isApproved == true)
+        let inviteSenderIsApproved: Bool = {
+            guard !dependencies[feature: .updatedGroupsDisableAutoApprove] else { return false }
+            
+            return ((try? Contact.fetchOne(db, id: sender))?.isApproved == true)
+        }()
         let threadAlreadyExisted: Bool = ((try? SessionThread.exists(db, id: message.groupSessionId.hexString)) ?? false)
         let wasKickedFromGroup: Bool = SessionUtil.wasKickedFromGroup(
             groupSessionId: message.groupSessionId,

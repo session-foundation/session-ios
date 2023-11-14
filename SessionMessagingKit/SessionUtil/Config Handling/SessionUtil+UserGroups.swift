@@ -39,7 +39,7 @@ internal extension SessionUtil {
         serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
-        guard config.needsDump else { return }
+        guard config.needsDump(using: dependencies) else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         var infiniteLoopGuard: Int = 0

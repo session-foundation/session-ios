@@ -11,20 +11,6 @@ import SessionUtilitiesKit
 public enum SessionUtil {
     internal static let logLevel: config_log_level = LOG_LEVEL_INFO
     
-    public struct ConfResult {
-        let needsPush: Bool
-        let needsDump: Bool
-    }
-    
-    public struct IncomingConfResult {
-        let needsPush: Bool
-        let needsDump: Bool
-        let messageHashes: [String]
-        let latestSentTimestamp: TimeInterval
-        
-        var result: ConfResult { ConfResult(needsPush: needsPush, needsDump: needsDump) }
-    }    
-    
     // MARK: - Variables
     
     internal static func syncDedupeId(_ sessionIdHexString: String) -> String {
@@ -296,11 +282,12 @@ public enum SessionUtil {
         config: Config?,
         for variant: ConfigDump.Variant,
         sessionId: SessionId,
-        timestampMs: Int64
+        timestampMs: Int64,
+        using dependencies: Dependencies
     ) throws -> ConfigDump? {
         // If it doesn't need a dump then do nothing
         guard
-            config.needsDump,
+            config.needsDump(using: dependencies),
             let dumpData: Data = try config?.dump()
         else { return nil }
         
@@ -384,7 +371,8 @@ public enum SessionUtil {
                     config: config,
                     for: variant,
                     sessionId: sessionId,
-                    timestampMs: sentTimestamp
+                    timestampMs: sentTimestamp,
+                    using: dependencies
                 )
             }
     }
@@ -499,7 +487,7 @@ public enum SessionUtil {
                             
                             // Need to check if the config needs to be dumped (this might have changed
                             // after handling the merge changes)
-                            guard config.needsDump else {
+                            guard config.needsDump(using: dependencies) else {
                                 try ConfigDump
                                     .filter(
                                         ConfigDump.Columns.variant == next.key &&
@@ -517,7 +505,8 @@ public enum SessionUtil {
                                 config: config,
                                 for: next.key,
                                 sessionId: sessionId,
-                                timestampMs: latestServerTimestampMs
+                                timestampMs: latestServerTimestampMs,
+                                using: dependencies
                             )?.upsert(db)
                         }
                         catch {

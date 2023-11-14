@@ -28,45 +28,48 @@ public class Mock<T> {
     
     // MARK: - MockFunctionHandler
     
-    @discardableResult internal func mock<Output>(funcName: String = #function, args: [Any?] = []) -> Output {
-        return mock(funcName: funcName, checkArgs: args, actionArgs: args)
+    @discardableResult internal func mock<Output>(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) -> Output {
+        return mock(funcName: funcName, checkArgs: args, actionArgs: args, untrackedArgs: untrackedArgs)
     }
     
-    @discardableResult internal func mock<Output>(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?]) -> Output {
+    @discardableResult internal func mock<Output>(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?], untrackedArgs: [Any?]) -> Output {
         return functionHandler.mock(
             funcName,
             parameterCount: checkArgs.count,
             parameterSummary: summary(for: checkArgs),
             allParameterSummaryCombinations: summaries(for: checkArgs),
-            actionArgs: actionArgs
+            actionArgs: actionArgs,
+            untrackedArgs: untrackedArgs
         )
     }
     
-    internal func mockNoReturn(funcName: String = #function, args: [Any?] = []) {
-        mockNoReturn(funcName: funcName, checkArgs: args, actionArgs: args)
+    internal func mockNoReturn(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) {
+        mockNoReturn(funcName: funcName, checkArgs: args, actionArgs: args, untrackedArgs: untrackedArgs)
     }
     
-    internal func mockNoReturn(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?]) {
+    internal func mockNoReturn(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?], untrackedArgs: [Any?]) {
         functionHandler.mockNoReturn(
             funcName,
             parameterCount: checkArgs.count,
             parameterSummary: summary(for: checkArgs),
             allParameterSummaryCombinations: summaries(for: checkArgs),
-            actionArgs: actionArgs
+            actionArgs: actionArgs,
+            untrackedArgs: untrackedArgs
         )
     }
     
-    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, args: [Any?] = []) throws -> Output {
-        return try mockThrowing(funcName: funcName, checkArgs: args, actionArgs: args)
+    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) throws -> Output {
+        return try mockThrowing(funcName: funcName, checkArgs: args, actionArgs: args, untrackedArgs: untrackedArgs)
     }
     
-    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?]) throws -> Output {
+    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?], untrackedArgs: [Any?]) throws -> Output {
         return try functionHandler.mockThrowing(
             funcName,
             parameterCount: checkArgs.count,
             parameterSummary: summary(for: checkArgs),
             allParameterSummaryCombinations: summaries(for: checkArgs),
-            actionArgs: actionArgs
+            actionArgs: actionArgs,
+            untrackedArgs: untrackedArgs
         )
     }
     
@@ -126,7 +129,8 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) -> Output
     
     func mockNoReturn(
@@ -134,7 +138,8 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     )
     
     func mockThrowing<Output>(
@@ -142,7 +147,8 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) throws -> Output
 }
 
@@ -167,7 +173,7 @@ internal class MockFunction {
     var parameterCount: Int
     var parameterSummary: String
     var allParameterSummaryCombinations: [ParameterCombination]
-    var actions: [([Any?]) -> Void]
+    var actions: [([Any?], [Any?]) -> Void]
     var returnError: (any Error)?
     var returnValue: Any?
     
@@ -176,7 +182,7 @@ internal class MockFunction {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actions: [([Any?]) -> Void],
+        actions: [([Any?], [Any?]) -> Void],
         returnError: (any Error)?,
         returnValue: Any?
     ) {
@@ -199,7 +205,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     private var parameterCount: Int?
     private var parameterSummary: String?
     private var allParameterSummaryCombinations: [ParameterCombination]?
-    private var actions: [([Any?]) -> Void] = []
+    private var actions: [([Any?], [Any?]) -> Void] = []
     private var returnValue: R?
     internal var returnValueGenerator: ((String, Int, String, [ParameterCombination]) -> R?)?
     private var returnError: Error?
@@ -213,7 +219,14 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
     
     // MARK: - Behaviours
     
+    /// Closure parameter is an array of arguments called by the function
     @discardableResult func then(_ block: @escaping ([Any?]) -> Void) -> MockFunctionBuilder<T, R> {
+        actions.append({ args, _ in block(args) })
+        return self
+    }
+    
+    /// Closure parameters are an array of arguments, followed by an array of "untracked" arguments called by the function
+    @discardableResult func then(_ block: @escaping ([Any?], [Any?]) -> Void) -> MockFunctionBuilder<T, R> {
         actions.append(block)
         return self
     }
@@ -233,7 +246,8 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) -> Output {
         self.functionName = functionName
         self.parameterCount = parameterCount
@@ -253,7 +267,8 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) {
         self.functionName = functionName
         self.parameterCount = parameterCount
@@ -266,7 +281,8 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) throws -> Output {
         self.functionName = functionName
         self.parameterCount = parameterCount
@@ -329,7 +345,8 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) -> MockFunction {
         let key: Key = Key(name: functionName, paramCount: parameterCount)
         
@@ -373,7 +390,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         }
         
         for action in expectation.actions {
-            action(actionArgs)
+            action(actionArgs, untrackedArgs)
         }
         
         return expectation
@@ -384,14 +401,16 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) -> Output {
         let expectation: MockFunction = getExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
-            actionArgs: actionArgs
+            actionArgs: actionArgs,
+            untrackedArgs: untrackedArgs
         )
         
         return (expectation.returnValue as! Output)
@@ -402,14 +421,16 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) {
         _ = getExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
-            actionArgs: actionArgs
+            actionArgs: actionArgs,
+            untrackedArgs: untrackedArgs
         )
     }
     
@@ -418,14 +439,16 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?]
+        actionArgs: [Any?],
+        untrackedArgs: [Any?]
     ) throws -> Output {
         let expectation: MockFunction = getExpectation(
             functionName,
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
-            actionArgs: actionArgs
+            actionArgs: actionArgs,
+            untrackedArgs: untrackedArgs
         )
 
         switch (expectation.returnError, expectation.returnValue) {
@@ -447,7 +470,6 @@ internal class FunctionConsumer: MockFunctionHandler {
             // do this by sorting based on the largest param count and checking if there is a match
             let maybeExpectation: MockFunction? = allParameterSummaryCombinations
                 .sorted(by: { lhs, rhs in lhs.count > rhs.count })
-                .reversed()
                 .compactMap { combination in possibleExpectations[combination.summary] }
                 .first
             

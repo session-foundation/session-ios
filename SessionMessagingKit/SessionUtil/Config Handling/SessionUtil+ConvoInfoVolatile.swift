@@ -19,7 +19,7 @@ internal extension SessionUtil {
         in config: Config?,
         using dependencies: Dependencies
     ) throws {
-        guard config.needsDump else { return }
+        guard config.needsDump(using: dependencies) else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // Get the volatile thread info from the conf and local conversations

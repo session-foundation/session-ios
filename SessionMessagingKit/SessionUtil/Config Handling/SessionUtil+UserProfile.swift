@@ -26,7 +26,7 @@ internal extension SessionUtil {
     ) throws {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
-        guard config.needsDump else { return }
+        guard config.needsDump(using: dependencies) else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored

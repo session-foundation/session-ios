@@ -29,6 +29,10 @@ public extension FeatureStorage {
         )
     )
     
+    static let updatedGroupsDisableAutoApprove: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "updatedGroupsDisableAutoApprove"
+    )
+    
     static let updatedGroupsRemoveMessagesOnKick: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroupsRemoveMessagesOnKick"
     )

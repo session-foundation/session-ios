@@ -255,7 +255,7 @@ public enum UserListError: LocalizedError {
     
     public var errorDescription: String? {
         switch self {
-            case .error(let content): content
+            case .error(let content): return content
         }
     }
 }
