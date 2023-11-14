@@ -94,7 +94,7 @@ extension MessageReceiver {
             // two weeks ago and the keys were rotated within the last two weeks then we won't be able to decrypt
             // messages received before the key rotation)
             let legacyGroupId: String = publicKeyAsData.toHexString()
-            let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+            let receivedTimestamp: TimeInterval = TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
             let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
                 threadId: legacyGroupId,
                 publicKey: Data(encryptionKeyPair.publicKey),
@@ -121,7 +121,7 @@ extension MessageReceiver {
             members: membersAsData.map { $0.toHexString() },
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
-            formationTimestampMs: sentTimestamp,
+            formationTimestamp: TimeInterval(Double(sentTimestamp) / 1000),
             calledFromConfigHandling: false,
             using: dependencies
         )
@@ -135,7 +135,7 @@ extension MessageReceiver {
         members: [String],
         admins: [String],
         expirationTimer: UInt32,
-        formationTimestampMs: UInt64,
+        formationTimestamp: TimeInterval,
         calledFromConfigHandling: Bool,
         using dependencies: Dependencies
     ) throws {
@@ -157,15 +157,21 @@ extension MessageReceiver {
         guard hasApprovedAdmin || calledFromConfigHandling else { return }
         
         // Create the group
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: legacyGroupSessionId, variant: .legacyGroup, shouldBeVisible: true)
+        let thread: SessionThread = try SessionThread.fetchOrCreate(
+            db,
+            id: legacyGroupSessionId,
+            variant: .legacyGroup,
+            shouldBeVisible: true,
+            calledFromConfigHandling: calledFromConfigHandling,
+            using: dependencies
+        )
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: legacyGroupSessionId,
             name: name,
-            formationTimestamp: (TimeInterval(formationTimestampMs) / 1000),
+            formationTimestamp: formationTimestamp,
             shouldPoll: true,   // Legacy groups should always poll
             invited: false      // Legacy groups are never in the "invite" state
-        ).saved(db)
+        ).upserted(db)
         
         // Clear the zombie list if the group wasn't active (ie. had no keys)
         if ((try? closedGroup.keyPairs.fetchCount(db)) ?? 0) == 0 {
@@ -180,7 +186,7 @@ extension MessageReceiver {
                 role: .standard,
                 roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
-            ).save(db)
+            ).upsert(db)
         }
         
         try admins.forEach { adminId in
@@ -190,7 +196,7 @@ extension MessageReceiver {
                 role: .admin,
                 roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
-            ).save(db)
+            ).upsert(db)
         }
         
         // Update the DisappearingMessages config
@@ -204,10 +210,10 @@ extension MessageReceiver {
                     DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds,
                 type: .disappearAfterSend
             )
-            .saved(db)
+            .upserted(db)
         
         // Store the key pair if it doesn't already exist
-        let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+        let receivedTimestamp: TimeInterval = TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
         let newKeyPair: ClosedGroupKeyPair = ClosedGroupKeyPair(
             threadId: legacyGroupSessionId,
             publicKey: Data(encryptionKeyPair.publicKey),
@@ -234,7 +240,7 @@ extension MessageReceiver {
                 disappearingConfig: disappearingConfig,
                 members: members.asSet(),
                 admins: admins.asSet(),
-                formationTimestamp: TimeInterval(formationTimestampMs * 1000),
+                formationTimestamp: formationTimestamp,
                 using: dependencies
             )
         }
@@ -257,7 +263,8 @@ extension MessageReceiver {
                     )
                     .asRequest(of: String.self)
                     .fetchSet(db)
-                    .inserting(legacyGroupSessionId)  // Insert the new key just to be sure
+                    .inserting(legacyGroupSessionId),  // Insert the new key just to be sure
+                using: dependencies
             )?
             .send(using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
@@ -322,7 +329,7 @@ extension MessageReceiver {
                 threadId: legacyGroupId,
                 publicKey: Data(SessionId(.standard, publicKey: Array(proto.publicKey)).publicKey),
                 secretKey: proto.privateKey,
-                receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+                receivedTimestamp: TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
             )
             try keyPair.insert(db)
             
@@ -363,7 +370,7 @@ extension MessageReceiver {
             threadVariant: threadVariant,
             message: message,
             messageKind: messageKind,
-            infoMessageVariant: .infoClosedGroupUpdated,
+            infoMessageVariant: .infoLegacyGroupUpdated,
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 // Update libSession
                 try? SessionUtil.update(
@@ -401,7 +408,7 @@ extension MessageReceiver {
             threadVariant: threadVariant,
             message: message,
             messageKind: messageKind,
-            infoMessageVariant: .infoClosedGroupUpdated,
+            infoMessageVariant: .infoLegacyGroupUpdated,
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 // Update the group
                 let addedMembers: [String] = membersAsData.map { $0.toHexString() }
@@ -436,7 +443,7 @@ extension MessageReceiver {
                             role: .standard,
                             roleStatus: .accepted,  // Legacy group members don't have role statuses
                             isHidden: false
-                        ).save(db)
+                        ).upsert(db)
                     }
                 
                 // Send the latest encryption key pair to the added members if the current user is
@@ -497,8 +504,8 @@ extension MessageReceiver {
             message: message,
             messageKind: messageKind,
             infoMessageVariant: (removedMemberIds.contains(userSessionId.hexString) ?
-                .infoClosedGroupCurrentUserLeft :
-                .infoClosedGroupUpdated
+                .infoLegacyGroupCurrentUserLeft :
+                .infoLegacyGroupUpdated
             ),
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 let removedMembers = membersAsData.map { $0.toHexString() }
@@ -550,11 +557,12 @@ extension MessageReceiver {
                 let wasCurrentUserRemoved: Bool = !members.contains(userSessionId.hexString)
                 
                 if wasCurrentUserRemoved {
-                    try ClosedGroup.removeKeysAndUnsubscribe(
+                    try ClosedGroup.removeData(
                         db,
-                        threadId: threadId,
-                        removeGroupData: true,
-                        calledFromConfigHandling: false
+                        threadIds: [threadId],
+                        dataToRemove: .allData,
+                        calledFromConfigHandling: false,
+                        using: dependencies
                     )
                 }
             }
@@ -585,7 +593,7 @@ extension MessageReceiver {
             threadVariant: threadVariant,
             message: message,
             messageKind: messageKind,
-            infoMessageVariant: .infoClosedGroupUpdated,
+            infoMessageVariant: .infoLegacyGroupUpdated,
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let didAdminLeave: Bool = allMembers.contains(where: { member in
@@ -622,11 +630,12 @@ extension MessageReceiver {
                     .deleteAll(db)
                 
                 if didAdminLeave || sender == userSessionId.hexString {
-                    try ClosedGroup.removeKeysAndUnsubscribe(
+                    try ClosedGroup.removeData(
                         db,
-                        threadId: threadId,
-                        removeGroupData: (sender == userSessionId.hexString),
-                        calledFromConfigHandling: false
+                        threadIds: [threadId],
+                        dataToRemove: (sender == userSessionId.hexString ? .allData : .noData),
+                        calledFromConfigHandling: false,
+                        using: dependencies
                     )
                 }
                 
@@ -639,7 +648,7 @@ extension MessageReceiver {
                         role: .zombie,
                         roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
-                    ).save(db)
+                    ).upsert(db)
                 }
             }
         )

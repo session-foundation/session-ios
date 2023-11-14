@@ -15,7 +15,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies = Dependencies()) {
+    init(using dependencies: Dependencies) {
         self.dependencies = dependencies
     }
     
@@ -89,7 +89,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             id: .strategyUseFastMode,
                             title: "NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE".localized(),
                             subtitle: "NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     current.isUsingFullAPNs,
                                     oldValue: (previous ?? current).isUsingFullAPNs
@@ -104,7 +104,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
 
                                 // Force sync the push tokens on change
                                 SyncPushTokensJob.run(uploadOnlyIfStale: false)
-                                self?.forceRefresh()
+                                self?.forceRefresh(type: .postDatabaseQuery)
                             }
                         ),
                         SessionCell.Info(
@@ -128,7 +128,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         SessionCell.Info(
                             id: .styleSound,
                             title: "NOTIFICATIONS_STYLE_SOUND_TITLE".localized(),
-                            rightAccessory: .dropDown(
+                            trailingAccessory: .dropDown(
                                 .dynamicString { current.notificationSound.displayName }
                             ),
                             onTap: { [weak self] in
@@ -140,7 +140,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         SessionCell.Info(
                             id: .styleSoundWhenAppIsOpen,
                             title: "NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE".localized(),
-                            rightAccessory: .toggle(
+                            trailingAccessory: .toggle(
                                 .boolValue(
                                     key: .playNotificationSoundInForeground,
                                     value: current.playNotificationSoundInForeground,
@@ -162,7 +162,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             id: .content,
                             title: "NOTIFICATIONS_STYLE_CONTENT_TITLE".localized(),
                             subtitle: "NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION".localized(),
-                            rightAccessory: .dropDown(
+                            trailingAccessory: .dropDown(
                                 .dynamicString { current.previewType.name }
                             ),
                             onTap: { [weak self] in

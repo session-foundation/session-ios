@@ -297,11 +297,11 @@ class SessionUtilSpec: QuickSpec {
                             _ = try SessionUtil.createGroup(
                                 db,
                                 name: "Testname",
+                                description: nil,
                                 displayPictureUrl: nil,
                                 displayPictureFilename: nil,
                                 displayPictureEncryptionKey: nil,
                                 members: [],
-                                admins: [],
                                 using: dependencies
                             )
                         }
@@ -316,14 +316,7 @@ class SessionUtilSpec: QuickSpec {
                     var resultError: Error? = nil
                     
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            crypto.generate(
-                                .ed25519KeyPair(
-                                    seed: any(),
-                                    using: dependencies
-                                )
-                            )
-                        }
+                        .when { $0.generate(.ed25519KeyPair(seed: any(), using: any())) }
                         .thenReturn(nil)
                     
                     mockStorage.write { db in
@@ -331,11 +324,11 @@ class SessionUtilSpec: QuickSpec {
                             _ = try SessionUtil.createGroup(
                                 db,
                                 name: "Testname",
+                                description: nil,
                                 displayPictureUrl: nil,
                                 displayPictureFilename: nil,
                                 displayPictureEncryptionKey: nil,
                                 members: [],
-                                admins: [],
                                 using: dependencies
                             )
                         }
@@ -354,6 +347,7 @@ class SessionUtilSpec: QuickSpec {
                             _ = try SessionUtil.createGroup(
                                 db,
                                 name: "Testname",
+                                description: nil,
                                 displayPictureUrl: nil,
                                 displayPictureFilename: nil,
                                 displayPictureEncryptionKey: nil,
@@ -364,7 +358,6 @@ class SessionUtilSpec: QuickSpec {
                                         name: ""
                                     )
                                 )],
-                                admins: [],
                                 using: dependencies
                             )
                         }
@@ -388,11 +381,11 @@ class SessionUtilSpec: QuickSpec {
                         try SessionUtil.createGroup(
                             db,
                             name: "Testname",
+                            description: nil,
                             displayPictureUrl: nil,
                             displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
                             members: [],
-                            admins: [],
                             using: dependencies
                         )
                     }
@@ -412,11 +405,11 @@ class SessionUtilSpec: QuickSpec {
                         try SessionUtil.createGroup(
                             db,
                             name: "Testname",
+                            description: nil,
                             displayPictureUrl: "TestUrl",
                             displayPictureFilename: "TestFilename",
                             displayPictureEncryptionKey: Data([1, 2, 3]),
                             members: [],
-                            admins: [],
                             using: dependencies
                         )
                     }
@@ -442,6 +435,7 @@ class SessionUtilSpec: QuickSpec {
                         try SessionUtil.createGroup(
                             db,
                             name: "Testname",
+                            description: nil,
                             displayPictureUrl: nil,
                             displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
@@ -452,13 +446,6 @@ class SessionUtilSpec: QuickSpec {
                                     name: "TestName",
                                     profilePictureUrl: "testUrl",
                                     profileEncryptionKey: Data([1, 2, 3])
-                                )
-                            )],
-                            admins: [(
-                                id: "05\(TestConstants.publicKey)",
-                                profile: Profile(
-                                    id: "05\(TestConstants.publicKey)",
-                                    name: "TestName2"
                                 )
                             )],
                             using: dependencies
@@ -494,6 +481,7 @@ class SessionUtilSpec: QuickSpec {
                         try SessionUtil.createGroup(
                             db,
                             name: "Testname",
+                            description: nil,
                             displayPictureUrl: nil,
                             displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
@@ -504,7 +492,6 @@ class SessionUtilSpec: QuickSpec {
                                     name: "TestName"
                                 )
                             )],
-                            admins: [],
                             using: dependencies
                         )
                     }
@@ -522,6 +509,7 @@ class SessionUtilSpec: QuickSpec {
                         try SessionUtil.createGroup(
                             db,
                             name: "Testname",
+                            description: nil,
                             displayPictureUrl: nil,
                             displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
@@ -529,7 +517,6 @@ class SessionUtilSpec: QuickSpec {
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 profile: nil
                             )],
-                            admins: [],
                             using: dependencies
                         )
                     }
@@ -548,6 +535,7 @@ class SessionUtilSpec: QuickSpec {
                         try SessionUtil.createGroup(
                             db,
                             name: "Testname",
+                            description: nil,
                             displayPictureUrl: nil,
                             displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
@@ -555,7 +543,6 @@ class SessionUtilSpec: QuickSpec {
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 profile: nil
                             )],
-                            admins: [],
                             using: dependencies
                         )
                     }
@@ -607,6 +594,7 @@ class SessionUtilSpec: QuickSpec {
                         createGroupOutput = try SessionUtil.createGroup(
                             db,
                             name: "Testname",
+                            description: nil,
                             displayPictureUrl: nil,
                             displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
@@ -614,7 +602,6 @@ class SessionUtilSpec: QuickSpec {
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 profile: nil
                             )],
-                            admins: [],
                             using: dependencies
                         )
                         
@@ -649,6 +636,7 @@ class SessionUtilSpec: QuickSpec {
                         createGroupOutput = try SessionUtil.createGroup(
                             db,
                             name: "Testname",
+                            description: nil,
                             displayPictureUrl: nil,
                             displayPictureFilename: nil,
                             displayPictureEncryptionKey: nil,
@@ -656,7 +644,6 @@ class SessionUtilSpec: QuickSpec {
                                 id: "051111111111111111111111111111111111111111111111111111111111111111",
                                 profile: nil
                             )],
-                            admins: [],
                             using: dependencies
                         )
                         

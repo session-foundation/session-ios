@@ -12,7 +12,7 @@ extension MessageReceiver {
         threadVariant: SessionThread.Variant,
         message: VisibleMessage,
         associatedWithProto proto: SNProtoContent,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> Int64 {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
             throw MessageReceiverError.invalidMessage
@@ -20,18 +20,18 @@ extension MessageReceiver {
         
         // Note: `message.sentTimestamp` is in ms (convert to TimeInterval before converting to
         // seconds to maintain the accuracy)
-        let messageSentTimestamp: TimeInterval = (TimeInterval(message.sentTimestamp ?? 0) / 1000)
+        let messageSentTimestamp: TimeInterval = TimeInterval(Double(message.sentTimestamp ?? 0) / 1000)
         let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
         
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
         if let profile = message.profile {
-            try ProfileManager.updateProfileIfNeeded(
+            try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 name: profile.displayName,
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                avatarUpdate: {
+                displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
@@ -66,8 +66,13 @@ extension MessageReceiver {
         
         // Store the message variant so we can run variant-specific behaviours
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        let thread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: threadId, variant: threadVariant, shouldBeVisible: nil)
+        let thread: SessionThread = try SessionThread.fetchOrCreate(
+            db,
+            id: threadId,
+            variant: threadVariant,
+            shouldBeVisible: nil,
+            calledFromConfigHandling: false
+        )
         let maybeOpenGroup: OpenGroup? = {
             guard threadVariant == .community else { return nil }
             
@@ -259,7 +264,7 @@ extension MessageReceiver {
             }
             .enumerated()
             .map { index, attachment in
-                let savedAttachment: Attachment = try attachment.saved(db)
+                let savedAttachment: Attachment = try attachment.upserted(db)
                 
                 // Link the attachment to the interaction and add to the id lookup
                 try InteractionAttachment(
@@ -286,7 +291,7 @@ extension MessageReceiver {
             db,
             proto: dataMessage,
             sentTimestampMs: (messageSentTimestamp * 1000)
-        )?.saved(db)
+        )?.upserted(db)
         
         // Open group invitations are stored as LinkPreview values so create one if needed
         if
@@ -298,7 +303,7 @@ extension MessageReceiver {
                 timestamp: LinkPreview.timestampFor(sentTimestampMs: (messageSentTimestamp * 1000)),
                 variant: .openGroupInvitation,
                 title: openGroupInvitationName
-            ).save(db)
+            ).upsert(db)
         }
         
         // Start attachment downloads if needed (ie. trusted contact or group thread)
@@ -338,13 +343,24 @@ extension MessageReceiver {
         // Note: This is to resolve a rare edge-case where a conversation was started with a user on an old
         // version of the app and their message request approval state was set via a migration rather than
         // by using the approval process
-        if thread.variant == .contact {
-            try MessageReceiver.updateContactApprovalStatusIfNeeded(
-                db,
-                senderSessionId: sender,
-                threadId: thread.id,
-                using: dependencies
-            )
+        switch thread.variant {
+            case .contact:
+                try MessageReceiver.updateContactApprovalStatusIfNeeded(
+                    db,
+                    senderSessionId: sender,
+                    threadId: thread.id,
+                    using: dependencies
+                )
+                
+            case .group:
+                try MessageReceiver.updateMemberApprovalStatusIfNeeded(
+                    db,
+                    senderSessionId: sender,
+                    groupSessionIdHexString: thread.id,
+                    using: dependencies
+                )
+                
+            default: break
         }
         
         // Notify the user if needed
@@ -356,7 +372,8 @@ extension MessageReceiver {
                 db,
                 for: interaction,
                 in: thread,
-                applicationState: (isMainAppActive ? .active : .background)
+                applicationState: (isMainAppActive ? .active : .background),
+                using: dependencies
             )
         
         return interactionId
@@ -468,7 +485,7 @@ extension MessageReceiver {
                         interactionId: interactionId,
                         recipientId: syncTarget,
                         state: .sent
-                    ).save(db)
+                    ).upsert(db)
                 }
                 
             case .legacyGroup, .group:
@@ -480,7 +497,7 @@ extension MessageReceiver {
                             interactionId: interactionId,
                             recipientId: member.profileId,
                             state: .sent
-                        ).save(db)
+                        ).upsert(db)
                     }
                 
             case .community:
@@ -488,7 +505,7 @@ extension MessageReceiver {
                     interactionId: interactionId,
                     recipientId: thread.id, // For open groups this will always be the thread id
                     state: .sent
-                ).save(db)
+                ).upsert(db)
         }
     
         // For outgoing messages mark all older interactions as read (the user should have seen

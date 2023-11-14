@@ -13,17 +13,25 @@ extension SnodeAPI {
         let messageHashes: [String]
         let requireSuccessfulDeletion: Bool
         
+        override var verificationBytes: [UInt8] {
+            /// Ed25519 signature of `("delete" || messages...)`; this signs the value constructed
+            /// by concatenating "delete" and all `messages` values, using `pubkey` to sign.  Must be base64
+            /// encoded for json requests; binary for OMQ requests.
+            SnodeAPI.Endpoint.deleteMessages.path.bytes
+                .appending(contentsOf: messageHashes.joined().bytes)
+        }
+        
         // MARK: - Init
         
         public init(
             messageHashes: [String],
             requireSuccessfulDeletion: Bool,
-            authInfo: AuthenticationInfo
+            authMethod: AuthenticationMethod
         ) {
             self.messageHashes = messageHashes
             self.requireSuccessfulDeletion = requireSuccessfulDeletion
             
-            super.init(authInfo: authInfo)
+            super.init(authMethod: authMethod)
         }
         
         // MARK: - Coding
@@ -39,18 +47,6 @@ extension SnodeAPI {
             }
             
             try super.encode(to: encoder)
-        }
-        
-        // MARK: - Abstract Methods
-        
-        override func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
-            /// Ed25519 signature of `("delete" || messages...)`; this signs the value constructed
-            /// by concatenating "delete" and all `messages` values, using `pubkey` to sign.  Must be base64
-            /// encoded for json requests; binary for OMQ requests.
-            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.deleteMessages.path.bytes
-                .appending(contentsOf: messageHashes.joined().bytes)
-            
-            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

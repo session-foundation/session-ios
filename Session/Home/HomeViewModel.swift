@@ -30,7 +30,7 @@ public class HomeViewModel {
         let userProfile: Profile
     }
     
-    private let dependencies: Dependencies
+    public let dependencies: Dependencies
     
     // MARK: - Initialization
     
@@ -150,7 +150,7 @@ public class HomeViewModel {
                 ),
                 PagedData.ObservedChanges(
                     table: ClosedGroup.self,
-                    columns: [.name],
+                    columns: [.name, .invited, .displayPictureFilename],
                     joinToPagedType: {
                         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
                         
@@ -159,7 +159,7 @@ public class HomeViewModel {
                 ),
                 PagedData.ObservedChanges(
                     table: OpenGroup.self,
-                    columns: [.name, .imageData],
+                    columns: [.name, .displayPictureFilename],
                     joinToPagedType: {
                         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
                         

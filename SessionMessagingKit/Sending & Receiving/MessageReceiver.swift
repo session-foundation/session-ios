@@ -18,6 +18,8 @@ public enum MessageReceiver {
     ) throws -> ProcessedMessage {
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         var plaintext: Data
+        var customProto: SNProtoContent? = nil
+        var customMessage: Message? = nil
         let sender: String
         let sentTimestamp: UInt64
         let openGroupServerMessageId: UInt64?
@@ -122,6 +124,17 @@ public enum MessageReceiver {
                         threadVariant = .group
                         threadIdGenerator = { _ in publicKey }
                         
+                    case .revokedRetrievableGroupMessages:
+                        plaintext = data    // Has custom bencoding handling
+                        customProto = try SNProtoContent.builder().build()
+                        customMessage = try BencodeDecoder(using: dependencies)
+                            .decode(GroupUpdateDeleteMessage.self, from: plaintext)
+                        sender = publicKey  // The "group" sends these messages
+                        sentTimestamp = 0
+                        openGroupServerMessageId = nil
+                        threadVariant = .group
+                        threadIdGenerator = { _ in publicKey }
+                        
                     // FIXME: Remove once updated groups has been around for long enough
                     case .legacyClosedGroup:
                         guard
@@ -181,10 +194,10 @@ public enum MessageReceiver {
                 }
         }
         
-        let proto: SNProtoContent = try Result(SNProtoContent.parseData(plaintext))
+        let proto: SNProtoContent = try (customProto ?? Result(SNProtoContent.parseData(plaintext))
            .onFailure { SNLog("Couldn't parse proto due to error: \($0).") }
-           .successOrThrow()
-        let message: Message = try Message.createMessageFrom(proto, sender: sender)
+           .successOrThrow())
+        let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender))
         message.sender = sender
         message.recipient = userSessionId.hexString
         message.serverHash = origin.serverHash
@@ -194,7 +207,7 @@ public enum MessageReceiver {
         message.attachDisappearingMessagesConfiguration(from: proto)
         
         // Don't process the envelope any further if the sender is blocked
-        guard (try? Contact.fetchOne(db, id: sender))?.isBlocked != true else {
+        guard (try? Contact.fetchOne(db, id: sender))?.isBlocked != true || message.processWithBlockedSender else {
             throw MessageReceiverError.senderBlocked
         }
         
@@ -205,8 +218,8 @@ public enum MessageReceiver {
         
         // Validate
         guard
-            message.isValid ||
-            (message as? VisibleMessage)?.isValidWithDataMessageAttachments == true
+            message.isValid(using: dependencies) ||
+            (message as? VisibleMessage)?.isValidWithDataMessageAttachments(using: dependencies) == true
         else {
             throw MessageReceiverError.invalidMessage
         }
@@ -291,6 +304,17 @@ public enum MessageReceiver {
                     using: dependencies
                 )
                 
+            case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage, is GroupUpdateInfoChangeMessage,
+                is GroupUpdateMemberChangeMessage, is GroupUpdatePromoteMessage, is GroupUpdateMemberLeftMessage,
+                is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
+                try MessageReceiver.handleGroupUpdateMessage(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message,
+                    using: dependencies
+                )
+                
             case let message as DataExtractionNotification:
                 try MessageReceiver.handleDataExtractionNotification(
                     db,
@@ -340,12 +364,11 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
-                    associatedWithProto: proto
+                    associatedWithProto: proto,
+                    using: dependencies
                 )
                 
-            case is LegacyConfigurationMessage: TopBannerController.show(warning: .outdatedUserConfig)
-                
-            default: fatalError()
+            default: throw MessageReceiverError.unknownMessage
         }
         
         // Perform any required post-handling logic
@@ -365,51 +388,65 @@ public enum MessageReceiver {
     ) throws {
         // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
-        switch message {
-            case is ReadReceipt: break
-            case is TypingIndicator: break
-            case is LegacyConfigurationMessage: break
-            case is UnsendRequest: break
-                
-            case let message as ClosedGroupControlMessage:
-                // Only re-show a legacy group conversation if we are going to add a control text message
-                switch message.kind {
-                    case .new, .encryptionKeyPair, .encryptionKeyPairRequest: return
-                    default: break
-                }
-                
-                fallthrough
-                
-            default:
-                // Only update the `shouldBeVisible` flag if the thread is currently not visible
-                // as we don't want to trigger a config update if not needed
-                let isCurrentlyVisible: Bool = try SessionThread
-                    .filter(id: threadId)
-                    .select(.shouldBeVisible)
-                    .asRequest(of: Bool.self)
-                    .fetchOne(db)
-                    .defaulting(to: false)
-                
-                // Start the disappearing messages timer if needed
-                // For disappear after send, this is necessary so the message will disappear even if it is not read
-                dependencies[singleton: .jobRunner].upsert(
-                    db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
-                    canStartJob: true,
-                    using: dependencies
-                )
+        let shouldBecomeVisible: Bool = {
+            switch message {
+                case is ReadReceipt: return true
+                case is TypingIndicator: return true
+                case is UnsendRequest: return true
+                    
+                case let message as ClosedGroupControlMessage:
+                    // Only re-show a legacy group conversation if we are going to add a control text message
+                    switch message.kind {
+                        case .new, .encryptionKeyPair, .encryptionKeyPairRequest: return false
+                        default: return true
+                    }
+                    
+                /// These are sent to the one-to-one conversation so they shouldn't make that visible
+                case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage, is GroupUpdatePromoteMessage:
+                    return false
+                    
+                /// These are sent to the group conversation but we have logic so you can only ever "leave" a group, you can't "hide" it
+                /// so that it re-appears when a new message is received so the thread shouldn't become visible for any of them
+                case is GroupUpdateInfoChangeMessage, is GroupUpdateMemberChangeMessage,
+                    is GroupUpdateMemberLeftMessage, is GroupUpdateInviteResponseMessage,
+                    is GroupUpdateDeleteMemberContentMessage:
+                    return false
+                    
+                default: return true
+            }
+        }()
+        
+        // Start the disappearing messages timer if needed
+        // For disappear after send, this is necessary so the message will disappear even if it is not read
+        dependencies[singleton: .jobRunner].upsert(
+            db,
+            job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
+            canStartJob: true,
+            using: dependencies
+        )
+        
+        // Only check the current visibility state if we should become visible for this message type
+        guard shouldBecomeVisible else { return }
+        
+        // Only update the `shouldBeVisible` flag if the thread is currently not visible
+        // as we don't want to trigger a config update if not needed
+        let isCurrentlyVisible: Bool = try SessionThread
+            .filter(id: threadId)
+            .select(.shouldBeVisible)
+            .asRequest(of: Bool.self)
+            .fetchOne(db)
+            .defaulting(to: false)
 
-                guard !isCurrentlyVisible else { return }
-                
-                try SessionThread
-                    .filter(id: threadId)
-                    .updateAllAndConfig(
-                        db,
-                        SessionThread.Columns.shouldBeVisible.set(to: true),
-                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority),
-                        using: dependencies
-                    )
-        }
+        guard !isCurrentlyVisible else { return }
+        
+        try SessionThread
+            .filter(id: threadId)
+            .updateAllAndConfig(
+                db,
+                SessionThread.Columns.shouldBeVisible.set(to: true),
+                SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority),
+                using: dependencies
+            )
     }
     
     public static func handleOpenGroupReactions(

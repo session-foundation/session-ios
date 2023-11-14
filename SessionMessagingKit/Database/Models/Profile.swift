@@ -3,11 +3,12 @@
 import Foundation
 import GRDB
 import DifferenceKit
+import SessionUIKit
 import SessionUtilitiesKit
 
 /// This type is duplicate in both the database and within the SessionUtil config so should only ever have it's data changes via the
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
-public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, CustomStringConvertible, Differentiable {
+public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
     public static var databaseTableName: String { "profile" }
     internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
     internal static let contactForeignKey = ForeignKey([Columns.id], to: [Contact.Columns.id])
@@ -87,15 +88,34 @@ public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableReco
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.lastBlocksCommunityMessageRequests = lastBlocksCommunityMessageRequests
     }
-    
-    // MARK: - Description
-    
+}
+
+// MARK: - Description
+
+extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {
         """
         Profile(
             name: \(name),
             profileKey: \(profileEncryptionKey?.description ?? "null"),
             profilePictureUrl: \(profilePictureUrl ?? "null")
+        )
+        """
+    }
+    
+    public var debugDescription: String {
+        return """
+        Profile(
+            id: \(id),
+            name: \(name),
+            lastNameUpdate: \(lastNameUpdate.map { "\($0)" } ?? "null"),
+            nickname: \(nickname.map { "\($0)" } ?? "null"),
+            profilePictureUrl: \(profilePictureUrl.map { "\"\($0)\"" } ?? "null"),
+            profilePictureFileName: \(profilePictureFileName.map { "\"\($0)\"" } ?? "null"),
+            profileEncryptionKey: \(profileEncryptionKey?.toHexString() ?? "null"),
+            lastProfilePictureUpdate: \(lastProfilePictureUpdate.map { "\($0)" } ?? "null"),
+            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
+            lastBlocksCommunityMessageRequests: \(lastBlocksCommunityMessageRequests.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -152,33 +172,6 @@ public extension Profile {
 // MARK: - Protobuf
 
 public extension Profile {
-    static func fromProto(_ proto: SNProtoDataMessage, id: String) -> Profile? {
-        guard let profileProto = proto.profile, let displayName = profileProto.displayName else { return nil }
-        
-        var profileKey: Data?
-        var profilePictureUrl: String?
-        let sentTimestamp: TimeInterval = (proto.hasTimestamp ? (TimeInterval(proto.timestamp) / 1000) : 0)
-        
-        // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
-        if let profileKeyData: Data = proto.profileKey, profileProto.profilePicture != nil {
-            profileKey = profileKeyData
-            profilePictureUrl = profileProto.profilePicture
-        }
-        
-        return Profile(
-            id: id,
-            name: displayName,
-            lastNameUpdate: sentTimestamp,
-            nickname: nil,
-            profilePictureUrl: profilePictureUrl,
-            profilePictureFileName: nil,
-            profileEncryptionKey: profileKey,
-            lastProfilePictureUpdate: sentTimestamp,
-            blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil),
-            lastBlocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? sentTimestamp : nil)
-        )
-    }
-
     func toProto() -> SNProtoDataMessage? {
         let dataMessageProto = SNProtoDataMessage.builder()
         let profileProto = SNProtoLokiProfile.builder()
@@ -216,7 +209,7 @@ public extension Profile {
     static func fetchAllContactProfiles(
         excluding: Set<String> = [],
         excludeCurrentUser: Bool = true,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> [Profile] {
         return dependencies[singleton: .storage]
             .read { db in
@@ -393,6 +386,59 @@ public extension Profile {
                 // In open groups, where it's more likely that multiple users have the same name,
                 // we display a bit of the Session ID after a user's display name for added context
                 return "\(name) (\(Profile.truncated(id: id, truncating: .middle)))"
+        }
+    }
+}
+
+// MARK: - WithProfile<T>
+
+public struct WithProfile<T: ProfileAssociated>: Equatable, Hashable, Comparable {
+    public let value: T
+    public let profile: Profile?
+    
+    public var profileId: String { value.profileId }
+    
+    public func itemDescription(using dependencies: Dependencies) -> String? {
+        return value.itemDescription(using: dependencies)
+    }
+    
+    public func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue {
+        return value.itemDescriptionColor(using: dependencies)
+    }
+    
+    public static func < (lhs: WithProfile<T>, rhs: WithProfile<T>) -> Bool {
+        return T.compare(lhs: lhs, rhs: rhs)
+    }
+}
+
+public protocol ProfileAssociated: Equatable, Hashable {
+    var profileId: String { get }
+    var profileIcon: ProfilePictureView.ProfileIcon { get }
+    
+    func itemDescription(using dependencies: Dependencies) -> String?
+    func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue
+    static func compare(lhs: WithProfile<Self>, rhs: WithProfile<Self>) -> Bool
+}
+
+public extension ProfileAssociated {
+    var profileIcon: ProfilePictureView.ProfileIcon { return .none }
+    
+    func itemDescription(using dependencies: Dependencies) -> String? { return nil }
+    func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return .textPrimary }
+}
+
+public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssociated {
+    func fetchAllWithProfiles(_ db: Database) throws -> [WithProfile<RowDecoder>] {
+        let originalResult: [RowDecoder] = try self.fetchAll(db)
+        let profiles: [String: Profile]? = try? Profile
+            .fetchAll(db, ids: originalResult.map { $0.profileId }.asSet())
+            .reduce(into: [:]) { result, next in result[next.id] = next }
+        
+        return originalResult.map {
+            WithProfile(
+                value: $0,
+                profile: profiles?[$0.profileId]
+            )
         }
     }
 }

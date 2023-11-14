@@ -154,7 +154,7 @@ public enum OnionRequestAPI {
             
             SNLog("Building onion request paths.")
             DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .buildingPaths, object: nil)
+                dependencies.notifyObservers(for: .networkLayers, with: .buildingPaths)
             }
             
             /// Need to include the post-request code and a `shareReplay` within the publisher otherwise it can still be executed
@@ -203,11 +203,11 @@ public enum OnionRequestAPI {
                         
                         dependencies[singleton: .storage].write { db in
                             SNLog("Persisting onion request paths to database.")
-                            try? output.save(db)
+                            try? output.upsert(db)
                         }
                         
                         DispatchQueue.main.async {
-                            NotificationCenter.default.post(name: .pathsBuilt, object: nil)
+                            dependencies.notifyObservers(for: .networkLayers, with: .pathsBuilt)
                         }
                     },
                     receiveCompletion: { _ in
@@ -352,7 +352,7 @@ public enum OnionRequestAPI {
         
         dependencies[singleton: .storage].write { db in
             SNLog("Persisting onion request paths to database.")
-            try? newPaths.save(db)
+            try? newPaths.upsert(db)
         }
     }
 
@@ -371,7 +371,7 @@ public enum OnionRequestAPI {
             }
             
             SNLog("Persisting onion request paths to database.")
-            try? paths.save(db)
+            try? paths.upsert(db)
         }
     }
     
@@ -393,7 +393,7 @@ public enum OnionRequestAPI {
                 guardSnode = path.first!
                 
                 // Encrypt in reverse order, i.e. the destination first
-                return encrypt(payload, for: destination)
+                return encrypt(payload, for: destination, using: dependencies)
                     .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                         targetSnodeSymmetricKey = r.symmetricKey
                         
@@ -411,7 +411,7 @@ public enum OnionRequestAPI {
                             
                             let lhs = OnionRequestAPIDestination.snode(path.removeLast())
                             return OnionRequestAPI
-                                .encryptHop(from: lhs, to: rhs, using: encryptionResult)
+                                .encryptHop(from: lhs, to: rhs, using: encryptionResult, using: dependencies)
                                 .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
                                     encryptionResult = r
                                     rhs = lhs
@@ -706,8 +706,8 @@ public enum OnionRequestAPI {
                     }
                     
                     if statusCode == 401 { // Signature verification failed
-                        SNLog("Failed to verify the signature.")
-                        return Fail(error: SnodeAPIError.signatureVerificationFailed)
+                        SNLog("Failed due to unauthorised error (potentially due to failed signature verification).")
+                        return Fail(error: SnodeAPIError.unauthorised)
                             .eraseToAnyPublisher()
                     }
                     
@@ -776,7 +776,7 @@ public enum OnionRequestAPI {
                     let data: Data = try AES.GCM.decrypt(responseData, with: destinationSymmetricKey)
                     
                     // Process the bencoded response
-                    guard let processedResponse: (info: ResponseInfoType, body: Data?) = process(bencodedData: data) else {
+                    guard let processedResponse: (info: ResponseInfoType, body: Data?) = process(bencodedData: data, using: dependencies) else {
                         return Fail(error: HTTPError.invalidResponse)
                             .eraseToAnyPublisher()
                     }
@@ -790,8 +790,8 @@ public enum OnionRequestAPI {
                     }
                     
                     guard processedResponse.info.code != 401 else { // Signature verification failed
-                        SNLog("Failed to verify the signature.")
-                        return Fail(error: SnodeAPIError.signatureVerificationFailed)
+                        SNLog("Failed due to unauthorised error (potentially due to failed signature verification).")
+                        return Fail(error: SnodeAPIError.unauthorised)
                             .eraseToAnyPublisher()
                     }
                     
@@ -815,10 +815,14 @@ public enum OnionRequestAPI {
         }
     }
     
-    public static func process(bencodedData data: Data) -> (info: ResponseInfoType, body: Data?)? {
-        guard let response: BencodeResponse<HTTP.ResponseInfo> = try? Bencode.decodeResponse(from: data) else {
-            return nil
-        }
+    public static func process(
+        bencodedData data: Data,
+        using dependencies: Dependencies = Dependencies()
+    ) -> (info: ResponseInfoType, body: Data?)? {
+        guard
+            let response: BencodeResponse<HTTP.ResponseInfo> = try? BencodeDecoder(using: dependencies)
+                .decode(BencodeResponse<HTTP.ResponseInfo>.self, from: data)
+        else { return nil }
         
         // Custom handle a clock out of sync error (v4 returns '425' but included the '406' just
         // in case)
@@ -868,6 +872,7 @@ public extension OnionRequestAPI {
 
 public extension Cache {
     static let onionRequestAPI: CacheConfig<ORAPICacheType, ORAPIImmutableCacheType> = Dependencies.create(
+        identifier: "onionRequestAPI",
         createInstance: { dependencies in OnionRequestAPI.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
@@ -876,8 +881,7 @@ public extension Cache {
 
 // MARK: - OGMCacheType
 
-/// This is a read-only version of the `OpenGroupManager.Cache` designed to avoid unintentionally mutating the instance in a
-/// non-thread-safe way
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol ORAPIImmutableCacheType: ImmutableCacheType {
     var buildPathsPublisher: AnyPublisher<[[Snode]], Error>? { get }
     var pathFailureCount: [[Snode]: UInt] { get }

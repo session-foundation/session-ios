@@ -22,8 +22,8 @@ public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecor
     
     public var id: Variant { variant }
     
-    let variant: Variant
-    let data: Data
+    public let variant: Variant
+    public let data: Data
     
     // MARK: - Initialization
     
@@ -51,11 +51,11 @@ public extension Identity {
             let ed25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: (seed + padding), using: dependencies)
             ),
-            let x25519PublicKey: [UInt8] = try? dependencies[singleton: .crypto].perform(
-                .toX25519(ed25519PublicKey: ed25519KeyPair.publicKey)
+            let x25519PublicKey: [UInt8] = dependencies[singleton: .crypto].generate(
+                .x25519(ed25519PublicKey: ed25519KeyPair.publicKey)
             ),
-            let x25519SecretKey: [UInt8] = try? dependencies[singleton: .crypto].perform(
-                .toX25519(ed25519SecretKey: ed25519KeyPair.secretKey)
+            let x25519SecretKey: [UInt8] = dependencies[singleton: .crypto].generate(
+                .x25519(ed25519SecretKey: ed25519KeyPair.secretKey)
             )
         else { throw GeneralError.keyGenerationFailed }
         
@@ -72,11 +72,11 @@ public extension Identity {
     }
 
     static func store(_ db: Database, seed: Data, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) throws {
-        try Identity(variant: .seed, data: seed).save(db)
-        try Identity(variant: .ed25519SecretKey, data: Data(ed25519KeyPair.secretKey)).save(db)
-        try Identity(variant: .ed25519PublicKey, data: Data(ed25519KeyPair.publicKey)).save(db)
-        try Identity(variant: .x25519PrivateKey, data: Data(x25519KeyPair.secretKey)).save(db)
-        try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).save(db)
+        try Identity(variant: .seed, data: seed).upsert(db)
+        try Identity(variant: .ed25519SecretKey, data: Data(ed25519KeyPair.secretKey)).upsert(db)
+        try Identity(variant: .ed25519PublicKey, data: Data(ed25519KeyPair.publicKey)).upsert(db)
+        try Identity(variant: .x25519PrivateKey, data: Data(x25519KeyPair.secretKey)).upsert(db)
+        try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).upsert(db)
     }
     
     static func userExists(

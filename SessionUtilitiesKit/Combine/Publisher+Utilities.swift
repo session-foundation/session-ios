@@ -113,7 +113,7 @@ public extension Publisher {
     }
 }
 
-public extension AnyPublisher {
+public extension Publisher {
     /// Converts the publisher to output a Result instead of throwing an error, can be used to ensure a subscription never
     /// closes due to a failure
     func asResult() -> AnyPublisher<Result<Output, Failure>, Never> {

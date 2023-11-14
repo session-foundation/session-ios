@@ -9,21 +9,21 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     // MARK: - Configuration
     
     func setExecutor(_ executor: JobExecutor.Type, for variant: Job.Variant) {
-        accept(args: [executor, variant])
+        mockNoReturn(args: [executor, variant])
     }
     
     func canStart(queue: JobQueue?) -> Bool {
-        return accept(args: [queue]) as! Bool
+        return mock(args: [queue])
     }
     
     func afterBlockingQueue(callback: @escaping () -> ()) {
-        callback()
+        mockNoReturn()
     }
     
     // MARK: - State Management
     
     func jobInfoFor(jobs: [Job]?, state: JobRunner.JobState, variant: Job.Variant?) -> [Int64: JobRunner.JobInfo] {
-        return accept(args: [jobs, state, variant]) as! [Int64: JobRunner.JobInfo]
+        return mock(args: [jobs, state, variant])
     }
     
     func appDidFinishLaunching(using dependencies: Dependencies) {}
@@ -31,30 +31,34 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     func startNonBlockingQueues(using dependencies: Dependencies) {}
     
     func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, onComplete: (() -> ())?) {
-        accept(args: [exceptForVariant, onComplete])
+        mockNoReturn(args: [exceptForVariant, onComplete])
         onComplete?()
     }
     
     // MARK: - Job Scheduling
     
-    @discardableResult func add(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) -> Job? {
-        return accept(args: [db, job, canStartJob]) as? Job
+    @discardableResult func add(_ db: Database, job: Job?, dependantJob: Job?, canStartJob: Bool, using dependencies: Dependencies) -> Job? {
+        return mock(args: [db, job, canStartJob])
     }
     
     func upsert(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) {
-        accept(args: [db, job, canStartJob])
+        mockNoReturn(args: [db, job, canStartJob])
     }
     
     func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)? {
-        return accept(args: [db, job, otherJob]) as? (Int64, Job)
+        return mock(args: [db, job, otherJob])
     }
     
-    func afterCurrentlyRunningJob(_ job: Job?, callback: @escaping (JobRunner.JobResult) -> ()) {
-        accept(args: [job, callback])
+    func enqueueDependenciesIfNeeded(_ jobs: [Job], using dependencies: Dependencies) {
+        mockNoReturn(args: [jobs, dependencies])
+    }
+    
+    func afterJob(_ job: Job?, state: JobRunner.JobState, callback: @escaping (JobRunner.JobResult) -> ()) {
+        mockNoReturn(args: [job, callback])
         callback(.succeeded)
     }
     
     func removePendingJob(_ job: Job?) {
-        accept(args: [job])
+        mockNoReturn(args: [job])
     }
 }

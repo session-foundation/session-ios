@@ -26,13 +26,13 @@ extension MessageReceiver {
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
         if let profile = message.profile {
-            let messageSentTimestamp: TimeInterval = (TimeInterval(message.sentTimestamp ?? 0) / 1000)
+            let messageSentTimestamp: TimeInterval = TimeInterval(Double(message.sentTimestamp ?? 0) / 1000)
             
-            try ProfileManager.updateProfileIfNeeded(
+            try Profile.updateIfNeeded(
                 db,
                 publicKey: senderId,
                 name: profile.displayName,
-                avatarUpdate: {
+                displayPictureUpdate: {
                     guard
                         let profilePictureUrl: String = profile.profilePictureUrl,
                         let profileKey: Data = profile.profileKey
@@ -50,8 +50,14 @@ extension MessageReceiver {
         }
         
         // Prep the unblinded thread
-        let unblindedThread: SessionThread = try SessionThread
-            .fetchOrCreate(db, id: senderId, variant: .contact, shouldBeVisible: nil)
+        let unblindedThread: SessionThread = try SessionThread.fetchOrCreate(
+            db,
+            id: senderId,
+            variant: .contact,
+            shouldBeVisible: nil,
+            calledFromConfigHandling: false,
+            using: dependencies
+        )
         
         // Need to handle a `MessageRequestResponse` sent to a blinded thread (ie. check if the sender matches
         // the blinded ids of any threads)
@@ -87,9 +93,9 @@ extension MessageReceiver {
             else { return }
             
             // Update the lookup
-            _ = try blindedIdLookup
+            try blindedIdLookup
                 .with(sessionId: senderId)
-                .saved(db)
+                .upserted(db)
             
             // Add the `blindedId` to an array so we can remove them at the end of processing
             blindedContactIds.append(blindedIdLookup.blindedId)
@@ -178,7 +184,7 @@ extension MessageReceiver {
             
             guard !contact.isApproved else { return }
             
-            try? contact.save(db)
+            try? contact.upsert(db)
             _ = try? Contact
                 .filter(id: threadId)
                 .updateAllAndConfig(db, Contact.Columns.isApproved.set(to: true))
@@ -190,7 +196,7 @@ extension MessageReceiver {
             
             guard !contact.didApproveMe else { return }
 
-            try? contact.save(db)
+            try? contact.upsert(db)
             _ = try? Contact
                 .filter(id: senderSessionId)
                 .updateAllAndConfig(db, Contact.Columns.didApproveMe.set(to: true))

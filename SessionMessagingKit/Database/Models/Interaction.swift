@@ -35,7 +35,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     ) -> SQL {
         let halfResolution: Double = LinkPreview.timstampResolution
 
-        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)"
+        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)" // stringlint:disable
     }
     public static let recipientStates = hasMany(RecipientState.self, using: RecipientState.interactionForeignKey)
     
@@ -71,11 +71,14 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         case standardIncomingDeleted
         
         // Info Message Types (spacing the values out to make it easier to extend)
-        case infoClosedGroupCreated = 1000
-        case infoClosedGroupUpdated
-        case infoClosedGroupCurrentUserLeft
-        case infoClosedGroupCurrentUserErrorLeaving
-        case infoClosedGroupCurrentUserLeaving
+        case infoLegacyGroupCreated = 1000
+        case infoLegacyGroupUpdated
+        case infoLegacyGroupCurrentUserLeft
+        case infoGroupCurrentUserErrorLeaving
+        case infoGroupCurrentUserLeaving
+        case infoGroupInfoInvited
+        case infoGroupInfoUpdated
+        case infoGroupMembersUpdated
         
         case infoDisappearingMessagesUpdate = 2000
         
@@ -94,10 +97,11 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isInfoMessage: Bool {
             switch self {
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
-                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
+                case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                     .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
-                    .infoMessageRequestAccepted, .infoCall:
+                    .infoMessageRequestAccepted, .infoCall, .infoGroupInfoInvited, .infoGroupInfoUpdated,
+                    .infoGroupMembersUpdated:
                     return true
                     
                 case .standardIncoming, .standardOutgoing, .standardIncomingDeleted:
@@ -107,8 +111,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isGroupControlMessage: Bool {
             switch self {
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
-                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+                case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving, .infoGroupInfoInvited,
+                    .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                     return true
                 default:
                     return false
@@ -117,7 +122,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         
         public var isGroupLeavingStatus: Bool {
             switch self {
-                case .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving:
+                case .infoLegacyGroupCurrentUserLeft, .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving:
                     return true
                 default:
                     return false
@@ -131,16 +136,17 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 case .standardIncoming: return true
                 case .infoCall: return true
 
-                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification:
+                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification,
+                    .infoMediaSavedNotification, .infoGroupInfoInvited:
                     /// These won't be counted as unread messages but need to be able to be in an unread state so that they can disappear
                     /// after being read (if we don't do this their expiration timer will start immediately when received)
                     return true
                 
                 case .standardOutgoing, .standardIncomingDeleted: return false
                 
-                case .infoClosedGroupCreated, .infoClosedGroupUpdated,
-                    .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
-                    .infoMessageRequestAccepted:
+                case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
+                    .infoMessageRequestAccepted, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
                     return false
             }
         }
@@ -150,8 +156,9 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 case .standardIncoming, .standardOutgoing,
                     .infoCall,
                     .infoDisappearingMessagesUpdate,
-                    .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving,
-                    .infoScreenshotNotification, .infoMediaSavedNotification:
+                    .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupInfoInvited, .infoGroupInfoUpdated,
+                    .infoGroupMembersUpdated, .infoScreenshotNotification, .infoMediaSavedNotification:
                     return true
                 
                 default: return false
@@ -388,7 +395,6 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             }
             
             self.expiresInSeconds = disappearingMessagesConfiguration.durationSeconds
-            self.expiresStartedAtMs = disappearingMessagesConfiguration.type == .disappearAfterSend ? Double(self.timestampMs) : nil
         }
     }
     
@@ -752,7 +758,7 @@ public extension Interaction {
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     interactionIds: interactionInfo.map { $0.id },
-                    startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs()),
+                    startedAtMs: Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)),
                     threadId: threadId,
                     using: dependencies
                 ),
@@ -864,7 +870,7 @@ public extension Interaction {
     // MARK: - Variables
     
     var isExpiringMessage: Bool {
-        guard variant == .standardIncoming || variant == .standardOutgoing else { return false }
+        guard variant.shouldFollowDisappearingMessagesConfiguration else { return false }
         
         return (expiresInSeconds ?? 0 > 0)
     }
@@ -968,7 +974,7 @@ public extension Interaction {
     
     /// Use the `Interaction.previewText` method directly where possible rather than this method as it
     /// makes it's own database queries
-    func previewText(_ db: Database) -> String {
+    func previewText(_ db: Database, using dependencies: Dependencies) -> String {
         switch variant {
             case .standardIncoming, .standardOutgoing:
                 return Interaction.previewText(
@@ -981,7 +987,8 @@ public extension Interaction {
                     attachmentCount: try? attachments.fetchCount(db),
                     isOpenGroupInvitation: linkPreview
                         .filter(LinkPreview.Columns.variant == LinkPreview.Variant.openGroupInvitation)
-                        .isNotEmpty(db)
+                        .isNotEmpty(db),
+                    using: dependencies
                 )
 
             case .infoMediaSavedNotification, .infoScreenshotNotification, .infoCall:
@@ -990,12 +997,14 @@ public extension Interaction {
                 return Interaction.previewText(
                     variant: self.variant,
                     body: self.body,
-                    authorDisplayName: Profile.displayName(db, id: threadId)
+                    authorDisplayName: Profile.displayName(db, id: threadId),
+                    using: dependencies
                 )
 
             default: return Interaction.previewText(
                 variant: self.variant,
-                body: self.body
+                body: self.body,
+                using: dependencies
             )
         }
     }
@@ -1008,10 +1017,33 @@ public extension Interaction {
         authorDisplayName: String = "",
         attachmentDescriptionInfo: Attachment.DescriptionInfo? = nil,
         attachmentCount: Int? = nil,
-        isOpenGroupInvitation: Bool = false
+        isOpenGroupInvitation: Bool = false,
+        using dependencies: Dependencies
     ) -> String {
+        return attributedPreviewText(
+            variant: variant,
+            body: body,
+            threadContactDisplayName: threadContactDisplayName,
+            authorDisplayName: authorDisplayName,
+            attachmentDescriptionInfo: attachmentDescriptionInfo,
+            attachmentCount: attachmentCount,
+            isOpenGroupInvitation: isOpenGroupInvitation,
+            using: dependencies
+        ).string
+    }
+    
+    static func attributedPreviewText(
+        variant: Variant,
+        body: String?,
+        threadContactDisplayName: String = "",
+        authorDisplayName: String = "",
+        attachmentDescriptionInfo: Attachment.DescriptionInfo? = nil,
+        attachmentCount: Int? = nil,
+        isOpenGroupInvitation: Bool = false,
+        using dependencies: Dependencies
+    ) -> NSAttributedString {
         switch variant {
-            case .standardIncomingDeleted: return ""
+            case .standardIncomingDeleted: return NSAttributedString(string: "")
                 
             case .standardIncoming, .standardOutgoing:
                 let attachmentDescription: String? = Attachment.description(
@@ -1026,40 +1058,62 @@ public extension Interaction {
                     !body.isEmpty
                 {
                     if CurrentAppContext().isRTL {
-                        return "\(body): \(attachmentDescription)"
+                        return NSAttributedString(string: "\(body): \(attachmentDescription)")
                     }
                     
-                    return "\(attachmentDescription): \(body)"
+                    return NSAttributedString(string: "\(attachmentDescription): \(body)")
                 }
                 
                 if let body: String = body, !body.isEmpty {
-                    return body
+                    return NSAttributedString(string: body)
                 }
                 
                 if let attachmentDescription: String = attachmentDescription, !attachmentDescription.isEmpty {
-                    return attachmentDescription
+                    return NSAttributedString(string: attachmentDescription)
                 }
                 
                 if isOpenGroupInvitation {
-                    return "😎 Open group invitation"
+                    return NSAttributedString(string: "😎 Open group invitation")
                 }
                 
                 // TODO: We should do better here
-                return ""
+                return NSAttributedString(string: "")
                 
             case .infoMediaSavedNotification:
                 // TODO: Use referencedAttachmentTimestamp to tell the user * which * media was saved
-                return String(format: "media_saved".localized(), authorDisplayName)
+                return NSAttributedString(string: String(format: "media_saved".localized(), authorDisplayName))
                 
             case .infoScreenshotNotification:
-                return String(format: "screenshot_taken".localized(), authorDisplayName)
+                return NSAttributedString(string: String(format: "screenshot_taken".localized(), authorDisplayName))
                 
-            case .infoClosedGroupCreated: return "GROUP_CREATED".localized()
-            case .infoClosedGroupCurrentUserLeft: return "GROUP_YOU_LEFT".localized()
-            case .infoClosedGroupCurrentUserLeaving: return "group_you_leaving".localized()
-            case .infoClosedGroupCurrentUserErrorLeaving: return "group_unable_to_leave".localized()
-            case .infoClosedGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
-            case .infoMessageRequestAccepted: return (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized())
+            case .infoLegacyGroupCreated:
+                return NSAttributedString(string: "GROUP_CREATED".localized())
+                
+            case .infoLegacyGroupCurrentUserLeft:
+                return NSAttributedString(string: "GROUP_YOU_LEFT".localized())
+                
+            case .infoGroupCurrentUserLeaving:
+                return NSAttributedString(string: "group_you_leaving".localized())
+                
+            case .infoGroupCurrentUserErrorLeaving:
+                return NSAttributedString(string: "group_unable_to_leave".localized())
+                
+            case .infoLegacyGroupUpdated:
+                return NSAttributedString(string: (body ?? "GROUP_UPDATED".localized()))
+                
+            case .infoMessageRequestAccepted:
+                return NSAttributedString(string: (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized()))
+                
+            case .infoGroupInfoInvited, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
+                guard
+                    let infoMessageData: Data = (body ?? "").data(using: .utf8),
+                    let messageInfo: ClosedGroup.MessageInfo = try? JSONDecoder().decode(
+                        ClosedGroup.MessageInfo.self,
+                        from: infoMessageData
+                    )
+                else { return NSAttributedString(string: (body ?? "")) }
+                
+                return messageInfo.attributedPreviewText
             
             case .infoDisappearingMessagesUpdate:
                 guard
@@ -1068,9 +1122,9 @@ public extension Interaction {
                         DisappearingMessagesConfiguration.MessageInfo.self,
                         from: infoMessageData
                     )
-                else { return (body ?? "") }
+                else { return NSAttributedString(string: (body ?? "")) }
                 
-                return messageInfo.previewText
+                return messageInfo.attributedPreviewText(using: dependencies)
                 
             case .infoCall:
                 guard
@@ -1079,9 +1133,11 @@ public extension Interaction {
                         CallMessage.MessageInfo.self,
                         from: infoMessageData
                     )
-                else { return (body ?? "") }
+                else { return NSAttributedString(string: (body ?? "")) }
                 
-                return messageInfo.previewText(threadContactDisplayName: threadContactDisplayName)
+                return NSAttributedString(
+                    string: messageInfo.previewText(threadContactDisplayName: threadContactDisplayName)
+                )
         }
     }
     

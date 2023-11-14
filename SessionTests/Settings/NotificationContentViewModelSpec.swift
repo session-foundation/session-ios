@@ -31,7 +31,6 @@ class NotificationContentViewModelSpec: QuickSpec {
             using: dependencies
         )
         @TestState var dataChangeCancellable: AnyCancellable? = viewModel.tableDataPublisher
-            .receive(on: ImmediateScheduler.shared)
             .sink(
                 receiveCompletion: { _ in },
                 receiveValue: { viewModel.updateTableData($0.0) }
@@ -47,10 +46,8 @@ class NotificationContentViewModelSpec: QuickSpec {
 
             // MARK: -- has the correct number of items
             it("has the correct number of items") {
-                expect(viewModel.tableData.count)
-                    .to(equal(1))
-                expect(viewModel.tableData.first?.elements.count)
-                    .to(equal(3))
+                expect(viewModel.tableData.count).to(equal(1))
+                expect(viewModel.tableData.first?.elements.count).to(equal(3))
             }
             
             // MARK: -- has the correct default state
@@ -62,24 +59,24 @@ class NotificationContentViewModelSpec: QuickSpec {
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
                                 position: .top,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { true }
+                                trailingAccessory: .radio(
+                                    isSelected: true
                                 )
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
                                 position: .middle,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { false }
+                                trailingAccessory: .radio(
+                                    isSelected: false
                                 )
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
                                 position: .bottom,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { false }
+                                trailingAccessory: .radio(
+                                    isSelected: false
                                 )
                             )
                         ])
@@ -93,7 +90,6 @@ class NotificationContentViewModelSpec: QuickSpec {
                 }
                 viewModel = NotificationContentViewModel(using: dependencies)
                 dataChangeCancellable = viewModel.tableDataPublisher
-                    .receive(on: ImmediateScheduler.shared)
                     .sink(
                         receiveCompletion: { _ in },
                         receiveValue: { viewModel.updateTableData($0.0) }
@@ -106,24 +102,24 @@ class NotificationContentViewModelSpec: QuickSpec {
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
                                 position: .top,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { false }
+                                trailingAccessory: .radio(
+                                    isSelected: false
                                 )
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
                                 position: .middle,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { true }
+                                trailingAccessory: .radio(
+                                    isSelected: true
                                 )
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
                                 position: .bottom,
                                 title: "NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT".localized(),
-                                rightAccessory: .radio(
-                                    isSelected: { false }
+                                trailingAccessory: .radio(
+                                    isSelected: false
                                 )
                             )
                         ])
@@ -145,7 +141,6 @@ class NotificationContentViewModelSpec: QuickSpec {
                     var didDismissScreen: Bool = false
                     
                     dismissCancellable = viewModel.navigatableState.dismissScreen
-                        .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
                             receiveValue: { _ in didDismissScreen = true }

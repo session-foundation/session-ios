@@ -123,6 +123,9 @@ enum Onboarding {
         ) {
             let sessionId: SessionId = SessionId(.standard, publicKey: x25519KeyPair.publicKey)
             
+            // Reset the PushNotificationAPI keys (just in case they were left over from a prior install)
+            PushNotificationAPI.deleteKeys(using: dependencies)
+            
             // Store the user identity information
             dependencies[singleton: .storage].write { db in
                 try Identity.store(
@@ -143,7 +146,7 @@ enum Onboarding {
                 // they don't get weird behaviours
                 try Contact
                     .fetchOrCreate(db, id: sessionId.hexString)
-                    .save(db)
+                    .upsert(db)
                 try Contact
                     .filter(id: sessionId.hexString)
                     .updateAllAndConfig(
@@ -158,8 +161,14 @@ enum Onboarding {
                 ///
                 /// **Note:** We need to explicitly `updateAllAndConfig` the `shouldBeVisible` value to `false`
                 /// otherwise it won't actually get synced correctly
-                try SessionThread
-                    .fetchOrCreate(db, id: sessionId.hexString, variant: .contact, shouldBeVisible: false)
+                try SessionThread.fetchOrCreate(
+                    db,
+                    id: sessionId.hexString,
+                    variant: .contact,
+                    shouldBeVisible: false,
+                    calledFromConfigHandling: false,
+                    using: dependencies
+                )
                 
                 try SessionThread
                     .filter(id: sessionId.hexString)
@@ -179,13 +188,17 @@ enum Onboarding {
             // Only continue if this isn't a new account
             guard self != .register else { return }
             
-            // Fetch the
+            // Fetch the profile name
             Onboarding.profileNamePublisher
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .sinkUntilComplete()
         }
         
-        func completeRegistration(using dependencies: Dependencies = Dependencies()) {
+        func completeRegistration(
+            suppressDidRegisterNotification: Bool = false,
+            onComplete: ((Bool) -> Void)? = nil,
+            using dependencies: Dependencies = Dependencies()
+        ) {
             // Set the `lastNameUpdate` to the current date, so that we don't overwrite
             // what the user set in the display name step with whatever we find in their
             // swarm (otherwise the user could enter a display name and have it immediately
@@ -195,17 +208,19 @@ enum Onboarding {
                     .filter(id: getUserSessionId(db, using: dependencies).hexString)
                     .updateAllAndConfig(
                         db,
-                        Profile.Columns.lastNameUpdate.set(to: Date().timeIntervalSince1970),
+                        Profile.Columns.lastNameUpdate.set(to: dependencies.dateNow.timeIntervalSince1970),
                         using: dependencies
                     )
             }
             
             // Notify the app that registration is complete
-            Identity.didRegister()
+            if !suppressDidRegisterNotification {
+                Identity.didRegister()
+            }
             
             // Now that we have registered get the Snode pool (just in case) - other non-blocking
             // launch jobs will automatically be run because the app activation was triggered
-            GetSnodePoolJob.run(using: dependencies)
+            GetSnodePoolJob.run(onComplete: onComplete, using: dependencies)
         }
     }
 }

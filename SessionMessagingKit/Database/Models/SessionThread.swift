@@ -130,7 +130,7 @@ public struct SessionThread: Codable, Identifiable, Equatable, FetchableRecord, 
         self.variant = variant
         self.creationDateTimestamp = (
             creationDateTimestamp ??
-            (TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
+            TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000)
         )
         self.shouldBeVisible = shouldBeVisible
         self.messageDraft = messageDraft
@@ -163,6 +163,7 @@ public extension SessionThread {
         id: ID,
         variant: Variant,
         shouldBeVisible: Bool?,
+        calledFromConfigHandling: Bool,
         using dependencies: Dependencies = Dependencies()
     ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
@@ -171,7 +172,7 @@ public extension SessionThread {
                 variant: variant,
                 shouldBeVisible: (shouldBeVisible ?? false),
                 using: dependencies
-            ).saved(db)
+            ).upserted(db)
         }
         
         // If the `shouldBeVisible` state matches then we can finish early
@@ -186,6 +187,7 @@ public extension SessionThread {
             .updateAllAndConfig(
                 db,
                 SessionThread.Columns.shouldBeVisible.set(to: shouldBeVisible),
+                calledFromConfigHandling: calledFromConfigHandling,
                 using: dependencies
             )
         
@@ -199,7 +201,7 @@ public extension SessionThread {
                     variant: variant,
                     shouldBeVisible: desiredVisibility,
                     using: dependencies
-                ).saved(db)
+                ).upserted(db)
             )
     }
     
@@ -328,7 +330,7 @@ public extension SessionThread {
                             db,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
                             SessionThread.Columns.shouldBeVisible.set(to: false),
-                            calledFromConfig: calledFromConfigHandling,
+                            calledFromConfigHandling: calledFromConfigHandling,
                             using: dependencies
                         )
                 }
@@ -341,7 +343,7 @@ public extension SessionThread {
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: SessionUtil.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false),
-                        calledFromConfig: calledFromConfigHandling,
+                        calledFromConfigHandling: calledFromConfigHandling,
                         using: dependencies
                     )
                 
@@ -358,20 +360,14 @@ public extension SessionThread {
                 
             case (.legacyGroup, .standard), (.group, .standard):
                 try threadIds.forEach { threadId in
-                    try MessageSender
-                        .leave(
-                            db,
-                            groupPublicKey: threadId,
-                            deleteThread: true,
-                            using: dependencies
-                        )
+                    try MessageSender.leave(db, groupPublicKey: threadId, using: dependencies)
                 }
                 
             case (.legacyGroup, .silent), (.legacyGroup, .forced), (.group, .forced), (.group, .silent):
-                try ClosedGroup.removeKeysAndUnsubscribe(
+                try ClosedGroup.removeData(
                     db,
                     threadIds: threadIds,
-                    removeGroupData: true,
+                    dataToRemove: .allData,
                     calledFromConfigHandling: calledFromConfigHandling,
                     using: dependencies
                 )
@@ -392,24 +388,34 @@ public extension SessionThread {
 // MARK: - Convenience
 
 public extension SessionThread {
-    static func messageRequestsQuery(userSessionId: SessionId, includeNonVisible: Bool = false) -> SQLRequest<SessionThread> {
+    static func isMessageRequest(
+        _ db: Database,
+        threadId: String,
+        userSessionId: SessionId,
+        includeNonVisible: Bool = false
+    ) -> Bool {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
-        
-        return """
-            SELECT \(thread.allColumns)
+        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
+        let request: SQLRequest<String> = """
+            SELECT \(thread[.id])
             FROM \(SessionThread.self)
             LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
+            LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
             WHERE (
+                \(thread[.id]) = \(threadId) AND
                 \(SessionThread.isMessageRequest(userSessionId: userSessionId, includeNonVisible: includeNonVisible))
             )
         """
+        
+        return ((try? request.fetchOne(db)) != nil)
     }
     
     static func unreadMessageRequestsCountQuery(userSessionId: SessionId, includeNonVisible: Bool = false) -> SQLRequest<Int> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
+        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         
         return """
             SELECT COUNT(DISTINCT id) FROM (
@@ -420,6 +426,7 @@ public extension SessionThread {
                     \(interaction[.wasRead]) = false
                 )
                 LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
+                LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
                 WHERE (
                     \(SessionThread.isMessageRequest(userSessionId: userSessionId, includeNonVisible: includeNonVisible))
                 )
@@ -437,6 +444,7 @@ public extension SessionThread {
     ) -> SQLExpression {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
+        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let shouldBeVisibleSQL: SQL = (includeNonVisible ?
             SQL(stringLiteral: "true") :
             SQL("\(thread[.shouldBeVisible]) = true")
@@ -444,44 +452,15 @@ public extension SessionThread {
         
         return SQL(
             """
-                \(shouldBeVisibleSQL) AND
-                \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
-                \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
-                IFNULL(\(contact[.isApproved]), false) = false
+                \(shouldBeVisibleSQL) AND (
+                    COALESCE(\(closedGroup[.invited]), false) = true OR (
+                        \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)")) AND
+                        \(SQL("\(thread[.id]) != \(userSessionId.hexString)")) AND
+                        IFNULL(\(contact[.isApproved]), false) = false
+                    )
+                )
             """
         ).sqlExpression
-    }
-    
-    func isMessageRequest(_ db: Database, includeNonVisible: Bool = false) -> Bool {
-        return SessionThread.isMessageRequest(
-            id: id,
-            variant: variant,
-            userSessionId: getUserSessionId(db),
-            shouldBeVisible: shouldBeVisible,
-            contactIsApproved: (try? Contact
-                .filter(id: id)
-                .select(.isApproved)
-                .asRequest(of: Bool.self)
-                .fetchOne(db))
-                .defaulting(to: false),
-            includeNonVisible: includeNonVisible
-        )
-    }
-    
-    static func isMessageRequest(
-        id: String,
-        variant: SessionThread.Variant?,
-        userSessionId: SessionId,
-        shouldBeVisible: Bool?,
-        contactIsApproved: Bool?,
-        includeNonVisible: Bool = false
-    ) -> Bool {
-        return (
-            (includeNonVisible || shouldBeVisible == true) &&
-            variant == .contact &&
-            id != userSessionId.hexString && // Note to self
-            ((contactIsApproved ?? false) == false)
-        )
     }
     
     func isNoteToSelf(_ db: Database? = nil) -> Bool {
@@ -498,6 +477,7 @@ public extension SessionThread {
             Date().timeIntervalSince1970 > (self.mutedUntilTimestamp ?? 0) &&
             (
                 self.variant == .contact ||
+                self.variant == .group ||
                 !self.onlyNotifyForMentions ||
                 interaction.hasMention
             )
@@ -509,11 +489,11 @@ public extension SessionThread {
         guard interaction.authorId != userSessionId.hexString else { return false }
         
         // If the thread is a message request then we only want to notify for the first message
-        if self.variant == .contact && isMessageRequest {
+        if (self.variant == .contact || self.variant == .group) && isMessageRequest {
             let hasHiddenMessageRequests: Bool = db[.hasHiddenMessageRequests]
             
-            // If the user hasn't hidden the message requests section then only show the notification if
-            // all the other message request threads have been read
+            /// If the user hasn't hidden the message requests section then only show the notification if all the other contact message request
+            /// threads have been read, for group message requests we won't receive messages so should only ever trigger a single notification
             if !hasHiddenMessageRequests {
                 let numUnreadMessageRequestThreads: Int = (try? SessionThread
                     .unreadMessageRequestsCountQuery(userSessionId: userSessionId, includeNonVisible: true)

@@ -28,11 +28,12 @@ public extension HTTP.PreparedRequest {
                     case let serverTarget as any ServerRequestTarget:
                         return dependencies[singleton: .network]
                             .send(
-                                .onionRequest(
+                                .selectedNetworkRequest(
                                     request,
                                     to: serverTarget.server,
                                     with: serverTarget.x25519PublicKey,
-                                    timeout: timeout
+                                    timeout: timeout,
+                                    using: dependencies
                                 )
                             )
                         
@@ -41,10 +42,11 @@ public extension HTTP.PreparedRequest {
 
                         return dependencies[singleton: .network]
                             .send(
-                                .onionRequest(
+                                .selectedNetworkRequest(
                                     payload,
                                     to: snodeTarget.snode,
-                                    timeout: timeout
+                                    timeout: timeout,
+                                    using: dependencies
                                 )
                             )
                         
@@ -55,10 +57,11 @@ public extension HTTP.PreparedRequest {
                             .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount, using: dependencies) { snode in
                                 dependencies[singleton: .network]
                                     .send(
-                                        .onionRequest(
+                                        .selectedNetworkRequest(
                                             payload,
                                             to: snode,
-                                            timeout: timeout
+                                            timeout: timeout,
+                                            using: dependencies
                                         )
                                     )
                             }
@@ -80,10 +83,11 @@ public extension HTTP.PreparedRequest {
                                         
                                         return dependencies[singleton: .network]
                                             .send(
-                                                .onionRequest(
+                                                .selectedNetworkRequest(
                                                     payload,
                                                     to: snode,
-                                                    timeout: timeout
+                                                    timeout: timeout,
+                                                    using: dependencies
                                                 )
                                             )
                                             .map { info, response -> (ResponseInfoType, Data?) in

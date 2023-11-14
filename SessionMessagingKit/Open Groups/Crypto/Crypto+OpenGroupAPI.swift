@@ -26,76 +26,32 @@ public extension Crypto.Size {
     static let nonce24: Crypto.Size = Crypto.Size(id: "nonce24") { OpenGroupAPI.NonceGenerator24Byte().NonceBytes }
 }
 
-public extension Crypto.Action {
-    static func generateNonce16() -> Crypto.Action {
-        return Crypto.Action(id: "generateNonce16") { OpenGroupAPI.NonceGenerator16Byte().nonce() }
+public extension Crypto.Generator {
+    static func nonce16() -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(id: "nonce16") { OpenGroupAPI.NonceGenerator16Byte().nonce() }
     }
     
-    static func generateNonce24() -> Crypto.Action {
-        return Crypto.Action(id: "generateNonce24") { OpenGroupAPI.NonceGenerator24Byte().nonce() }
+    static func nonce24() -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(id: "nonce24") { OpenGroupAPI.NonceGenerator24Byte().nonce() }
     }
 }
 
 // MARK: - Blinding
 
-/// These extenion methods are used to generate a sign "blinded" messages
-///
-/// According to the Swift engineers the only situation when `UnsafeRawBufferPointer.baseAddress` is nil is when it's an
-/// empty collection; as such our guard cases wihch return `-1` when unwrapping this value should never be hit and we can ignore
-/// them as possible results.
-///
-/// For more information see:
-/// https://forums.swift.org/t/when-is-unsafemutablebufferpointer-baseaddress-nil/32136/5
-/// https://github.com/apple/swift-evolution/blob/master/proposals/0055-optional-unsafe-pointers.md#unsafebufferpointer
-public extension Crypto.Action {
-    private static let scalarLength: Int = Int(crypto_core_ed25519_scalarbytes())   // 32
-    private static let noClampLength: Int = Int(Sodium.lib_crypto_scalarmult_ed25519_bytes())  // 32
-    private static let scalarMultLength: Int = Int(crypto_scalarmult_bytes())       // 32
-    fileprivate static let publicKeyLength: Int = Int(crypto_scalarmult_bytes())        // 32
-    fileprivate static let secretKeyLength: Int = Int(crypto_sign_secretkeybytes())     // 64
-    
-    /// 64-byte blake2b hash then reduce to get the blinding factor
-    static func generateBlindingFactor(
-        serverPublicKey: String,
-        using dependencies: Dependencies
-    ) -> Crypto.Action {
-        return Crypto.Action(
-            id: "generateBlindingFactor",
-            args: [serverPublicKey]
-        ) {
-            /// k = salt.crypto_core_ed25519_scalar_reduce(blake2b(server_pk, digest_size=64).digest())
-            let serverPubKeyData: Data = Data(hex: serverPublicKey)
-            
-            guard
-                !serverPubKeyData.isEmpty,
-                let serverPublicKeyHashBytes: Bytes = try? dependencies[singleton: .crypto].perform(
-                    .hash(message: [UInt8](serverPubKeyData), outputLength: 64)
-                )
-            else { return nil }
-            
-            /// Reduce the server public key into an ed25519 scalar (`k`)
-            let kPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.scalarLength)
-            
-            _ = serverPublicKeyHashBytes.withUnsafeBytes { (serverPublicKeyHashPtr: UnsafeRawBufferPointer) -> Int32 in
-                guard let serverPublicKeyHashBaseAddress: UnsafePointer<UInt8> = serverPublicKeyHashPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
-                    return -1   // Impossible case (refer to comments at top of extension)
-                }
-                
-                Sodium.lib_crypto_core_ed25519_scalar_reduce(kPtr, serverPublicKeyHashBaseAddress)
-                return 0
-            }
-            
-            return Data(bytes: kPtr, count: Crypto.Action.scalarLength).bytes
-        }
-    }
+fileprivate extension Crypto {
+    static let scalarLength: Int = Int(crypto_core_ed25519_scalarbytes())               // 32
+    static let noClampLength: Int = Int(Sodium.lib_crypto_scalarmult_ed25519_bytes())   // 32
+    static let scalarMultLength: Int = Int(crypto_scalarmult_bytes())                   // 32
+    static let publicKeyLength: Int = Int(crypto_scalarmult_bytes())                // 32
+    static let secretKeyLength: Int = Int(crypto_sign_secretkeybytes())             // 64
     
     /// Calculate k*a.  To get 'a' (the Ed25519 private key scalar) we call the sodium function to
     /// convert to an *x* secret key, which seems wrong--but isn't because converted keys use the
     /// same secret scalar secret (and so this is just the most convenient way to get 'a' out of
     /// a sodium Ed25519 secret key)
-    fileprivate static func generatePrivateKeyScalar(secretKey: Bytes) -> Bytes {
+    static func generatePrivateKeyScalar(secretKey: Bytes) -> Bytes {
         /// a = s.to_curve25519_private_key().encode()
-        let aPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.scalarMultLength)
+        let aPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.scalarMultLength)
         
         /// Looks like the `crypto_sign_ed25519_sk_to_curve25519` function can't actually fail so no need to verify the result
         /// See: https://github.com/jedisct1/libsodium/blob/master/src/libsodium/crypto_sign/ed25519/ref10/keypair.c#L70
@@ -107,20 +63,66 @@ public extension Crypto.Action {
             return crypto_sign_ed25519_sk_to_curve25519(aPtr, secretKeyBaseAddress)
         }
         
-        return Data(bytes: aPtr, count: Crypto.Action.scalarMultLength).bytes
+        return Data(bytes: aPtr, count: Crypto.scalarMultLength).bytes
+    }
+}
+
+/// These extenion methods are used to generate a sign "blinded" messages
+///
+/// According to the Swift engineers the only situation when `UnsafeRawBufferPointer.baseAddress` is nil is when it's an
+/// empty collection; as such our guard cases wihch return `-1` when unwrapping this value should never be hit and we can ignore
+/// them as possible results.
+///
+/// For more information see:
+/// https://forums.swift.org/t/when-is-unsafemutablebufferpointer-baseaddress-nil/32136/5
+/// https://github.com/apple/swift-evolution/blob/master/proposals/0055-optional-unsafe-pointers.md#unsafebufferpointer
+public extension Crypto.Generator {
+    /// 64-byte blake2b hash then reduce to get the blinding factor
+    static func blindingFactor(
+        serverPublicKey: String,
+        using dependencies: Dependencies
+    ) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(
+            id: "blindingFactor",
+            args: [serverPublicKey]
+        ) {
+            /// k = salt.crypto_core_ed25519_scalar_reduce(blake2b(server_pk, digest_size=64).digest())
+            let serverPubKeyData: Data = Data(hex: serverPublicKey)
+            
+            guard
+                !serverPubKeyData.isEmpty,
+                let serverPublicKeyHashBytes: Bytes = dependencies[singleton: .crypto].generate(
+                    .hash(message: [UInt8](serverPubKeyData), outputLength: 64)
+                )
+            else { throw CryptoError.failedToGenerateOutput }
+            
+            /// Reduce the server public key into an ed25519 scalar (`k`)
+            let kPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.scalarLength)
+            
+            _ = serverPublicKeyHashBytes.withUnsafeBytes { (serverPublicKeyHashPtr: UnsafeRawBufferPointer) -> Int32 in
+                guard let serverPublicKeyHashBaseAddress: UnsafePointer<UInt8> = serverPublicKeyHashPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                    return -1   // Impossible case (refer to comments at top of extension)
+                }
+                
+                Sodium.lib_crypto_core_ed25519_scalar_reduce(kPtr, serverPublicKeyHashBaseAddress)
+                return 0
+            }
+            
+            return Data(bytes: kPtr, count: Crypto.scalarLength).bytes
+        }
     }
     
     /// Constructs an Ed25519 signature from a root Ed25519 key and a blinded scalar/pubkey pair, with one tweak to the
     /// construction: we add kA into the hashed value that yields r so that we have domain separation for different blinded
     /// pubkeys (this doesn't affect verification at all)
-    static func sogsSignature(
+    static func signatureSOGS(
         message: Bytes,
         secretKey: Bytes,
         blindedSecretKey ka: Bytes,
         blindedPublicKey kA: Bytes
-    ) -> Crypto.Action {
-        return Crypto.Action(
-            id: "sogsSignature",
+    ) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(
+            id: "signatureSOGS",
             args: [message, secretKey, ka, kA]
         ) {
             /// H_rh = sha512(s.encode()).digest()[32:]
@@ -128,7 +130,7 @@ public extension Crypto.Action {
             
             /// r = salt.crypto_core_ed25519_scalar_reduce(sha512_multipart(H_rh, kA, message_parts))
             let combinedHashBytes: Bytes = SHA512.hash(data: H_rh + kA + message).bytes
-            let rPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.scalarLength)
+            let rPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.scalarLength)
             
             _ = combinedHashBytes.withUnsafeBytes { (combinedHashPtr: UnsafeRawBufferPointer) -> Int32 in
                 guard let combinedHashBaseAddress: UnsafePointer<UInt8> = combinedHashPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
@@ -140,13 +142,15 @@ public extension Crypto.Action {
             }
             
             /// sig_R = salt.crypto_scalarmult_ed25519_base_noclamp(r)
-            let sig_RPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.noClampLength)
-            guard crypto_scalarmult_ed25519_base_noclamp(sig_RPtr, rPtr) == 0 else { return nil }
+            let sig_RPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.noClampLength)
+            guard crypto_scalarmult_ed25519_base_noclamp(sig_RPtr, rPtr) == 0 else {
+                throw CryptoError.failedToGenerateOutput
+            }
             
             /// HRAM = salt.crypto_core_ed25519_scalar_reduce(sha512_multipart(sig_R, kA, message_parts))
-            let sig_RBytes: Bytes = Data(bytes: sig_RPtr, count: Crypto.Action.noClampLength).bytes
+            let sig_RBytes: Bytes = Data(bytes: sig_RPtr, count: Crypto.noClampLength).bytes
             let HRAMHashBytes: Bytes = SHA512.hash(data: sig_RBytes + kA + message).bytes
-            let HRAMPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.scalarLength)
+            let HRAMPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.scalarLength)
             
             _ = HRAMHashBytes.withUnsafeBytes { (HRAMHashPtr: UnsafeRawBufferPointer) -> Int32 in
                 guard let HRAMHashBaseAddress: UnsafePointer<UInt8> = HRAMHashPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
@@ -158,8 +162,8 @@ public extension Crypto.Action {
             }
             
             /// sig_s = salt.crypto_core_ed25519_scalar_add(r, salt.crypto_core_ed25519_scalar_mul(HRAM, ka))
-            let sig_sMulPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.scalarLength)
-            let sig_sPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.scalarLength)
+            let sig_sMulPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.scalarLength)
+            let sig_sPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.scalarLength)
             
             _ = ka.withUnsafeBytes { (kaPtr: UnsafeRawBufferPointer) -> Int32 in
                 guard let kaBaseAddress: UnsafePointer<UInt8> = kaPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
@@ -172,20 +176,20 @@ public extension Crypto.Action {
             }
             
             /// full_sig = sig_R + sig_s
-            return (Data(bytes: sig_RPtr, count: Crypto.Action.noClampLength).bytes + Data(bytes: sig_sPtr, count: Crypto.Action.scalarLength).bytes)
+            return (Data(bytes: sig_RPtr, count: Crypto.noClampLength).bytes + Data(bytes: sig_sPtr, count: Crypto.scalarLength).bytes)
         }
     }
     
     /// Combines two keys (`kA`)
-    static func combineKeys(
+    static func combinedKeys(
         lhsKeyBytes: Bytes,
         rhsKeyBytes: Bytes
-    ) -> Crypto.Action {
-        return Crypto.Action(
-            id: "combineKeys",
+    ) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(
+            id: "combinedKeys",
             args: [lhsKeyBytes, rhsKeyBytes]
         ) {
-            let combinedPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.noClampLength)
+            let combinedPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.noClampLength)
             
             let result = rhsKeyBytes.withUnsafeBytes { (rhsKeyBytesPtr: UnsafeRawBufferPointer) -> Int32 in
                 return lhsKeyBytes.withUnsafeBytes { (lhsKeyBytesPtr: UnsafeRawBufferPointer) -> Int32 in
@@ -201,9 +205,9 @@ public extension Crypto.Action {
             }
             
             /// Ensure the above worked
-            guard result == 0 else { return nil }
+            guard result == 0 else { throw CryptoError.failedToGenerateOutput }
             
-            return Data(bytes: combinedPtr, count: Crypto.Action.noClampLength).bytes
+            return Data(bytes: combinedPtr, count: Crypto.noClampLength).bytes
         }
     }
     
@@ -220,47 +224,45 @@ public extension Crypto.Action {
         fromBlindedPublicKey kA: Bytes,
         toBlindedPublicKey kB: Bytes,
         using dependencies: Dependencies
-    ) -> Crypto.Action {
-        return Crypto.Action(
+    ) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(
             id: "sharedBlindedEncryptionKey",
             args: [secretKey, otherBlindedPublicKey, kA, kB]
         ) {
-            let aBytes: Bytes = generatePrivateKeyScalar(secretKey: secretKey)
-            let combinedKeyBytes: Bytes = try dependencies[singleton: .crypto].perform(
-                .combineKeys(lhsKeyBytes: aBytes, rhsKeyBytes: otherBlindedPublicKey)
+            let aBytes: Bytes = Crypto.generatePrivateKeyScalar(secretKey: secretKey)
+            let combinedKeyBytes: Bytes = try dependencies[singleton: .crypto].tryGenerate(
+                .combinedKeys(lhsKeyBytes: aBytes, rhsKeyBytes: otherBlindedPublicKey)
             )
             
-            return try dependencies[singleton: .crypto].perform(
+            return try dependencies[singleton: .crypto].tryGenerate(
                 .hash(message: (combinedKeyBytes + kA + kB), outputLength: 32)
             )
         }
     }
-}
-
-public extension Crypto.KeyPairType {
+    
     /// Constructs a "blinded" key pair (`ka, kA`) based on an open group server `publicKey` and an ed25519 `keyPair`
     static func blindedKeyPair(
         serverPublicKey: String,
         edKeyPair: KeyPair,
         using dependencies: Dependencies
-    ) -> Crypto.KeyPairType {
-        return Crypto.KeyPairType(
+    ) -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator(
             id: "blindedKeyPair",
             args: [serverPublicKey, edKeyPair]
         ) {
             guard
-                edKeyPair.publicKey.count == Crypto.Action.publicKeyLength,
-                edKeyPair.secretKey.count == Crypto.Action.secretKeyLength,
-                let kBytes: Bytes = try? dependencies[singleton: .crypto].perform(
-                    .generateBlindingFactor(serverPublicKey: serverPublicKey, using: dependencies)
+                edKeyPair.publicKey.count == Crypto.publicKeyLength,
+                edKeyPair.secretKey.count == Crypto.secretKeyLength,
+                let kBytes: Bytes = dependencies[singleton: .crypto].generate(
+                    .blindingFactor(serverPublicKey: serverPublicKey, using: dependencies)
                 )
-            else { return nil }
+            else { throw CryptoError.failedToGenerateOutput }
             
-            let aBytes: Bytes = Crypto.Action.generatePrivateKeyScalar(secretKey: edKeyPair.secretKey)
+            let aBytes: Bytes = Crypto.generatePrivateKeyScalar(secretKey: edKeyPair.secretKey)
             
             /// Generate the blinded key pair `ka`, `kA`
-            let kaPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.secretKeyLength)
-            let kAPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.Action.publicKeyLength)
+            let kaPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.secretKeyLength)
+            let kAPtr: UnsafeMutablePointer<UInt8> = UnsafeMutablePointer<UInt8>.allocate(capacity: Crypto.publicKeyLength)
             
             _ = aBytes.withUnsafeBytes { (aPtr: UnsafeRawBufferPointer) -> Int32 in
                 return kBytes.withUnsafeBytes { (kPtr: UnsafeRawBufferPointer) -> Int32 in
@@ -276,11 +278,13 @@ public extension Crypto.KeyPairType {
                 }
             }
             
-            guard crypto_scalarmult_ed25519_base_noclamp(kAPtr, kaPtr) == 0 else { return nil }
+            guard crypto_scalarmult_ed25519_base_noclamp(kAPtr, kaPtr) == 0 else {
+                throw CryptoError.failedToGenerateOutput
+            }
             
             return KeyPair(
-                publicKey: Data(bytes: kAPtr, count: Crypto.Action.publicKeyLength).bytes,
-                secretKey: Data(bytes: kaPtr, count: Crypto.Action.secretKeyLength).bytes
+                publicKey: Data(bytes: kAPtr, count: Crypto.publicKeyLength).bytes,
+                secretKey: Data(bytes: kaPtr, count: Crypto.secretKeyLength).bytes
             )
         }
     }
@@ -307,8 +311,8 @@ public extension Crypto.Verification {
                     blindedId.prefix == .blinded15 ||
                     blindedId.prefix == .blinded25
                 ),
-                let kBytes: Bytes = try? dependencies[singleton: .crypto].perform(
-                    .generateBlindingFactor(serverPublicKey: serverPublicKey, using: dependencies)
+                let kBytes: Bytes = dependencies[singleton: .crypto].generate(
+                    .blindingFactor(serverPublicKey: serverPublicKey, using: dependencies)
                 )
             else { return false }
             
@@ -323,8 +327,8 @@ public extension Crypto.Verification {
             
             /// Blind the positive public key
             guard
-                let pk1: Bytes = try? dependencies[singleton: .crypto].perform(
-                    .combineKeys(lhsKeyBytes: kBytes, rhsKeyBytes: xEd25519Key.bytes)
+                let pk1: Bytes = dependencies[singleton: .crypto].generate(
+                    .combinedKeys(lhsKeyBytes: kBytes, rhsKeyBytes: xEd25519Key.bytes)
                 )
             else { return false }
             

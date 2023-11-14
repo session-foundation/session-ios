@@ -9,28 +9,30 @@ public enum SwarmDrainBehaviour {
         count: UInt,
         targetSnode: Snode?,
         targetUseCount: Int,
-        usedSnodes: Set<Snode>
+        usedSnodes: Set<Snode>,
+        swarmHash: Int
     )
     
     public static func limitedReuse(count: UInt) -> SwarmDrainBehaviour {
         guard count > 1 else { return .alwaysRandom }
         
-        return .limitedReuse(count: count, targetSnode: nil, targetUseCount: 0, usedSnodes: [])
+        return .limitedReuse(count: count, targetSnode: nil, targetUseCount: 0, usedSnodes: [], swarmHash: 0)
     }
     
     // MARK: - Convenience
     
-    func use(snode: Snode) -> SwarmDrainBehaviour {
+    func use(snode: Snode, from swarm: Set<Snode>) -> SwarmDrainBehaviour {
         switch self {
             case .alwaysRandom: return .alwaysRandom
-            case .limitedReuse(let count, let targetSnode, let targetUseCount, let usedSnodes):
+            case .limitedReuse(let count, let targetSnode, let targetUseCount, let usedSnodes, _):
                 // If we are using a new snode then reset everything
                 guard targetSnode == snode else {
                     return .limitedReuse(
                         count: count,
                         targetSnode: snode,
                         targetUseCount: 1,
-                        usedSnodes: usedSnodes.inserting(snode)
+                        usedSnodes: usedSnodes.inserting(snode),
+                        swarmHash: swarm.hashValue
                     )
                 }
                 
@@ -41,7 +43,8 @@ public enum SwarmDrainBehaviour {
                     count: count,
                     targetSnode: (updatedUseCount < count ? snode : nil),
                     targetUseCount: updatedUseCount,
-                    usedSnodes: usedSnodes
+                    usedSnodes: usedSnodes,
+                    swarmHash: swarm.hashValue
                 )
         }
     }
@@ -49,12 +52,13 @@ public enum SwarmDrainBehaviour {
     public func clearTargetSnode() -> SwarmDrainBehaviour {
         switch self {
             case .alwaysRandom: return .alwaysRandom
-            case .limitedReuse(let count, _, _, let usedSnodes):
+            case .limitedReuse(let count, _, _, let usedSnodes, let swarmHash):
                 return .limitedReuse(
                     count: count,
                     targetSnode: nil,
                     targetUseCount: 0,
-                    usedSnodes: usedSnodes
+                    usedSnodes: usedSnodes,
+                    swarmHash: swarmHash
                 )
         }
     }
@@ -62,12 +66,13 @@ public enum SwarmDrainBehaviour {
     public func reset() -> SwarmDrainBehaviour {
         switch self {
             case .alwaysRandom: return .alwaysRandom
-            case .limitedReuse(let count, _, _, _):
+            case .limitedReuse(let count, _, _, _, _):
                 return .limitedReuse(
                     count: count,
                     targetSnode: nil,
                     targetUseCount: 0,
-                    usedSnodes: []
+                    usedSnodes: [],
+                    swarmHash: 0
                 )
         }
     }

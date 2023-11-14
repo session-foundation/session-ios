@@ -78,6 +78,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case textOnlyMessage
         case mediaMessage
         case audio
+        case voiceMessage
         case genericAttachment
         case typingIndicator
         case dateHeader
@@ -163,10 +164,12 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let shouldShowDateHeader: Bool
     
     /// This value will be used to populate the Context Menu and date header (if present)
-    public var dateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.timestampMs) / 1000)) }
+    public var dateForUI: Date { Date(timeIntervalSince1970: TimeInterval(Double(self.timestampMs) / 1000)) }
     
     /// This value will be used to populate the Message Info (if present)
-    public var receivedDateForUI: Date { Date(timeIntervalSince1970: (TimeInterval(self.receivedAtTimestampMs) / 1000)) }
+    public var receivedDateForUI: Date {
+        Date(timeIntervalSince1970: TimeInterval(Double(self.receivedAtTimestampMs) / 1000))
+    }
     
     /// This value specifies whether the body contains only emoji characters
     public let containsOnlyEmoji: Bool?
@@ -289,7 +292,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
                     )
                 )
             {
-                return .audio
+                return (attachment.variant == .voiceMessage ? .voiceMessage : .audio)
             }
 
             if attachment.isVisualMedia {
@@ -389,31 +392,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             receivedAtTimestampMs: self.receivedAtTimestampMs,
             authorId: self.authorId,
             authorNameInternal: self.authorNameInternal,
-            body: (!self.variant.isInfoMessage ?
-                self.body :
-                // Info messages might not have a body so we should use the 'previewText' value instead
-                Interaction.previewText(
-                    variant: self.variant,
-                    body: self.body,
-                    threadContactDisplayName: Profile.displayName(
-                        for: self.threadVariant,
-                        id: self.threadId,
-                        name: self.threadContactNameInternal,
-                        nickname: nil  // Folded into 'threadContactNameInternal' within the Query
-                    ),
-                    authorDisplayName: authorDisplayName,
-                    attachmentDescriptionInfo: self.attachments?.first.map { firstAttachment in
-                        Attachment.DescriptionInfo(
-                            id: firstAttachment.id,
-                            variant: firstAttachment.variant,
-                            contentType: firstAttachment.contentType,
-                            sourceFilename: firstAttachment.sourceFilename
-                        )
-                    },
-                    attachmentCount: self.attachments?.count,
-                    isOpenGroupInvitation: (self.linkPreview?.variant == .openGroupInvitation)
-                )
-            ),
+            body: self.body,
             rawBody: self.body,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,
@@ -481,6 +460,40 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             currentUserBlinded15SessionId: currentUserBlinded15SessionId,
             currentUserBlinded25SessionId: currentUserBlinded25SessionId,
             optimisticMessageId: self.optimisticMessageId
+        )
+    }
+    
+    // MARK: - Functions
+    
+    public func attributedBody(using dependencies: Dependencies) -> NSAttributedString? {
+        let authorDisplayName: String = Profile.displayName(
+            for: self.threadVariant,
+            id: self.authorId,
+            name: self.authorNameInternal,
+            nickname: nil  // Folded into 'authorName' within the Query
+        )
+        
+        return Interaction.attributedPreviewText(
+            variant: self.variant,
+            body: self.body,
+            threadContactDisplayName: Profile.displayName(
+                for: self.threadVariant,
+                id: self.threadId,
+                name: self.threadContactNameInternal,
+                nickname: nil  // Folded into 'threadContactNameInternal' within the Query
+            ),
+            authorDisplayName: authorDisplayName,
+            attachmentDescriptionInfo: self.attachments?.first.map { firstAttachment in
+                Attachment.DescriptionInfo(
+                    id: firstAttachment.id,
+                    variant: firstAttachment.variant,
+                    contentType: firstAttachment.contentType,
+                    sourceFilename: firstAttachment.sourceFilename
+                )
+            },
+            attachmentCount: self.attachments?.count,
+            isOpenGroupInvitation: (self.linkPreview?.variant == .openGroupInvitation),
+            using: dependencies
         )
     }
 }
@@ -759,8 +772,8 @@ extension MessageViewModel {
     }
     
     fileprivate static func shouldShowDateBreak(between timestamp1: Int64, and timestamp2: Int64) -> Bool {
-        let date1: Date = Date(timeIntervalSince1970: (TimeInterval(timestamp1) / 1000))
-        let date2: Date = Date(timeIntervalSince1970: (TimeInterval(timestamp2) / 1000))
+        let date1: Date = Date(timeIntervalSince1970: TimeInterval(Double(timestamp1) / 1000))
+        let date2: Date = Date(timeIntervalSince1970: TimeInterval(Double(timestamp2) / 1000))
         
         return ((minutesFrom(date1, to: date2) ?? 0) > maxMinutesBetweenTwoDateBreaks)
     }

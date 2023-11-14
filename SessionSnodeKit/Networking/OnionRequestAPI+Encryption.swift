@@ -29,20 +29,21 @@ internal extension OnionRequestAPI {
     /// Encrypts `payload` for `destination` and returns the result. Use this to build the core of an onion request.
     static func encrypt(
         _ payload: Data,
-        for destination: OnionRequestAPIDestination
+        for destination: OnionRequestAPIDestination,
+        using dependencies: Dependencies
     ) -> AnyPublisher<AES.GCM.EncryptionResult, Error> {
         switch destination {
             case .snode(let snode):
                 // Need to wrap the payload for snode requests
                 return encode(ciphertext: payload, json: [ "headers" : "" ])
                     .tryMap { data -> AES.GCM.EncryptionResult in
-                        try AES.GCM.encrypt(data, for: snode.x25519PublicKey)
+                        try AES.GCM.encrypt(data, for: snode.x25519PublicKey, using: dependencies)
                     }
                     .eraseToAnyPublisher()
                 
             case .server(_, _, let serverX25519PublicKey, _, _):
                 do {
-                    return Just(try AES.GCM.encrypt(payload, for: serverX25519PublicKey))
+                    return Just(try AES.GCM.encrypt(payload, for: serverX25519PublicKey, using: dependencies))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -57,7 +58,8 @@ internal extension OnionRequestAPI {
     static func encryptHop(
         from lhs: OnionRequestAPIDestination,
         to rhs: OnionRequestAPIDestination,
-        using previousEncryptionResult: AES.GCM.EncryptionResult
+        using previousEncryptionResult: AES.GCM.EncryptionResult,
+        using dependencies: Dependencies
     ) -> AnyPublisher<AES.GCM.EncryptionResult, Error> {
         var parameters: JSON
         
@@ -83,7 +85,9 @@ internal extension OnionRequestAPI {
         }()
         
         return encode(ciphertext: previousEncryptionResult.ciphertext, json: parameters)
-            .tryMap { data -> AES.GCM.EncryptionResult in try AES.GCM.encrypt(data, for: x25519PublicKey) }
+            .tryMap { data -> AES.GCM.EncryptionResult in
+                try AES.GCM.encrypt(data, for: x25519PublicKey, using: dependencies)
+            }
             .eraseToAnyPublisher()
     }
 }

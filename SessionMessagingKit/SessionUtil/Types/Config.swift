@@ -4,6 +4,7 @@
 
 import Foundation
 import SessionUtil
+import SessionSnodeKit
 import SessionUtilitiesKit
 
 public extension SessionUtil {
@@ -58,12 +59,25 @@ public extension SessionUtil {
             }
         }
         
-        var lastError: String {
-            switch self {
-                case .invalid: return "Invalid"
-                case .object(let conf): return String(cString: conf.pointee.last_error)
-                case .groupKeys(let conf, _, _): return String(cString: conf.pointee.last_error)
-            }
+        var lastError: SessionUtilError? {
+            let maybeErrorString: String? = {
+                switch self {
+                    case .invalid: return "Invalid"
+                    case .object(let conf):
+                        guard conf.pointee.last_error != nil else { return nil }
+                        
+                        return String(cString: conf.pointee.last_error)
+                        
+                    case .groupKeys(let conf, _, _):
+                        guard conf.pointee.last_error != nil else { return nil }
+                        
+                        return String(cString: conf.pointee.last_error)
+                }
+            }()
+            
+            guard let errorString: String = maybeErrorString, !errorString.isEmpty else { return nil }
+            
+            return SessionUtilError.libSessionError(errorString)
         }
         
         // MARK: - Functions
@@ -245,7 +259,7 @@ public extension SessionUtil {
                     mergedHashesPtr?.deallocate()
                     
                     if mergedHashes.count != messages.count {
-                        SNLog("[SessionUtil] Unable to merge all \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
+                        SNLog("[SessionUtil] Unable to merge \(messages[0].namespace) messages (\(mergedHashes.count)/\(messages.count))")
                     }
                     
                     return messages
@@ -255,7 +269,7 @@ public extension SessionUtil {
                         .last
                     
                 case .groupKeys(let conf, let infoConf, let membersConf):
-                    return messages
+                    let successfulMergeTimestamps: [Int64] = messages
                         .map { message -> (Bool, Int64) in
                             var data: [UInt8] = Array(message.data)
                             var messageHash: [CChar] = message.serverHash.cArray.nullTerminated()
@@ -274,7 +288,12 @@ public extension SessionUtil {
                         .filter { success, _ in success }
                         .map { _, serverTimestampMs in serverTimestampMs }
                         .sorted()
-                        .last
+                    
+                    if successfulMergeTimestamps.count != messages.count {
+                        SNLog("[SessionUtil] Unable to merge \(SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
+                    }
+                    
+                    return successfulMergeTimestamps.last
             }
         }
         
@@ -332,10 +351,10 @@ public extension Optional where Wrapped == SessionUtil.Config {
         }
     }
     
-    var lastError: String {
+    var lastError: SessionUtilError? {
         switch self {
             case .some(let config): return config.lastError
-            case .none: return "Nil Config"
+            case .none: return SessionUtilError.invalidConfigObject
         }
     }
     

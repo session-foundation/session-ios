@@ -230,13 +230,4 @@ final class MainAppContext: NSObject, AppContext {
         
         return (targetPath ?? "")
     }
-    
-    func appSharedDataDirectoryPath() -> String {
-        let targetPath: String? = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?
-            .path
-        owsAssertDebug(targetPath != nil)
-        
-        return (targetPath ?? "")
-    }
 }

@@ -13,7 +13,7 @@ extension MessageSender {
     public static func createLegacyClosedGroup(
         name: String,
         members: Set<String>,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<SessionThread, Error> {
         dependencies[singleton: .storage]
             .writePublisher { db -> (SessionId, SessionThread, [HTTP.PreparedRequest<Void>], Set<String>) in
@@ -33,11 +33,17 @@ extension MessageSender {
                 let membersAsData: [Data] = members.map { Data(hex: $0) }
                 let admins: Set<String> = [ userSessionId.hexString ]
                 let adminsAsData: [Data] = admins.map { Data(hex: $0) }
-                let formationTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+                let formationTimestamp: TimeInterval = TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 
                 // Create the relevant objects in the database
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: legacyGroupSessionId, variant: .legacyGroup, shouldBeVisible: true)
+                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                    db,
+                    id: legacyGroupSessionId,
+                    variant: .legacyGroup,
+                    shouldBeVisible: true,
+                    calledFromConfigHandling: false,
+                    using: dependencies
+                )
                 try ClosedGroup(
                     threadId: legacyGroupSessionId,
                     name: name,
@@ -47,7 +53,7 @@ extension MessageSender {
                 ).insert(db)
                 
                 // Store the key pair
-                let latestKeyPairReceivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+                let latestKeyPairReceivedTimestamp: TimeInterval = TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 try ClosedGroupKeyPair(
                     threadId: legacyGroupSessionId,
                     publicKey: Data(encryptionKeyPair.publicKey),
@@ -63,7 +69,7 @@ extension MessageSender {
                         role: .admin,
                         roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
-                    ).save(db)
+                    ).upsert(db)
                 }
                 
                 try members.forEach { memberId in
@@ -73,7 +79,7 @@ extension MessageSender {
                         role: .standard,
                         roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
-                    ).save(db)
+                    ).upsert(db)
                 }
                 
                 // Update libSession
@@ -138,7 +144,8 @@ extension MessageSender {
                                 try? PushNotificationAPI
                                     .preparedSubscribeToLegacyGroups(
                                         userSessionId: userSessionId,
-                                        legacyGroupIds: allActiveLegacyGroupIds
+                                        legacyGroupIds: allActiveLegacyGroupIds,
+                                        using: dependencies
                                     )?
                                     .map { _, _ in () }
                             )
@@ -185,7 +192,7 @@ extension MessageSender {
                     threadId: closedGroup.threadId,
                     publicKey: Data(legacyNewKeyPair.publicKey),
                     secretKey: Data(legacyNewKeyPair.secretKey),
-                    receivedTimestamp: (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
+                    receivedTimestamp: TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs()) / 1000)
                 )
                 
                 // Distribute it
@@ -301,7 +308,7 @@ extension MessageSender {
                     let interaction: Interaction = try Interaction(
                         threadId: legacyGroupSessionId,
                         authorId: userSessionId.hexString,
-                        variant: .infoClosedGroupUpdated,
+                        variant: .infoLegacyGroupUpdated,
                         body: ClosedGroupControlMessage.Kind
                             .nameChange(name: name)
                             .infoMessage(db, sender: userSessionId.hexString),
@@ -416,7 +423,7 @@ extension MessageSender {
         let interaction: Interaction = try Interaction(
             threadId: closedGroup.threadId,
             authorId: userSessionId.hexString,
-            variant: .infoClosedGroupUpdated,
+            variant: .infoLegacyGroupUpdated,
             body: ClosedGroupControlMessage.Kind
                 .membersAdded(members: addedMembers.map { Data(hex: $0) })
                 .infoMessage(db, sender: userSessionId.hexString),
@@ -455,7 +462,14 @@ extension MessageSender {
         
         try addedMembers.forEach { member in
             // Send updates to the new members individually
-            try SessionThread.fetchOrCreate(db, id: member, variant: .contact, shouldBeVisible: nil)
+            try SessionThread.fetchOrCreate(
+                db,
+                id: member,
+                variant: .contact,
+                shouldBeVisible: nil,
+                calledFromConfigHandling: false,
+                using: dependencies
+            )
             
             try MessageSender.send(
                 db,
@@ -488,7 +502,7 @@ extension MessageSender {
                 role: .standard,
                 roleStatus: .accepted,  // Legacy group members don't have role statuses
                 isHidden: false
-            ).save(db)
+            ).upsert(db)
         }
     }
 
@@ -540,7 +554,7 @@ extension MessageSender {
                     let interaction: Interaction = try Interaction(
                         threadId: closedGroup.threadId,
                         authorId: userSessionId.hexString,
-                        variant: .infoClosedGroupUpdated,
+                        variant: .infoLegacyGroupUpdated,
                         body: ClosedGroupControlMessage.Kind
                             .membersRemoved(members: removedMembers.map { Data(hex: $0) })
                             .infoMessage(db, sender: userSessionId.hexString),
@@ -587,46 +601,6 @@ extension MessageSender {
             .eraseToAnyPublisher()
     }
     
-    /// Leave the group with the given `groupPublicKey`. If the current user is the admin, the group is disbanded entirely. If the
-    /// user is a regular member they'll be marked as a "zombie" member by the other users in the group (upon receiving the leave
-    /// message). The admin can then truly remove them later.
-    ///
-    /// This function also removes all encryption key pairs associated with the closed group and the group's public key, and
-    /// unregisters from push notifications.
-    ///
-    /// The returned promise is fulfilled when the `MEMBER_LEFT` message has been sent to the group.
-    public static func leave(
-        _ db: Database,
-        groupPublicKey: String,
-        deleteThread: Bool,
-        using dependencies: Dependencies = Dependencies()
-    ) throws {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        
-        // Notify the user
-        let interaction: Interaction = try Interaction(
-            threadId: groupPublicKey,
-            authorId: userSessionId.hexString,
-            variant: .infoClosedGroupCurrentUserLeaving,
-            body: "group_you_leaving".localized(),
-            timestampMs: SnodeAPI.currentOffsetTimestampMs()
-        ).inserted(db)
-        
-        dependencies[singleton: .jobRunner].upsert(
-            db,
-            job: Job(
-                variant: .groupLeaving,
-                threadId: groupPublicKey,
-                interactionId: interaction.id,
-                details: GroupLeavingJob.Details(
-                    deleteThread: deleteThread
-                )
-            ),
-            canStartJob: true,
-            using: dependencies
-        )
-    }
-    
     public static func sendLatestEncryptionKeyPair(
         _ db: Database,
         to publicKey: String,
@@ -662,8 +636,14 @@ extension MessageSender {
                 privateKey: keyPair.secretKey
             ).build()
             let plaintext = try proto.serializedData()
-            let thread: SessionThread = try SessionThread
-                .fetchOrCreate(db, id: publicKey, variant: .contact, shouldBeVisible: nil)
+            let thread: SessionThread = try SessionThread.fetchOrCreate(
+                db,
+                id: publicKey,
+                variant: .contact,
+                shouldBeVisible: nil,
+                calledFromConfigHandling: false,
+                using: dependencies
+            )
             let ciphertext = try MessageSender.encryptWithSessionProtocol(
                 db,
                 plaintext: plaintext,

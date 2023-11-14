@@ -46,19 +46,12 @@ public struct SessionApp {
         let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = dependencies[singleton: .storage].read { db in
             let isMessageRequest: Bool = {
                 switch variant {
-                    case .contact:
+                    case .contact, .group:
                         return SessionThread
                             .isMessageRequest(
-                                id: threadId,
-                                variant: .contact,
+                                db,
+                                threadId: threadId,
                                 userSessionId: getUserSessionId(db, using: dependencies),
-                                shouldBeVisible: nil,
-                                contactIsApproved: (try? Contact
-                                    .filter(id: threadId)
-                                    .select(.isApproved)
-                                    .asRequest(of: Bool.self)
-                                    .fetchOne(db))
-                                    .defaulting(to: false),
                                 includeNonVisible: true
                             )
                         
@@ -88,7 +81,14 @@ public struct SessionApp {
         guard threadInfo?.threadExists == true else {
             DispatchQueue.global(qos: .userInitiated).async {
                 dependencies[singleton: .storage].write { db in
-                    try SessionThread.fetchOrCreate(db, id: threadId, variant: variant, shouldBeVisible: nil)
+                    try SessionThread.fetchOrCreate(
+                        db,
+                        id: threadId,
+                        variant: variant,
+                        shouldBeVisible: nil,
+                        calledFromConfigHandling: false,
+                        using: dependencies
+                    )
                 }
 
                 // Send back to main thread for UI transitions
@@ -121,10 +121,11 @@ public struct SessionApp {
         DDLog.flushLog()
         
         SessionUtil.clearMemoryState(using: dependencies)
-        Storage.resetAllStorage()
-        ProfileManager.resetProfileStorage()
+        Storage.resetAllStorage(using: dependencies)
+        DisplayPictureManager.resetStorage(using: dependencies)
         Attachment.resetAttachmentStorage()
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
+        dependencies[singleton: .keychain].removeAll()
 
         onReset?()
         exit(0)

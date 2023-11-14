@@ -32,8 +32,9 @@ extension SessionCell {
         )
         case radio(
             size: RadioSize,
-            isSelected: () -> Bool,
-            storedSelection: Bool,
+            initialIsSelected: Bool,
+            liveIsSelected: () -> Bool,
+            wasSavedSelection: Bool,
             accessibility: Accessibility?
         )
         
@@ -45,7 +46,7 @@ extension SessionCell {
             id: String,
             size: ProfilePictureView.Size,
             threadVariant: SessionThread.Variant,
-            customImageData: Data?,
+            displayPictureFilename: String?,
             profile: Profile?,
             profileIcon: ProfilePictureView.ProfileIcon,
             additionalProfile: Profile?,
@@ -82,7 +83,7 @@ extension SessionCell {
         var currentBoolValue: Bool {
             switch self {
                 case .toggle(let dataSource, _), .dropDown(let dataSource, _): return dataSource.currentBoolValue
-                case .radio(_, let isSelected, _, _): return isSelected()
+                case .radio(_, _, let liveIsSelected, _, _): return liveIsSelected()
                 default: return false
             }
         }
@@ -112,10 +113,11 @@ extension SessionCell {
                     dataSource.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
                     
-                case .radio(let size, let isSelected, let storedSelection, let accessibility):
+                case .radio(let size, let initialIsSelected, let liveIsSelected, let wasSavedSelection, let accessibility):
                     size.hash(into: &hasher)
-                    isSelected().hash(into: &hasher)
-                    storedSelection.hash(into: &hasher)
+                    initialIsSelected.hash(into: &hasher)
+                    liveIsSelected().hash(into: &hasher)
+                    wasSavedSelection.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
                 
                 case .highlightingBackgroundLabel(let title, let accessibility):
@@ -126,7 +128,7 @@ extension SessionCell {
                     let profileId,
                     let size,
                     let threadVariant,
-                    let customImageData,
+                    let displayPictureFilename,
                     let profile,
                     let profileIcon,
                     let additionalProfile,
@@ -136,7 +138,7 @@ extension SessionCell {
                     profileId.hash(into: &hasher)
                     size.hash(into: &hasher)
                     threadVariant.hash(into: &hasher)
-                    customImageData.hash(into: &hasher)
+                    displayPictureFilename.hash(into: &hasher)
                     profile.hash(into: &hasher)
                     profileIcon.hash(into: &hasher)
                     additionalProfile.hash(into: &hasher)
@@ -188,11 +190,12 @@ extension SessionCell {
                         lhsAccessibility == rhsAccessibility
                     )
                     
-                case (.radio(let lhsSize, let lhsIsSelected, let lhsStoredSelection, let lhsAccessibility), .radio(let rhsSize, let rhsIsSelected, let rhsStoredSelection, let rhsAccessibility)):
+                case (.radio(let lhsSize, let lhsInitialIsSelected, let lhsLiveIsSelected, let lhsWasSavedSelection, let lhsAccessibility), .radio(let rhsSize, let rhsInitialIsSelected, let rhsLiveIsSelected, let rhsWasSavedSelection, let rhsAccessibility)):
                     return (
                         lhsSize == rhsSize &&
-                        lhsIsSelected() == rhsIsSelected() &&
-                        lhsStoredSelection == rhsStoredSelection &&
+                        lhsInitialIsSelected == rhsInitialIsSelected &&
+                        lhsLiveIsSelected() == rhsLiveIsSelected() &&
+                        lhsWasSavedSelection == rhsWasSavedSelection &&
                         lhsAccessibility == rhsAccessibility
                     )
                     
@@ -207,7 +210,7 @@ extension SessionCell {
                         let lhsProfileId,
                         let lhsSize,
                         let lhsThreadVariant,
-                        let lhsCustomImageData,
+                        let lhsDisplayPictureFilename,
                         let lhsProfile,
                         let lhsProfileIcon,
                         let lhsAdditionalProfile,
@@ -218,7 +221,7 @@ extension SessionCell {
                         let rhsProfileId,
                         let rhsSize,
                         let rhsThreadVariant,
-                        let rhsCustomImageData,
+                        let rhsDisplayPictureFilename,
                         let rhsProfile,
                         let rhsProfileIcon,
                         let rhsAdditionalProfile,
@@ -230,7 +233,7 @@ extension SessionCell {
                         lhsProfileId == rhsProfileId &&
                         lhsSize == rhsSize &&
                         lhsThreadVariant == rhsThreadVariant &&
-                        lhsCustomImageData == rhsCustomImageData &&
+                        lhsDisplayPictureFilename == rhsDisplayPictureFilename &&
                         lhsProfile == rhsProfile &&
                         lhsProfileIcon == rhsProfileIcon &&
                         lhsAdditionalProfile == rhsAdditionalProfile &&
@@ -333,12 +336,16 @@ extension SessionCell.Accessory {
     
     // MARK: - .radio Variants
     
-    public static func radio(isSelected: @escaping () -> Bool) -> SessionCell.Accessory {
-        return .radio(size: .medium, isSelected: isSelected, storedSelection: false, accessibility: nil)
+    public static func radio(isSelected: Bool) -> SessionCell.Accessory {
+        return .radio(size: .medium, initialIsSelected: isSelected, liveIsSelected: { isSelected }, wasSavedSelection: false, accessibility: nil)
     }
     
-    public static func radio(isSelected: @escaping () -> Bool, storedSelection: Bool) -> SessionCell.Accessory {
-        return .radio(size: .medium, isSelected: isSelected, storedSelection: storedSelection, accessibility: nil)
+    public static func radio(liveIsSelected: @escaping () -> Bool) -> SessionCell.Accessory {
+        return .radio(size: .medium, initialIsSelected: liveIsSelected(), liveIsSelected: liveIsSelected, wasSavedSelection: false, accessibility: nil)
+    }
+    
+    public static func radio(isSelected: Bool, wasSavedSelection: Bool) -> SessionCell.Accessory {
+        return .radio(size: .medium, initialIsSelected: isSelected, liveIsSelected: { isSelected }, wasSavedSelection: wasSavedSelection, accessibility: nil)
     }
     
     // MARK: - .highlightingBackgroundLabel Variants
@@ -354,7 +361,7 @@ extension SessionCell.Accessory {
             id: id,
             size: .list,
             threadVariant: .contact,
-            customImageData: nil,
+            displayPictureFilename: nil,
             profile: profile,
             profileIcon: .none,
             additionalProfile: nil,
@@ -363,14 +370,28 @@ extension SessionCell.Accessory {
         )
     }
     
-    public static func profile(id: String, size: ProfilePictureView.Size, profile: Profile?) -> SessionCell.Accessory {
+    public static func profile(id: String, profile: Profile?, profileIcon: ProfilePictureView.ProfileIcon) -> SessionCell.Accessory {
+        return .profile(
+            id: id,
+            size: .list,
+            threadVariant: .contact,
+            displayPictureFilename: nil,
+            profile: profile,
+            profileIcon: profileIcon,
+            additionalProfile: nil,
+            additionalProfileIcon: .none,
+            accessibility: nil
+        )
+    }
+    
+    public static func profile(id: String, size: ProfilePictureView.Size, profile: Profile?, profileIcon: ProfilePictureView.ProfileIcon) -> SessionCell.Accessory {
         return .profile(
             id: id,
             size: size,
             threadVariant: .contact,
-            customImageData: nil,
+            displayPictureFilename: nil,
             profile: profile,
-            profileIcon: .none,
+            profileIcon: profileIcon,
             additionalProfile: nil,
             additionalProfileIcon: .none,
             accessibility: nil

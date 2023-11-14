@@ -67,6 +67,10 @@ public extension Setting.BoolKey {
     
     /// Controls whether the device will poll for community message requests (SOGS `/inbox` endpoint)
     static let checkForCommunityMessageRequests: Setting.BoolKey = "checkForCommunityMessageRequests"
+    
+    /// Controls whether developer mode is enabled (this displays a section within the Settings screen which allows manual control of feature flags
+    /// and system settings for better debugging)
+    static let developerModeEnabled: Setting.BoolKey = "developerModeEnabled"
 }
 
 public extension Setting.StringKey {

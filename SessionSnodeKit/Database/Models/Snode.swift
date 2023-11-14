@@ -121,25 +121,25 @@ internal extension Snode {
 
 internal extension Collection where Element == Snode {
     /// This method is used to save Swarms
-    func save(_ db: Database, key: String) throws {
+    func upsert(_ db: Database, key: String) throws {
         try self.enumerated().forEach { nodeIndex, node in
-            try node.save(db)
+            try node.upsert(db)
             
             try SnodeSet(
                 key: key,
                 nodeIndex: nodeIndex,
                 address: node.address,
                 port: node.port
-            ).save(db)
+            ).upsert(db)
         }
     }
 }
 
 internal extension Collection where Element == [Snode] {
     /// This method is used to save onion reuqest paths
-    func save(_ db: Database) throws {
+    func upsert(_ db: Database) throws {
         try self.enumerated().forEach { pathIndex, path in
-            try path.save(db, key: "\(SnodeSet.onionRequestPathPrefix)\(pathIndex)")
+            try path.upsert(db, key: "\(SnodeSet.onionRequestPathPrefix)\(pathIndex)")
         }
     }
 }

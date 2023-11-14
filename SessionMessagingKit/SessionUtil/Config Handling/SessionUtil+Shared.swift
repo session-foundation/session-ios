@@ -73,6 +73,10 @@ internal extension SessionUtil {
                 .mutate { config in
                     // Peform the change
                     try change(config)
+                    
+                    // If an error occurred during the change then actually throw it to prevent
+                    // any database change from completing
+                    if let lastError: SessionUtilError = config?.lastError { throw lastError }
 
                     // If we don't need to dump the data the we can finish early
                     guard config.needsDump else { return config.needsPush }
@@ -82,7 +86,7 @@ internal extension SessionUtil {
                         for: variant,
                         sessionId: sessionId,
                         timestampMs: SnodeAPI.currentOffsetTimestampMs()
-                    )?.save(db)
+                    )?.upsert(db)
 
                     return config.needsPush
                 }

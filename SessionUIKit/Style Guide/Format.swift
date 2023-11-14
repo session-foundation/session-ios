@@ -11,6 +11,14 @@ public enum Format {
         
         return result
     }()
+    private static let durationFormatter: DateComponentsFormatter = {
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .positional
+        formatter.allowedUnits = [.minute, .second ]
+        formatter.zeroFormattingBehavior = [ .pad ]
+
+        return formatter
+    }()
     private static let oneKilobyte: Double = 1024;
     private static let oneMegabyte: Double = (oneKilobyte * oneKilobyte)
     
@@ -28,5 +36,9 @@ public enum Format {
                     .string(from: NSNumber(floatLiteral: max(0.1, (fileSizeDouble / oneKilobyte))))?
                     .appending("KB") ?? "n/a")
         }
+    }
+    
+    public static func duration(_ duration: TimeInterval) -> String {
+        return (Format.durationFormatter.string(from: duration) ?? "0:00")
     }
 }

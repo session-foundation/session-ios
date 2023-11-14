@@ -38,23 +38,23 @@ internal extension SessionUtil {
         let profilePictureUrl: String? = String(libSessionVal: profilePic.url, nullIfEmpty: true)
         
         // Handle user profile changes
-        try ProfileManager.updateProfileIfNeeded(
+        try Profile.updateIfNeeded(
             db,
             publicKey: userSessionId.hexString,
             name: profileName,
-            avatarUpdate: {
+            displayPictureUpdate: {
                 guard let profilePictureUrl: String = profilePictureUrl else { return .remove }
                 
                 return .updateTo(
                     url: profilePictureUrl,
                     key: Data(
                         libSessionVal: profilePic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
+                        count: DisplayPictureManager.aes256KeyByteLength
                     ),
                     fileName: nil
                 )
             }(),
-            sentTimestamp: (TimeInterval(serverTimestampMs) / 1000),
+            sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
             calledFromConfigHandling: true,
             using: dependencies
         )
@@ -93,7 +93,8 @@ internal extension SessionUtil {
                     db,
                     id: userSessionId.hexString,
                     variant: .contact,
-                    shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority)
+                    shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority),
+                    calledFromConfigHandling: true
                 )
             
             try SessionThread
@@ -143,7 +144,7 @@ internal extension SessionUtil {
                 durationSeconds: targetConfig.durationSeconds,
                 type: targetConfig.type,
                 lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
-            ).save(db)
+            ).upsert(db)
         }
 
         // Update settings if needed
@@ -162,7 +163,7 @@ internal extension SessionUtil {
         let userContact: Contact = Contact.fetchOrCreate(db, id: userSessionId.hexString)
         
         if !userContact.isTrusted || !userContact.isApproved || !userContact.didApproveMe {
-            try userContact.save(db)
+            try userContact.upsert(db)
             try Contact
                 .filter(id: userSessionId.hexString)
                 .updateAll( // Handling a config update so don't use `updateAllAndConfig`

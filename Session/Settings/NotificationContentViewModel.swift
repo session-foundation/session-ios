@@ -44,8 +44,8 @@ class NotificationContentViewModel: SessionTableViewModel, NavigatableStateHolde
                             SessionCell.Info(
                                 id: previewType,
                                 title: previewType.name,
-                                rightAccessory: .radio(
-                                    isSelected: { (currentSelection == previewType) }
+                                trailingAccessory: .radio(
+                                    isSelected: (currentSelection == previewType)
                                 ),
                                 onTap: {
                                     dependencies[singleton: .storage].writeAsync(using: dependencies) { db in

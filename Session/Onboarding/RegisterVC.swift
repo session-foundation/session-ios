@@ -168,8 +168,8 @@ final class RegisterVC : BaseVC {
     
     // MARK: Updating
     
-    private func updateSeed() {
-        seed = try! Randomness.generateRandomBytes(numberBytes: 16)
+    private func updateSeed(using dependencies: Dependencies = Dependencies()) {
+        seed = try! dependencies[singleton: .crypto].tryGenerate(.randomBytes(numberBytes: 16))
     }
     
     private func updateKeyPair() {

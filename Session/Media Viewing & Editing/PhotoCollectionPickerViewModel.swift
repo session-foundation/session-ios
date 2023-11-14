@@ -60,7 +60,7 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
                         
                         return SessionCell.Info(
                             id: collection.id,
-                            leftAccessory: .iconAsync(size: .extraLarge, shouldFill: true) { imageView in
+                            leadingAccessory: .iconAsync(size: .extraLarge, shouldFill: true) { imageView in
                                 // Note: We need to capture 'lastAssetItem' otherwise it'll be released and we won't
                                 // be able to load the thumbnail
                                 lastAssetItem?.asyncThumbnail { [weak imageView] image in

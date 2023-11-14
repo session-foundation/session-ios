@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtilitiesKit
@@ -13,19 +15,34 @@ extension SnodeAPI {
         let beforeMs: UInt64
         let namespace: SnodeAPI.Namespace?
         
+        override var verificationBytes: [UInt8] {
+            /// Ed25519 signature of `("delete_before" || namespace || before)`, signed by
+            /// `pubkey`.  Must be base64 encoded (json) or bytes (OMQ).  `namespace` is the stringified
+            /// version of the given non-default namespace parameter (i.e. "-42" or "all"), or the empty
+            /// string for the default namespace (whether explicitly given or not).
+            SnodeAPI.Endpoint.deleteAllBefore.path.bytes
+                .appending(
+                    contentsOf: (namespace == nil ?
+                        "all" :
+                        namespace?.verificationString
+                    )?.bytes
+                )
+                .appending(contentsOf: "\(beforeMs)".data(using: .ascii)?.bytes)
+        }
+        
         // MARK: - Init
         
         public init(
             beforeMs: UInt64,
             namespace: SnodeAPI.Namespace?,
-            authInfo: AuthenticationInfo,
+            authMethod: AuthenticationMethod,
             timestampMs: UInt64
         ) {
             self.beforeMs = beforeMs
             self.namespace = namespace
             
             super.init(
-                authInfo: authInfo,
+                authMethod: authMethod,
                 timestampMs: timestampMs
             )
         }
@@ -53,28 +70,9 @@ extension SnodeAPI {
             return DeleteAllBeforeRequest(
                 beforeMs: self.beforeMs,
                 namespace: self.namespace,
-                authInfo: self.authInfo,
+                authMethod: self.authMethod,
                 timestampMs: timestampMs
             )
-        }
-        
-        // MARK: - Abstract Methods
-        
-        override func generateSignature(using dependencies: Dependencies) throws -> [UInt8] {
-            /// Ed25519 signature of `("delete_before" || namespace || before)`, signed by
-            /// `pubkey`.  Must be base64 encoded (json) or bytes (OMQ).  `namespace` is the stringified
-            /// version of the given non-default namespace parameter (i.e. "-42" or "all"), or the empty
-            /// string for the default namespace (whether explicitly given or not).
-            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.deleteAllBefore.path.bytes
-                .appending(
-                    contentsOf: (namespace == nil ?
-                        "all" :
-                        namespace?.verificationString
-                    )?.bytes
-                )
-                .appending(contentsOf: "\(beforeMs)".data(using: .ascii)?.bytes)
-            
-            return try authInfo.generateSignature(with: verificationBytes, using: dependencies)
         }
     }
 }

@@ -16,19 +16,36 @@ extension MessageSender {
             throw MessageSenderError.noUserED25519KeyPair
         }
         
+        return try encryptWithSessionProtocol(
+            db,
+            plaintext: plaintext,
+            for: recipientHexEncodedX25519PublicKey,
+            from: userEd25519KeyPair,
+            using: dependencies
+        )
+    }
+    
+    internal static func encryptWithSessionProtocol(
+        _ db: Database,
+        plaintext: Data,
+        for recipientHexEncodedX25519PublicKey: String,
+        from senderEd25519KeyPair: KeyPair,
+        using dependencies: Dependencies
+    ) throws -> Data {
         let recipientX25519PublicKey: Data = Data(SessionId(.standard, hex: recipientHexEncodedX25519PublicKey).publicKey)
         
-        let verificationData = plaintext + Data(userEd25519KeyPair.publicKey) + recipientX25519PublicKey
+        let verificationData = plaintext + Data(senderEd25519KeyPair.publicKey) + recipientX25519PublicKey
         guard
-            let signature = try? dependencies[singleton: .crypto].perform(
-                .signature(message: Bytes(verificationData), secretKey: userEd25519KeyPair.secretKey)
-            )
+            let signature: Authentication.Signature = dependencies[singleton: .crypto].generate(
+                .signature(message: Bytes(verificationData), secretKey: senderEd25519KeyPair.secretKey)
+            ),
+            case .standard(let signatureBytes) = signature
         else { throw MessageSenderError.signingFailed }
         
-        let plaintextWithMetadata = plaintext + Data(userEd25519KeyPair.publicKey) + Data(signature)
+        let plaintextWithMetadata = plaintext + Data(senderEd25519KeyPair.publicKey) + Data(signatureBytes)
         guard
-            let ciphertext = try? dependencies[singleton: .crypto].perform(
-                .seal(
+            let ciphertext = dependencies[singleton: .crypto].generate(
+                .sealedBytes(
                     message: Bytes(plaintextWithMetadata),
                     recipientPublicKey: Bytes(recipientX25519PublicKey)
                 )
@@ -60,7 +77,7 @@ extension MessageSender {
         
         /// Step one: calculate the shared encryption key, sending from A to B
         guard
-            let enc_key: Bytes = try? dependencies[singleton: .crypto].perform(
+            let enc_key: Bytes = dependencies[singleton: .crypto].generate(
                 .sharedBlindedEncryptionKey(
                     secretKey: userEd25519KeyPair.secretKey,
                     otherBlindedPublicKey: recipientSessionId.publicKey,
@@ -69,7 +86,7 @@ extension MessageSender {
                     using: dependencies
                 )
             ),
-            let nonce: Bytes = try? dependencies[singleton: .crypto].perform(.generateNonce24())
+            let nonce: Bytes = dependencies[singleton: .crypto].generate(.nonce24())
         else { throw MessageSenderError.signingFailed }
         
         /// Inner data: msg || A   (i.e. the sender's ed25519 master pubkey, *not* kA blinded pubkey)
@@ -77,8 +94,8 @@ extension MessageSender {
         
         /// Encrypt using xchacha20-poly1305
         guard
-            let ciphertext = try? dependencies[singleton: .crypto].perform(
-                .encryptAeadXChaCha20(message: innerBytes, secretKey: enc_key, nonce: nonce, using: dependencies)
+            let ciphertext = dependencies[singleton: .crypto].generate(
+                .encryptedBytesAeadXChaCha20(message: innerBytes, secretKey: enc_key, nonce: nonce, using: dependencies)
             )
         else { throw MessageSenderError.encryptionFailed }
         

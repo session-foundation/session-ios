@@ -68,7 +68,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
             
             let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
-                notificationContent: notificationContent
+                notificationContent: notificationContent,
+                using: dependencies
             )
             
             guard
@@ -164,7 +165,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                                 db,
                                                 id: sender,
                                                 variant: .contact,
-                                                shouldBeVisible: nil
+                                                shouldBeVisible: nil,
+                                                calledFromConfigHandling: false,
+                                                using: dependencies
                                             )
 
                                         // Notify the user if the call message wasn't already read

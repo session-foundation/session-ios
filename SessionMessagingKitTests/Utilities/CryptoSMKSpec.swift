@@ -23,7 +23,7 @@ class CryptoSMKSpec: QuickSpec {
             context("when extending Sign") {
                 // MARK: ---- can convert an ed25519 public key into an x25519 public key
                 it("can convert an ed25519 public key into an x25519 public key") {
-                    let result = try? crypto.perform(.toX25519(ed25519PublicKey: TestConstants.edPublicKey.bytes))
+                    let result = crypto.generate(.x25519(ed25519PublicKey: TestConstants.edPublicKey.bytes))
                     
                     expect(result?.toHexString())
                         .to(equal("95ffb559d4e804e9b414a5178454c426f616b4a61089b217b41165dbb7c9fe2d"))
@@ -31,7 +31,7 @@ class CryptoSMKSpec: QuickSpec {
                 
                 // MARK: ---- can convert an ed25519 private key into an x25519 private key
                 it("can convert an ed25519 private key into an x25519 private key") {
-                    let result = try? crypto.perform(.toX25519(ed25519SecretKey: TestConstants.edSecretKey.bytes))
+                    let result = crypto.generate(.x25519(ed25519SecretKey: TestConstants.edSecretKey.bytes))
                     
                     expect(result?.toHexString())
                         .to(equal("c83f9a1479b103c275d2db2d6c199fdc6f589b29b742f6405e01cc5a9a1d135d"))
@@ -44,11 +44,8 @@ class CryptoSMKSpec: QuickSpec {
                 context("and generating a blinding factor") {
                     // MARK: ------ successfully generates a blinding factor
                     it("successfully generates a blinding factor") {
-                        let result = try? crypto.perform(
-                            .generateBlindingFactor(
-                                serverPublicKey: TestConstants.serverPublicKey,
-                                using: dependencies
-                            )
+                        let result = crypto.generate(
+                            .blindingFactor(serverPublicKey: TestConstants.serverPublicKey, using: dependencies)
                         )
                         
                         expect(result?.toHexString())
@@ -57,12 +54,7 @@ class CryptoSMKSpec: QuickSpec {
                     
                     // MARK: ------ fails if the serverPublicKey is not a hex string
                     it("fails if the serverPublicKey is not a hex string") {
-                        let result = try? crypto.perform(
-                            .generateBlindingFactor(
-                                serverPublicKey: "Test",
-                                using: dependencies
-                            )
-                        )
+                        let result = crypto.generate(.blindingFactor(serverPublicKey: "Test", using: dependencies))
                         
                         expect(result).to(beNil())
                     }
@@ -72,14 +64,11 @@ class CryptoSMKSpec: QuickSpec {
                         dependencies[singleton: .crypto] = mockCrypto
                         
                         mockCrypto
-                            .when { try $0.perform(.hash(message: anyArray(), outputLength: any())) }
+                            .when { $0.generate(.hash(message: anyArray(), outputLength: any())) }
                             .thenReturn(nil)
                         
-                        let result = try? crypto.perform(
-                            .generateBlindingFactor(
-                                serverPublicKey: TestConstants.serverPublicKey,
-                                using: dependencies
-                            )
+                        let result = crypto.generate(
+                            .blindingFactor(serverPublicKey: TestConstants.serverPublicKey,using: dependencies)
                         )
                         
                         expect(result).to(beNil())
@@ -160,8 +149,8 @@ class CryptoSMKSpec: QuickSpec {
                 context("and generating a sogsSignature") {
                     // MARK: ------ generates a correct signature
                     it("generates a correct signature") {
-                        let result = try? crypto.perform(
-                            .sogsSignature(
+                        let result = crypto.generate(
+                            .signatureSOGS(
                                 message: "TestMessage".bytes,
                                 secretKey: Data(hex: TestConstants.edSecretKey).bytes,
                                 blindedSecretKey: Data(hex: "44d82cc15c0a5056825cae7520b6b52d000a23eb0c5ed94c4be2d9dc41d2d409").bytes,
@@ -181,8 +170,8 @@ class CryptoSMKSpec: QuickSpec {
                 context("and combining keys") {
                     // MARK: ------ generates a correct combined key
                     it("generates a correct combined key") {
-                        let result = try? crypto.perform(
-                            .combineKeys(
+                        let result = crypto.generate(
+                            .combinedKeys(
                                 lhsKeyBytes: Data(hex: TestConstants.edSecretKey).bytes,
                                 rhsKeyBytes: Data(hex: TestConstants.edPublicKey).bytes
                             )
@@ -197,7 +186,7 @@ class CryptoSMKSpec: QuickSpec {
                 context("and creating a shared blinded encryption key") {
                     // MARK: ------ generates a correct combined key
                     it("generates a correct combined key") {
-                        let result = try? crypto.perform(
+                        let result = crypto.generate(
                             .sharedBlindedEncryptionKey(
                                 secretKey: Data(hex: TestConstants.edSecretKey).bytes,
                                 otherBlindedPublicKey: Data(hex: TestConstants.blindedPublicKey).bytes,
@@ -213,7 +202,7 @@ class CryptoSMKSpec: QuickSpec {
                     
                     // MARK: ------ fails if the scalar multiplication fails
                     it("fails if the scalar multiplication fails") {
-                        let result = try? crypto.perform(
+                        let result = crypto.generate(
                             .sharedBlindedEncryptionKey(
                                 secretKey: Data(hex: TestConstants.edSecretKey).bytes,
                                 otherBlindedPublicKey: Data(hex: TestConstants.publicKey).bytes,
@@ -293,7 +282,7 @@ class CryptoSMKSpec: QuickSpec {
                 context("and generating a hash with salt and personal values") {
                     // MARK: ------ generates a hash correctly
                     it("generates a hash correctly") {
-                        let result = try? crypto.perform(
+                        let result = crypto.generate(
                             .hashSaltPersonal(
                                 message: "TestMessage".bytes,
                                 outputLength: 32,
@@ -309,7 +298,7 @@ class CryptoSMKSpec: QuickSpec {
                     
                     // MARK: ------ generates a hash correctly with no key
                     it("generates a hash correctly with no key") {
-                        let result = try? crypto.perform(
+                        let result = crypto.generate(
                             .hashSaltPersonal(
                                 message: "TestMessage".bytes,
                                 outputLength: 32,
@@ -325,7 +314,7 @@ class CryptoSMKSpec: QuickSpec {
                     
                     // MARK: ------ fails if given invalid options
                     it("fails if given invalid options") {
-                        let result = try? crypto.perform(
+                        let result = crypto.generate(
                             .hashSaltPersonal(
                                 message: "TestMessage".bytes,
                                 outputLength: 65,   // Max of 64
@@ -346,8 +335,8 @@ class CryptoSMKSpec: QuickSpec {
                 context("when encrypting") {
                     // MARK: ------ encrypts correctly
                     it("encrypts correctly") {
-                        let result = try? crypto.perform(
-                            .encryptAeadXChaCha20(
+                        let result = crypto.generate(
+                            .encryptedBytesAeadXChaCha20(
                                 message: "TestMessage".bytes,
                                 secretKey: Data(hex: TestConstants.publicKey).bytes,
                                 nonce: "TestNonce".bytes,
@@ -362,8 +351,8 @@ class CryptoSMKSpec: QuickSpec {
                     
                     // MARK: ------ encrypts correctly with additional data
                     it("encrypts correctly with additional data") {
-                        let result = try? crypto.perform(
-                            .encryptAeadXChaCha20(
+                        let result = crypto.generate(
+                            .encryptedBytesAeadXChaCha20(
                                 message: "TestMessage".bytes,
                                 secretKey: Data(hex: TestConstants.publicKey).bytes,
                                 nonce: "TestNonce".bytes,
@@ -378,8 +367,8 @@ class CryptoSMKSpec: QuickSpec {
                     
                     // MARK: ------ fails if given an invalid key
                     it("fails if given an invalid key") {
-                        let result = try? crypto.perform(
-                            .encryptAeadXChaCha20(
+                        let result = crypto.generate(
+                            .encryptedBytesAeadXChaCha20(
                                 message: "TestMessage".bytes,
                                 secretKey: "TestKey".bytes,
                                 nonce: "TestNonce".bytes,

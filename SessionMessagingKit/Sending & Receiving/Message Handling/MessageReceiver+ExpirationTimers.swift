@@ -5,6 +5,7 @@ import GRDB
 import SessionUtilitiesKit
 
 extension MessageReceiver {
+    // TODO: Remove this when disappearing messages V2 is up and running
     internal static func handleExpirationTimerUpdate(
         _ db: Database,
         threadId: String,
@@ -12,7 +13,7 @@ extension MessageReceiver {
         message: ExpirationTimerUpdate,
         using dependencies: Dependencies
     ) throws {
-        guard !Features.useNewDisappearingMessagesConfig else { return }
+        guard !dependencies[feature: .updatedDisappearingMessages] else { return }
         guard
             // Only process these for contact and legacy groups (new groups handle it separately)
             (threadVariant == .contact || threadVariant == .legacyGroup),
@@ -105,7 +106,7 @@ extension MessageReceiver {
         if canPerformChange {
             // Finally save the changes to the DisappearingMessagesConfiguration (If it's a duplicate
             // then the interaction unique constraint will prevent the code from getting here)
-            try remoteConfig.save(db)
+            try remoteConfig.upsert(db)
         }
         
         // Remove previous info messages
@@ -164,7 +165,7 @@ extension MessageReceiver {
             )
         
         guard
-            Features.useNewDisappearingMessagesConfig,
+            dependencies[feature: .updatedDisappearingMessages],
             proto.hasLastDisappearingMessageChangeTimestamp
         else { return }
         
@@ -224,7 +225,7 @@ extension MessageReceiver {
         }
         
         if localConfig != remoteConfig {
-            _ = try remoteConfig.save(db)
+            _ = try remoteConfig.upsert(db)
             
             // Contacts & legacy closed groups need to update the SessionUtil
             switch threadVariant {
@@ -245,17 +246,10 @@ extension MessageReceiver {
                             disappearingConfig: remoteConfig,
                             using: dependencies
                         )
-                    
-                case .group:
-                    try SessionUtil
-                        .update(
-                            db,
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            disappearingConfig: remoteConfig,
-                            using: dependencies
-                        )
-                    
-                default: break
+                
+                // For updated groups we want to only rely on the `GROUP_INFO` config message to
+                // control the disappearing messages setting
+                case .group, .community: break
             }
         }
         

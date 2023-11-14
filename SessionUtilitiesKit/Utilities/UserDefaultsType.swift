@@ -40,6 +40,8 @@ public protocol UserDefaultsType: AnyObject {
 
 extension UserDefaults: UserDefaultsType {}
 
+// MARK: - Convenience
+
 public extension UserDefaults {
     static let applicationGroup: String = "group.com.loki-project.loki-messenger"
     
@@ -103,17 +105,12 @@ public extension UserDefaults.DateKey {
     /// The date/time when the last garbage collection was performed (used to rate-limit garbage collection)
     static let lastGarbageCollection: UserDefaults.DateKey = "lastGarbageCollection"
     
-    /// The date/time when we last subscribed for push notifications (used to rate-limit calling our subscription endpoint)
-    static let lastPushNotificationSync: UserDefaults.DateKey = "lastPushNotificationSync"
-    
     /// The date/time when we received a call pre-offer (used to suppress call notifications which are too old)
     static let lastCallPreOffer: UserDefaults.DateKey = "lastCallPreOffer"
 }
 
 public extension UserDefaults.DoubleKey {
-    /// The timestamp when we last uploaded the users push token (used to rate-limit calling our subscription endpoint)
-    ///
-    /// **Note:** Looks like this replicates the `lastPushNotificationSync` behaviour
+    /// The timestamp when we last successfully uploaded the users push token (used to rate-limit calling our subscription endpoint)
     static let lastDeviceTokenUpload: UserDefaults.DoubleKey = "lastDeviceTokenUploadTime"
 }
 

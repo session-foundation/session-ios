@@ -18,6 +18,7 @@ public class Message: Codable {
     public var isSelfSendValid: Bool { false }
     
     public var shouldBeRetryable: Bool { false }
+    public var processWithBlockedSender: Bool { false }
     
     // MARK: - Disappearing Messages
     public var expiresInSeconds: TimeInterval?
@@ -25,7 +26,7 @@ public class Message: Codable {
 
     // MARK: - Validation
     
-    public var isValid: Bool {
+    public func isValid(using dependencies: Dependencies) -> Bool {
         if let sentTimestamp = sentTimestamp { guard sentTimestamp > 0 else { return false } }
         if let receivedTimestamp = receivedTimestamp { guard receivedTimestamp > 0 else { return false } }
         return sender != nil && recipient != nil
@@ -97,6 +98,8 @@ public class Message: Codable {
 
 // MARK: - Message Parsing/Processing
 
+public protocol NotProtoConvertible {}
+
 public enum ProcessedMessage {
     case standard(
         threadId: String,
@@ -119,6 +122,19 @@ public enum ProcessedMessage {
         }
     }
     
+    var namespace: SnodeAPI.Namespace {
+        switch self {
+            case .standard(_, let threadVariant, _, _):
+                switch threadVariant {
+                    case .group: return .groupMessages
+                    case .legacyGroup: return .legacyClosedGroup
+                    case .contact, .community: return .default
+                }
+                
+            case .config(_, let namespace, _, _, _): return namespace
+        }
+    }
+    
     var isConfigMessage: Bool {
         switch self {
             case .standard: return false
@@ -128,17 +144,24 @@ public enum ProcessedMessage {
 }
 
 public extension Message {
-    enum Variant: String, Codable {
+    enum Variant: String, Codable, CaseIterable {
         case readReceipt
         case typingIndicator
         case closedGroupControlMessage
         case dataExtractionNotification
         case expirationTimerUpdate
-        case legacyConfigurationMessage = "configurationMessage"
         case unsendRequest
         case messageRequestResponse
         case visibleMessage
         case callMessage
+        case groupUpdateInvite
+        case groupUpdateDelete
+        case groupUpdatePromote
+        case groupUpdateInfoChange
+        case groupUpdateMemberChange
+        case groupUpdateMemberLeft
+        case groupUpdateInviteResponse
+        case groupUpdateDeleteMemberContent
         
         init?(from type: Message) {
             switch type {
@@ -147,11 +170,18 @@ public extension Message {
                 case is ClosedGroupControlMessage: self = .closedGroupControlMessage
                 case is DataExtractionNotification: self = .dataExtractionNotification
                 case is ExpirationTimerUpdate: self = .expirationTimerUpdate
-                case is LegacyConfigurationMessage: self = .legacyConfigurationMessage
                 case is UnsendRequest: self = .unsendRequest
                 case is MessageRequestResponse: self = .messageRequestResponse
                 case is VisibleMessage: self = .visibleMessage
                 case is CallMessage: self = .callMessage
+                case is GroupUpdateInviteMessage: self = .groupUpdateInvite
+                case is GroupUpdateDeleteMessage: self = .groupUpdateDelete
+                case is GroupUpdatePromoteMessage: self = .groupUpdatePromote
+                case is GroupUpdateInfoChangeMessage: self = .groupUpdateInfoChange
+                case is GroupUpdateMemberChangeMessage: self = .groupUpdateMemberChange
+                case is GroupUpdateMemberLeftMessage: self = .groupUpdateMemberLeft
+                case is GroupUpdateInviteResponseMessage: self = .groupUpdateInviteResponse
+                case is GroupUpdateDeleteMemberContentMessage: self = .groupUpdateDeleteMemberContent
                 default: return nil
             }
         }
@@ -163,12 +193,47 @@ public extension Message {
                 case .closedGroupControlMessage: return ClosedGroupControlMessage.self
                 case .dataExtractionNotification: return DataExtractionNotification.self
                 case .expirationTimerUpdate: return ExpirationTimerUpdate.self
-                case .legacyConfigurationMessage: return LegacyConfigurationMessage.self
                 case .unsendRequest: return UnsendRequest.self
                 case .messageRequestResponse: return MessageRequestResponse.self
                 case .visibleMessage: return VisibleMessage.self
                 case .callMessage: return CallMessage.self
+                case .groupUpdateInvite: return GroupUpdateInviteMessage.self
+                case .groupUpdateDelete: return GroupUpdateDeleteMessage.self
+                case .groupUpdatePromote: return GroupUpdatePromoteMessage.self
+                case .groupUpdateInfoChange: return GroupUpdateInfoChangeMessage.self
+                case .groupUpdateMemberChange: return GroupUpdateMemberChangeMessage.self
+                case .groupUpdateMemberLeft: return GroupUpdateMemberLeftMessage.self
+                case .groupUpdateInviteResponse: return GroupUpdateInviteResponseMessage.self
+                case .groupUpdateDeleteMemberContent: return GroupUpdateDeleteMemberContentMessage.self
             }
+        }
+        
+        /// This value ensures the variants can be ordered to ensure the correct types are processed and aren't parsed as the wrong type
+        /// due to the structures being close enough matches
+        var protoPriority: Int {
+            switch self {
+                case .readReceipt: return 0
+                case .typingIndicator: return 1
+                case .closedGroupControlMessage: return 2
+                case .dataExtractionNotification: return 11
+                case .expirationTimerUpdate: return 12
+                case .unsendRequest: return 13
+                case .messageRequestResponse: return 14
+                case .visibleMessage: return 15
+                case .callMessage: return 16
+                case .groupUpdateInvite: return 3
+                case .groupUpdateDelete: return 4
+                case .groupUpdatePromote: return 5
+                case .groupUpdateInfoChange: return 6
+                case .groupUpdateMemberChange: return 7
+                case .groupUpdateMemberLeft: return 8
+                case .groupUpdateInviteResponse: return 9
+                case .groupUpdateDeleteMemberContent: return 10
+            }
+        }
+        
+        var isProtoConvetible: Bool {
+            return !(self.messageType is NotProtoConvertible.Type)
         }
 
         func decode<CodingKeys: CodingKey>(from container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys) throws -> Message {
@@ -184,33 +249,38 @@ public extension Message {
                     
                 case .expirationTimerUpdate: return try container.decode(ExpirationTimerUpdate.self, forKey: key)
                 
-                case .legacyConfigurationMessage:
-                    return try container.decode(LegacyConfigurationMessage.self, forKey: key)
-                    
                 case .unsendRequest: return try container.decode(UnsendRequest.self, forKey: key)
                 case .messageRequestResponse: return try container.decode(MessageRequestResponse.self, forKey: key)
                 case .visibleMessage: return try container.decode(VisibleMessage.self, forKey: key)
                 case .callMessage: return try container.decode(CallMessage.self, forKey: key)
+                    
+                case .groupUpdateInvite: return try container.decode(GroupUpdateInviteMessage.self, forKey: key)
+                case .groupUpdateDelete: return try container.decode(GroupUpdateDeleteMessage.self, forKey: key)
+                case .groupUpdatePromote: return try container.decode(GroupUpdatePromoteMessage.self, forKey: key)
+                
+                case .groupUpdateInfoChange:
+                    return try container.decode(GroupUpdateInfoChangeMessage.self, forKey: key)
+                                                                                
+                case .groupUpdateMemberChange:
+                    return try container.decode(GroupUpdateMemberChangeMessage.self, forKey: key)
+                
+                case .groupUpdateMemberLeft:
+                    return try container.decode(GroupUpdateMemberLeftMessage.self, forKey: key)
+                
+                case .groupUpdateInviteResponse:
+                    return try container.decode(GroupUpdateInviteResponseMessage.self, forKey: key)
+                
+                case .groupUpdateDeleteMemberContent:
+                    return try container.decode(GroupUpdateDeleteMemberContentMessage.self, forKey: key)
             }
         }
     }
     
     static func createMessageFrom(_ proto: SNProtoContent, sender: String) throws -> Message {
-        // Note: This array is ordered intentionally to ensure the correct types are processed
-        // and aren't parsed as the wrong type
-        let prioritisedVariants: [Variant] = [
-            .readReceipt,
-            .typingIndicator,
-            .closedGroupControlMessage,
-            .dataExtractionNotification,
-            .expirationTimerUpdate,
-            .legacyConfigurationMessage,
-            .unsendRequest,
-            .messageRequestResponse,
-            .visibleMessage,
-            .callMessage
-        ]
-        let decodedMessage: Message? = prioritisedVariants
+        let decodedMessage: Message? = Variant
+            .allCases
+            .sorted { lhs, rhs -> Bool in lhs.protoPriority < rhs.protoPriority }
+            .filter { variant -> Bool in variant.isProtoConvetible }
             .reduce(nil) { prev, variant in
                 guard prev == nil else { return prev }
                 
@@ -222,7 +292,10 @@ public extension Message {
     
     static func requiresExistingConversation(message: Message, threadVariant: SessionThread.Variant) -> Bool {
         switch threadVariant {
-            case .contact, .community: return false
+            /// Process every message sent to these conversation types (the `MessageReceiver` will determine whether a message should
+            /// result in a conversation appearing if it's not already visible after processing the message - this just controls whether the messages
+            /// should be processed)
+            case .contact, .group, .community: return false
                 
             case .legacyGroup:
                 switch message {
@@ -234,9 +307,6 @@ public extension Message {
                         
                     default: return true
                 }
-                
-            case .group:
-                return false
         }
     }
     
@@ -244,7 +314,6 @@ public extension Message {
         switch message {
             case is VisibleMessage: return true
             case is ExpirationTimerUpdate: return true
-            case is LegacyConfigurationMessage: return true
             case is UnsendRequest: return true
             
             case let controlMessage as ClosedGroupControlMessage:
@@ -278,7 +347,7 @@ public extension Message {
                 return (maybeSyncTarget ?? publicKey)
                 
             case .closedGroup(let groupPublicKey): return groupPublicKey
-            case .openGroup(let roomToken, let server, _, _, _):
+            case .openGroup(let roomToken, let server, _, _):
                 return OpenGroup.idFor(roomToken: roomToken, server: server)
             
             case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
@@ -300,7 +369,7 @@ public extension Message {
                     namespace: rawMessage.namespace,
                     serverHash: rawMessage.info.hash,
                     serverTimestampMs: rawMessage.timestampMs,
-                    serverExpirationTimestamp: (TimeInterval(rawMessage.info.expirationDateMs) / 1000)
+                    serverExpirationTimestamp: TimeInterval(Double(rawMessage.info.expirationDateMs) / 1000)
                 ),
                 using: dependencies
             )
@@ -312,7 +381,7 @@ public extension Message {
                 // want to fail if it already exsits because we don't want to dedupe messages
                 // in this namespace)
                 if rawMessage.namespace.shouldFetchSinceLastHash {
-                    _ = try rawMessage.info.saved(db)
+                    try rawMessage.info.upserted(db)
                 }
                 
                 return processedMessage
@@ -364,7 +433,7 @@ public extension Message {
                 serverHash: metadata.hash,
                 serverTimestampMs: metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
-                    (TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) +
+                    TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) +
                     ControlMessageProcessRecord.defaultExpirationSeconds
                 )
             ),

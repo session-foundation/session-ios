@@ -5,26 +5,93 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-public extension SnodeAPI.AuthenticationInfo {
-    init(
+// MARK: - Authentication Types
+
+public extension Authentication {
+    /// Used for when interacting as the current user
+    struct standard: AuthenticationMethod {
+        public let sessionId: SessionId
+        public let ed25519KeyPair: KeyPair
+        
+        public var info: Info { .standard(sessionId: sessionId, ed25519KeyPair: ed25519KeyPair) }
+        
+        // MARK: - SignatureGenerator
+        
+        public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
+            return try dependencies[singleton: .crypto].tryGenerate(
+                .signature(message: verificationBytes, secretKey: ed25519KeyPair.secretKey)
+            )
+        }
+    }
+    
+    /// Used for when interacting as a group admin
+    struct groupAdmin: AuthenticationMethod {
+        public let groupSessionId: SessionId
+        public let ed25519SecretKey: [UInt8]
+        
+        public var info: Info { .groupAdmin(groupSessionId: groupSessionId, ed25519SecretKey: ed25519SecretKey) }
+        
+        public init(groupSessionId: SessionId, ed25519SecretKey: [UInt8]) {
+            self.groupSessionId = groupSessionId
+            self.ed25519SecretKey = ed25519SecretKey
+        }
+        
+        // MARK: - SignatureGenerator
+        
+        public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
+            return try dependencies[singleton: .crypto].tryGenerate(
+                .signature(message: verificationBytes, secretKey: ed25519SecretKey)
+            )
+        }
+    }
+
+    /// Used for when interacting as a group member
+    struct groupMember: AuthenticationMethod {
+        public let groupSessionId: SessionId
+        public let authData: Data
+        
+        public var info: Info { .groupMember(groupSessionId: groupSessionId, authData: authData) }
+        
+        public init(groupSessionId: SessionId, authData: Data) {
+            self.groupSessionId = groupSessionId
+            self.authData = authData
+        }
+        
+        // MARK: - SignatureGenerator
+        
+        public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
+            return try SessionUtil.generateSubaccountSignature(
+                groupSessionId: groupSessionId,
+                verificationBytes: verificationBytes,
+                memberAuthData: authData,
+                using: dependencies
+            )
+        }
+    }
+}
+
+// MARK: - Convenience
+
+fileprivate struct GroupAuthData: Codable, FetchableRecord {
+    let groupIdentityPrivateKey: Data?
+    let authData: Data?
+}
+
+public extension Authentication {
+    static func with(
         _ db: Database,
         sessionIdHexString: String,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> AuthenticationMethod {
         switch try? SessionId(from: sessionIdHexString) {
             case .some(let sessionId) where sessionId.prefix == .standard:
                 guard let keyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
                     throw SnodeAPIError.noKeyPair
                 }
                 
-                self = .standard(sessionId: sessionId, ed25519KeyPair: keyPair)
+                return Authentication.standard(sessionId: sessionId, ed25519KeyPair: keyPair)
                 
             case .some(let sessionId) where sessionId.prefix == .group:
-                struct GroupAuthData: Codable, FetchableRecord {
-                    let groupIdentityPrivateKey: Data?
-                    let authData: Data?
-                }
-                
                 let authData: GroupAuthData? = try? ClosedGroup
                     .filter(id: sessionIdHexString)
                     .select(.authData, .groupIdentityPrivateKey)
@@ -33,10 +100,16 @@ public extension SnodeAPI.AuthenticationInfo {
                 
                 switch (authData?.groupIdentityPrivateKey, authData?.authData) {
                     case (.some(let privateKey), _):
-                        self = .groupAdmin(groupSessionId: sessionId, ed25519SecretKey: Array(privateKey))
+                        return Authentication.groupAdmin(
+                            groupSessionId: sessionId,
+                            ed25519SecretKey: Array(privateKey)
+                        )
                         
                     case (_, .some(let authData)):
-                        self = .groupMember(groupSessionId: sessionId, authData: authData)
+                        return Authentication.groupMember(
+                            groupSessionId: sessionId,
+                            authData: authData
+                        )
                         
                     default: throw SnodeAPIError.invalidAuthentication
                 }

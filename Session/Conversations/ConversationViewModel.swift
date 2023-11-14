@@ -4,8 +4,10 @@ import Foundation
 import Combine
 import GRDB
 import DifferenceKit
+import SessionSnodeKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SessionUIKit
 
 public class ConversationViewModel: OWSAudioPlayerDelegate {
     public typealias SectionModel = ArraySection<Section, MessageViewModel>
@@ -47,7 +49,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     private let initialUnreadInteractionId: Int64?
     private let markAsReadTrigger: PassthroughSubject<(SessionThreadViewModel.ReadTarget, Int64?), Never> = PassthroughSubject()
     private var markAsReadPublisher: AnyPublisher<Void, Never>?
-    private let dependencies: Dependencies
+    public let dependencies: Dependencies
     
     public lazy var blockedBannerMessage: String = {
         let threadData: SessionThreadViewModel = self._threadData.wrappedValue
@@ -71,12 +73,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         threadId: String,
         threadVariant: SessionThread.Variant,
         focusedInteractionInfo: Interaction.TimestampInfo?,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         typealias InitialData = (
             userSessionId: SessionId,
             initialUnreadInteractionInfo: Interaction.TimestampInfo?,
             threadIsBlocked: Bool,
+            threadIsMessageRequest: Bool,
             currentUserIsClosedGroupMember: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
             blinded15SessionId: SessionId?,
@@ -105,6 +108,31 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     .fetchOne(db)
                     .defaulting(to: false)
             )
+            let threadIsMessageRequest: Bool = try {
+                switch threadVariant {
+                    case .contact:
+                        let isApproved: Bool = try Contact
+                            .filter(id: threadId)
+                            .select(.isApproved)
+                            .asRequest(of: Bool.self)
+                            .fetchOne(db)
+                            .defaulting(to: true)
+                        
+                        return !isApproved
+                        
+                    case .group:
+                        let isInvite: Bool = try ClosedGroup
+                            .filter(id: threadId)
+                            .select(.invited)
+                            .asRequest(of: Bool.self)
+                            .fetchOne(db)
+                            .defaulting(to: true)
+                        
+                        return !isInvite
+                        
+                    default: return false
+                }
+            }()
             let currentUserIsClosedGroupMember: Bool? = (![.legacyGroup, .group].contains(threadVariant) ? nil :
                 GroupMember
                     .filter(groupMember[.groupId] == threadId)
@@ -136,6 +164,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 userSessionId,
                 initialUnreadInteractionInfo,
                 threadIsBlocked,
+                threadIsMessageRequest,
                 currentUserIsClosedGroupMember,
                 openGroupPermissions,
                 blinded15SessionId,
@@ -153,6 +182,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 threadId: threadId,
                 threadVariant: threadVariant,
                 threadIsNoteToSelf: (initialData?.userSessionId.hexString == threadId),
+                threadIsMessageRequest: initialData?.threadIsMessageRequest,
                 threadIsBlocked: initialData?.threadIsBlocked,
                 currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
                 openGroupPermissions: initialData?.openGroupPermissions
@@ -214,7 +244,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             .trackingConstantRegion { [weak self, dependencies] db -> SessionThreadViewModel? in
                 let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
-                let oldThreadData: SessionThreadViewModel? = self?._threadData.wrappedValue
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                     .conversationQuery(threadId: threadId, userSessionId: userSessionId)
                     .fetchOne(db)
@@ -560,9 +589,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             expiresStartedAtMs: interaction.expiresStartedAtMs,
             expiresInSeconds: interaction.expiresInSeconds,
             isSenderOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
-                threadData.currentUserSessionId,
+                publicKey: threadData.currentUserSessionId,
                 for: threadData.openGroupRoomToken,
-                on: threadData.openGroupServer
+                on: threadData.openGroupServer,
+                using: dependencies
             ),
             currentUserProfile: currentUserProfile,
             quote: quoteModel.map { model in
@@ -861,6 +891,326 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         reactionExpandedInteractionIds.remove(interactionId)
     }
     
+    public func deletionActions(
+        for cellViewModel: MessageViewModel,
+        threadName: String
+    ) -> DeletionBehaviours {
+        struct InteractionInfo: FetchableRecord, Decodable {
+            let serverHash: String?
+            let openGroupServerMessageId: Int64?
+        }
+        struct OpenGroupInfo: FetchableRecord, Decodable {
+            let server: String
+            let roomToken: String
+        }
+        struct GroupAuthData: Codable, FetchableRecord {
+            let groupIdentityPrivateKey: Data?
+            let authData: Data?
+        }
+        
+        return dependencies[singleton: .storage].read(using: dependencies) { [dependencies] db -> DeletionBehaviours in
+            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+            let interactionInfo: InteractionInfo = try Interaction
+                .filter(id: cellViewModel.id)
+                .select(.serverHash, .openGroupServerMessageId)
+                .asRequest(of: InteractionInfo.self)
+                .fetchOne(db) ?? { throw MessageSenderError.invalidMessage }()
+            let groupAuthData: GroupAuthData? = try? ClosedGroup
+                .filter(id: cellViewModel.threadId)
+                .select(.authData, .groupIdentityPrivateKey)
+                .asRequest(of: GroupAuthData.self)
+                .fetchOne(db)
+            let groupAuthInfo: Authentication.Info? = {
+                switch (groupAuthData?.groupIdentityPrivateKey, groupAuthData?.authData) {
+                    case (.none, .none): return nil
+                    case (.some(let groupIdentityPrivateKey), _):
+                        return .groupAdmin(
+                            groupSessionId: SessionId(.group, hex: cellViewModel.threadId),
+                            ed25519SecretKey: Array(groupIdentityPrivateKey)
+                        )
+                        
+                    case (_, .some(let authData)):
+                        return .groupMember(
+                            groupSessionId: SessionId(.group, hex: cellViewModel.threadId),
+                            authData: authData
+                        )
+                }
+            }()
+            let dataToSwitchOn = (
+                cellViewModel.threadVariant,
+                cellViewModel.variant,
+                interactionInfo.serverHash,
+                interactionInfo.openGroupServerMessageId,
+                groupAuthInfo
+            )
+            
+            /// The methods we use to delete a message depends on the type of conversation it belongs to
+            switch dataToSwitchOn {
+                /// If a message has not been sent then only support a local deletion (or the user has missing/invalid auth data)
+                ///
+                /// **Note:** It's possible for the user to press the delete button before the send completes and then trigger the deletion
+                /// after the send has completed - there isn't really a good way to completely handle this so just rely on the user to avoid
+                /// deleting in this situation
+                case (_, _, .none, .none, _), (.community, _, .some, .none, _), (.group, _, .none, .some, _), (.contact, _, .none, .some, _), (.group, _, .some, _, .none), (.group, _, .some, _, .standard):
+                    return DeletionBehaviours.deleteForMe(id: cellViewModel.id)
+                    
+                /// Delete from the current device
+                /// Delete from all participant devices via an `UnsendRequest`
+                /// Delete from the current users swarm
+                case (.contact, _, .some(let serverHash), _, _):
+                    guard cellViewModel.threadId != userSessionId.hexString else {
+                        return DeletionBehaviours(
+                            actions: [
+                                DeletionBehaviours.Action(
+                                    title: "delete_message_for_me_and_my_devices".localized(),
+                                    behaviours: [
+                                        .preparedRequest(try MessageSender
+                                            .preparedSend(
+                                                db,
+                                                message: UnsendRequest(
+                                                    timestamp: UInt64(cellViewModel.timestampMs),
+                                                    author: (cellViewModel.variant == .standardOutgoing ?
+                                                        userSessionId.hexString :
+                                                                cellViewModel.authorId
+                                                    )
+                                                ),
+                                                to: .contact(publicKey: cellViewModel.threadId),
+                                                namespace: .default,
+                                                interactionId: nil,
+                                                fileIds: []
+                                            )),
+                                        .preparedRequest(try SnodeAPI
+                                            .preparedDeleteMessages(
+                                                serverHashes: [serverHash],
+                                                requireSuccessfulDeletion: false,
+                                                authMethod: try Authentication.with(
+                                                    db,
+                                                    sessionIdHexString: userSessionId.hexString,
+                                                    using: dependencies
+                                                )
+                                            )
+                                            .map { _, _ in () }),
+                                        .deleteFromDatabase(cellViewModel.id)
+                                    ]
+                                )
+                            ]
+                        )
+                    }
+                    
+                    return DeletionBehaviours(
+                        actions: [
+                            DeletionBehaviours.deleteForMe(id: cellViewModel.id).actions[0],
+                            DeletionBehaviours.Action(
+                                title: String(format: "delete_message_for_me_and_recipient".localized(), threadName),
+                                accessibility: Accessibility(identifier: "Delete for everyone"),
+                                behaviours: [
+                                    .preparedRequest(try MessageSender
+                                        .preparedSend(
+                                            db,
+                                            message: UnsendRequest(
+                                                timestamp: UInt64(cellViewModel.timestampMs),
+                                                author: (cellViewModel.variant == .standardOutgoing ?
+                                                    userSessionId.hexString :
+                                                            cellViewModel.authorId
+                                                )
+                                            ),
+                                            to: .contact(publicKey: cellViewModel.threadId),
+                                            namespace: .default,
+                                            interactionId: nil,
+                                            fileIds: []
+                                        )),
+                                    .preparedRequest(try SnodeAPI
+                                        .preparedDeleteMessages(
+                                            serverHashes: [serverHash],
+                                            requireSuccessfulDeletion: false,
+                                            authMethod: try Authentication.with(
+                                                db,
+                                                sessionIdHexString: userSessionId.hexString,
+                                                using: dependencies
+                                            )
+                                        )
+                                        .map { _, _ in () }),
+                                    .deleteFromDatabase(cellViewModel.id)
+                                ]
+                            )
+                        ]
+                    )
+                
+                /// **Message sent by current user**
+                /// Delete from all participant devices via an `UnsendRequest`
+                /// Delete from the current device
+                ///
+                /// **Note:** We **cannot** delete from the current users swarm in legacy groups
+                case (.legacyGroup, .standardOutgoing, _, _, _):
+                    return DeletionBehaviours(
+                        actions: [
+                            DeletionBehaviours.deleteForMe(id: cellViewModel.id).actions[0],
+                            DeletionBehaviours.Action(
+                                title: "delete_message_for_everyone".localized(),
+                                accessibility: Accessibility(identifier: "Delete for everyone"),
+                                behaviours: [
+                                    .preparedRequest(try MessageSender
+                                        .preparedSend(
+                                            db,
+                                            message: UnsendRequest(
+                                                timestamp: UInt64(cellViewModel.timestampMs),
+                                                author: (cellViewModel.variant == .standardOutgoing ?
+                                                    userSessionId.hexString :
+                                                    cellViewModel.authorId
+                                                )
+                                            ),
+                                            to: .closedGroup(groupPublicKey: cellViewModel.threadId),
+                                            namespace: .legacyClosedGroup,
+                                            interactionId: nil,
+                                            fileIds: []
+                                        )),
+                                    .deleteFromDatabase(cellViewModel.id)
+                                ]
+                            )
+                        ]
+                    )
+                    
+                /// **Message not sent by current user**
+                /// Delete from the current device
+                case (.legacyGroup, _, _, _, _):
+                    return DeletionBehaviours.deleteForMe(id: cellViewModel.id)
+                
+                /// **Message sent by current user and a standard member**
+                /// Delete from all participant devices via an `GroupUpdateDeleteMemberContentMessage`
+                /// Delete from the current device
+                case (.group, .standardOutgoing, .some(let serverHash), _, .groupMember):
+                    return DeletionBehaviours(
+                        actions: [
+                            DeletionBehaviours.deleteForMe(id: cellViewModel.id).actions[0],
+                            DeletionBehaviours.Action(
+                                title: "delete_message_for_everyone".localized(),
+                                accessibility: Accessibility(identifier: "Delete for everyone"),
+                                behaviours: [
+                                    /// **Note:** No signature for member delete content
+                                    .preparedRequest(try MessageSender
+                                        .preparedSend(
+                                            db,
+                                            message: GroupUpdateDeleteMemberContentMessage(
+                                                memberSessionIds: [],
+                                                messageHashes: [serverHash],
+                                                sentTimestamp: UInt64(
+                                                    SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+                                                ),
+                                                authMethod: nil,
+                                                using: dependencies
+                                            ),
+                                            to: .closedGroup(groupPublicKey: cellViewModel.threadId),
+                                            namespace: .groupMessages,
+                                            interactionId: nil,
+                                            fileIds: []
+                                        )),
+                                    .deleteFromDatabase(cellViewModel.id)
+                                ]
+                            )
+                        ]
+                    )
+                
+                /// **Message not sent by current user and a standard member**
+                /// Delete from the current device
+                case (.group, _, _, _, .groupMember):
+                    return DeletionBehaviours.deleteForMe(id: cellViewModel.id)
+                    
+                /// **Member is a group admin**
+                /// **If user is an admin** delete from all participant devices via an `GroupUpdateDeleteMemberContentMessage`
+                /// **If user is an admin** delete from the group swarm
+                /// Delete from the current device
+                case (.group, _, .some(let serverHash), _, .groupAdmin(let groupSessionId, let ed25519SecretKey)):
+                    return DeletionBehaviours(
+                        actions: [
+                            DeletionBehaviours.deleteForMe(id: cellViewModel.id).actions[0],
+                            DeletionBehaviours.Action(
+                                title: "delete_message_for_everyone".localized(),
+                                accessibility: Accessibility(identifier: "Delete for everyone"),
+                                behaviours: [
+                                    .preparedRequest(try MessageSender
+                                        .preparedSend(
+                                            db,
+                                            message: GroupUpdateDeleteMemberContentMessage(
+                                                memberSessionIds: [],
+                                                messageHashes: [serverHash],
+                                                sentTimestamp: UInt64(
+                                                    SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+                                                ),
+                                                authMethod: Authentication.groupAdmin(
+                                                    groupSessionId: groupSessionId,
+                                                    ed25519SecretKey: ed25519SecretKey
+                                                ),
+                                                using: dependencies
+                                            ),
+                                            to: .closedGroup(groupPublicKey: cellViewModel.threadId),
+                                            namespace: .groupMessages,
+                                            interactionId: nil,
+                                            fileIds: []
+                                        )),
+                                    .preparedRequest(try SnodeAPI
+                                        .preparedDeleteMessages(
+                                            serverHashes: [serverHash],
+                                            requireSuccessfulDeletion: false,
+                                            authMethod: Authentication.groupAdmin(
+                                                groupSessionId: groupSessionId,
+                                                ed25519SecretKey: ed25519SecretKey
+                                            ),
+                                            using: dependencies
+                                        )
+                                        .map { _, _ in () }),
+                                    .deleteFromDatabase(cellViewModel.id)
+                                ]
+                            )
+                        ]
+                    )
+                    
+                /// **If message hasn't been sent yet** delete from the current device
+                ///     **Note:** We don't support local deletion after sending because it can't be synced easily between devices and the
+                ///     message would return if the user left and rejoined the community)
+                /// **If user is an admin OR message sent by current user** delete from the open group
+                case (.community, _, _, .some(let openGroupServerMessageId), _):
+                    guard
+                        let openGroupInfo: OpenGroupInfo = try? OpenGroup
+                            .filter(id: cellViewModel.threadId)
+                            .select(.roomToken, .server)
+                            .asRequest(of: OpenGroupInfo.self)
+                            .fetchOne(db),
+                        (
+                            cellViewModel.variant == .standardOutgoing ||
+                            OpenGroupManager.isUserModeratorOrAdmin(
+                                db,
+                                publicKey: userSessionId.hexString,
+                                for: openGroupInfo.roomToken,
+                                on: openGroupInfo.server,
+                                using: dependencies
+                            )
+                        )
+                    else { return DeletionBehaviours(actions: []) }
+                    
+                    return DeletionBehaviours(
+                        actions: [
+                            DeletionBehaviours.Action(
+                                title: "delete_message_for_everyone".localized(),
+                                accessibility: Accessibility(identifier: "Delete for everyone"),
+                                behaviours: [
+                                    .preparedRequest(try OpenGroupAPI
+                                        .preparedMessageDelete(
+                                            db,
+                                            id: openGroupServerMessageId,
+                                            in: openGroupInfo.roomToken,
+                                            on: openGroupInfo.server
+                                        )
+                                        .map { _, _ in () }),
+                                    .deleteFromDatabase(cellViewModel.id)
+                                ]
+                            )
+                        ]
+                    )
+            }
+        }
+        .defaulting(to: DeletionBehaviours.deleteForMe(id: cellViewModel.id))
+    }
+    
     // MARK: - Audio Playback
     
     public struct PlaybackInfo {
@@ -1068,7 +1418,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             let currentIndex: Int = messageSection.elements
                 .firstIndex(where: { $0.id == interactionId }),
             currentIndex < (messageSection.elements.count - 1),
-            messageSection.elements[currentIndex + 1].cellType == .audio,
+            messageSection.elements[currentIndex + 1].cellType == .voiceMessage,
             dependencies[singleton: .storage, key: .shouldAutoPlayConsecutiveAudioMessages]
         else { return }
         
@@ -1089,5 +1439,90 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         currentPlayingInteraction.mutate { $0 = nil }
         playbackInfo.mutate { $0[interactionId] = updatedPlaybackInfo }
         updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, AttachmentError.invalidData)
+    }
+}
+
+// MARK: - ConversationViewModel.DeletionBehaviours
+
+public extension ConversationViewModel {
+    struct DeletionBehaviours {
+        struct Action {
+            let title: String
+            let accessibility: Accessibility?
+            let behaviours: [Behaviour]
+            
+            init(title: String, accessibility: Accessibility? = nil, behaviours: [Behaviour]) {
+                self.title = title
+                self.accessibility = accessibility
+                self.behaviours = behaviours
+            }
+        }
+        
+        enum Behaviour {
+            case deleteFromDatabase(Int64)
+            case preparedRequest(HTTP.PreparedRequest<Void>)
+        }
+        
+        static let defaultTitle: String = "delete_message_for_me".localized()
+        
+        let actions: [Action]
+        
+        // MARK: - Functions
+        
+        static func deleteForMe(id: Int64) -> DeletionBehaviours {
+            DeletionBehaviours(
+                actions: [
+                    Action(
+                        title: "delete_message_for_me".localized(),
+                        accessibility: Accessibility(identifier: "Delete for me"),
+                        behaviours: [.deleteFromDatabase(id)]
+                    )
+                ]
+            )
+        }
+        
+        /// Indicates whether the specified action is solely a "deleteFromDatabase" action
+        public func isOnlyDeleteFromDatabase(at index: Int) -> Bool {
+            guard index >= 0, index < actions.count else { return false }
+            
+            switch (actions[index].behaviours.count, actions[index].behaviours.first) {
+                case (1, .deleteFromDatabase): return true
+                default: return false
+            }
+        }
+        
+        /// Collect the actions and construct a publisher which triggers each action before returning the result
+        public func publisherForAction(at index: Int, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
+            guard index >= 0, index < actions.count else {
+                return Fail(error: StorageError.objectNotFound).eraseToAnyPublisher()
+            }
+            
+            var result: AnyPublisher<Void, Error> = Just(())
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+            
+            actions[index].behaviours.forEach { behaviour in
+                switch behaviour {
+                    case .deleteFromDatabase(let id):
+                        result = result
+                            .flatMap { _ in
+                                dependencies[singleton: .storage].writePublisher(using: dependencies) { db in
+                                    _ = try Interaction
+                                        .filter(id: id)
+                                        .deleteAll(db)
+                                }
+                            }
+                            .eraseToAnyPublisher()
+                        
+                    case .preparedRequest(let preparedRequest):
+                        result = result
+                            .flatMap { _ in preparedRequest.send(using: dependencies) }
+                            .map { _, _ in () }
+                            .eraseToAnyPublisher()
+                }
+            }
+            
+            return result
+        }
     }
 }

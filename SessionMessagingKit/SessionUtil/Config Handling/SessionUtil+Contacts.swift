@@ -76,7 +76,7 @@ internal extension SessionUtil {
                     profile.nickname != data.profile.nickname ||
                     profilePictureShouldBeUpdated
                 {
-                    try profile.save(db)
+                    try profile.upsert(db)
                     try Profile
                         .filter(id: sessionId)
                         .updateAll( // Handling a config update so don't use `updateAllAndConfig`
@@ -112,7 +112,7 @@ internal extension SessionUtil {
                     (contact.isBlocked != data.contact.isBlocked) ||
                     (contact.didApproveMe != data.contact.didApproveMe)
                 {
-                    try contact.save(db)
+                    try contact.upsert(db)
                     try Contact
                         .filter(id: sessionId)
                         .updateAll( // Handling a config update so don't use `updateAllAndConfig`
@@ -154,7 +154,7 @@ internal extension SessionUtil {
                         creationDateTimestamp: data.created,
                         shouldBeVisible: updatedShouldBeVisible,
                         pinnedPriority: data.priority
-                    ).save(db)
+                    ).upsert(db)
                 }
                 else {
                     let changes: [ConfigColumnAssignment] = [
@@ -189,7 +189,7 @@ internal extension SessionUtil {
                         durationSeconds: data.config.durationSeconds,
                         type: data.config.type,
                         lastChangeTimestampMs: data.config.lastChangeTimestampMs
-                    ).save(db)
+                    ).upsert(db)
                     
                     _ = try Interaction
                         .filter(Interaction.Columns.threadId == sessionId)
@@ -323,7 +323,7 @@ internal extension SessionUtil {
                     let oldAvatarUrl: String? = String(libSessionVal: contact.profile_pic.url)
                     let oldAvatarKey: Data? = Data(
                         libSessionVal: contact.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
+                        count: DisplayPictureManager.aes256KeyByteLength
                     )
                     
                     contact.name = updatedProfile.name.toLibSession()
@@ -335,9 +335,9 @@ internal extension SessionUtil {
                     // needed via a throttled subscription on another thread to prevent blocking)
                     if
                         oldAvatarUrl != (updatedProfile.profilePictureUrl ?? "") ||
-                        oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: ProfileManager.avatarAES256KeyByteLength))
+                        oldAvatarKey != (updatedProfile.profileEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
                     {
-                        ProfileManager.profileAvatar(profile: updatedProfile)
+                        DisplayPictureManager.displayPicture(owner: .user(updatedProfile))
                     }
                     
                     // Store the updated contact (needs to happen before variables go out of scope)
@@ -727,16 +727,16 @@ private extension SessionUtil {
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: String(libSessionVal: contact.name),
-                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
+                lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                 nickname: String(libSessionVal: contact.nickname, nullIfEmpty: true),
                 profilePictureUrl: profilePictureUrl,
                 profileEncryptionKey: (profilePictureUrl == nil ? nil :
                     Data(
                         libSessionVal: contact.profile_pic.key,
-                        count: ProfileManager.avatarAES256KeyByteLength
+                        count: DisplayPictureManager.aes256KeyByteLength
                     )
                 ),
-                lastProfilePictureUpdate: (TimeInterval(serverTimestampMs) / 1000)
+                lastProfilePictureUpdate: TimeInterval(Double(serverTimestampMs) / 1000)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,

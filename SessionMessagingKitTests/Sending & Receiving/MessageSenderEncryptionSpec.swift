@@ -30,7 +30,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { try $0.perform(.generateNonce24()) }
+                    .when { $0.generate(.nonce24()) }
                     .thenReturn(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!.bytes)
             }
         )
@@ -41,11 +41,11 @@ class MessageSenderEncryptionSpec: QuickSpec {
             context("when encrypting with the session protocol") {
                 beforeEach {
                     mockCrypto
-                        .when { try $0.perform(.seal(message: anyArray(), recipientPublicKey: anyArray())) }
+                        .when { $0.generate(.sealedBytes(message: anyArray(), recipientPublicKey: anyArray())) }
                         .thenReturn([1, 2, 3])
                     mockCrypto
-                        .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
-                        .thenReturn([])
+                        .when { $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                        .thenReturn(Authentication.Signature.standard(signature: []))
                 }
                 
                 // MARK: ---- can encrypt correctly
@@ -101,7 +101,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if the signature generation fails
                 it("throws an error if the signature generation fails") {
                     mockCrypto
-                        .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
+                        .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
                         .thenReturn(nil)
                     
                     mockStorage.read { db in
@@ -120,7 +120,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if the encryption fails
                 it("throws an error if the encryption fails") {
                     mockCrypto
-                        .when { try $0.perform(.seal(message: anyArray(), recipientPublicKey: anyArray())) }
+                        .when { $0.generate(.sealedBytes(message: anyArray(), recipientPublicKey: anyArray())) }
                         .thenReturn(nil)
                     
                     mockStorage.read { db in
@@ -141,9 +141,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
             context("when encrypting with the blinded session protocol") {
                 beforeEach {
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            crypto.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: dependencies))
-                        }
+                        .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
                         .thenReturn(
                             KeyPair(
                                 publicKey: Data(hex: TestConstants.publicKey).bytes,
@@ -151,27 +149,27 @@ class MessageSenderEncryptionSpec: QuickSpec {
                             )
                         )
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            try crypto.perform(
+                        .when {
+                            $0.generate(
                                 .sharedBlindedEncryptionKey(
                                     secretKey: anyArray(),
                                     otherBlindedPublicKey: anyArray(),
                                     fromBlindedPublicKey: anyArray(),
                                     toBlindedPublicKey: anyArray(),
-                                    using: dependencies
+                                    using: any()
                                 )
                             )
                         }
                         .thenReturn([1, 2, 3])
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            try crypto.perform(
-                                .encryptAeadXChaCha20(
+                        .when {
+                            $0.generate(
+                                .encryptedBytesAeadXChaCha20(
                                     message: anyArray(),
                                     secretKey: anyArray(),
                                     nonce: anyArray(),
                                     additionalData: anyArray(),
-                                    using: dependencies
+                                    using: any()
                                 )
                             )
                         }
@@ -284,15 +282,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if it fails to generate a blinded keyPair
                 it("throws an error if it fails to generate a blinded keyPair") {
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            crypto.generate(
-                                .blindedKeyPair(
-                                    serverPublicKey: any(),
-                                    edKeyPair: any(),
-                                    using: dependencies
-                                )
-                            )
-                        }
+                        .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
                         .thenReturn(nil)
                     
                     mockStorage.read { db in
@@ -312,14 +302,14 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if it fails to generate an encryption key
                 it("throws an error if it fails to generate an encryption key") {
                     mockCrypto
-                        .when { [dependencies = dependencies!] crypto in
-                            try crypto.perform(
+                        .when {
+                            $0.generate(
                                 .sharedBlindedEncryptionKey(
                                     secretKey: anyArray(),
                                     otherBlindedPublicKey: anyArray(),
                                     fromBlindedPublicKey: anyArray(),
                                     toBlindedPublicKey: anyArray(),
-                                    using: dependencies
+                                    using: any()
                                 )
                             )
                         }
@@ -343,8 +333,8 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 it("throws an error if it fails to encrypt") {
                     mockCrypto
                         .when {
-                            try $0.perform(
-                                .encryptAeadXChaCha20(
+                            $0.generate(
+                                .encryptedBytesAeadXChaCha20(
                                     message: anyArray(),
                                     secretKey: anyArray(),
                                     nonce: anyArray(),

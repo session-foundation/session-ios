@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionUIKit
 import SessionUtil
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -129,48 +130,75 @@ public extension DisappearingMessagesConfiguration {
         public let type: DisappearingMessageType?
         public let isPreviousOff: Bool?
         
-        var previewText: String {
-            guard Features.useNewDisappearingMessagesConfig else { return legacyPreviewText }
+        func attributedPreviewText(using dependencies: Dependencies) -> NSAttributedString {
+            guard dependencies[feature: .updatedDisappearingMessages] else {
+                return NSAttributedString(string: legacyPreviewText)
+            }
             
             guard let senderName: String = senderName else {
                 // Changed by this device or via synced transcript
                 guard isEnabled, durationSeconds > 0 else {
-                    return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized()
+                    return NSAttributedString(string: "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized())
                 }
                 
                 guard isPreviousOff == true else {
-                    return String(
-                        format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE".localized(),
-                        floor(durationSeconds).formatted(format: .long),
-                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                    return NSAttributedString(
+                        string: String(
+                            format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE".localized(),
+                            floor(durationSeconds).formatted(format: .long),
+                            (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                        )
                     )
                 }
                 
-                return String(
-                    format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                return NSAttributedString(
+                    string: String(
+                        format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
+                        floor(durationSeconds).formatted(format: .long),
+                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                    )
                 )
             }
             
             guard isEnabled, durationSeconds > 0 else {
-                return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(), senderName)
-            }
-            
-            guard isPreviousOff == true else {
-                return String(
-                    format: "DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
-                    senderName,
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                return NSAttributedString(
+                    format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(),
+                    .font(senderName, .boldSystemFont(ofSize: Values.verySmallFontSize))
                 )
             }
             
-            return String(
+            guard isPreviousOff == true else {
+                return NSAttributedString(
+                    format: "DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
+                    .font(senderName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                    .font(
+                        floor(durationSeconds).formatted(format: .long),
+                        .boldSystemFont(ofSize: Values.verySmallFontSize)
+                    ),
+                    .font(
+                        (type == .disappearAfterRead ?
+                            "DISAPPEARING_MESSAGE_STATE_READ".localized() :
+                            "DISAPPEARING_MESSAGE_STATE_SENT".localized()
+                        ),
+                        .boldSystemFont(ofSize: Values.verySmallFontSize)
+                    )
+                )
+            }
+            
+            return NSAttributedString(
                 format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
-                senderName,
-                floor(durationSeconds).formatted(format: .long),
-                (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                .font(senderName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                .font(
+                    floor(durationSeconds).formatted(format: .long),
+                    .boldSystemFont(ofSize: Values.verySmallFontSize)
+                ),
+                .font(
+                    (type == .disappearAfterRead ?
+                        "DISAPPEARING_MESSAGE_STATE_READ".localized() :
+                        "DISAPPEARING_MESSAGE_STATE_SENT".localized()
+                    ),
+                    .boldSystemFont(ofSize: Values.verySmallFontSize)
+                )
             )
         }
         
@@ -219,31 +247,15 @@ public extension DisappearingMessagesConfiguration {
 // MARK: - UI Constraints
 
 extension DisappearingMessagesConfiguration {
-    public static var validDurationsSeconds: [TimeInterval] {
-        return [
-            5,
-            10,
-            30,
-            (1 * 60),
-            (5 * 60),
-            (30 * 60),
-            (1 * 60 * 60),
-            (6 * 60 * 60),
-            (12 * 60 * 60),
-            (24 * 60 * 60),
-            (7 * 24 * 60 * 60)
-        ]
-    }
-    
-    public static var maxDurationSeconds: TimeInterval = {
-        return (validDurationsSeconds.max() ?? 0)
-    }()
-    
-    public static func validDurationsSeconds(_ type: DisappearingMessageType) -> [TimeInterval] {
-        
+    public static func validDurationsSeconds(
+        _ type: DisappearingMessageType,
+        using dependencies: Dependencies
+    ) -> [TimeInterval] {
         switch type {
             case .disappearAfterRead:
-                var result =  [
+                return [
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 10 : nil),
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 60 : nil),
                     (5 * 60),
                     (1 * 60 * 60),
                     (12 * 60 * 60),
@@ -251,35 +263,19 @@ extension DisappearingMessagesConfiguration {
                     (7 * 24 * 60 * 60),
                     (2 * 7 * 24 * 60 * 60)
                 ]
-                .map { TimeInterval($0)  }
-                #if targetEnvironment(simulator)
-                    result.insert(
-                        TimeInterval(60),
-                        at: 0
-                    )
-                    result.insert(
-                        TimeInterval(10),
-                        at: 0
-                    )
-                #endif
-                return result
+                .compactMap { duration in duration.map { TimeInterval($0) } }
+                
             case .disappearAfterSend:
-                var result =  [
+                return [
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 10 : nil),
                     (12 * 60 * 60),
                     (24 * 60 * 60),
                     (7 * 24 * 60 * 60),
                     (2 * 7 * 24 * 60 * 60)
                 ]
-                .map { TimeInterval($0)  }
-                #if targetEnvironment(simulator)
-                    result.insert(
-                        TimeInterval(10),
-                        at: 0
-                    )
-                #endif
-                return result
-            default:
-                return []
-            }
+                .compactMap { duration in duration.map { TimeInterval($0) } }
+                
+            default: return []
+        }
     }
 }

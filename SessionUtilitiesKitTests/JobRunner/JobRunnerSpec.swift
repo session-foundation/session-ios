@@ -1758,7 +1758,7 @@ fileprivate enum TestJob: JobExecutor {
                         stringValue: details.stringValue
                     )
                 )!
-            dependencies[singleton: .storage].write { db in try _ = updatedJob.saved(db) }
+            dependencies[singleton: .storage].write { db in try updatedJob.upserted(db) }
             
             switch details.result {
                 case .success: success(job, true, dependencies)

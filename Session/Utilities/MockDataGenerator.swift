@@ -50,8 +50,13 @@ enum MockDataGenerator {
         logProgress("", "Start")
         
         // First create the thread used to indicate that the mock data has been generated
-        _ = try? SessionThread
-            .fetchOrCreate(db, id: "MockDatabaseThread", variant: .contact, shouldBeVisible: false)
+        _ = try? SessionThread.fetchOrCreate(
+            db,
+            id: "MockDatabaseThread",
+            variant: .contact,
+            shouldBeVisible: false,
+            calledFromConfigHandling: false
+        )
         
         // MARK: - -- DM Thread
         
@@ -80,7 +85,8 @@ enum MockDataGenerator {
                         db,
                         id: randomSessionId,
                         variant: .contact,
-                        shouldBeVisible: true
+                        shouldBeVisible: true,
+                        calledFromConfigHandling: false
                     )
                 
                 // Generate the contact
@@ -95,14 +101,14 @@ enum MockDataGenerator {
                     ),
                     hasBeenBlocked: false
                 )
-                .saved(db)
-                _ = try! Profile(
+                .upserted(db)
+                try! Profile(
                     id: randomSessionId,
                     name: (0..<contactNameLength)
                         .compactMap { _ in stringContent.randomElement(using: &dmThreadRandomGenerator) }
                         .joined()
                 )
-                .saved(db)
+                .upserted(db)
                 
                 // Generate the message history (Note: Unapproved message requests will only include incoming messages)
                 logProgress("DM Thread \(threadIndex)", "Generate \(numMessages) Messages")
@@ -166,7 +172,7 @@ enum MockDataGenerator {
                     let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData).x25519KeyPair.publicKey).hexString
                     let contactNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                     
-                    _ = try! Contact(
+                    try! Contact(
                         id: randomSessionId,
                         isTrusted: true,
                         isApproved: true,
@@ -174,14 +180,14 @@ enum MockDataGenerator {
                         didApproveMe: true,
                         hasBeenBlocked: false
                     )
-                    .saved(db)
-                    _ = try! Profile(
+                    .upserted(db)
+                    try! Profile(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
                             .joined()
                     )
-                    .saved(db)
+                    .upserted(db)
                     
                     members.append(randomSessionId)
                 }
@@ -191,16 +197,17 @@ enum MockDataGenerator {
                         db,
                         id: randomLegacyGroupPublicKey,
                         variant: .legacyGroup,
-                        shouldBeVisible: true
+                        shouldBeVisible: true,
+                        calledFromConfigHandling: false
                     )
-                _ = try! ClosedGroup(
+                try! ClosedGroup(
                     threadId: randomLegacyGroupPublicKey,
                     name: groupName,
                     formationTimestamp: timestampNow,
                     shouldPoll: true,
                     invited: false
                 )
-                .saved(db)
+                .upserted(db)
                 
                 members.forEach { memberId in
                     try! GroupMember(
@@ -210,7 +217,7 @@ enum MockDataGenerator {
                         roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
                     )
-                    .save(db)
+                    .upsert(db)
                 }
                 [members.randomElement(using: &cgThreadRandomGenerator) ?? userSessionId.hexString].forEach { adminId in
                     try! GroupMember(
@@ -220,7 +227,7 @@ enum MockDataGenerator {
                         roleStatus: .accepted,  // Legacy group members don't have role statuses
                         isHidden: false
                     )
-                    .save(db)
+                    .upsert(db)
                 }
                 
                 // Add the group to the user's set of public keys to poll for and store the key pair
@@ -231,7 +238,7 @@ enum MockDataGenerator {
                     secretKey: encryptionKeyPair.privateKey,
                     receivedTimestamp: timestampNow
                 )
-                .save(db)
+                .upsert(db)
                 
                 // Generate the message history (Note: Unapproved message requests will only include incoming messages)
                 logProgress("Closed Group Thread \(threadIndex)", "Generate \(numMessages) Messages")
@@ -298,7 +305,7 @@ enum MockDataGenerator {
                     let contactData: Data = Data(ogThreadRandomGenerator.nextBytes(count: 16))
                     let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData).x25519KeyPair.publicKey).hexString
                     let contactNameLength: Int = ((5..<20).randomElement(using: &ogThreadRandomGenerator) ?? 0)
-                    _ = try! Contact(
+                    try! Contact(
                         id: randomSessionId,
                         isTrusted: true,
                         isApproved: true,
@@ -306,14 +313,14 @@ enum MockDataGenerator {
                         didApproveMe: true,
                         hasBeenBlocked: false
                     )
-                    .saved(db)
-                    _ = try! Profile(
+                    .upserted(db)
+                    try! Profile(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &ogThreadRandomGenerator) }
                             .joined()
                     )
-                    .saved(db)
+                    .upserted(db)
 
                     members.append(randomSessionId)
                 }
@@ -324,9 +331,10 @@ enum MockDataGenerator {
                         db,
                         id: randomGroupPublicKey,
                         variant: .community,
-                        shouldBeVisible: true
+                        shouldBeVisible: true,
+                        calledFromConfigHandling: false
                     )
-                _ = try! OpenGroup(
+                try! OpenGroup(
                     server: serverName,
                     roomToken: roomName,
                     publicKey: randomGroupPublicKey,
@@ -339,23 +347,23 @@ enum MockDataGenerator {
                     inboxLatestMessageId: 0,
                     outboxLatestMessageId: 0
                 )
-                .saved(db)
+                .upserted(db)
                 
                 // Generate the capabilities object
                 let hasBlinding: Bool = Bool.random(using: &dmThreadRandomGenerator)
                 
-                _ = try! Capability(
+                try! Capability(
                     openGroupServer: serverName.lowercased(),
                     variant: .sogs,
                     isMissing: false
-                ).saved(db)
+                ).upserted(db)
                 
                 if hasBlinding {
-                    _ = try! Capability(
+                    try! Capability(
                         openGroupServer: serverName.lowercased(),
                         variant: .blind,
                         isMissing: false
-                    ).saved(db)
+                    ).upserted(db)
                 }
                 
                 // Generate the message history (Note: Unapproved message requests will only include incoming messages)

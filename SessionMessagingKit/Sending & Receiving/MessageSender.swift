@@ -115,7 +115,7 @@ public final class MessageSender {
         message.sentTimestamp = sentTimestamp
         
         // Ensure the message is valid
-        try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds)
+        try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds, using: dependencies)
         
         // Attach the user's profile if needed (no need to do so for 'Note to Self' or sync
         // messages as they will be managed by the user config handling
@@ -139,25 +139,31 @@ public final class MessageSender {
         // Perform any pre-send actions
         handleMessageWillSend(db, message: message, interactionId: interactionId, isSyncMessage: isSyncMessage)
         
-        // Convert it to protobuf
+        // Convert and prepare the data for sending
         let threadId: String = Message.threadId(forMessage: message, destination: destination)
-        
-        guard let proto = message.toProto(db, threadId: threadId) else {
-            throw MessageSenderError.protoConversionFailed
-        }
-        
-        // Serialize the protobuf
-        let plaintext: Data = try Result(proto.serializedData())
-            .map { serialisedData -> Data in
-                switch destination {
-                    case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
-                        return serialisedData
-                        
-                    default: return serialisedData.paddedMessageBody()
-                }
+        let plaintext: Data = try {
+            switch namespace {
+                case .revokedRetrievableGroupMessages:
+                    return try BencodeEncoder(using: dependencies).encode(message)
+                    
+                default:
+                    guard let proto = message.toProto(db, threadId: threadId) else {
+                        throw MessageSenderError.protoConversionFailed
+                    }
+                    
+                    return try Result(proto.serializedData())
+                        .map { serialisedData -> Data in
+                            switch destination {
+                                case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
+                                    return serialisedData
+                                    
+                                default: return serialisedData.paddedMessageBody()
+                            }
+                        }
+                        .mapError { MessageSenderError.other("Couldn't serialize proto", $0) }
+                        .successOrThrow()
             }
-            .mapError { MessageSenderError.other("Couldn't serialize proto", $0) }
-            .successOrThrow()
+        }()
         let base64EncodedData: String = try {
             switch (destination, namespace) {
                 // Standard one-to-one messages
@@ -198,6 +204,10 @@ public final class MessageSender {
                             using: dependencies
                         )
                         .base64EncodedString()
+                    
+                // revokedRetrievableGroupMessages should be sent in plaintext (their content has custom encryption)
+                case (.closedGroup(let groupId), .revokedRetrievableGroupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
+                    return plaintext.base64EncodedString()
                     
                 // Config messages should be sent directly rather than via this method
                 case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
@@ -248,7 +258,7 @@ public final class MessageSender {
                 db,
                 message: snodeMessage,
                 in: namespace,
-                authInfo: try SnodeAPI.AuthenticationInfo(db, sessionIdHexString: threadId, using: dependencies),
+                authMethod: try Authentication.with(db, sessionIdHexString: threadId, using: dependencies),
                 using: dependencies
             )
             .handleEvents(
@@ -355,7 +365,7 @@ public final class MessageSender {
         // error in a non-retryable way
         guard
             let message: VisibleMessage = message as? VisibleMessage,
-            case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, _) = destination,
+            case .openGroup(let roomToken, let server, let whisperTo, let whisperMods) = destination,
             let openGroup: OpenGroup = try? OpenGroup.fetchOne(
                 db,
                 id: OpenGroup.idFor(roomToken: roomToken, server: server)
@@ -396,7 +406,7 @@ public final class MessageSender {
         }()
         
         // Ensure the message is valid
-        try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds)
+        try MessageSender.ensureValidMessage(message, destination: destination, fileIds: fileIds, using: dependencies)
         
         // Attach the user's profile
         message.profile = VisibleMessage.VMProfile(
@@ -583,10 +593,11 @@ public final class MessageSender {
     private static func ensureValidMessage(
         _ message: Message,
         destination: Message.Destination,
-        fileIds: [String]
+        fileIds: [String],
+        using dependencies: Dependencies
     ) throws {
         /// Check the message itself is valid
-        guard message.isValid else { throw MessageSenderError.invalidMessage }
+        guard message.isValid(using: dependencies) else { throw MessageSenderError.invalidMessage }
         
         /// We now allow the creation of message data without validating it's attachments have finished uploading first, this is here to
         /// ensure we don't send a message which should have uploaded files
@@ -669,27 +680,45 @@ public final class MessageSender {
                         openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
                     ).update(db)
                     
-                    if
-                        interaction.isExpiringMessage && isSyncMessage,
-                        let startedAtMs: Double = interaction.expiresStartedAtMs,
-                        let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
-                        let serverHash: String = message.serverHash
-                    {
-                        let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
-                        dependencies[singleton: .jobRunner].add(
+                    if interaction.isExpiringMessage {
+                        // Start disappearing messages job after a message is successfully sent.
+                        // For DAR and DAS outgoing messages, the expiration start time are the
+                        // same as message sentTimestamp. So do this once, DAR and DAS messages
+                        // should all be covered.
+                        dependencies[singleton: .jobRunner].upsert(
                             db,
-                            job: Job(
-                                variant: .expirationUpdate,
-                                behaviour: .runOnce,
-                                threadId: interaction.threadId,
-                                details: ExpirationUpdateJob.Details(
-                                    serverHashes: [serverHash],
-                                    expirationTimestampMs: expirationTimestampMs
-                                )
+                            job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                                db,
+                                interaction: interaction,
+                                startedAtMs: Double(interaction.timestampMs),
+                                using: dependencies
                             ),
                             canStartJob: true,
                             using: dependencies
                         )
+                        
+                        if
+                            isSyncMessage,
+                            let startedAtMs: Double = interaction.expiresStartedAtMs,
+                            let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
+                            let serverHash: String = message.serverHash
+                        {
+                            let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
+                            dependencies[singleton: .jobRunner].add(
+                                db,
+                                job: Job(
+                                    variant: .expirationUpdate,
+                                    behaviour: .runOnce,
+                                    threadId: interaction.threadId,
+                                    details: ExpirationUpdateJob.Details(
+                                        serverHashes: [serverHash],
+                                        expirationTimestampMs: expirationTimestampMs
+                                    )
+                                ),
+                                canStartJob: true,
+                                using: dependencies
+                            )
+                        }
                     }
                 }
                 
@@ -708,7 +737,7 @@ public final class MessageSender {
             threadId: threadId,
             message: message,
             serverExpirationTimestamp: (
-                (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000) +
+                TimeInterval(Double(SnodeAPI.currentOffsetTimestampMs(using: dependencies)) / 1000) +
                 ControlMessageProcessRecord.defaultExpirationSeconds
             )
         )?.insert(db)
@@ -721,6 +750,7 @@ public final class MessageSender {
             threadId: threadId,
             interactionId: interactionId,
             isAlreadySyncMessage: isSyncMessage,
+            after: nil,
             using: dependencies
         )
     }
@@ -805,6 +835,7 @@ public final class MessageSender {
         threadId: String?,
         interactionId: Int64?,
         isAlreadySyncMessage: Bool,
+        after blockingJob: Job?,
         using dependencies: Dependencies
     ) {
         // Sync the message if it's not a sync message, wasn't already sent to the current user and
@@ -832,6 +863,7 @@ public final class MessageSender {
                         isSyncMessage: true
                     )
                 ),
+                dependantJob: blockingJob,
                 canStartJob: true,
                 using: dependencies
             )

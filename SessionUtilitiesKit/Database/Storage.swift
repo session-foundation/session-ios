@@ -11,23 +11,30 @@ import SignalCoreKit
 // MARK: - Singleton
 
 public extension Singleton {
-    static let storage: SingletonConfig<Storage> = Dependencies.create { _ in Storage() }
-    static let scheduler: SingletonConfig<ValueObservationScheduler> = Dependencies.create { _ in
-        AsyncValueObservationScheduler.async(onQueue: .main)
-    }
+    static let storage: SingletonConfig<Storage> = Dependencies.create(
+        identifier: "storage",
+        createInstance: { _ in Storage() }
+    )
+    static let scheduler: SingletonConfig<ValueObservationScheduler> = Dependencies.create(
+        identifier: "scheduler",
+        createInstance: { _ in AsyncValueObservationScheduler.async(onQueue: .main) }
+    )
 }
+
+// MARK: - KeychainStorage
+
+public extension KeychainStorage.ServiceKey { static let storage: Self = "TSKeyChainService" }
+public extension KeychainStorage.DataKey { static let dbCipherKeySpec: Self = "GRDBDatabaseCipherKeySpec" }
 
 // MARK: - Storage
 
 open class Storage {
     public static let queuePrefix: String = "SessionDatabase"
     private static let dbFileName: String = "Session.sqlite"
-    private static let keychainService: String = "TSKeyChainService"
-    private static let dbCipherKeySpecKey: String = "GRDBDatabaseCipherKeySpec"
     private static let kSQLCipherKeySpecLength: Int = 48
     private static let writeWarningThreadshold: TimeInterval = 3
     
-    private static var sharedDatabaseDirectoryPath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/database" }
+    private static var sharedDatabaseDirectoryPath: String { "\(FileManager.default.appSharedDataDirectoryPath)/database" }
     private static var databasePath: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)" }
     private static var databasePathShm: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-shm" }
     private static var databasePathWal: String { "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)-wal" }
@@ -390,13 +397,15 @@ open class Storage {
     
     // MARK: - Security
     
-    private static func getDatabaseCipherKeySpec() throws -> Data {
-        return try SSKDefaultKeychainStorage.shared.data(forService: keychainService, key: dbCipherKeySpecKey)
+    private static func getDatabaseCipherKeySpec(using dependencies: Dependencies = Dependencies()) throws -> Data {
+        return try dependencies[singleton: .keychain].data(forService: .storage, key: .dbCipherKeySpec)
     }
     
-    @discardableResult private static func getOrGenerateDatabaseKeySpec() throws -> Data {
+    @discardableResult private static func getOrGenerateDatabaseKeySpec(
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> Data {
         do {
-            var keySpec: Data = try getDatabaseCipherKeySpec()
+            var keySpec: Data = try getDatabaseCipherKeySpec(using: dependencies)
             defer { keySpec.resetBytes(in: 0..<keySpec.count) }
             
             guard keySpec.count == kSQLCipherKeySpecLength else { throw StorageError.invalidKeySpec }
@@ -418,10 +427,10 @@ open class Storage {
                 case (_, errSecItemNotFound):
                     // No keySpec was found so we need to generate a new one
                     do {
-                        var keySpec: Data = try Randomness.generateRandomBytes(numberBytes: kSQLCipherKeySpecLength)
+                        var keySpec: Data = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(numberBytes: kSQLCipherKeySpecLength))
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
-                        try SSKDefaultKeychainStorage.shared.set(data: keySpec, service: keychainService, key: dbCipherKeySpecKey)
+                        try dependencies[singleton: .keychain].set(data: keySpec, service: .storage, key: .dbCipherKeySpec)
                         return keySpec
                     }
                     catch {
@@ -481,7 +490,7 @@ open class Storage {
         Storage.internalHasCreatedValidInstance.mutate { $0 = false }
         
         deleteDatabaseFiles()
-        try? deleteDbKeys()
+        try? deleteDbKeys(using: dependencies)
     }
     
     public static func reconfigureDatabase(using dependencies: Dependencies = Dependencies()) {
@@ -502,8 +511,8 @@ open class Storage {
         OWSFileSystem.deleteFile(databasePathWal)
     }
     
-    private static func deleteDbKeys() throws {
-        try SSKDefaultKeychainStorage.shared.remove(service: keychainService, key: dbCipherKeySpecKey)
+    private static func deleteDbKeys(using dependencies: Dependencies = Dependencies()) throws {
+        try dependencies[singleton: .keychain].remove(service: .storage, key: .dbCipherKeySpec)
     }
     
     // MARK: - Logging Functions

@@ -7,6 +7,7 @@ import SessionUtilitiesKit
 
 final class CallMessageCell: MessageCell {
     private static let iconSize: CGFloat = 16
+    private static let timerViewSize: CGFloat = 12
     private static let inset = Values.mediumSpacing
     private static let margin = UIScreen.main.bounds.width * 0.1
     
@@ -16,7 +17,7 @@ final class CallMessageCell: MessageCell {
     
     // MARK: - UI
     
-    private lazy var topConstraint: NSLayoutConstraint = container.pin(.top, to: .top, of: self, withInset: CallMessageCell.inset)
+    private lazy var topConstraint: NSLayoutConstraint = mainStackView.pin(.top, to: .top, of: self, withInset: CallMessageCell.inset)
     private lazy var iconImageViewWidthConstraint: NSLayoutConstraint = iconImageView.set(.width, to: 0)
     private lazy var iconImageViewHeightConstraint: NSLayoutConstraint = iconImageView.set(.height, to: 0)
     private lazy var infoImageViewWidthConstraint: NSLayoutConstraint = infoImageView.set(.width, to: 0)
@@ -29,6 +30,16 @@ final class CallMessageCell: MessageCell {
                 .withRenderingMode(.alwaysTemplate)
         )
         result.themeTintColor = .textPrimary
+        
+        return result
+    }()
+    
+    private lazy var timerView: DisappearingMessageTimerView = DisappearingMessageTimerView()
+    private lazy var timerViewContainer: UIView = {
+        let result: UIView = UIView()
+        result.addSubview(timerView)
+        result.set(.height, to: Self.timerViewSize)
+        timerView.center(in: result)
         
         return result
     }()
@@ -76,6 +87,15 @@ final class CallMessageCell: MessageCell {
         return result
     }()
     
+    private lazy var mainStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [ timerViewContainer, container ])
+        result.axis = .vertical
+        result.spacing = Values.smallSpacing
+        result.alignment = .fill
+        
+        return result
+    }()
+    
     // MARK: - Lifecycle
     
     override func setUpViewHierarchy() {
@@ -83,12 +103,12 @@ final class CallMessageCell: MessageCell {
         
         iconImageViewWidthConstraint.isActive = true
         iconImageViewHeightConstraint.isActive = true
-        addSubview(container)
+        addSubview(mainStackView)
         
         topConstraint.isActive = true
-        container.pin(.left, to: .left, of: self, withInset: CallMessageCell.margin)
-        container.pin(.right, to: .right, of: self, withInset: -CallMessageCell.margin)
-        container.pin(.bottom, to: .bottom, of: self, withInset: -CallMessageCell.inset)
+        mainStackView.pin(.left, to: .left, of: self, withInset: CallMessageCell.margin)
+        mainStackView.pin(.right, to: .right, of: self, withInset: -CallMessageCell.margin)
+        mainStackView.pin(.bottom, to: .bottom, of: self, withInset: -CallMessageCell.inset)
     }
     
     override func setUpGestureRecognizers() {
@@ -107,7 +127,8 @@ final class CallMessageCell: MessageCell {
         mediaCache: NSCache<NSString, AnyObject>,
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         showExpandedReactions: Bool,
-        lastSearchText: String?
+        lastSearchText: String?,
+        using dependencies: Dependencies
     ) {
         guard
             cellViewModel.variant == .infoCall,
@@ -147,6 +168,24 @@ final class CallMessageCell: MessageCell {
         infoImageViewHeightConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
         
         label.text = cellViewModel.body
+        
+        // Timer
+        if
+            let expiresStartedAtMs: Double = cellViewModel.expiresStartedAtMs,
+            let expiresInSeconds: TimeInterval = cellViewModel.expiresInSeconds
+        {
+            let expirationTimestampMs: Double = (expiresStartedAtMs + (expiresInSeconds * 1000))
+            
+            timerView.configure(
+                expirationTimestampMs: expirationTimestampMs,
+                initialDurationSeconds: expiresInSeconds
+            )
+            timerView.themeTintColor = .textSecondary
+            timerViewContainer.isHidden = false
+        }
+        else {
+            timerViewContainer.isHidden = true
+        }
     }
     
     override func dynamicUpdate(with cellViewModel: MessageViewModel, playbackInfo: ConversationViewModel.PlaybackInfo?) {

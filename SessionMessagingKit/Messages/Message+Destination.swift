@@ -17,8 +17,7 @@ public extension Message {
             roomToken: String,
             server: String,
             whisperTo: String? = nil,
-            whisperMods: Bool = false,
-            fileIds: [String]? = nil
+            whisperMods: Bool = false
         )
         case openGroupInbox(server: String, openGroupPublicKey: String, blindedPublicKey: String)
         
@@ -36,8 +35,7 @@ public extension Message {
         public static func from(
             _ db: Database,
             threadId: String,
-            threadVariant: SessionThread.Variant,
-            fileIds: [String]? = nil
+            threadVariant: SessionThread.Variant
         ) throws -> Message.Destination {
             switch threadVariant {
                 case .contact:
@@ -64,23 +62,7 @@ public extension Message {
                         throw StorageError.objectNotFound
                     }
                     
-                    return .openGroup(roomToken: openGroup.roomToken, server: openGroup.server, fileIds: fileIds)
-            }
-        }
-        
-        func with(fileIds: [String]) -> Message.Destination {
-            // Only Open Group messages support receiving the 'fileIds'
-            switch self {
-                case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, _):
-                    return .openGroup(
-                        roomToken: roomToken,
-                        server: server,
-                        whisperTo: whisperTo,
-                        whisperMods: whisperMods,
-                        fileIds: fileIds
-                    )
-                    
-                default: return self
+                    return .openGroup(roomToken: openGroup.roomToken, server: openGroup.server)
             }
         }
     }

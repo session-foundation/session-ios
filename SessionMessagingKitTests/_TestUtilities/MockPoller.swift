@@ -9,21 +9,20 @@ import SessionUtilitiesKit
 
 class MockPoller: Mock<PollerType>, PollerType {
     func start(using dependencies: Dependencies) {
-        accept(args: [dependencies])
+        mockNoReturn(args: [dependencies])
     }
     
     func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
-        accept(args: [publicKey, dependencies])
+        mockNoReturn(args: [publicKey, dependencies])
     }
     
     func stopAllPollers() {
-        accept(args: [])
+        mockNoReturn(args: [])
     }
     
     func stopPolling(for publicKey: String) {
-        accept(args: [publicKey])
+        mockNoReturn(args: [publicKey])
     }
-    
     
     func poll(
         namespaces: [SnodeAPI.Namespace],
@@ -33,13 +32,21 @@ class MockPoller: Mock<PollerType>, PollerType {
         drainBehaviour: Atomic<SwarmDrainBehaviour>,
         using dependencies: Dependencies
     ) -> AnyPublisher<[ProcessedMessage], Error> {
-        accept(args: [
+        mock(args: [
             namespaces,
             publicKey,
             calledFromBackgroundPoller,
             isBackgroundPollValid,
             drainBehaviour,
             dependencies
-        ]) as! AnyPublisher<[ProcessedMessage], Error>
+        ])
+    }
+    
+    func afterNextPoll(
+        for publicKey: String,
+        closure: @escaping ([ProcessedMessage]) -> ()
+    ) {
+        mockNoReturn(args: [publicKey, closure])
+        closure([])
     }
 }

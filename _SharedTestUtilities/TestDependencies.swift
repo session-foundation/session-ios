@@ -6,38 +6,79 @@ import Quick
 @testable import SessionUtilitiesKit
 
 public class TestDependencies: Dependencies {
-    private var singletonInstances: [Int: Any] = [:]
-    private var cacheInstances: [Int: MutableCacheType] = [:]
-    private var defaultsInstances: [Int: (any UserDefaultsType)] = [:]
+    private var singletonInstances: [String: Any] = [:]
+    private var cacheInstances: [String: MutableCacheType] = [:]
+    private var defaultsInstances: [String: (any UserDefaultsType)] = [:]
+    private var featureInstances: [String: (any FeatureType)] = [:]
     private var mockedValues: [Int: Any] = [:]
     
     // MARK: - Subscript Access
     
     override public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
-        return getValueSettingIfNull(singleton: singleton, &singletonInstances)
+        guard let value: S = (singletonInstances[singleton.identifier] as? S) else {
+            let value: S = singleton.createInstance(self)
+            singletonInstances[singleton.identifier] = value
+            return value
+        }
+
+        return value
     }
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S? {
-        get { return (singletonInstances[singleton.key] as? S) }
-        set { singletonInstances[singleton.key] = newValue }
+        get { return (singletonInstances[singleton.identifier] as? S) }
+        set { singletonInstances[singleton.identifier] = newValue }
     }
     
     override public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
-        return getValueSettingIfNull(cache: cache, &cacheInstances)
+        guard let value: M = (cacheInstances[cache.identifier] as? M) else {
+            let value: M = cache.createInstance(self)
+            let mutableInstance: MutableCacheType = cache.mutableInstance(value)
+            cacheInstances[cache.identifier] = mutableInstance
+            return cache.immutableInstance(value)
+        }
+        
+        return cache.immutableInstance(value)
     }
     
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> M? {
-        get { return (cacheInstances[cache.key] as? M) }
-        set { cacheInstances[cache.key] = newValue.map { cache.mutableInstance($0) } }
+        get { return (cacheInstances[cache.identifier] as? M) }
+        set { cacheInstances[cache.identifier] = newValue.map { cache.mutableInstance($0) } }
     }
     
     override public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
-        return getValueSettingIfNull(defaults: defaults, &defaultsInstances)
+        guard let value: UserDefaultsType = defaultsInstances[defaults.identifier] else {
+            let value: UserDefaultsType = defaults.createInstance(self)
+            defaultsInstances[defaults.identifier] = value
+            return value
+        }
+
+        return value
+    }
+    
+    override public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T {
+        guard let value: Feature<T> = (featureInstances[feature.identifier] as? Feature<T>) else {
+            let value: Feature<T> = feature.createInstance(self)
+            featureInstances[feature.identifier] = value
+            return value.currentValue(using: self)
+        }
+        
+        return value.currentValue(using: self)
+    }
+    
+    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T? {
+        get { return (featureInstances[feature.identifier] as? T) }
+        set {
+            if featureInstances[feature.identifier] == nil {
+                featureInstances[feature.identifier] = feature.createInstance(self)
+            }
+            
+            set(feature: feature, to: newValue)
+        }
     }
     
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType? {
-        get { return defaultsInstances[defaults.key] }
-        set { defaultsInstances[defaults.key] = newValue }
+        get { return defaultsInstances[defaults.identifier] }
+        set { defaultsInstances[defaults.identifier] = newValue }
     }
     
     // MARK: - Timing and Async Handling
@@ -92,7 +133,7 @@ public class TestDependencies: Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) -> R
     ) -> R {
-        var value: M = ((cacheInstances[cache.key] as? M) ?? cache.createInstance(self))
+        var value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
         return mutation(&value)
     }
     
@@ -100,7 +141,7 @@ public class TestDependencies: Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) throws -> R
     ) throws -> R {
-        var value: M = ((cacheInstances[cache.key] as? M) ?? cache.createInstance(self))
+        var value: M = ((cacheInstances[cache.identifier] as? M) ?? cache.createInstance(self))
         return try mutation(&value)
     }
     
@@ -141,48 +182,6 @@ public class TestDependencies: Dependencies {
             .first
         
         return result.map { elements.remove($0) }
-    }
-    
-    // MARK: - Instance upserting
-    
-    @discardableResult private func getValueSettingIfNull<S>(
-        singleton: SingletonConfig<S>,
-        _ store: inout [Int: Any]
-    ) -> S {
-        guard let value: S = (store[singleton.key] as? S) else {
-            let value: S = singleton.createInstance(self)
-            store[singleton.key] = value
-            return value
-        }
-
-        return value
-    }
-    
-    @discardableResult private func getValueSettingIfNull<M, I>(
-        cache: CacheConfig<M, I>,
-        _ store: inout [Int: MutableCacheType]
-    ) -> I {
-        guard let value: M = (store[cache.key] as? M) else {
-            let value: M = cache.createInstance(self)
-            let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-            store[cache.key] = mutableInstance
-            return cache.immutableInstance(value)
-        }
-        
-        return cache.immutableInstance(value)
-    }
-    
-    @discardableResult private func getValueSettingIfNull(
-        defaults: UserDefaultsConfig,
-        _ store: inout [Int: (any UserDefaultsType)]
-    ) -> UserDefaultsType {
-        guard let value: UserDefaultsType = store[defaults.key] else {
-            let value: UserDefaultsType = defaults.createInstance(self)
-            store[defaults.key] = value
-            return value
-        }
-
-        return value
     }
 }
 

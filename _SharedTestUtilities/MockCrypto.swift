@@ -5,20 +5,18 @@ import SessionUtilitiesKit
 
 class MockCrypto: Mock<CryptoType>, CryptoType {
     func size(_ size: Crypto.Size) -> Int {
-        return accept(funcName: "size(\(size.id))", args: size.args) as! Int
+        return mock(funcName: "size(\(size.id))", args: size.args)
     }
     
-    func perform(_ action: Crypto.Action) throws -> Array<UInt8> {
-        return try accept(funcName: "perform(\(action.id))", args: action.args) as? Array<UInt8> ?? {
-            throw CryptoError.failedToGenerateOutput
-        }()
+    func generate<R>(_ generator: Crypto.Generator<R>) -> R? {
+        return mock(funcName: "generate<\(R.self)>(\(generator.id))", args: generator.args)
+    }
+    
+    func tryGenerate<R>(_ generator: Crypto.Generator<R>) throws -> R {
+        return try mockThrowing(funcName: "generate<\(R.self)>(\(generator.id))", args: generator.args)
     }
     
     func verify(_ verification: Crypto.Verification) -> Bool {
-        return accept(funcName: "verify(\(verification.id))", args: verification.args) as! Bool
-    }
-    
-    func generate(_ keyPairType: Crypto.KeyPairType) -> KeyPair? {
-        return accept(funcName: "generate(\(keyPairType.id))", args: keyPairType.args) as? KeyPair
+        return mock(funcName: "verify(\(verification.id))", args: verification.args)
     }
 }

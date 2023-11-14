@@ -16,6 +16,7 @@ public enum SnodeAPIError: LocalizedError {
     case invalidIP
     case emptySnodePool
     case responseFailedValidation
+    case unauthorised
     
     // ONS
     case decryptionFailed
@@ -35,6 +36,7 @@ public enum SnodeAPIError: LocalizedError {
             case .invalidIP: return "Invalid IP."
             case .emptySnodePool: return "Service Node pool is empty."
             case .responseFailedValidation: return "Response failed validation."
+            case .unauthorised: return "Unauthorized"
                 
             // ONS
             case .decryptionFailed: return "Couldn't decrypt ONS name."

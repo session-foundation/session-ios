@@ -156,7 +156,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.webRTCSession = WebRTCSession.current ?? WebRTCSession(for: sessionId, with: uuid)
         self.isOutgoing = outgoing
         
-        let avatarData: Data? = ProfileManager.profileAvatar(db, id: sessionId)
+        let avatarData: Data? = DisplayPictureManager.displayPicture(db, id: .user(sessionId))
         self.contactName = Profile.displayName(db, id: sessionId, threadVariant: .contact)
         self.profilePicture = avatarData
             .map { UIImage(data: $0) }
@@ -309,9 +309,9 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                             .encode(missedCallInfo)
                     else { return }
                     
-                    _ = try interaction
+                    try interaction
                         .with(body: String(data: missedCallInfoData, encoding: .utf8))
-                        .saved(db)
+                        .upserted(db)
                 }
                 let shouldMarkAsRead: Bool = try {
                     if duration > 0 { return true }

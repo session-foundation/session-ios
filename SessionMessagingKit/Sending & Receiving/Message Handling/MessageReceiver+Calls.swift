@@ -70,8 +70,13 @@ extension MessageReceiver {
         guard let timestamp = message.sentTimestamp, TimestampUtils.isWithinOneMinute(timestamp: timestamp) else {
             // Add missed call message for call offer messages from more than one minute
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .missed) {
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                    db,
+                    id: sender,
+                    variant: .contact,
+                    shouldBeVisible: nil,
+                    calledFromConfigHandling: false
+                )
                 
                 if !interaction.wasRead {
                     Environment.shared?.notificationsManager.wrappedValue?
@@ -88,8 +93,13 @@ extension MessageReceiver {
         
         guard db[.areCallsEnabled] else {
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, for: message, state: .permissionDenied) {
-                let thread: SessionThread = try SessionThread
-                    .fetchOrCreate(db, id: sender, variant: .contact, shouldBeVisible: nil)
+                let thread: SessionThread = try SessionThread.fetchOrCreate(
+                    db,
+                    id: sender,
+                    variant: .contact,
+                    shouldBeVisible: nil,
+                    calledFromConfigHandling: false
+                )
                 
                 if !interaction.wasRead {
                     Environment.shared?.notificationsManager.wrappedValue?
@@ -218,8 +228,8 @@ extension MessageReceiver {
         guard
             let caller: String = message.sender,
             let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo),
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: caller),
-            !thread.isMessageRequest(db)
+            !SessionThread.isMessageRequest(db, threadId: caller, userSessionId: getUserSessionId(db, using: dependencies)),
+            let thread: SessionThread = try SessionThread.fetchOne(db, id: caller)
         else { return }
         
         SNLog("[Calls] Sending end call message because there is an ongoing call.")
@@ -282,8 +292,8 @@ extension MessageReceiver {
                 .isEmpty(db))
                 .defaulting(to: false),
             let sender: String = message.sender,
-            let thread: SessionThread = try SessionThread.fetchOne(db, id: sender),
-            !thread.isMessageRequest(db)
+            !SessionThread.isMessageRequest(db, threadId: sender, userSessionId: getUserSessionId(db, using: dependencies)),
+            let thread: SessionThread = try SessionThread.fetchOne(db, id: sender)
         else { return nil }
         
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)

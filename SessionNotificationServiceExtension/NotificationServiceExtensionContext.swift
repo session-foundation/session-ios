@@ -39,13 +39,6 @@ final class NotificationServiceExtensionContext : NSObject, AppContext {
         return documentDirectoryURL.path
     }
 
-    func appSharedDataDirectoryPath() -> String {
-        guard let groupContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup) else {
-            preconditionFailure("Couldn't get shared data directory.")
-        }
-        return groupContainerURL.path
-    }
-
     // MARK: - Currently Unused
     
     let frame = CGRect.zero

@@ -12,7 +12,8 @@ public extension SnodeAPI {
         case deleteMessages
         case deleteAll
         case deleteAllBefore
-        case revokeSubkey
+        case revokeSubaccount
+        case unrevokeSubaccount
         case expire
         case expireAll
         case getExpiries
@@ -44,7 +45,8 @@ public extension SnodeAPI {
                 case .deleteMessages: return "delete"
                 case .deleteAll: return "delete_all"
                 case .deleteAllBefore: return "delete_before"
-                case .revokeSubkey: return "revoke_subkey"
+                case .revokeSubaccount: return "revoke_subaccount"
+                case .unrevokeSubaccount: return "unrevoke_subaccount"
                 case .expire: return "expire"
                 case .expireAll: return "expire_all"
                 case .getExpiries: return "get_expiries"

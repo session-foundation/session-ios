@@ -6,6 +6,20 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 final class AppearanceViewController: BaseVC {
+    // MARK: - Initialization
+    
+    private let dependencies: Dependencies
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     // MARK: - Components
     
     private let scrollView: UIScrollView = {
@@ -75,8 +89,8 @@ final class AppearanceViewController: BaseVC {
         return result
     }()
     
-    private let primaryColorPreviewView: ThemePreviewView = {
-        let result: ThemePreviewView = ThemePreviewView()
+    private lazy var primaryColorPreviewView: ThemePreviewView = {
+        let result: ThemePreviewView = ThemePreviewView(using: dependencies)
         result.translatesAutoresizingMaskIntoConstraints = false
         
         return result

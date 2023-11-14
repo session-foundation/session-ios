@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+// TODO: Refactor this when disappearing messages V2 is up and running
 public final class ExpirationTimerUpdate: ControlMessage {
     private enum CodingKeys: String, CodingKey {
         case syncTarget
@@ -29,10 +30,10 @@ public final class ExpirationTimerUpdate: ControlMessage {
 
     // MARK: - Validation
     
-    public override var isValid: Bool {
-        guard super.isValid else { return false }
+    public override func isValid(using dependencies: Dependencies) -> Bool {
+        guard super.isValid(using: dependencies) else { return false }
         
-        return (duration != nil || Features.useNewDisappearingMessagesConfig)
+        return (duration != nil || dependencies[feature: .updatedDisappearingMessages])
     }
     
     // MARK: - Codable

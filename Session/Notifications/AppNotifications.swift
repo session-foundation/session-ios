@@ -93,9 +93,15 @@ public class NotificationPresenter: NotificationsProtocol {
         _ db: Database,
         for interaction: Interaction,
         in thread: SessionThread,
-        applicationState: UIApplication.State
+        applicationState: UIApplication.State,
+        using dependencies: Dependencies
     ) {
-        let isMessageRequest: Bool = thread.isMessageRequest(db, includeNonVisible: true)
+        let isMessageRequest: Bool = SessionThread.isMessageRequest(
+            db,
+            threadId: thread.id,
+            userSessionId: getUserSessionId(db),
+            includeNonVisible: true
+        )
         
         // Ensure we should be showing a notification for the thread
         guard thread.shouldShowNotification(db, for: interaction, isMessageRequest: isMessageRequest) else {
@@ -108,7 +114,7 @@ public class NotificationPresenter: NotificationsProtocol {
         )
 
         // While batch processing, some of the necessary changes have not been commited.
-        let rawMessageText = interaction.previewText(db)
+        let rawMessageText = interaction.previewText(db, using: dependencies)
 
         // iOS strips anything that looks like a printf formatting character from
         // the notification body, so if we want to dispay a literal "%" in a notification
@@ -140,11 +146,11 @@ public class NotificationPresenter: NotificationsProtocol {
                 notificationTitle = "Session"
                 
             case .nameNoPreview, .nameAndPreview:
-                switch thread.variant {
-                    case .contact:
-                        notificationTitle = (isMessageRequest ? "Session" : senderName)
+                switch (thread.variant, isMessageRequest) {
+                    case (.contact, true), (.group, true): notificationTitle = "Session"
+                    case (.contact, false): notificationTitle = senderName
                         
-                    case .legacyGroup, .group, .community:
+                    case (.legacyGroup, _), (.group, false), (.community, _):
                         notificationTitle = String(
                             format: NotificationStrings.incomingGroupMessageTitleFormat,
                             senderName,
@@ -303,7 +309,12 @@ public class NotificationPresenter: NotificationsProtocol {
         in thread: SessionThread,
         applicationState: UIApplication.State
     ) {
-        let isMessageRequest: Bool = thread.isMessageRequest(db, includeNonVisible: true)
+        let isMessageRequest: Bool = SessionThread.isMessageRequest(
+            db,
+            threadId: thread.id,
+            userSessionId: getUserSessionId(db),
+            includeNonVisible: true
+        )
         
         // No reaction notifications for muted, group threads or message requests
         guard Date().timeIntervalSince1970 > (thread.mutedUntilTimestamp ?? 0) else { return }

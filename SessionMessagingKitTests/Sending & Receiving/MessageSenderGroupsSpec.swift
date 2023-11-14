@@ -50,7 +50,7 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.onionRequest(any(), to: any(), timeout: any())) }
+                    .when { $0.send(.selectedNetworkRequest(any(), to: any(), timeout: any(), using: any())) }
                     .thenReturn(HTTP.BatchResponse.mockConfigSyncResponse)
             }
         )
@@ -65,8 +65,14 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                     )
                 crypto
-                    .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
-                    .thenReturn("TestSignature".bytes)
+                    .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+                crypto
+                    .when { try $0.generate(.memberAuthData(config: any(), groupSessionId: any(), memberId: any())) }
+                    .thenReturn(Authentication.Info.groupMember(
+                        groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                        authData: "TestAuthData".data(using: .utf8)!
+                    ))
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
@@ -171,7 +177,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                     MessageSender
                         .createGroup(
                             name: "TestGroupName",
-                            displayPicture: nil,
+                            description: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -197,7 +204,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                     MessageSender
                         .createGroup(
                             name: "Test",
-                            displayPicture: nil,
+                            description: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -223,7 +231,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                     MessageSender
                         .createGroup(
                             name: "TestGroupName",
-                            displayPicture: nil,
+                            description: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -249,7 +258,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                     MessageSender
                         .createGroup(
                             name: "TestGroupName",
-                            displayPicture: nil,
+                            description: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -281,7 +291,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                     MessageSender
                         .createGroup(
                             name: "TestGroupName",
-                            displayPicture: nil,
+                            description: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -300,7 +311,14 @@ class MessageSenderGroupsSpec: QuickSpec {
                     let expectedSendData: Data = mockStorage
                         .write(using: dependencies) { db in
                             // Need the auth data to exist in the database to prepare the request
-                            _ = try SessionThread.fetchOrCreate(db, id: groupId.hexString, variant: .group, shouldBeVisible: nil)
+                            _ = try SessionThread.fetchOrCreate(
+                                db,
+                                id: groupId.hexString,
+                                variant: .group,
+                                shouldBeVisible: nil,
+                                calledFromConfigHandling: false,
+                                using: dependencies
+                            )
                             try ClosedGroup(
                                 threadId: groupId.hexString,
                                 name: "Test",
@@ -308,7 +326,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 shouldPoll: nil,
                                 groupIdentityPrivateKey: groupSecretKey,
                                 invited: nil
-                            ).save(db)
+                            ).upsert(db)
                             
                             let preparedRequest: HTTP.PreparedRequest<HTTP.BatchResponse> = try SnodeAPI.preparedSequence(
                                 db,
@@ -325,7 +343,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                                     timestampMs: 1234567890
                                                 ),
                                                 in: pushData.variant.namespace,
-                                                authInfo: try SnodeAPI.AuthenticationInfo(
+                                                authMethod: try Authentication.with(
                                                     db,
                                                     sessionIdHexString: groupId.hexString,
                                                     using: dependencies
@@ -348,7 +366,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                     MessageSender
                         .createGroup(
                             name: "TestGroupName",
-                            displayPicture: nil,
+                            description: nil,
+                            displayPictureData: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
@@ -357,12 +376,13 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { [dependencies = dependencies!] network in
                             network.send(
-                                .onionRequest(
+                                .selectedNetworkRequest(
                                     expectedSendData,
                                     to: dependencies.randomElement(mockSwarmCache)!,
-                                    timeout: HTTP.defaultTimeout
+                                    timeout: HTTP.defaultTimeout,
+                                    using: dependencies
                                 )
                             )
                         })
@@ -372,7 +392,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                 context("and the group configuration sync fails") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), timeout: any())) }
+                            .when { $0.send(.selectedNetworkRequest(any(), to: any(), timeout: any(), using: any())) }
                             .thenReturn(MockNetwork.errorResponse())
                     }
                     
@@ -381,7 +401,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                         MessageSender
                             .createGroup(
                                 name: "TestGroupName",
-                                displayPicture: nil,
+                                description: nil,
+                                displayPictureData: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
@@ -398,7 +419,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                         MessageSender
                             .createGroup(
                                 name: "TestGroupName",
-                                displayPicture: nil,
+                                description: nil,
+                                displayPictureData: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
@@ -426,7 +448,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                         MessageSender
                             .createGroup(
                                 name: "TestGroupName",
-                                displayPicture: nil,
+                                description: nil,
+                                displayPictureData: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],

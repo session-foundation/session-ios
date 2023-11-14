@@ -3,13 +3,25 @@
 import Foundation
 import GRDB
 import SessionUtil
+import SessionSnodeKit
 import SessionUtilitiesKit
+
+// MARK: - Size Restrictions
+
+public extension SessionUtil {
+    static var sizeMaxGroupDescriptionBytes: Int { GROUP_INFO_DESCRIPTION_MAX_LENGTH }
+    
+    static func isTooLong(groupDescription: String) -> Bool {
+        return (groupDescription.utf8CString.count > SessionUtil.sizeMaxGroupDescriptionBytes)
+    }
+}
 
 // MARK: - Group Info Handling
 
 internal extension SessionUtil {
     static let columnsRelatedToGroupInfo: [ColumnExpression] = [
         ClosedGroup.Columns.name,
+        ClosedGroup.Columns.groupDescription,
         ClosedGroup.Columns.displayPictureUrl,
         ClosedGroup.Columns.displayPictureEncryptionKey,
         DisappearingMessagesConfiguration.Columns.isEnabled,
@@ -31,22 +43,35 @@ internal extension SessionUtil {
         guard config.needsDump else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
-        // If the group is destroyed then remove everything, no other properties matter and this
+        // If the group is destroyed then remove the group date (want to keep the group itself around because
+        // the UX of conversations randomly disappearing isn't great) - no other changes matter and this
         // can't be reversed
         guard !groups_info_is_destroyed(conf) else {
+            try ClosedGroup.removeData(
+                db,
+                threadIds: [groupSessionId.hexString],
+                dataToRemove: [
+                    .poller, .pushNotifications, .messages, .members,
+                    .encryptionKeys, .authDetails, .libSessionState
+                ],
+                calledFromConfigHandling: true,
+                using: dependencies
+            )
             return
         }
 
         // A group must have a name so if this is null then it's invalid and can be ignored
         guard let groupNamePtr: UnsafePointer<CChar> = groups_info_get_name(conf) else { return }
 
+        let groupDescPtr: UnsafePointer<CChar>? = groups_info_get_description(conf)
         let groupName: String = String(cString: groupNamePtr)
+        let groupDesc: String? = groupDescPtr.map { String(cString: $0) }
         let formationTimestamp: TimeInterval = TimeInterval(groups_info_get_created(conf))
         let displayPic: user_profile_pic = groups_info_get_pic(conf)
         let displayPictureUrl: String? = String(libSessionVal: displayPic.url, nullIfEmpty: true)
         let displayPictureKey: Data? = Data(
             libSessionVal: displayPic.key,
-            count: ProfileManager.avatarAES256KeyByteLength
+            count: DisplayPictureManager.aes256KeyByteLength
         )
 
         // Update the group name
@@ -61,6 +86,9 @@ internal extension SessionUtil {
         let groupChanges: [ConfigColumnAssignment] = [
             ((existingGroup?.name == groupName) ? nil :
                 ClosedGroup.Columns.name.set(to: groupName)
+            ),
+            ((existingGroup?.groupDescription == groupDesc) ? nil :
+                ClosedGroup.Columns.groupDescription.set(to: groupDesc)
             ),
             ((existingGroup?.formationTimestamp != formationTimestamp && formationTimestamp != 0) ? nil :
                 ClosedGroup.Columns.formationTimestamp.set(to: formationTimestamp)
@@ -88,7 +116,22 @@ internal extension SessionUtil {
                     groupChanges
                 )
         }
-        if needsDisplayPictureUpdate && displayPictureUrl != nil {
+
+        // If we have a display picture then start downloading it
+        if needsDisplayPictureUpdate, let url: String = displayPictureUrl, let key: Data = displayPictureKey {
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .displayPictureDownload,
+                    shouldBeUnique: true,
+                    details: DisplayPictureDownloadJob.Details(
+                        target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
+                        timestamp: TimeInterval(Double(serverTimestampMs) / 1000)
+                    )
+                ),
+                canStartJob: true,
+                using: dependencies
+            )
         }
 
         // Update the disappearing messages configuration
@@ -115,7 +158,102 @@ internal extension SessionUtil {
                 durationSeconds: targetConfig.durationSeconds,
                 type: targetConfig.type,
                 lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
-            ).save(db)
+            ).upsert(db)
+        }
+        
+        // Check if the user is an admin in the group
+        var messageHashesToDelete: Set<String> = []
+        let isAdmin: Bool = ((try? ClosedGroup
+            .filter(id: groupSessionId.hexString)
+            .select(.groupIdentityPrivateKey)
+            .asRequest(of: Data.self)
+            .fetchOne(db)) != nil)
+
+        // If there is a `delete_before` setting then delete all messages before the provided timestamp
+        let deleteBeforeTimestamp: Int64 = groups_info_get_delete_before(conf)
+        
+        if deleteBeforeTimestamp > 0 {
+            if isAdmin {
+                let hashesToDelete: Set<String>? = try? Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
+                    .filter(Interaction.Columns.serverHash != nil)
+                    .select(.serverHash)
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                messageHashesToDelete.insert(contentsOf: hashesToDelete)
+            }
+            
+            let deletionCount: Int = try Interaction
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(Interaction.Columns.timestampMs < (TimeInterval(deleteBeforeTimestamp) * 1000))
+                .deleteAll(db)
+            
+            if deletionCount > 0 {
+                SNLog("[SessionUtil] Deleted \(deletionCount) message\(deletionCount == 1 ? "" : "s") from \(groupSessionId.hexString) due to 'delete_before' value.")
+            }
+        }
+        
+        // If there is a `attach_delete_before` setting then delete all messages that have attachments before
+        // the provided timestamp and schedule a garbage collection job
+        let attachDeleteBeforeTimestamp: Int64 = groups_info_get_attach_delete_before(conf)
+        
+        if attachDeleteBeforeTimestamp > 0 {
+            if isAdmin {
+                let hashesToDelete: Set<String>? = try? Interaction
+                    .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                    .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
+                    .filter(Interaction.Columns.serverHash != nil)
+                    .joining(required: Interaction.interactionAttachments)
+                    .select(.serverHash)
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+                messageHashesToDelete.insert(contentsOf: hashesToDelete)
+            }
+            
+            let deletionCount: Int = try Interaction
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
+                .joining(required: Interaction.interactionAttachments)
+                .deleteAll(db)
+            
+            if deletionCount > 0 {
+                SNLog("[SessionUtil] Deleted \(deletionCount) message\(deletionCount == 1 ? "" : "s") with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")
+                
+                // Schedule a grabage collection job to clean up any now-orphaned attachment files
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .garbageCollection,
+                        details: GarbageCollectionJob.Details(
+                            typesToCollect: [.orphanedAttachments, .orphanedAttachmentFiles]
+                        )
+                    ),
+                    canStartJob: true,
+                    using: dependencies
+                )
+            }
+        }
+        
+        // If the current user is a group admin and there are message hashes which should be deleted then
+        // send a fire-and-forget API call to delete the messages from the swarm
+        if isAdmin && !messageHashesToDelete.isEmpty {
+            (try? Authentication.with(
+                db,
+                sessionIdHexString: groupSessionId.hexString,
+                using: dependencies
+            )).map { authMethod in
+                try? SnodeAPI
+                    .preparedDeleteMessages(
+                        serverHashes: Array(messageHashesToDelete),
+                        requireSuccessfulDeletion: false,
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                    .sinkUntilComplete()
+            }
         }
     }
 }
@@ -153,6 +291,9 @@ internal extension SessionUtil {
                 /// group is synced between devices we want to rely on the proper group config to get display info
                 var updatedName: [CChar] = group.name.cArray.nullTerminated()
                 groups_info_set_name(conf, &updatedName)
+                
+                var updatedDescription: [CChar] = (group.groupDescription ?? "").cArray.nullTerminated()
+                groups_info_set_description(conf, &updatedDescription)
                 
                 // Either assign the updated display pic, or sent a blank pic (to remove the current one)
                 var displayPic: user_profile_pic = user_profile_pic()
@@ -216,8 +357,7 @@ public extension SessionUtil {
     static func update(
         _ db: Database,
         groupSessionId: SessionId,
-        name: String? = nil,
-        disappearingConfig: DisappearingMessagesConfiguration? = nil,
+        disappearingConfig: DisappearingMessagesConfiguration?,
         using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
@@ -228,13 +368,68 @@ public extension SessionUtil {
         ) { config in
             guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
             
-            if let name: String = name {
-                groups_info_set_name(conf, name.toLibSession())
-            }
-            
             if let config: DisappearingMessagesConfiguration = disappearingConfig {
                 groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
             }
+        }
+    }
+    
+    static func deleteMessagesBefore(
+        _ db: Database,
+        groupSessionId: SessionId,
+        timestamp: TimeInterval,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupInfo,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            // Do nothing if the timestamp isn't newer than the current value
+            guard Int64(timestamp) > groups_info_get_delete_before(conf) else { return }
+            
+            groups_info_set_delete_before(conf, Int64(timestamp))
+        }
+    }
+    
+    static func deleteAttachmentsBefore(
+        _ db: Database,
+        groupSessionId: SessionId,
+        timestamp: TimeInterval,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupInfo,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            // Do nothing if the timestamp isn't newer than the current value
+            guard Int64(timestamp) > groups_info_get_attach_delete_before(conf) else { return }
+            
+            groups_info_set_attach_delete_before(conf, Int64(timestamp))
+        }
+    }
+    
+    static func deleteGroupForEveryone(
+        _ db: Database,
+        groupSessionId: SessionId,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        try SessionUtil.performAndPushChange(
+            db,
+            for: .groupInfo,
+            sessionId: groupSessionId,
+            using: dependencies
+        ) { config in
+            guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
+            
+            groups_info_destroy_group(conf)
         }
     }
 }

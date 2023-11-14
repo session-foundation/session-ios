@@ -23,7 +23,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies = Dependencies()) {
+    init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.pagedDataObserver = nil
         
@@ -153,7 +153,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     section: .threads,
                     elements: data
                         .sorted { lhs, rhs -> Bool in lhs.lastInteractionDate > rhs.lastInteractionDate }
-                        .map { viewModel -> SessionCell.Info<SessionThreadViewModel> in
+                        .map { [dependencies] viewModel -> SessionCell.Info<SessionThreadViewModel> in
                             SessionCell.Info(
                                 id: viewModel.populatingCurrentUserBlindedIds(
                                     currentUserBlinded15SessionIdForThisThread: groupedOldData[viewModel.threadId]?
@@ -171,7 +171,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                 onTap: { [weak self] in
                                     let viewController: ConversationVC = ConversationVC(
                                         threadId: viewModel.threadId,
-                                        threadVariant: viewModel.threadVariant
+                                        threadVariant: viewModel.threadVariant,
+                                        using: dependencies
                                     )
                                     self?.transitionToScreen(viewController, transitionType: .push)
                                 }
@@ -230,7 +231,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                         using: dependencies
                                     )
                                     
-                                    // Remove the group requests
+                                    // Remove the group invites
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         threadIds: threadInfo
@@ -269,10 +270,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                 
                 return UIContextualAction.configuration(
                     for: UIContextualAction.generateSwipeActions(
-                        [
-                            (threadViewModel.threadVariant != .contact ? nil : .block),
-                            .delete
-                        ].compactMap { $0 },
+                        [.block, .delete],
                         for: .trailing,
                         indexPath: indexPath,
                         tableView: tableView,

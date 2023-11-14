@@ -14,6 +14,7 @@ public enum General {
 
 public extension Cache {
     static let general: CacheConfig<GeneralCacheType, ImmutableGeneralCacheType> = Dependencies.create(
+        identifier: "general",
         createInstance: { _ in General.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
@@ -46,8 +47,7 @@ public func getUserSessionId(_ db: Database? = nil, using dependencies: Dependen
 
 // MARK: - GeneralCacheType
 
-/// This is a read-only version of the `General.Cache` designed to avoid unintentionally mutating the instance in a
-/// non-thread-safe way
+/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol ImmutableGeneralCacheType: ImmutableCacheType {
     var sessionId: SessionId? { get }
     var recentReactionTimestamps: [Int64] { get }

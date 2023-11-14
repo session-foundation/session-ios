@@ -1,27 +1,53 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
 
 public class Dependencies {
-    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!  // stringlint:disable
+    static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!
     
-    private static var singletonInstances: Atomic<[Int: Any]> = Atomic([:])
-    private static var cacheInstances: Atomic<[Int: MutableCacheType]> = Atomic([:])
-    private static var userDefaultsInstances: Atomic<[Int: (any UserDefaultsType)]> = Atomic([:])
+    private static var singletonInstances: Atomic<[String: Any]> = Atomic([:])
+    private static var cacheInstances: Atomic<[String: Atomic<MutableCacheType>]> = Atomic([:])
+    private static var userDefaultsInstances: Atomic<[String: (any UserDefaultsType)]> = Atomic([:])
+    private static var featureInstances: Atomic<[String: (any FeatureType)]> = Atomic([:])
+    private static var featureObservers: Atomic<[String: [FeatureObservationKey: [((any FeatureOption)?, any FeatureEvent) -> ()]]]> = Atomic([:])
     
     // MARK: - Subscript Access
     
     public subscript<S>(singleton singleton: SingletonConfig<S>) -> S {
-        getValueSettingIfNull(singleton: singleton, &Dependencies.singletonInstances)
+        guard let value: S = (Dependencies.singletonInstances.wrappedValue[singleton.identifier] as? S) else {
+            let value: S = singleton.createInstance(self)
+            Dependencies.singletonInstances.mutate { $0[singleton.identifier] = value }
+            return value
+        }
+
+        return value
     }
     
     public subscript<M, I>(cache cache: CacheConfig<M, I>) -> I {
-        getValueSettingIfNull(cache: cache, &Dependencies.cacheInstances)
+        getValueSettingIfNull(cache: cache)
     }
     
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType {
-        getValueSettingIfNull(defaults: defaults, &Dependencies.userDefaultsInstances)
+        guard let value: UserDefaultsType = Dependencies.userDefaultsInstances.wrappedValue[defaults.identifier] else {
+            let value: UserDefaultsType = defaults.createInstance(self)
+            Dependencies.userDefaultsInstances.mutate { $0[defaults.identifier] = value }
+            return value
+        }
+        
+        return value
+    }
+    
+    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T {
+        guard let value: Feature<T> = (Dependencies.featureInstances.wrappedValue[feature.identifier] as? Feature<T>) else {
+            let value: Feature<T> = feature.createInstance(self)
+            Dependencies.featureInstances.mutate { $0[feature.identifier] = value }
+            return value.currentValue(using: self)
+        }
+        
+        return value.currentValue(using: self)
     }
     
     // MARK: - Timing and Async Handling
@@ -48,8 +74,20 @@ public class Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) -> R
     ) -> R {
-        return Dependencies.cacheInstances.mutate { caches in
-            var value: M = ((caches[cache.key] as? M) ?? cache.createInstance(self))
+        /// The cast from `Atomic<MutableCacheType>` to `Atomic<M>` always fails so we need to do some
+        /// stuffing around to ensure we have the right types - since we call `createInstance` multiple times in
+        /// the below code we first call `getValueSettingIfNull` to ensure we have a proper instance stored
+        /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
+        /// random instance that will go out of memory as soon as the mutation is completed
+        getValueSettingIfNull(cache: cache)
+        
+        let cacheWrapper: Atomic<MutableCacheType> = (
+            Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
+            Atomic(cache.mutableInstance(cache.createInstance(self)))  // Should never be called
+        )
+        
+        return cacheWrapper.mutate { erasedValue in
+            var value: M = ((erasedValue as? M) ?? cache.createInstance(self))
             return mutation(&value)
         }
     }
@@ -58,8 +96,20 @@ public class Dependencies {
         cache: CacheConfig<M, I>,
         _ mutation: (inout M) throws -> R
     ) throws -> R {
-        return try Dependencies.cacheInstances.mutate { caches in
-            var value: M = ((caches[cache.key] as? M) ?? cache.createInstance(self))
+        /// The cast from `Atomic<MutableCacheType>` to `Atomic<M>` always fails so we need to do some
+        /// stuffing around to ensure we have the right types - since we call `createInstance` multiple times in
+        /// the below code we first call `getValueSettingIfNull` to ensure we have a proper instance stored
+        /// in `Dependencies.cacheInstances` so that we can be reliably certail we aren't accessing some
+        /// random instance that will go out of memory as soon as the mutation is completed
+        getValueSettingIfNull(cache: cache)
+        
+        let cacheWrapper: Atomic<MutableCacheType> = (
+            Dependencies.cacheInstances.wrappedValue[cache.identifier] ??
+            Atomic(cache.mutableInstance(cache.createInstance(self)))  // Should never be called
+        )
+        
+        return try cacheWrapper.mutate { erasedValue in
+            var value: M = ((erasedValue as? M) ?? cache.createInstance(self))
             return try mutation(&value)
         }
     }
@@ -80,44 +130,114 @@ public class Dependencies {
 
     // MARK: - Instance upserting
     
-    @discardableResult private func getValueSettingIfNull<S>(
-        singleton: SingletonConfig<S>,
-        _ store: inout Atomic<[Int: Any]>
-    ) -> S {
-        guard let value: S = (store.wrappedValue[singleton.key] as? S) else {
-            let value: S = singleton.createInstance(self)
-            store.mutate { $0[singleton.key] = value }
-            return value
-        }
-
-        return value
-    }
-    
-    @discardableResult private func getValueSettingIfNull<M, I>(
-        cache: CacheConfig<M, I>,
-        _ store: inout Atomic<[Int: MutableCacheType]>
-    ) -> I {
-        guard let value: M = (store.wrappedValue[cache.key] as? M) else {
+    @discardableResult private func getValueSettingIfNull<M, I>(cache: CacheConfig<M, I>) -> I {
+        guard let value: M = (Dependencies.cacheInstances.wrappedValue[cache.identifier]?.wrappedValue as? M) else {
             let value: M = cache.createInstance(self)
             let mutableInstance: MutableCacheType = cache.mutableInstance(value)
-            store.mutate { $0[cache.key] = mutableInstance }
+            Dependencies.cacheInstances.mutate { $0[cache.identifier] = Atomic(mutableInstance) }
             return cache.immutableInstance(value)
         }
         
         return cache.immutableInstance(value)
     }
-    
-    @discardableResult private func getValueSettingIfNull(
-        defaults: UserDefaultsConfig,
-        _ store: inout Atomic<[Int: UserDefaultsType]>
-    ) -> UserDefaultsType {
-        guard let value: UserDefaultsType = store.wrappedValue[defaults.key] else {
-            let value: UserDefaultsType = defaults.createInstance(self)
-            store.mutate { $0[defaults.key] = value }
-            return value
+}
+
+// MARK: - Feature Management
+
+public extension Dependencies {
+    private struct FeatureObservationKey: Hashable {
+        let observerHashValue: Int
+        let events: [(any FeatureEvent)]?
+        
+        init(_ observer: AnyHashable) {
+            self.observerHashValue = observer.hashValue
+            self.events = []
         }
         
-        return value
+        init<E: FeatureEvent>(_ observer: AnyHashable, _ events: [E]?) {
+            self.observerHashValue = observer.hashValue
+            self.events = events
+        }
+        
+        static func == (lhs: Dependencies.FeatureObservationKey, rhs: Dependencies.FeatureObservationKey) -> Bool {
+            return (lhs.observerHashValue == rhs.observerHashValue)
+        }
+        
+        func hash(into hasher: inout Hasher) {
+            observerHashValue.hash(into: &hasher)
+        }
+        
+        func contains<E: FeatureEvent>(event: E) -> Bool {
+            /// No events mean this observer watches for everything
+            guard let events: [(any FeatureEvent)] = self.events else { return true }
+            
+            return events.contains(where: { ($0 as? E) == event })
+        }
+    }
+    
+    func addFeatureObserver<T: FeatureOption>(
+        _ observer: AnyHashable,
+        for feature: FeatureConfig<T>,
+        events: [T.Events]? = nil,
+        onChange: @escaping (T?, T.Events?) -> ()
+    ) {
+        Dependencies.featureObservers.mutate {
+            $0[feature.identifier] = ($0[feature.identifier] ?? [:]).appending(
+                { anyUpdate, anyEvent in onChange(anyUpdate as? T, anyEvent as? T.Events) },
+                toArrayOn: FeatureObservationKey(observer, events)
+            )
+        }
+    }
+    
+    func removeFeatureObserver(_ observer: AnyHashable) {
+        Dependencies.featureObservers.mutate { featureObservers in
+            let observationKey: FeatureObservationKey = FeatureObservationKey(observer)
+            let featureIdentifiers: [String] = Array(featureObservers.keys)
+            
+            featureIdentifiers.forEach { featureIdentifier in
+                guard featureObservers[featureIdentifier]?[observationKey] != nil else { return }
+                
+                featureObservers[featureIdentifier]?.removeValue(forKey: observationKey)
+                
+                if featureObservers[featureIdentifier]?.isEmpty == true {
+                    featureObservers.removeValue(forKey: featureIdentifier)
+                }
+            }
+        }
+    }
+    
+    func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T?) {
+        let value: Feature<T> = {
+            guard let value: Feature<T> = (Dependencies.featureInstances.wrappedValue[feature.identifier] as? Feature<T>) else {
+                let value: Feature<T> = feature.createInstance(self)
+                Dependencies.featureInstances.mutate { $0[feature.identifier] = value }
+                return value
+            }
+            
+            return value
+        }()
+        
+        value.setValue(to: updatedFeature, using: self)
+        Dependencies.featureObservers.wrappedValue[feature.identifier]?
+            .filter { key, _ -> Bool in key.contains(event: T.Events.updateValueEvent) }
+            .forEach { _, callbacks in callbacks.forEach { $0(updatedFeature, T.Events.updateValueEvent) } }
+    }
+    
+    func notifyObservers<T: FeatureOption>(for feature: FeatureConfig<T>, with event: T.Events) {
+        let value: Feature<T> = {
+            guard let value: Feature<T> = (Dependencies.featureInstances.wrappedValue[feature.identifier] as? Feature<T>) else {
+                let value: Feature<T> = feature.createInstance(self)
+                Dependencies.featureInstances.mutate { $0[feature.identifier] = value }
+                return value
+            }
+            
+            return value
+        }()
+        
+        let currentFeature: T = value.currentValue(using: self)
+        Dependencies.featureObservers.wrappedValue[feature.identifier]?
+            .filter { key, _ -> Bool in key.contains(event: event) }
+            .forEach { _, callbacks in callbacks.forEach { $0(currentFeature, event) } }
     }
 }
 

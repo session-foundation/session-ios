@@ -9,9 +9,10 @@ import SessionUtilitiesKit
 // MARK: - Singleton
 
 public extension Singleton {
-    static let groupsPoller: SingletonConfig<PollerType> = Dependencies.create { _ in
-        GroupPoller()
-    }
+    static let groupsPoller: SingletonConfig<PollerType> = Dependencies.create(
+        identifier: "groupsPoller",
+        createInstance: { _ in GroupPoller() }
+    )
 }
 
 // MARK: - GroupPoller
@@ -19,7 +20,7 @@ public extension Singleton {
 public final class GroupPoller: Poller {
     public static var legacyNamespaces: [SnodeAPI.Namespace] = [.legacyClosedGroup ]
     public static var namespaces: [SnodeAPI.Namespace] = [
-        .groupMessages, .configGroupInfo, .configGroupMembers, .configGroupKeys
+        .groupMessages, .configGroupInfo, .configGroupMembers, .configGroupKeys, .revokedRetrievableGroupMessages
     ]
 
     // MARK: - Settings
@@ -59,7 +60,7 @@ public final class GroupPoller: Poller {
     // MARK: - Abstract Methods
     
     override func pollerName(for publicKey: String) -> String {
-        return "closed group with public key: \(publicKey)" // swiftlint:disable
+        return "closed group with public key: \(publicKey)" // stringlint:disable
     }
 
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
@@ -77,7 +78,7 @@ public final class GroupPoller: Poller {
             .map { receivedAtTimestampMs -> Date? in
                 guard receivedAtTimestampMs > 0 else { return nil }
                 
-                return Date(timeIntervalSince1970: (TimeInterval(receivedAtTimestampMs) / 1000))
+                return Date(timeIntervalSince1970: TimeInterval(Double(receivedAtTimestampMs) / 1000))
             }
             .defaulting(to: dependencies.dateNow.addingTimeInterval(-5 * 60))
         

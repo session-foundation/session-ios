@@ -31,6 +31,7 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
     
     // MARK: - Variables
     
+    private let dependencies: Dependencies
     private lazy var defaultSearchResults: [SectionModel] = {
         let result: SessionThreadViewModel? = Dependencies()[singleton: .storage].read { db -> SessionThreadViewModel? in
             try SessionThreadViewModel
@@ -56,7 +57,17 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
             refreshSearchResults()
         }
     }
-
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     // MARK: - UI Components
 
     internal lazy var searchBar: SearchBar = {
@@ -334,7 +345,9 @@ extension GlobalSearchViewController {
                     db,
                     id: threadId,
                     variant: threadVariant,
-                    shouldBeVisible: nil    // Don't change current state
+                    shouldBeVisible: nil,    // Don't change current state
+                    calledFromConfigHandling: false,
+                    using: dependencies
                 )
             }
         }
@@ -342,7 +355,8 @@ extension GlobalSearchViewController {
         let viewController: ConversationVC = ConversationVC(
             threadId: threadId,
             threadVariant: threadVariant,
-            focusedInteractionInfo: focusedInteractionInfo
+            focusedInteractionInfo: focusedInteractionInfo,
+            using: dependencies
         )
         self.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -425,7 +439,11 @@ extension GlobalSearchViewController {
                 
             case .messages:
                 let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
-                cell.updateForMessageSearchResult(with: section.elements[indexPath.row], searchText: self.termForCurrentSearchResultSet)
+                cell.updateForMessageSearchResult(
+                    with: section.elements[indexPath.row],
+                    searchText: self.termForCurrentSearchResultSet,
+                    using: dependencies
+                )
                 return cell
         }
     }
