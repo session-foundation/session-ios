@@ -248,7 +248,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     elements: [
                         SessionCell.Info(
                             id: .updatedGroups,
-                            title: "Use Updated Groups",
+                            title: "Create Updated Groups",
                             subtitle: """
                             Controls whether newly created groups are updated or legacy groups.
                             """,

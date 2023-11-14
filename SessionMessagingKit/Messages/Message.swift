@@ -347,7 +347,7 @@ public extension Message {
                 return (maybeSyncTarget ?? publicKey)
                 
             case .closedGroup(let groupPublicKey): return groupPublicKey
-            case .openGroup(let roomToken, let server, _, _, _):
+            case .openGroup(let roomToken, let server, _, _):
                 return OpenGroup.idFor(roomToken: roomToken, server: server)
             
             case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey

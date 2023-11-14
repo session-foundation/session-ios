@@ -365,7 +365,7 @@ public final class MessageSender {
         // error in a non-retryable way
         guard
             let message: VisibleMessage = message as? VisibleMessage,
-            case .openGroup(let roomToken, let server, let whisperTo, let whisperMods, _) = destination,
+            case .openGroup(let roomToken, let server, let whisperTo, let whisperMods) = destination,
             let openGroup: OpenGroup = try? OpenGroup.fetchOne(
                 db,
                 id: OpenGroup.idFor(roomToken: roomToken, server: server)

@@ -246,17 +246,10 @@ extension MessageReceiver {
                             disappearingConfig: remoteConfig,
                             using: dependencies
                         )
-                    
-                case .group:
-                    try SessionUtil
-                        .update(
-                            db,
-                            groupSessionId: SessionId(.group, hex: threadId),
-                            disappearingConfig: remoteConfig,
-                            using: dependencies
-                        )
-                    
-                default: break
+                
+                // For updated groups we want to only rely on the `GROUP_INFO` config message to
+                // control the disappearing messages setting
+                case .group, .community: break
             }
         }
         

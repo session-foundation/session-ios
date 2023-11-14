@@ -128,7 +128,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .defaultWith("TestId")
                     .with(
                         isEnabled: true,
-                        durationSeconds: DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last,
+                        durationSeconds: DisappearingMessagesConfiguration
+                            .validDurationsSeconds(.disappearAfterSend, using: dependencies)
+                            .last,
                         type: .disappearAfterSend
                     )
                 mockStorage.write { db in
@@ -192,7 +194,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         )
                     )
                 
-                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last?
+                let title: String = (DisappearingMessagesConfiguration
+                    .validDurationsSeconds(.disappearAfterSend, using: dependencies)
+                    .last?
                     .formatted(format: .long))
                     .defaulting(to: "")
                 expect(viewModel.tableData.last?.elements.last)
@@ -237,7 +241,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .defaultWith("TestId")
                     .with(
                         isEnabled: true,
-                        durationSeconds: DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last,
+                        durationSeconds: DisappearingMessagesConfiguration
+                            .validDurationsSeconds(.disappearAfterSend, using: dependencies)
+                            .last,
                         type: .disappearAfterSend
                     )
                 mockStorage.write { db in
@@ -284,7 +290,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         )
                     )
                 
-                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last?
+                let title: String = (DisappearingMessagesConfiguration
+                    .validDurationsSeconds(.disappearAfterSend, using: dependencies)
+                    .last?
                     .formatted(format: .long))
                     .defaulting(to: "")
                 expect(viewModel.tableData.last?.elements.last)
