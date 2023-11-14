@@ -9,6 +9,7 @@ public class TestDependencies: Dependencies {
     private var singletonInstances: [String: Any] = [:]
     private var cacheInstances: [String: MutableCacheType] = [:]
     private var defaultsInstances: [String: (any UserDefaultsType)] = [:]
+    private var featureInstances: [String: (any FeatureType)] = [:]
     private var mockedValues: [Int: Any] = [:]
     
     // MARK: - Subscript Access
@@ -52,6 +53,27 @@ public class TestDependencies: Dependencies {
         }
 
         return value
+    }
+    
+    override public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T {
+        guard let value: Feature<T> = (featureInstances[feature.identifier] as? Feature<T>) else {
+            let value: Feature<T> = feature.createInstance(self)
+            featureInstances[feature.identifier] = value
+            return value.currentValue(using: self)
+        }
+        
+        return value.currentValue(using: self)
+    }
+    
+    public subscript<T: FeatureOption>(feature feature: FeatureConfig<T>) -> T? {
+        get { return (featureInstances[feature.identifier] as? T) }
+        set {
+            if featureInstances[feature.identifier] == nil {
+                featureInstances[feature.identifier] = feature.createInstance(self)
+            }
+            
+            set(feature: feature, to: newValue)
+        }
     }
     
     public subscript(defaults defaults: UserDefaultsConfig) -> UserDefaultsType? {

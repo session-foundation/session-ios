@@ -14,7 +14,9 @@ class MessageReceiverSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration
         
-        @TestState var dependencies: TestDependencies! = TestDependencies()
+        @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
+            dependencies[feature: .updatedDisappearingMessages] = true
+        }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
             migrationTargets: [

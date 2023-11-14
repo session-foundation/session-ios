@@ -52,7 +52,13 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 network
                     .when {
                         $0.send(
-                            .onionRequest(any(), to: any(), with: any(), timeout: FileServerAPI.fileDownloadTimeout)
+                            .selectedNetworkRequest(
+                                any(),
+                                to: any(),
+                                with: any(),
+                                timeout: FileServerAPI.fileDownloadTimeout,
+                                using: any()
+                            )
                         )
                     }
                     .thenReturn(MockNetwork.response(data: encryptedData))
@@ -522,13 +528,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 )
                 
                 expect(mockNetwork)
-                    .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                    .to(call(.exactly(times: 1), matchingParameters: .all) { [dependencies = dependencies!] network in
                         network.send(
-                            .onionRequest(
+                            .selectedNetworkRequest(
                                 expectedRequest,
                                 to: FileServerAPI.server,
                                 with: FileServerAPI.serverPublicKey,
-                                timeout: FileServerAPI.fileDownloadTimeout
+                                timeout: FileServerAPI.fileDownloadTimeout,
+                                using: dependencies
                             )
                         )
                     })
@@ -582,13 +589,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 )
                 
                 expect(mockNetwork)
-                    .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                    .to(call(.exactly(times: 1), matchingParameters: .all) { [dependencies = dependencies!] network in
                         network.send(
-                            .onionRequest(
+                            .selectedNetworkRequest(
                                 expectedRequest,
                                 to: "testserver",
                                 with: TestConstants.serverPublicKey,
-                                timeout: FileServerAPI.fileDownloadTimeout
+                                timeout: FileServerAPI.fileDownloadTimeout,
+                                using: dependencies
                             )
                         )
                     })

@@ -393,7 +393,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             allParameterSummaryCombinations: allParameterSummaryCombinations,
             actionArgs: actionArgs
         )
-// TODO: If 'Output' is optional and there is no 'returnValue' then just return 'nil'
+        
         return (expectation.returnValue as! Output)
     }
     

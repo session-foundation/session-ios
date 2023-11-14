@@ -17,6 +17,7 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.forceSynchronous = true
             dependencies[singleton: .scheduler] = .immediate
+            dependencies[feature: .updatedDisappearingMessages] = true
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),

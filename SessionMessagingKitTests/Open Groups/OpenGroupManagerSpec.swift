@@ -729,7 +729,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
+                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
                         .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomResponse)
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
                     
@@ -875,7 +875,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("with an invalid response") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
+                            .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
                             .thenReturn(MockNetwork.response(data: Data()))
                         
                         mockUserDefaults
@@ -2781,7 +2781,7 @@ class OpenGroupManagerSpec: QuickSpec {
             context("when getting the default rooms if needed") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
+                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
                         .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     mockStorage.write { db in
@@ -2894,7 +2894,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- will retry fetching rooms 8 times before it fails
                 it("will retry fetching rooms 8 times before it fails") {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
+                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
                         .thenReturn(MockNetwork.nullResponse())
                     
                     var error: Error?
@@ -2905,13 +2905,15 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     expect(error).to(matchError(HTTPError.parsingFailed))
                     expect(mockNetwork)   // First attempt + 8 retries
-                        .to(call(.exactly(times: 9)) { $0.send(.onionRequest(any(), to: any(), with: any())) })
+                        .to(call(.exactly(times: 9)) { [dependencies = dependencies!] network in
+                            network.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: dependencies))
+                        })
                 }
                 
                 // MARK: ---- removes the cache publisher if all retries fail
                 it("removes the cache publisher if all retries fail") {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
+                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
                         .thenReturn(MockNetwork.nullResponse())
                     
                     var error: Error?
@@ -2932,10 +2934,11 @@ class OpenGroupManagerSpec: QuickSpec {
                 it("schedules jobs to download any room images") {
                     mockNetwork
                         .when {
-                            $0.send(.onionRequest(
+                            $0.send(.selectedNetworkRequest(
                                 URLRequest(url: URL(string: "https://open.getsession.org/sequence")!),
                                 to: OpenGroupAPI.defaultServer,
-                                with: OpenGroupAPI.defaultServerPublicKey
+                                with: OpenGroupAPI.defaultServerPublicKey,
+                                using: dependencies
                             ))
                         }
                         .thenReturn(

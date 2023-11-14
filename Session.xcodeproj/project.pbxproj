@@ -667,6 +667,10 @@
 		FD47E0C02AA83D7300A55E41 /* SwarmDrainBehaviour.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0BF2AA83D7300A55E41 /* SwarmDrainBehaviour.swift */; };
 		FD4B200E283492210034334B /* InsetLockableTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4B200D283492210034334B /* InsetLockableTableView.swift */; };
 		FD4C4E9C2B02E2A300C72199 /* DisplayPictureError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9B2B02E2A300C72199 /* DisplayPictureError.swift */; };
+		FD4C4EA22B03093200C72199 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */; };
+		FD4C4EA32B03093200C72199 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */; };
+		FD4C4EA42B03093300C72199 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */; };
+		FD4C4EA52B03093300C72199 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */; };
 		FD52090028AF6153006098F6 /* OWSBackgroundTask.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */; };
 		FD52090128AF61BA006098F6 /* OWSBackgroundTask.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDB38255A580B00E217F9 /* OWSBackgroundTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FD52090328B4680F006098F6 /* RadioButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090228B4680F006098F6 /* RadioButton.swift */; };
@@ -1888,6 +1892,7 @@
 		FD47E0BF2AA83D7300A55E41 /* SwarmDrainBehaviour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwarmDrainBehaviour.swift; sourceTree = "<group>"; };
 		FD4B200D283492210034334B /* InsetLockableTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsetLockableTableView.swift; sourceTree = "<group>"; };
 		FD4C4E9B2B02E2A300C72199 /* DisplayPictureError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisplayPictureError.swift; sourceTree = "<group>"; };
+		FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GRDBExtensions.swift; sourceTree = "<group>"; };
 		FD52090228B4680F006098F6 /* RadioButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButton.swift; sourceTree = "<group>"; };
 		FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewModel.swift; sourceTree = "<group>"; };
 		FD52090628B49738006098F6 /* ConfirmationModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationModal.swift; sourceTree = "<group>"; };
@@ -4328,6 +4333,7 @@
 				FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */,
 				FD078E4727E02561000769AF /* CommonMockedExtensions.swift */,
 				FD23EA6028ED0B260058676E /* CombineExtensions.swift */,
+				FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */,
 				FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */,
 			);
 			path = _SharedTestUtilities;
@@ -6771,6 +6777,7 @@
 				FD3FAB6C2AF1B28B00DC5421 /* MockFileManager.swift in Sources */,
 				FD23EA6128ED0B260058676E /* CombineExtensions.swift in Sources */,
 				FDFE75B32ABD469500655640 /* MockJobRunner.swift in Sources */,
+				FD4C4EA22B03093200C72199 /* GRDBExtensions.swift in Sources */,
 				FD9DD2712A72516D00ECB68E /* TestExtensions.swift in Sources */,
 				FD65318A2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
 				FD2AAAED28ED3E1000A49611 /* MockGeneralCache.swift in Sources */,
@@ -6810,6 +6817,7 @@
 				FD0969FB2A6A00B100C5C365 /* Mocked.swift in Sources */,
 				FDC290AA27D9B6FD005DAE71 /* Mock.swift in Sources */,
 				FD2959902A43BE5F00888A17 /* VersionSpec.swift in Sources */,
+				FD4C4EA52B03093300C72199 /* GRDBExtensions.swift in Sources */,
 				FDB947102A982EF2001F271A /* BatchRequestSpec.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6828,6 +6836,7 @@
 				FDB5DB092A981F8D002C8721 /* MockCrypto.swift in Sources */,
 				FDAA167B2AC28E2F00DDBF77 /* SnodeRequestSpec.swift in Sources */,
 				FD65318C2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
+				FD4C4EA42B03093300C72199 /* GRDBExtensions.swift in Sources */,
 				FDB5DB102A981FA3002C8721 /* TestConstants.swift in Sources */,
 				FDB5DB0C2A981F96002C8721 /* MockNetwork.swift in Sources */,
 				FDB5DB0F2A981FA1002C8721 /* MockJobRunner.swift in Sources */,
@@ -6888,6 +6897,7 @@
 				FDC2908927D70656005DAE71 /* RoomPollInfoSpec.swift in Sources */,
 				FDFD645D27F273F300808CA1 /* MockGeneralCache.swift in Sources */,
 				FD3C906D27E43C4B00CD579F /* MessageSenderEncryptionSpec.swift in Sources */,
+				FD4C4EA32B03093200C72199 /* GRDBExtensions.swift in Sources */,
 				FDC2908D27D70905005DAE71 /* UpdateMessageRequestSpec.swift in Sources */,
 				FD078E5427E197CA000769AF /* OpenGroupManagerSpec.swift in Sources */,
 				FD3C906727E416AF00CD579F /* BlindedIdLookupSpec.swift in Sources */,

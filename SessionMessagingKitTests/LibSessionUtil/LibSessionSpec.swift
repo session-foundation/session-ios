@@ -2138,7 +2138,7 @@ fileprivate extension LibSessionSpec {
                     }
 
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(288))
+                    expect(numRecords).to(equal(289))
                 }
             }
             
@@ -2321,7 +2321,7 @@ fileprivate extension LibSessionSpec {
                     defaultValue: []
                 )
                 expect(pushData2.pointee.seqno).to(equal(2))
-                expect(pushData2.pointee.config_len).to(equal(768))
+                expect(pushData2.pointee.config_len).to(equal(1024))
                 expect(obsoleteHashes).to(equal(["fakehash1"]))
                 
                 let fakeHash2: String = "fakehash2"
@@ -2342,7 +2342,7 @@ fileprivate extension LibSessionSpec {
                 expect(groups_members_get(conf, &member2, &cSessionId2)).to(beTrue())
                 expect(String(libSessionVal: member2.name)).to(equal("Member 23"))
                 
-                expect(groups_members_size(conf)).to(equal(62))
+                expect(groups_members_size(conf)).to(equal(66))
                 
                 (0..<62).forEach { index in
                     var cSessionId: [CChar] = sids[index].cArray
@@ -2515,7 +2515,7 @@ fileprivate extension LibSessionSpec {
                 mergeHashes3.forEach { $0?.deallocate() }
                 mergedHashes3?.deallocate()
 
-                expect(groups_members_size(conf2)).to(equal(44))    // 18 deleted earlier
+                expect(groups_members_size(conf2)).to(equal(48))    // 18 deleted earlier
                 
                 (0..<66).forEach { index in
                     var cSessionId: [CChar] = sids[index].cArray
@@ -2761,7 +2761,7 @@ fileprivate extension LibSessionSpec {
                 // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
                 let identity = try! Identity.generate(from: userSeed)
                 let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: seed))!
-                var userEdSK: [UInt8] = identity.ed25519KeyPair.secretKey
+                let userEdSK: [UInt8] = identity.ed25519KeyPair.secretKey
                 var edPK: [UInt8] = keyPair.publicKey
                 var edSK: [UInt8] = keyPair.secretKey
                 
