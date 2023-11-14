@@ -85,15 +85,18 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     
     let title: String = "DISAPPEARING_MESSAGES".localized()
     lazy var subtitle: String? = {
-        guard dependencies[feature: .updatedDisappearingMessages] else {
-            return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized())
+        switch (threadVariant, isNoteToSelf) {
+            case (.contact, false): return "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized()
+            case (.group, _): return "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized()
+            case (.community, _): return nil
+                
+            case (.legacyGroup, _), (_, true):
+                guard dependencies[feature: .updatedDisappearingMessages] else {
+                    return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized())
+                }
+                
+                return "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized()
         }
-        
-        if threadVariant == .contact && !isNoteToSelf {
-            return "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized()
-        }
-        
-        return "DISAPPERING_MESSAGES_SUBTITLE_GROUPS".localized()
     }()
     
     lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = configSubject
@@ -272,7 +275,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         }
 
                                         return (currentConfig.type ?? .disappearAfterSend)
-                                    }())
+                                    }(), using: dependencies)
                                     .map { duration in
                                         let title: String = duration.formatted(format: .long)
 
@@ -302,8 +305,77 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                             )
                         )
                     ].compactMap { $0 }
+                    
+                case (.group, _):
+                    return [
+                        SectionModel(
+                            model: .group,
+                            elements: [
+                                SessionCell.Info(
+                                    id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                    title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                    trailingAccessory: .radio(
+                                        isSelected: !currentConfig.isEnabled
+                                    ),
+                                    isEnabled: (currentUserIsClosedGroupAdmin == true),
+                                    accessibility: Accessibility(
+                                        identifier: "Disable disappearing messages (Off option)",
+                                        label: "Disable disappearing messages (Off option)"
+                                    ),
+                                    onTap: {
+                                        self?.configSubject.send(
+                                            currentConfig.with(
+                                                isEnabled: false,
+                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
+                                                lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                            )
+                                        )
+                                    }
+                                )
+                            ]
+                            .appending(
+                                contentsOf: DisappearingMessagesConfiguration
+                                    .validDurationsSeconds(.disappearAfterSend, using: dependencies)
+                                    .map { duration in
+                                        let title: String = duration.formatted(format: .long)
 
-                case (.legacyGroup, _), (.group, _), (_, true):
+                                        return SessionCell.Info(
+                                            id: title,
+                                            title: title,
+                                            trailingAccessory: .radio(
+                                                isSelected: (
+                                                    currentConfig.isEnabled &&
+                                                    currentConfig.durationSeconds == duration
+                                                )
+                                            ),
+                                            isEnabled: (currentUserIsClosedGroupAdmin == true),
+                                            accessibility: Accessibility(
+                                                identifier: "Time option",
+                                                label: "Time option"
+                                            ),
+                                            onTap: {
+                                                // If the new disappearing messages config feature flag isn't
+                                                // enabled then the 'isEnabled' and 'type' values are set via
+                                                // the first section so pass `nil` values to keep the existing
+                                                // setting
+                                                self?.configSubject.send(
+                                                    currentConfig.with(
+                                                        isEnabled: true,
+                                                        durationSeconds: duration,
+                                                        type: .disappearAfterSend,
+                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
+                                                            using: dependencies
+                                                        )
+                                                    )
+                                                )
+                                            }
+                                        )
+                                    }
+                            )
+                        )
+                    ]
+
+                case (.legacyGroup, _), (_, true):
                     return [
                         (dependencies[feature: .updatedDisappearingMessages] ? nil :
                             SectionModel(
@@ -415,7 +487,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                 .compactMap { $0 }
                                 .appending(
                                     contentsOf: DisappearingMessagesConfiguration
-                                        .validDurationsSeconds(.disappearAfterSend)
+                                        .validDurationsSeconds(.disappearAfterSend, using: dependencies)
                                         .map { duration in
                                             let title: String = duration.formatted(format: .long)
 
@@ -483,7 +555,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
                 .deleteAll(db)
             
-            let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+            let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
             
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
@@ -496,22 +568,46 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             )
             .inserted(db)
             
-            let duration: UInt32? = {
-                guard !dependencies[feature: .updatedDisappearingMessages] else { return nil }
-                return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
-            }()
+            // Send a control message that the disappearing messages setting changed
+            switch threadVariant {
+                case .group:
+                    try MessageSender.send(
+                        db,
+                        message: GroupUpdateInfoChangeMessage(
+                            changeType: .disappearingMessages,
+                            updatedExpiration: UInt32(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0),
+                            sentTimestamp: UInt64(currentOffsetTimestampMs),
+                            authMethod: try Authentication.with(
+                                db,
+                                sessionIdHexString: threadId,
+                                using: dependencies
+                            ),
+                            using: dependencies
+                        ),
+                        interactionId: nil,
+                        threadId: threadId,
+                        threadVariant: .group,
+                        using: dependencies
+                    )
+                    
+                default:
+                    let duration: UInt32? = {
+                        guard !dependencies[feature: .updatedDisappearingMessages] else { return nil }
+                        return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
+                    }()
 
-            try MessageSender.send(
-                db,
-                message: ExpirationTimerUpdate(
-                    syncTarget: nil,
-                    duration: duration
-                ),
-                interactionId: interaction.id,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                using: dependencies
-            )
+                    try MessageSender.send(
+                        db,
+                        message: ExpirationTimerUpdate(
+                            syncTarget: nil,
+                            duration: duration
+                        ),
+                        interactionId: interaction.id,
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        using: dependencies
+                    )
+            }
         }
         
         // Contacts & legacy closed groups need to update the SessionUtil

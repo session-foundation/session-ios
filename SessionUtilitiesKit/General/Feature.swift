@@ -9,6 +9,10 @@ public final class Features {
 }
 
 public extension FeatureStorage {
+    static let debugDisappearingMessageDurations: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "debugDisappearingMessageDurations"
+    )
+    
     static let updatedDisappearingMessages: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedDisappearingMessages",
         automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
@@ -53,8 +57,13 @@ public protocol FeatureOption: RawRepresentable, CaseIterable, Equatable where R
     
     static var defaultOption: Self { get }
     
+    var isValidOption: Bool { get }
     var title: String { get }
     var subtitle: String? { get }
+}
+
+public extension FeatureOption {
+    var isValidOption: Bool { true }
 }
 
 // MARK: - FeatureEvent
@@ -116,7 +125,7 @@ public struct Feature<T: FeatureOption>: FeatureType {
         
         /// If we have an explicitly set `selectedOption` then we should use that, otherwise we should check if any of the
         /// `automaticChangeBehaviour` conditions have been met, and if so use the specified value
-        guard let selectedOption: T = maybeSelectedOption else {
+        guard let selectedOption: T = maybeSelectedOption, selectedOption.isValidOption else {
             func automaticChangeConditionMet(_ condition: ChangeCondition) -> Bool {
                 switch condition {
                     case .after(let timestamp): return (dependencies.dateNow.timeIntervalSince1970 >= timestamp)

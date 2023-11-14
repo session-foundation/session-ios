@@ -247,32 +247,15 @@ public extension DisappearingMessagesConfiguration {
 // MARK: - UI Constraints
 
 extension DisappearingMessagesConfiguration {
-    // TODO: Remove this when disappearing messages V2 is up and running
-    public static var validDurationsSeconds: [TimeInterval] {
-        return [
-            5,
-            10,
-            30,
-            (1 * 60),
-            (5 * 60),
-            (30 * 60),
-            (1 * 60 * 60),
-            (6 * 60 * 60),
-            (12 * 60 * 60),
-            (24 * 60 * 60),
-            (7 * 24 * 60 * 60)
-        ]
-    }
-    
-    public static var maxDurationSeconds: TimeInterval = {
-        return (validDurationsSeconds.max() ?? 0)
-    }()
-    
-    public static func validDurationsSeconds(_ type: DisappearingMessageType) -> [TimeInterval] {
-        
+    public static func validDurationsSeconds(
+        _ type: DisappearingMessageType,
+        using dependencies: Dependencies
+    ) -> [TimeInterval] {
         switch type {
             case .disappearAfterRead:
-                var result =  [
+                return [
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 10 : nil),
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 60 : nil),
                     (5 * 60),
                     (1 * 60 * 60),
                     (12 * 60 * 60),
@@ -280,35 +263,19 @@ extension DisappearingMessagesConfiguration {
                     (7 * 24 * 60 * 60),
                     (2 * 7 * 24 * 60 * 60)
                 ]
-                .map { TimeInterval($0)  }
-                #if targetEnvironment(simulator)
-                    result.insert(
-                        TimeInterval(60),
-                        at: 0
-                    )
-                    result.insert(
-                        TimeInterval(10),
-                        at: 0
-                    )
-                #endif
-                return result
+                .compactMap { duration in duration.map { TimeInterval($0) } }
+                
             case .disappearAfterSend:
-                var result =  [
+                return [
+                    (dependencies[feature: .debugDisappearingMessageDurations] ? 10 : nil),
                     (12 * 60 * 60),
                     (24 * 60 * 60),
                     (7 * 24 * 60 * 60),
                     (2 * 7 * 24 * 60 * 60)
                 ]
-                .map { TimeInterval($0)  }
-                #if targetEnvironment(simulator)
-                    result.insert(
-                        TimeInterval(10),
-                        at: 0
-                    )
-                #endif
-                return result
-            default:
-                return []
-            }
+                .compactMap { duration in duration.map { TimeInterval($0) } }
+                
+            default: return []
+        }
     }
 }

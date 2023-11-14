@@ -172,33 +172,6 @@ public extension Profile {
 // MARK: - Protobuf
 
 public extension Profile {
-    static func fromProto(_ proto: SNProtoDataMessage, id: String) -> Profile? {
-        guard let profileProto = proto.profile, let displayName = profileProto.displayName else { return nil }
-        
-        var profileKey: Data?
-        var profilePictureUrl: String?
-        let sentTimestamp: TimeInterval = TimeInterval(proto.hasTimestamp ? (Double(proto.timestamp) / 1000) : 0)
-        
-        // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
-        if let profileKeyData: Data = proto.profileKey, profileProto.profilePicture != nil {
-            profileKey = profileKeyData
-            profilePictureUrl = profileProto.profilePicture
-        }
-        
-        return Profile(
-            id: id,
-            name: displayName,
-            lastNameUpdate: sentTimestamp,
-            nickname: nil,
-            profilePictureUrl: profilePictureUrl,
-            profilePictureFileName: nil,
-            profileEncryptionKey: profileKey,
-            lastProfilePictureUpdate: sentTimestamp,
-            blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil),
-            lastBlocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? sentTimestamp : nil)
-        )
-    }
-
     func toProto() -> SNProtoDataMessage? {
         let dataMessageProto = SNProtoDataMessage.builder()
         let profileProto = SNProtoLokiProfile.builder()

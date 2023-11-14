@@ -13,8 +13,6 @@ import SessionUtilitiesKit
 import SignalCoreKit
 
 class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
-    typealias TableItem = Section
-    
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
@@ -30,29 +28,61 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     // MARK: - Section
     
-    public enum Section: SessionTableSection, CaseIterable {
+    public enum Section: SessionTableSection {
         case developerMode
+        case network
+        case disappearingMessages
+        case groups
+        case database
+        
+        var title: String? {
+            switch self {
+                case .developerMode: return nil
+                case .network: return "Network"
+                case .disappearingMessages: return "Disappearing Messages"
+                case .groups: return "Groups"
+                case .database: return "Database"
+            }
+        }
+        //default: return .titleRoundedContent // .padding
+        var style: SessionTableSectionStyle {
+            switch self {
+                case .developerMode: return .padding
+                default: return .titleRoundedContent
+            }
+        }
+    }
+    
+    public enum TableItem: Differentiable, CaseIterable {
+        case developerMode
+        
         case serviceNetwork
         case networkLayer
+        
         case updatedDisappearingMessages
+        case debugDisappearingMessageDurations
+        
         case updatedGroups
         case updatedGroupsRemoveMessagesOnKick
         case updatedGroupsAllowHistoricAccessOnInvite
         case updatedGroupsAllowDisplayPicture
         case updatedGroupsAllowDescriptionEditing
         case updatedGroupsAllowPromotions
-        case exportDatabase
         
-        var style: SessionTableSectionStyle { .padding }
+        case exportDatabase
     }
     
     // MARK: - Content
     
     private struct State: Equatable {
         let developerMode: Bool
+        
         let serviceNetwork: ServiceNetwork
         let networkLayer: Network.Layers
+        
+        let debugDisappearingMessageDurations: Bool
         let updatedDisappearingMessages: Bool
+        
         let updatedGroups: Bool
         let updatedGroupsRemoveMessagesOnKick: Bool
         let updatedGroupsAllowHistoricAccessOnInvite: Bool
@@ -69,6 +99,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 developerMode: dependencies[singleton: .storage, key: .developerModeEnabled],
                 serviceNetwork: dependencies[feature: .serviceNetwork],
                 networkLayer: dependencies[feature: .networkLayers],
+                debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 updatedDisappearingMessages: dependencies[feature: .updatedDisappearingMessages],
                 updatedGroups: dependencies[feature: .updatedGroups],
                 updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
@@ -87,9 +118,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             id: .developerMode,
                             title: "Developer Mode",
                             subtitle: """
-                            Developer Mode grants the device access to the settings on this screen.
+                            Grants access to this screen.
                             
-                            Disabling this setting will reset all of the below settings back to default (removing data as described below) and revoke access to this screen unless Developer Mode is re-enabled.
+                            Disabling this setting will:
+                            • Reset all the below settings to default (removing data as described below)
+                            • Revoke access to this screen unless Developer Mode is re-enabled
                             """,
                             trailingAccessory: .toggle(
                                 .boolValue(current.developerMode, oldValue: (previous ?? current).developerMode)
@@ -103,15 +136,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     ]
                 ),
                 SectionModel(
-                    model: .serviceNetwork,
+                    model: .network,
                     elements: [
                         SessionCell.Info(
                             id: .serviceNetwork,
-                            title: "Network",
+                            title: "Environment",
                             subtitle: """
-                            The service network which should be used for sending requests and storing messages.
+                            The environment used for sending requests and storing messages.
                             
-                            <b>Warning:</b> These networks cannot communicate with each other so changing this network will result in all conversation and snode data being cleared and any pending network requests being cancelled.
+                            <b>Warning:</b>
+                            Changing this setting will result in all conversation and snode data being cleared and any pending network requests being cancelled.
                             """,
                             trailingAccessory: .dropDown(
                                 .dynamicString { current.serviceNetwork.title }
@@ -120,7 +154,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                 self?.transitionToScreen(
                                     SessionTableViewController(
                                         viewModel: SessionListViewModel<ServiceNetwork>(
-                                            title: "Network",
+                                            title: "Environment",
                                             options: ServiceNetwork.allCases,
                                             behaviour: .autoDismiss(
                                                 initialSelection: current.serviceNetwork,
@@ -131,19 +165,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                     )
                                 )
                             }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .networkLayer,
-                    elements: [
+                        ),
                         SessionCell.Info(
                             id: .networkLayer,
-                            title: "Network Layer",
+                            title: "Routing",
                             subtitle: """
-                            The network layer which all network traffic should be routed through. We do support sending network traffic through multiple network layers, if multiple layers are selected then requests will wait for a response from all layers before completing with the first successful response.
+                            The network layer which all network traffic should be routed through.
                             
-                            <b>Warning:</b> Different network layers offer different levels of privacy, make sure to read the description of the network layers before making a selection.
+                            We do support sending network traffic through multiple network layers, if multiple layers are selected then requests will wait for a response from all layers before completing with the first successful response.
+                            
+                            <b>Warning:</b>
+                            Different network layers offer different levels of privacy, make sure to read the description of the network layers before making a selection.
                             """,
                             trailingAccessory: .dropDown(
                                 .dynamicString { current.networkLayer.title }
@@ -152,7 +184,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                 self?.transitionToScreen(
                                     SessionTableViewController(
                                         viewModel: SessionListViewModel<Network.Layers>(
-                                            title: "Network Layer",
+                                            title: "Routing",
                                             options: Network.Layers.allCases,
                                             behaviour: .singleSelect(
                                                 initialSelection: current.networkLayer,
@@ -167,13 +199,34 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     ]
                 ),
                 SectionModel(
-                    model: .updatedDisappearingMessages,
+                    model: .disappearingMessages,
                     elements: [
                         SessionCell.Info(
-                            id: .updatedDisappearingMessages,
-                            title: "Updated Disappearing Messages",
+                            id: .debugDisappearingMessageDurations,
+                            title: "Debug Durations",
                             subtitle: """
-                            This setting controls whether legacy or updated disappearing messages should be used.
+                            Adds 10 and 60 second durations for Disappearing Message settings.
+                            
+                            These should only be used for debugging purposes and can result in odd behaviours.
+                            """,
+                            trailingAccessory: .toggle(
+                                .boolValue(
+                                    current.debugDisappearingMessageDurations,
+                                    oldValue: (previous ?? current).debugDisappearingMessageDurations
+                                )
+                            ),
+                            onTap: {
+                                self?.updateFlag(
+                                    for: .debugDisappearingMessageDurations,
+                                    to: !current.debugDisappearingMessageDurations
+                                )
+                            }
+                        ),
+                        SessionCell.Info(
+                            id: .updatedDisappearingMessages,
+                            title: "Use Updated Disappearing Messages",
+                            subtitle: """
+                            Controls whether legacy or updated disappearing messages should be used.
                             """,
                             trailingAccessory: .toggle(
                                 .boolValue(
@@ -191,29 +244,24 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     ]
                 ),
                 SectionModel(
-                    model: .updatedGroups,
+                    model: .groups,
                     elements: [
                         SessionCell.Info(
                             id: .updatedGroups,
-                            title: "Updated Groups",
+                            title: "Use Updated Groups",
                             subtitle: """
-                            This settings controls whether newly created groups should use the updated groups or legacy groups.
+                            Controls whether newly created groups are updated or legacy groups.
                             """,
                             trailingAccessory: .toggle(
                                 .boolValue(current.updatedGroups, oldValue: (previous ?? current).updatedGroups)
                             ),
                             onTap: { self?.updateFlag(for: .updatedGroups, to: !current.updatedGroups) }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .updatedGroupsRemoveMessagesOnKick,
-                    elements: [
+                        ),
                         SessionCell.Info(
                             id: .updatedGroupsRemoveMessagesOnKick,
-                            title: "Remove Messages when Kicking from Updated Groups",
+                            title: "Remove Messages on Kick",
                             subtitle: """
-                            This settings controls whether a group members messages should be removed when they are kicked from an updated group.
+                            Controls whether a group members messages should be removed when they are kicked from an updated group.
                             
                             <b>Note:</b> In a future release we will offer this as an option when removing members but for the initial release it can be controlled via this flag for testing purposes.
                             """,
@@ -229,17 +277,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                     to: !current.updatedGroupsRemoveMessagesOnKick
                                 )
                             }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .updatedGroupsAllowHistoricAccessOnInvite,
-                    elements: [
+                        ),
                         SessionCell.Info(
                             id: .updatedGroupsAllowHistoricAccessOnInvite,
-                            title: "Allow access to historic messages when inviting to an updated group",
+                            title: "Allow Historic Message Access",
                             subtitle: """
-                            This settings controls whether a group members should be granted access to hsitoric messages when invited to an updated group.
+                            Controls whether members should be granted access to historic messages when invited to an updated group.
                             
                             <b>Note:</b> In a future release we will offer this as an option when inviting members but for the initial release it can be controlled via this flag for testing purposes.
                             """,
@@ -255,17 +298,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                     to: !current.updatedGroupsAllowHistoricAccessOnInvite
                                 )
                             }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .updatedGroupsAllowDisplayPicture,
-                    elements: [
+                        ),
                         SessionCell.Info(
                             id: .updatedGroupsAllowDisplayPicture,
-                            title: "Shows UI for setting updated group custom display pictures",
+                            title: "Custom Display Pictures",
                             subtitle: """
-                            This settings controls whether the UI allows group admins to set a custom display picture for a group.
+                            Controls whether the UI allows group admins to set a custom display picture for a group.
                             
                             <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
                             """,
@@ -281,17 +319,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                     to: !current.updatedGroupsAllowDisplayPicture
                                 )
                             }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .updatedGroupsAllowDescriptionEditing,
-                    elements: [
+                        ),
                         SessionCell.Info(
                             id: .updatedGroupsAllowDescriptionEditing,
-                            title: "Show UI for editing updated group descriptions",
+                            title: "Edit Group Descriptions",
                             subtitle: """
-                            This settings controls whether the UI allows group admins to modify the descriptions of updated groups.
+                            Controls whether the UI allows group admins to modify the descriptions of updated groups.
                             
                             <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
                             """,
@@ -307,17 +340,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                     to: !current.updatedGroupsAllowDescriptionEditing
                                 )
                             }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .updatedGroupsAllowPromotions,
-                    elements: [
+                        ),
                         SessionCell.Info(
                             id: .updatedGroupsAllowPromotions,
-                            title: "Show UI for updated group promotions",
+                            title: "Allow Group Promotions",
                             subtitle: """
-                            This settings controls whether the UI allows group admins promote other group members to admin within an updated group.
+                            Controls whether the UI allows group admins promote other group members to admin within an updated group.
                             
                             <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
                             """,
@@ -337,7 +365,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     ]
                 ),
                 SectionModel(
-                    model: .exportDatabase,
+                    model: .database,
                     elements: [
                         SessionCell.Info(
                             id: .exportDatabase,
@@ -362,14 +390,18 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private func disableDeveloperMode() {
         /// Loop through all of the sections and reset the features back to default for each one as needed (this way if a new section is added
         /// then we will get a compile error if it doesn't get resetting instructions added)
-        Section.allCases.forEach { section in
-            switch section {
+        TableItem.allCases.forEach { item in
+            switch item {
                 case .developerMode: break  // Not a feature
                 case .exportDatabase: break  // Not a feature
                 
                 case .serviceNetwork: updateServiceNetwork(to: nil)
                 case .networkLayer: updateNetworkLayers(to: nil)
+                    
+                case .debugDisappearingMessageDurations:
+                    updateFlag(for: .debugDisappearingMessageDurations, to: nil)
                 case .updatedDisappearingMessages: updateFlag(for: .updatedDisappearingMessages, to: nil)
+                    
                 case .updatedGroups: updateFlag(for: .updatedGroups, to: nil)
                 case .updatedGroupsRemoveMessagesOnKick: updateFlag(for: .updatedGroupsRemoveMessagesOnKick, to: nil)
                 case .updatedGroupsAllowHistoricAccessOnInvite:

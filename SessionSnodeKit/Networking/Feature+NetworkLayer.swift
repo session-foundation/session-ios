@@ -74,12 +74,12 @@ public extension Network {
             switch self {
                 case .onionRequest:
                     return """
-                    This network layer will send requests via the original Onion Request mechanism, requests will be routed between 3 service nodes before reaching their destination.
+                    Requests will be sent via the original Onion Request mechanism, they will be routed between 3 service nodes before reaching their destination.
                     """
                     
                 case .direct:
                     return """
-                    This network layer will send requests directly over HTTPS
+                    Requests will be sent directly over HTTPS.
                     
                     <b>Warning:</b> This network layer offers no IP protections so should only be used for debugging purposes.
                     """
