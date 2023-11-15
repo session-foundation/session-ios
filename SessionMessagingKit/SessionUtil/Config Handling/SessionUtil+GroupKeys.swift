@@ -14,11 +14,31 @@ public extension SessionUtil {
     static var sizeSubaccountSignatureBytes: Int { 64 }
 }
 
-// MARK: - Group Info Handling
+// MARK: - Group Keys Handling
 
 internal extension SessionUtil {
     /// `libSession` manages keys entirely so there is no need for a DB presence
     static let columnsRelatedToGroupKeys: [ColumnExpression] = []
+    
+    // MARK: - Incoming Changes
+    
+    static func handleGroupKeysUpdate(
+        _ db: Database,
+        in config: Config?,
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws {
+        guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
+        
+        /// If two admins rekeyed for different member changes at the same time then there is a "key collision" and the "needs rekey" function
+        /// will return true to indicate that a 3rd `rekey` needs to be made to have a final set of keys which includes all members
+        ///
+        /// **Note:** We don't check `needsDump` in this case because the local state _could_ be persisted yet still require a `rekey`
+        /// so we should rely solely on `groups_keys_needs_rekey`
+        guard groups_keys_needs_rekey(conf) else { return }
+        
+        try rekey(db, groupSessionId: groupSessionId, using: dependencies)
+    }
 }
 
 // MARK: - Outgoing Changes

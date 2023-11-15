@@ -481,7 +481,14 @@ public enum SessionUtil {
                                         using: dependencies
                                     )
                                     
-                                case .groupKeys: break // No custom handling needed (libSession manages everything)
+                                case .groupKeys:
+                                    try SessionUtil.handleGroupKeysUpdate(
+                                        db,
+                                        in: config,
+                                        groupSessionId: sessionId,
+                                        using: dependencies
+                                    )
+                                    
                                 case .invalid: SNLog("[libSession] Failed to process merge of invalid config namespace")
                             }
                             

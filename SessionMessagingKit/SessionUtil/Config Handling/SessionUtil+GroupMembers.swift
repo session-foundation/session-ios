@@ -12,7 +12,7 @@ public extension SessionUtil {
     static var sizeMaxGroupMemberCount: Int { 100 }
 }
 
-// MARK: - Group Info Handling
+// MARK: - Group Members Handling
 
 internal extension SessionUtil {
     static let columnsRelatedToGroupMembers: [ColumnExpression] = [
