@@ -9,9 +9,7 @@ import Nimble
 @testable import SessionUtilitiesKit
 
 class HeaderSpec: QuickSpec {
-    // MARK: - Spec
-
-    override func spec() {
+    override class func spec() {
         describe("a Dictionary of Header to String values") {
             it("can be converted into a dictionary of String to String values") {
                 expect([HTTPHeader.authorization: "test"].toHTTPHeaders())

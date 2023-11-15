@@ -671,6 +671,8 @@
 		FD4C4EA32B03093200C72199 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */; };
 		FD4C4EA42B03093300C72199 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */; };
 		FD4C4EA52B03093300C72199 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */; };
+		FD4C4EA72B043A8300C72199 /* HeaderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4EA62B043A8300C72199 /* HeaderSpec.swift */; };
+		FD4C4EA92B043A8800C72199 /* RequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4C4EA82B043A8700C72199 /* RequestSpec.swift */; };
 		FD52090028AF6153006098F6 /* OWSBackgroundTask.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */; };
 		FD52090128AF61BA006098F6 /* OWSBackgroundTask.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDB38255A580B00E217F9 /* OWSBackgroundTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FD52090328B4680F006098F6 /* RadioButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090228B4680F006098F6 /* RadioButton.swift */; };
@@ -1893,6 +1895,8 @@
 		FD4B200D283492210034334B /* InsetLockableTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsetLockableTableView.swift; sourceTree = "<group>"; };
 		FD4C4E9B2B02E2A300C72199 /* DisplayPictureError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisplayPictureError.swift; sourceTree = "<group>"; };
 		FD4C4E9F2B0308FD00C72199 /* GRDBExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GRDBExtensions.swift; sourceTree = "<group>"; };
+		FD4C4EA62B043A8300C72199 /* HeaderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HeaderSpec.swift; sourceTree = "<group>"; };
+		FD4C4EA82B043A8700C72199 /* RequestSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RequestSpec.swift; sourceTree = "<group>"; };
 		FD52090228B4680F006098F6 /* RadioButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButton.swift; sourceTree = "<group>"; };
 		FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewModel.swift; sourceTree = "<group>"; };
 		FD52090628B49738006098F6 /* ConfirmationModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationModal.swift; sourceTree = "<group>"; };
@@ -4431,7 +4435,9 @@
 		FD9B30F1293EA0AF008DEE3E /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				FD4C4EA62B043A8300C72199 /* HeaderSpec.swift */,
 				FDB947112A9831B5001F271A /* PreparedRequestSpec.swift */,
+				FD4C4EA82B043A8700C72199 /* RequestSpec.swift */,
 				FD3C905B27E3FBEF00CD579F /* BatchRequestSpec.swift */,
 				FD9B30F2293EA0BF008DEE3E /* BatchResponseSpec.swift */,
 			);
@@ -6789,6 +6795,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD4C4EA92B043A8800C72199 /* RequestSpec.swift in Sources */,
 				FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FD078E4927E02576000769AF /* CommonMockedExtensions.swift in Sources */,
 				FD65318D2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
@@ -6796,6 +6803,7 @@
 				FDFBB7542A2023EB00CA7350 /* BencodeEncoderSpec.swift in Sources */,
 				FD9DD2732A72516D00ECB68E /* TestExtensions.swift in Sources */,
 				FDD383732AFDD6D7001367F2 /* BencodeResponseSpec.swift in Sources */,
+				FD4C4EA72B043A8300C72199 /* HeaderSpec.swift in Sources */,
 				FDB5DB0E2A981FA0002C8721 /* MockJobRunner.swift in Sources */,
 				FD3FAB6E2AF1B28C00DC5421 /* MockFileManager.swift in Sources */,
 				FDFE75B22ABD469500655640 /* MockJobRunner.swift in Sources */,

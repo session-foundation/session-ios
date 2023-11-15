@@ -13,7 +13,9 @@ class PreparedRequestSpec: QuickSpec {
         // MARK: Configuration
 
         @TestState var dependencies: TestDependencies! = TestDependencies()
+        
         @TestState var urlRequest: URLRequest?
+        @TestState var preparedRequest: HTTP.PreparedRequest<TestType>!
         @TestState var request: Request<NoBody, TestEndpoint>!
         @TestState var responseInfo: ResponseInfoType! = HTTP.ResponseInfo(code: 200, headers: [:])
         
@@ -35,11 +37,16 @@ class PreparedRequestSpec: QuickSpec {
                         x25519PublicKey: "",
                         body: nil
                     )
-                    urlRequest = try? request.generateUrlRequest(using: dependencies)
+                    preparedRequest = HTTP.PreparedRequest(
+                        request: request,
+                        urlRequest: try! request.generateUrlRequest(using: dependencies),
+                        responseType: TestType.self,
+                        timeout: 10
+                    )
                     
-                    expect(urlRequest?.url?.absoluteString).to(equal("testServer/endpoint"))
-                    expect(urlRequest?.httpMethod).to(equal("POST"))
-                    expect(urlRequest?.allHTTPHeaderFields).to(equal([
+                    expect(preparedRequest.request.url?.absoluteString).to(equal("testServer/endpoint"))
+                    expect(preparedRequest.request.httpMethod).to(equal("POST"))
+                    expect(preparedRequest.request.allHTTPHeaderFields).to(equal([
                         "TestCustomHeader": "TestCustom",
                         HTTPHeader.testHeader: "Test"
                     ]))
@@ -59,10 +66,15 @@ class PreparedRequestSpec: QuickSpec {
                         x25519PublicKey: "",
                         body: nil
                     )
-                    urlRequest = try? request.generateUrlRequest(using: dependencies)
+                    preparedRequest = HTTP.PreparedRequest(
+                        request: request,
+                        urlRequest: try! request.generateUrlRequest(using: dependencies),
+                        responseType: TestType.self,
+                        timeout: 10
+                    )
                     
                     expect(TestEndpoint.excludedSubRequestHeaders).to(equal([HTTPHeader.testHeader]))
-                    expect(urlRequest?.allHTTPHeaderFields?.keys).to(contain([HTTPHeader.testHeader]))
+                    expect(preparedRequest.request.allHTTPHeaderFields?.keys).to(contain([HTTPHeader.testHeader]))
                 }
             }
         }

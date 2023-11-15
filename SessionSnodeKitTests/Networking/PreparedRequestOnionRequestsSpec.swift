@@ -17,7 +17,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
-        @TestState var preparedRequest: HTTP.PreparedRequest<Int>? = {
+        @TestState var preparedRequest: HTTP.PreparedRequest<Int>! = {
             let request = Request<NoBody, TestEndpoint>(
                 method: .post,
                 server: "https://www.oxen.io",
@@ -46,7 +46,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                         .thenReturn(MockNetwork.response(with: 1))
                 }
                 
-                // MARK: -- triggers sending correctly
+                // MARK: ---- triggers sending correctly
                 it("triggers sending correctly") {
                     var response: (info: ResponseInfoType, data: Int)?
                     
@@ -61,7 +61,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                     expect(error).to(beNil())
                 }
                 
-                // MARK: -- returns an error when the prepared request is null
+                // MARK: ---- returns an error when the prepared request is null
                 it("returns an error when the prepared request is null") {
                     var response: (info: ResponseInfoType, data: Int)?
                     
@@ -74,6 +74,112 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
 
                     expect(error).to(matchError(HTTPError.invalidPreparedRequest))
                     expect(response).to(beNil())
+                }
+                
+                // MARK: ---- and handling events
+                context("and handling events") {
+                    @TestState var didReceiveSubscription: Bool! = false
+                    @TestState var didReceiveCancel: Bool! = false
+                    @TestState var receivedOutput: (ResponseInfoType, Int)? = nil
+                    @TestState var receivedCompletion: Subscribers.Completion<Error>? = nil
+                    
+                    // MARK: ------ calls receiveSubscription correctly
+                    it("calls receiveSubscription correctly") {
+                        preparedRequest
+                            .handleEvents(
+                                receiveSubscription: { didReceiveSubscription = true }
+                            )
+                            .send(using: dependencies)
+                            .sinkUntilComplete()
+                    
+                        expect(didReceiveSubscription).to(beTrue())
+                    }
+                    
+                    // MARK: ------ calls receiveOutput correctly
+                    it("calls receiveOutput correctly") {
+                        preparedRequest
+                            .handleEvents(
+                                receiveOutput: { info, output in receivedOutput = (info, output) }
+                            )
+                            .send(using: dependencies)
+                            .sinkUntilComplete()
+                        
+                        expect(receivedOutput).toNot(beNil())
+                    }
+                    
+                    // MARK: ------ calls receiveCompletion correctly
+                    it("calls receiveCompletion correctly") {
+                        preparedRequest
+                            .handleEvents(
+                                receiveCompletion: { result in receivedCompletion = result }
+                            )
+                            .send(using: dependencies)
+                            .sinkUntilComplete()
+                        
+                        expect(receivedCompletion).toNot(beNil())
+                    }
+                    
+                    // MARK: ------ calls receiveCancel correctly
+                    it("calls receiveCancel correctly") {
+                        preparedRequest
+                            .handleEvents(
+                                receiveCancel: { didReceiveCancel = true }
+                            )
+                            .send(using: dependencies)
+                            .handleEvents(
+                                receiveSubscription: { $0.cancel() }
+                            )
+                            .sinkUntilComplete()
+                        
+                        expect(didReceiveCancel).to(beTrue())
+                    }
+                    
+                    // MARK: ------ calls multiple callbacks without issue
+                    it("calls multiple callbacks without issue") {
+                        preparedRequest
+                            .handleEvents(
+                                receiveSubscription: { didReceiveSubscription = true },
+                                receiveCompletion: { result in receivedCompletion = result }
+                            )
+                            .send(using: dependencies)
+                            .sinkUntilComplete()
+                        
+                        expect(didReceiveSubscription).to(beTrue())
+                        expect(receivedCompletion).toNot(beNil())
+                    }
+                }
+                // MARK: ---- and transforming the result
+                context("and transforming the result") {
+                    @TestState var receivedOutput: (ResponseInfoType, String)? = nil
+                    
+                    // MARK: ------ successfully transforms the result
+                    it("successfully transforms the result") {
+                        preparedRequest
+                            .map { _, output -> String in "\(output)" }
+                            .send(using: dependencies)
+                            .sinkUntilComplete(
+                                receiveValue: { info, output in receivedOutput = (info, output) }
+                            )
+                        
+                        expect(receivedOutput?.1).to(equal("1"))
+                    }
+                    
+                    // MARK: ------ will fail if the transformation throws
+                    it("will fail if the transformation throws") {
+                        preparedRequest
+                            .tryMap { _, output -> String in throw HTTPError.generic }
+                            .send(using: dependencies)
+                            .sinkUntilComplete(
+                                receiveCompletion: { result in
+                                    switch result {
+                                        case .finished: break
+                                        case .failure(let failureError): error = failureError
+                                    }
+                                }
+                            )
+                        
+                        expect(error).to(matchError(HTTPError.generic))
+                    }
                 }
             }
         }
