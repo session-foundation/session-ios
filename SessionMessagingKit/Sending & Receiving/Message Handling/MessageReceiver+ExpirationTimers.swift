@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SessionUIKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -160,6 +161,10 @@ extension MessageReceiver {
                 db,
                 Contact.Columns.lastKnownClientVersion.set(to: lastKnownClientVersion)
             )
+        
+        if sender == getUserHexEncodedPublicKey(db) && lastKnownClientVersion == .legacyDisappearingMessages {
+            TopBannerController.show(warning: .outdatedUserConfig)
+        }
         
         guard
             Features.useNewDisappearingMessagesConfig,
