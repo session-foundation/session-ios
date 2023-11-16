@@ -41,22 +41,45 @@ final class InfoBanner: UIView {
         return result
     }()
     
+    private lazy var closeButton: UIButton = {
+        let result: UIButton = UIButton()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.setImage(
+            UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold))?
+                .withRenderingMode(.alwaysTemplate),
+            for: .normal
+        )
+        result.contentMode = .center
+        result.addTarget(self, action: #selector(dismissBanner), for: .touchUpInside)
+        
+        return result
+    }()
+    
     public var info: Info?
+    public var dismiss: (() -> Void)?
     
     // MARK: - Initialization
     
-    init(info: Info) {
+    init(info: Info, dismiss: (() -> Void)? = nil) {
         super.init(frame: CGRect.zero)
         
         addSubview(label)
         
         label.pin(.top, to: .top, of: self)
         label.pin(.bottom, to: .bottom, of: self)
-        label.pin(.leading, to: .leading, of: self, withInset: Values.mediumSpacing)
-        label.pin(.trailing, to: .trailing, of: self, withInset: -Values.mediumSpacing)
+        label.pin(.leading, to: .leading, of: self, withInset: Values.veryLargeSpacing)
+        label.pin(.trailing, to: .trailing, of: self, withInset: -Values.veryLargeSpacing)
+        
+        addSubview(closeButton)
+        
+        let buttonSize: CGFloat = (12 + (Values.smallSpacing * 2))
+        closeButton.center(.vertical, in: self)
+        closeButton.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
+        closeButton.set(.width, to: buttonSize)
+        closeButton.set(.height, to: buttonSize)
         
         self.set(.height, to: info.height)
-        self.update(info)
+        self.update(info, dismiss: dismiss)
     }
     
     override init(frame: CGRect) {
@@ -69,8 +92,9 @@ final class InfoBanner: UIView {
     
     // MARK: Update
     
-    private func update(_ info: InfoBanner.Info) {
+    private func update(_ info: InfoBanner.Info, dismiss: (() -> Void)?) {
         self.info = info
+        self.dismiss = dismiss
         
         themeBackgroundColor = info.backgroundColor
         
@@ -78,6 +102,9 @@ final class InfoBanner: UIView {
         label.text = info.message
         label.themeTextColor = info.messageTintColor
         label.accessibilityLabel = info.messageLabelAccessibilityLabel
+        
+        closeButton.themeTintColor = info.messageTintColor
+        closeButton.isHidden = (dismiss == nil)
     }
     
     public func update(
@@ -86,7 +113,8 @@ final class InfoBanner: UIView {
         messageFont: UIFont? = nil,
         messageTintColor: ThemeValue? = nil,
         messageLabelAccessibilityLabel: String? = nil,
-        height: CGFloat? = nil
+        height: CGFloat? = nil,
+        dismiss: (() -> Void)? = nil
     ) {
         if let updatedInfo = self.info?.with(
             message: message,
@@ -96,7 +124,13 @@ final class InfoBanner: UIView {
             messageLabelAccessibilityLabel: messageLabelAccessibilityLabel,
             height: height
         ) {
-            self.update(updatedInfo)
+            self.update(updatedInfo, dismiss: dismiss)
         }
+    }
+    
+    // MARK: - Actions
+    
+    @objc private func dismissBanner() {
+        self.dismiss?()
     }
 }

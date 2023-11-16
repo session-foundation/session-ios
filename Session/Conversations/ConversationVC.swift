@@ -207,12 +207,12 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         let info: InfoBanner.Info = InfoBanner.Info(
             message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), self.viewModel.threadData.displayName),
             backgroundColor: .primary,
-            messageFont: .systemFont(ofSize: Values.miniFontSize),
+            messageFont: .systemFont(ofSize: Values.verySmallFontSize),
             messageTintColor: .messageBubble_outgoingText,
             messageLabelAccessibilityLabel: "Outdated client banner text",
             height: 40
         )
-        let result: InfoBanner = InfoBanner(info: info)
+        let result: InfoBanner = InfoBanner(info: info, dismiss: self.removeOutdatedClientBanner)
         result.accessibilityLabel = "Outdated client banner"
         result.isAccessibilityElement = true
         
@@ -806,7 +806,13 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                         .defaulting(to: NSRange(location: 0, length: 0))
                 )
 
-            outdatedClientBanner.update(message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), updatedThreadData.displayName))
+            outdatedClientBanner.update(
+                message: String(
+                    format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
+                    updatedThreadData.displayName
+                ),
+                dismiss: self.removeOutdatedClientBanner
+            )
         }
         
         if
@@ -872,9 +878,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             }
         }
         
-        if initialLoad || viewModel.threadData.contactLastKnownClientVersion != updatedThreadData.contactLastKnownClientVersion {
-            addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: updatedThreadData.contactLastKnownClientVersion == .legacyDisappearingMessages)
-        }
+        addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: updatedThreadData.contactLastKnownClientVersion == .legacyDisappearingMessages)
         
         if initialLoad || viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked {
             addOrRemoveBlockedBanner(threadIsBlocked: (updatedThreadData.threadIsBlocked == true))
@@ -1510,22 +1514,26 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         }
         
         guard contactIsUsingOutdatedClient else {
-            UIView.animate(
-                withDuration: 0.25,
-                animations: { [weak self] in
-                    self?.outdatedClientBanner.alpha = 0
-                },
-                completion: { [weak self] _ in
-                    self?.outdatedClientBanner.isHidden = true
-                    self?.outdatedClientBanner.alpha = 1
-                    self?.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
-                }
-            )
+            removeOutdatedClientBanner()
             return
         }
 
         self.outdatedClientBanner.isHidden = false
         self.emptyStateLabelTopConstraint?.constant = 0
+    }
+    
+    private func removeOutdatedClientBanner() {
+        UIView.animate(
+            withDuration: 0.25,
+            animations: { [weak self] in
+                self?.outdatedClientBanner.alpha = 0
+            },
+            completion: { [weak self] _ in
+                self?.outdatedClientBanner.isHidden = true
+                self?.outdatedClientBanner.alpha = 1
+                self?.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
+            }
+        )
     }
 
     func addOrRemoveBlockedBanner(threadIsBlocked: Bool) {
