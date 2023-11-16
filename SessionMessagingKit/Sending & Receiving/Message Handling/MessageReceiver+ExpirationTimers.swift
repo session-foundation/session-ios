@@ -162,14 +162,13 @@ extension MessageReceiver {
                 Contact.Columns.lastKnownClientVersion.set(to: lastKnownClientVersion)
             )
         
+        guard Features.useNewDisappearingMessagesConfig else { return }
+        
         if sender == getUserHexEncodedPublicKey(db) && lastKnownClientVersion == .legacyDisappearingMessages {
             TopBannerController.show(warning: .outdatedUserConfig)
         }
         
-        guard
-            Features.useNewDisappearingMessagesConfig,
-            proto.hasLastDisappearingMessageChangeTimestamp
-        else { return }
+        guard proto.hasLastDisappearingMessageChangeTimestamp else { return }
         
         let protoLastChangeTimestampMs: Int64 = Int64(proto.lastDisappearingMessageChangeTimestamp)
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
