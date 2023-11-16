@@ -199,9 +199,7 @@ class SOGSMessageSpec: QuickSpec {
                         // MARK: -------- succeeds if it succeeds verification
                         it("succeeds if it succeeds verification") {
                             mockCrypto
-                                .when {
-                                    $0.verify(.signature(message: anyArray(), publicKey: anyArray(), signature: anyArray()))
-                                }
+                                .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                                 .thenReturn(true)
                             
                             expect {
@@ -213,9 +211,7 @@ class SOGSMessageSpec: QuickSpec {
                         // MARK: -------- provides the correct values as parameters
                         it("provides the correct values as parameters") {
                             mockCrypto
-                                .when {
-                                    $0.verify(.signature(message: anyArray(), publicKey: anyArray(), signature: anyArray()))
-                                }
+                                .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                                 .thenReturn(true)
                             
                             _ = try? decoder.decode(OpenGroupAPI.Message.self, from: messageData)
@@ -235,9 +231,7 @@ class SOGSMessageSpec: QuickSpec {
                         // MARK: -------- throws if it fails verification
                         it("throws if it fails verification") {
                             mockCrypto
-                                .when {
-                                    $0.verify(.signature(message: anyArray(), publicKey: anyArray(), signature: anyArray()))
-                                }
+                                .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                                 .thenReturn(false)
                             
                             expect {
@@ -252,7 +246,7 @@ class SOGSMessageSpec: QuickSpec {
                         // MARK: -------- succeeds if it succeeds verification
                         it("succeeds if it succeeds verification") {
                             mockCrypto
-                                .when { $0.verify(.signatureEd25519(any(), publicKey: any(), data: any())) }
+                                .when { $0.verify(.signatureEd25519(.any, publicKey: .any, data: .any)) }
                                 .thenReturn(true)
                             
                             expect {
@@ -264,7 +258,7 @@ class SOGSMessageSpec: QuickSpec {
                         // MARK: -------- provides the correct values as parameters
                         it("provides the correct values as parameters") {
                             mockCrypto
-                                .when { $0.verify(.signatureEd25519(any(), publicKey: any(), data: any())) }
+                                .when { $0.verify(.signatureEd25519(.any, publicKey: .any, data: .any)) }
                                 .thenReturn(true)
                             
                             _ = try? decoder.decode(OpenGroupAPI.Message.self, from: messageData)
@@ -284,7 +278,7 @@ class SOGSMessageSpec: QuickSpec {
                         // MARK: -------- throws if it fails verification
                         it("throws if it fails verification") {
                             mockCrypto
-                                .when { $0.verify(.signatureEd25519(any(), publicKey: any(), data: any())) }
+                                .when { $0.verify(.signatureEd25519(.any, publicKey: .any, data: .any)) }
                                 .thenReturn(false)
                             
                             expect {

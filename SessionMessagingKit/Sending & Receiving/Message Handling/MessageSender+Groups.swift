@@ -251,7 +251,7 @@ extension MessageSender {
                         variant: .infoGroupInfoUpdated,
                         body: ClosedGroup.MessageInfo
                             .updatedName(name)
-                            .infoString,
+                            .infoString(using: dependencies),
                         timestampMs: changeTimestampMs
                     ).inserted(db)
                     
@@ -326,7 +326,7 @@ extension MessageSender {
                     variant: .infoGroupInfoUpdated,
                     body: ClosedGroup.MessageInfo
                         .updatedDisplayPicture
-                        .infoString,
+                        .infoString(using: dependencies),
                     timestampMs: changeTimestampMs
                 ).inserted(db)
                 
@@ -499,7 +499,7 @@ extension MessageSender {
                             Profile.truncated(id: id, truncating: .middle)
                         }
                     )
-                    .infoString,
+                    .infoString(using: dependencies),
                 timestampMs: changeTimestampMs
             ).inserted(db)
             
@@ -692,7 +692,7 @@ extension MessageSender {
                                     Profile.truncated(id: id, truncating: .middle)
                                 }
                             )
-                            .infoString,
+                            .infoString(using: dependencies),
                         timestampMs: targetChangeTimestampMs
                     ).inserted(db)
                     
@@ -799,7 +799,7 @@ extension MessageSender {
                                 Profile.truncated(id: id, truncating: .middle)
                             }
                         )
-                        .infoString,
+                        .infoString(using: dependencies),
                     timestampMs: changeTimestampMs
                 ).inserted(db)
                 

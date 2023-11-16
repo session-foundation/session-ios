@@ -64,7 +64,7 @@ class CryptoSMKSpec: QuickSpec {
                         dependencies[singleton: .crypto] = mockCrypto
                         
                         mockCrypto
-                            .when { $0.generate(.hash(message: anyArray(), outputLength: any())) }
+                            .when { $0.generate(.hash(message: .any, outputLength: .any)) }
                             .thenReturn(nil)
                         
                         let result = crypto.generate(

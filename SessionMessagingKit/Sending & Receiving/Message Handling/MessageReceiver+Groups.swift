@@ -164,7 +164,8 @@ extension MessageReceiver {
             isHidden: false
         ).upsert(db)
         
-        /// If the thread didn't already exist then insert an 'invited' info message
+        /// If the thread didn't already exist, or the user had previously been kicked but has since been re-added to the group, then insert
+        /// an 'invited' info message
         guard !threadAlreadyExisted || wasKickedFromGroup else { return }
         
         let interaction: Interaction = try Interaction(
@@ -177,7 +178,7 @@ extension MessageReceiver {
                         .defaulting(to: Profile.truncated(id: sender, threadVariant: .group)),
                     message.groupName
                 )
-                .infoString,
+                .infoString(using: dependencies),
             timestampMs: Int64(sentTimestampMs),
             wasRead: SessionUtil.timestampAlreadyRead(
                 threadId: message.groupSessionId.hexString,
@@ -444,7 +445,7 @@ extension MessageReceiver {
                     body: message.updatedName
                         .map { ClosedGroup.MessageInfo.updatedName($0) }
                         .defaulting(to: ClosedGroup.MessageInfo.updatedNameFallback)
-                        .infoString,
+                        .infoString(using: dependencies),
                     timestampMs: Int64(sentTimestampMs)
                 ).inserted(db)
                 
@@ -456,7 +457,7 @@ extension MessageReceiver {
                     variant: .infoGroupInfoUpdated,
                     body: ClosedGroup.MessageInfo
                         .updatedDisplayPicture
-                        .infoString,
+                        .infoString(using: dependencies),
                     timestampMs: Int64(sentTimestampMs)
                 ).inserted(db)
                 
@@ -531,9 +532,20 @@ extension MessageReceiver {
             variant: .infoGroupMembersUpdated,
             body: {
                 switch message.changeType {
-                    case .added: return ClosedGroup.MessageInfo.addedUsers(names: names).infoString
-                    case .removed: return ClosedGroup.MessageInfo.removedUsers(names: names).infoString
-                    case .promoted: return ClosedGroup.MessageInfo.promotedUsers(names: names).infoString
+                    case .added:
+                        return ClosedGroup.MessageInfo
+                            .addedUsers(names: names)
+                            .infoString(using: dependencies)
+                        
+                    case .removed:
+                        return ClosedGroup.MessageInfo
+                            .removedUsers(names: names)
+                            .infoString(using: dependencies)
+                        
+                    case .promoted:
+                        return ClosedGroup.MessageInfo
+                            .promotedUsers(names: names)
+                            .infoString(using: dependencies)
                 }
             }(),
             timestampMs: Int64(sentTimestampMs)
@@ -564,7 +576,7 @@ extension MessageReceiver {
                         Profile.truncated(id: sender, truncating: .middle)
                     )
                 )
-                .infoString,
+                .infoString(using: dependencies),
             timestampMs: Int64(sentTimestampMs)
         ).inserted(db)
         

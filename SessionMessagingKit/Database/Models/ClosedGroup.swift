@@ -531,8 +531,8 @@ public extension ClosedGroup {
             }
         }
         
-        var infoString: String? {
-            guard let messageInfoData: Data = try? JSONEncoder().encode(self) else { return nil }
+        func infoString(using dependencies: Dependencies) -> String? {
+            guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(self) else { return nil }
             
             return String(data: messageInfoData, encoding: .utf8)
         }

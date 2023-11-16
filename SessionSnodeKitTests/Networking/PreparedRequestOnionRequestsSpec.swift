@@ -42,7 +42,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
             context("when sending") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
+                        .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
                         .thenReturn(MockNetwork.response(with: 1))
                 }
                 
@@ -341,7 +341,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                         
                         beforeEach {
                             mockNetwork
-                                .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
+                                .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
                                 .thenReturn(
                                     MockNetwork.batchResponseData(with: [
                                         (endpoint: TestEndpoint.endpoint1, data: TestType.mockBatchSubResponse()),
@@ -490,6 +490,7 @@ class PreparedRequestOnionRequestsSpec: QuickSpec {
                             
                             expect(receivedCompletion).toNot(beNil())
                         }
+                    }
                 }
             }
         }
@@ -517,7 +518,7 @@ fileprivate enum TestEndpoint: EndpointType {
 }
 
 fileprivate struct TestType: Codable, Equatable, Mocked {
-    static var mockValue: TestType { TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil) }
+    static var mock: TestType { TestType(intValue: 100, stringValue: "Test", optionalStringValue: nil) }
     
     let intValue: Int
     let stringValue: String

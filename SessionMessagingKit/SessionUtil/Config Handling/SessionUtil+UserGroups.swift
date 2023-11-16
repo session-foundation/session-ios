@@ -1120,12 +1120,12 @@ public extension SessionUtil {
                 var cGroupId: [CChar] = groupSessionId.hexString.cArray.nullTerminated()
                 var userGroup: ugroups_group_info = ugroups_group_info()
                 
-                // If the group doesn't exist then assume the user was kicked
-                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return true }
+                // If the group doesn't exist then assume the user hasn't been kicked
+                guard user_groups_get_group(conf, &userGroup, &cGroupId) else { return false }
                 
                 return ugroups_group_is_kicked(&userGroup)
             })
-            .defaulting(to: true)
+            .defaulting(to: false)
     }
     
     static func remove(

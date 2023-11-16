@@ -43,7 +43,7 @@ class SessionUtilSpec: QuickSpec {
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: any(), using: any())) }
+                    .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data.data(
@@ -56,33 +56,29 @@ class SessionUtilSpec: QuickSpec {
                         )
                     )
                 crypto
-                    .when { try $0.tryGenerate(.signature(message: anyArray(), secretKey: anyArray())) }
+                    .when { try $0.tryGenerate(.signature(message: .any, secretKey: .any)) }
                     .thenReturn(
                         Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
                     )
             }
         )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { [dependencies = dependencies!] network in
+            initialSetup: { network in
                 network
-                    .when {
-                        $0.send(
-                            .selectedNetworkRequest(
-                                any(),
-                                to: any(),
-                                timeout: any(),
-                                using: dependencies
-                            )
-                        )
-                    }
+                    .when { $0.send(.selectedNetworkRequest(.any, to: .any, timeout: .any, using: .any)) }
                     .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
             }
         )
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
-                    .when { $0.add(any(), job: any(), dependantJob: any(), canStartJob: any(), using: any()) }
+                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any, using: .any) }
                     .thenReturn(nil)
+            }
+        )
+        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
+            initialSetup: { userDefaults in
+                userDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
             }
         )
         
@@ -133,14 +129,14 @@ class SessionUtilSpec: QuickSpec {
                 var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
                 _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
                 
-                cache.when { $0.setConfig(for: any(), sessionId: any(), to: any()) }.thenReturn(())
-                cache.when { $0.config(for: .userGroups, sessionId: any()) }
+                cache.when { $0.setConfig(for: .any, sessionId: .any, to: .any) }.thenReturn(())
+                cache.when { $0.config(for: .userGroups, sessionId: .any) }
                     .thenReturn(Atomic(.object(conf)))
-                cache.when { $0.config(for: .groupInfo, sessionId: any()) }
+                cache.when { $0.config(for: .groupInfo, sessionId: .any) }
                     .thenReturn(Atomic(createGroupOutput.groupState[.groupInfo]))
-                cache.when { $0.config(for: .groupMembers, sessionId: any()) }
+                cache.when { $0.config(for: .groupMembers, sessionId: .any) }
                     .thenReturn(Atomic(createGroupOutput.groupState[.groupMembers]))
-                cache.when { $0.config(for: .groupKeys, sessionId: any()) }
+                cache.when { $0.config(for: .groupKeys, sessionId: .any) }
                     .thenReturn(Atomic(createGroupOutput.groupState[.groupKeys]))
             }
         )
@@ -358,7 +354,7 @@ class SessionUtilSpec: QuickSpec {
                     userGroupsConfig = .object(userGroupsConf)
                     
                     mockSessionUtilCache
-                        .when { $0.config(for: .userGroups, sessionId: any()) }
+                        .when { $0.config(for: .userGroups, sessionId: .any) }
                         .thenReturn(Atomic(userGroupsConfig))
                 }
                 
@@ -393,7 +389,7 @@ class SessionUtilSpec: QuickSpec {
                     var resultError: Error? = nil
                     
                     mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: any(), using: any())) }
+                        .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
                         .thenReturn(nil)
                     
                     mockStorage.write { db in
@@ -625,7 +621,7 @@ class SessionUtilSpec: QuickSpec {
                     }
                     
                     expect(mockSessionUtilCache).to(call(.exactly(times: 3)) {
-                        $0.setConfig(for: any(), sessionId: any(), to: any())
+                        $0.setConfig(for: .any, sessionId: .any, to: .any)
                     })
                     expect(mockSessionUtilCache)
                         .to(call(matchingParameters: .atLeast(2)) {
@@ -635,7 +631,7 @@ class SessionUtilSpec: QuickSpec {
                                     .group,
                                     hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
                                 ),
-                                to: any()
+                                to: .any
                             )
                         })
                     expect(mockSessionUtilCache)
@@ -646,7 +642,7 @@ class SessionUtilSpec: QuickSpec {
                                     .group,
                                     hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
                                 ),
-                                to: any()
+                                to: .any
                             )
                         })
                     expect(mockSessionUtilCache)
@@ -657,7 +653,7 @@ class SessionUtilSpec: QuickSpec {
                                     .group,
                                     hex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
                                 ),
-                                to: any()
+                                to: .any
                             )
                         })
                 }
@@ -960,7 +956,7 @@ class SessionUtilSpec: QuickSpec {
                         expect(mockJobRunner)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
                                 jobRunner.add(
-                                    any(),
+                                    .any,
                                     job: Job(
                                         variant: .displayPictureDownload,
                                         behaviour: .runOnce,
@@ -980,7 +976,7 @@ class SessionUtilSpec: QuickSpec {
                                         )
                                     ),
                                     canStartJob: true,
-                                    using: any()
+                                    using: .any
                                 )
                             })
                     }
@@ -1205,7 +1201,7 @@ class SessionUtilSpec: QuickSpec {
                         expect(mockJobRunner)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
                                 jobRunner.add(
-                                    any(),
+                                    .any,
                                     job: Job(
                                         variant: .garbageCollection,
                                         behaviour: .runOnce,
@@ -1217,7 +1213,7 @@ class SessionUtilSpec: QuickSpec {
                                         )
                                     ),
                                     canStartJob: true,
-                                    using: any()
+                                    using: .any
                                 )
                             })
                     }
@@ -1403,7 +1399,7 @@ class SessionUtilSpec: QuickSpec {
                                     expectedRequest.httpBody!,
                                     to: dependencies.randomElement(mockSwarmCache)!,
                                     timeout: HTTP.defaultTimeout,
-                                    using: any()
+                                    using: .any
                                 )
                             )
                         })
@@ -1446,15 +1442,8 @@ class SessionUtilSpec: QuickSpec {
                     }
                     expect(numInteractions).to(equal(0))
                     expect(mockNetwork)
-                        .toNot(call { [dependencies = dependencies!] network in
-                            network.send(
-                                .selectedNetworkRequest(
-                                    any(),
-                                    to: any(),
-                                    timeout: any(),
-                                    using: dependencies
-                                )
-                            )
+                        .toNot(call { network in
+                            network.send(.selectedNetworkRequest(.any, to: .any, timeout: .any, using: .any))
                         })
                 }
             }

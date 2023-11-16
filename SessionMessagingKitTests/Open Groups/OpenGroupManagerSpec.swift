@@ -51,10 +51,10 @@ class OpenGroupManagerSpec: QuickSpec {
             infoUpdates: 10,
             sequenceNumber: 5
         )
-        @TestState var testPollInfo: OpenGroupAPI.RoomPollInfo! = OpenGroupAPI.RoomPollInfo.mockValue.with(
+        @TestState var testPollInfo: OpenGroupAPI.RoomPollInfo! = OpenGroupAPI.RoomPollInfo.mock.with(
             token: "testRoom",
             activeUsers: 10,
-            details: .mockValue
+            details: .mock
         )
         @TestState var testMessage: OpenGroupAPI.Message! = OpenGroupAPI.Message(
             id: 127,
@@ -119,25 +119,17 @@ class OpenGroupManagerSpec: QuickSpec {
         @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
             initialSetup: { jobRunner in
                 jobRunner
-                    .when { $0.add(any(), job: any(), dependantJob: any(), canStartJob: any(), using: any()) }
+                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any, using: .any) }
                     .thenReturn(nil)
             }
         )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork()
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.hash(message: anyArray(), outputLength: any())) }
-                    .thenReturn([])
+                crypto.when { $0.generate(.hash(message: .any, outputLength: .any)) }.thenReturn([])
                 crypto
                     .when { crypto in
-                        crypto.generate(
-                            .blindedKeyPair(
-                                serverPublicKey: any(),
-                                edKeyPair: any(),
-                                using: any()
-                            )
-                        )
+                        crypto.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any))
                     }
                     .thenReturn(
                         KeyPair(
@@ -149,16 +141,16 @@ class OpenGroupManagerSpec: QuickSpec {
                     .when {
                         $0.generate(
                             .signatureSOGS(
-                                message: anyArray(),
-                                secretKey: anyArray(),
-                                blindedSecretKey: anyArray(),
-                                blindedPublicKey: anyArray()
+                                message: .any,
+                                secretKey: .any,
+                                blindedSecretKey: .any,
+                                blindedPublicKey: .any
                             )
                         )
                     }
                     .thenReturn("TestSogsSignature".bytes)
                 crypto
-                    .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                    .when { $0.generate(.signature(message: .any, secretKey: .any)) }
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
                 crypto.when { $0.size(.nonce16) }.thenReturn(16)
                 crypto
@@ -180,14 +172,12 @@ class OpenGroupManagerSpec: QuickSpec {
         @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
             initialSetup: { cache in
                 cache.when { $0.pendingChanges }.thenReturn([])
-                cache.when { $0.pollers = any() }.thenReturn(())
-                cache.when { $0.isPolling = any() }.thenReturn(())
+                cache.when { $0.pollers = .any }.thenReturn(())
+                cache.when { $0.isPolling = .any }.thenReturn(())
                 cache
-                    .when { $0.defaultRoomsPublisher = any(type: [OpenGroupManager.DefaultRoomInfo].self) }
+                    .when { $0.defaultRoomsPublisher = .any(type: [OpenGroupManager.DefaultRoomInfo].self) }
                     .thenReturn(())
-                cache
-                    .when { $0.pendingChanges = any(type: OpenGroupAPI.PendingChange.self) }
-                    .thenReturn(())
+                cache.when { $0.pendingChanges = .any }.thenReturn(())
             }
         )
         @TestState var disposables: [AnyCancellable]! = []
@@ -274,7 +264,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockOGMCache.when { $0.hasPerformedInitialPoll }.thenReturn([:])
                     mockOGMCache.when { $0.timeSinceLastPoll }.thenReturn([:])
-                    mockOGMCache.when { $0.getTimeSinceLastOpen(using: any()) }.thenReturn(0)
+                    mockOGMCache.when { $0.getTimeSinceLastOpen(using: .any) }.thenReturn(0)
                     mockOGMCache.when { $0.isPolling }.thenReturn(false)
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
                     
@@ -729,7 +719,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     mockNetwork
-                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
+                        .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
                         .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomResponse)
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
                     
@@ -875,7 +865,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("with an invalid response") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
+                            .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
                             .thenReturn(MockNetwork.response(data: Data()))
                         
                         mockUserDefaults
@@ -1220,7 +1210,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(mockJobRunner)
                         .toNot(call(matchingParameters: .all) {
                             $0.add(
-                                any(),
+                                .any,
                                 job: Job(
                                     variant: .displayPictureDownload,
                                     shouldBeUnique: true,
@@ -1270,7 +1260,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(mockJobRunner)
                         .to(call(matchingParameters: .all) {
                             $0.add(
-                                any(),
+                                .any,
                                 job: Job(
                                     variant: .displayPictureDownload,
                                     shouldBeUnique: true,
@@ -1294,10 +1284,10 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("and updating the moderator list") {
                     // MARK: ------ successfully updates
                     it("successfully updates") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mockValue.with(
+                            details: OpenGroupAPI.Room.mock.with(
                                 moderators: ["TestMod"],
                                 hiddenModerators: [],
                                 admins: [],
@@ -1341,10 +1331,10 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ updates for hidden moderators
                     it("updates for hidden moderators") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mockValue.with(
+                            details: OpenGroupAPI.Room.mock.with(
                                 moderators: [],
                                 hiddenModerators: ["TestMod2"],
                                 admins: [],
@@ -1388,7 +1378,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ does not insert mods if no moderators are provided
                     it("does not insert mods if no moderators are provided") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10
                         )
@@ -1413,10 +1403,10 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("and updating the admin list") {
                     // MARK: ------ successfully updates
                     it("successfully updates") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mockValue.with(
+                            details: OpenGroupAPI.Room.mock.with(
                                 moderators: [],
                                 hiddenModerators: [],
                                 admins: ["TestAdmin"],
@@ -1460,10 +1450,10 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ updates for hidden admins
                     it("updates for hidden admins") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
-                            details: OpenGroupAPI.Room.mockValue.with(
+                            details: OpenGroupAPI.Room.mock.with(
                                 moderators: [],
                                 hiddenModerators: [],
                                 admins: [],
@@ -1507,7 +1497,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     // MARK: ------ does not insert an admin if no admins are provided
                     it("does not insert an admin if no admins are provided") {
-                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mock.with(
                             token: "testRoom",
                             activeUsers: 10,
                             details: nil
@@ -1883,25 +1873,25 @@ class OpenGroupManagerSpec: QuickSpec {
                         .when {
                             $0.generate(
                                 .sharedBlindedEncryptionKey(
-                                    secretKey: anyArray(),
-                                    otherBlindedPublicKey: anyArray(),
-                                    fromBlindedPublicKey: anyArray(),
-                                    toBlindedPublicKey: anyArray(),
-                                    using: any()
+                                    secretKey: .any,
+                                    otherBlindedPublicKey: .any,
+                                    fromBlindedPublicKey: .any,
+                                    toBlindedPublicKey: .any,
+                                    using: .any
                                 )
                             )
                         }
                         .thenReturn([])
                     mockCrypto
-                        .when { $0.generate(.blindingFactor(serverPublicKey: any(), using: any())) }
+                        .when { $0.generate(.blindingFactor(serverPublicKey: .any, using: .any)) }
                         .thenReturn([])
                     mockCrypto
                         .when {
-                            try $0.generate(
+                            $0.generate(
                                 .decryptedBytesAeadXChaCha20(
-                                    authenticatedCipherText: anyArray(),
-                                    secretKey: anyArray(),
-                                    nonce: anyArray()
+                                    authenticatedCipherText: .any,
+                                    secretKey: .any,
+                                    nonce: .any
                                 )
                             )
                         }
@@ -1910,7 +1900,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             [UInt8](repeating: 0, count: 32)
                         )
                     mockCrypto
-                        .when { $0.generate(.x25519(ed25519PublicKey: anyArray())) }
+                        .when { $0.generate(.x25519(ed25519PublicKey: .any)) }
                         .thenReturn(Data(hex: TestConstants.publicKey).bytes)
                 }
                 
@@ -2006,16 +1996,16 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("for the inbox") {
                     beforeEach {
                         mockCrypto
-                            .when { $0.generate(.combinedKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
+                            .when { $0.generate(.combinedKeys(lhsKeyBytes: .any, rhsKeyBytes: .any)) }
                             .thenReturn(SessionId(.standard, hex: testDirectMessage.sender).publicKey)
                         mockCrypto
                             .when {
                                 $0.verify(
                                     .sessionId(
-                                        any(),
-                                        matchesBlindedId: any(),
-                                        serverPublicKey: any(),
-                                        using: any()
+                                        .any,
+                                        matchesBlindedId: .any,
+                                        serverPublicKey: .any,
+                                        using: .any
                                     )
                                 )
                             }
@@ -2113,16 +2103,16 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("for the outbox") {
                     beforeEach {
                         mockCrypto
-                            .when { $0.generate(.combinedKeys(lhsKeyBytes: anyArray(), rhsKeyBytes: anyArray())) }
+                            .when { $0.generate(.combinedKeys(lhsKeyBytes: .any, rhsKeyBytes: .any)) }
                             .thenReturn(SessionId(.standard, hex: testDirectMessage.recipient).publicKey)
                         mockCrypto
                             .when {
                                 $0.verify(
                                     .sessionId(
-                                        any(),
-                                        matchesBlindedId: any(),
-                                        serverPublicKey: any(),
-                                        using: any()
+                                        .any,
+                                        matchesBlindedId: .any,
+                                        serverPublicKey: .any,
+                                        using: .any
                                     )
                                 )
                             }
@@ -2482,7 +2472,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("returns true if the key is the current users and the users blinded id is a moderator or admin") {
                         let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                         mockCrypto
-                            .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
+                            .when { $0.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any)) }
                             .thenReturn(
                                 KeyPair(
                                     publicKey: Data(hex: otherKey).bytes,
@@ -2593,7 +2583,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("returns true if the key is the current users and the users blinded id is a moderator or admin") {
                         let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                         mockCrypto
-                            .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
+                            .when { $0.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any)) }
                             .thenReturn(
                                 KeyPair(
                                     publicKey: Data(hex: otherKey).bytes,
@@ -2654,7 +2644,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ returns false if unable generate a blinded key
                     it("returns false if unable generate a blinded key") {
                         mockCrypto
-                            .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
+                            .when { $0.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any)) }
                             .thenReturn(nil)
                         
                         expect(
@@ -2674,7 +2664,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("returns false if the key is not the users blinded id") {
                         let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                         mockCrypto
-                            .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
+                            .when { $0.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any)) }
                             .thenReturn(
                                 KeyPair(
                                     publicKey: Data(hex: otherKey).bytes,
@@ -2700,7 +2690,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         let otherKey: String = TestConstants.publicKey.replacingOccurrences(of: "7", with: "6")
                         mockGeneralCache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: otherKey))
                         mockCrypto
-                            .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
+                            .when { $0.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any)) }
                             .thenReturn(
                                 KeyPair(
                                     publicKey: Data(hex: TestConstants.publicKey).bytes,
@@ -2738,7 +2728,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     // MARK: ------ returns true if the key is the current users and the users unblinded id is a moderator or admin
                     it("returns true if the key is the current users and the users unblinded id is a moderator or admin") {
                         mockCrypto
-                            .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
+                            .when { $0.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any)) }
                             .thenReturn(
                                 KeyPair(
                                     publicKey: Data(hex: TestConstants.publicKey).bytes,
@@ -2781,7 +2771,7 @@ class OpenGroupManagerSpec: QuickSpec {
             context("when getting the default rooms if needed") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
+                        .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
                         .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     mockStorage.write { db in
@@ -2802,10 +2792,10 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockOGMCache.when { $0.defaultRoomsPublisher }.thenReturn(nil)
                     mockUserDefaults.when { (defaults: inout any UserDefaultsType) -> Any? in
-                        defaults.object(forKey: any())
+                        defaults.object(forKey: .any)
                     }.thenReturn(nil)
                     mockUserDefaults.when { (defaults: inout any UserDefaultsType) -> Any? in
-                        defaults.set(anyAny(), forKey: any())
+                        defaults.set(anyAny(), forKey: .any)
                     }.thenReturn(())
                 }
                 
@@ -2821,7 +2811,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 
                 // MARK: ---- returns the cached publisher if there is one
                 it("returns the cached publisher if there is one") {
-                    let uniqueRoomInstance: OpenGroupAPI.Room = OpenGroupAPI.Room.mockValue.with(
+                    let uniqueRoomInstance: OpenGroupAPI.Room = OpenGroupAPI.Room.mock.with(
                         token: "UniqueId",
                         name: ""
                     )
@@ -2888,13 +2878,13 @@ class OpenGroupManagerSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(response?.map { $0.room })
-                        .to(equal([OpenGroupAPI.Room.mockValue]))
+                        .to(equal([OpenGroupAPI.Room.mock]))
                 }
                 
                 // MARK: ---- will retry fetching rooms 8 times before it fails
                 it("will retry fetching rooms 8 times before it fails") {
                     mockNetwork
-                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
+                        .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
                         .thenReturn(MockNetwork.nullResponse())
                     
                     var error: Error?
@@ -2905,15 +2895,15 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     expect(error).to(matchError(HTTPError.parsingFailed))
                     expect(mockNetwork)   // First attempt + 8 retries
-                        .to(call(.exactly(times: 9)) { [dependencies = dependencies!] network in
-                            network.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: dependencies))
+                        .to(call(.exactly(times: 9)) { network in
+                            network.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any))
                         })
                 }
                 
                 // MARK: ---- removes the cache publisher if all retries fail
                 it("removes the cache publisher if all retries fail") {
                     mockNetwork
-                        .when { $0.send(.selectedNetworkRequest(any(), to: any(), with: any(), using: any())) }
+                        .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
                         .thenReturn(MockNetwork.nullResponse())
                     
                     var error: Error?
@@ -2948,7 +2938,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     (
                                         OpenGroupAPI.Endpoint.rooms,
                                         [
-                                            OpenGroupAPI.Room.mockValue.with(
+                                            OpenGroupAPI.Room.mock.with(
                                                 token: "test2",
                                                 name: "test2",
                                                 infoUpdates: 11,
@@ -2967,7 +2957,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(mockJobRunner)
                         .to(call(matchingParameters: .all) {
                             $0.add(
-                                any(),
+                                .any,
                                 job: Job(
                                     variant: .displayPictureDownload,
                                     shouldBeUnique: true,
@@ -3038,7 +3028,7 @@ extension OpenGroupAPI.RoomPollInfo {
     func with(
         token: String? = nil,
         activeUsers: Int64? = nil,
-        details: OpenGroupAPI.Room? = .mockValue
+        details: OpenGroupAPI.Room? = .mock
     ) -> OpenGroupAPI.RoomPollInfo {
         return OpenGroupAPI.RoomPollInfo(
             token: (token ?? self.token),
@@ -3062,11 +3052,11 @@ extension OpenGroupAPI.RoomPollInfo {
 // MARK: - Mock Types
 
 extension OpenGroupAPI.Capabilities: Mocked {
-    static var mockValue: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(capabilities: [], missing: nil)
+    static var mock: OpenGroupAPI.Capabilities = OpenGroupAPI.Capabilities(capabilities: [], missing: nil)
 }
 
 extension OpenGroupAPI.Room: Mocked {
-    static var mockValue: OpenGroupAPI.Room = OpenGroupAPI.Room(
+    static var mock: OpenGroupAPI.Room = OpenGroupAPI.Room(
         token: "test",
         name: "testRoom",
         roomDescription: nil,
@@ -3096,7 +3086,7 @@ extension OpenGroupAPI.Room: Mocked {
 }
 
 extension OpenGroupAPI.RoomPollInfo: Mocked {
-    static var mockValue: OpenGroupAPI.RoomPollInfo = OpenGroupAPI.RoomPollInfo(
+    static var mock: OpenGroupAPI.RoomPollInfo = OpenGroupAPI.RoomPollInfo(
         token: "test",
         activeUsers: 1,
         admin: false,
@@ -3110,12 +3100,12 @@ extension OpenGroupAPI.RoomPollInfo: Mocked {
         defaultWrite: nil,
         upload: true,
         defaultUpload: false,
-        details: .mockValue
+        details: .mock
     )
 }
 
 extension OpenGroupAPI.Message: Mocked {
-    static var mockValue: OpenGroupAPI.Message = OpenGroupAPI.Message(
+    static var mock: OpenGroupAPI.Message = OpenGroupAPI.Message(
         id: 100,
         sender: TestConstants.blindedPublicKey,
         posted: 1,
@@ -3132,7 +3122,7 @@ extension OpenGroupAPI.Message: Mocked {
 }
 
 extension OpenGroupAPI.SendDirectMessageResponse: Mocked {
-    static var mockValue: OpenGroupAPI.SendDirectMessageResponse = OpenGroupAPI.SendDirectMessageResponse(
+    static var mock: OpenGroupAPI.SendDirectMessageResponse = OpenGroupAPI.SendDirectMessageResponse(
         id: 1,
         sender: TestConstants.blindedPublicKey,
         recipient: "testRecipient",
@@ -3142,7 +3132,7 @@ extension OpenGroupAPI.SendDirectMessageResponse: Mocked {
 }
 
 extension OpenGroupAPI.DirectMessage: Mocked {
-    static var mockValue: OpenGroupAPI.DirectMessage = OpenGroupAPI.DirectMessage(
+    static var mock: OpenGroupAPI.DirectMessage = OpenGroupAPI.DirectMessage(
         id: 101,
         sender: TestConstants.blindedPublicKey,
         recipient: "testRecipient",

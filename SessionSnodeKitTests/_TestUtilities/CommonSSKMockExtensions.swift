@@ -5,7 +5,7 @@ import Foundation
 @testable import SessionSnodeKit
 
 extension Snode: Mocked {
-    static var mockValue: Snode = Snode(
+    static var mock: Snode = Snode(
         address: "test",
         port: 0,
         ed25519PublicKey: TestConstants.edPublicKey,

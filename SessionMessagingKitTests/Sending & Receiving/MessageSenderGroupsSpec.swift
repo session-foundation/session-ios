@@ -47,17 +47,35 @@ class MessageSenderGroupsSpec: QuickSpec {
                 ).insert(db)
             }
         )
+        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
+            initialSetup: { userDefaults in
+                userDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
+            }
+        )
+        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
+            initialSetup: { jobRunner in
+                jobRunner
+                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                    .thenReturn([:])
+                jobRunner
+                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any, using: .any) }
+                    .thenReturn(nil)
+            }
+        )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.selectedNetworkRequest(any(), to: any(), timeout: any(), using: any())) }
+                    .when { $0.send(.selectedNetworkRequest(.any, to: .any, timeout: .any, using: .any)) }
                     .thenReturn(HTTP.BatchResponse.mockConfigSyncResponse)
+                network
+                    .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, timeout: .any, using: .any)) }
+                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
             }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { crypto in crypto.generate(.ed25519KeyPair(seed: any(), using: any())) }
+                    .when { crypto in crypto.generate(.ed25519KeyPair(seed: .any, using: .any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data(hex: groupId.hexString).bytes,
@@ -65,14 +83,30 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                     )
                 crypto
-                    .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                    .when { $0.generate(.signature(message: .any, secretKey: .any)) }
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
                 crypto
-                    .when { try $0.generate(.memberAuthData(config: any(), groupSessionId: any(), memberId: any())) }
+                    .when { $0.generate(.memberAuthData(config: .any, groupSessionId: .any, memberId: .any)) }
                     .thenReturn(Authentication.Info.groupMember(
                         groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
                         authData: "TestAuthData".data(using: .utf8)!
                     ))
+                crypto
+                    .when { try $0.tryGenerate(.randomBytes(numberBytes: .any)) }
+                    .thenReturn(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 }))
+                crypto
+                    .when { $0.generate(.uuid()) }
+                    .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+                crypto
+                    .when { $0.generate(.encryptedDataDisplayPicture(data: .any, key: .any, using: .any)) }
+                    .thenReturn(TestConstants.validImageData)
+            }
+        )
+        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
+            initialSetup: { keychain in
+                keychain
+                    .when { try $0.data(forService: .pushNotificationAPI, key: .pushNotificationEncryptionKey) }
+                    .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
@@ -114,7 +148,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                 let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
                 
                 cache
-                    .when { $0.setConfig(for: any(), sessionId: any(), to: any()) }
+                    .when { $0.setConfig(for: .any, sessionId: .any, to: .any) }
                     .thenReturn(())
                 cache
                     .when { $0.config(for: .userGroups, sessionId: userSessionId) }
@@ -160,7 +194,7 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState(singleton: .groupsPoller, in: dependencies) var mockGroupsPoller: MockPoller! = MockPoller(
             initialSetup: { poller in
                 poller
-                    .when { $0.startIfNeeded(for: any(), using: any()) }
+                    .when { $0.startIfNeeded(for: .any, using: .any) }
                     .thenReturn(())
             }
         )
@@ -301,8 +335,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(mockGroupsPoller)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { [dependencies = dependencies!] poller in
-                            poller.startIfNeeded(for: groupId.hexString, using: dependencies)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { poller in
+                            poller.startIfNeeded(for: groupId.hexString, using: .any)
                         })
                 }
                 
@@ -376,13 +410,13 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { [dependencies = dependencies!] network in
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
                                 .selectedNetworkRequest(
                                     expectedSendData,
                                     to: dependencies.randomElement(mockSwarmCache)!,
                                     timeout: HTTP.defaultTimeout,
-                                    using: dependencies
+                                    using: .any
                                 )
                             )
                         })
@@ -392,7 +426,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                 context("and the group configuration sync fails") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.selectedNetworkRequest(any(), to: any(), timeout: any(), using: any())) }
+                            .when { $0.send(.selectedNetworkRequest(.any, to: .any, timeout: .any, using: .any)) }
                             .thenReturn(MockNetwork.errorResponse())
                     }
                     
@@ -467,6 +501,281 @@ class MessageSenderGroupsSpec: QuickSpec {
                         expect(members).to(beEmpty())
                     }
                 }
+                
+                // MARK: ------ does not upload an image if none is provided
+                it("does not upload an image if none is provided") {
+                    MessageSender
+                        .createGroup(
+                            name: "TestGroupName",
+                            description: nil,
+                            displayPictureData: nil,
+                            members: [
+                                ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                            ],
+                            using: dependencies
+                        )
+                        .mapError { error.setting(to: $0) }
+                        .sinkAndStore(in: &disposables)
+                    
+                    let expectedRequest: URLRequest = try FileServerAPI
+                        .preparedUpload(TestConstants.validImageData, using: dependencies)
+                        .request
+                    
+                    expect(mockNetwork)
+                        .toNot(call { network in
+                            network.send(
+                                .selectedNetworkRequest(
+                                    expectedRequest,
+                                    to: FileServerAPI.server,
+                                    with: FileServerAPI.serverPublicKey,
+                                    timeout: FileServerAPI.fileUploadTimeout,
+                                    using: .any
+                                )
+                            )
+                        })
+                }
+                
+                // MARK: ------ with an image
+                context("with an image") {
+                    // MARK: ------ uploads the image
+                    it("uploads the image") {
+                        MessageSender
+                            .createGroup(
+                                name: "TestGroupName",
+                                description: nil,
+                                displayPictureData: TestConstants.validImageData,
+                                members: [
+                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                                ],
+                                using: dependencies
+                            )
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
+                        
+                        let expectedRequest: URLRequest = try FileServerAPI
+                            .preparedUpload(TestConstants.validImageData, using: dependencies)
+                            .request
+                        
+                        expect(mockNetwork)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                                network.send(
+                                    .selectedNetworkRequest(
+                                        expectedRequest,
+                                        to: FileServerAPI.server,
+                                        with: FileServerAPI.serverPublicKey,
+                                        timeout: FileServerAPI.fileUploadTimeout,
+                                        using: .any
+                                    )
+                                )
+                            })
+                    }
+                    
+                    // MARK: ------ saves the image info to the group
+                    it("saves the image info to the group") {
+                        MessageSender
+                            .createGroup(
+                                name: "TestGroupName",
+                                description: nil,
+                                displayPictureData: TestConstants.validImageData,
+                                members: [
+                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                                ],
+                                using: dependencies
+                            )
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
+                        
+                        let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        
+                        expect(groups?.first?.displayPictureUrl).to(equal("http://filev2.getsession.org/file/1"))
+                        expect(groups?.first?.displayPictureFilename)
+                            .to(equal("00000000-0000-0000-0000-000000000000.jpg"))
+                        expect(groups?.first?.displayPictureEncryptionKey)
+                            .to(equal(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 })))
+                    }
+                    
+                    // MARK: ------ fails if the image fails to upload
+                    it("fails if the image fails to upload") {
+                        mockNetwork
+                            .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, timeout: .any, using: .any)) }
+                            .thenReturn(Fail(error: HTTPError.generic).eraseToAnyPublisher())
+                        
+                        MessageSender
+                            .createGroup(
+                                name: "TestGroupName",
+                                description: nil,
+                                displayPictureData: TestConstants.validImageData,
+                                members: [
+                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                                ],
+                                using: dependencies
+                            )
+                            .mapError { error.setting(to: $0) }
+                            .sinkAndStore(in: &disposables)
+                        
+                        expect(error).to(matchError(DisplayPictureError.uploadFailed))
+                    }
+                }
+                
+                // MARK: ---- schedules member invite jobs
+                it("schedules member invite jobs") {
+                    MessageSender
+                        .createGroup(
+                            name: "TestGroupName",
+                            description: nil,
+                            displayPictureData: nil,
+                            members: [
+                                ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                            ],
+                            using: dependencies
+                        )
+                        .sinkAndStore(in: &disposables)
+                    
+                    expect(mockJobRunner)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
+                            jobRunner.add(
+                                .any,
+                                job: Job(
+                                    variant: .groupInviteMember,
+                                    threadId: groupId.hexString,
+                                    details: try? GroupInviteMemberJob.Details(
+                                        memberSessionIdHexString: "051111111111111111111111111111111111111111111111111111111111111111",
+                                        authInfo: .groupMember(
+                                            groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                            authData: "TestAuthData".data(using: .utf8)!
+                                        )
+                                    )
+                                ),
+                                dependantJob: nil,
+                                canStartJob: true,
+                                using: .any
+                            )
+                        })
+                }
+                
+                // MARK: ------ and trying to subscribe for push notifications
+                context("and trying to subscribe for push notifications") {
+                    // MARK: ---- subscribes when they are enabled
+                    it("subscribes when they are enabled") {
+                        mockUserDefaults
+                            .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
+                            .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
+                        mockUserDefaults
+                            .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                            .thenReturn(true)
+                        
+                        MessageSender
+                            .createGroup(
+                                name: "TestGroupName",
+                                description: nil,
+                                displayPictureData: nil,
+                                members: [
+                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                                ],
+                                using: dependencies
+                            )
+                            .sinkAndStore(in: &disposables)
+                        
+                        let expectedRequest: URLRequest = mockStorage.read(using: dependencies) { db in
+                            try PushNotificationAPI
+                                .preparedSubscribe(
+                                    db,
+                                    token: Data([5, 4, 3, 2, 1]),
+                                    sessionIds: [
+                                        SessionId(
+                                            .standard,
+                                            hex: "051111111111111111111111111111111111111111111111111111111111111111"
+                                        )
+                                    ],
+                                    using: dependencies
+                                )
+                                .request
+                        }!
+                        
+                        expect(mockNetwork)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                                network.send(
+                                    .selectedNetworkRequest(
+                                        expectedRequest,
+                                        to: PushNotificationAPI.server.value(using: dependencies),
+                                        with: PushNotificationAPI.serverPublicKey,
+                                        timeout: HTTP.defaultTimeout,
+                                        using: .any
+                                    )
+                                )
+                            })
+                    }
+                    
+                    // MARK: ---- does not subscribe if push notifications are disabled
+                    it("does not subscribe if push notifications are disabled") {
+                        mockUserDefaults
+                            .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
+                            .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
+                        mockUserDefaults
+                            .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                            .thenReturn(false)
+                        
+                        MessageSender
+                            .createGroup(
+                                name: "TestGroupName",
+                                description: nil,
+                                displayPictureData: nil,
+                                members: [
+                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                                ],
+                                using: dependencies
+                            )
+                            .sinkAndStore(in: &disposables)
+                        
+                        expect(mockNetwork)
+                            .toNot(call { network in
+                                network.send(
+                                    .selectedNetworkRequest(
+                                        .any,
+                                        to: PushNotificationAPI.server.value(using: dependencies),
+                                        with: PushNotificationAPI.serverPublicKey,
+                                        timeout: HTTP.defaultTimeout,
+                                        using: .any
+                                    )
+                                )
+                            })
+                    }
+                    
+                    // MARK: ---- does not subscribe if there is no push token
+                    it("does not subscribe if there is no push token") {
+                        mockUserDefaults
+                            .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
+                            .thenReturn(nil)
+                        mockUserDefaults
+                            .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                            .thenReturn(true)
+                        
+                        MessageSender
+                            .createGroup(
+                                name: "TestGroupName",
+                                description: nil,
+                                displayPictureData: nil,
+                                members: [
+                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                                ],
+                                using: dependencies
+                            )
+                            .sinkAndStore(in: &disposables)
+                        
+                        expect(mockNetwork)
+                            .toNot(call { network in
+                                network.send(
+                                    .selectedNetworkRequest(
+                                        .any,
+                                        to: PushNotificationAPI.server.value(using: dependencies),
+                                        with: PushNotificationAPI.serverPublicKey,
+                                        timeout: HTTP.defaultTimeout,
+                                        using: .any
+                                    )
+                                )
+                            })
+                    }
+                }
             }
         }
     }
@@ -475,7 +784,7 @@ class MessageSenderGroupsSpec: QuickSpec {
 // MARK: - Mock Types
 
 extension SendMessagesResponse: Mocked {
-    static var mockValue: SendMessagesResponse = SendMessagesResponse(
+    static var mock: SendMessagesResponse = SendMessagesResponse(
         hash: "hash",
         swarm: [:],
         hardFork: [1, 2],

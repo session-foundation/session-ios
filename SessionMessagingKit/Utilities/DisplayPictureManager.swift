@@ -207,7 +207,7 @@ public struct DisplayPictureManager {
         failure: ((DisplayPictureError) -> ())? = nil,
         using dependencies: Dependencies
     ) {
-        queue.async {
+        queue.async(using: dependencies) {
             // If the profile avatar was updated or removed then encrypt with a new profile key
             // to ensure that other users know that our profile picture was updated
             let newEncryptionKey: Data
@@ -320,8 +320,8 @@ public struct DisplayPictureManager {
             
             preparedUpload
                 .send(using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: queue)
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
+                .receive(on: queue, using: dependencies)
                 .sinkUntilComplete(
                     receiveCompletion: { result in
                         switch result {

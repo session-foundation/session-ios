@@ -15,22 +15,22 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
         return mock(funcName: "send<\(T.self)>(\(request.id))", args: request.args)
     }
     
-    static func response<T: Encodable>(info: MockResponseInfo = .mockValue, with value: T) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+    static func response<T: Encodable>(info: MockResponseInfo = .mock, with value: T) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return Just((info, try? JSONEncoder().with(outputFormatting: .sortedKeys).encode(value)))
             .setFailureType(to: Error.self)
             .eraseToAnyPublisher()
     }
     
-    static func response<T: Mocked & Encodable>(info: MockResponseInfo = .mockValue, type: T.Type) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return response(info: info, with: T.mockValue)
+    static func response<T: Mocked & Encodable>(info: MockResponseInfo = .mock, type: T.Type) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+        return response(info: info, with: T.mock)
     }
     
-    static func response<T: Mocked & Encodable>(info: MockResponseInfo = .mockValue, type: Array<T>.Type) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return response(info: info, with: [T.mockValue])
+    static func response<T: Mocked & Encodable>(info: MockResponseInfo = .mock, type: Array<T>.Type) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+        return response(info: info, with: [T.mock])
     }
     
     static func batchResponseData<E: EndpointType>(
-        info: MockResponseInfo = .mockValue,
+        info: MockResponseInfo = .mock,
         with value: [(endpoint: E, data: Data)]
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         let data: Data = "[\(value.map { String(data: $0.data, encoding: .utf8)! }.joined(separator: ","))]"
@@ -41,13 +41,13 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
             .eraseToAnyPublisher()
     }
     
-    static func response(info: MockResponseInfo = .mockValue, data: Data) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+    static func response(info: MockResponseInfo = .mock, data: Data) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return Just((info, data))
             .setFailureType(to: Error.self)
             .eraseToAnyPublisher()
     }
     
-    static func nullResponse(info: MockResponseInfo = .mockValue) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+    static func nullResponse(info: MockResponseInfo = .mock) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return Just((info, nil))
             .setFailureType(to: Error.self)
             .eraseToAnyPublisher()
@@ -61,7 +61,7 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
 // MARK: - MockResponseInfo
 
 struct MockResponseInfo: ResponseInfoType, Mocked {
-    static let mockValue: MockResponseInfo = MockResponseInfo(requestData: .fallbackData, code: 200, headers: [:])
+    static let mock: MockResponseInfo = MockResponseInfo(requestData: .fallbackData, code: 200, headers: [:])
     
     let requestData: RequestData
     let code: Int
@@ -110,9 +110,9 @@ extension Encodable where Self: Codable {
 }
 
 extension Mocked where Self: Codable {
-    static func mockBatchSubResponse() -> Data { return mockValue.batchSubResponse() }
+    static func mockBatchSubResponse() -> Data { return mock.batchSubResponse() }
 }
 
 extension Array where Element: Mocked, Element: Codable {
-    static func mockBatchSubResponse() -> Data { return [Element.mockValue].batchSubResponse() }
+    static func mockBatchSubResponse() -> Data { return [Element.mock].batchSubResponse() }
 }

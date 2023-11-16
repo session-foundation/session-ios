@@ -50,28 +50,18 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when {
-                        $0.send(
-                            .selectedNetworkRequest(
-                                any(),
-                                to: any(),
-                                with: any(),
-                                timeout: FileServerAPI.fileDownloadTimeout,
-                                using: any()
-                            )
-                        )
-                    }
+                    .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, timeout: .any, using: .any)) }
                     .thenReturn(MockNetwork.response(data: encryptedData))
             }
         )
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { fileManager in
                 fileManager
-                    .when { $0.createFile(atPath: any(), contents: any(), attributes: any()) }
+                    .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
                     .thenReturn(true)
                 
                 fileManager
-                    .when { $0.containerURL(forSecurityApplicationGroupIdentifier: any()) }
+                    .when { $0.containerURL(forSecurityApplicationGroupIdentifier: .any) }
                     .thenReturn(URL(fileURLWithPath: "/test"))
             }
         )
@@ -79,16 +69,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
             initialSetup: { crypto in
                 crypto.when { $0.generate(.uuid()) }.thenReturn(filenameUuid)
                 crypto
-                    .when { $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any())) }
+                    .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any)) }
                     .thenReturn(imageData)
                 crypto
-                    .when { $0.generate(.hash(message: anyArray(), outputLength: any())) }
+                    .when { $0.generate(.hash(message: .any, outputLength: .any)) }
                     .thenReturn([])
                 crypto
                     .when { crypto in
-                        crypto.generate(
-                            .blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())
-                        )
+                        crypto.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any))
                     }
                     .thenReturn(
                         KeyPair(
@@ -103,10 +91,10 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     .when {
                         $0.generate(
                             .signatureSOGS(
-                                message: anyArray(),
-                                secretKey: anyArray(),
-                                blindedSecretKey: anyArray(),
-                                blindedPublicKey: anyArray()
+                                message: .any,
+                                secretKey: .any,
+                                blindedSecretKey: .any,
+                                blindedPublicKey: .any
                             )
                         )
                     }
@@ -116,7 +104,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         @TestState(cache: .displayPicture, in: dependencies) var mockDisplayPictureCache: MockDisplayPictureCache! = MockDisplayPictureCache(
             initialSetup: { displayPictureCache in
                 displayPictureCache.when { $0.imageData }.thenReturn([:])
-                displayPictureCache.when { $0.imageData = any() }.thenReturn(())
+                displayPictureCache.when { $0.imageData = .any }.thenReturn(())
             }
         )
         
@@ -528,14 +516,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 )
                 
                 expect(mockNetwork)
-                    .to(call(.exactly(times: 1), matchingParameters: .all) { [dependencies = dependencies!] network in
+                    .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
                             .selectedNetworkRequest(
                                 expectedRequest,
                                 to: FileServerAPI.server,
                                 with: FileServerAPI.serverPublicKey,
                                 timeout: FileServerAPI.fileDownloadTimeout,
-                                using: dependencies
+                                using: .any
                             )
                         )
                     })
@@ -589,14 +577,14 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 )
                 
                 expect(mockNetwork)
-                    .to(call(.exactly(times: 1), matchingParameters: .all) { [dependencies = dependencies!] network in
+                    .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
                             .selectedNetworkRequest(
                                 expectedRequest,
                                 to: "testserver",
                                 with: TestConstants.serverPublicKey,
                                 timeout: FileServerAPI.fileDownloadTimeout,
-                                using: dependencies
+                                using: .any
                             )
                         )
                     })
@@ -645,15 +633,15 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 context("when it fails to decrypt the data") {
                     beforeEach {
                         mockCrypto
-                            .when { $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any())) }
+                            .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any)) }
                             .thenReturn(nil)
                     }
                     
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
                         expect(mockFileManager)
-                            .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
-                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                            .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
                 }
@@ -662,15 +650,15 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 context("when it decrypts invalid image data") {
                     beforeEach {
                         mockCrypto
-                            .when { $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any())) }
+                            .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any)) }
                             .thenReturn(Data([1, 2, 3]))
                     }
                     
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
                         expect(mockFileManager)
-                            .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
-                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                            .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
                 }
@@ -679,13 +667,13 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 context("when it fails to write to disk") {
                     beforeEach {
                         mockFileManager
-                            .when { $0.createFile(atPath: any(), contents: any(), attributes: any()) }
+                            .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
                             .thenReturn(false)
                     }
                     
                     // MARK: ------ does not save the picture
                     it("does not save the picture") {
-                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                        expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
                 }
@@ -742,11 +730,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any()))
+                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any))
                                 })
                             expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
-                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(beNil())
                         }
                     }
@@ -768,11 +756,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any()))
+                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any))
                                 })
                             expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
-                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .toNot(equal(
                                     Profile(
@@ -804,11 +792,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any()))
+                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any))
                                 })
                             expect(mockFileManager)
-                                .toNot(call { $0.createFile(atPath: any(), contents: any(), attributes: any()) })
-                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = any() })
+                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .toNot(equal(
                                     Profile(
@@ -839,7 +827,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("saves the picture") {
                             expect(mockCrypto)
                                 .to(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: any(), key: any(), using: any()))
+                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any))
                                 })
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(

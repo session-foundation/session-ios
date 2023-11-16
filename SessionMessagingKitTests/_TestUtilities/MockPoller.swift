@@ -9,11 +9,11 @@ import SessionUtilitiesKit
 
 class MockPoller: Mock<PollerType>, PollerType {
     func start(using dependencies: Dependencies) {
-        mockNoReturn(args: [dependencies])
+        mockNoReturn(untrackedArgs: [dependencies])
     }
     
     func startIfNeeded(for publicKey: String, using dependencies: Dependencies) {
-        mockNoReturn(args: [publicKey, dependencies])
+        mockNoReturn(args: [publicKey], untrackedArgs: [dependencies])
     }
     
     func stopAllPollers() {

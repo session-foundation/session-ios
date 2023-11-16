@@ -16,7 +16,7 @@ public extension KeychainStorage.DataKey { static let pushNotificationEncryption
 // MARK: - PushNotificationAPI
 
 public enum PushNotificationAPI {
-    private static let encryptionKeyLength: Int = 32
+    internal static let encryptionKeyLength: Int = 32
     private static let maxRetryCount: Int = 4
     private static let tokenExpirationInterval: TimeInterval = (12 * 60 * 60)
     

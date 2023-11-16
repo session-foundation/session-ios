@@ -41,10 +41,10 @@ class MessageSenderEncryptionSpec: QuickSpec {
             context("when encrypting with the session protocol") {
                 beforeEach {
                     mockCrypto
-                        .when { $0.generate(.sealedBytes(message: anyArray(), recipientPublicKey: anyArray())) }
+                        .when { $0.generate(.sealedBytes(message: .any, recipientPublicKey: .any)) }
                         .thenReturn([1, 2, 3])
                     mockCrypto
-                        .when { $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                        .when { $0.generate(.signature(message: .any, secretKey: .any)) }
                         .thenReturn(Authentication.Signature.standard(signature: []))
                 }
                 
@@ -101,7 +101,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if the signature generation fails
                 it("throws an error if the signature generation fails") {
                     mockCrypto
-                        .when { try $0.generate(.signature(message: anyArray(), secretKey: anyArray())) }
+                        .when { $0.generate(.signature(message: .any, secretKey: .any)) }
                         .thenReturn(nil)
                     
                     mockStorage.read { db in
@@ -120,7 +120,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if the encryption fails
                 it("throws an error if the encryption fails") {
                     mockCrypto
-                        .when { $0.generate(.sealedBytes(message: anyArray(), recipientPublicKey: anyArray())) }
+                        .when { $0.generate(.sealedBytes(message: .any, recipientPublicKey: .any)) }
                         .thenReturn(nil)
                     
                     mockStorage.read { db in
@@ -141,7 +141,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
             context("when encrypting with the blinded session protocol") {
                 beforeEach {
                     mockCrypto
-                        .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
+                        .when { $0.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any)) }
                         .thenReturn(
                             KeyPair(
                                 publicKey: Data(hex: TestConstants.publicKey).bytes,
@@ -152,11 +152,11 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .when {
                             $0.generate(
                                 .sharedBlindedEncryptionKey(
-                                    secretKey: anyArray(),
-                                    otherBlindedPublicKey: anyArray(),
-                                    fromBlindedPublicKey: anyArray(),
-                                    toBlindedPublicKey: anyArray(),
-                                    using: any()
+                                    secretKey: .any,
+                                    otherBlindedPublicKey: .any,
+                                    fromBlindedPublicKey: .any,
+                                    toBlindedPublicKey: .any,
+                                    using: .any
                                 )
                             )
                         }
@@ -165,11 +165,11 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .when {
                             $0.generate(
                                 .encryptedBytesAeadXChaCha20(
-                                    message: anyArray(),
-                                    secretKey: anyArray(),
-                                    nonce: anyArray(),
-                                    additionalData: anyArray(),
-                                    using: any()
+                                    message: .any,
+                                    secretKey: .any,
+                                    nonce: .any,
+                                    additionalData: .any,
+                                    using: .any
                                 )
                             )
                         }
@@ -282,7 +282,7 @@ class MessageSenderEncryptionSpec: QuickSpec {
                 // MARK: ---- throws an error if it fails to generate a blinded keyPair
                 it("throws an error if it fails to generate a blinded keyPair") {
                     mockCrypto
-                        .when { $0.generate(.blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())) }
+                        .when { $0.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any)) }
                         .thenReturn(nil)
                     
                     mockStorage.read { db in
@@ -305,11 +305,11 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .when {
                             $0.generate(
                                 .sharedBlindedEncryptionKey(
-                                    secretKey: anyArray(),
-                                    otherBlindedPublicKey: anyArray(),
-                                    fromBlindedPublicKey: anyArray(),
-                                    toBlindedPublicKey: anyArray(),
-                                    using: any()
+                                    secretKey: .any,
+                                    otherBlindedPublicKey: .any,
+                                    fromBlindedPublicKey: .any,
+                                    toBlindedPublicKey: .any,
+                                    using: .any
                                 )
                             )
                         }
@@ -335,10 +335,10 @@ class MessageSenderEncryptionSpec: QuickSpec {
                         .when {
                             $0.generate(
                                 .encryptedBytesAeadXChaCha20(
-                                    message: anyArray(),
-                                    secretKey: anyArray(),
-                                    nonce: anyArray(),
-                                    additionalData: anyArray(),
+                                    message: .any,
+                                    secretKey: .any,
+                                    nonce: .any,
+                                    additionalData: .any,
                                     using: dependencies
                                 )
                             )

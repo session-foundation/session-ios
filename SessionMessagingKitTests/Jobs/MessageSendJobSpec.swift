@@ -56,7 +56,7 @@ class MessageSendJobSpec: QuickSpec {
                     }
                     .thenReturn([:])
                 jobRunner
-                    .when { $0.insert(any(), job: any(), before: any()) }
+                    .when { $0.insert(.any, job: .any, before: .any) }
                     .then { args, untrackedArgs in
                         let db: Database = untrackedArgs[0] as! Database
                         var job: Job = args[0] as! Job
@@ -374,7 +374,7 @@ class MessageSendJobSpec: QuickSpec {
                             expect(mockJobRunner)
                                 .to(call(.exactly(times: 1), matchingParameters: .all) {
                                     $0.insert(
-                                        any(),
+                                        .any,
                                         job: Job(
                                             variant: .attachmentUpload,
                                             behaviour: .runOnce,

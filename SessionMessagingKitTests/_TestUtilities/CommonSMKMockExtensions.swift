@@ -5,9 +5,9 @@ import SessionUtil
 import SessionMessagingKit
 
 extension SessionUtil.Config: Mocked {
-    static var mockValue: SessionUtil.Config = .invalid
+    static var mock: SessionUtil.Config = .invalid
 }
 
 extension ConfigDump.Variant: Mocked {
-    static var mockValue: ConfigDump.Variant = .userProfile
+    static var mock: ConfigDump.Variant = .userProfile
 }

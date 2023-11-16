@@ -44,7 +44,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .database: return "Database"
             }
         }
-        //default: return .titleRoundedContent // .padding
+        
         var style: SessionTableSectionStyle {
             switch self {
                 case .developerMode: return .padding
@@ -486,6 +486,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             })
         else { return }
         
+        SNLog("[DevSettings] Swapping to \(String(describing: updatedNetwork)), clearing data")
+        
         /// Stop all pollers
         dependencies[singleton: .currentUserPoller].stopAllPollers()
         dependencies[singleton: .groupsPoller].stopAllPollers()
@@ -549,6 +551,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             _ = try ConfigDump.deleteAll(db)
         }
         
+        SNLog("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
+        
         /// Reload the libSession state
         SessionUtil.clearMemoryState(using: dependencies)
         
@@ -570,6 +574,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 /// Re-sync the push tokens (if there are any)
                 SyncPushTokensJob.run(uploadOnlyIfStale: false)
+                
+                SNLog("[DevSettings] Completed swap to \(String(describing: updatedNetwork))")
             },
             using: dependencies
         )
