@@ -49,13 +49,12 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         case visibleMessageDedupe = 10
         
         case groupUpdateInvite = 11
-        case groupUpdateDelete = 12
-        case groupUpdatePromote = 13
-        case groupUpdateInfoChange = 14
-        case groupUpdateMemberChange = 15
-        case groupUpdateMemberLeft = 16
-        case groupUpdateInviteResponse = 17
-        case groupUpdateDeleteMemberContent = 18
+        case groupUpdatePromote = 12
+        case groupUpdateInfoChange = 13
+        case groupUpdateMemberChange = 14
+        case groupUpdateMemberLeft = 15
+        case groupUpdateInviteResponse = 16
+        case groupUpdateDeleteMemberContent = 17
     }
     
     /// The id for the thread the control message is associated to
@@ -103,9 +102,9 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
         if case .new = (message as? ClosedGroupControlMessage)?.kind { return nil }
         if case .encryptionKeyPair = (message as? ClosedGroupControlMessage)?.kind { return nil }
         
-        // The `GroupUpdateDeleteMessage` doesn't have enough metadata to be able to dedupe via
+        // The `LibSessionMessage` doesn't have enough metadata to be able to dedupe via
         // the `ControlMessageProcessRecord` so just always process it
-        if message is GroupUpdateDeleteMessage { return nil }
+        if message is LibSessionMessage { return nil }
         
         /// For all other cases we want to prevent duplicate handling of the message (this can happen in a number of situations, primarily
         /// with sync messages though hence why we don't include the 'serverHash' as part of this record
@@ -126,7 +125,6 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 case is VisibleMessage: return .visibleMessageDedupe
                     
                 case is GroupUpdateInviteMessage: return .groupUpdateInvite
-                case is GroupUpdateDeleteMessage: return .groupUpdateDelete
                 case is GroupUpdatePromoteMessage: return .groupUpdatePromote
                 case is GroupUpdateInfoChangeMessage: return .groupUpdateInfoChange
                 case is GroupUpdateMemberChangeMessage: return .groupUpdateMemberChange

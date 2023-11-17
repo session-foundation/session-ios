@@ -12,7 +12,7 @@ public enum AppSetup {
     
     public static func setupEnvironment(
         retrySetupIfDatabaseInvalid: Bool = false,
-        appSpecificBlock: @escaping () -> (),
+        appSpecificBlock: (() -> ())? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
         using dependencies: Dependencies = Dependencies()
@@ -67,7 +67,7 @@ public enum AppSetup {
                 proximityMonitoringManager: OWSProximityMonitoringManagerImpl(),
                 windowManager: OWSWindowManager(default: ())
             )
-            appSpecificBlock()
+            appSpecificBlock?()
             
             /// `performMainSetup` **MUST** run before `perform(migrations:)`
             Configuration.performMainSetup(using: dependencies)

@@ -124,7 +124,7 @@ public struct SessionApp {
         Storage.resetAllStorage(using: dependencies)
         DisplayPictureManager.resetStorage(using: dependencies)
         Attachment.resetAttachmentStorage()
-        AppEnvironment.shared.notificationPresenter.clearAllNotifications()
+        dependencies[singleton: .notificationsManager].clearAllNotifications()
         dependencies[singleton: .keychain].removeAll()
 
         onReset?()

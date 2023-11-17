@@ -1,15 +1,24 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import Combine
 import GRDB
 import UserNotifications
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-public class NSENotificationPresenter: NSObject, NotificationsProtocol {
+public class NSENotificationPresenter: NSObject, NotificationsManagerType {
     private var notifications: [String: UNNotificationRequest] = [:]
-     
+    
+    // MARK: - Registration
+    
+    public func registerNotificationSettings() -> AnyPublisher<Void, Never> {
+        return Just(()).eraseToAnyPublisher()
+    }
+    
+    // MARK: - Presentation
+    
     public func notifyUser(
         _ db: Database,
         for interaction: Interaction,
@@ -238,6 +247,12 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         addNotifcationRequest(identifier: UUID().uuidString, notificationContent: notificationContent, trigger: nil)
     }
     
+    public func notifyForFailedSend(_ db: Database, in thread: SessionThread, applicationState: UIApplication.State) {
+        // Not possible in the NotificationServiceExtension
+    }
+    
+    // MARK: - Clearing
+    
     public func cancelNotifications(identifiers: [String]) {
         let notificationCenter = UNUserNotificationCenter.current()
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
@@ -249,8 +264,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         notificationCenter.removeAllPendingNotificationRequests()
         notificationCenter.removeAllDeliveredNotifications()
     }
-    
-    private func addNotifcationRequest(identifier: String, notificationContent: UNNotificationContent, trigger: UNNotificationTrigger?) {
+}
+
+// MARK: - Convenience
+private extension NSENotificationPresenter {
+    func addNotifcationRequest(identifier: String, notificationContent: UNNotificationContent, trigger: UNNotificationTrigger?) {
         let request = UNNotificationRequest(identifier: identifier, content: notificationContent, trigger: trigger)
         
         SNLog("Add remote notification request: \(notificationContent.body)")

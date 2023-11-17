@@ -255,7 +255,6 @@ public final class MessageSender {
         
         return try SnodeAPI
             .preparedSendMessage(
-                db,
                 message: snodeMessage,
                 in: namespace,
                 authMethod: try Authentication.with(db, sessionIdHexString: threadId, using: dependencies),

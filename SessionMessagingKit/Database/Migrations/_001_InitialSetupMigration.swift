@@ -144,7 +144,7 @@ enum _001_InitialSetupMigration: Migration {
             t.column(.name, .text).notNull()
             t.column(.roomDescription, .text)
             t.column(.imageId, .text)
-            t.deprecatedColumn(name: "imageData", .blob)
+            t.deprecatedColumn(name: "imageData", .blob)              // stringlint:disable
             t.column(.userCount, .integer).notNull()
             t.column(.infoUpdates, .integer).notNull()
             t.column(.sequenceNumber, .integer).notNull()

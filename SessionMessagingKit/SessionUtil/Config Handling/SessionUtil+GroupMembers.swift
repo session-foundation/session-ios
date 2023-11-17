@@ -232,13 +232,19 @@ internal extension SessionUtil {
             guard
                 groups_members_get(conf, &groupMember, &cMemberId) && (
                     (role == .standard && groupMember.invited != Int32(GroupMember.RoleStatus.accepted.rawValue)) ||
-                    (role == .admin && groupMember.promoted != Int32(GroupMember.RoleStatus.accepted.rawValue))
+                    (role == .admin && (
+                        !groupMember.admin ||
+                        groupMember.promoted != Int32(GroupMember.RoleStatus.accepted.rawValue)
+                    ))
                 )
             else { return }
             
             switch role {
                 case .standard: groupMember.invited = Int32(status.rawValue)
-                case .admin: groupMember.promoted = Int32(status.rawValue)
+                case .admin:
+                    groupMember.admin = (status == .accepted)
+                    groupMember.promoted = Int32(status.rawValue)
+                    
                 default: break
             }
             

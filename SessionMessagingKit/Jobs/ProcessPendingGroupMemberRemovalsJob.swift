@@ -74,13 +74,18 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         }
         
         /// Define a timestamp to use for all messages created by the removal changes
+        ///
+        /// **Note:** The `targetChangeTimestampMs` will differ from the `messageSendTimestamp` as it's the time the
+        /// member was originally removed whereas the `messageSendTimestamp` is the time it will be uploaded to the swarm
         let targetChangeTimestampMs: Int64 = (
             details.changeTimestampMs ??
             SnodeAPI.currentOffsetTimestampMs(using: dependencies)
         )
+        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
         
-        return dependencies[singleton: .storage]
-            .readPublisher(using: dependencies) { db -> HTTP.PreparedRequest<HTTP.BatchResponse> in
+        return Just(())
+            .setFailureType(to: Error.self)
+            .tryMap { _ -> HTTP.PreparedRequest<HTTP.BatchResponse> in
                 /// Revoke the members authData from the group so the server rejects API calls from the ex-members (fire-and-forget
                 /// this request, we don't want it to be blocking)
                 let preparedRevokeSubaccounts: HTTP.PreparedRequest<Void> = try SnodeAPI.preparedRevokeSubaccounts(
@@ -103,47 +108,34 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     groupSessionId: groupSessionId,
                     using: dependencies
                 )
-                let encryptedPendingRemovals: [Data] = try pendingRemovals.keys
-                    .map { memberId -> (String, [UInt8]) in
-                        /// Ed25519 signature of `(memberId || currentGen)`
-                        return (
-                            memberId,
-                            memberId.bytes
-                                .appending(contentsOf: "\(currentGen)".data(using: .ascii)?.bytes)
-                        )
-                    }
-                    .map { memberId, plaintext -> Data in
-                        try MessageSender.encryptWithSessionProtocol(
-                            db,
-                            plaintext: Data(plaintext),
-                            for: memberId,
-                            from: KeyPair(
-                                publicKey: groupSessionId.publicKey,
-                                secretKey: Array(groupIdentityPrivateKey)
-                            ),
-                            using: dependencies
-                        )
-                    }
-                
-                let preparedGroupDeleteMessage: HTTP.PreparedRequest<Void> = try MessageSender
-                    .preparedSend(
-                        db,
-                        message: try GroupUpdateDeleteMessage(
-                            encryptedDeletedMemberIdData: encryptedPendingRemovals,
-                            authMethod: Authentication.groupAdmin(
-                                groupSessionId: groupSessionId,
-                                ed25519SecretKey: Array(groupIdentityPrivateKey)
-                            ),
-                            using: dependencies
+                let deleteMessageData: [(recipient: SessionId, message: Data)] = pendingRemovals.keys
+                    .compactMap { try? LibSessionMessage.groupKicked(memberId: $0, groupKeysGen: currentGen) }
+                let encryptedDeleteMessageData: Data = try SessionUtil.encrypt(
+                    messages: deleteMessageData.map { $0.message },
+                    toRecipients: deleteMessageData.map { $0.recipient },
+                    ed25519PrivateKey: Array(groupIdentityPrivateKey),
+                    domain: .kickedMessage,
+                    using: dependencies
+                )
+                let preparedGroupDeleteMessage: HTTP.PreparedRequest<Void> = try SnodeAPI
+                    .preparedSendMessage(
+                        message: SnodeMessage(
+                            recipient: groupSessionId.hexString,
+                            data: encryptedDeleteMessageData.base64EncodedString(),
+                            ttl: Message().ttl,
+                            timestampMs: UInt64(messageSendTimestamp)
                         ),
-                        to: .closedGroup(groupPublicKey: groupSessionId.hexString),
-                        namespace: .revokedRetrievableGroupMessages,
-                        interactionId: nil,
-                        fileIds: []
+                        in: .revokedRetrievableGroupMessages,
+                        authMethod: Authentication.groupAdmin(
+                            groupSessionId: groupSessionId,
+                            ed25519SecretKey: Array(groupIdentityPrivateKey)
+                        ),
+                        using: dependencies
                     )
+                    .map { _, _ in () }
                 
+                /// Combine the two requests to be sent at the same time
                 return try SnodeAPI.preparedSequence(
-                    db,
                     requests: [preparedRevokeSubaccounts, preparedGroupDeleteMessage],
                     requireAllBatchResponses: true,
                     associatedWith: groupSessionId.hexString,

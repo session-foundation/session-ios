@@ -400,7 +400,6 @@ extension MessageSender {
                 
                 try SnodeAPI
                     .preparedSendMessage(
-                        db,
                         message: SnodeMessage(
                             recipient: sessionId.hexString,
                             data: supplementData.base64EncodedString(),

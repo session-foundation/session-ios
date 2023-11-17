@@ -367,14 +367,13 @@ extension MessageReceiver {
         guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
         
         // Use the same identifier for notifications when in backgroud polling to prevent spam
-        Environment.shared?.notificationsManager.wrappedValue?
-            .notifyUser(
-                db,
-                for: interaction,
-                in: thread,
-                applicationState: (isMainAppActive ? .active : .background),
-                using: dependencies
-            )
+        dependencies[singleton: .notificationsManager].notifyUser(
+            db,
+            for: interaction,
+            in: thread,
+            applicationState: (isMainAppActive ? .active : .background),
+            using: dependencies
+        )
         
         return interactionId
     }
@@ -441,14 +440,14 @@ extension MessageReceiver {
                 // Don't notify if the reaction was added before the lastest read timestamp for
                 // the conversation
                 if sender != userSessionId.hexString && !timestampAlreadyRead {
-                    Environment.shared?.notificationsManager.wrappedValue?
-                        .notifyUser(
-                            db,
-                            forReaction: reaction,
-                            in: thread,
-                            applicationState: (isMainAppActive ? .active : .background)
-                        )
+                    dependencies[singleton: .notificationsManager].notifyUser(
+                        db,
+                        forReaction: reaction,
+                        in: thread,
+                        applicationState: (isMainAppActive ? .active : .background)
+                    )
                 }
+                
             case .remove:
                 try Reaction
                     .filter(Reaction.Columns.interactionId == interactionId)

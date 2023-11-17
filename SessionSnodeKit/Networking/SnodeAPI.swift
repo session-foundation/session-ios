@@ -294,7 +294,6 @@ public final class SnodeAPI {
         )
 
         return try preparedBatch(
-            db,
             requests: requests,
             requireAllBatchResponses: true,
             associatedWith: authMethod.sessionId.hexString,
@@ -359,7 +358,6 @@ public final class SnodeAPI {
     }
     
     public static func preparedBatch(
-        _ db: Database,
         requests: [any ErasedPreparedRequest],
         requireAllBatchResponses: Bool,
         associatedWith publicKey: String,
@@ -379,7 +377,6 @@ public final class SnodeAPI {
     }
     
     public static func preparedSequence(
-        _ db: Database,
         requests: [any ErasedPreparedRequest],
         requireAllBatchResponses: Bool,
         associatedWith publicKey: String,
@@ -575,7 +572,6 @@ public final class SnodeAPI {
     // MARK: - Store
     
     public static func preparedSendMessage(
-        _ db: Database,
         message: SnodeMessage,
         in namespace: Namespace,
         authMethod: AuthenticationMethod,

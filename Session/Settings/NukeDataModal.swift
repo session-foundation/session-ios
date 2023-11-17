@@ -287,7 +287,7 @@ final class NukeDataModal: Modal {
         dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
         
         // Clear the app badge and notifications
-        AppEnvironment.shared.notificationPresenter.clearAllNotifications()
+        dependencies[singleton: .notificationsManager].clearAllNotifications()
         UIApplication.shared.applicationIconBadgeNumber = 0
         
         // Clear out the user defaults
@@ -303,7 +303,7 @@ final class NukeDataModal: Modal {
         SnodeAPI.clearSnodePool(using: dependencies)
         
         // Stop any pollers
-        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers(using: dependencies)
         
         // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
         // profile storage

@@ -140,6 +140,14 @@ public class Dependencies {
         
         return cache.immutableInstance(value)
     }
+    
+    // MARK: - Instance replacing
+    
+    public func set<S>(singleton: SingletonConfig<S>, to instance: S) {
+        Dependencies.singletonInstances.mutate {
+            $0[singleton.identifier] = instance
+        }
+    }
 }
 
 // MARK: - Feature Management

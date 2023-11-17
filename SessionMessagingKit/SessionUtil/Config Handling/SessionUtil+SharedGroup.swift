@@ -7,6 +7,12 @@ import SessionSnodeKit
 import SessionUtil
 import SessionUtilitiesKit
 
+// MARK: - Group Domains
+
+public extension SessionUtil.Crypto.Domain {
+    static var kickedMessage: SessionUtil.Crypto.Domain = "SessionGroupKickedMessage"   // stringlint:disable
+}
+
 // MARK: - Convenience
 
 internal extension SessionUtil {

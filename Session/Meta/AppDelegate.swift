@@ -15,6 +15,8 @@ import SessionSnodeKit
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     private static let maxRootViewControllerInitialQueryDuration: TimeInterval = 10
     
+    /// The AppDelete is initialised by the OS so we should init an instance of `Dependencies` to be used throughout
+    let dependencies: Dependencies = Dependencies()
     var window: UIWindow?
     var backgroundSnapshotBlockerWindow: UIWindow?
     var appStartupWindow: UIWindow?
@@ -32,8 +34,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         SetCurrentAppContext(MainAppContext())
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
         Cryptography.seedRandom()
         AppVersion.configure(using: dependencies)
         AppEnvironment.shared.pushRegistrationManager.createVoipRegistryIfNecessary()
@@ -48,7 +48,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         self.loadingViewController = LoadingViewController()
         
         AppSetup.setupEnvironment(
-            appSpecificBlock: {
+            appSpecificBlock: { [dependencies] in
+                /// Create a proper `NotificationPresenter` for the main app (defaults to a no-op version)
+                dependencies.set(singleton: .notificationsManager, to: NotificationPresenter())
+                
                 // Create AppEnvironment
                 AppEnvironment.shared.setup()
                 
@@ -69,7 +72,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     minEstimatedTotalTime: minEstimatedTotalTime
                 )
             },
-            migrationsCompletion: { [weak self] result, needsConfigSync in
+            migrationsCompletion: { [weak self, dependencies] result, needsConfigSync in
                 if case .failure(let error) = result {
                     DispatchQueue.main.async {
                         self?.initialLaunchFailed = true
@@ -143,8 +146,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Apple's documentation on the matter)
         UNUserNotificationCenter.current().delegate = self
         
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
         Storage.resumeDatabaseAccess(using: dependencies)
         
         // Reset the 'startTime' (since it would be invalid from the last launch)
@@ -166,7 +167,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             
             // Dispatch async so things can continue to be progressed if a migration does need to run
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
                 AppSetup.runPostSetupMigrations(
                     migrationProgressChanged: { progress, minEstimatedTotalTime in
                         self?.loadingViewController?.updateProgress(
@@ -203,9 +204,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         DDLog.flushLog()
         
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
-        
         // NOTE: Fix an edge case where user taps on the callkit notification
         // but answers the call on another device
         stopPollers(shouldStopUserPoller: !self.hasCallOngoing(), using: dependencies)
@@ -225,19 +223,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func applicationWillTerminate(_ application: UIApplication) {
         DDLog.flushLog()
 
-        stopPollers()
+        stopPollers(using: dependencies)
     }
     
     func applicationDidBecomeActive(_ application: UIApplication) {
         guard !SNUtilitiesKit.isRunningTests else { return }
         
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
         dependencies[defaults: .appGroup, key: .isMainAppActive] = true
         
         ensureRootViewController(calledFrom: .didBecomeActive, using: dependencies)
 
-        AppReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
+        AppReadiness.runNowOrWhenAppDidBecomeReady { [weak self, dependencies] in
             self?.handleActivation(using: dependencies)
             
             /// Clear all notifications whenever we become active once the app is ready
@@ -246,7 +242,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// no longer always called before `applicationDidBecomeActive` we need to trigger the "clear notifications" logic
             /// within the `runNowOrWhenAppDidBecomeReady` callback and dispatch to the next run loop to ensure it runs after
             /// the notification has actually been handled
-            DispatchQueue.main.async { [weak self] in
+            DispatchQueue.main.async {
                 self?.clearAllNotificationsAndRestoreBadgeCount(using: dependencies)
             }
         }
@@ -256,9 +252,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
-        
         clearAllNotificationsAndRestoreBadgeCount(using: dependencies)
         
         dependencies[defaults: .appGroup, key: .isMainAppActive] = false
@@ -534,7 +527,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    private func handleActivation(using dependencies: Dependencies = Dependencies()) {
+    private func handleActivation(using dependencies: Dependencies) {
         /// There is a _fun_ behaviour here where if the user launches the app, sends it to the background at the right time and then
         /// opens it again the `AppReadiness` closures can be triggered before `applicationDidBecomeActive` has been
         /// called again - this can result in odd behaviours so hold off on running this logic until it's properly called again
@@ -690,7 +683,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     private func clearAllNotificationsAndRestoreBadgeCount(using dependencies: Dependencies) {
         AppReadiness.runNowOrWhenAppDidBecomeReady {
-            AppEnvironment.shared.notificationPresenter.clearAllNotifications()
+            dependencies[singleton: .notificationsManager].clearAllNotifications()
             
             guard CurrentAppContext().isMainApp else { return }
             
@@ -743,8 +736,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// the notification or choosing a UNNotificationAction. The delegate must be set before the application returns from
     /// application:didFinishLaunchingWithOptions:.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        AppReadiness.runNowOrWhenAppDidBecomeReady {
-            AppEnvironment.shared.userNotificationActionHandler.handleNotificationResponse(response, completionHandler: completionHandler)
+        AppReadiness.runNowOrWhenAppDidBecomeReady { [dependencies] in
+            dependencies[singleton: .notificationActionHandler].handleNotificationResponse(
+                response,
+                completionHandler: completionHandler,
+                using: dependencies
+            )
         }
     }
 
@@ -758,16 +755,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Notification Handling
     
     @objc private func registrationStateDidChange() {
-        handleActivation()
+        handleActivation(using: dependencies)
     }
     
     @objc public func showMissedCallTipsIfNeededNotification(_ notification: Notification) {
-        showMissedCallTipsIfNeeded(notification)
+        showMissedCallTipsIfNeeded(notification, using: dependencies)
     }
     
     private func showMissedCallTipsIfNeeded(
         _ notification: Notification,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         guard !dependencies[defaults: .standard, key: .hasSeenCallMissedTips] else { return }
         guard Thread.isMainThread else {
@@ -812,7 +809,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     public func stopPollers(
         shouldStopUserPoller: Bool = true,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         if shouldStopUserPoller {
             dependencies[singleton: .currentUserPoller].stopAllPollers()

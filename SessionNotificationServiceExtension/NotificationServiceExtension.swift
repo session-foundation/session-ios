@@ -172,13 +172,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
                                         // Notify the user if the call message wasn't already read
                                         if !interaction.wasRead {
-                                            Environment.shared?.notificationsManager.wrappedValue?
-                                                .notifyUser(
-                                                    db,
-                                                    forIncomingCall: interaction,
-                                                    in: thread,
-                                                    applicationState: .background
-                                                )
+                                            dependencies[singleton: .notificationsManager].notifyUser(
+                                                db,
+                                                forIncomingCall: interaction,
+                                                in: thread,
+                                                applicationState: .background
+                                            )
                                         }
                                     }
                                     
@@ -248,9 +247,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         AppSetup.setupEnvironment(
             retrySetupIfDatabaseInvalid: true,
             appSpecificBlock: {
-                Environment.shared?.notificationsManager.mutate {
-                    $0 = NSENotificationPresenter()
-                }
+                /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
+                dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter())
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 switch result {

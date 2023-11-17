@@ -9,6 +9,12 @@ import SessionUtilitiesKit
 
 // MARK: - Convenience
 
+public extension SessionUtil {
+    enum Crypto {
+        public typealias Domain = String
+    }
+}
+
 internal extension SessionUtil {
     /// This is a buffer period within which we will process messages which would result in a config change, any message which would normally
     /// result in a config change which was sent before `lastConfigMessage.timestamp - configChangeBufferPeriod` will not
@@ -427,6 +433,83 @@ internal extension SessionUtil {
             SNLog("[SessionUtil] Got stuck in infinite loop processing '\(variant.description)' data")
             throw SessionUtilError.processingLoopLimitReached
         }
+    }
+}
+
+// MARK: - Encryption
+
+public extension SessionUtil {
+    static func encrypt(
+        messages: [Data],
+        toRecipients recipients: [SessionId],
+        ed25519PrivateKey: [UInt8],
+        domain: SessionUtil.Crypto.Domain,
+        using dependencies: Dependencies
+    ) throws -> Data {
+        var outLen: Int = 0
+        var cMessages: [UnsafePointer<UInt8>?] = messages
+            .map { message in message.cArray }
+            .unsafeCopy()
+        var messageSizes: [Int] = messages.map { $0.count }
+        var cRecipients: [UnsafePointer<UInt8>?] = recipients
+            .map { recipient in recipient.publicKey }
+            .unsafeCopy()
+        var secretKey: [UInt8] = ed25519PrivateKey
+        var cDomain: [CChar] = domain.cArray
+        var cEncryptedDataPtr: UnsafeMutablePointer<UInt8>?
+        
+        try CExceptionHelper.performSafely {
+            cEncryptedDataPtr = session_encrypt_for_multiple_simple_ed25519(
+                &outLen,
+                &cMessages,
+                &messageSizes,
+                messages.count,
+                &cRecipients,
+                recipients.count,
+                &secretKey,
+                &cDomain,
+                nil,
+                0
+            )
+        }
+        
+        let encryptedData: Data? = cEncryptedDataPtr.map { Data(bytes: $0, count: outLen) }
+        cMessages.forEach { $0?.deallocate() }
+        cRecipients.forEach { $0?.deallocate() }
+        cEncryptedDataPtr?.deallocate()
+        
+        return try encryptedData ?? { throw MessageSenderError.encryptionFailed }()
+    }
+    
+    static func decrypt(
+        ciphertext: Data,
+        senderSessionId: SessionId,
+        ed25519KeyPair: KeyPair,
+        domain: SessionUtil.Crypto.Domain,
+        using dependencies: Dependencies
+    ) throws -> Data {
+        var outLen: Int = 0
+        var cEncryptedData: [UInt8] = Array(ciphertext)
+        var secretKey: [UInt8] = ed25519KeyPair.secretKey
+        var cSenderPubkey: [UInt8] = senderSessionId.publicKey
+        var cDomain: [CChar] = domain.cArray
+        var cDecryptedDataPtr: UnsafeMutablePointer<UInt8>?
+        
+        try CExceptionHelper.performSafely {
+            cDecryptedDataPtr = session_decrypt_for_multiple_simple_ed25519(
+                &outLen,
+                &cEncryptedData,
+                cEncryptedData.count,
+                &secretKey,
+                &cSenderPubkey,
+                &cDomain
+            )
+        }
+        
+        let decryptedData: Data? = cDecryptedDataPtr.map { Data(bytes: $0, count: outLen) }
+        cDecryptedDataPtr?.deallocate()
+        
+        return try decryptedData ?? { throw MessageReceiverError.decryptionFailed }()
     }
 }
 

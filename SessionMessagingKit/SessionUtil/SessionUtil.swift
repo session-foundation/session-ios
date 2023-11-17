@@ -112,41 +112,6 @@ public enum SessionUtil {
         SNLog("[SessionUtil] Completed loadState")
     }
     
-    public static func reloadState(
-        _ db: Database,
-        for sessionId: SessionId,
-        userEd25519SecretKey: [UInt8],
-        groupEd25519SecretKey: [UInt8],
-        using dependencies: Dependencies
-    ) throws {
-        // Retrieve the existing dumps from the database
-        let configDumps: [ConfigDump.Variant: ConfigDump] = (try? ConfigDump
-            .filter(ConfigDump.Columns.publicKey == sessionId.hexString)
-            .fetchAll(db))
-            .defaulting(to: [])
-            .reduce(into: [:]) { result, next in result[next.variant] = next }
-        
-        // Create the config records for each dump
-        try dependencies.mutate(cache: .sessionUtil) { cache in
-            try ConfigDump.Variant.groupVariants.forEach { variant in
-                cache.setConfig(
-                    for: variant,
-                    sessionId: sessionId,
-                    to: try SessionUtil
-                        .loadState(
-                            for: variant,
-                            sessionId: sessionId,
-                            userEd25519SecretKey: userEd25519SecretKey,
-                            groupEd25519SecretKey: groupEd25519SecretKey,
-                            cachedData: configDumps[variant]?.data,
-                            cache: cache
-                        )
-                        .addingLogger()
-                )
-            }
-        }
-    }
-    
     private static func loadState(
         for variant: ConfigDump.Variant,
         sessionId: SessionId,

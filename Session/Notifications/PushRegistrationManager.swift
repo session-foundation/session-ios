@@ -21,12 +21,6 @@ public enum PushRegistrationError: Error {
  */
 @objc public class PushRegistrationManager: NSObject, PKPushRegistryDelegate {
 
-    // MARK: - Dependencies
-
-    private var notificationPresenter: NotificationPresenter {
-        return AppEnvironment.shared.notificationPresenter
-    }
-
     // MARK: - Singleton class
 
     @objc
@@ -51,10 +45,10 @@ public enum PushRegistrationError: Error {
 
     // MARK: - Public interface
 
-    public func requestPushTokens() -> AnyPublisher<(pushToken: String, voipToken: String), Error> {
+    public func requestPushTokens(using dependencies: Dependencies) -> AnyPublisher<(pushToken: String, voipToken: String), Error> {
         Logger.info("")
         
-        return registerUserNotificationSettings()
+        return registerUserNotificationSettings(using: dependencies)
             .setFailureType(to: Error.self)
             .tryFlatMap { _ -> AnyPublisher<(pushToken: String, voipToken: String), Error> in
                 #if targetEnvironment(simulator)
@@ -102,8 +96,8 @@ public enum PushRegistrationError: Error {
 
     // User notification settings must be registered *before* AppDelegate will
     // return any requested push tokens.
-    public func registerUserNotificationSettings() -> AnyPublisher<Void, Never> {
-        return notificationPresenter.registerNotificationSettings()
+    public func registerUserNotificationSettings(using dependencies: Dependencies) -> AnyPublisher<Void, Never> {
+        return dependencies[singleton: .notificationsManager].registerNotificationSettings()
     }
 
     /**

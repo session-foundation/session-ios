@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UIKit.UIApplication
 import Combine
 import GRDB
 import SessionUtilitiesKit
@@ -42,6 +43,7 @@ extension Array { static var any: Self { mock(type: Element.self) } }
 extension Dictionary { static var any: Self { mock(typeA: Key.self, typeB: Value.self) } }
 extension Error { static var any: Error { TestError.mock } }
 
+extension UIApplication.State { static var any: UIApplication.State { .active } }
 extension TimeInterval { static var any: TimeInterval { 0 } }
 extension SessionId { static var any: SessionId { SessionId.invalid } }
 extension Dependencies {

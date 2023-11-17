@@ -79,13 +79,12 @@ extension MessageReceiver {
                 )
                 
                 if !interaction.wasRead {
-                    Environment.shared?.notificationsManager.wrappedValue?
-                        .notifyUser(
-                            db,
-                            forIncomingCall: interaction,
-                            in: thread,
-                            applicationState: (isMainAppActive ? .active : .background)
-                        )
+                    dependencies[singleton: .notificationsManager].notifyUser(
+                        db,
+                        forIncomingCall: interaction,
+                        in: thread,
+                        applicationState: (isMainAppActive ? .active : .background)
+                    )
                 }
             }
             return
@@ -102,13 +101,12 @@ extension MessageReceiver {
                 )
                 
                 if !interaction.wasRead {
-                    Environment.shared?.notificationsManager.wrappedValue?
-                        .notifyUser(
-                            db,
-                            forIncomingCall: interaction,
-                            in: thread,
-                            applicationState: (isMainAppActive ? .active : .background)
-                        )
+                    dependencies[singleton: .notificationsManager].notifyUser(
+                        db,
+                        forIncomingCall: interaction,
+                        in: thread,
+                        applicationState: (isMainAppActive ? .active : .background)
+                    )
                 }
                 
                 // Trigger the missed call UI if needed

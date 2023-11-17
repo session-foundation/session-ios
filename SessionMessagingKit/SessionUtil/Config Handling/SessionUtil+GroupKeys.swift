@@ -111,6 +111,30 @@ internal extension SessionUtil {
             } ?? { throw SessionUtilError.invalidConfigObject }()
     }
     
+    static func loadAdminKey(
+        _ db: Database,
+        groupIdentitySeed: Data,
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) throws {
+        try SessionUtil
+            .performAndPushChange(
+                db,
+                for: .groupKeys,
+                sessionId: groupSessionId,
+                using: dependencies
+            ) { config in
+                guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
+                    throw SessionUtilError.invalidConfigObject
+                }
+                
+                var identitySeed: [UInt8] = Array(groupIdentitySeed)
+                try CExceptionHelper.performSafely {
+                    groups_keys_load_admin_key(conf, &identitySeed, infoConf, membersConf)
+                }
+            }
+    }
+    
     static func currentGeneration(
         groupSessionId: SessionId,
         using dependencies: Dependencies

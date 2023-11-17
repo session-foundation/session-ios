@@ -75,7 +75,7 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { crypto in crypto.generate(.ed25519KeyPair(seed: .any, using: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data(hex: groupId.hexString).bytes,
@@ -363,13 +363,11 @@ class MessageSenderGroupsSpec: QuickSpec {
                             ).upsert(db)
                             
                             let preparedRequest: HTTP.PreparedRequest<HTTP.BatchResponse> = try SnodeAPI.preparedSequence(
-                                db,
                                 requests: try SessionUtil
                                     .pendingChanges(db, sessionIdHexString: groupId.hexString, using: dependencies)
                                     .map { pushData -> ErasedPreparedRequest in
                                         try SnodeAPI
                                             .preparedSendMessage(
-                                                db,
                                                 message: SnodeMessage(
                                                     recipient: groupId.hexString,
                                                     data: pushData.data.base64EncodedString(),
@@ -681,12 +679,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 .preparedSubscribe(
                                     db,
                                     token: Data([5, 4, 3, 2, 1]),
-                                    sessionIds: [
-                                        SessionId(
-                                            .standard,
-                                            hex: "051111111111111111111111111111111111111111111111111111111111111111"
-                                        )
-                                    ],
+                                    sessionIds: [groupId],
                                     using: dependencies
                                 )
                                 .request

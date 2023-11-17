@@ -16,13 +16,6 @@ public class Environment {
     // Note: This property is configured after Environment is created.
     public let callManager: Atomic<CallManagerProtocol?> = Atomic(nil)
     
-    // Note: This property is configured after Environment is created.
-    public let notificationsManager: Atomic<NotificationsProtocol?> = Atomic(nil)
-    
-    public var isComplete: Bool {
-        (notificationsManager.wrappedValue != nil)
-    }
-    
     // MARK: - Initialization
     
     public init(

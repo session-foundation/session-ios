@@ -6,6 +6,7 @@ import CoreServices
 import SignalUtilitiesKit
 import SessionUIKit
 import SessionUtilitiesKit
+import SessionMessagingKit
 import SignalCoreKit
 
 final class ShareNavController: UINavigationController, ShareViewDelegate {
@@ -28,9 +29,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     
     override func loadView() {
         super.loadView()
-        
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
         
         view.themeBackgroundColor = .backgroundPrimary
 
@@ -58,12 +56,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         }
 
         AppSetup.setupEnvironment(
-            appSpecificBlock: {
-                Environment.shared?.notificationsManager.mutate {
-                    $0 = NoopNotificationsManager()
-                }
-            },
-            migrationsCompletion: { [weak self] result, needsConfigSync in
+            migrationsCompletion: { [weak self, dependencies] result, needsConfigSync in
                 switch result {
                     case .failure: SNLog("[SessionShareExtension] Failed to complete migrations")
                     case .success:
@@ -177,9 +170,6 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         Logger.info("")
         
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
-
         if dependencies[singleton: .storage, key: .isScreenLockEnabled] {
             self.dismiss(animated: false) { [weak self] in
                 AssertIsOnMainThread()

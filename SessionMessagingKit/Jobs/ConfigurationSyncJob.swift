@@ -84,12 +84,10 @@ public enum ConfigurationSyncJob: JobExecutor {
         dependencies[singleton: .storage]
             .readPublisher { db -> HTTP.PreparedRequest<HTTP.BatchResponse> in
                 try SnodeAPI.preparedSequence(
-                    db,
                     requests: try pendingConfigChanges
                         .map { pushData -> ErasedPreparedRequest in
                             try SnodeAPI
                                 .preparedSendMessage(
-                                    db,
                                     message: SnodeMessage(
                                         recipient: sessionIdHexString,
                                         data: pushData.data.base64EncodedString(),
@@ -107,8 +105,6 @@ public enum ConfigurationSyncJob: JobExecutor {
                         }
                         .appending(
                             try allObsoleteHashes.map { serverHashes -> ErasedPreparedRequest in
-                                // TODO: Seems like older hashes aren't getting exposed via this method? (ie. I keep getting old ones when polling but not sure if they are included and not getting deleted, or just not included...)
-                                // TODO: Need to test this in updated groups
                                 try SnodeAPI.preparedDeleteMessages(
                                     serverHashes: Array(serverHashes),
                                     requireSuccessfulDeletion: false,

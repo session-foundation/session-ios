@@ -155,7 +155,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
             
             if CurrentAppContext().isInBackground() {
-                (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+                (UIApplication.shared.delegate as? AppDelegate)?.stopPollers(using: dependencies)
                 DDLog.flushLog()
             }
         }

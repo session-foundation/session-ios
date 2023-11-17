@@ -183,6 +183,12 @@ public class TestDependencies: Dependencies {
         
         return result.map { elements.remove($0) }
     }
+    
+    // MARK: - Instance replacing
+    
+    public override func set<S>(singleton: SingletonConfig<S>, to instance: S) {
+        singletonInstances[singleton.identifier] = instance
+    }
 }
 
 // MARK: - TestState Convenience

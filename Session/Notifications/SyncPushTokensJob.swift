@@ -84,7 +84,7 @@ public enum SyncPushTokensJob: JobExecutor {
         /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
         Logger.info("Re-registering for remote notifications.")
-        PushRegistrationManager.shared.requestPushTokens()
+        PushRegistrationManager.shared.requestPushTokens(using: dependencies)
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
                 /// For our `subscribe` endpoint we only want to call it if:
                 /// • It's been longer than `SyncPushTokensJob.maxFrequency` since the last successful subscription;

@@ -155,13 +155,13 @@ public extension Message {
         case visibleMessage
         case callMessage
         case groupUpdateInvite
-        case groupUpdateDelete
         case groupUpdatePromote
         case groupUpdateInfoChange
         case groupUpdateMemberChange
         case groupUpdateMemberLeft
         case groupUpdateInviteResponse
         case groupUpdateDeleteMemberContent
+        case libSessionMessage
         
         init?(from type: Message) {
             switch type {
@@ -175,13 +175,13 @@ public extension Message {
                 case is VisibleMessage: self = .visibleMessage
                 case is CallMessage: self = .callMessage
                 case is GroupUpdateInviteMessage: self = .groupUpdateInvite
-                case is GroupUpdateDeleteMessage: self = .groupUpdateDelete
                 case is GroupUpdatePromoteMessage: self = .groupUpdatePromote
                 case is GroupUpdateInfoChangeMessage: self = .groupUpdateInfoChange
                 case is GroupUpdateMemberChangeMessage: self = .groupUpdateMemberChange
                 case is GroupUpdateMemberLeftMessage: self = .groupUpdateMemberLeft
                 case is GroupUpdateInviteResponseMessage: self = .groupUpdateInviteResponse
                 case is GroupUpdateDeleteMemberContentMessage: self = .groupUpdateDeleteMemberContent
+                case is LibSessionMessage: self = .libSessionMessage
                 default: return nil
             }
         }
@@ -198,13 +198,13 @@ public extension Message {
                 case .visibleMessage: return VisibleMessage.self
                 case .callMessage: return CallMessage.self
                 case .groupUpdateInvite: return GroupUpdateInviteMessage.self
-                case .groupUpdateDelete: return GroupUpdateDeleteMessage.self
                 case .groupUpdatePromote: return GroupUpdatePromoteMessage.self
                 case .groupUpdateInfoChange: return GroupUpdateInfoChangeMessage.self
                 case .groupUpdateMemberChange: return GroupUpdateMemberChangeMessage.self
                 case .groupUpdateMemberLeft: return GroupUpdateMemberLeftMessage.self
                 case .groupUpdateInviteResponse: return GroupUpdateInviteResponseMessage.self
                 case .groupUpdateDeleteMemberContent: return GroupUpdateDeleteMemberContentMessage.self
+                case .libSessionMessage: return LibSessionMessage.self
             }
         }
         
@@ -215,20 +215,20 @@ public extension Message {
                 case .readReceipt: return 0
                 case .typingIndicator: return 1
                 case .closedGroupControlMessage: return 2
-                case .dataExtractionNotification: return 11
-                case .expirationTimerUpdate: return 12
-                case .unsendRequest: return 13
-                case .messageRequestResponse: return 14
-                case .visibleMessage: return 15
-                case .callMessage: return 16
+                case .dataExtractionNotification: return 10
+                case .expirationTimerUpdate: return 11
+                case .unsendRequest: return 12
+                case .messageRequestResponse: return 13
+                case .visibleMessage: return 14
+                case .callMessage: return 15
                 case .groupUpdateInvite: return 3
-                case .groupUpdateDelete: return 4
-                case .groupUpdatePromote: return 5
-                case .groupUpdateInfoChange: return 6
-                case .groupUpdateMemberChange: return 7
-                case .groupUpdateMemberLeft: return 8
-                case .groupUpdateInviteResponse: return 9
-                case .groupUpdateDeleteMemberContent: return 10
+                case .groupUpdatePromote: return 4
+                case .groupUpdateInfoChange: return 5
+                case .groupUpdateMemberChange: return 6
+                case .groupUpdateMemberLeft: return 7
+                case .groupUpdateInviteResponse: return 8
+                case .groupUpdateDeleteMemberContent: return 9
+                case .libSessionMessage: return 16
             }
         }
         
@@ -255,7 +255,6 @@ public extension Message {
                 case .callMessage: return try container.decode(CallMessage.self, forKey: key)
                     
                 case .groupUpdateInvite: return try container.decode(GroupUpdateInviteMessage.self, forKey: key)
-                case .groupUpdateDelete: return try container.decode(GroupUpdateDeleteMessage.self, forKey: key)
                 case .groupUpdatePromote: return try container.decode(GroupUpdatePromoteMessage.self, forKey: key)
                 
                 case .groupUpdateInfoChange:
@@ -272,6 +271,8 @@ public extension Message {
                 
                 case .groupUpdateDeleteMemberContent:
                     return try container.decode(GroupUpdateDeleteMemberContentMessage.self, forKey: key)
+                    
+                case .libSessionMessage: return try container.decode(LibSessionMessage.self, forKey: key)
             }
         }
     }

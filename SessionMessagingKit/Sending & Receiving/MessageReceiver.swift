@@ -125,10 +125,9 @@ public enum MessageReceiver {
                         threadIdGenerator = { _ in publicKey }
                         
                     case .revokedRetrievableGroupMessages:
-                        plaintext = data    // Has custom bencoding handling
+                        plaintext = Data()  // Requires custom decryption
                         customProto = try SNProtoContent.builder().build()
-                        customMessage = try BencodeDecoder(using: dependencies)
-                            .decode(GroupUpdateDeleteMessage.self, from: plaintext)
+                        customMessage = LibSessionMessage(ciphertext: data)
                         sender = publicKey  // The "group" sends these messages
                         sentTimestamp = 0
                         openGroupServerMessageId = nil
@@ -304,7 +303,7 @@ public enum MessageReceiver {
                     using: dependencies
                 )
                 
-            case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage, is GroupUpdateInfoChangeMessage,
+            case is GroupUpdateInviteMessage, is GroupUpdateInfoChangeMessage,
                 is GroupUpdateMemberChangeMessage, is GroupUpdatePromoteMessage, is GroupUpdateMemberLeftMessage,
                 is GroupUpdateInviteResponseMessage, is GroupUpdateDeleteMemberContentMessage:
                 try MessageReceiver.handleGroupUpdateMessage(
@@ -368,6 +367,15 @@ public enum MessageReceiver {
                     using: dependencies
                 )
                 
+            case let message as LibSessionMessage:
+                try MessageReceiver.handleLibSessionMessage(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message,
+                    using: dependencies
+                )
+                
             default: throw MessageReceiverError.unknownMessage
         }
         
@@ -402,7 +410,7 @@ public enum MessageReceiver {
                     }
                     
                 /// These are sent to the one-to-one conversation so they shouldn't make that visible
-                case is GroupUpdateInviteMessage, is GroupUpdateDeleteMessage, is GroupUpdatePromoteMessage:
+                case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage:
                     return false
                     
                 /// These are sent to the group conversation but we have logic so you can only ever "leave" a group, you can't "hide" it
@@ -411,6 +419,9 @@ public enum MessageReceiver {
                     is GroupUpdateMemberLeftMessage, is GroupUpdateInviteResponseMessage,
                     is GroupUpdateDeleteMemberContentMessage:
                     return false
+                
+                /// Currently this is just for handling the `groupKicked` message which is sent to a group so the same rules as above apply
+                case is LibSessionMessage: return false
                     
                 default: return true
             }
