@@ -151,7 +151,7 @@ extension MessageReceiver {
         guard let sender: String = message.sender else { return }
         
         // Check the contact's client version based on this received message
-        let lastKnownClientVersion: FeatureVersion = (!proto.hasExpirationTimer ?
+        let lastKnownClientVersion: FeatureVersion = ((!proto.hasExpirationType && !proto.hasExpirationTimer && !proto.hasLastDisappearingMessageChangeTimestamp) ?
             .legacyDisappearingMessages :
             .newDisappearingMessages
         )
