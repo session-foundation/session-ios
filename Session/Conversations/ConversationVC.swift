@@ -805,14 +805,6 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                         .map { NSRange($0, in: text) }
                         .defaulting(to: NSRange(location: 0, length: 0))
                 )
-
-            outdatedClientBanner.update(
-                message: String(
-                    format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
-                    updatedThreadData.displayName
-                ),
-                dismiss: self.removeOutdatedClientBanner
-            )
         }
         
         if
@@ -878,7 +870,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             }
         }
         
-        addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: updatedThreadData.contactLastKnownClientVersion == .legacyDisappearingMessages)
+        addOrRemoveOutdatedClientBanner(outdatedMemberId: updatedThreadData.outdatedMemberId)
         
         if initialLoad || viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked {
             addOrRemoveBlockedBanner(threadIsBlocked: (updatedThreadData.threadIsBlocked == true))
@@ -1505,7 +1497,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
 
     // MARK: - General
     
-    func addOrRemoveOutdatedClientBanner(contactIsUsingOutdatedClient: Bool) {
+    func addOrRemoveOutdatedClientBanner(outdatedMemberId: String?) {
         // Do not show the banner until the new disappearing messages is enabled
         guard Features.useNewDisappearingMessagesConfig else {
             self.outdatedClientBanner.isHidden = true
@@ -1513,10 +1505,18 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             return
         }
         
-        guard contactIsUsingOutdatedClient else {
+        guard let outdatedMemberId: String = outdatedMemberId else {
             removeOutdatedClientBanner()
             return
         }
+        
+        self.outdatedClientBanner.update(
+            message: String(
+                format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
+                Profile.displayName(id: outdatedMemberId, threadVariant: self.viewModel.threadData.threadVariant)
+            ),
+            dismiss: self.removeOutdatedClientBanner
+        )
 
         self.outdatedClientBanner.isHidden = false
         self.emptyStateLabelTopConstraint?.constant = 0
