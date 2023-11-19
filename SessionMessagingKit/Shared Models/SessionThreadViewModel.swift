@@ -953,11 +953,11 @@ public extension SessionThreadViewModel {
                     SELECT \(contactProfile[.id])
                     FROM \(contactProfile.self)
                     JOIN \(contact.self) ON \(contactProfile[.id]) = \(contact[.id])
-                    JOIN (
-                        SELECT \(groupMember[.profileId])
-                        FROM \(GroupMember.self)
-                        WHERE \(SQL("\(groupMember[.groupId]) = \(threadId)"))
-                    ) 
+                    JOIN \(groupMember.self) ON (
+                        \(groupMember[.groupId]) = \(threadId) AND
+                        \(groupMember[.profileId]) = \(contactProfile[.id]) OR
+                        \(contact[.id]) = \(threadId)
+                    )
                     WHERE \(contact[.lastKnownClientVersion]) = \(FeatureVersion.legacyDisappearingMessages)
                 ) AS \(ViewModel.Columns.outdatedMemberId),
                 (
