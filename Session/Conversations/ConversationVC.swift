@@ -1499,7 +1499,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     
     func addOrRemoveOutdatedClientBanner(outdatedMemberId: String?) {
         // Do not show the banner until the new disappearing messages is enabled
-        guard Features.useNewDisappearingMessagesConfig else {
+        guard 
+            Features.useNewDisappearingMessagesConfig &&
+            self.viewModel.threadData.disappearingMessagesConfiguration?.isEnabled == true
+        else {
             self.outdatedClientBanner.isHidden = true
             self.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
             return
