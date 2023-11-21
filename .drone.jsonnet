@@ -82,11 +82,22 @@ local update_cocoapods_cache = {
       load_cocoapods_cache,
       install_cocoapods,
       {
+        name: 'Reset Simulators',
+        commands: [
+          'xcrun simctl shutdown all',
+          'xcrun simctl erase all'
+        ],
+      },
+      {
         name: 'Run Unit Tests',
         commands: [
           'mkdir build',
           'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -destination "platform=iOS Simulator,name=iPhone 14" -destination "platform=iOS Simulator,name=iPhone 14 Pro Max" -parallel-testing-enabled YES -test-timeouts-enabled YES -maximum-test-execution-time-allowance 2 -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci --report junit --report-path ./build/reports --junit-report-filename junit2.xml'
         ],
+      },
+      {
+        name: 'Sutdown Simulators',
+        commands: [ 'xcrun simctl shutdown all' ],
       },
       update_cocoapods_cache
     ],

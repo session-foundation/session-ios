@@ -458,10 +458,11 @@ public enum PushNotificationAPI {
             // We only support legacy notifications for legacy group conversations
             guard
                 let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(data: data),
-                envelope.type == .closedGroupMessage
+                envelope.type == .closedGroupMessage,
+                let metadata: NotificationMetadata = try? .legacyGroupMessage(envelope: envelope)
             else { return (data, .invalid, .legacyForceSilent) }
 
-            return (data, .invalid, .legacySuccess)
+            return (data, metadata, .legacySuccess)
         }
         
         guard let base64EncodedEncString: String = notificationContent.userInfo["enc_payload"] as? String else {

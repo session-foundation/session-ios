@@ -277,7 +277,8 @@ public class Poller: PollerType {
                                         return try Message.processRawReceivedMessage(
                                             db,
                                             rawMessage: message,
-                                            publicKey: publicKey
+                                            publicKey: publicKey,
+                                            using: dependencies
                                         )
                                     }
                                     catch {

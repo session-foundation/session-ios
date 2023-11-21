@@ -41,19 +41,9 @@ extension PushNotificationAPI {
     }
 }
 
+// MARK: - Decodable
+
 extension PushNotificationAPI.NotificationMetadata {
-    static var invalid: PushNotificationAPI.NotificationMetadata {
-        PushNotificationAPI.NotificationMetadata(
-            accountId: "",
-            hash: "",
-            namespace: .unknown,
-            createdTimestampMs: 0,
-            expirationTimestampMs: 0,
-            dataLength: 0,
-            dataTooLong: false
-        )
-    }
-    
     public init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
@@ -69,6 +59,36 @@ extension PushNotificationAPI.NotificationMetadata {
             expirationTimestampMs: try container.decode(Int64.self, forKey: .expirationTimestampMs),
             dataLength: try container.decode(Int.self, forKey: .dataLength),
             dataTooLong: ((try? container.decode(Int.self, forKey: .dataTooLong) != 0) ?? false)
+        )
+    }
+}
+
+// MARK: - Convenience
+
+extension PushNotificationAPI.NotificationMetadata {
+    static var invalid: PushNotificationAPI.NotificationMetadata {
+        PushNotificationAPI.NotificationMetadata(
+            accountId: "",
+            hash: "",
+            namespace: .unknown,
+            createdTimestampMs: 0,
+            expirationTimestampMs: 0,
+            dataLength: 0,
+            dataTooLong: false
+        )
+    }
+    
+    static func legacyGroupMessage(envelope: SNProtoEnvelope) throws -> PushNotificationAPI.NotificationMetadata {
+        guard let publicKey: String = envelope.source else { throw MessageReceiverError.invalidMessage }
+        
+        return PushNotificationAPI.NotificationMetadata(
+            accountId: publicKey,
+            hash: "",
+            namespace: .legacyClosedGroup,
+            createdTimestampMs: 0,
+            expirationTimestampMs: 0,
+            dataLength: 0,
+            dataTooLong: false
         )
     }
 }

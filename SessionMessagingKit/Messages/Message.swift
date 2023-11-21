@@ -359,7 +359,7 @@ public extension Message {
         _ db: Database,
         rawMessage: SnodeReceivedMessage,
         publicKey: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> ProcessedMessage {
         do {
             let processedMessage: ProcessedMessage = try processRawReceivedMessage(
@@ -423,7 +423,7 @@ public extension Message {
         _ db: Database,
         data: Data,
         metadata: PushNotificationAPI.NotificationMetadata,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> ProcessedMessage? {
         let processedMessage: ProcessedMessage? = try processRawReceivedMessage(
             db,
@@ -475,7 +475,7 @@ public extension Message {
         data: Data,
         isOutgoing: Bool,
         otherBlindedPublicKey: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> ProcessedMessage? {
         return try processRawReceivedMessage(
             db,
@@ -496,7 +496,7 @@ public extension Message {
         openGroupId: String,
         message: OpenGroupAPI.Message,
         associatedPendingChanges: [OpenGroupAPI.PendingChange],
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> [Reaction] {
         guard let reactions: [String: OpenGroupAPI.Message.Reaction] = message.reactions else { return [] }
         

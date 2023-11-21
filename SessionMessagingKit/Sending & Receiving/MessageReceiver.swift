@@ -14,7 +14,7 @@ public enum MessageReceiver {
         _ db: Database,
         data: Data,
         origin: Message.Origin,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> ProcessedMessage {
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         var plaintext: Data

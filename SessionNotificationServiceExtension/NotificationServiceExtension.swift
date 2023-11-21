@@ -17,10 +17,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var request: UNNotificationRequest?
     private var openGroupPollCancellable: AnyCancellable?
 
-    public static let isFromRemoteKey = "remote"
-    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"
-    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"
-    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"
+    public static let isFromRemoteKey = "remote"    // stringlint:disable
+    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"    // stringlint:disable
+    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"    // stringlint:disable
+    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"    // stringlint:disable
     private static let callPreOfferLargeNotificationSupressionDuration: TimeInterval = 30
 
     // MARK: Did receive a remote push notification request
@@ -103,7 +103,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             // is added to notification center
             dependencies[singleton: .storage].write { db in
                 do {
-                    guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, data: data, metadata: metadata) else {
+                    guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, data: data, metadata: metadata, using: dependencies) else {
                         self.handleFailure(for: notificationContent, error: .messageProcessing)
                         return
                     }
