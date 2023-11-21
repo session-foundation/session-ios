@@ -92,12 +92,15 @@ local update_cocoapods_cache = {
         name: 'Run Unit Tests',
         commands: [
           'mkdir build',
-          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -destination "platform=iOS Simulator,name=iPhone 14" -destination "platform=iOS Simulator,name=iPhone 14 Pro Max" -parallel-testing-enabled YES -test-timeouts-enabled YES -maximum-test-execution-time-allowance 2 -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci --report junit --report-path ./build/reports --junit-report-filename junit2.xml'
+          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -destination "platform=iOS Simulator,name=iPhone 14" -parallel-testing-enabled YES -parallel-testing-worker-count 2 -test-timeouts-enabled YES -maximum-test-execution-time-allowance 2 -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci'
         ],
       },
       {
         name: 'Sutdown Simulators',
         commands: [ 'xcrun simctl shutdown all' ],
+        when: {
+          status: ['failure', 'success']
+        }
       },
       update_cocoapods_cache
     ],
@@ -117,7 +120,7 @@ local update_cocoapods_cache = {
         name: 'Build',
         commands: [
           'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -configuration "App Store Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | ./Pods/xcbeautify/xcbeautify --is-ci'
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App Store Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | ./Pods/xcbeautify/xcbeautify --is-ci'
         ],
       },
       update_cocoapods_cache,
@@ -145,7 +148,7 @@ local update_cocoapods_cache = {
         name: 'Build',
         commands: [
           'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -configuration "App Store Release" -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO | ./Pods/xcbeautify/xcbeautify --is-ci'
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App Store Release" -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO | ./Pods/xcbeautify/xcbeautify --is-ci'
         ],
       },
       update_cocoapods_cache,
