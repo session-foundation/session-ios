@@ -62,6 +62,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 jobRunner
                     .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any, using: .any) }
                     .thenReturn(nil)
+                jobRunner
+                    .when { $0.upsert(.any, job: .any, canStartJob: .any, using: .any) }
+                    .thenReturn(nil)
             }
         )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
@@ -186,6 +189,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 notificationsManager
                     .when { $0.notifyUser(.any, for: .any, in: .any, applicationState: .any, using: .any) }
                     .thenReturn(())
+                notificationsManager
+                    .when { $0.cancelNotifications(identifiers: .any) }
+                    .thenReturn(())
             }
         )
         
@@ -228,10 +234,55 @@ class MessageReceiverGroupsSpec: QuickSpec {
             
             return result
         }()
+        @TestState var memberChangedMessage: GroupUpdateMemberChangeMessage! = {
+            let result: GroupUpdateMemberChangeMessage = GroupUpdateMemberChangeMessage(
+                changeType: .added,
+                memberSessionIds: ["051111111111111111111111111111111111111111111111111111111111111112"],
+                adminSignature: .standard(signature: "TestSignature".bytes)
+            )
+            result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+            result.sentTimestamp = 1234567800
+            
+            return result
+        }()
+        @TestState var memberLeftMessage: GroupUpdateMemberLeftMessage! = {
+            let result: GroupUpdateMemberLeftMessage = GroupUpdateMemberLeftMessage()
+            result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+            result.sentTimestamp = 1234567800
+            
+            return result
+        }()
+        @TestState var inviteResponseMessage: GroupUpdateInviteResponseMessage! = {
+            let result: GroupUpdateInviteResponseMessage = GroupUpdateInviteResponseMessage(
+                isApproved: true,
+                profile: VisibleMessage.VMProfile(displayName: "TestOtherMember"),
+                sentTimestamp: 1234567800
+            )
+            result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+            
+            return result
+        }()
         @TestState var deleteMessage: Data! = try! LibSessionMessage.groupKicked(
             memberId: "05\(TestConstants.publicKey)",
             groupKeysGen: 1
         ).1
+        @TestState var visibleMessageProto: SNProtoContent! = {
+            let proto = SNProtoContent.builder()
+            let dataMessage = SNProtoDataMessage.builder()
+            dataMessage.setBody("Test")
+            proto.setDataMessage(try! dataMessage.build())
+            return try? proto.build()
+        }()
+        @TestState var visibleMessage: VisibleMessage! = {
+            let result = VisibleMessage(
+                sender: "051111111111111111111111111111111111111111111111111111111111111112",
+                sentTimestamp: ((1234568890 - (60 * 10)) * 1000),
+                recipient: groupId.hexString,
+                text: "Test"
+            )
+            result.receivedTimestamp = (1234568890 * 1000)
+            return result
+        }()
         
         // MARK: - a MessageReceiver dealing with Groups
         describe("a MessageReceiver dealing with Groups") {
@@ -1019,7 +1070,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- fails if there is no sender
+                // MARK: ---- fails if there is no sender
                 it("fails if there is no sender") {
                     infoChangedMessage.sender = nil
                     
@@ -1036,7 +1087,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- fails if there is no timestamp
+                // MARK: ---- fails if there is no timestamp
                 it("fails if there is no timestamp") {
                     infoChangedMessage.sentTimestamp = nil
                     
@@ -1053,7 +1104,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- fails the the admin signature fails to verify
+                // MARK: ---- fails the the admin signature fails to verify
                 it("fails the the admin signature fails to verify") {
                     mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
@@ -1072,9 +1123,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- for a name change
+                // MARK: ---- for a name change
                 context("for a name change") {
-                    // MARK: -- creates the correct control message
+                    // MARK: ------ creates the correct control message
                     it("creates the correct control message") {
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1096,7 +1147,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- for a display picture change
+                // MARK: ---- for a display picture change
                 context("for a display picture change") {
                     beforeEach {
                         infoChangedMessage = GroupUpdateInfoChangeMessage(
@@ -1109,7 +1160,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         infoChangedMessage.sentTimestamp = 1234567800
                     }
                     
-                    // MARK: -- creates the correct control message
+                    // MARK: ------ creates the correct control message
                     it("creates the correct control message") {
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1131,7 +1182,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: -- for a disappearing message setting change
+                // MARK: ---- for a disappearing message setting change
                 context("for a disappearing message setting change") {
                     beforeEach {
                         infoChangedMessage = GroupUpdateInfoChangeMessage(
@@ -1144,7 +1195,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         infoChangedMessage.sentTimestamp = 1234567800
                     }
                     
-                    // MARK: -- creates the correct control message
+                    // MARK: ------ creates the correct control message
                     it("creates the correct control message") {
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1172,6 +1223,848 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             )
                         ))
                         expect(interaction?.expiresInSeconds).to(equal(0))
+                    }
+                }
+            }
+            
+            // MARK: -- when receiving a member changed message
+            context("when receiving a member changed message") {
+                beforeEach {
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: groupId.hexString,
+                            variant: .group,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                    }
+                }
+                
+                // MARK: ---- fails if there is no sender
+                it("fails if there is no sender") {
+                    memberChangedMessage.sender = nil
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- fails if there is no timestamp
+                it("fails if there is no timestamp") {
+                    memberChangedMessage.sentTimestamp = nil
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- fails the the admin signature fails to verify
+                it("fails the the admin signature fails to verify") {
+                    mockCrypto
+                        .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
+                        .thenReturn(false)
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- correctly retrieves the member name if present
+                it("correctly retrieves the member name if present") {
+                    mockStorage.write { db in
+                        try Profile(
+                            id: "051111111111111111111111111111111111111111111111111111111111111112",
+                            name: "TestOtherProfile"
+                        ).insert(db)
+                    }
+                    
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupUpdateMessage(
+                            db,
+                            threadId: groupId.hexString,
+                            threadVariant: .group,
+                            message: memberChangedMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                    expect(interaction?.timestampMs).to(equal(1234567800))
+                    expect(interaction?.body).to(equal(
+                        ClosedGroup.MessageInfo
+                            .addedUsers(names: ["TestOtherProfile"])
+                            .infoString(using: dependencies)
+                    ))
+                }
+                
+                // MARK: ---- for adding members
+                context("for adding members") {
+                    // MARK: ------ creates the correct control message for a single member
+                    it("creates the correct control message for a single member") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .added,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .addedUsers(names: ["0511...1112"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                    
+                    // MARK: ------ creates the correct control message for two members
+                    it("creates the correct control message for two members") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .added,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112",
+                                "051111111111111111111111111111111111111111111111111111111111111113"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .addedUsers(names: ["0511...1112", "0511...1113"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                    
+                    // MARK: ------ creates the correct control message for many members
+                    it("creates the correct control message for many members") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .added,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112",
+                                "051111111111111111111111111111111111111111111111111111111111111113",
+                                "051111111111111111111111111111111111111111111111111111111111111114"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .addedUsers(names: ["0511...1112", "0511...1113", "0511...1114"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                }
+                
+                // MARK: ---- for removing members
+                context("for removing members") {
+                    // MARK: ------ creates the correct control message for a single member
+                    it("creates the correct control message for a single member") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .removed,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .removedUsers(names: ["0511...1112"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                    
+                    // MARK: ------ creates the correct control message for two members
+                    it("creates the correct control message for two members") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .removed,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112",
+                                "051111111111111111111111111111111111111111111111111111111111111113"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .removedUsers(names: ["0511...1112", "0511...1113"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                    
+                    // MARK: ------ creates the correct control message for many members
+                    it("creates the correct control message for many members") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .removed,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112",
+                                "051111111111111111111111111111111111111111111111111111111111111113",
+                                "051111111111111111111111111111111111111111111111111111111111111114"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .removedUsers(names: ["0511...1112", "0511...1113", "0511...1114"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                }
+                
+                // MARK: ---- for promoting members
+                context("for promoting members") {
+                    // MARK: ------ creates the correct control message for a single member
+                    it("creates the correct control message for a single member") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .promoted,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .promotedUsers(names: ["0511...1112"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                    
+                    // MARK: ------ creates the correct control message for two members
+                    it("creates the correct control message for two members") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .promoted,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112",
+                                "051111111111111111111111111111111111111111111111111111111111111113"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .promotedUsers(names: ["0511...1112", "0511...1113"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                    
+                    // MARK: ------ creates the correct control message for many members
+                    it("creates the correct control message for many members") {
+                        memberChangedMessage = GroupUpdateMemberChangeMessage(
+                            changeType: .promoted,
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112",
+                                "051111111111111111111111111111111111111111111111111111111111111113",
+                                "051111111111111111111111111111111111111111111111111111111111111114"
+                            ],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        memberChangedMessage.sentTimestamp = 1234567800
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberChangedMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.body).to(equal(
+                            ClosedGroup.MessageInfo
+                                .promotedUsers(names: ["0511...1112", "0511...1113", "0511...1114"])
+                                .infoString(using: dependencies)
+                        ))
+                    }
+                }
+            }
+            
+            // MARK: -- when receiving a member left message
+            context("when receiving a member left message") {
+                beforeEach {
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: groupId.hexString,
+                            variant: .group,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                    }
+                }
+                
+                // MARK: ---- creates the correct control message
+                it("creates the correct control message") {
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupUpdateMessage(
+                            db,
+                            threadId: groupId.hexString,
+                            threadVariant: .group,
+                            message: memberLeftMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                    expect(interaction?.timestampMs).to(equal(1234567800))
+                    expect(interaction?.body).to(equal(
+                        ClosedGroup.MessageInfo
+                            .memberLeft(name: "0511...1112")
+                            .infoString(using: dependencies)
+                    ))
+                }
+                
+                // MARK: ---- correctly retrieves the member name if present
+                it("correctly retrieves the member name if present") {
+                    mockStorage.write { db in
+                        try Profile(
+                            id: "051111111111111111111111111111111111111111111111111111111111111112",
+                            name: "TestOtherProfile"
+                        ).insert(db)
+                    }
+                    
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupUpdateMessage(
+                            db,
+                            threadId: groupId.hexString,
+                            threadVariant: .group,
+                            message: memberLeftMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
+                    expect(interaction?.timestampMs).to(equal(1234567800))
+                    expect(interaction?.body).to(equal(
+                        ClosedGroup.MessageInfo
+                            .memberLeft(name: "TestOtherProfile")
+                            .infoString(using: dependencies)
+                    ))
+                }
+                
+                // MARK: ---- fails if there is no sender
+                it("fails if there is no sender") {
+                    memberLeftMessage.sender = nil
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberLeftMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- fails if there is no timestamp
+                it("fails if there is no timestamp") {
+                    memberLeftMessage.sentTimestamp = nil
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberLeftMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- when the current user is a group admin
+                context("when the current user is a group admin") {
+                    beforeEach {
+                        // Only update members if they already exist in the group
+                        var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                        var groupMember: config_group_member = config_group_member()
+                        _ = groups_members_get_or_construct(groupMembersConf, &groupMember, &cMemberId)
+                        groupMember.name = "TestOtherName".toLibSession()
+                        groups_members_set(groupMembersConf, &groupMember)
+                        
+                        mockStorage.write { db in
+                            try ClosedGroup(
+                                threadId: groupId.hexString,
+                                name: "TestGroup",
+                                formationTimestamp: 1234567890,
+                                shouldPoll: true,
+                                groupIdentityPrivateKey: groupSecretKey,
+                                authData: nil,
+                                invited: false
+                            ).upsert(db)
+                            
+                            try GroupMember(
+                                groupId: groupId.hexString,
+                                profileId: "051111111111111111111111111111111111111111111111111111111111111112",
+                                role: .standard,
+                                roleStatus: .accepted,
+                                isHidden: false
+                            ).upsert(db)
+                        }
+                    }
+                    
+                    // MARK: ------ flags the member for removal keeping their messages
+                    it("flags the member for removal keeping their messages") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberLeftMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                        var groupMember: config_group_member = config_group_member()
+                        expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
+                        expect(groupMember.removed).to(equal(1))
+                    }
+                    
+                    // MARK: ------ removes the GroupMember
+                    it("removes the GroupMember") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberLeftMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                        expect(members).to(beEmpty())
+                    }
+                    
+                    // MARK: ------ schedules a job to process the pending removal
+                    it("schedules a job to process the pending removal") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberLeftMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(mockJobRunner)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.add(
+                                    .any,
+                                    job: Job(
+                                        variant: .processPendingGroupMemberRemovals,
+                                        threadId: groupId.hexString,
+                                        details: ProcessPendingGroupMemberRemovalsJob.Details(
+                                            changeTimestampMs: 1234567800
+                                        )
+                                    ),
+                                    canStartJob: true,
+                                    using: .any
+                                )
+                            })
+                    }
+                    
+                    // MARK: ------ does not add a member change control message
+                    it("does not schedule a member change control message to be sent") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberLeftMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(1))    // 1 for the 'member left' control message
+                    }
+                    
+                    // MARK: ------ does not schedule a member change control message to be sent
+                    it("does not schedule a member change control message to be sent") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: memberLeftMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(mockJobRunner)
+                            .toNot(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.add(
+                                    .any,
+                                    job: Job(
+                                        variant: .messageSend,
+                                        threadId: groupId.hexString,
+                                        interactionId: nil,
+                                        details: MessageSendJob.Details(
+                                            destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                            message: try! GroupUpdateMemberChangeMessage(
+                                                changeType: .removed,
+                                                memberSessionIds: [
+                                                    "051111111111111111111111111111111111111111111111111111111111111112"
+                                                ],
+                                                sentTimestamp: 1234567800000,
+                                                authMethod: Authentication.groupAdmin(
+                                                    groupSessionId: groupId,
+                                                    ed25519SecretKey: Array(groupSecretKey)
+                                                ),
+                                                using: dependencies
+                                            ),
+                                            isSyncMessage: false
+                                        )
+                                    ),
+                                    canStartJob: true,
+                                    using: .any
+                                )
+                            })
+                    }
+                }
+            }
+            
+            // MARK: -- when receiving an invite response message
+            context("when receiving an invite response message") {
+                beforeEach {
+                    mockStorage.write(using: dependencies) { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: groupId.hexString,
+                            variant: .group,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                    }
+                }
+                
+                // MARK: ---- fails if there is no sender
+                it("fails if there is no sender") {
+                    inviteResponseMessage.sender = nil
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: inviteResponseMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- fails if there is no timestamp
+                it("fails if there is no timestamp") {
+                    inviteResponseMessage.sentTimestamp = nil
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: inviteResponseMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- updates the profile information if provided
+                it("updates the profile information if provided") {
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupUpdateMessage(
+                            db,
+                            threadId: groupId.hexString,
+                            threadVariant: .group,
+                            message: inviteResponseMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let profiles: [Profile]? = mockStorage.read { db in try Profile.fetchAll(db) }
+                    expect(profiles?.map { $0.id }).to(equal([
+                        "05\(TestConstants.publicKey)",
+                        "051111111111111111111111111111111111111111111111111111111111111112"
+                    ]))
+                    expect(profiles?.map { $0.name }).to(equal(["TestCurrentUser", "TestOtherMember"]))
+                }
+                
+                // MARK: ---- and the current user is a group admin
+                context("and the current user is a group admin") {
+                    beforeEach {
+                        // Only update members if they already exist in the group
+                        var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                        var groupMember: config_group_member = config_group_member()
+                        _ = groups_members_get_or_construct(groupMembersConf, &groupMember, &cMemberId)
+                        groupMember.name = "TestOtherMember".toLibSession()
+                        groupMember.invited = 1
+                        groups_members_set(groupMembersConf, &groupMember)
+                        
+                        mockStorage.write { db in
+                            try ClosedGroup(
+                                threadId: groupId.hexString,
+                                name: "TestGroup",
+                                formationTimestamp: 1234567890,
+                                shouldPoll: true,
+                                groupIdentityPrivateKey: groupSecretKey,
+                                authData: nil,
+                                invited: false
+                            ).upsert(db)
+                        }
+                    }
+                    
+                    // MARK: ------ updates a pending member entry to an accepted member
+                    it("updates a pending member entry to an accepted member") {
+                        mockStorage.write { db in
+                            try GroupMember(
+                                groupId: groupId.hexString,
+                                profileId: "051111111111111111111111111111111111111111111111111111111111111112",
+                                role: .standard,
+                                roleStatus: .pending,
+                                isHidden: false
+                            ).upsert(db)
+                        }
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: inviteResponseMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                        expect(members?.count).to(equal(1))
+                        expect(members?.first?.profileId).to(equal(
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ))
+                        expect(members?.first?.role).to(equal(.standard))
+                        expect(members?.first?.roleStatus).to(equal(.accepted))
+                        
+                        var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                        var groupMember: config_group_member = config_group_member()
+                        expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
+                        expect(groupMember.invited).to(equal(0))
+                    }
+                    
+                    // MARK: ------ updates a failed member entry to an accepted member
+                    it("updates a failed member entry to an accepted member") {
+                        var cMemberId1: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                        var groupMember1: config_group_member = config_group_member()
+                        _ = groups_members_get(groupMembersConf, &groupMember1, &cMemberId1)
+                        groupMember1.invited = 2
+                        groups_members_set(groupMembersConf, &groupMember1)
+                        
+                        mockStorage.write { db in
+                            try GroupMember(
+                                groupId: groupId.hexString,
+                                profileId: "051111111111111111111111111111111111111111111111111111111111111112",
+                                role: .standard,
+                                roleStatus: .failed,
+                                isHidden: false
+                            ).upsert(db)
+                        }
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: inviteResponseMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                        expect(members?.count).to(equal(1))
+                        expect(members?.first?.profileId).to(equal(
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ))
+                        expect(members?.first?.role).to(equal(.standard))
+                        expect(members?.first?.roleStatus).to(equal(.accepted))
+                        
+                        var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                        var groupMember: config_group_member = config_group_member()
+                        expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
+                        expect(groupMember.invited).to(equal(0))
+                    }
+                    
+                    // MARK: ------ updates the entry in libSession directly if there is no database value
+                    it("updates the entry in libSession directly if there is no database value") {
+                        mockStorage.write { db in
+                            _ = try GroupMember.deleteAll(db)
+                        }
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: inviteResponseMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                        var groupMember: config_group_member = config_group_member()
+                        expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
+                        expect(groupMember.invited).to(equal(0))
                     }
                 }
             }
@@ -1631,6 +2524,146 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         .to(throwError(MessageReceiverError.invalidMessage))
                     }
+                }
+            }
+            
+            // MARK: -- when receiving a visible message from a member that is not accepted and the current user is a group admin
+            context("when receiving a visible message from a member that is not accepted and the current user is a group admin") {
+                beforeEach {
+                    // Only update members if they already exist in the group
+                    var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                    var groupMember: config_group_member = config_group_member()
+                    _ = groups_members_get_or_construct(groupMembersConf, &groupMember, &cMemberId)
+                    groupMember.name = "TestOtherMember".toLibSession()
+                    groupMember.invited = 1
+                    groups_members_set(groupMembersConf, &groupMember)
+                    
+                    mockStorage.write { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: groupId.hexString,
+                            variant: .group,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                        
+                        try ClosedGroup(
+                            threadId: groupId.hexString,
+                            name: "TestGroup",
+                            formationTimestamp: 1234567890,
+                            shouldPoll: true,
+                            groupIdentityPrivateKey: groupSecretKey,
+                            authData: nil,
+                            invited: false
+                        ).upsert(db)
+                    }
+                }
+                
+                // MARK: ---- updates a pending member entry to an accepted member
+                it("updates a pending member entry to an accepted member") {
+                    mockStorage.write { db in
+                        try GroupMember(
+                            groupId: groupId.hexString,
+                            profileId: "051111111111111111111111111111111111111111111111111111111111111112",
+                            role: .standard,
+                            roleStatus: .pending,
+                            isHidden: false
+                        ).upsert(db)
+                    }
+                    
+                    mockStorage.write { db in
+                        try MessageReceiver.handle(
+                            db,
+                            threadId: groupId.hexString,
+                            threadVariant: .group,
+                            message: visibleMessage,
+                            serverExpirationTimestamp: nil,
+                            associatedWithProto: visibleMessageProto,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members?.count).to(equal(1))
+                    expect(members?.first?.profileId).to(equal(
+                        "051111111111111111111111111111111111111111111111111111111111111112"
+                    ))
+                    expect(members?.first?.role).to(equal(.standard))
+                    expect(members?.first?.roleStatus).to(equal(.accepted))
+                    
+                    var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                    var groupMember: config_group_member = config_group_member()
+                    expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
+                    expect(groupMember.invited).to(equal(0))
+                }
+                
+                // MARK: ---- updates a failed member entry to an accepted member
+                it("updates a failed member entry to an accepted member") {
+                    var cMemberId1: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                    var groupMember1: config_group_member = config_group_member()
+                    _ = groups_members_get(groupMembersConf, &groupMember1, &cMemberId1)
+                    groupMember1.invited = 2
+                    groups_members_set(groupMembersConf, &groupMember1)
+                    
+                    mockStorage.write { db in
+                        try GroupMember(
+                            groupId: groupId.hexString,
+                            profileId: "051111111111111111111111111111111111111111111111111111111111111112",
+                            role: .standard,
+                            roleStatus: .failed,
+                            isHidden: false
+                        ).upsert(db)
+                    }
+                    
+                    mockStorage.write { db in
+                        try MessageReceiver.handle(
+                            db,
+                            threadId: groupId.hexString,
+                            threadVariant: .group,
+                            message: visibleMessage,
+                            serverExpirationTimestamp: nil,
+                            associatedWithProto: visibleMessageProto,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members?.count).to(equal(1))
+                    expect(members?.first?.profileId).to(equal(
+                        "051111111111111111111111111111111111111111111111111111111111111112"
+                    ))
+                    expect(members?.first?.role).to(equal(.standard))
+                    expect(members?.first?.roleStatus).to(equal(.accepted))
+                    
+                    var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                    var groupMember: config_group_member = config_group_member()
+                    expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
+                    expect(groupMember.invited).to(equal(0))
+                }
+                
+                // MARK: ---- updates the entry in libSession directly if there is no database value
+                it("updates the entry in libSession directly if there is no database value") {
+                    mockStorage.write { db in
+                        _ = try GroupMember.deleteAll(db)
+                    }
+                    
+                    mockStorage.write { db in
+                        try MessageReceiver.handle(
+                            db,
+                            threadId: groupId.hexString,
+                            threadVariant: .group,
+                            message: visibleMessage,
+                            serverExpirationTimestamp: nil,
+                            associatedWithProto: visibleMessageProto,
+                            using: dependencies
+                        )
+                    }
+                    
+                    var cMemberId: [CChar] = "051111111111111111111111111111111111111111111111111111111111111112".cArray
+                    var groupMember: config_group_member = config_group_member()
+                    expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
+                    expect(groupMember.invited).to(equal(0))
                 }
             }
         }
