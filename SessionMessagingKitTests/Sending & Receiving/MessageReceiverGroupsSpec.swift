@@ -6,6 +6,7 @@ import GRDB
 import Quick
 import Nimble
 import SessionUtil
+import SessionSnodeKit
 import SessionUtilitiesKit
 import SessionUIKit
 
@@ -31,6 +32,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             customWriter: try! DatabaseQueue(),
             migrationTargets: [
                 SNUtilitiesKit.self,
+                SNSnodeKit.self,
                 SNMessagingKit.self,
                 SNUIKit.self
             ],
@@ -132,14 +134,19 @@ class MessageReceiverGroupsSpec: QuickSpec {
             
             return conf
         }()
+        @TestState var groupKeysConf: UnsafeMutablePointer<config_group_keys>! = {
+            var conf: UnsafeMutablePointer<config_group_keys>!
+            _ = groups_keys_init(&conf, &secretKey, &groupEdPK, &groupEdSK, groupInfoConf, groupMembersConf, nil, 0, nil)
+            
+            return conf
+        }()
         @TestState var groupInfoConfig: SessionUtil.Config! = .object(groupInfoConf)
         @TestState var groupMembersConfig: SessionUtil.Config! = .object(groupMembersConf)
-        @TestState var groupKeysConfig: SessionUtil.Config! = {
-            var groupKeysConf: UnsafeMutablePointer<config_group_keys>!
-            _ = groups_keys_init(&groupKeysConf, &secretKey, &groupEdPK, &groupEdSK, groupInfoConf, groupMembersConf, nil, 0, nil)
-            
-            return .groupKeys(groupKeysConf, info: groupInfoConf, members: groupMembersConf)
-        }()
+        @TestState var groupKeysConfig: SessionUtil.Config! = .groupKeys(
+            groupKeysConf,
+            info: groupInfoConf,
+            members: groupMembersConf
+        )
         @TestState(cache: .sessionUtil, in: dependencies) var mockSessionUtilCache: MockSessionUtilCache! = MockSessionUtilCache(
             initialSetup: { cache in
                 let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
@@ -168,6 +175,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
             initialSetup: { poller in
                 poller
                     .when { $0.startIfNeeded(for: .any, using: .any) }
+                    .thenReturn(())
+                poller
+                    .when { $0.stopPolling(for: .any) }
                     .thenReturn(())
             }
         )
@@ -206,6 +216,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
             
             return result
         }()
+        @TestState var deleteMessage: Data! = try! LibSessionMessage.groupKicked(
+            memberId: "05\(TestConstants.publicKey)",
+            groupKeysGen: 1
+        ).1
         
         // MARK: - a MessageReceiver dealing with Groups
         describe("a MessageReceiver dealing with Groups") {
@@ -975,6 +989,464 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     _ = groups_members_get(groupMembersConf, &groupMember, &cMemberId)
                     expect(groupMember.admin).to(beTrue())
                     expect(groupMember.promoted).to(equal(0))
+                }
+            }
+            
+            // MARK: -- when receiving a delete message
+            context("when receiving a delete message") {
+                beforeEach {
+                    var cGroupId: [CChar] = groupId.hexString.cArray.nullTerminated()
+                    var userGroup: ugroups_group_info = ugroups_group_info()
+                    user_groups_get_or_construct_group(userGroupsConfig.conf, &userGroup, &cGroupId)
+                    userGroup.name = "TestName".toLibSession()
+                    user_groups_set_group(userGroupsConfig.conf, &userGroup)
+                    
+                    // Rekey a couple of times to increase the key generation to 1
+                    var fakeHash1: [CChar] = "fakehash1".cArray.nullTerminated()
+                    var fakeHash2: [CChar] = "fakehash2".cArray.nullTerminated()
+                    var pushResult: UnsafePointer<UInt8>? = nil
+                    var pushResultLen: Int = 0
+                    _ = groups_keys_rekey(groupKeysConf, groupInfoConf, groupMembersConf, &pushResult, &pushResultLen)
+                    _ = groups_keys_load_message(groupKeysConf, &fakeHash1, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
+                    _ = groups_keys_rekey(groupKeysConf, groupInfoConf, groupMembersConf, &pushResult, &pushResultLen)
+                    _ = groups_keys_load_message(groupKeysConf, &fakeHash2, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
+                    
+                    mockStorage.write { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: groupId.hexString,
+                            variant: .group,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                        
+                        try ClosedGroup(
+                            threadId: groupId.hexString,
+                            name: "TestGroup",
+                            formationTimestamp: 1234567890,
+                            shouldPoll: true,
+                            groupIdentityPrivateKey: nil,
+                            authData: Data([1, 2, 3]),
+                            invited: false
+                        ).upsert(db)
+                        
+                        try GroupMember(
+                            groupId: groupId.hexString,
+                            profileId: "05\(TestConstants.publicKey)",
+                            role: .standard,
+                            roleStatus: .accepted,
+                            isHidden: false
+                        ).insert(db)
+                        
+                        _ = try Interaction(
+                            id: 1,
+                            serverHash: nil,
+                            messageUuid: nil,
+                            threadId: groupId.hexString,
+                            authorId: "051111111111111111111111111111111111111111111111111111111111111111",
+                            variant: .standardIncoming,
+                            body: "Test",
+                            timestampMs: 1234567890,
+                            receivedAtTimestampMs: 1234567890,
+                            wasRead: false,
+                            hasMention: false,
+                            expiresInSeconds: 0,
+                            expiresStartedAtMs: nil,
+                            linkPreviewUrl: nil,
+                            openGroupServerMessageId: nil,
+                            openGroupWhisperMods: false,
+                            openGroupWhisperTo: nil
+                        ).inserted(db)
+                        
+                        try ConfigDump(
+                            variant: .groupKeys,
+                            sessionId: groupId.hexString,
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ).insert(db)
+                        
+                        try ConfigDump(
+                            variant: .groupInfo,
+                            sessionId: groupId.hexString,
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ).insert(db)
+                        
+                        try ConfigDump(
+                            variant: .groupMembers,
+                            sessionId: groupId.hexString,
+                            data: Data([1, 2, 3]),
+                            timestampMs: 1234567890
+                        ).insert(db)
+                    }
+                }
+                    
+                // MARK: ---- deletes any interactions from the conversation
+                it("deletes any interactions from the conversation") {
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: groupId,
+                            plaintext: deleteMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                    expect(interactions).to(beEmpty())
+                }
+                
+                // MARK: ---- deletes the group auth data
+                it("deletes the group auth data") {
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: groupId,
+                            plaintext: deleteMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let authData: [Data?]? = mockStorage.read { db in
+                        try ClosedGroup
+                            .select(ClosedGroup.Columns.authData)
+                            .asRequest(of: Data?.self)
+                            .fetchAll(db)
+                    }
+                    let privateKeyData: [Data?]? = mockStorage.read { db in
+                        try ClosedGroup
+                            .select(ClosedGroup.Columns.groupIdentityPrivateKey)
+                            .asRequest(of: Data?.self)
+                            .fetchAll(db)
+                    }
+                    expect(authData).to(equal([nil]))
+                    expect(privateKeyData).to(equal([nil]))
+                }
+                
+                // MARK: ---- deletes the group members
+                it("deletes the group members") {
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: groupId,
+                            plaintext: deleteMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
+                    expect(members).to(beEmpty())
+                }
+                
+                // MARK: ---- removes the group libSession state
+                it("removes the group libSession state") {
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: groupId,
+                            plaintext: deleteMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(mockSessionUtilCache)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.setConfig(for: .groupKeys, sessionId: groupId, to: nil)
+                        })
+                    expect(mockSessionUtilCache)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.setConfig(for: .groupInfo, sessionId: groupId, to: nil)
+                        })
+                    expect(mockSessionUtilCache)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.setConfig(for: .groupMembers, sessionId: groupId, to: nil)
+                        })
+                }
+                
+                // MARK: ---- removes the cached libSession state dumps
+                it("removes the cached libSession state dumps") {
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: groupId,
+                            plaintext: deleteMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(mockSessionUtilCache)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.setConfig(for: .groupKeys, sessionId: groupId, to: nil)
+                        })
+                    expect(mockSessionUtilCache)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.setConfig(for: .groupInfo, sessionId: groupId, to: nil)
+                        })
+                    expect(mockSessionUtilCache)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) {
+                            $0.setConfig(for: .groupMembers, sessionId: groupId, to: nil)
+                        })
+                    
+                    let dumps: [ConfigDump]? = mockStorage.read { db in
+                        try ConfigDump
+                            .filter(ConfigDump.Columns.publicKey == groupId.hexString)
+                            .fetchAll(db)
+                    }
+                    expect(dumps).to(beEmpty())
+                }
+                
+                // MARK: ------ unsubscribes from push notifications
+                it("unsubscribes from push notifications") {
+                    mockUserDefaults
+                        .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
+                        .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
+                    mockUserDefaults
+                        .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
+                        .thenReturn(true)
+                    
+                    let expectedRequest: URLRequest = mockStorage.read(using: dependencies) { db in
+                        try PushNotificationAPI
+                            .preparedUnsubscribe(
+                                db,
+                                token: Data([5, 4, 3, 2, 1]),
+                                sessionIds: [groupId],
+                                using: dependencies
+                            )
+                            .request
+                    }!
+                    
+                    mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: groupId,
+                            plaintext: deleteMessage,
+                            using: dependencies
+                        )
+                    }
+                    
+                    expect(mockNetwork)
+                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                            network.send(
+                                .selectedNetworkRequest(
+                                    expectedRequest,
+                                    to: PushNotificationAPI.server.value(using: dependencies),
+                                    with: PushNotificationAPI.serverPublicKey,
+                                    timeout: HTTP.defaultTimeout,
+                                    using: .any
+                                )
+                            )
+                        })
+                }
+                
+                // MARK: ---- and the group is an invitation
+                context("and the group is an invitation") {
+                    beforeEach {
+                        mockStorage.write { db in
+                            try ClosedGroup.updateAll(db, ClosedGroup.Columns.invited.set(to: true))
+                        }
+                    }
+                    
+                    // MARK: ------ deletes the thread
+                    it("deletes the thread") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let threads: [SessionThread]? = mockStorage.read { db in try SessionThread.fetchAll(db) }
+                        expect(threads).to(beEmpty())
+                    }
+                    
+                    // MARK: ------ deletes the group
+                    it("deletes the group") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
+                        expect(groups).to(beEmpty())
+                    }
+                    
+                    // MARK: ---- stops the poller
+                    it("stops the poller") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(mockGroupsPoller)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.stopPolling(for: groupId.hexString)
+                            })
+                    }
+                    
+                    // MARK: ------ removes the group from the USER_GROUPS config
+                    it("removes the group from the USER_GROUPS config") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        var cGroupId: [CChar] = groupId.hexString.cArray.nullTerminated()
+                        var userGroup: ugroups_group_info = ugroups_group_info()
+                        expect(user_groups_get_group(userGroupsConfig.conf, &userGroup, &cGroupId)).to(beFalse())
+                    }
+                }
+                
+                // MARK: ---- and the group is not an invitation
+                context("and the group is not an invitation") {
+                    beforeEach {
+                        mockStorage.write { db in
+                            try ClosedGroup.updateAll(db, ClosedGroup.Columns.invited.set(to: false))
+                        }
+                    }
+                    
+                    // MARK: ------ does not delete the thread
+                    it("does not delete the thread") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let threads: [SessionThread]? = mockStorage.read { db in try SessionThread.fetchAll(db) }
+                        expect(threads).toNot(beEmpty())
+                    }
+                    
+                    // MARK: ------ does not remove the group from the USER_GROUPS config
+                    it("does not remove the group from the USER_GROUPS config") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        var cGroupId: [CChar] = groupId.hexString.cArray.nullTerminated()
+                        var userGroup: ugroups_group_info = ugroups_group_info()
+                        expect(user_groups_get_group(userGroupsConfig.conf, &userGroup, &cGroupId)).to(beTrue())
+                    }
+                    
+                    // MARK: ---- stops the poller and flags the group to not poll
+                    it("stops the poller and flags the group to not poll") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let shouldPoll: [Bool]? = mockStorage.read { db in
+                            try ClosedGroup
+                                .select(ClosedGroup.Columns.shouldPoll)
+                                .asRequest(of: Bool.self)
+                                .fetchAll(db)
+                        }
+                        expect(mockGroupsPoller)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.stopPolling(for: groupId.hexString)
+                            })
+                        expect(shouldPoll).to(equal([false]))
+                    }
+                    
+                    // MARK: ------ marks the group in USER_GROUPS as kicked
+                    it("marks the group in USER_GROUPS as kicked") {
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        var cGroupId: [CChar] = groupId.hexString.cArray.nullTerminated()
+                        var userGroup: ugroups_group_info = ugroups_group_info()
+                        expect(user_groups_get_group(userGroupsConfig.conf, &userGroup, &cGroupId)).to(beTrue())
+                        expect(ugroups_group_is_kicked(&userGroup)).to(beTrue())
+                    }
+                }
+                
+                // MARK: ---- throws if the data is invalid
+                it("throws if the data is invalid") {
+                    deleteMessage = Data([1, 2, 3])
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- throws if the included member id does not match the current user
+                it("throws if the included member id does not match the current user") {
+                    deleteMessage = try! LibSessionMessage.groupKicked(
+                        memberId: "051111111111111111111111111111111111111111111111111111111111111111",
+                        groupKeysGen: 1
+                    ).1
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- throws if the key generation is earlier than the current keys generation
+                it("throws if the key generation is earlier than the current keys generation") {
+                    deleteMessage = try! LibSessionMessage.groupKicked(
+                        memberId: "05\(TestConstants.publicKey)",
+                        groupKeysGen: 0
+                    ).1
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: groupId,
+                                plaintext: deleteMessage,
+                                using: dependencies
+                            )
+                        }
+                        .to(throwError(MessageReceiverError.invalidMessage))
+                    }
                 }
             }
         }
