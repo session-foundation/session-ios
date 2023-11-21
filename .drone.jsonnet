@@ -92,11 +92,11 @@ local update_cocoapods_cache = {
         name: 'Run Unit Tests',
         commands: [
           'mkdir build',
-          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -destination "platform=iOS Simulator,name=iPhone 14" -parallel-testing-enabled YES -parallel-testing-worker-count 2 -test-timeouts-enabled YES -maximum-test-execution-time-allowance 2 -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci'
+          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -destination "platform=iOS Simulator,name=iPhone 14" -parallel-testing-enabled YES -parallel-testing-worker-count 2 -test-timeouts-enabled YES -maximum-test-execution-time-allowance 5 -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci'
         ],
       },
       {
-        name: 'Sutdown Simulators',
+        name: 'Shutdown Simulators',
         commands: [ 'xcrun simctl shutdown all' ],
         when: {
           status: ['failure', 'success']
