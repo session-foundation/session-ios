@@ -561,7 +561,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 threadId: threadId,
                 authorId: getUserSessionId(db, using: dependencies).hexString,
                 variant: .infoDisappearingMessagesUpdate,
-                body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !originalConfig.isEnabled),
+                body: updatedConfig.messageInfoString(
+                    with: nil,
+                    isPreviousOff: !originalConfig.isEnabled,
+                    using: dependencies
+                ),
                 timestampMs: currentOffsetTimestampMs,
                 expiresInSeconds: (updatedConfig.isEnabled ? nil : originalConfig.durationSeconds),
                 expiresStartedAtMs: (!updatedConfig.isEnabled && originalConfig.type == .disappearAfterSend ? Double(currentOffsetTimestampMs) : nil)

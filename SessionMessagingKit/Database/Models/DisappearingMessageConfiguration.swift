@@ -229,7 +229,7 @@ public extension DisappearingMessagesConfiguration {
         floor(durationSeconds).formatted(format: .long)
     }
     
-    func messageInfoString(with senderName: String?, isPreviousOff: Bool) -> String? {
+    func messageInfoString(with senderName: String?, isPreviousOff: Bool, using dependencies: Dependencies) -> String? {
         let messageInfo: MessageInfo = DisappearingMessagesConfiguration.MessageInfo(
             senderName: senderName,
             isEnabled: isEnabled,
@@ -238,7 +238,9 @@ public extension DisappearingMessagesConfiguration {
             isPreviousOff: isPreviousOff
         )
         
-        guard let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) else { return nil }
+        guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) else {
+            return nil
+        }
         
         return String(data: messageInfoData, encoding: .utf8)
     }

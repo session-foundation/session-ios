@@ -340,7 +340,16 @@ extension MessageReceiver {
     ) throws {
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp
+            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            Authentication.verify(
+                signature: message.adminSignature,
+                publicKey: groupSessionId.publicKey,
+                verificationBytes: GroupUpdateInfoChangeMessage.generateVerificationBytes(
+                    changeType: message.changeType,
+                    timestampMs: sentTimestampMs
+                ),
+                using: dependencies
+            )
         else { throw MessageReceiverError.invalidMessage }
         
         // Add a record of the specific change to the conversation (the actual change is handled via
@@ -397,7 +406,8 @@ extension MessageReceiver {
                             Profile.displayName(db, id: sender) :
                             nil
                         ),
-                        isPreviousOff: false
+                        isPreviousOff: false,
+                        using: dependencies
                     ),
                     timestampMs: Int64(sentTimestampMs),
                     wasRead: SessionUtil.timestampAlreadyRead(
@@ -421,7 +431,16 @@ extension MessageReceiver {
     ) throws {
         guard
             let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestamp
+            let sentTimestampMs: UInt64 = message.sentTimestamp,
+            Authentication.verify(
+                signature: message.adminSignature,
+                publicKey: groupSessionId.publicKey,
+                verificationBytes: GroupUpdateMemberChangeMessage.generateVerificationBytes(
+                    changeType: message.changeType,
+                    timestampMs: sentTimestampMs
+                ),
+                using: dependencies
+            )
         else { throw MessageReceiverError.invalidMessage }
         
         let profiles: [String: Profile] = (try? Profile

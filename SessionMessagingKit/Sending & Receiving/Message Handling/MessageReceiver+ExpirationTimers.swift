@@ -126,7 +126,8 @@ extension MessageReceiver {
                     Profile.displayName(db, id: sender) :
                     nil
                 ),
-                isPreviousOff: false
+                isPreviousOff: false,
+                using: dependencies
             ),
             timestampMs: timestampMs,
             wasRead: SessionUtil.timestampAlreadyRead(
@@ -204,7 +205,8 @@ extension MessageReceiver {
                         Profile.displayName(db, id: sender) :
                         nil
                     ),
-                    isPreviousOff: !localConfig.isEnabled
+                    isPreviousOff: !localConfig.isEnabled,
+                    using: dependencies
                 ),
                 timestampMs: protoLastChangeTimestampMs,
                 expiresInSeconds: (remoteConfig.isEnabled ? remoteConfig.durationSeconds : localConfig.durationSeconds),
