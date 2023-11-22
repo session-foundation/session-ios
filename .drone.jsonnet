@@ -90,16 +90,16 @@ local run_tests(testName, testBuildStepName) = {
   name: 'Run ' + testName,
   commands: [
     |||
-    NSUnbufferedIO=YES set -o pipefail && xcodebuild test-without-building \
-     -workspace Session.xcworkspace \
-     -scheme Session \
-     -derivedDataPath ./build/derivedData \
-     -destination "platform=iOS Simulator,name=iPhone 14" \
-     -test-timeouts-enabled YES \
-     -maximum-test-execution-time-allowance 10 \
-     -only-testing $testName \
-     -collect-test-diagnostics never \
-     2>&1 \
+    NSUnbufferedIO=YES set -o pipefail && xcodebuild test-without-building
+     -workspace Session.xcworkspace
+     -scheme Session
+     -derivedDataPath ./build/derivedData
+     -destination "platform=iOS Simulator,name=iPhone 14"
+     -test-timeouts-enabled YES
+     -maximum-test-execution-time-allowance 10
+     -only-testing $testName
+     -collect-test-diagnostics never
+     2>&1
      | ./Pods/xcbeautify/xcbeautify --is-ci
     |||,
   ],
@@ -136,12 +136,12 @@ local run_tests(testName, testBuildStepName) = {
         commands: [
           'mkdir build',
           |||
-          xcodebuild build-for-testing \
-           -workspace Session.xcworkspace \
-           -scheme Session \
-           -derivedDataPath ./build/derivedData \
-           -parallelizeTargets \
-           -destination "platform=iOS Simulator,name=iPhone 14" \
+          xcodebuild build-for-testing
+           -workspace Session.xcworkspace
+           -scheme Session
+           -derivedDataPath ./build/derivedData
+           -parallelizeTargets
+           -destination "platform=iOS Simulator,name=iPhone 14"
            | ./Pods/xcbeautify/xcbeautify --is-ci
           |||,
         ],
@@ -187,15 +187,15 @@ local run_tests(testName, testBuildStepName) = {
         commands: [
           'mkdir build',
           |||
-          'xcodebuild archive \
-           -workspace Session.xcworkspace \
-           -scheme Session \
-           -derivedDataPath ./build/derivedData \
-           -parallelizeTargets \
-           -configuration "App Store Release" \
-           -sdk iphonesimulator \
-           -archivePath ./build/Session_sim.xcarchive \
-           -destination "generic/platform=iOS Simulator" \
+          xcodebuild archive
+           -workspace Session.xcworkspace
+           -scheme Session
+           -derivedDataPath ./build/derivedData
+           -parallelizeTargets
+           -configuration "App Store Release"
+           -sdk iphonesimulator
+           -archivePath ./build/Session_sim.xcarchive
+           -destination "generic/platform=iOS Simulator"
            | ./Pods/xcbeautify/xcbeautify --is-ci
           |||,
         ],
@@ -227,16 +227,16 @@ local run_tests(testName, testBuildStepName) = {
         commands: [
           'mkdir build',
           |||
-          xcodebuild archive \
-           -workspace Session.xcworkspace \
-           -scheme Session \
-           -derivedDataPath ./build/derivedData \
-           -parallelizeTargets \
-           -configuration "App Store Release"'
-           -sdk iphoneos \
-           -archivePath ./build/Session.xcarchive \
-           -destination "generic/platform=iOS" \
-           -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO \
+          xcodebuild archive
+           -workspace Session.xcworkspace
+           -scheme Session
+           -derivedDataPath ./build/derivedData
+           -parallelizeTargets
+           -configuration "App Store Release"
+           -sdk iphoneos
+           -archivePath ./build/Session.xcarchive
+           -destination "generic/platform=iOS"
+           -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
            | ./Pods/xcbeautify/xcbeautify --is-ci
           |||,
         ],
