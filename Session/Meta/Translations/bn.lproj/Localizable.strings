@@ -1000,3 +1000,6 @@ The point that a message will disappear in a disappearing message update message
 
 /* Message for the prompt which appears when editing a legacy group name. */
 "EDIT_LEGACY_GROUP_INFO_MESSAGE" = "Group name is visible to all group members.";
+
+/* An informational message displayed when the user has been invited to join a group, the '%@' will be the name of the group. */
+"GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "You were invited to join %@.";

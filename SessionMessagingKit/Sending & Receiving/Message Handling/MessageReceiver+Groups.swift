@@ -160,6 +160,13 @@ extension MessageReceiver {
         /// an 'invited' info message
         guard !threadAlreadyExisted || wasKickedFromGroup else { return }
         
+        /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a duplicate one in case
+        /// the group was created via a `USER_GROUPS` config when syncing a new device)
+        _ = try Interaction
+            .filter(Interaction.Columns.threadId == message.groupSessionId.hexString)
+            .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
+            .deleteAll(db)
+        
         let interaction: Interaction = try Interaction(
             threadId: message.groupSessionId.hexString,
             authorId: sender,

@@ -433,6 +433,7 @@ public extension ClosedGroup {
 public extension ClosedGroup {
     enum MessageInfo: Codable {
         case invited(String, String)
+        case invitedFallback(String)
         case updatedName(String)
         case updatedNameFallback
         case updatedDisplayPicture
@@ -448,6 +449,12 @@ public extension ClosedGroup {
                     return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_INVITED".localized(),
                         .font(adminName, .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
+                    )
+                    
+                case .invitedFallback(let groupName):
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_INVITED_FALLBACK".localized(),
                         .font(groupName, .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     

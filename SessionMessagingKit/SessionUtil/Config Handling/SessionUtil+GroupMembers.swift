@@ -370,7 +370,7 @@ private struct MemberData {
 
 // MARK: - Convenience
 
-private extension SessionUtil {
+internal extension SessionUtil {
     static func extractMembers(
         from conf: UnsafeMutablePointer<config_object>?,
         groupSessionId: SessionId

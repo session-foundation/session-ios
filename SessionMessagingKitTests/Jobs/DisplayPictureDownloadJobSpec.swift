@@ -16,6 +16,8 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         
         @TestState var job: Job!
         @TestState var profile: Profile!
+        @TestState var group: ClosedGroup!
+        @TestState var community: OpenGroup!
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.forceSynchronous = true
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
@@ -718,6 +720,18 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                             _ = try Profile.deleteAll(db)
                             try profile.insert(db)
                         }
+                        job = Job(
+                            variant: .displayPictureDownload,
+                            shouldBeUnique: true,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .profile(
+                                    id: "1234",
+                                    url: "http://oxen.io/100/",
+                                    encryptionKey: encryptionKey
+                                ),
+                                timestamp: 1234567891
+                            )
+                        )
                     }
                     
                     // MARK: ------ that does not exist
@@ -766,7 +780,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     Profile(
                                         id: "1234",
                                         name: "test",
-                                        profilePictureUrl: "test",
+                                        profilePictureUrl: "http://oxen.io/100/",
                                         profilePictureFileName: "\(filenameUuid.uuidString).jpg",
                                         profileEncryptionKey: encryptionKey,
                                         lastProfilePictureUpdate: 1234567891
@@ -802,7 +816,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     Profile(
                                         id: "1234",
                                         name: "test",
-                                        profilePictureUrl: "test",
+                                        profilePictureUrl: "http://oxen.io/100/",
                                         profilePictureFileName: "\(filenameUuid.uuidString).jpg",
                                         profileEncryptionKey: encryptionKey,
                                         lastProfilePictureUpdate: 1234567891
@@ -864,6 +878,380 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                     profilePictureFileName: "\(filenameUuid.uuidString).jpg",
                                     profileEncryptionKey: encryptionKey,
                                     lastProfilePictureUpdate: 1234567891
+                                )
+                            ))
+                    }
+                }
+                
+                // MARK: ---- for a group
+                context("for a group") {
+                    beforeEach {
+                        group = ClosedGroup(
+                            threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                            name: "TestGroup",
+                            groupDescription: nil,
+                            formationTimestamp: 1234567890,
+                            displayPictureUrl: "http://oxen.io/100/",
+                            displayPictureFilename: nil,
+                            displayPictureEncryptionKey: encryptionKey,
+                            lastDisplayPictureUpdate: 1234567890,
+                            shouldPoll: true,
+                            groupIdentityPrivateKey: nil,
+                            authData: Data([1, 2, 3]),
+                            invited: false
+                        )
+                        mockStorage.write(using: dependencies) { db in
+                            _ = try ClosedGroup.deleteAll(db)
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                variant: .group,
+                                shouldBeVisible: true,
+                                calledFromConfigHandling: false
+                            ).upsert(db)
+                            try group.insert(db)
+                        }
+                        job = Job(
+                            variant: .displayPictureDownload,
+                            shouldBeUnique: true,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .group(
+                                    id: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                    url: "http://oxen.io/100/",
+                                    encryptionKey: encryptionKey
+                                ),
+                                timestamp: 1234567891
+                            )
+                        )
+                    }
+                    
+                    // MARK: ------ that does not exist
+                    context("that does not exist") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in try ClosedGroup.deleteAll(db) }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            expect(mockCrypto)
+                                .toNot(call {
+                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any))
+                                })
+                            expect(mockFileManager)
+                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
+                            expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) }).to(beNil())
+                        }
+                    }
+                    
+                    // MARK: ------ that has a different encryption key and more recent update
+                    context("that has a different encryption key and more recent update") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in
+                                try ClosedGroup
+                                    .updateAll(
+                                        db,
+                                        ClosedGroup.Columns.displayPictureEncryptionKey.set(to: Data([1, 2, 3])),
+                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: 9999999999)
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            expect(mockCrypto)
+                                .toNot(call {
+                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any))
+                                })
+                            expect(mockFileManager)
+                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
+                            expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
+                                .toNot(equal(
+                                    ClosedGroup(
+                                        threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                        name: "TestGroup",
+                                        groupDescription: nil,
+                                        formationTimestamp: 1234567890,
+                                        displayPictureUrl: "http://oxen.io/100/",
+                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        displayPictureEncryptionKey: encryptionKey,
+                                        lastDisplayPictureUpdate: 1234567891,
+                                        shouldPoll: true,
+                                        groupIdentityPrivateKey: nil,
+                                        authData: Data([1, 2, 3]),
+                                        invited: false
+                                    )
+                                ))
+                        }
+                    }
+                    
+                    // MARK: ------ that has a different url and more recent update
+                    context("that has a different url and more recent update") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in
+                                try ClosedGroup
+                                    .updateAll(
+                                        db,
+                                        ClosedGroup.Columns.displayPictureUrl.set(to: "testUrl"),
+                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: 9999999999)
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            expect(mockCrypto)
+                                .toNot(call {
+                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any))
+                                })
+                            expect(mockFileManager)
+                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
+                            expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
+                                .toNot(equal(
+                                    ClosedGroup(
+                                        threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                        name: "TestGroup",
+                                        groupDescription: nil,
+                                        formationTimestamp: 1234567890,
+                                        displayPictureUrl: "http://oxen.io/100/",
+                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        displayPictureEncryptionKey: encryptionKey,
+                                        lastDisplayPictureUpdate: 1234567891,
+                                        shouldPoll: true,
+                                        groupIdentityPrivateKey: nil,
+                                        authData: Data([1, 2, 3]),
+                                        invited: false
+                                    )
+                                ))
+                        }
+                    }
+                    
+                    // MARK: ------ that has a more recent update but the same url and encryption key
+                    context("that has a more recent update but the same url and encryption key") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in
+                                try ClosedGroup
+                                    .updateAll(
+                                        db,
+                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: 9999999999)
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- saves the picture
+                        it("saves the picture") {
+                            expect(mockCrypto)
+                                .to(call {
+                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any))
+                                })
+                            expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.createFile(
+                                    atPath: "/test/ProfileAvatars/\(filenameUuid.uuidString).jpg",
+                                    contents: imageData,
+                                    attributes: nil
+                                )
+                            })
+                            expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.imageData = ["\(filenameUuid.uuidString).jpg": imageData]
+                            })
+                            expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
+                                .to(equal(
+                                    ClosedGroup(
+                                        threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                        name: "TestGroup",
+                                        groupDescription: nil,
+                                        formationTimestamp: 1234567890,
+                                        displayPictureUrl: "http://oxen.io/100/",
+                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        displayPictureEncryptionKey: encryptionKey,
+                                        lastDisplayPictureUpdate: 1234567891,
+                                        shouldPoll: true,
+                                        groupIdentityPrivateKey: nil,
+                                        authData: Data([1, 2, 3]),
+                                        invited: false
+                                    )
+                                ))
+                        }
+                    }
+                    
+                    // MARK: ------ updates the database values
+                    it("updates the database values") {
+                        expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
+                            .to(equal(
+                                ClosedGroup(
+                                    threadId: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                    name: "TestGroup",
+                                    groupDescription: nil,
+                                    formationTimestamp: 1234567890,
+                                    displayPictureUrl: "http://oxen.io/100/",
+                                    displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                    displayPictureEncryptionKey: encryptionKey,
+                                    lastDisplayPictureUpdate: 1234567891,
+                                    shouldPoll: true,
+                                    groupIdentityPrivateKey: nil,
+                                    authData: Data([1, 2, 3]),
+                                    invited: false
+                                )
+                            ))
+                    }
+                }
+                
+                // MARK: ---- for a community
+                context("for a community") {
+                    beforeEach {
+                        community = OpenGroup(
+                            server: "testServer",
+                            roomToken: "testRoom",
+                            publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                            isActive: true,
+                            name: "name",
+                            imageId: "100",
+                            userCount: 1,
+                            infoUpdates: 1,
+                            displayPictureFilename: nil,
+                            lastDisplayPictureUpdate: 1234567890
+                        )
+                        mockStorage.write(using: dependencies) { db in
+                            _ = try OpenGroup.deleteAll(db)
+                            try SessionThread.fetchOrCreate(
+                                db,
+                                id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+                                variant: .community,
+                                shouldBeVisible: true,
+                                calledFromConfigHandling: false
+                            ).upsert(db)
+                            try community.insert(db)
+                        }
+                        job = Job(
+                            variant: .displayPictureDownload,
+                            shouldBeUnique: true,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .community(
+                                    imageId: "100",
+                                    roomToken: "testRoom",
+                                    server: "testServer"
+                                ),
+                                timestamp: 1234567891
+                            )
+                        )
+                        
+                        // SOGS doesn't encrypt it's images so replace the encrypted mock response
+                        mockNetwork
+                            .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, timeout: .any, using: .any)) }
+                            .thenReturn(MockNetwork.response(data: imageData))
+                    }
+                    
+                    // MARK: ------ that does not exist
+                    context("that does not exist") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in try OpenGroup.deleteAll(db) }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            expect(mockFileManager)
+                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
+                            expect(mockStorage.read { db in try OpenGroup.fetchOne(db) }).to(beNil())
+                        }
+                    }
+                    
+                    // MARK: ------ that has a different imageId and more recent update
+                    context("that has a different imageId and more recent update") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in
+                                try OpenGroup
+                                    .updateAll(
+                                        db,
+                                        OpenGroup.Columns.imageId.set(to: "101"),
+                                        OpenGroup.Columns.lastDisplayPictureUpdate.set(to: 9999999999)
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- does not save the picture
+                        it("does not save the picture") {
+                            expect(mockFileManager)
+                                .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
+                            expect(mockDisplayPictureCache).toNot(call { $0.imageData = .any })
+                            expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
+                                .toNot(equal(
+                                    OpenGroup(
+                                        server: "testServer",
+                                        roomToken: "testRoom",
+                                        publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                        isActive: true,
+                                        name: "name",
+                                        imageId: "100",
+                                        userCount: 1,
+                                        infoUpdates: 1,
+                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        lastDisplayPictureUpdate: 1234567891
+                                    )
+                                ))
+                        }
+                    }
+                    
+                    // MARK: ------ that has a more recent update but the same imageId
+                    context("that has a more recent update but the same imageId") {
+                        beforeEach {
+                            mockStorage.write(using: dependencies) { db in
+                                try OpenGroup
+                                    .updateAll(
+                                        db,
+                                        OpenGroup.Columns.imageId.set(to: "100"),
+                                        OpenGroup.Columns.lastDisplayPictureUpdate.set(to: 9999999999)
+                                    )
+                            }
+                        }
+                        
+                        // MARK: -------- saves the picture
+                        it("saves the picture") {
+                            expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.createFile(
+                                    atPath: "/test/ProfileAvatars/\(filenameUuid.uuidString).jpg",
+                                    contents: imageData,
+                                    attributes: nil
+                                )
+                            })
+                            expect(mockDisplayPictureCache).to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.imageData = ["\(filenameUuid.uuidString).jpg": imageData]
+                            })
+                            expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
+                                .to(equal(
+                                    OpenGroup(
+                                        server: "testServer",
+                                        roomToken: "testRoom",
+                                        publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                        isActive: true,
+                                        name: "name",
+                                        imageId: "100",
+                                        userCount: 1,
+                                        infoUpdates: 1,
+                                        displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                        lastDisplayPictureUpdate: 1234567891
+                                    )
+                                ))
+                        }
+                    }
+                    
+                    // MARK: ------ updates the database values
+                    it("updates the database values") {
+                        expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
+                            .to(equal(
+                                OpenGroup(
+                                    server: "testServer",
+                                    roomToken: "testRoom",
+                                    publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
+                                    isActive: true,
+                                    name: "name",
+                                    imageId: "100",
+                                    userCount: 1,
+                                    infoUpdates: 1,
+                                    displayPictureFilename: "\(filenameUuid.uuidString).jpg",
+                                    lastDisplayPictureUpdate: 1234567891
                                 )
                             ))
                     }

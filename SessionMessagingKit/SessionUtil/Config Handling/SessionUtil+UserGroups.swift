@@ -153,7 +153,8 @@ internal extension SessionUtil {
                         ),
                         priority: group.priority,
                         joinedAt: TimeInterval(group.joined_at),
-                        invited: group.invited
+                        invited: group.invited,
+                        wasKickedFromGroup: ugroups_group_is_kicked(&group)
                     )
                 )
             }
@@ -430,6 +431,7 @@ internal extension SessionUtil {
         
         // MARK: -- Handle Group Changes
         
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let existingGroupSessionIds: Set<String> = Set(existingThreadInfo
             .filter { $0.value.variant == .group }
             .keys)
@@ -453,6 +455,28 @@ internal extension SessionUtil {
                         calledFromConfigHandling: true,
                         using: dependencies
                     )
+                    
+                    /// If the thread didn't already exist, or the user had previously been kicked but has since been re-added to the group, then insert
+                    /// a fallback 'invited' info message
+                    if existingGroups[group.groupSessionId] == nil || group.wasKickedFromGroup == true {
+                        _ = try Interaction(
+                            threadId: group.groupSessionId,
+                            authorId: group.groupSessionId,
+                            variant: .infoGroupInfoInvited,
+                            body: ClosedGroup.MessageInfo
+                                .invitedFallback(group.name ?? "GROUP_TITLE_FALLBACK".localized())
+                                .infoString(using: dependencies),
+                            timestampMs: (group.joinedAt.map { Int64(Double($0 * 1000)) } ?? serverTimestampMs),
+                            wasRead: SessionUtil.timestampAlreadyRead(
+                                threadId: group.groupSessionId,
+                                threadVariant: .group,
+                                timestampMs: (group.joinedAt.map { Int64(Double($0 * 1000)) } ?? serverTimestampMs),
+                                userSessionId: userSessionId,
+                                openGroup: nil,
+                                using: dependencies
+                            )
+                        ).inserted(db)
+                    }
                     
                 case (.some(let existingGroup), _):
                     let joinedAt: TimeInterval = (
@@ -1292,6 +1316,7 @@ extension SessionUtil {
         let priority: Int32?
         let joinedAt: TimeInterval?
         let invited: Bool?
+        let wasKickedFromGroup: Bool?
         
         init(
             groupSessionId: String,
@@ -1300,7 +1325,8 @@ extension SessionUtil {
             authData: Data? = nil,
             priority: Int32? = nil,
             joinedAt: TimeInterval? = nil,
-            invited: Bool? = nil
+            invited: Bool? = nil,
+            wasKickedFromGroup: Bool? = nil
         ) {
             self.groupSessionId = groupSessionId
             self.groupIdentityPrivateKey = groupIdentityPrivateKey
@@ -1309,6 +1335,7 @@ extension SessionUtil {
             self.priority = priority
             self.joinedAt = joinedAt
             self.invited = invited
+            self.wasKickedFromGroup = wasKickedFromGroup
         }
     }
 }
