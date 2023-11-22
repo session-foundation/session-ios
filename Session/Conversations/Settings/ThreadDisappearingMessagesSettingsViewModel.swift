@@ -484,12 +484,19 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
             _ = try updatedConfig.saved(db)
             
-            _ = try Interaction
-                .filter(Interaction.Columns.threadId == threadId)
-                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                .deleteAll(db)
-            
             let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+            var expiresInSeconds: TimeInterval? = nil
+            var expiresStartedAtMs: Double? = nil
+            
+            if Features.useNewDisappearingMessagesConfig {
+                _ = try Interaction
+                    .filter(Interaction.Columns.threadId == threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .deleteAll(db)
+                
+                expiresInSeconds = (updatedConfig.isEnabled ? nil : self.config.durationSeconds)
+                expiresStartedAtMs = (!updatedConfig.isEnabled && self.config.type == .disappearAfterSend ? Double(currentOffsetTimestampMs) : nil)
+            }
             
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
@@ -497,8 +504,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 variant: .infoDisappearingMessagesUpdate,
                 body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
                 timestampMs: currentOffsetTimestampMs,
-                expiresInSeconds: (updatedConfig.isEnabled ? nil : self.config.durationSeconds),
-                expiresStartedAtMs: (!updatedConfig.isEnabled && self.config.type == .disappearAfterSend ? Double(currentOffsetTimestampMs) : nil)
+                expiresInSeconds: expiresInSeconds,
+                expiresStartedAtMs: expiresStartedAtMs
             )
             .inserted(db)
             

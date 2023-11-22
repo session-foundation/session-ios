@@ -109,12 +109,6 @@ extension MessageReceiver {
             try remoteConfig.save(db)
         }
         
-        // Remove previous info messages
-        _ = try Interaction
-            .filter(Interaction.Columns.threadId == threadId)
-            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-            .deleteAll(db)
-        
         // Add an info message for the user
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db)
         _ = try Interaction(
@@ -136,8 +130,7 @@ extension MessageReceiver {
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: currentUserPublicKey,
                 openGroup: nil
-            ),
-            expiresInSeconds: (remoteConfig.isEnabled ? nil : localConfig.durationSeconds)
+            )
         ).inserted(db)
     }
     
