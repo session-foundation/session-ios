@@ -204,7 +204,7 @@ public final class SnodeAPI {
     
     public static func getSwarm(
         for publicKey: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Set<Snode>, Error> {
         loadSwarmIfNeeded(for: publicKey, using: dependencies)
         
@@ -248,7 +248,7 @@ public final class SnodeAPI {
         refreshingConfigHashes: [String] = [],
         from snode: Snode,
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<PollResponse> {
         // Determine the maxSize each namespace in the request should take up
         var requests: [any ErasedPreparedRequest] = []
@@ -405,7 +405,7 @@ public final class SnodeAPI {
         snode: Snode,
         maxSize: Int64? = nil,
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<PreparedGetMessagesResponse> {
         // Prune expired message hashes for this namespace on this service node
         try SnodeReceivedMessageInfo.pruneExpiredMessageHashInfo(
@@ -548,7 +548,7 @@ public final class SnodeAPI {
     public static func preparedGetExpiries(
         of serverHashes: [String],
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<GetExpiriesResponse> {
         // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
         let serverHashes: [String] = serverHashes.appending("fakehash")
@@ -629,7 +629,7 @@ public final class SnodeAPI {
         shortenOnly: Bool? = nil,
         extendOnly: Bool? = nil,
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[String: UpdateExpiryResponseResult]> {
         // ShortenOnly and extendOnly cannot be true at the same time
         guard shortenOnly == nil || extendOnly == nil else { throw SnodeAPIError.generic }
@@ -662,7 +662,7 @@ public final class SnodeAPI {
     public static func preparedRevokeSubaccounts(
         subaccountsToRevoke: [[UInt8]],
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<Void> {
         let timestampMs: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
         
@@ -694,7 +694,7 @@ public final class SnodeAPI {
     public static func preparedUnrevokeSubaccounts(
         subaccountsToUnrevoke: [[UInt8]],
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<Void> {
         let timestampMs: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
         
@@ -729,7 +729,7 @@ public final class SnodeAPI {
         serverHashes: [String],
         requireSuccessfulDeletion: Bool,
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[String: Bool]> {
         return try SnodeAPI
             .prepareRequest(
@@ -771,7 +771,7 @@ public final class SnodeAPI {
     public static func preparedDeleteAllMessages(
         namespace: SnodeAPI.Namespace,
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[String: Bool]> {
         return try SnodeAPI
             .prepareRequest(
@@ -807,7 +807,7 @@ public final class SnodeAPI {
         beforeMs: UInt64,
         namespace: SnodeAPI.Namespace,
         authMethod: AuthenticationMethod,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[String: Bool]> {
         return try SnodeAPI
             .prepareRequest(
@@ -839,7 +839,7 @@ public final class SnodeAPI {
     
     public static func preparedGetNetworkTime(
         from snode: Snode,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<UInt64> {
         return try SnodeAPI
             .prepareRequest(
@@ -1208,7 +1208,7 @@ public extension Publisher where Output == Set<Snode> {
         maxPublishers: Subscribers.Demand = .unlimited,
         retry retries: Int = 0,
         drainBehaviour: Atomic<SwarmDrainBehaviour> = .alwaysRandom,
-        using dependencies: Dependencies = Dependencies(),
+        using dependencies: Dependencies,
         _ transform: @escaping (Snode) throws -> P
     ) -> AnyPublisher<T, Error> where T == P.Output, P: Publisher, P.Failure == Error {
         return self

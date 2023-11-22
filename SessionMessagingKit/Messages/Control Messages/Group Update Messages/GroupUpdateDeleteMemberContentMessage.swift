@@ -46,7 +46,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         )
     }
     
-    private init(
+    internal init(
         memberSessionIds: [String],
         messageHashes: [String],
         adminSignature: Authentication.Signature?

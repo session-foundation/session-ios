@@ -6,10 +6,10 @@ import GRDB
 import Quick
 import Nimble
 import SessionUtil
-import SessionSnodeKit
 import SessionUtilitiesKit
 import SessionUIKit
 
+@testable import SessionSnodeKit
 @testable import SessionMessagingKit
 
 class MessageReceiverGroupsSpec: QuickSpec {
@@ -72,6 +72,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 network
                     .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, timeout: .any, using: .any)) }
                     .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
+                network
+                    .when { $0.send(.selectedNetworkRequest(.any, to: .any, timeout: .any, using: .any)) }
+                    .thenReturn(MockNetwork.nullResponse())
             }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -174,6 +177,33 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     .thenReturn(Atomic(groupKeysConfig))
             }
         )
+        @TestState var mockSwarmCache: Set<Snode>! = [
+            Snode(
+                address: "test",
+                port: 0,
+                ed25519PublicKey: TestConstants.edPublicKey,
+                x25519PublicKey: TestConstants.publicKey
+            ),
+            Snode(
+                address: "test",
+                port: 1,
+                ed25519PublicKey: TestConstants.edPublicKey,
+                x25519PublicKey: TestConstants.publicKey
+            ),
+            Snode(
+                address: "test",
+                port: 2,
+                ed25519PublicKey: TestConstants.edPublicKey,
+                x25519PublicKey: TestConstants.publicKey
+            )
+        ]
+        @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
+            initialSetup: { cache in
+                cache.when { $0.clockOffsetMs }.thenReturn(0)
+                cache.when { $0.loadedSwarms }.thenReturn([groupId.hexString])
+                cache.when { $0.swarmCache }.thenReturn([groupId.hexString: mockSwarmCache])
+            }
+        )
         @TestState(singleton: .groupsPoller, in: dependencies) var mockGroupsPoller: MockPoller! = MockPoller(
             initialSetup: { poller in
                 poller
@@ -202,7 +232,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 groupSessionId: groupId,
                 groupName: "TestGroup",
                 memberAuthData: Data([1, 2, 3]),
-                sentTimestamp: 1234567890,
+                sentTimestamp: 1234567890000,
                 authMethod: Authentication.groupAdmin(
                     groupSessionId: groupId,
                     ed25519SecretKey: []
@@ -216,7 +246,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState var promoteMessage: GroupUpdatePromoteMessage! = {
             let result: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
                 groupIdentitySeed: groupSeed,
-                sentTimestamp: 1234567890
+                sentTimestamp: 1234567890000
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
             
@@ -230,7 +260,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 adminSignature: .standard(signature: "TestSignature".bytes)
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-            result.sentTimestamp = 1234567800
+            result.sentTimestamp = 1234567800000
             
             return result
         }()
@@ -241,14 +271,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 adminSignature: .standard(signature: "TestSignature".bytes)
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-            result.sentTimestamp = 1234567800
+            result.sentTimestamp = 1234567800000
             
             return result
         }()
         @TestState var memberLeftMessage: GroupUpdateMemberLeftMessage! = {
             let result: GroupUpdateMemberLeftMessage = GroupUpdateMemberLeftMessage()
             result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
-            result.sentTimestamp = 1234567800
+            result.sentTimestamp = 1234567800000
             
             return result
         }()
@@ -256,7 +286,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             let result: GroupUpdateInviteResponseMessage = GroupUpdateInviteResponseMessage(
                 isApproved: true,
                 profile: VisibleMessage.VMProfile(displayName: "TestOtherMember"),
-                sentTimestamp: 1234567800
+                sentTimestamp: 1234567800000
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
             
@@ -266,6 +296,17 @@ class MessageReceiverGroupsSpec: QuickSpec {
             memberId: "05\(TestConstants.publicKey)",
             groupKeysGen: 1
         ).1
+        @TestState var deleteContentMessage: GroupUpdateDeleteMemberContentMessage! = {
+            let result: GroupUpdateDeleteMemberContentMessage = GroupUpdateDeleteMemberContentMessage(
+                memberSessionIds: ["051111111111111111111111111111111111111111111111111111111111111112"],
+                messageHashes: [],
+                adminSignature: .standard(signature: "TestSignature".bytes)
+            )
+            result.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+            result.sentTimestamp = 1234567800000
+            
+            return result
+        }()
         @TestState var visibleMessageProto: SNProtoContent! = {
             let proto = SNProtoContent.builder()
             let dataMessage = SNProtoDataMessage.builder()
@@ -288,8 +329,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
         describe("a MessageReceiver dealing with Groups") {
             // MARK: -- when receiving a group invitation
             context("when receiving a group invitation") {
-                // MARK: ---- ignores the invitation if the signature is invalid
-                it("ignores the invitation if the signature is invalid") {
+                // MARK: ---- throws if the admin signature fails to verify
+                it("throws if the admin signature fails to verify") {
                     mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
@@ -519,8 +560,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         body: ClosedGroup.MessageInfo
                                             .invited("0511...1111", "TestGroup")
                                             .infoString(using: dependencies),
-                                        timestampMs: 1234567890,
-                                        receivedAtTimestampMs: 1234567890,
+                                        timestampMs: 1234567890000,
+                                        receivedAtTimestampMs: 1234567890000,
                                         wasRead: false,
                                         hasMention: false,
                                         expiresInSeconds: 0,
@@ -1070,8 +1111,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails if there is no sender
-                it("fails if there is no sender") {
+                // MARK: ---- throws if there is no sender
+                it("throws if there is no sender") {
                     infoChangedMessage.sender = nil
                     
                     mockStorage.write { db in
@@ -1087,8 +1128,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails if there is no timestamp
-                it("fails if there is no timestamp") {
+                // MARK: ---- throws if there is no timestamp
+                it("throws if there is no timestamp") {
                     infoChangedMessage.sentTimestamp = nil
                     
                     mockStorage.write { db in
@@ -1104,8 +1145,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails the the admin signature fails to verify
-                it("fails the the admin signature fails to verify") {
+                // MARK: ---- throws if the admin signature fails to verify
+                it("throws if the admin signature fails to verify") {
                     mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
@@ -1138,7 +1179,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .updatedName("TestGroup Rename")
@@ -1157,7 +1198,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         infoChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        infoChangedMessage.sentTimestamp = 1234567800
+                        infoChangedMessage.sentTimestamp = 1234567800000
                     }
                     
                     // MARK: ------ creates the correct control message
@@ -1173,7 +1214,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .updatedDisplayPicture
@@ -1192,7 +1233,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         infoChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        infoChangedMessage.sentTimestamp = 1234567800
+                        infoChangedMessage.sentTimestamp = 1234567800000
                     }
                     
                     // MARK: ------ creates the correct control message
@@ -1208,7 +1249,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             DisappearingMessagesConfiguration(
                                 threadId: groupId.hexString,
@@ -1242,8 +1283,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails if there is no sender
-                it("fails if there is no sender") {
+                // MARK: ---- throws if there is no sender
+                it("throws if there is no sender") {
                     memberChangedMessage.sender = nil
                     
                     mockStorage.write { db in
@@ -1259,8 +1300,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails if there is no timestamp
-                it("fails if there is no timestamp") {
+                // MARK: ---- throws if there is no timestamp
+                it("throws if there is no timestamp") {
                     memberChangedMessage.sentTimestamp = nil
                     
                     mockStorage.write { db in
@@ -1276,8 +1317,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails the the admin signature fails to verify
-                it("fails the the admin signature fails to verify") {
+                // MARK: ---- throws if the admin signature fails to verify
+                it("throws if the admin signature fails to verify") {
                     mockCrypto
                         .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                         .thenReturn(false)
@@ -1315,7 +1356,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                     
                     let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                    expect(interaction?.timestampMs).to(equal(1234567800))
+                    expect(interaction?.timestampMs).to(equal(1234567800000))
                     expect(interaction?.body).to(equal(
                         ClosedGroup.MessageInfo
                             .addedUsers(names: ["TestOtherProfile"])
@@ -1335,7 +1376,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1348,7 +1389,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .addedUsers(names: ["0511...1112"])
@@ -1367,7 +1408,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1380,7 +1421,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .addedUsers(names: ["0511...1112", "0511...1113"])
@@ -1400,7 +1441,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1413,7 +1454,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .addedUsers(names: ["0511...1112", "0511...1113", "0511...1114"])
@@ -1434,7 +1475,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1447,7 +1488,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .removedUsers(names: ["0511...1112"])
@@ -1466,7 +1507,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1479,7 +1520,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .removedUsers(names: ["0511...1112", "0511...1113"])
@@ -1499,7 +1540,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1512,7 +1553,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .removedUsers(names: ["0511...1112", "0511...1113", "0511...1114"])
@@ -1533,7 +1574,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1546,7 +1587,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .promotedUsers(names: ["0511...1112"])
@@ -1565,7 +1606,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1578,7 +1619,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .promotedUsers(names: ["0511...1112", "0511...1113"])
@@ -1598,7 +1639,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
-                        memberChangedMessage.sentTimestamp = 1234567800
+                        memberChangedMessage.sentTimestamp = 1234567800000
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1611,7 +1652,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         }
                         
                         let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                        expect(interaction?.timestampMs).to(equal(1234567800))
+                        expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
                                 .promotedUsers(names: ["0511...1112", "0511...1113", "0511...1114"])
@@ -1649,7 +1690,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                     
                     let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                    expect(interaction?.timestampMs).to(equal(1234567800))
+                    expect(interaction?.timestampMs).to(equal(1234567800000))
                     expect(interaction?.body).to(equal(
                         ClosedGroup.MessageInfo
                             .memberLeft(name: "0511...1112")
@@ -1677,7 +1718,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                     
                     let interaction: Interaction? = mockStorage.read { db in try Interaction.fetchOne(db) }
-                    expect(interaction?.timestampMs).to(equal(1234567800))
+                    expect(interaction?.timestampMs).to(equal(1234567800000))
                     expect(interaction?.body).to(equal(
                         ClosedGroup.MessageInfo
                             .memberLeft(name: "TestOtherProfile")
@@ -1685,8 +1726,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     ))
                 }
                 
-                // MARK: ---- fails if there is no sender
-                it("fails if there is no sender") {
+                // MARK: ---- throws if there is no sender
+                it("throws if there is no sender") {
                     memberLeftMessage.sender = nil
                     
                     mockStorage.write { db in
@@ -1702,8 +1743,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails if there is no timestamp
-                it("fails if there is no timestamp") {
+                // MARK: ---- throws if there is no timestamp
+                it("throws if there is no timestamp") {
                     memberLeftMessage.sentTimestamp = nil
                     
                     mockStorage.write { db in
@@ -1804,7 +1845,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         variant: .processPendingGroupMemberRemovals,
                                         threadId: groupId.hexString,
                                         details: ProcessPendingGroupMemberRemovalsJob.Details(
-                                            changeTimestampMs: 1234567800
+                                            changeTimestampMs: 1234567800000
                                         )
                                     ),
                                     canStartJob: true,
@@ -1889,8 +1930,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails if there is no sender
-                it("fails if there is no sender") {
+                // MARK: ---- throws if there is no sender
+                it("throws if there is no sender") {
                     inviteResponseMessage.sender = nil
                     
                     mockStorage.write { db in
@@ -1906,8 +1947,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- fails if there is no timestamp
-                it("fails if there is no timestamp") {
+                // MARK: ---- throws if there is no timestamp
+                it("throws if there is no timestamp") {
                     inviteResponseMessage.sentTimestamp = nil
                     
                     mockStorage.write { db in
@@ -2065,6 +2106,622 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         var groupMember: config_group_member = config_group_member()
                         expect(groups_members_get(groupMembersConf, &groupMember, &cMemberId)).to(beTrue())
                         expect(groupMember.invited).to(equal(0))
+                    }
+                }
+            }
+            
+            // MARK: -- when receiving a delete content message
+            context("when receiving a delete content message") {
+                beforeEach {
+                    mockStorage.write { db in
+                        try SessionThread.fetchOrCreate(
+                            db,
+                            id: groupId.hexString,
+                            variant: .group,
+                            shouldBeVisible: true,
+                            calledFromConfigHandling: false,
+                            using: dependencies
+                        )
+                        
+                        _ = try Interaction(
+                            id: 1,
+                            serverHash: "TestMessageHash1",
+                            messageUuid: nil,
+                            threadId: groupId.hexString,
+                            authorId: "051111111111111111111111111111111111111111111111111111111111111111",
+                            variant: .standardIncoming,
+                            body: "Test",
+                            timestampMs: 1234560000001,
+                            receivedAtTimestampMs: 1234560000001,
+                            wasRead: false,
+                            hasMention: false,
+                            expiresInSeconds: 0,
+                            expiresStartedAtMs: nil,
+                            linkPreviewUrl: nil,
+                            openGroupServerMessageId: nil,
+                            openGroupWhisperMods: false,
+                            openGroupWhisperTo: nil
+                        ).inserted(db)
+                        
+                        _ = try Interaction(
+                            id: 2,
+                            serverHash: "TestMessageHash2",
+                            messageUuid: nil,
+                            threadId: groupId.hexString,
+                            authorId: "051111111111111111111111111111111111111111111111111111111111111111",
+                            variant: .standardIncoming,
+                            body: "Test",
+                            timestampMs: 1234567890002,
+                            receivedAtTimestampMs: 1234567890002,
+                            wasRead: false,
+                            hasMention: false,
+                            expiresInSeconds: 0,
+                            expiresStartedAtMs: nil,
+                            linkPreviewUrl: nil,
+                            openGroupServerMessageId: nil,
+                            openGroupWhisperMods: false,
+                            openGroupWhisperTo: nil
+                        ).inserted(db)
+                        
+                        _ = try Interaction(
+                            id: 3,
+                            serverHash: "TestMessageHash3",
+                            messageUuid: nil,
+                            threadId: groupId.hexString,
+                            authorId: "051111111111111111111111111111111111111111111111111111111111111112",
+                            variant: .standardIncoming,
+                            body: "Test",
+                            timestampMs: 1234560000003,
+                            receivedAtTimestampMs: 1234560000003,
+                            wasRead: false,
+                            hasMention: false,
+                            expiresInSeconds: 0,
+                            expiresStartedAtMs: nil,
+                            linkPreviewUrl: nil,
+                            openGroupServerMessageId: nil,
+                            openGroupWhisperMods: false,
+                            openGroupWhisperTo: nil
+                        ).inserted(db)
+                        
+                        _ = try Interaction(
+                            id: 4,
+                            serverHash: "TestMessageHash4",
+                            messageUuid: nil,
+                            threadId: groupId.hexString,
+                            authorId: "051111111111111111111111111111111111111111111111111111111111111112",
+                            variant: .standardIncoming,
+                            body: "Test",
+                            timestampMs: 1234567890004,
+                            receivedAtTimestampMs: 1234567890004,
+                            wasRead: false,
+                            hasMention: false,
+                            expiresInSeconds: 0,
+                            expiresStartedAtMs: nil,
+                            linkPreviewUrl: nil,
+                            openGroupServerMessageId: nil,
+                            openGroupWhisperMods: false,
+                            openGroupWhisperTo: nil
+                        ).inserted(db)
+                    }
+                }
+                
+                // MARK: ---- throws if there is no sender and no admin signature
+                it("throws if there is no sender and no admin signature") {
+                    deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                        memberSessionIds: ["051111111111111111111111111111111111111111111111111111111111111112"],
+                        messageHashes: [],
+                        adminSignature: nil
+                    )
+                    deleteContentMessage.sentTimestamp = 1234567800000
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- throws if there is no timestamp
+                it("throws if there is no timestamp") {
+                    deleteContentMessage.sentTimestamp = nil
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- throws if the admin signature fails to verify
+                it("throws if the admin signature fails to verify") {
+                    mockCrypto
+                        .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
+                        .thenReturn(false)
+                    
+                    mockStorage.write { db in
+                        expect {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }.to(throwError(MessageReceiverError.invalidMessage))
+                    }
+                }
+                
+                // MARK: ---- and there is no admin signature
+                context("and there is no admin signature") {
+                    // MARK: ------ removes specific messages from the database
+                    it("removes specific messages from the database") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [],
+                            messageHashes: ["TestMessageHash3"],
+                            adminSignature: nil
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                    
+                    // MARK: ------ removes all messages from the sender from the database
+                    it("removes all messages from the sender from the database") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112"
+                            ],
+                            messageHashes: [],
+                            adminSignature: nil
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                    
+                    // MARK: ------ ignores messages not sent by the sender
+                    it("ignores messages not sent by the sender") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [],
+                            messageHashes: ["TestMessageHash1", "TestMessageHash3"],
+                            adminSignature: nil
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                    
+                    // MARK: ------ ignores messages sent after the delete content message was sent
+                    it("ignores messages sent after the delete content message was sent") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [],
+                            messageHashes: ["TestMessageHash3", "TestMessageHash4"],
+                            adminSignature: nil
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                }
+                
+                // MARK: ---- and there is no admin signature
+                context("and there is no admin signature") {
+                    // MARK: ------ removes specific messages from the database
+                    it("removes specific messages from the database") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [],
+                            messageHashes: ["TestMessageHash3"],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                    
+                    // MARK: ------ removes all messages for a given id from the database
+                    it("removes all messages for a given id from the database") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112"
+                            ],
+                            messageHashes: [],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                    
+                    // MARK: ------ removes specific messages sent from a user that is not the sender from the database
+                    it("removes specific messages sent from a user that is not the sender from the database") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [],
+                            messageHashes: ["TestMessageHash3"],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                    
+                    // MARK: ------ removes all messages for a given id that is not the sender from the database
+                    it("removes all messages for a given id that is not the sender from the database") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111112"
+                            ],
+                            messageHashes: [],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(3))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash1", "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234560000001,
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                    
+                    // MARK: ------ ignores messages sent after the delete content message was sent
+                    it("ignores messages sent after the delete content message was sent") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [
+                                "051111111111111111111111111111111111111111111111111111111111111111",
+                                "051111111111111111111111111111111111111111111111111111111111111112"
+                            ],
+                            messageHashes: [],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        let interactions: [Interaction]? = mockStorage.read { db in try Interaction.fetchAll(db) }
+                        expect(interactions?.count).to(equal(2))
+                        expect(interactions?.map { $0.serverHash }).to(equal([
+                            "TestMessageHash2", "TestMessageHash4"
+                        ]))
+                        expect(interactions?.map { $0.authorId }).to(equal([
+                            "051111111111111111111111111111111111111111111111111111111111111111",
+                            "051111111111111111111111111111111111111111111111111111111111111112"
+                        ]))
+                        expect(interactions?.map { $0.timestampMs }).to(equal([
+                            1234567890002,
+                            1234567890004
+                        ]))
+                    }
+                }
+                
+                // MARK: ---- and the current user is an admin
+                context("and the current user is an admin") {
+                    beforeEach {
+                        mockStorage.write { db in
+                            try ClosedGroup(
+                                threadId: groupId.hexString,
+                                name: "TestGroup",
+                                formationTimestamp: 1234567890,
+                                shouldPoll: true,
+                                groupIdentityPrivateKey: groupSecretKey,
+                                authData: nil,
+                                invited: false
+                            ).upsert(db)
+                        }
+                    }
+                    
+                    // MARK: ------ deletes the messages from the swarm if the sender was not an admin
+                    it("deletes the messages from the swarm if the sender was not an admin") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [],
+                            messageHashes: ["TestMessageHash3"],
+                            adminSignature: nil
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        let expectedRequest: URLRequest = (try? SnodeAPI
+                            .preparedDeleteMessages(
+                                serverHashes: ["TestMessageHash3"],
+                                requireSuccessfulDeletion: false,
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: groupId,
+                                    ed25519SecretKey: Array(groupSecretKey)
+                                ),
+                                using: dependencies
+                            ))!.request
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(mockNetwork)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                                network.send(
+                                    .selectedNetworkRequest(
+                                        expectedRequest.httpBody!,
+                                        to: dependencies.randomElement(mockSwarmCache)!,
+                                        timeout: HTTP.defaultTimeout,
+                                        using: .any
+                                    )
+                                )
+                            })
+                    }
+                    
+                    // MARK: ------ does not delete the messages from the swarm if the sender was an admin
+                    it("does not delete the messages from the swarm if the sender was an admin") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [],
+                            messageHashes: ["TestMessageHash3"],
+                            adminSignature: .standard(signature: "TestSignature".bytes)
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(mockNetwork)
+                            .toNot(call { network in
+                                network.send(.selectedNetworkRequest(.any, to: .any, timeout: .any, using: .any))
+                            })
+                    }
+                }
+                
+                // MARK: ---- and the current user is not an admin
+                context("and the current user is not an admin") {
+                    // MARK: ------ does not delete the messages from the swarm
+                    it("does not delete the messages from the swarm") {
+                        deleteContentMessage = GroupUpdateDeleteMemberContentMessage(
+                            memberSessionIds: [],
+                            messageHashes: ["TestMessageHash3"],
+                            adminSignature: nil
+                        )
+                        deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
+                        deleteContentMessage.sentTimestamp = 1234567800000
+                        
+                        mockStorage.write { db in
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: deleteContentMessage,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(mockNetwork)
+                            .toNot(call { network in
+                                network.send(.selectedNetworkRequest(.any, to: .any, timeout: .any, using: .any))
+                            })
                     }
                 }
             }

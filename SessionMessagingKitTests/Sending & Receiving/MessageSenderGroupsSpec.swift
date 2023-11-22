@@ -342,7 +342,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- syncs the group configuration messages
                 it("syncs the group configuration messages") {
-                    let expectedSendData: Data = mockStorage
+                    let expectedRequest: URLRequest = mockStorage
                         .write(using: dependencies) { db in
                             // Need the auth data to exist in the database to prepare the request
                             _ = try SessionThread.fetchOrCreate(
@@ -393,7 +393,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             try SessionThread.filter(id: groupId.hexString).deleteAll(db)
                             
                             return preparedRequest
-                        }!.request.httpBody!
+                        }!.request
                     
                     MessageSender
                         .createGroup(
@@ -411,7 +411,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
                                 .selectedNetworkRequest(
-                                    expectedSendData,
+                                    expectedRequest.httpBody!,
                                     to: dependencies.randomElement(mockSwarmCache)!,
                                     timeout: HTTP.defaultTimeout,
                                     using: .any

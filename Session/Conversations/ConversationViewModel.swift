@@ -987,7 +987,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                                     db,
                                                     sessionIdHexString: userSessionId.hexString,
                                                     using: dependencies
-                                                )
+                                                ),
+                                                using: dependencies
                                             )
                                             .map { _, _ in () }),
                                         .deleteFromDatabase(cellViewModel.id)
@@ -1027,7 +1028,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                                 db,
                                                 sessionIdHexString: userSessionId.hexString,
                                                 using: dependencies
-                                            )
+                                            ),
+                                            using: dependencies
                                         )
                                         .map { _, _ in () }),
                                     .deleteFromDatabase(cellViewModel.id)

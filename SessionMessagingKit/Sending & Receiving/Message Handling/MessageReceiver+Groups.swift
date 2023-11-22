@@ -669,7 +669,8 @@ extension MessageReceiver {
             .preparedDeleteMessages(
                 serverHashes: messageHashesToDeleteFromServer,
                 requireSuccessfulDeletion: false,
-                authMethod: authMethod
+                authMethod: authMethod,
+                using: dependencies
             )
             .send(using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
