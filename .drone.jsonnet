@@ -60,7 +60,7 @@ local load_cocoapods_cache = {
 };
 
 // Override the cached CocoaPods directory (to speed up the next build)
-local update_cocoapods_cache = {
+local update_cocoapods_cache(depends_on) = {
   name: 'Update CocoaPods Cache',
   commands: [
     |||
@@ -82,14 +82,15 @@ local update_cocoapods_cache = {
       fi
     |||,
     'rm -f /Users/drone/.cocoapods_cache.lock'
-  ]
+  ],
+  depends_on: depends_on,
 };
 
 // Run specified unit tests
 local run_tests(testName, testBuildStepName) = {
   name: 'Run ' + testName,
   commands: [
-    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test-without-building -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -destination "platform=iOS Simulator,name=iPhone 14" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -only-testing $testName -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci',
+    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test-without-building -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -destination "platform=iOS Simulator,name=iPhone 14" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -only-testing ' + testName + ' -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci',
   ],
   depends_on: [
     testBuildStepName
@@ -126,7 +127,7 @@ local run_tests(testName, testBuildStepName) = {
           'xcodebuild build-for-testing -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -destination "platform=iOS Simulator,name=iPhone 14" | ./Pods/xcbeautify/xcbeautify --is-ci',
         ],
         depends_on: [
-          'Reset Simulators'
+          'Install CocoaPods'
         ],
       },
       run_tests('SessionTests', 'Build For Testing'),
@@ -147,7 +148,7 @@ local run_tests(testName, testBuildStepName) = {
           status: ['failure', 'success']
         }
       },
-      update_cocoapods_cache
+      update_cocoapods_cache(['Build For Testing'])
     ],
   },
   // Simulator build
@@ -168,13 +169,19 @@ local run_tests(testName, testBuildStepName) = {
           'mkdir build',
           'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App Store Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | ./Pods/xcbeautify/xcbeautify --is-ci',
         ],
+        depends_on: [
+          'Install CocoaPods'
+        ],
       },
-      update_cocoapods_cache,
+      update_cocoapods_cache(['Build']),
       {
         name: 'Upload artifacts',
         environment: { SSH_KEY: { from_secret: 'SSH_KEY' } },
         commands: [
           './Scripts/drone-static-upload.sh'
+        ],
+        depends_on: [
+          'Build'
         ]
       },
     ],
@@ -197,13 +204,19 @@ local run_tests(testName, testBuildStepName) = {
           'mkdir build',
           'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App Store Release" -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO | ./Pods/xcbeautify/xcbeautify --is-ci',
         ],
+        depends_on: [
+          'Install CocoaPods'
+        ],
       },
-      update_cocoapods_cache,
+      update_cocoapods_cache(['Build']),
       {
         name: 'Upload artifacts',
         environment: { SSH_KEY: { from_secret: 'SSH_KEY' } },
         commands: [
           './Scripts/drone-static-upload.sh'
+        ],
+        depends_on: [
+          'Build'
         ]
       },
     ],
