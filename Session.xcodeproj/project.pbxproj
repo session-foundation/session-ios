@@ -7156,7 +7156,7 @@
 			};
 			name = Debug;
 		};
-		453518751FC635DD00210559 /* App Store Release */ = {
+		453518751FC635DD00210559 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6A71AD9BEAFF0C9E8016BC23 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig */;
 			buildSettings = {
@@ -7233,7 +7233,7 @@
 				TARGETED_DEVICE_FAMILY = 1;
 				VALIDATE_PRODUCT = YES;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		7BC01A43241F40AB00BC7C55 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -7292,7 +7292,7 @@
 			};
 			name = Debug;
 		};
-		7BC01A44241F40AB00BC7C55 /* App Store Release */ = {
+		7BC01A44241F40AB00BC7C55 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 62B512CEB14BD4A4A53CF532 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig */;
 			buildSettings = {
@@ -7371,7 +7371,7 @@
 				TARGETED_DEVICE_FAMILY = 1;
 				VALIDATE_PRODUCT = YES;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		C331FF242558F9D400070591 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -7429,7 +7429,7 @@
 			};
 			name = Debug;
 		};
-		C331FF252558F9D400070591 /* App Store Release */ = {
+		C331FF252558F9D400070591 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 05C76EFA593DD507061C50B2 /* Pods-GlobalDependencies-SessionUIKit.app store release.xcconfig */;
 			buildSettings = {
@@ -7507,7 +7507,7 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		C33FD9B4255A548A00E217F9 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -7573,7 +7573,7 @@
 			};
 			name = Debug;
 		};
-		C33FD9B5255A548A00E217F9 /* App Store Release */ = {
+		C33FD9B5255A548A00E217F9 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 55C13C7B4B700846E49C0E25 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.app store release.xcconfig */;
 			buildSettings = {
@@ -7658,7 +7658,7 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		C3C2A5A8255385C100C340D1 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -7717,7 +7717,7 @@
 			};
 			name = Debug;
 		};
-		C3C2A5A9255385C100C340D1 /* App Store Release */ = {
+		C3C2A5A9255385C100C340D1 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A2BF9B687CFBA825049BA13E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit.app store release.xcconfig */;
 			buildSettings = {
@@ -7795,7 +7795,7 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		C3C2A682255388CC00C340D1 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -7855,7 +7855,7 @@
 			};
 			name = Debug;
 		};
-		C3C2A683255388CC00C340D1 /* App Store Release */ = {
+		C3C2A683255388CC00C340D1 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F60C5B6CD14329816B0E8CC0 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.app store release.xcconfig */;
 			buildSettings = {
@@ -7934,7 +7934,7 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		C3C2A6FA25539DE700C340D1 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -8019,7 +8019,7 @@
 			};
 			name = Debug;
 		};
-		C3C2A6FB25539DE700C340D1 /* App Store Release */ = {
+		C3C2A6FB25539DE700C340D1 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F390F8E34CA76B3F7D3B1826 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit.app store release.xcconfig */;
 			buildSettings = {
@@ -8123,7 +8123,7 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		D221A0BA169C9E5F00537ABF /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -8201,7 +8201,7 @@
 			};
 			name = Debug;
 		};
-		D221A0BB169C9E5F00537ABF /* App Store Release */ = {
+		D221A0BB169C9E5F00537ABF /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -8272,7 +8272,7 @@
 				SWIFT_VERSION = 4.0;
 				VALIDATE_PRODUCT = YES;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		D221A0BD169C9E5F00537ABF /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -8347,7 +8347,7 @@
 			};
 			name = Debug;
 		};
-		D221A0BE169C9E5F00537ABF /* App Store Release */ = {
+		D221A0BE169C9E5F00537ABF /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8603226ED1C6F61F1F2D3734 /* Pods-GlobalDependencies-Session.app store release.xcconfig */;
 			buildSettings = {
@@ -8413,7 +8413,7 @@
 				TEST_AFTER_BUILD = YES;
 				WRAPPER_EXTENSION = app;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		FD71161028D00BAE00B47552 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -8458,7 +8458,7 @@
 			};
 			name = Debug;
 		};
-		FD71161128D00BAE00B47552 /* App Store Release */ = {
+		FD71161128D00BAE00B47552 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F154A10CE1ADA33C16B45357 /* Pods-GlobalDependencies-Session-SessionTests.app store release.xcconfig */;
 			buildSettings = {
@@ -8522,7 +8522,7 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Session.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Session";
 				VALIDATE_PRODUCT = YES;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		FD83B9B727CF200A005E1583 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -8566,7 +8566,7 @@
 			};
 			name = Debug;
 		};
-		FD83B9B827CF200A005E1583 /* App Store Release */ = {
+		FD83B9B827CF200A005E1583 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5DA3BDDFFB9E937A49C35FCC /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit-SessionUtilitiesKitTests.app store release.xcconfig */;
 			buildSettings = {
@@ -8629,7 +8629,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		FD9BDDFD2A5D2294005F1EBC /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -8668,7 +8668,7 @@
 			};
 			name = Debug;
 		};
-		FD9BDDFE2A5D2294005F1EBC /* App Store Release */ = {
+		FD9BDDFE2A5D2294005F1EBC /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -8728,7 +8728,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		FDB5DB022A981C43002C8721 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -8770,7 +8770,7 @@
 			};
 			name = Debug;
 		};
-		FDB5DB032A981C43002C8721 /* App Store Release */ = {
+		FDB5DB032A981C43002C8721 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 314E29623131BCCB6DEB5A8B /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionSnodeKit-SessionSnodeKitTests.app store release.xcconfig */;
 			buildSettings = {
@@ -8832,7 +8832,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 		FDC4389627B9FFC700C60D73 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -8876,7 +8876,7 @@
 			};
 			name = Debug;
 		};
-		FDC4389727B9FFC700C60D73 /* App Store Release */ = {
+		FDC4389727B9FFC700C60D73 /* App_Store_Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 621B42AC592F3456ACD82F8B /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionMessagingKit-SessionMessagingKitTests.app store release.xcconfig */;
 			buildSettings = {
@@ -8939,7 +8939,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
-			name = "App Store Release";
+			name = App_Store_Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -8948,127 +8948,127 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				453518731FC635DD00210559 /* Debug */,
-				453518751FC635DD00210559 /* App Store Release */,
+				453518751FC635DD00210559 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		7BC01A45241F40AB00BC7C55 /* Build configuration list for PBXNativeTarget "SessionNotificationServiceExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7BC01A43241F40AB00BC7C55 /* Debug */,
-				7BC01A44241F40AB00BC7C55 /* App Store Release */,
+				7BC01A44241F40AB00BC7C55 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		C331FF262558F9D400070591 /* Build configuration list for PBXNativeTarget "SessionUIKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C331FF242558F9D400070591 /* Debug */,
-				C331FF252558F9D400070591 /* App Store Release */,
+				C331FF252558F9D400070591 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		C33FD9B6255A548A00E217F9 /* Build configuration list for PBXNativeTarget "SignalUtilitiesKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C33FD9B4255A548A00E217F9 /* Debug */,
-				C33FD9B5255A548A00E217F9 /* App Store Release */,
+				C33FD9B5255A548A00E217F9 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		C3C2A5AA255385C100C340D1 /* Build configuration list for PBXNativeTarget "SessionSnodeKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C3C2A5A8255385C100C340D1 /* Debug */,
-				C3C2A5A9255385C100C340D1 /* App Store Release */,
+				C3C2A5A9255385C100C340D1 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		C3C2A684255388CC00C340D1 /* Build configuration list for PBXNativeTarget "SessionUtilitiesKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C3C2A682255388CC00C340D1 /* Debug */,
-				C3C2A683255388CC00C340D1 /* App Store Release */,
+				C3C2A683255388CC00C340D1 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		C3C2A6F925539DE700C340D1 /* Build configuration list for PBXNativeTarget "SessionMessagingKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C3C2A6FA25539DE700C340D1 /* Debug */,
-				C3C2A6FB25539DE700C340D1 /* App Store Release */,
+				C3C2A6FB25539DE700C340D1 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		D221A083169C9E5E00537ABF /* Build configuration list for PBXProject "Session" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D221A0BA169C9E5F00537ABF /* Debug */,
-				D221A0BB169C9E5F00537ABF /* App Store Release */,
+				D221A0BB169C9E5F00537ABF /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		D221A0BC169C9E5F00537ABF /* Build configuration list for PBXNativeTarget "Session" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D221A0BD169C9E5F00537ABF /* Debug */,
-				D221A0BE169C9E5F00537ABF /* App Store Release */,
+				D221A0BE169C9E5F00537ABF /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		FD71160F28D00BAE00B47552 /* Build configuration list for PBXNativeTarget "SessionTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FD71161028D00BAE00B47552 /* Debug */,
-				FD71161128D00BAE00B47552 /* App Store Release */,
+				FD71161128D00BAE00B47552 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		FD83B9B627CF200A005E1583 /* Build configuration list for PBXNativeTarget "SessionUtilitiesKitTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FD83B9B727CF200A005E1583 /* Debug */,
-				FD83B9B827CF200A005E1583 /* App Store Release */,
+				FD83B9B827CF200A005E1583 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		FD9BDDFC2A5D2294005F1EBC /* Build configuration list for PBXNativeTarget "SessionUtil" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FD9BDDFD2A5D2294005F1EBC /* Debug */,
-				FD9BDDFE2A5D2294005F1EBC /* App Store Release */,
+				FD9BDDFE2A5D2294005F1EBC /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		FDB5DB012A981C43002C8721 /* Build configuration list for PBXNativeTarget "SessionSnodeKitTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FDB5DB022A981C43002C8721 /* Debug */,
-				FDB5DB032A981C43002C8721 /* App Store Release */,
+				FDB5DB032A981C43002C8721 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 		FDC4389527B9FFC700C60D73 /* Build configuration list for PBXNativeTarget "SessionMessagingKitTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FDC4389627B9FFC700C60D73 /* Debug */,
-				FDC4389727B9FFC700C60D73 /* App Store Release */,
+				FDC4389727B9FFC700C60D73 /* App_Store_Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = "App Store Release";
+			defaultConfigurationName = App_Store_Release;
 		};
 /* End XCConfigurationList section */
 	};

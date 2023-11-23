@@ -214,7 +214,7 @@
       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
-      buildConfiguration = "App Store Release"
+      buildConfiguration = "App_Store_Release"
       shouldUseLaunchSchemeArgsEnv = "YES"
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
@@ -234,7 +234,7 @@
       buildConfiguration = "Debug">
    </AnalyzeAction>
    <ArchiveAction
-      buildConfiguration = "App Store Release"
+      buildConfiguration = "App_Store_Release"
       revealArchiveInOrganizer = "YES">
    </ArchiveAction>
 </Scheme>
