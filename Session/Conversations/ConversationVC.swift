@@ -1522,7 +1522,17 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         }
         
         guard let outdatedMemberId: String = outdatedMemberId else {
-            removeOutdatedClientBanner()
+            UIView.animate(
+                withDuration: 0.25,
+                animations: { [weak self] in
+                    self?.outdatedClientBanner.alpha = 0
+                },
+                completion: { [weak self] _ in
+                    self?.outdatedClientBanner.isHidden = true
+                    self?.outdatedClientBanner.alpha = 1
+                    self?.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
+                }
+            )
             return
         }
         
@@ -1539,17 +1549,12 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }
     
     private func removeOutdatedClientBanner() {
-        UIView.animate(
-            withDuration: 0.25,
-            animations: { [weak self] in
-                self?.outdatedClientBanner.alpha = 0
-            },
-            completion: { [weak self] _ in
-                self?.outdatedClientBanner.isHidden = true
-                self?.outdatedClientBanner.alpha = 1
-                self?.emptyStateLabelTopConstraint?.constant = Values.largeSpacing
-            }
-        )
+        guard let outdatedMemberId: String = self.viewModel.threadData.outdatedMemberId else { return }
+        Storage.shared.writeAsync { db in
+            try Contact
+                .filter(id: outdatedMemberId)
+                .updateAll(db, Contact.Columns.lastKnownClientVersion.set(to: nil))
+        }
     }
 
     func addOrRemoveBlockedBanner(threadIsBlocked: Bool) {
