@@ -870,7 +870,16 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             }
         }
         
-        addOrRemoveOutdatedClientBanner(outdatedMemberId: updatedThreadData.outdatedMemberId)
+        if
+            initialLoad ||
+            viewModel.threadData.outdatedMemberId != updatedThreadData.outdatedMemberId ||
+            viewModel.threadData.disappearingMessagesConfiguration != updatedThreadData.disappearingMessagesConfiguration
+        {
+            addOrRemoveOutdatedClientBanner(
+                outdatedMemberId: updatedThreadData.outdatedMemberId,
+                disappearingMessagesConfiguration: updatedThreadData.disappearingMessagesConfiguration
+            )
+        }
         
         if initialLoad || viewModel.threadData.threadIsBlocked != updatedThreadData.threadIsBlocked {
             addOrRemoveBlockedBanner(threadIsBlocked: (updatedThreadData.threadIsBlocked == true))
@@ -1497,11 +1506,15 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
 
     // MARK: - General
     
-    func addOrRemoveOutdatedClientBanner(outdatedMemberId: String?) {
+    func addOrRemoveOutdatedClientBanner(
+        outdatedMemberId: String?,
+        disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
+    ) {
+        let currentDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = disappearingMessagesConfiguration ?? self.viewModel.threadData.disappearingMessagesConfiguration
         // Do not show the banner until the new disappearing messages is enabled
         guard 
             Features.useNewDisappearingMessagesConfig &&
-            self.viewModel.threadData.disappearingMessagesConfiguration?.isEnabled == true
+            currentDisappearingMessagesConfiguration?.isEnabled == true
         else {
             self.outdatedClientBanner.isHidden = true
             self.emptyStateLabelTopConstraint?.constant = Values.largeSpacing

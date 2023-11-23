@@ -485,7 +485,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             _ = try updatedConfig.saved(db)
             
             let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
-            var expiresInSeconds: TimeInterval? = nil
+            var expiresInSeconds: TimeInterval? = 0
             var expiresStartedAtMs: Double? = nil
             
             if Features.useNewDisappearingMessagesConfig {
