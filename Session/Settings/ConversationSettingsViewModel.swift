@@ -70,11 +70,8 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             title: "CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE".localized(),
                             subtitle: "CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION".localized(),
                             trailingAccessory: .toggle(
-                                .boolValue(
-                                    key: .trimOpenGroupMessagesOlderThanSixMonths,
-                                    value: current.trimOpenGroupMessagesOlderThanSixMonths,
-                                    oldValue: (previous ?? current).trimOpenGroupMessagesOlderThanSixMonths
-                                )
+                                current.trimOpenGroupMessagesOlderThanSixMonths,
+                                oldValue: previous?.trimOpenGroupMessagesOlderThanSixMonths
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in
@@ -92,11 +89,8 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                             title: "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE".localized(),
                             subtitle: "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION".localized(),
                             trailingAccessory: .toggle(
-                                .boolValue(
-                                    key: .shouldAutoPlayConsecutiveAudioMessages,
-                                    value: current.shouldAutoPlayConsecutiveAudioMessages,
-                                    oldValue: (previous ?? current).shouldAutoPlayConsecutiveAudioMessages
-                                )
+                                current.shouldAutoPlayConsecutiveAudioMessages,
+                                oldValue: previous?.shouldAutoPlayConsecutiveAudioMessages
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in

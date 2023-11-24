@@ -372,7 +372,7 @@ public class SessionCell: UITableViewCell {
         trailingAccessoryFillConstraint.isActive = trailingFitToEdge
         accessoryWidthMatchConstraint.isActive = {
             switch (info.leadingAccessory, info.trailingAccessory) {
-                case (.button, .button): return true
+                case is (SessionCell.AccessoryConfig.Button, SessionCell.AccessoryConfig.Button): return true
                 default: return false
             }
         }()
@@ -465,9 +465,8 @@ public class SessionCell: UITableViewCell {
         let fittedEdgePadding: CGFloat = {
             func targetSize(accessory: Accessory?) -> CGFloat {
                 switch accessory {
-                    case .icon(_, let iconSize, _, _, _), .iconAsync(let iconSize, _, _, _, _):
-                        return iconSize.size
-                        
+                    case let accessory as SessionCell.AccessoryConfig.Icon: return accessory.iconSize.size
+                    case let accessory as SessionCell.AccessoryConfig.IconAsync: return accessory.iconSize.size
                     default: return defaultEdgePadding
                 }
             }

@@ -151,7 +151,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                     }
                                     
                                     // Only update the selection if the accessory is a 'radio'
-                                    guard case .radio = trailingAccessory else { return }
+                                    guard trailingAccessory is SessionCell.AccessoryConfig.Radio else { return }
                                     
                                     // Toggle the selection
                                     if !selectedUsersSubject.value.contains(userInfo) {

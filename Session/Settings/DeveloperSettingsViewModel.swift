@@ -112,302 +112,291 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedGroupsAllowPromotions: dependencies[feature: .updatedGroupsAllowPromotions]
             )
         }
-        .mapWithPrevious { [weak self, dependencies] previous, current -> [SectionModel] in
-            return [
-                SectionModel(
-                    model: .developerMode,
-                    elements: [
-                        SessionCell.Info(
-                            id: .developerMode,
-                            title: "Developer Mode",
-                            subtitle: """
-                            Grants access to this screen.
+        .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
+    
+    private func content(_ previous: State?, _ current: State) -> [SectionModel] {
+        return [
+            SectionModel(
+                model: .developerMode,
+                elements: [
+                    SessionCell.Info(
+                        id: .developerMode,
+                        title: "Developer Mode",
+                        subtitle: """
+                        Grants access to this screen.
+                        
+                        Disabling this setting will:
+                        • Reset all the below settings to default (removing data as described below)
+                        • Revoke access to this screen unless Developer Mode is re-enabled
+                        """,
+                        trailingAccessory: .toggle(
+                            current.developerMode,
+                            oldValue: previous?.developerMode
+                        ),
+                        onTap: { [weak self] in
+                            guard current.developerMode else { return }
                             
-                            Disabling this setting will:
-                            • Reset all the below settings to default (removing data as described below)
-                            • Revoke access to this screen unless Developer Mode is re-enabled
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(current.developerMode, oldValue: (previous ?? current).developerMode)
-                            ),
-                            onTap: {
-                                guard current.developerMode else { return }
-                                
-                                self?.disableDeveloperMode()
-                            }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .network,
-                    elements: [
-                        SessionCell.Info(
-                            id: .serviceNetwork,
-                            title: "Environment",
-                            subtitle: """
-                            The environment used for sending requests and storing messages.
-                            
-                            <b>Warning:</b>
-                            Changing this setting will result in all conversation and snode data being cleared and any pending network requests being cancelled.
-                            """,
-                            trailingAccessory: .dropDown(
-                                .dynamicString { current.serviceNetwork.title }
-                            ),
-                            onTap: {
-                                self?.transitionToScreen(
-                                    SessionTableViewController(
-                                        viewModel: SessionListViewModel<ServiceNetwork>(
-                                            title: "Environment",
-                                            options: ServiceNetwork.allCases,
-                                            behaviour: .autoDismiss(
-                                                initialSelection: current.serviceNetwork,
-                                                onOptionSelected: self?.updateServiceNetwork
-                                            ),
-                                            using: dependencies
-                                        )
+                            self?.disableDeveloperMode()
+                        }
+                    )
+                ]
+            ),
+            SectionModel(
+                model: .network,
+                elements: [
+                    SessionCell.Info(
+                        id: .serviceNetwork,
+                        title: "Environment",
+                        subtitle: """
+                        The environment used for sending requests and storing messages.
+                        
+                        <b>Warning:</b>
+                        Changing this setting will result in all conversation and snode data being cleared and any pending network requests being cancelled.
+                        """,
+                        trailingAccessory: .dropDown { current.serviceNetwork.title },
+                        onTap: { [weak self, dependencies] in
+                            self?.transitionToScreen(
+                                SessionTableViewController(
+                                    viewModel: SessionListViewModel<ServiceNetwork>(
+                                        title: "Environment",
+                                        options: ServiceNetwork.allCases,
+                                        behaviour: .autoDismiss(
+                                            initialSelection: current.serviceNetwork,
+                                            onOptionSelected: self?.updateServiceNetwork
+                                        ),
+                                        using: dependencies
                                     )
                                 )
-                            }
-                        ),
-                        SessionCell.Info(
-                            id: .networkLayer,
-                            title: "Routing",
-                            subtitle: """
-                            The network layer which all network traffic should be routed through.
-                            
-                            We do support sending network traffic through multiple network layers, if multiple layers are selected then requests will wait for a response from all layers before completing with the first successful response.
-                            
-                            <b>Warning:</b>
-                            Different network layers offer different levels of privacy, make sure to read the description of the network layers before making a selection.
-                            """,
-                            trailingAccessory: .dropDown(
-                                .dynamicString { current.networkLayer.title }
-                            ),
-                            onTap: {
-                                self?.transitionToScreen(
-                                    SessionTableViewController(
-                                        viewModel: SessionListViewModel<Network.Layers>(
-                                            title: "Routing",
-                                            options: Network.Layers.allCases,
-                                            behaviour: .singleSelect(
-                                                initialSelection: current.networkLayer,
-                                                onSaved: self?.updateNetworkLayers
-                                            ),
-                                            using: dependencies
-                                        )
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .networkLayer,
+                        title: "Routing",
+                        subtitle: """
+                        The network layer which all network traffic should be routed through.
+                        
+                        We do support sending network traffic through multiple network layers, if multiple layers are selected then requests will wait for a response from all layers before completing with the first successful response.
+                        
+                        <b>Warning:</b>
+                        Different network layers offer different levels of privacy, make sure to read the description of the network layers before making a selection.
+                        """,
+                        trailingAccessory: .dropDown { current.networkLayer.title },
+                        onTap: { [weak self, dependencies] in
+                            self?.transitionToScreen(
+                                SessionTableViewController(
+                                    viewModel: SessionListViewModel<Network.Layers>(
+                                        title: "Routing",
+                                        options: Network.Layers.allCases,
+                                        behaviour: .singleSelect(
+                                            initialSelection: current.networkLayer,
+                                            onSaved: self?.updateNetworkLayers
+                                        ),
+                                        using: dependencies
                                     )
                                 )
-                            }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .disappearingMessages,
-                    elements: [
-                        SessionCell.Info(
-                            id: .debugDisappearingMessageDurations,
-                            title: "Debug Durations",
-                            subtitle: """
-                            Adds 10 and 60 second durations for Disappearing Message settings.
-                            
-                            These should only be used for debugging purposes and can result in odd behaviours.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(
-                                    current.debugDisappearingMessageDurations,
-                                    oldValue: (previous ?? current).debugDisappearingMessageDurations
-                                )
-                            ),
-                            onTap: {
-                                self?.updateFlag(
-                                    for: .debugDisappearingMessageDurations,
-                                    to: !current.debugDisappearingMessageDurations
-                                )
-                            }
+                            )
+                        }
+                    )
+                ]
+            ),
+            SectionModel(
+                model: .disappearingMessages,
+                elements: [
+                    SessionCell.Info(
+                        id: .debugDisappearingMessageDurations,
+                        title: "Debug Durations",
+                        subtitle: """
+                        Adds 10 and 60 second durations for Disappearing Message settings.
+                        
+                        These should only be used for debugging purposes and can result in odd behaviours.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.debugDisappearingMessageDurations,
+                            oldValue: previous?.debugDisappearingMessageDurations
                         ),
-                        SessionCell.Info(
-                            id: .updatedDisappearingMessages,
-                            title: "Use Updated Disappearing Messages",
-                            subtitle: """
-                            Controls whether legacy or updated disappearing messages should be used.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(
-                                    current.updatedDisappearingMessages,
-                                    oldValue: (previous ?? current).updatedDisappearingMessages
-                                )
-                            ),
-                            onTap: {
-                                self?.updateFlag(
-                                    for: .updatedDisappearingMessages,
-                                    to: !current.updatedDisappearingMessages
-                                )
-                            }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .groups,
-                    elements: [
-                        SessionCell.Info(
-                            id: .updatedGroups,
-                            title: "Create Updated Groups",
-                            subtitle: """
-                            Controls whether newly created groups are updated or legacy groups.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(current.updatedGroups, oldValue: (previous ?? current).updatedGroups)
-                            ),
-                            onTap: { self?.updateFlag(for: .updatedGroups, to: !current.updatedGroups) }
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .debugDisappearingMessageDurations,
+                                to: !current.debugDisappearingMessageDurations
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedDisappearingMessages,
+                        title: "Use Updated Disappearing Messages",
+                        subtitle: """
+                        Controls whether legacy or updated disappearing messages should be used.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedDisappearingMessages,
+                            oldValue: previous?.updatedDisappearingMessages
                         ),
-                        SessionCell.Info(
-                            id: .updatedGroupsDisableAutoApprove,
-                            title: "Disable Auto Approve",
-                            subtitle: """
-                            Prevents a group from automatically getting approved if the admin is already approved.
-                            
-                            <b>Note:</b> The default behaviour is to automatically approve new groups if the admin that sent the invitation is an approved contact.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(
-                                    current.updatedGroupsDisableAutoApprove,
-                                    oldValue: (previous ?? current).updatedGroupsDisableAutoApprove
-                                )
-                            ),
-                            onTap: {
-                                self?.updateFlag(
-                                    for: .updatedGroupsDisableAutoApprove,
-                                    to: !current.updatedGroupsDisableAutoApprove
-                                )
-                            }
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedDisappearingMessages,
+                                to: !current.updatedDisappearingMessages
+                            )
+                        }
+                    )
+                ]
+            ),
+            SectionModel(
+                model: .groups,
+                elements: [
+                    SessionCell.Info(
+                        id: .updatedGroups,
+                        title: "Create Updated Groups",
+                        subtitle: """
+                        Controls whether newly created groups are updated or legacy groups.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroups,
+                            oldValue: previous?.updatedGroups
                         ),
-                        SessionCell.Info(
-                            id: .updatedGroupsRemoveMessagesOnKick,
-                            title: "Remove Messages on Kick",
-                            subtitle: """
-                            Controls whether a group members messages should be removed when they are kicked from an updated group.
-                            
-                            <b>Note:</b> In a future release we will offer this as an option when removing members but for the initial release it can be controlled via this flag for testing purposes.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(
-                                    current.updatedGroupsRemoveMessagesOnKick,
-                                    oldValue: (previous ?? current).updatedGroupsRemoveMessagesOnKick
-                                )
-                            ),
-                            onTap: {
-                                self?.updateFlag(
-                                    for: .updatedGroupsRemoveMessagesOnKick,
-                                    to: !current.updatedGroupsRemoveMessagesOnKick
-                                )
-                            }
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroups,
+                                to: !current.updatedGroups
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsDisableAutoApprove,
+                        title: "Disable Auto Approve",
+                        subtitle: """
+                        Prevents a group from automatically getting approved if the admin is already approved.
+                        
+                        <b>Note:</b> The default behaviour is to automatically approve new groups if the admin that sent the invitation is an approved contact.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsDisableAutoApprove,
+                            oldValue: previous?.updatedGroupsDisableAutoApprove
                         ),
-                        SessionCell.Info(
-                            id: .updatedGroupsAllowHistoricAccessOnInvite,
-                            title: "Allow Historic Message Access",
-                            subtitle: """
-                            Controls whether members should be granted access to historic messages when invited to an updated group.
-                            
-                            <b>Note:</b> In a future release we will offer this as an option when inviting members but for the initial release it can be controlled via this flag for testing purposes.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(
-                                    current.updatedGroupsAllowHistoricAccessOnInvite,
-                                    oldValue: (previous ?? current).updatedGroupsAllowHistoricAccessOnInvite
-                                )
-                            ),
-                            onTap: {
-                                self?.updateFlag(
-                                    for: .updatedGroupsAllowHistoricAccessOnInvite,
-                                    to: !current.updatedGroupsAllowHistoricAccessOnInvite
-                                )
-                            }
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsDisableAutoApprove,
+                                to: !current.updatedGroupsDisableAutoApprove
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsRemoveMessagesOnKick,
+                        title: "Remove Messages on Kick",
+                        subtitle: """
+                        Controls whether a group members messages should be removed when they are kicked from an updated group.
+                        
+                        <b>Note:</b> In a future release we will offer this as an option when removing members but for the initial release it can be controlled via this flag for testing purposes.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsRemoveMessagesOnKick,
+                            oldValue: previous?.updatedGroupsRemoveMessagesOnKick
                         ),
-                        SessionCell.Info(
-                            id: .updatedGroupsAllowDisplayPicture,
-                            title: "Custom Display Pictures",
-                            subtitle: """
-                            Controls whether the UI allows group admins to set a custom display picture for a group.
-                            
-                            <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(
-                                    current.updatedGroupsAllowDisplayPicture,
-                                    oldValue: (previous ?? current).updatedGroupsAllowDisplayPicture
-                                )
-                            ),
-                            onTap: {
-                                self?.updateFlag(
-                                    for: .updatedGroupsAllowDisplayPicture,
-                                    to: !current.updatedGroupsAllowDisplayPicture
-                                )
-                            }
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsRemoveMessagesOnKick,
+                                to: !current.updatedGroupsRemoveMessagesOnKick
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsAllowHistoricAccessOnInvite,
+                        title: "Allow Historic Message Access",
+                        subtitle: """
+                        Controls whether members should be granted access to historic messages when invited to an updated group.
+                        
+                        <b>Note:</b> In a future release we will offer this as an option when inviting members but for the initial release it can be controlled via this flag for testing purposes.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsAllowHistoricAccessOnInvite,
+                            oldValue: previous?.updatedGroupsAllowHistoricAccessOnInvite
                         ),
-                        SessionCell.Info(
-                            id: .updatedGroupsAllowDescriptionEditing,
-                            title: "Edit Group Descriptions",
-                            subtitle: """
-                            Controls whether the UI allows group admins to modify the descriptions of updated groups.
-                            
-                            <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(
-                                    current.updatedGroupsAllowDescriptionEditing,
-                                    oldValue: (previous ?? current).updatedGroupsAllowDescriptionEditing
-                                )
-                            ),
-                            onTap: {
-                                self?.updateFlag(
-                                    for: .updatedGroupsAllowDescriptionEditing,
-                                    to: !current.updatedGroupsAllowDescriptionEditing
-                                )
-                            }
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsAllowHistoricAccessOnInvite,
+                                to: !current.updatedGroupsAllowHistoricAccessOnInvite
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsAllowDisplayPicture,
+                        title: "Custom Display Pictures",
+                        subtitle: """
+                        Controls whether the UI allows group admins to set a custom display picture for a group.
+                        
+                        <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsAllowDisplayPicture,
+                            oldValue: previous?.updatedGroupsAllowDisplayPicture
                         ),
-                        SessionCell.Info(
-                            id: .updatedGroupsAllowPromotions,
-                            title: "Allow Group Promotions",
-                            subtitle: """
-                            Controls whether the UI allows group admins promote other group members to admin within an updated group.
-                            
-                            <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                            """,
-                            trailingAccessory: .toggle(
-                                .boolValue(
-                                    current.updatedGroupsAllowPromotions,
-                                    oldValue: (previous ?? current).updatedGroupsAllowPromotions
-                                )
-                            ),
-                            onTap: {
-                                self?.updateFlag(
-                                    for: .updatedGroupsAllowPromotions,
-                                    to: !current.updatedGroupsAllowPromotions
-                                )
-                            }
-                        )
-                    ]
-                ),
-                SectionModel(
-                    model: .database,
-                    elements: [
-                        SessionCell.Info(
-                            id: .exportDatabase,
-                            title: "Export Database",
-                            trailingAccessory: .icon(
-                                UIImage(systemName: "square.and.arrow.up.trianglebadge.exclamationmark")?
-                                    .withRenderingMode(.alwaysTemplate),
-                                size: .small
-                            ),
-                            styling: SessionCell.StyleInfo(
-                                tintColor: .danger
-                            ),
-                            onTapView: { [weak self] view in self?.exportDatabase(view) }
-                        )
-                    ]
-                )
-            ]
-        }
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsAllowDisplayPicture,
+                                to: !current.updatedGroupsAllowDisplayPicture
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsAllowDescriptionEditing,
+                        title: "Edit Group Descriptions",
+                        subtitle: """
+                        Controls whether the UI allows group admins to modify the descriptions of updated groups.
+                        
+                        <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsAllowDescriptionEditing,
+                            oldValue: previous?.updatedGroupsAllowDescriptionEditing
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsAllowDescriptionEditing,
+                                to: !current.updatedGroupsAllowDescriptionEditing
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsAllowPromotions,
+                        title: "Allow Group Promotions",
+                        subtitle: """
+                        Controls whether the UI allows group admins promote other group members to admin within an updated group.
+                        
+                        <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsAllowPromotions,
+                            oldValue: previous?.updatedGroupsAllowPromotions
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsAllowPromotions,
+                                to: !current.updatedGroupsAllowPromotions
+                            )
+                        }
+                    )
+                ]
+            ),
+            SectionModel(
+                model: .database,
+                elements: [
+                    SessionCell.Info(
+                        id: .exportDatabase,
+                        title: "Export Database",
+                        trailingAccessory: .icon(
+                            UIImage(systemName: "square.and.arrow.up.trianglebadge.exclamationmark")?
+                                .withRenderingMode(.alwaysTemplate),
+                            size: .small
+                        ),
+                        styling: SessionCell.StyleInfo(
+                            tintColor: .danger
+                        ),
+                        onTapView: { [weak self] view in self?.exportDatabase(view) }
+                    )
+                ]
+            )
+        ]
+    }
     
     // MARK: - Functions
     

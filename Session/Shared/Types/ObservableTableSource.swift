@@ -321,11 +321,26 @@ public extension TableObservation {
         }
     }
     
+    func compactMap<R>(transform: @escaping (T) -> R?) -> TableObservation<R> {
+        return TableObservation<R> { viewModel, dependencies in
+            self.generatePublisher(viewModel, dependencies).compactMap(transform).eraseToAnyPublisher()
+        }
+    }
+    
     func mapWithPrevious<R>(transform: @escaping (T?, T) -> R) -> TableObservation<R> {
         return TableObservation<R> { viewModel, dependencies in
             self.generatePublisher(viewModel, dependencies)
                 .withPrevious()
                 .map(transform)
+                .eraseToAnyPublisher()
+        }
+    }
+    
+    func compactMapWithPrevious<R>(transform: @escaping (T?, T) -> R?) -> TableObservation<R> {
+        return TableObservation<R> { viewModel, dependencies in
+            self.generatePublisher(viewModel, dependencies)
+                .withPrevious()
+                .compactMap(transform)
                 .eraseToAnyPublisher()
         }
     }

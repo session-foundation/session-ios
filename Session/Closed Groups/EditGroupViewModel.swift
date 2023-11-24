@@ -132,249 +132,250 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 isValid: true
             )
         }
-        .map { [weak self, dependencies, threadId, userSessionId, selectedIdsSubject] (state: State) -> [SectionModel] in
-            guard state.isValid else {
-                return [
-                    SectionModel(
-                        model: .groupInfo,
-                        elements: [
-                            SessionCell.Info(
-                                id: .groupName,
-                                title: SessionCell.TextInfo(
-                                    "ERROR_UNABLE_TO_FIND_DATA".localized(),
-                                    font: .subtitle,
-                                    alignment: .center
-                                ),
-                                styling: SessionCell.StyleInfo(
-                                    tintColor: .textSecondary,
-                                    alignment: .centerHugging,
-                                    customPadding: SessionCell.Padding(top: Values.smallSpacing),
-                                    backgroundStyle: .noBackground
-                                )
-                            )
-                        ]
-                    )
-                ]
-            }
-            
-            let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: threadId)) ?? .group) == .group)
-            let threadVariant: SessionThread.Variant = (isUpdatedGroup ? .group : .legacyGroup)
-            let editIcon: UIImage? = UIImage(systemName: "pencil")
-            let sortedMembers: [WithProfile<GroupMember>] = {
-                guard !isUpdatedGroup else { return state.members }
-                
-                // FIXME: Remove this once legacy groups are deprecated
-                /// In legacy groups there would be both `standard` and `admin` `GroupMember` entries for admins so
-                /// pre-process the members in order to remove the duplicates
-                return Array(state.members
-                    .sorted(by: { lhs, rhs in lhs.value.role.rawValue < rhs.value.role.rawValue })
-                    .reduce(into: [:]) { result, next in result[next.profileId] = next }
-                    .values)
-            }()
-            .sorted()
-            
+        .compactMap { [weak self] state -> [SectionModel]? in self?.content(state) }
+    
+    private func content(_ state: State) -> [SectionModel] {
+        guard state.isValid else {
             return [
                 SectionModel(
                     model: .groupInfo,
                     elements: [
                         SessionCell.Info(
-                            id: .avatar,
-                            accessory: .profile(
-                                id: threadId,
-                                size: .hero,
-                                threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
-                                displayPictureFilename: state.group.displayPictureFilename,
-                                profile: state.profileFront,
-                                profileIcon: {
-                                    guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
-                                        return .none
-                                    }
-                                    
-                                    // If we already have a display picture then the main profile gets the icon
-                                    return (state.group.displayPictureFilename != nil ? .rightPlus : .none)
-                                }(),
-                                additionalProfile: state.profileBack,
-                                additionalProfileIcon: {
-                                    guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
-                                        return .none
-                                    }
-                                    
-                                    // No display picture means the dual-profile so the additionalProfile gets the icon
-                                    return .rightPlus
-                                }(),
-                                accessibility: nil
-                            ),
-                            styling: SessionCell.StyleInfo(
-                                alignment: .centerHugging,
-                                customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
-                                backgroundStyle: .noBackground
-                            ),
-                            accessibility: Accessibility(
-                                label: "Profile picture"
-                            ),
-                            onTap: {
-                                guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
-                                    return
-                                }
-                                
-                                self?.updateDisplayPicture(currentFileName: state.group.displayPictureFilename)
-                            }
-                        ),
-                        SessionCell.Info(
                             id: .groupName,
-                            leadingAccessory: .icon(
-                                editIcon?.withRenderingMode(.alwaysTemplate),
-                                size: .medium,
-                                customTint: .textSecondary
-                            ),
                             title: SessionCell.TextInfo(
-                                state.group.name,
-                                font: .titleLarge,
-                                alignment: .center,
-                                editingPlaceholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized()
+                                "ERROR_UNABLE_TO_FIND_DATA".localized(),
+                                font: .subtitle,
+                                alignment: .center
                             ),
                             styling: SessionCell.StyleInfo(
+                                tintColor: .textSecondary,
                                 alignment: .centerHugging,
-                                customPadding: SessionCell.Padding(
-                                    top: Values.smallSpacing,
-                                    leading: -((IconSize.medium.size + (Values.smallSpacing * 2)) / 2),
-                                    bottom: Values.smallSpacing,
-                                    interItem: 0
-                                ),
+                                customPadding: SessionCell.Padding(top: Values.smallSpacing),
                                 backgroundStyle: .noBackground
-                            ),
-                            accessibility: Accessibility(
-                                identifier: "Group name",
-                                label: state.group.name
-                            ),
-                            onTap: {
-                                self?.updateGroupNameAndDescription(
-                                    isUpdatedGroup: isUpdatedGroup,
-                                    currentName: state.group.name,
-                                    currentDescription: state.group.groupDescription
-                                )
-                            }
-                        ),
-                        ((state.group.groupDescription ?? "").isEmpty ? nil :
-                            SessionCell.Info(
-                                id: .groupDescription,
-                                title: SessionCell.TextInfo(
-                                    (state.group.groupDescription ?? ""),
-                                    font: .subtitle,
-                                    alignment: .center,
-                                    editingPlaceholder: "EDIT_GROUP_DESCRIPTION_PLACEHOLDER".localized()
-                                ),
-                                styling: SessionCell.StyleInfo(
-                                    tintColor: .textSecondary,
-                                    alignment: .centerHugging,
-                                    customPadding: SessionCell.Padding(
-                                        top: 0,
-                                        bottom: Values.smallSpacing
-                                    ),
-                                    backgroundStyle: .noBackground
-                                ),
-                                accessibility: Accessibility(
-                                    identifier: "Group description",
-                                    label: (state.group.groupDescription ?? "")
-                                ),
-                                onTap: {
-                                   self?.updateGroupNameAndDescription(
-                                       isUpdatedGroup: isUpdatedGroup,
-                                       currentName: state.group.name,
-                                       currentDescription: state.group.groupDescription
-                                   )
-                               }
                             )
-                         )
-                    ].compactMap { $0 }
-                ),
-                SectionModel(
-                    model: .invite,
-                    elements: [
-                        SessionCell.Info(
-                            id: .invite,
-                            leadingAccessory:  .icon(UIImage(named: "icon_invite")?.withRenderingMode(.alwaysTemplate)),
-                            title: "GROUP_ACTION_INVITE_CONTACTS".localized(),
-                            accessibility: Accessibility(
-                                identifier: "Invite Contacts",
-                                label: "Invite Contacts"
-                            ),
-                            onTap: { self?.inviteContacts(currentGroupName: state.group.name) }
                         )
                     ]
-                ),
-                SectionModel(
-                    model: .members,
-                    elements: sortedMembers
-                        .map { memberInfo -> SessionCell.Info in
-                            SessionCell.Info(
-                                id: .member(memberInfo.profileId),
-                                leadingAccessory:  .profile(
-                                    id: memberInfo.profileId,
-                                    profile: memberInfo.profile,
-                                    profileIcon: memberInfo.value.profileIcon
-                                ),
-                                title: (
-                                    memberInfo.profile?.displayName() ??
-                                    Profile.truncated(id: memberInfo.profileId, truncating: .middle)
-                                ),
-                                subtitle: (isUpdatedGroup ? memberInfo.value.statusDescription : nil),
-                                trailingAccessory: {
-                                    switch (memberInfo.value.role, memberInfo.value.roleStatus) {
-                                        case (.admin, _), (.moderator, _): return nil
-                                        case (.standard, .failed), (.standard, .sending):
-                                            return .highlightingBackgroundLabel(
-                                                title: "context_menu_resend".localized()
-                                            )
-                                        
-                                        // Intentionally including the 'pending' state in here as we want admins to
-                                        // be able to remove pending members - to resend the admin will have to remove
-                                        // and re-add the member
-                                        case (.standard, .pending), (.standard, .accepted), (.zombie, _):
-                                            return .radio(
-                                                isSelected: selectedIdsSubject.value.contains(memberInfo.profileId)
-                                            )
-                                    }
-                                }(),
-                                styling: SessionCell.StyleInfo(
-                                    subtitleTintColor: (isUpdatedGroup ? memberInfo.value.statusDescriptionColor : nil),
-                                    allowedSeparators: [],
-                                    customPadding: SessionCell.Padding(
-                                        top: Values.smallSpacing,
-                                        bottom: Values.smallSpacing
-                                    ),
-                                    backgroundStyle: .noBackgroundEdgeToEdge
-                                ),
-                                onTap: {
-                                    switch (memberInfo.value.role, memberInfo.value.roleStatus) {
-                                        case (.moderator, _): return
-                                        case (.admin, _):
-                                            self?.showToast(
-                                                text: "EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN".localized(),
-                                                backgroundColor: .backgroundSecondary
-                                            )
-                                            
-                                        case (.standard, .failed), (.standard, .sending):
-                                            self?.resendInvitation(memberId: memberInfo.profileId)
-    
-                                        case (.standard, .pending), (.standard, .accepted), (.zombie, _):
-                                            if !selectedIdsSubject.value.contains(memberInfo.profileId) {
-                                                selectedIdsSubject.send(selectedIdsSubject.value.inserting(memberInfo.profileId))
-                                            }
-                                            else {
-                                                selectedIdsSubject.send(selectedIdsSubject.value.removing(memberInfo.profileId))
-                                            }
-                                            
-                                            // Force the table data to be refreshed (the database wouldn't
-                                            // have been changed)
-                                            self?.forceRefresh(type: .postDatabaseQuery)
-                                    }
-                                }
-                            )
-                        }
                 )
             ]
         }
+        
+        let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: threadId)) ?? .group) == .group)
+        let editIcon: UIImage? = UIImage(systemName: "pencil")
+        let sortedMembers: [WithProfile<GroupMember>] = {
+            guard !isUpdatedGroup else { return state.members }
+            
+            // FIXME: Remove this once legacy groups are deprecated
+            /// In legacy groups there would be both `standard` and `admin` `GroupMember` entries for admins so
+            /// pre-process the members in order to remove the duplicates
+            return Array(state.members
+                .sorted(by: { lhs, rhs in lhs.value.role.rawValue < rhs.value.role.rawValue })
+                .reduce(into: [:]) { result, next in result[next.profileId] = next }
+                .values)
+        }()
+        .sorted()
+        
+        return [
+            SectionModel(
+                model: .groupInfo,
+                elements: [
+                    SessionCell.Info(
+                        id: .avatar,
+                        accessory: .profile(
+                            id: threadId,
+                            size: .hero,
+                            threadVariant: (isUpdatedGroup ? .group : .legacyGroup),
+                            displayPictureFilename: state.group.displayPictureFilename,
+                            profile: state.profileFront,
+                            profileIcon: {
+                                guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
+                                    return .none
+                                }
+                                
+                                // If we already have a display picture then the main profile gets the icon
+                                return (state.group.displayPictureFilename != nil ? .rightPlus : .none)
+                            }(),
+                            additionalProfile: state.profileBack,
+                            additionalProfileIcon: {
+                                guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
+                                    return .none
+                                }
+                                
+                                // No display picture means the dual-profile so the additionalProfile gets the icon
+                                return .rightPlus
+                            }(),
+                            accessibility: nil
+                        ),
+                        styling: SessionCell.StyleInfo(
+                            alignment: .centerHugging,
+                            customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                            backgroundStyle: .noBackground
+                        ),
+                        accessibility: Accessibility(
+                            label: "Profile picture"
+                        ),
+                        onTap: { [weak self, dependencies] in
+                            guard isUpdatedGroup && dependencies[feature: .updatedGroupsAllowDisplayPicture] else {
+                                return
+                            }
+                            
+                            self?.updateDisplayPicture(currentFileName: state.group.displayPictureFilename)
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .groupName,
+                        leadingAccessory: .icon(
+                            editIcon?.withRenderingMode(.alwaysTemplate),
+                            size: .medium,
+                            customTint: .textSecondary
+                        ),
+                        title: SessionCell.TextInfo(
+                            state.group.name,
+                            font: .titleLarge,
+                            alignment: .center,
+                            editingPlaceholder: "EDIT_GROUP_NAME_PLACEHOLDER".localized()
+                        ),
+                        styling: SessionCell.StyleInfo(
+                            alignment: .centerHugging,
+                            customPadding: SessionCell.Padding(
+                                top: Values.smallSpacing,
+                                leading: -((IconSize.medium.size + (Values.smallSpacing * 2)) / 2),
+                                bottom: Values.smallSpacing,
+                                interItem: 0
+                            ),
+                            backgroundStyle: .noBackground
+                        ),
+                        accessibility: Accessibility(
+                            identifier: "Group name",
+                            label: state.group.name
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateGroupNameAndDescription(
+                                isUpdatedGroup: isUpdatedGroup,
+                                currentName: state.group.name,
+                                currentDescription: state.group.groupDescription
+                            )
+                        }
+                    ),
+                    ((state.group.groupDescription ?? "").isEmpty ? nil :
+                        SessionCell.Info(
+                            id: .groupDescription,
+                            title: SessionCell.TextInfo(
+                                (state.group.groupDescription ?? ""),
+                                font: .subtitle,
+                                alignment: .center,
+                                editingPlaceholder: "EDIT_GROUP_DESCRIPTION_PLACEHOLDER".localized()
+                            ),
+                            styling: SessionCell.StyleInfo(
+                                tintColor: .textSecondary,
+                                alignment: .centerHugging,
+                                customPadding: SessionCell.Padding(
+                                    top: 0,
+                                    bottom: Values.smallSpacing
+                                ),
+                                backgroundStyle: .noBackground
+                            ),
+                            accessibility: Accessibility(
+                                identifier: "Group description",
+                                label: (state.group.groupDescription ?? "")
+                            ),
+                            onTap: { [weak self] in
+                               self?.updateGroupNameAndDescription(
+                                   isUpdatedGroup: isUpdatedGroup,
+                                   currentName: state.group.name,
+                                   currentDescription: state.group.groupDescription
+                               )
+                           }
+                        )
+                     )
+                ].compactMap { $0 }
+            ),
+            SectionModel(
+                model: .invite,
+                elements: [
+                    SessionCell.Info(
+                        id: .invite,
+                        leadingAccessory:  .icon(UIImage(named: "icon_invite")?.withRenderingMode(.alwaysTemplate)),
+                        title: "GROUP_ACTION_INVITE_CONTACTS".localized(),
+                        accessibility: Accessibility(
+                            identifier: "Invite Contacts",
+                            label: "Invite Contacts"
+                        ),
+                        onTap: { [weak self] in self?.inviteContacts(currentGroupName: state.group.name) }
+                    )
+                ]
+            ),
+            SectionModel(
+                model: .members,
+                elements: sortedMembers
+                    .map { memberInfo -> SessionCell.Info in
+                        SessionCell.Info(
+                            id: .member(memberInfo.profileId),
+                            leadingAccessory:  .profile(
+                                id: memberInfo.profileId,
+                                profile: memberInfo.profile,
+                                profileIcon: memberInfo.value.profileIcon
+                            ),
+                            title: (
+                                memberInfo.profile?.displayName() ??
+                                Profile.truncated(id: memberInfo.profileId, truncating: .middle)
+                            ),
+                            subtitle: (isUpdatedGroup ? memberInfo.value.statusDescription : nil),
+                            trailingAccessory: {
+                                switch (memberInfo.value.role, memberInfo.value.roleStatus) {
+                                    case (.admin, _), (.moderator, _): return nil
+                                    case (.standard, .failed), (.standard, .sending):
+                                        return .highlightingBackgroundLabel(
+                                            title: "context_menu_resend".localized()
+                                        )
+                                    
+                                    // Intentionally including the 'pending' state in here as we want admins to
+                                    // be able to remove pending members - to resend the admin will have to remove
+                                    // and re-add the member
+                                    case (.standard, .pending), (.standard, .accepted), (.zombie, _):
+                                        return .radio(
+                                            isSelected: selectedIdsSubject.value.contains(memberInfo.profileId)
+                                        )
+                                }
+                            }(),
+                            styling: SessionCell.StyleInfo(
+                                subtitleTintColor: (isUpdatedGroup ? memberInfo.value.statusDescriptionColor : nil),
+                                allowedSeparators: [],
+                                customPadding: SessionCell.Padding(
+                                    top: Values.smallSpacing,
+                                    bottom: Values.smallSpacing
+                                ),
+                                backgroundStyle: .noBackgroundEdgeToEdge
+                            ),
+                            onTap: { [weak self, selectedIdsSubject] in
+                                switch (memberInfo.value.role, memberInfo.value.roleStatus) {
+                                    case (.moderator, _): return
+                                    case (.admin, _):
+                                        self?.showToast(
+                                            text: "EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN".localized(),
+                                            backgroundColor: .backgroundSecondary
+                                        )
+                                        
+                                    case (.standard, .failed), (.standard, .sending):
+                                        self?.resendInvitation(memberId: memberInfo.profileId)
+
+                                    case (.standard, .pending), (.standard, .accepted), (.zombie, _):
+                                        if !selectedIdsSubject.value.contains(memberInfo.profileId) {
+                                            selectedIdsSubject.send(selectedIdsSubject.value.inserting(memberInfo.profileId))
+                                        }
+                                        else {
+                                            selectedIdsSubject.send(selectedIdsSubject.value.removing(memberInfo.profileId))
+                                        }
+                                        
+                                        // Force the table data to be refreshed (the database wouldn't
+                                        // have been changed)
+                                        self?.forceRefresh(type: .postDatabaseQuery)
+                                }
+                            }
+                        )
+                    }
+            )
+        ]
+    }
     
     lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = selectedIdsSubject
         .prepend([])

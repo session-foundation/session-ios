@@ -110,11 +110,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             title: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE".localized(),
                             subtitle: "PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION".localized(),
                             trailingAccessory: .toggle(
-                                .boolValue(
-                                    key: .isScreenLockEnabled,
-                                    value: current.isScreenLockEnabled,
-                                    oldValue: (previous ?? current).isScreenLockEnabled
-                                )
+                                current.isScreenLockEnabled,
+                                oldValue: previous?.isScreenLockEnabled
                             ),
                             onTap: { [weak self] in
                                 // Make sure the device has a passcode set before allowing screen lock to
@@ -152,11 +149,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             title: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE".localized(),
                             subtitle: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION".localized(),
                             trailingAccessory: .toggle(
-                                .boolValue(
-                                    key: .checkForCommunityMessageRequests,
-                                    value: current.checkForCommunityMessageRequests,
-                                    oldValue: (previous ?? current).checkForCommunityMessageRequests
-                                )
+                                current.checkForCommunityMessageRequests,
+                                oldValue: previous?.checkForCommunityMessageRequests
                             ),
                             onTap: { [weak self] in
                                 dependencies[singleton: .storage].write { db in
@@ -178,11 +172,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             title: "PRIVACY_READ_RECEIPTS_TITLE".localized(),
                             subtitle: "PRIVACY_READ_RECEIPTS_DESCRIPTION".localized(),
                             trailingAccessory: .toggle(
-                                .boolValue(
-                                    key: .areReadReceiptsEnabled,
-                                    value: current.areReadReceiptsEnabled,
-                                    oldValue: (previous ?? current).areReadReceiptsEnabled
-                                )
+                                current.areReadReceiptsEnabled,
+                                oldValue: previous?.areReadReceiptsEnabled
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in
@@ -236,11 +227,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 }
                             ),
                             trailingAccessory: .toggle(
-                                .boolValue(
-                                    key: .typingIndicatorsEnabled,
-                                    value: current.typingIndicatorsEnabled,
-                                    oldValue: (previous ?? current).typingIndicatorsEnabled
-                                )
+                                current.typingIndicatorsEnabled,
+                                oldValue: previous?.typingIndicatorsEnabled
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in
@@ -262,11 +250,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             title: "PRIVACY_LINK_PREVIEWS_TITLE".localized(),
                             subtitle: "PRIVACY_LINK_PREVIEWS_DESCRIPTION".localized(),
                             trailingAccessory: .toggle(
-                                .boolValue(
-                                    key: .areLinkPreviewsEnabled,
-                                    value: current.areLinkPreviewsEnabled,
-                                    oldValue: (previous ?? current).areLinkPreviewsEnabled
-                                )
+                                current.areLinkPreviewsEnabled,
+                                oldValue: previous?.areLinkPreviewsEnabled
                             ),
                             onTap: {
                                 dependencies[singleton: .storage].write { db in
@@ -288,11 +273,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                             title: "PRIVACY_CALLS_TITLE".localized(),
                             subtitle: "PRIVACY_CALLS_DESCRIPTION".localized(),
                             trailingAccessory: .toggle(
-                                .boolValue(
-                                    key: .areCallsEnabled,
-                                    value: current.areCallsEnabled,
-                                    oldValue: (previous ?? current).areCallsEnabled
-                                )
+                                current.areCallsEnabled,
+                                oldValue: previous?.areCallsEnabled
                             ),
                             accessibility: Accessibility(
                                 label: "Allow voice and video calls"

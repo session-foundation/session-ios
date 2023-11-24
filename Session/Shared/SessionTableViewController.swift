@@ -565,10 +565,10 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             }
             
             switch (info.leadingAccessory, info.trailingAccessory) {
-                case (_, .highlightingBackgroundLabel(_, _)):
+                case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabel):
                     return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell)
                     
-                case (.highlightingBackgroundLabel(_, _), _):
+                case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabel, _):
                     return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell)
                 
                 default:
@@ -579,8 +579,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             .enumerated()
             .first(where: { index, info in
                 switch (info.leadingAccessory, info.trailingAccessory) {
-                    case (_, .radio(_, _, let liveIsSelected, _, _)): return liveIsSelected()
-                    case (.radio(_, _, let liveIsSelected, _, _), _): return liveIsSelected()
+                    case (_, let accessory as SessionCell.AccessoryConfig.Radio): return accessory.liveIsSelected()
+                    case (let accessory as SessionCell.AccessoryConfig.Radio, _): return accessory.liveIsSelected()
                     default: return false
                 }
             })
