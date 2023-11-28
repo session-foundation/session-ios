@@ -118,6 +118,10 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                             
                             let finalAction: OnTapAction = finalAction(for: onTapAction)
                             let trailingAccessory: SessionCell.Accessory? = generateAccessory(finalAction)
+                            let title: String = (
+                                userInfo.profile?.displayName() ??
+                                Profile.truncated(id: userInfo.profileId, truncating: .middle)
+                            )
                             
                             return SessionCell.Info(
                                 id: .user(userInfo.profileId),
@@ -126,10 +130,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                     profile: userInfo.profile,
                                     profileIcon: (showProfileIcons ? userInfo.value.profileIcon : .none)
                                 ),
-                                title: (
-                                    userInfo.profile?.displayName() ??
-                                    Profile.truncated(id: userInfo.profileId, truncating: .middle)
-                                ),
+                                title: title,
                                 subtitle: userInfo.itemDescription(using: dependencies),
                                 trailingAccessory: trailingAccessory,
                                 styling: SessionCell.StyleInfo(
@@ -140,6 +141,10 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                         bottom: Values.smallSpacing
                                     ),
                                     backgroundStyle: .noBackgroundEdgeToEdge
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Contact",
+                                    label: title
                                 ),
                                 onTap: {
                                     // Trigger any 'onTap' actions
