@@ -19,7 +19,11 @@ public extension SessionCell {
         }
         
         public func hash(into hasher: inout Hasher) {}
-        public static func == (lhs: SessionCell.Accessory, rhs: SessionCell.Accessory) -> Bool { false }
+        fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool { return false }
+        
+        public static func == (lhs: SessionCell.Accessory, rhs: SessionCell.Accessory) -> Bool {
+            return lhs.isEqual(to: rhs)
+        }
     }
 }
 
@@ -207,13 +211,15 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: Icon, rhs: Icon) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: Icon = other as? Icon else { return false }
+            
             return (
-                lhs.image == rhs.image &&
-                lhs.iconSize == rhs.iconSize &&
-                lhs.customTint == rhs.customTint &&
-                lhs.shouldFill == rhs.shouldFill &&
-                lhs.accessibility == rhs.accessibility
+                image == rhs.image &&
+                iconSize == rhs.iconSize &&
+                customTint == rhs.customTint &&
+                shouldFill == rhs.shouldFill &&
+                accessibility == rhs.accessibility
             )
         }
     }
@@ -252,12 +258,14 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: IconAsync, rhs: IconAsync) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: IconAsync = other as? IconAsync else { return false }
+            
             return (
-                lhs.iconSize == rhs.iconSize &&
-                lhs.customTint == rhs.customTint &&
-                lhs.shouldFill == rhs.shouldFill &&
-                lhs.accessibility == rhs.accessibility
+                iconSize == rhs.iconSize &&
+                customTint == rhs.customTint &&
+                shouldFill == rhs.shouldFill &&
+                accessibility == rhs.accessibility
             )
         }
     }
@@ -289,11 +297,13 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: Toggle, rhs: Toggle) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: Toggle = other as? Toggle else { return false }
+            
             return (
-                lhs.value == rhs.value &&
-                lhs.oldValue == rhs.oldValue &&
-                lhs.accessibility == rhs.accessibility
+                value == rhs.value &&
+                oldValue == rhs.oldValue &&
+                accessibility == rhs.accessibility
             )
         }
     }
@@ -319,10 +329,12 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: DropDown, rhs: DropDown) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: DropDown = other as? DropDown else { return false }
+            
             return (
-                lhs.dynamicString() == rhs.dynamicString() &&
-                lhs.accessibility == rhs.accessibility
+                dynamicString() == rhs.dynamicString() &&
+                accessibility == rhs.accessibility
             )
         }
     }
@@ -380,12 +392,14 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: Radio, rhs: Radio) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: Radio = other as? Radio else { return false }
+            
             return (
-                lhs.size == rhs.size &&
-                lhs.initialIsSelected == rhs.initialIsSelected &&
-                lhs.wasSavedSelection == rhs.wasSavedSelection &&
-                lhs.accessibility == rhs.accessibility
+                size == rhs.size &&
+                initialIsSelected == rhs.initialIsSelected &&
+                wasSavedSelection == rhs.wasSavedSelection &&
+                accessibility == rhs.accessibility
             )
         }
     }
@@ -411,10 +425,14 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: HighlightingBackgroundLabel, rhs: HighlightingBackgroundLabel) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: HighlightingBackgroundLabel = other as? HighlightingBackgroundLabel else {
+                return false
+            }
+            
             return (
-                lhs.title == rhs.title &&
-                lhs.accessibility == rhs.accessibility
+                title == rhs.title &&
+                accessibility == rhs.accessibility
             )
         }
     }
@@ -468,17 +486,19 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: DisplayPicture, rhs: DisplayPicture) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: DisplayPicture = other as? DisplayPicture else { return false }
+            
             return (
-                lhs.id == rhs.id &&
-                lhs.size == rhs.size &&
-                lhs.threadVariant == rhs.threadVariant &&
-                lhs.displayPictureFilename == rhs.displayPictureFilename &&
-                lhs.profile == rhs.profile &&
-                lhs.profileIcon == rhs.profileIcon &&
-                lhs.additionalProfile == rhs.additionalProfile &&
-                lhs.additionalProfileIcon == rhs.additionalProfileIcon &&
-                lhs.accessibility == rhs.accessibility
+                id == rhs.id &&
+                size == rhs.size &&
+                threadVariant == rhs.threadVariant &&
+                displayPictureFilename == rhs.displayPictureFilename &&
+                profile == rhs.profile &&
+                profileIcon == rhs.profileIcon &&
+                additionalProfile == rhs.additionalProfile &&
+                additionalProfileIcon == rhs.additionalProfileIcon &&
+                accessibility == rhs.accessibility
             )
         }
     }
@@ -505,10 +525,11 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: Search, rhs: Search) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             return (
-                lhs.placeholder == rhs.placeholder &&
-                lhs.accessibility == rhs.accessibility
+                other is Search &&
+                placeholder == (other as? Search)?.placeholder &&
+                accessibility == (other as? Search)?.accessibility
             )
         }
     }
@@ -539,11 +560,12 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: Button, rhs: Button) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             return (
-                lhs.style == rhs.style &&
-                lhs.title == rhs.title &&
-                lhs.accessibility == rhs.accessibility
+                other is Button &&
+                style == (other as? Button)?.style &&
+                title == (other as? Button)?.title &&
+                accessibility == (other as? Button)?.accessibility
             )
         }
     }
@@ -570,10 +592,11 @@ public extension SessionCell.AccessoryConfig {
             accessibility.hash(into: &hasher)
         }
         
-        public static func == (lhs: CustomView, rhs: CustomView) -> Bool {
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
             return (
-                lhs.uniqueId == rhs.uniqueId &&
-                lhs.accessibility == rhs.accessibility
+                other is CustomView &&
+                uniqueId == (other as? CustomView)?.uniqueId &&
+                accessibility == (other as? CustomView)?.accessibility
             )
         }
     }
