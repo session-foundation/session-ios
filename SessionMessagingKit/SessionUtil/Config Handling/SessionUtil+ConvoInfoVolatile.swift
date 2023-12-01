@@ -237,10 +237,19 @@ internal extension SessionUtil {
         threads: [SessionThread],
         using dependencies: Dependencies
     ) throws {
+        // The current users thread data is stored in the `UserProfile` config so exclude it, we
+        // also don't want to sync blinded message requests so exclude those as well
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let targetThreads: [SessionThread] = threads
+            .filter {
+                $0.id != userSessionId.hexString &&
+                (try? SessionId(from: $0.id))?.prefix == .standard
+            }
+        
         // If we have no updated threads then no need to continue
-        guard !threads.isEmpty else { return }
+        guard !targetThreads.isEmpty else { return }
 
-        let changes: [VolatileThreadInfo] = try threads.map { thread in
+        let changes: [VolatileThreadInfo] = try targetThreads.map { thread in
             VolatileThreadInfo(
                 threadId: thread.id,
                 variant: thread.variant,
