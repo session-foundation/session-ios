@@ -28,7 +28,9 @@ internal extension SessionUtil {
         groupSessionId: SessionId,
         using dependencies: Dependencies
     ) throws {
-        guard case .groupKeys(let conf, _, _) = config else { throw SessionUtilError.invalidConfigObject }
+        guard case .groupKeys(let conf, let infoConf, let membersConf) = config else {
+            throw SessionUtilError.invalidConfigObject
+        }
         
         /// If two admins rekeyed for different member changes at the same time then there is a "key collision" and the "needs rekey" function
         /// will return true to indicate that a 3rd `rekey` needs to be made to have a final set of keys which includes all members
@@ -37,7 +39,14 @@ internal extension SessionUtil {
         /// so we should rely solely on `groups_keys_needs_rekey`
         guard groups_keys_needs_rekey(conf) else { return }
         
-        try rekey(db, groupSessionId: groupSessionId, using: dependencies)
+        // Performing a `rekey` returns the updated key data which we don't use directly, this updated
+        // key will now be returned by `groups_keys_pending_config` which the `ConfigurationSyncJob` uses
+        // when generating pending changes for group keys so we don't need to push it directly
+        var pushResult: UnsafePointer<UInt8>? = nil
+        var pushResultLen: Int = 0
+        guard groups_keys_rekey(conf, infoConf, membersConf, &pushResult, &pushResultLen) else {
+            throw SessionUtilError.failedToRekeyGroup
+        }
     }
 }
 
