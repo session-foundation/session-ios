@@ -40,9 +40,19 @@ final class InfoMessageCell: MessageCell {
         
         return result
     }()
+    
+    private lazy var actionLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.themeTextColor = .primary
+        result.textAlignment = .center
+        result.numberOfLines = 1
+        
+        return result
+    }()
 
     private lazy var stackView: UIStackView = {
-        let result: UIStackView = UIStackView(arrangedSubviews: [ iconContainerView, label ])
+        let result: UIStackView = UIStackView(arrangedSubviews: [ iconContainerView, label, actionLabel ])
         result.axis = .vertical
         result.alignment = .center
         result.spacing = Values.smallSpacing
@@ -68,6 +78,10 @@ final class InfoMessageCell: MessageCell {
     override func setUpGestureRecognizers() {
         let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
         addGestureRecognizer(longPressRecognizer)
+        
+        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        tapGestureRecognizer.numberOfTapsRequired = 1
+        addGestureRecognizer(tapGestureRecognizer)
     }
 
     // MARK: - Updating
@@ -104,6 +118,13 @@ final class InfoMessageCell: MessageCell {
         self.label.text = cellViewModel.body
         self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textSecondary
         
+        if cellViewModel.variant == .infoDisappearingMessagesUpdate && cellViewModel.canDoFollowingSetting() {
+            self.actionLabel.isHidden = false
+            self.actionLabel.text = "FOLLOW_SETTING_TITLE".localized()
+        } else {
+            self.actionLabel.isHidden = true
+        }
+        
         let shouldShowIcon: Bool = (icon != nil) || ((cellViewModel.expiresInSeconds ?? 0) > 0)
         
         iconContainerViewWidthConstraint.constant = shouldShowIcon ? InfoMessageCell.iconSize : 0
@@ -136,7 +157,7 @@ final class InfoMessageCell: MessageCell {
     
     // MARK: - Interaction
     
-    @objc func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
+    @objc func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         if [ .ended, .cancelled, .failed ].contains(gestureRecognizer.state) {
             isHandlingLongPress = false
             return
@@ -145,5 +166,13 @@ final class InfoMessageCell: MessageCell {
         
         delegate?.handleItemLongPressed(cellViewModel)
         isHandlingLongPress = true
+    }
+    
+    @objc func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+        guard let cellViewModel: MessageViewModel = self.viewModel else { return }
+        
+        if cellViewModel.variant == .infoDisappearingMessagesUpdate && cellViewModel.canDoFollowingSetting() {
+            delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer)
+        }
     }
 }

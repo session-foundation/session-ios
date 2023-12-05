@@ -573,9 +573,9 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Speichern";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "Diese Einstellung gilt für alle in dieser Unterhaltung.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Diese Einstellung gilt für alle in dieser Unterhaltung. Nur Gruppenadministratoren können diese Einstellung ändern.";
-"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ hat eingestellt, dass die Nachrichten %@ verschwinden, nachdem sie %@ sind";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ hat eingestellt, dass die Nachrichten %@ verschwinden, nachdem sie %@ sind";
-"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ hat verschwindende Nachrichten ausgeschaltet";
+"DISAPPERING_MESSAGES_INFO_ENABLE_LEGACY" = "%@ hat eingestellt, dass die Nachrichten %@ verschwinden, nachdem sie %@ sind";
+"DISAPPERING_MESSAGES_INFO_UPDATE_LEGACY" = "%@ hat eingestellt, dass die Nachrichten %@ verschwinden, nachdem sie %@ sind";
+"DISAPPERING_MESSAGES_INFO_DISABLE_LEGACY" = "%@ hat verschwindende Nachrichten ausgeschaltet";
 
 /* context_menu_info */
 "context_menu_info" = "Info";
@@ -779,19 +779,19 @@
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
 
 /* A message indicating how the disappearing messages setting applies in a one-to-one conversation */
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to messages you send in this conversation. ";
 
 /* A message indicating how the disappearing messages setting applies in a group conversation */
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE_LEGACY" = "You have set messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
-"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE_LEGACY" = "You have changed messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE_LEGACY" = "You have turned off disappearing messages";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
@@ -829,3 +829,17 @@ The point that a message will disappear in a disappearing message update message
 
 /* The subtitle describing the current disappear after send setting, the '%@' will be replaced by a duration */
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";
+
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+
+"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set their messages to disappear %@ after they have been %@.";
+
+"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages. Messages they send will no longer disappear.";
+
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You set your messages to disappear %@ after they have been %@.";
+
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You turned off disappearing messages. Messages you send will no longer disappear.";

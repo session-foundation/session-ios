@@ -131,19 +131,9 @@ public extension DisappearingMessagesConfiguration {
         
         var previewText: String {
             guard Features.useNewDisappearingMessagesConfig else { return legacyPreviewText }
-            
             guard let senderName: String = senderName else {
-                // Changed by this device or via synced transcript
                 guard isEnabled, durationSeconds > 0 else {
                     return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized()
-                }
-                
-                guard isPreviousOff == true else {
-                    return String(
-                        format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE".localized(),
-                        floor(durationSeconds).formatted(format: .long),
-                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                    )
                 }
                 
                 return String(
@@ -157,9 +147,45 @@ public extension DisappearingMessagesConfiguration {
                 return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(), senderName)
             }
             
+            return String(
+                format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
+                senderName,
+                floor(durationSeconds).formatted(format: .long),
+                (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+            )
+        }
+        
+        var previewTextLegacyGroup: String {
+            guard Features.useNewDisappearingMessagesConfig else { return legacyPreviewText }
+            
+            guard let senderName: String = senderName else {
+                // Changed by this device or via synced transcript
+                guard isEnabled, durationSeconds > 0 else {
+                    return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE_LEGACY".localized()
+                }
+                
+                guard isPreviousOff == true else {
+                    return String(
+                        format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE_LEGACY".localized(),
+                        floor(durationSeconds).formatted(format: .long),
+                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                    )
+                }
+                
+                return String(
+                    format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE_LEGACY".localized(),
+                    floor(durationSeconds).formatted(format: .long),
+                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                )
+            }
+            
+            guard isEnabled, durationSeconds > 0 else {
+                return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE_LEGACY".localized(), senderName)
+            }
+            
             guard isPreviousOff == true else {
                 return String(
-                    format: "DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
+                    format: "DISAPPERING_MESSAGES_INFO_UPDATE_LEGACY".localized(),
                     senderName,
                     floor(durationSeconds).formatted(format: .long),
                     (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
@@ -167,7 +193,7 @@ public extension DisappearingMessagesConfiguration {
             }
             
             return String(
-                format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
+                format: "DISAPPERING_MESSAGES_INFO_ENABLE_LEGACY".localized(),
                 senderName,
                 floor(durationSeconds).formatted(format: .long),
                 (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())

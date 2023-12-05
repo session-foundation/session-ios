@@ -573,9 +573,9 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Nastavit";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "Toto nastavení se týká všech účastníků této konverzace.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Toto nastavení se týká všech účastníků této konverzace. Toto nastavení mohou změnit pouze správci skupiny.";
-"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ nastavil/a zprávy tak, aby zmizely %@ poté, co byly %@";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ změnil/a zprávy tak, aby zmizely %@ poté, co byly %@";
-"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ vypnul/a mizející zprávy";
+"DISAPPERING_MESSAGES_INFO_ENABLE_LEGACY" = "%@ nastavil/a zprávy tak, aby zmizely %@ poté, co byly %@";
+"DISAPPERING_MESSAGES_INFO_UPDATE_LEGACY" = "%@ změnil/a zprávy tak, aby zmizely %@ poté, co byly %@";
+"DISAPPERING_MESSAGES_INFO_DISABLE_LEGACY" = "%@ vypnul/a mizející zprávy";
 
 /* context_menu_info */
 "context_menu_info" = "Info";
@@ -785,13 +785,13 @@
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Zprávy zmizí po odeslání.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "Nastavili jste mizení zpráv %@ po odeslání %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE_LEGACY" = "Nastavili jste mizení zpráv %@ po odeslání %@";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
-"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "Nastavili jste mizení zpráv %@ po jejich %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE_LEGACY" = "Nastavili jste mizení zpráv %@ po jejich %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "Zakázali jste mizející zprávy";
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE_LEGACY" = "Zakázali jste mizející zprávy";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Zastaralé";
@@ -829,3 +829,17 @@ The point that a message will disappear in a disappearing message update message
 
 /* The subtitle describing the current disappear after send setting, the '%@' will be replaced by a duration */
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";
+
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+
+"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set their messages to disappear %@ after they have been %@.";
+
+"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages. Messages they send will no longer disappear.";
+
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You set your messages to disappear %@ after they have been %@.";
+
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You turned off disappearing messages. Messages you send will no longer disappear.";

@@ -218,6 +218,13 @@ extension WebSocketProtos_WebSocketMessage.TypeEnum: CaseIterable {
 
 #endif  // swift(>=4.2)
 
+#if swift(>=5.5) && canImport(_Concurrency)
+extension WebSocketProtos_WebSocketRequestMessage: @unchecked Sendable {}
+extension WebSocketProtos_WebSocketResponseMessage: @unchecked Sendable {}
+extension WebSocketProtos_WebSocketMessage: @unchecked Sendable {}
+extension WebSocketProtos_WebSocketMessage.TypeEnum: @unchecked Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "WebSocketProtos"
@@ -249,18 +256,22 @@ extension WebSocketProtos_WebSocketRequestMessage: SwiftProtobuf.Message, SwiftP
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._verb {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._verb {
       try visitor.visitSingularStringField(value: v, fieldNumber: 1)
-    }
-    if let v = self._path {
+    } }()
+    try { if let v = self._path {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    }
-    if let v = self._body {
+    } }()
+    try { if let v = self._body {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
-    }
-    if let v = self._requestID {
+    } }()
+    try { if let v = self._requestID {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 4)
-    }
+    } }()
     if !self.headers.isEmpty {
       try visitor.visitRepeatedStringField(value: self.headers, fieldNumber: 5)
     }
@@ -305,18 +316,22 @@ extension WebSocketProtos_WebSocketResponseMessage: SwiftProtobuf.Message, Swift
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._requestID {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._requestID {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 1)
-    }
-    if let v = self._status {
+    } }()
+    try { if let v = self._status {
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 2)
-    }
-    if let v = self._message {
+    } }()
+    try { if let v = self._message {
       try visitor.visitSingularStringField(value: v, fieldNumber: 3)
-    }
-    if let v = self._body {
+    } }()
+    try { if let v = self._body {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 4)
-    }
+    } }()
     if !self.headers.isEmpty {
       try visitor.visitRepeatedStringField(value: self.headers, fieldNumber: 5)
     }
@@ -357,15 +372,19 @@ extension WebSocketProtos_WebSocketMessage: SwiftProtobuf.Message, SwiftProtobuf
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._type {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._type {
       try visitor.visitSingularEnumField(value: v, fieldNumber: 1)
-    }
-    if let v = self._request {
+    } }()
+    try { if let v = self._request {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    }
-    if let v = self._response {
+    } }()
+    try { if let v = self._response {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 

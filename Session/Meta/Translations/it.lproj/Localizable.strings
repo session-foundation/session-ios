@@ -573,9 +573,9 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Imposta";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "Questa impostazione si applica a tutti i partecipanti di questa conversazione.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Questa impostazione si applica a tutti i partecipanti di questa conversazione.\nSolo gli amministratori possono modificarla.";
-"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ ha impostato il timer dei messaggi effimeri a %@ che sono stati %@";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ ha modificato il timer dei messaggi effimeri a %@ che sono stati %@";
-"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ ha disattivato i messaggi effimeri";
+"DISAPPERING_MESSAGES_INFO_ENABLE_LEGACY" = "%@ ha impostato il timer dei messaggi effimeri a %@ che sono stati %@";
+"DISAPPERING_MESSAGES_INFO_UPDATE_LEGACY" = "%@ ha modificato il timer dei messaggi effimeri a %@ che sono stati %@";
+"DISAPPERING_MESSAGES_INFO_DISABLE_LEGACY" = "%@ ha disattivato i messaggi effimeri";
 
 /* context_menu_info */
 "context_menu_info" = "Info";
@@ -785,13 +785,13 @@
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "I messaggi spariscono dopo essere stati inviati.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "Hai impostato il timer dei messaggi per farli scomparire %@ dopo che sono stati %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE_LEGACY" = "Hai impostato il timer dei messaggi per farli scomparire %@ dopo che sono stati %@";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
-"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "Hai modificato il timer dei messaggi per farli scomparire %@ dopo che sono stati %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_UPDATE_LEGACY" = "Hai modificato il timer dei messaggi per farli scomparire %@ dopo che sono stati %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "Hai disattivato i messaggi effimeri";
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE_LEGACY" = "Hai disattivato i messaggi effimeri";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Originale";
@@ -829,3 +829,17 @@ The point that a message will disappear in a disappearing message update message
 
 /* The subtitle describing the current disappear after send setting, the '%@' will be replaced by a duration */
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";
+
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+
+"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set their messages to disappear %@ after they have been %@.";
+
+"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages. Messages they send will no longer disappear.";
+
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You set your messages to disappear %@ after they have been %@.";
+
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You turned off disappearing messages. Messages you send will no longer disappear.";

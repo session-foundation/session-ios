@@ -538,7 +538,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             optimisticMessageId: optimisticMessageId,
             threadId: threadData.threadId,
             threadVariant: threadData.threadVariant,
-            threadHasDisappearingMessagesEnabled: (threadData.disappearingMessagesConfiguration?.isEnabled ?? false),
+            threadDisappearingMessagesConfiguration: threadData.disappearingMessagesConfiguration,
             threadOpenGroupServer: threadData.openGroupServer,
             threadOpenGroupPublicKey: threadData.openGroupPublicKey,
             threadContactNameInternal: threadData.threadContactName(),

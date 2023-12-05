@@ -895,6 +895,30 @@ extension ConversationVC:
             return
         }
         
+        // For disappearing messages config update, show the following settings modal
+        guard cellViewModel.variant != .infoDisappearingMessagesUpdate else {
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "FOLLOW_SETTING_TITLE".localized(),
+                    body: .attributedText(
+                        NSAttributedString(string: "FOLLOW_SETTING_EXPLAINATION_TURNING_ON".localized())
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: ("FOLLOW_SETTING_EXPLAINATION_TURNING_ON".localized() as NSString).range(of: cellViewModel.authorName)
+                            )
+                    ),
+                    confirmTitle: "modal_download_button_title".localized(),
+                    dismissOnConfirm: false // Custom dismissal logic
+                ) { [weak self] _ in
+                    
+                    self?.dismiss(animated: true, completion: nil)
+                }
+            )
+            
+            present(confirmationModal, animated: true, completion: nil)
+            return
+        }
+        
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
             let message: String = String(
