@@ -320,6 +320,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         return SQL("LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])")
                     }()
                 ),
+                PagedData.ObservedChanges(
+                    table: DisappearingMessagesConfiguration.self,
+                    columns: [ .isEnabled, .type, .durationSeconds ],
+                    joinToPagedType: {
+                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+                        let disappearingMessagesConfiguration: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
+                        
+                        return SQL("LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(interaction[.threadId])")
+                    }()
+                ),
             ],
             filterSQL: MessageViewModel.filterSQL(threadId: threadId),
             groupSQL: MessageViewModel.groupSQL,
@@ -538,7 +548,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             optimisticMessageId: optimisticMessageId,
             threadId: threadData.threadId,
             threadVariant: threadData.threadVariant,
-            threadDisappearingMessagesConfiguration: threadData.disappearingMessagesConfiguration,
+            threadExpirationType: threadData.disappearingMessagesConfiguration?.type,
+            threadExpirationTimer: threadData.disappearingMessagesConfiguration?.durationSeconds,
             threadOpenGroupServer: threadData.openGroupServer,
             threadOpenGroupPublicKey: threadData.openGroupPublicKey,
             threadContactNameInternal: threadData.threadContactName(),

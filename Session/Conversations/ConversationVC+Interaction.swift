@@ -897,20 +897,45 @@ extension ConversationVC:
         
         // For disappearing messages config update, show the following settings modal
         guard cellViewModel.variant != .infoDisappearingMessagesUpdate else {
+            let messageDisappearingConfig = cellViewModel.messageDisappearingConfiguration()
+            let expirationTimerString: String = floor(messageDisappearingConfig.durationSeconds).formatted(format: .long)
+            let expirationTypeString: String = (messageDisappearingConfig.type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+            let modalBodyString: String = (
+                messageDisappearingConfig.isEnabled ?
+                String(
+                    format: "FOLLOW_SETTING_EXPLAINATION_TURNING_ON".localized(),
+                    expirationTimerString,
+                    expirationTypeString
+                ) :
+                "FOLLOW_SETTING_EXPLAINATION_TURNING_OFF".localized()
+            )
+            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "DISAPPERING_MESSAGES_SAVE_TITLE".localized() : ""
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "FOLLOW_SETTING_TITLE".localized(),
                     body: .attributedText(
-                        NSAttributedString(string: "FOLLOW_SETTING_EXPLAINATION_TURNING_ON".localized())
+                        NSAttributedString(string: modalBodyString)
                             .adding(
                                 attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                                range: ("FOLLOW_SETTING_EXPLAINATION_TURNING_ON".localized() as NSString).range(of: cellViewModel.authorName)
+                                range: (modalBodyString as NSString).range(of: expirationTypeString)
+                            )
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (modalBodyString as NSString).range(of: expirationTimerString)
+                            )
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (modalBodyString as NSString).range(of: "DISAPPEARING_MESSAGES_OFF".localized().lowercased())
                             )
                     ),
-                    confirmTitle: "modal_download_button_title".localized(),
+                    confirmTitle: modalConfirmTitle,
+                    confirmStyle: .danger,
+                    cancelStyle: .textPrimary,
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
-                    
+                    dependencies.storage.writeAsync { db in
+                        try messageDisappearingConfig.save(db)
+                    }
                     self?.dismiss(animated: true, completion: nil)
                 }
             )
