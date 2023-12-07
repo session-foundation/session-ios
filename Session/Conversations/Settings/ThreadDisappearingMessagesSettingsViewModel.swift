@@ -391,7 +391,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             ),
                                             isEnabled: (
                                                 isNoteToSelf ||
-                                                currentUserIsClosedGroupMember == true
+                                                currentUserIsClosedGroupAdmin == true
                                             ),
                                             accessibility: Accessibility(
                                                 identifier: "Disable disappearing messages (Off option)",
@@ -427,7 +427,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 ),
                                                 isEnabled: (
                                                     isNoteToSelf ||
-                                                    currentUserIsClosedGroupMember == true
+                                                    (currentUserIsClosedGroupMember == true && !Features.useNewDisappearingMessagesConfig) ||
+                                                    currentUserIsClosedGroupAdmin == true
                                                 ),
                                                 accessibility: Accessibility(
                                                     identifier: "Time option",
