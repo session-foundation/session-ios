@@ -843,3 +843,5 @@ The point that a message will disappear in a disappearing message update message
 "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You set your messages to disappear %@ after they have been %@.";
 
 "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You turned off disappearing messages. Messages you send will no longer disappear.";
+
+"CONFIRM_BUTTON_TITLE" = "Confirm";

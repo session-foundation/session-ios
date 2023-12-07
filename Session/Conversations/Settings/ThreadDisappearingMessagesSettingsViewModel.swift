@@ -474,19 +474,12 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
 
         dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
             _ = try updatedConfig.saved(db)
-            
-            let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
-            var expiresInSeconds: TimeInterval? = 0
-            var expiresStartedAtMs: Double? = nil
-            
+
             if Features.useNewDisappearingMessagesConfig {
                 _ = try Interaction
                     .filter(Interaction.Columns.threadId == threadId)
                     .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
                     .deleteAll(db)
-                
-                expiresInSeconds = (updatedConfig.isEnabled ? nil : self.config.durationSeconds)
-                expiresStartedAtMs = (!updatedConfig.isEnabled && self.config.type == .disappearAfterSend ? Double(currentOffsetTimestampMs) : nil)
             }
             
             let interaction: Interaction = try Interaction(
@@ -494,9 +487,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 authorId: getUserHexEncodedPublicKey(db, using: dependencies),
                 variant: .infoDisappearingMessagesUpdate,
                 body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
-                timestampMs: currentOffsetTimestampMs,
-                expiresInSeconds: expiresInSeconds,
-                expiresStartedAtMs: expiresStartedAtMs
+                timestampMs: SnodeAPI.currentOffsetTimestampMs()
             )
             .inserted(db)
             

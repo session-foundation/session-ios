@@ -238,11 +238,8 @@ extension MessageReceiver {
                 isPreviousOff: !localConfig.isEnabled
             ),
             timestampMs: Int64(timestampMs),
-            expiresInSeconds: (remoteConfig.isEnabled ? remoteConfig.durationSeconds : localConfig.durationSeconds),
-            expiresStartedAtMs: (!remoteConfig.isEnabled && localConfig.type == .disappearAfterSend ?
-                Double(timestampMs) :
-                nil
-            )
+            expiresInSeconds: remoteConfig.durationSeconds,
+            expiresStartedAtMs: (remoteConfig.type == .disappearAfterSend ? Double(timestampMs) : nil)
         ).inserted(db)
     }
     

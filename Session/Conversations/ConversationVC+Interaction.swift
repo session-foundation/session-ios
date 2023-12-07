@@ -909,7 +909,7 @@ extension ConversationVC:
                 ) :
                 "FOLLOW_SETTING_EXPLAINATION_TURNING_OFF".localized()
             )
-            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "DISAPPERING_MESSAGES_SAVE_TITLE".localized() : ""
+            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "DISAPPERING_MESSAGES_SAVE_TITLE".localized() : "CONFIRM_BUTTON_TITLE".localized()
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "FOLLOW_SETTING_TITLE".localized(),
