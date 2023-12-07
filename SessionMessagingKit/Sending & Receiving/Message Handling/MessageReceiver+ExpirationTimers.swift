@@ -117,10 +117,8 @@ extension MessageReceiver {
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
             body: remoteConfig.messageInfoString(
-                with: (sender != currentUserPublicKey ?
-                    Profile.displayName(db, id: sender) :
-                    nil
-                ),
+                threadVariant: threadVariant,
+                senderName: (sender != currentUserPublicKey ? Profile.displayName(db, id: sender) : nil),
                 isPreviousOff: false
             ),
             timestampMs: timestampMs,
@@ -187,45 +185,51 @@ extension MessageReceiver {
         )
         
         switch threadVariant {
-            case .contact:
-                try updateFollowingSettingsControlMessage(
-                    db,
-                    threadId: threadId,
-                    authorId: sender,
-                    timestampMs: timestampMs,
-                    serverHash: message.serverHash,
-                    localConfig: localConfig,
-                    remoteConfig: remoteConfig
-                )
             case .legacyGroup:
-                try updateLegacyGroupDisappearingMessagesConfiguration(
+                if localConfig != remoteConfig {
+                    _ = try remoteConfig.save(db)
+                    
+                    try SessionUtil
+                        .update(
+                            db,
+                            groupPublicKey: threadId,
+                            disappearingConfig: remoteConfig
+                        )
+                }
+                fallthrough
+            case .contact:
+                try insertExpirationUpdateControlMessage(
                     db,
                     threadId: threadId,
+                    threadVariant: threadVariant,
                     authorId: sender,
                     timestampMs: timestampMs,
                     serverHash: message.serverHash,
                     localConfig: localConfig,
                     remoteConfig: remoteConfig
                 )
+            
             default:
                  return
         }
     }
     
-    private static func updateFollowingSettingsControlMessage(
+    private static func insertExpirationUpdateControlMessage(
         _ db: Database,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         authorId: String,
         timestampMs: UInt64,
         serverHash: String?,
         localConfig: DisappearingMessagesConfiguration,
         remoteConfig: DisappearingMessagesConfiguration
     ) throws {
-        guard authorId != getUserHexEncodedPublicKey(db) else { return }
+        guard threadVariant != .contact || authorId != getUserHexEncodedPublicKey(db) else { return }
         
         _ = try Interaction
             .filter(Interaction.Columns.threadId == threadId)
             .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+            .filter(Interaction.Columns.authorId == authorId)
             .deleteAll(db)
         
         _ = try Interaction(
@@ -234,58 +238,13 @@ extension MessageReceiver {
             authorId: authorId,
             variant: .infoDisappearingMessagesUpdate,
             body: remoteConfig.messageInfoString(
-                with: Profile.displayName(db, id: authorId),
+                threadVariant: threadVariant,
+                senderName: (authorId != getUserHexEncodedPublicKey(db) ? Profile.displayName(db, id: authorId) : nil),
                 isPreviousOff: !localConfig.isEnabled
             ),
             timestampMs: Int64(timestampMs),
             expiresInSeconds: remoteConfig.durationSeconds,
             expiresStartedAtMs: (remoteConfig.type == .disappearAfterSend ? Double(timestampMs) : nil)
-        ).inserted(db)
-    }
-    
-    private static func updateLegacyGroupDisappearingMessagesConfiguration(
-        _ db: Database,
-        threadId: String,
-        authorId: String,
-        timestampMs: UInt64,
-        serverHash: String?,
-        localConfig: DisappearingMessagesConfiguration,
-        remoteConfig: DisappearingMessagesConfiguration
-    ) throws {
-        if localConfig != remoteConfig {
-            _ = try remoteConfig.save(db)
-            
-            try SessionUtil
-                .update(
-                    db,
-                    groupPublicKey: threadId,
-                    disappearingConfig: remoteConfig
-                )
-        }
-
-        _ = try Interaction
-            .filter(Interaction.Columns.threadId == threadId)
-            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-            .deleteAll(db)
-
-        _ = try Interaction(
-            serverHash: serverHash,
-            threadId: threadId,
-            authorId: authorId,
-            variant: .infoDisappearingMessagesUpdate,
-            body: remoteConfig.messageInfoString(
-                with: (authorId != getUserHexEncodedPublicKey(db) ?
-                    Profile.displayName(db, id: authorId) :
-                    nil
-                ),
-                isPreviousOff: !localConfig.isEnabled
-            ),
-            timestampMs: Int64(timestampMs),
-            expiresInSeconds: (remoteConfig.isEnabled ? remoteConfig.durationSeconds : localConfig.durationSeconds),
-            expiresStartedAtMs: (!remoteConfig.isEnabled && localConfig.type == .disappearAfterSend ?
-                Double(timestampMs) :
-                nil
-            )
         ).inserted(db)
     }
 }

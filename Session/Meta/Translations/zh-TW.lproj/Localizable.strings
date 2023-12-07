@@ -572,7 +572,7 @@
 "DISAPPERING_MESSAGES_TIMER_TITLE" = "計時器";
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "設定";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "This setting applies to messages you send in this conversation. ";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to messages you send in this conversation. \nOnly group admins can change this setting.";
+"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to everyone in this conversation. \nOnly group admins can change this setting.";
 "DISAPPERING_MESSAGES_INFO_ENABLE_LEGACY" = "%@ has set messages to disappear %@ after they have been %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE_LEGACY" = "%@ has changed messages to disappear %@ after they have been %@";
 "DISAPPERING_MESSAGES_INFO_DISABLE_LEGACY" = "%@ has turned off disappearing messages";

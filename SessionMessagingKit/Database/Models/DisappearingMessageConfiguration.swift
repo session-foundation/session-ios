@@ -118,6 +118,7 @@ public extension DisappearingMessagesConfiguration {
 
 public extension DisappearingMessagesConfiguration {
     struct MessageInfo: Codable {
+        public let threadVariant: SessionThread.Variant?
         public let senderName: String?
         public let isEnabled: Bool
         public let durationSeconds: TimeInterval
@@ -125,7 +126,9 @@ public extension DisappearingMessagesConfiguration {
         public let isPreviousOff: Bool?
         
         var previewText: String {
-            guard Features.useNewDisappearingMessagesConfig else { return legacyPreviewText }
+            guard Features.useNewDisappearingMessagesConfig && self.threadVariant != nil else { return legacyPreviewText }
+            guard self.threadVariant != .legacyGroup else { return previewTextLegacyGroup }
+            
             guard let senderName: String = senderName else {
                 guard isEnabled, durationSeconds > 0 else {
                     return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized()
@@ -222,8 +225,13 @@ public extension DisappearingMessagesConfiguration {
         floor(durationSeconds).formatted(format: .long)
     }
     
-    func messageInfoString(with senderName: String?, isPreviousOff: Bool) -> String? {
+    func messageInfoString(
+        threadVariant: SessionThread.Variant?,
+        senderName: String?,
+        isPreviousOff: Bool
+    ) -> String? {
         let messageInfo: MessageInfo = DisappearingMessagesConfiguration.MessageInfo(
+            threadVariant: threadVariant,
             senderName: senderName,
             isEnabled: isEnabled,
             durationSeconds: durationSeconds,

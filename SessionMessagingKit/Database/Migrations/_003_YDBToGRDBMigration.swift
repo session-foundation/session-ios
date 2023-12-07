@@ -824,6 +824,7 @@ enum _003_YDBToGRDBMigration: Migration {
                                                 let updateMessage: SMKLegacy._DisappearingConfigurationUpdateInfoMessage = infoMessage as? SMKLegacy._DisappearingConfigurationUpdateInfoMessage,
                                                 let infoMessageData: Data = try? JSONEncoder().encode(
                                                     DisappearingMessagesConfiguration.MessageInfo(
+                                                        threadVariant: nil, 
                                                         senderName: updateMessage.createdByRemoteName,
                                                         isEnabled: updateMessage.configurationIsEnabled,
                                                         durationSeconds: TimeInterval(updateMessage.configurationDurationSeconds),

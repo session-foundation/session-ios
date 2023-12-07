@@ -99,6 +99,9 @@ final class InfoMessageCell: MessageCell {
         self.isAccessibilityElement = true
         self.viewModel = cellViewModel
         
+        self.actionLabel.isHidden = true
+        self.actionLabel.text = nil
+        
         let icon: UIImage? = {
             switch cellViewModel.variant {
                 case .infoDisappearingMessagesUpdate:
@@ -141,9 +144,6 @@ final class InfoMessageCell: MessageCell {
             if cellViewModel.canDoFollowingSetting() {
                 self.actionLabel.isHidden = false
                 self.actionLabel.text = "FOLLOW_SETTING_TITLE".localized()
-            } else {
-                self.actionLabel.isHidden = true
-                self.actionLabel.text = nil
             }
         } else {
             self.label.text = cellViewModel.body

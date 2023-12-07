@@ -474,19 +474,26 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
 
         dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
             _ = try updatedConfig.saved(db)
+            
+            let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
 
             if Features.useNewDisappearingMessagesConfig {
                 _ = try Interaction
                     .filter(Interaction.Columns.threadId == threadId)
                     .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == userPublicKey)
                     .deleteAll(db)
             }
             
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
-                authorId: getUserHexEncodedPublicKey(db, using: dependencies),
+                authorId: userPublicKey,
                 variant: .infoDisappearingMessagesUpdate,
-                body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
+                body: updatedConfig.messageInfoString(
+                    threadVariant: threadVariant,
+                    senderName: nil,
+                    isPreviousOff: !self.config.isEnabled
+                ),
                 timestampMs: SnodeAPI.currentOffsetTimestampMs()
             )
             .inserted(db)
