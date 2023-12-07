@@ -597,8 +597,7 @@ enum _003_YDBToGRDBMigration: Migration {
                     try DisappearingMessagesConfiguration(
                         threadId: threadId,
                         isEnabled: config.isEnabled,
-                        durationSeconds: TimeInterval(config.durationSeconds),
-                        lastChangeTimestampMs: 0
+                        durationSeconds: TimeInterval(config.durationSeconds)
                     ).migrationSafeInsert(db)
                 }
                 else {

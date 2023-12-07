@@ -20,8 +20,6 @@ enum _017_DisappearingMessagesConfiguration: Migration {
     static func migrate(_ db: GRDB.Database) throws {
         try db.alter(table: DisappearingMessagesConfiguration.self) { t in
             t.add(.type, .integer)
-            t.add(.lastChangeTimestampMs, .integer)
-                .defaults(to: 0)
         }
         
         try db.alter(table: Contact.self) { t in

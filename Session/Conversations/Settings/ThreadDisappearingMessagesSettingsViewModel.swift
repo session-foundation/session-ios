@@ -143,8 +143,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                             .with(
                                                 isEnabled: false,
-                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                                lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                             )
                                         self?.shouldShowConfirmButton.send(updatedConfig != config)
                                         self?.currentSelection.send(updatedConfig)
@@ -170,8 +169,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                     .with(
                                                         isEnabled: true,
                                                         durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
-                                                        type: .disappearAfterRead, // Default for 1-1
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                        type: .disappearAfterRead // Default for 1-1
                                                     )
                                             }()
                                             self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -210,8 +208,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 .with(
                                                     isEnabled: true,
                                                     durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds,
-                                                    type: .disappearAfterRead,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                    type: .disappearAfterRead
                                                 )
                                         }()
                                         self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -249,8 +246,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 .with(
                                                     isEnabled: true,
                                                     durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds,
-                                                    type: .disappearAfterSend,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                    type: .disappearAfterSend
                                                 )
                                         }()
                                         self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -291,8 +287,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             onTap: {
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                     .with(
-                                                        durationSeconds: duration,
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                        durationSeconds: duration
                                                     )
                                                 self?.shouldShowConfirmButton.send(updatedConfig != config)
                                                 self?.currentSelection.send(updatedConfig)
@@ -327,8 +322,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                 .with(
                                                     isEnabled: false,
-                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                                 )
                                             self?.shouldShowConfirmButton.send(updatedConfig != config)
                                             self?.currentSelection.send(updatedConfig)
@@ -357,8 +351,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                     .with(
                                                         isEnabled: true,
                                                         durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
-                                                        type: .disappearAfterSend, // Default for closed group & note to self
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                        type: .disappearAfterSend // Default for closed group & note to self
                                                     )
                                             }()
                                             self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -408,8 +401,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                     .with(
                                                         isEnabled: false,
-                                                        durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                        durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                                     )
                                                 self?.shouldShowConfirmButton.send(updatedConfig != config)
                                                 self?.currentSelection.send(updatedConfig)
@@ -456,8 +448,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                             type: (Features.useNewDisappearingMessagesConfig ?
                                                                 .disappearAfterSend :
                                                                nil
-                                                            ),
-                                                            lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                            )
                                                         )
                                                     self?.shouldShowConfirmButton.send(updatedConfig != config)
                                                     self?.currentSelection.send(updatedConfig)

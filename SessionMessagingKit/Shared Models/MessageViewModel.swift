@@ -499,8 +499,7 @@ public extension MessageViewModel {
             .with(
                 isEnabled: (self.expiresInSeconds ?? 0) > 0,
                 durationSeconds: self.expiresInSeconds,
-                type: (Int64(self.expiresStartedAtMs ?? 0) == self.timestampMs ? .disappearAfterSend : .disappearAfterRead ),
-                lastChangeTimestampMs: nil
+                type: (Int64(self.expiresStartedAtMs ?? 0) == self.timestampMs ? .disappearAfterSend : .disappearAfterRead )
             )
     }
     
@@ -510,12 +509,12 @@ public extension MessageViewModel {
             .with(
                 isEnabled: (self.threadExpirationTimer ?? 0) > 0,
                 durationSeconds: self.threadExpirationTimer,
-                type: self.threadExpirationType,
-                lastChangeTimestampMs: nil
+                type: self.threadExpirationType
             )
     }
     
     func canDoFollowingSetting() -> Bool {
+        guard self.authorId != self.currentUserPublicKey else { return false }
         return self.messageDisappearingConfiguration() != self.threadDisappearingConfiguration()
     }
 }

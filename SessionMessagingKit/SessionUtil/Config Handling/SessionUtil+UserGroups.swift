@@ -89,8 +89,7 @@ internal extension SessionUtil {
                             .with(
                                 isEnabled: (legacyGroup.disappearing_timer > 0),
                                 durationSeconds: TimeInterval(legacyGroup.disappearing_timer),
-                                type: .disappearAfterSend,
-                                lastChangeTimestampMs: latestConfigSentTimestampMs
+                                type: .disappearAfterSend
                             ),
                         groupMembers: members
                             .filter { _, isAdmin in !isAdmin }
@@ -278,23 +277,16 @@ internal extension SessionUtil {
                     .fetchOne(db, id: group.id)
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(group.id))
                 
-                if
-                    let remoteConfig = group.disappearingConfig,
-                    let remoteLastChangeTimestampMs = remoteConfig.lastChangeTimestampMs,
-                    let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-                    remoteLastChangeTimestampMs > localLastChangeTimestampMs
-                {
+                if let remoteConfig = group.disappearingConfig {
                     _ = try localConfig.with(
                         isEnabled: remoteConfig.isEnabled,
                         durationSeconds: remoteConfig.durationSeconds,
-                        type: remoteConfig.type,
-                        lastChangeTimestampMs: remoteConfig.lastChangeTimestampMs
+                        type: remoteConfig.type
                     ).save(db)
                     
                     _ = try Interaction
                         .filter(Interaction.Columns.threadId == group.id)
                         .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .filter(Interaction.Columns.timestampMs <= (remoteLastChangeTimestampMs - Int64(remoteConfig.durationSeconds * 1000)))
                         .deleteAll(db)
                 }
                 

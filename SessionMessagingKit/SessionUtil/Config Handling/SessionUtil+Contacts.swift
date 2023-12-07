@@ -179,22 +179,16 @@ internal extension SessionUtil {
                     .fetchOne(db, id: sessionId)
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
                 
-                if
-                    let remoteLastChangeTimestampMs = data.config.lastChangeTimestampMs,
-                    let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-                    remoteLastChangeTimestampMs > localLastChangeTimestampMs
-                {
+                if data.config != localConfig {
                     _ = try localConfig.with(
                         isEnabled: data.config.isEnabled,
                         durationSeconds: data.config.durationSeconds,
-                        type: data.config.type,
-                        lastChangeTimestampMs: data.config.lastChangeTimestampMs
+                        type: data.config.type
                     ).save(db)
                     
                     _ = try Interaction
                         .filter(Interaction.Columns.threadId == sessionId)
                         .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .filter(Interaction.Columns.timestampMs <= (remoteLastChangeTimestampMs - Int64(data.config.durationSeconds * 1000)))
                         .deleteAll(db)
                 }
             }
@@ -704,8 +698,7 @@ private extension SessionUtil {
                 threadId: contactId,
                 isEnabled: contact.exp_seconds > 0,
                 durationSeconds: TimeInterval(contact.exp_seconds),
-                type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode),
-                lastChangeTimestampMs: latestConfigSentTimestampMs
+                type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode)
             )
             
             result[contactId] = ContactData(
