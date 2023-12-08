@@ -185,11 +185,6 @@ internal extension SessionUtil {
                         durationSeconds: data.config.durationSeconds,
                         type: data.config.type
                     ).save(db)
-                    
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == sessionId)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .deleteAll(db)
                 }
             }
         

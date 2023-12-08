@@ -225,6 +225,22 @@ extension MessageReceiver {
     ) throws {
         guard threadVariant != .contact || authorId != getUserHexEncodedPublicKey(db) else { return }
         
+        switch threadVariant {
+            case .contact:
+                _ = try Interaction
+                    .filter(Interaction.Columns.threadId == threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == authorId)
+                    .deleteAll(db)
+            case .legacyGroup:
+                _ = try Interaction
+                    .filter(Interaction.Columns.threadId == threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .deleteAll(db)
+            default:
+                break
+        }
+        
         _ = try Interaction
             .filter(Interaction.Columns.threadId == threadId)
             .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
