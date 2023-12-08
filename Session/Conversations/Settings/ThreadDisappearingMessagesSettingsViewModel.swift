@@ -482,9 +482,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 _ = try Interaction
                     .filter(Interaction.Columns.threadId == threadId)
                     .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                    .filter(Interaction.Columns.authorId == userPublicKey)
+                    .filter(Interaction.Columns.authorId == userPublicKey) // FIXME: Remove all in legacy groups
                     .deleteAll(db)
             }
+            
+            let currentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
             
             let interaction: Interaction = try Interaction(
                 threadId: threadId,
@@ -495,7 +497,9 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     senderName: nil,
                     isPreviousOff: !self.config.isEnabled
                 ),
-                timestampMs: SnodeAPI.currentOffsetTimestampMs()
+                timestampMs: currentTimestampMs,
+                expiresInSeconds: updatedConfig.durationSeconds,
+                expiresStartedAtMs: (updatedConfig.type == .disappearAfterSend ? Double(currentTimestampMs) : nil)
             )
             .inserted(db)
             

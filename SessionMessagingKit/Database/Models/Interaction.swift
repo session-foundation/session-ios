@@ -373,22 +373,6 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         // Automatically mark interactions which can't be unread as read so the unread count
         // isn't impacted
         self.wasRead = (self.wasRead || !self.variant.canBeUnread)
-        
-        // Automatically add disapeparing messages configuration
-        if self.variant.shouldFollowDisappearingMessagesConfiguration,
-           self.expiresInSeconds == nil,
-           self.expiresStartedAtMs == nil
-        {
-            guard
-                let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId),
-                disappearingMessagesConfiguration.isEnabled
-            else {
-                self.expiresInSeconds = 0
-                return
-            }
-            
-            self.expiresInSeconds = disappearingMessagesConfiguration.durationSeconds
-        }
     }
     
     public func aroundInsert(_ db: Database, insert: () throws -> InsertionSuccess) throws {

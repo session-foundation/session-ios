@@ -208,7 +208,6 @@ extension MessageReceiver {
                     localConfig: localConfig,
                     remoteConfig: remoteConfig
                 )
-            
             default:
                  return
         }
