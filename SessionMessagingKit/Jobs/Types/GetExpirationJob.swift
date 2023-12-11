@@ -85,6 +85,8 @@ public enum GetExpirationJob: JobExecutor {
                                 )
                         }
                         
+                        // FIXME: If currentTimestampMs - messageSentTimestampMs > expirationTimer, the message might already be expired and removed directly
+                        
                         try Interaction
                             .filter(hashesToUseDefault.contains(Interaction.Columns.serverHash))
                             .filter(Interaction.Columns.expiresStartedAtMs == nil)

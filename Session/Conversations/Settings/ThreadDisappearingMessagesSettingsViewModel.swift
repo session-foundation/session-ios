@@ -494,13 +494,16 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 guard !Features.useNewDisappearingMessagesConfig else { return nil }
                 return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
             }()
+            
+            let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate(
+                syncTarget: nil,
+                duration: duration
+            )
+            expirationTimerUpdateMessage.sentTimestamp = UInt64(currentTimestampMs)
 
             try MessageSender.send(
                 db,
-                message: ExpirationTimerUpdate(
-                    syncTarget: nil,
-                    duration: duration
-                ),
+                message: expirationTimerUpdateMessage,
                 interactionId: interactionId,
                 threadId: threadId,
                 threadVariant: threadVariant,
