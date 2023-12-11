@@ -1,6 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
-import UIKit.UIImage
+import UIKit
 import Combine
 import GRDB
 import DifferenceKit
@@ -8,130 +8,53 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class SessionTableViewModel<NavItemId: Equatable, Section: SessionTableSection, SettingItem: Hashable & Differentiable> {
-    typealias SectionModel = ArraySection<Section, SessionCell.Info<SettingItem>>
-    typealias ObservableData = AnyPublisher<([SectionModel], StagedChangeset<[SectionModel]>), Error>
+protocol SessionTableViewModel: AnyObject, SectionedTableData {
+    var dependencies: Dependencies { get }
     
-    // MARK: - Input
-    
-    private let _isEditing: CurrentValueSubject<Bool, Never> = CurrentValueSubject(false)
-    lazy var isEditing: AnyPublisher<Bool, Never> = _isEditing
-        .removeDuplicates()
-        .shareReplay(1)
-    private let _textChanged: PassthroughSubject<(text: String?, item: SettingItem), Never> = PassthroughSubject()
-    lazy var textChanged: AnyPublisher<(text: String?, item: SettingItem), Never> = _textChanged
-        .eraseToAnyPublisher()
-    
-    // MARK: - Navigation
-    
-    open var leftNavItems: AnyPublisher<[NavItem]?, Never> { Just(nil).eraseToAnyPublisher() }
-    open var rightNavItems: AnyPublisher<[NavItem]?, Never> { Just(nil).eraseToAnyPublisher() }
-    
-    private let _forcedRefresh: PassthroughSubject<Void, Never> = PassthroughSubject()
-    lazy var forcedRefresh: AnyPublisher<Void, Never> = _forcedRefresh
-        .shareReplay(0)
-    private let _showToast: PassthroughSubject<(String, ThemeValue), Never> = PassthroughSubject()
-    lazy var showToast: AnyPublisher<(String, ThemeValue), Never> = _showToast
-        .shareReplay(0)
-    private let _transitionToScreen: PassthroughSubject<(UIViewController, TransitionType), Never> = PassthroughSubject()
-    lazy var transitionToScreen: AnyPublisher<(UIViewController, TransitionType), Never> = _transitionToScreen
-        .shareReplay(0)
-    private let _dismissScreen: PassthroughSubject<DismissType, Never> = PassthroughSubject()
-    lazy var dismissScreen: AnyPublisher<DismissType, Never> = _dismissScreen
-        .shareReplay(0)
-    
-    // MARK: - Content
-    
-    open var title: String { preconditionFailure("abstract class - override in subclass") }
-    open var emptyStateTextPublisher: AnyPublisher<String?, Never> { Just(nil).eraseToAnyPublisher() }
-    open var footerView: AnyPublisher<UIView?, Never> { Just(nil).eraseToAnyPublisher() }
-    open var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> {
-        Just(nil).eraseToAnyPublisher()
-    }
-    
-    fileprivate var hasEmittedInitialData: Bool = false
-    public private(set) var tableData: [SectionModel] = []
-    open var observableTableData: ObservableData {
-        preconditionFailure("abstract class - override in subclass")
-    }
-    open var pagedDataObserver: TransactionObserver? { nil }
-    
-    func updateTableData(_ updatedData: [SectionModel]) {
-        self.tableData = updatedData
-    }
-    
-    func loadPageBefore() { preconditionFailure("abstract class - override in subclass") }
-    func loadPageAfter() { preconditionFailure("abstract class - override in subclass") }
+    var title: String { get }
+    var subtitle: String? { get }
+    var initialLoadMessage: String? { get }
+    var cellType: SessionTableViewCellType { get }
+    var emptyStateTextPublisher: AnyPublisher<String?, Never> { get }
+    var state: TableDataState<Section, TableItem> { get }
+    var footerView: AnyPublisher<UIView?, Never> { get }
+    var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> { get }
     
     // MARK: - Functions
     
-    func forceRefresh() {
-        _forcedRefresh.send(())
-    }
-    
-    func setIsEditing(_ isEditing: Bool) {
-        _isEditing.send(isEditing)
-    }
-    
-    func textChanged(_ text: String?, for item: SettingItem) {
-        _textChanged.send((text, item))
-    }
-    
-    func showToast(text: String, backgroundColor: ThemeValue = .backgroundPrimary) {
-        _showToast.send((text, backgroundColor))
-    }
-    
-    func dismissScreen(type: DismissType = .auto) {
-        _dismissScreen.send(type)
-    }
-    
-    func transitionToScreen(_ viewController: UIViewController, transitionType: TransitionType = .push) {
-        _transitionToScreen.send((viewController, transitionType))
-    }
+    func canEditRow(at indexPath: IndexPath) -> Bool
+    func leadingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration?
+    func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration?
 }
 
-// MARK: - Convenience
+extension SessionTableViewModel {
+    var subtitle: String? { nil }
+    var initialLoadMessage: String? { nil }
+    var cellType: SessionTableViewCellType { .general }
+    var emptyStateTextPublisher: AnyPublisher<String?, Never> { Just(nil).eraseToAnyPublisher() }
+    var tableData: [SectionModel] { state.tableData }
+    var footerView: AnyPublisher<UIView?, Never> { Just(nil).eraseToAnyPublisher() }
+    var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> { Just(nil).eraseToAnyPublisher() }
+    
+    // MARK: - Functions
+    
+    func updateTableData(_ updatedData: [SectionModel]) { state.updateTableData(updatedData) }
+    
+    func canEditRow(at indexPath: IndexPath) -> Bool { false }
+    func leadingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? { nil }
+    func trailingSwipeActionsConfiguration(forRowAt indexPath: IndexPath, in tableView: UITableView, of viewController: UIViewController) -> UISwipeActionsConfiguration? { nil }
+}
 
-extension Array {
-    func mapToSessionTableViewData<Nav, Section, Item>(
-        for viewModel: SessionTableViewModel<Nav, Section, Item>?
-    ) -> [ArraySection<Section, SessionCell.Info<Item>>] where Element == ArraySection<Section, SessionCell.Info<Item>> {
-        // Update the data to include the proper position for each element
-        return self.map { section in
-            ArraySection(
-                model: section.model,
-                elements: section.elements.enumerated().map { index, element in
-                    element.updatedPosition(for: index, count: section.elements.count)
-                }
-            )
+// MARK: - SessionTableViewCellType
+
+enum SessionTableViewCellType: CaseIterable {
+    case general
+    case fullConversation
+    
+    var viewType: UITableViewCell.Type {
+        switch self {
+            case .general: return SessionCell.self
+            case .fullConversation: return FullConversationCell.self
         }
-    }
-}
-
-extension Publisher {
-    func mapToSessionTableViewData<Nav, Section, Item>(
-        for viewModel: SessionTableViewModel<Nav, Section, Item>
-    ) -> AnyPublisher<(Output, StagedChangeset<Output>), Failure> where Output == [ArraySection<Section, SessionCell.Info<Item>>] {
-        return self
-            .map { [weak viewModel] updatedData -> (Output, StagedChangeset<Output>) in
-                let updatedDataWithPositions: Output = updatedData
-                    .mapToSessionTableViewData(for: viewModel)
-                
-                // Generate an updated changeset
-                let changeset = StagedChangeset(
-                    source: (viewModel?.tableData ?? []),
-                    target: updatedDataWithPositions
-                )
-                
-                return (updatedDataWithPositions, changeset)
-            }
-            .filter { [weak viewModel] _, changeset in
-                viewModel?.hasEmittedInitialData == false ||    // Always emit at least once
-                !changeset.isEmpty                              // Do nothing if there were no changes
-            }
-            .handleEvents(receiveOutput: { [weak viewModel] _ in
-                viewModel?.hasEmittedInitialData = true
-            })
-            .eraseToAnyPublisher()
     }
 }

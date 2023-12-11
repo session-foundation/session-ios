@@ -1,6 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import AVKit
+import AVFoundation
 import YYImage
 import SessionUIKit
 import SignalUtilitiesKit
@@ -13,7 +15,7 @@ public enum MediaGalleryOption {
     case showAllMediaButton
 }
 
-class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVideoPlayerDelegate, PlayerProgressBarDelegate {
+class MediaDetailViewController: OWSViewController, UIScrollViewDelegate {
     public let galleryItem: MediaGalleryViewModel.Item
     public weak var delegate: MediaDetailViewControllerDelegate?
     private var image: UIImage?
@@ -37,9 +39,19 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
     }()
     
     public var mediaView: UIView = UIView()
-    private var playVideoButton: UIButton = UIButton()
-    private var videoProgressBar: PlayerProgressBar = PlayerProgressBar()
-    private var videoPlayer: OWSVideoPlayer?
+    private lazy var playVideoButton: UIButton = {
+        let result: UIButton = UIButton()
+        result.contentMode = .scaleAspectFill
+        result.setBackgroundImage(UIImage(named: "CirclePlay"), for: .normal)
+        result.addTarget(self, action: #selector(playVideo), for: .touchUpInside)
+        result.alpha = 0
+        
+        let playButtonSize: CGFloat = ScaleFromIPhone5(70)
+        result.set(.width, to: playButtonSize)
+        result.set(.height, to: playButtonSize)
+        
+        return result
+    }()
     
     // MARK: - Initialization
     
@@ -86,10 +98,6 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
         fatalError("init(coder:) has not been implemented")
     }
     
-    deinit {
-        self.stopAnyVideo()
-    }
-    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -98,7 +106,10 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
         self.view.themeBackgroundColor = .newConversation_background
         
         self.view.addSubview(scrollView)
+        self.view.addSubview(playVideoButton)
+        
         scrollView.pin(to: self.view)
+        playVideoButton.center(in: self.view)
         
         self.updateContents()
     }
@@ -112,12 +123,18 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
+        if self.parent == nil || !(self.parent is MediaPageViewController) {
+            parentDidAppear()
+        }
+    }
+    
+    public func parentDidAppear() {
         if mediaView is YYAnimatedImageView {
-            // Add a slight delay before starting the gif animation to prevent it from looking
-            // buggy due to the custom transition
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(250)) { [weak self] in
-                (self?.mediaView as? YYAnimatedImageView)?.startAnimating()
-            }
+            (mediaView as? YYAnimatedImageView)?.startAnimating()
+        }
+            
+        if self.galleryItem.attachment.isVideo {
+            UIView.animate(withDuration: 0.2) { self.playVideoButton.alpha = 1 }
         }
     }
     
@@ -126,6 +143,12 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
         
         self.updateMinZoomScale()
         self.centerMediaViewConstraints()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        UIView.animate(withDuration: 0.15) { [weak playVideoButton] in playVideoButton?.alpha = 0 }
     }
     
     // MARK: - Functions
@@ -174,8 +197,6 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
     
     private func updateContents() {
         self.mediaView.removeFromSuperview()
-        self.playVideoButton.removeFromSuperview()
-        self.videoProgressBar.removeFromSuperview()
         self.scrollView.zoomScale = 1
         
         if self.galleryItem.attachment.isAnimated {
@@ -194,15 +215,6 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
             // Still loading thumbnail.
             self.mediaView = UIView()
             self.mediaView.themeBackgroundColor = .newConversation_background
-        }
-        else if self.galleryItem.attachment.isVideo {
-            if self.galleryItem.attachment.isValid {
-                self.mediaView = self.buildVideoPlayerView()
-            }
-            else {
-                self.mediaView = UIView()
-                self.mediaView.themeBackgroundColor = .newConversation_background
-            }
         }
         else {
             // Present the static image using standard UIImageView
@@ -230,61 +242,6 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
         // some performance cost.
         self.mediaView.layer.minificationFilter = .trilinear
         self.mediaView.layer.magnificationFilter = .trilinear
-        
-        if self.galleryItem.attachment.isVideo {
-            self.videoProgressBar = PlayerProgressBar()
-            self.videoProgressBar.delegate = self
-            self.videoProgressBar.player = self.videoPlayer?.avPlayer
-
-            // We hide the progress bar until either:
-            // 1. Video completes playing
-            // 2. User taps the screen
-            self.videoProgressBar.isHidden = false
-
-            self.view.addSubview(self.videoProgressBar)
-            
-            self.videoProgressBar.autoPinWidthToSuperview()
-            self.videoProgressBar.autoPinEdge(toSuperviewSafeArea: .top)
-            self.videoProgressBar.autoSetDimension(.height, toSize: 44)
-
-            self.playVideoButton = UIButton()
-            self.playVideoButton.contentMode = .scaleAspectFill
-            self.playVideoButton.setBackgroundImage(UIImage(named: "CirclePlay"), for: .normal)
-            self.playVideoButton.addTarget(self, action: #selector(playVideo), for: .touchUpInside)
-            self.view.addSubview(self.playVideoButton)
-            
-            self.playVideoButton.set(.width, to: 72)
-            self.playVideoButton.set(.height, to: 72)
-            self.playVideoButton.center(in: self.view)
-        }
-    }
-    
-    private func buildVideoPlayerView() -> UIView {
-        guard
-            let originalFilePath: String = self.galleryItem.attachment.originalFilePath,
-            FileManager.default.fileExists(atPath: originalFilePath)
-        else {
-            owsFailDebug("Missing video file")
-            return UIView()
-        }
-        
-        self.videoPlayer = OWSVideoPlayer(url: URL(fileURLWithPath: originalFilePath))
-        self.videoPlayer?.seek(to: .zero)
-        self.videoPlayer?.delegate = self
-        
-        let imageSize: CGSize = (self.image?.size ?? .zero)
-        let playerView: VideoPlayerView = VideoPlayerView()
-        playerView.player = self.videoPlayer?.avPlayer
-        
-        NSLayoutConstraint.autoSetPriority(.defaultLow) {
-            playerView.autoSetDimensions(to: imageSize)
-        }
-
-        return playerView
-    }
-    
-    public func setShouldHideToolbars(_ shouldHideToolbars: Bool) {
-        self.videoProgressBar.isHidden = shouldHideToolbars
     }
 
     private func addGestureRecognizers(to view: UIView) {
@@ -330,12 +287,8 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
         self.scrollView.zoom(to: translatedRect, animated: true)
     }
 
-    @objc public func didPressPlayBarButton() {
+    public func didPressPlayBarButton() {
         self.playVideo()
-    }
-
-    @objc public func didPressPauseBarButton() {
-        self.pauseVideo()
     }
 
     // MARK: - UIScrollViewDelegate
@@ -391,49 +344,17 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
     // MARK: - Video Playback
 
     @objc public func playVideo() {
-        self.playVideoButton.isHidden = true
-        self.videoPlayer?.play()
-        self.delegate?.mediaDetailViewController(self, isPlayingVideo: true)
-    }
-
-    private func pauseVideo() {
-        self.videoPlayer?.pause()
-        self.delegate?.mediaDetailViewController(self, isPlayingVideo: false)
-    }
-
-    public func stopAnyVideo() {
-        guard self.galleryItem.attachment.isVideo else { return }
+        guard
+            let originalFilePath: String = self.galleryItem.attachment.originalFilePath,
+            FileManager.default.fileExists(atPath: originalFilePath)
+        else { return SNLog("Missing video file") }
         
-        self.stopVideo()
-    }
-
-    private func stopVideo() {
-        self.videoPlayer?.stop()
-        self.playVideoButton.isHidden = false
-        self.delegate?.mediaDetailViewController(self, isPlayingVideo: false)
-    }
-
-    // MARK: - OWSVideoPlayerDelegate
-    
-    func videoPlayerDidPlayToCompletion(_ videoPlayer: OWSVideoPlayer) {
-        self.stopVideo()
-    }
-
-    // MARK: - PlayerProgressBarDelegate
-    
-    func playerProgressBarDidStartScrubbing(_ playerProgressBar: PlayerProgressBar) {
-        self.videoPlayer?.pause()
-    }
-    
-    func playerProgressBar(_ playerProgressBar: PlayerProgressBar, scrubbedToTime time: CMTime) {
-        self.videoPlayer?.seek(to: time)
-    }
-    
-    func playerProgressBar(_ playerProgressBar: PlayerProgressBar, didFinishScrubbingAtTime time: CMTime, shouldResumePlayback: Bool) {
-        self.videoPlayer?.seek(to: time)
-
-        if shouldResumePlayback {
-            self.videoPlayer?.play()
+        let videoUrl: URL = URL(fileURLWithPath: originalFilePath)
+        let player: AVPlayer = AVPlayer(url: videoUrl)
+        let viewController: AVPlayerViewController = AVPlayerViewController()
+        viewController.player = player
+        self.present(viewController, animated: true) { [weak player] in
+            player?.play()
         }
     }
 }
@@ -441,6 +362,5 @@ class MediaDetailViewController: OWSViewController, UIScrollViewDelegate, OWSVid
 // MARK: - MediaDetailViewControllerDelegate
 
 protocol MediaDetailViewControllerDelegate: AnyObject {
-    func mediaDetailViewController(_ mediaDetailViewController: MediaDetailViewController, isPlayingVideo: Bool)
     func mediaDetailViewControllerDidTapMedia(_ mediaDetailViewController: MediaDetailViewController)
 }

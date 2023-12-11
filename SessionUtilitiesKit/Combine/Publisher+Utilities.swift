@@ -124,6 +124,20 @@ public extension AnyPublisher {
     }
 }
 
+extension AnyPublisher: ExpressibleByArrayLiteral where Output: Collection {
+    public init(arrayLiteral elements: Output.Element...) {
+        guard let convertedElements: Output = Array(elements) as? Output else {
+            SNLog("Failed to convery array literal to Publisher due to invalid type conversation of \(type(of: Output.self))")
+            guard let empty: Output = [] as? Output else { preconditionFailure("Invalid type") }
+            
+            self = Just(empty).setFailureType(to: Failure.self).eraseToAnyPublisher()
+            return
+        }
+        
+        self = Just(convertedElements).setFailureType(to: Failure.self).eraseToAnyPublisher()
+    }
+}
+
 // MARK: - Data Decoding
 
 public extension Publisher where Output == Data, Failure == Error {

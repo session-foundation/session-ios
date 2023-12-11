@@ -9,20 +9,24 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.NavButton, PrivacySettingsViewModel.Section, PrivacySettingsViewModel.Item> {
+class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+    public let dependencies: Dependencies
+    public let navigatableState: NavigatableState = NavigatableState()
+    public let editableState: EditableState<TableItem> = EditableState()
+    public let state: TableDataState<Section, TableItem> = TableDataState()
+    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     private let shouldShowCloseButton: Bool
     
     // MARK: - Initialization
     
-    init(shouldShowCloseButton: Bool = false) {
+    init(shouldShowCloseButton: Bool = false, using dependencies: Dependencies = Dependencies()) {
+        self.dependencies = dependencies
         self.shouldShowCloseButton = shouldShowCloseButton
-        
-        super.init()
     }
     
     // MARK: - Config
     
-    enum NavButton: Equatable {
+    enum NavItem: Equatable {
         case close
     }
     
@@ -48,7 +52,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
         var style: SessionTableSectionStyle { return .titleRoundedContent }
     }
     
-    public enum Item: Differentiable {
+    public enum TableItem: Differentiable {
         case screenLock
         case communityMessageRequests
         case screenshotNotifications
@@ -60,21 +64,17 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
     
     // MARK: - Navigation
     
-    override var leftNavItems: AnyPublisher<[NavItem]?, Never> {
-        guard self.shouldShowCloseButton else { return Just([]).eraseToAnyPublisher() }
-        
-        return Just([
-            NavItem(
+    lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = (!shouldShowCloseButton ? [] :
+        [
+            SessionNavItem(
                 id: .close,
                 image: UIImage(named: "X")?
                     .withRenderingMode(.alwaysTemplate),
                 style: .plain,
                 accessibilityIdentifier: "Close Button"
-            ) { [weak self] in
-                self?.dismissScreen()
-            }
-        ]).eraseToAnyPublisher()
-    }
+            ) { [weak self] in self?.dismissScreen() }
+        ]
+    )
     
     // MARK: - Content
     
@@ -87,19 +87,10 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
         let areCallsEnabled: Bool
     }
     
-    override var title: String { "PRIVACY_TITLE".localized() }
+    let title: String = "PRIVACY_TITLE".localized()
     
-    public override var observableTableData: ObservableData { _observableTableData }
-    
-    /// This is all the data the screen needs to populate itself, please see the following link for tips to help optimise
-    /// performance https://github.com/groue/GRDB.swift#valueobservation-performance
-    ///
-    /// **Note:** This observation will be triggered twice immediately (and be de-duped by the `removeDuplicates`)
-    /// this is due to the behaviour of `ValueConcurrentObserver.asyncStartObservation` which triggers it's own
-    /// fetch (after the ones in `ValueConcurrentObserver.asyncStart`/`ValueConcurrentObserver.syncStart`)
-    /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
-    private lazy var _observableTableData: ObservableData = ValueObservation
-        .trackingConstantRegion { [weak self] db -> State in
+    lazy var observation: TargetObservation = ObservationBuilder
+        .databaseObservation(self) { [weak self] db -> State in
             State(
                 isScreenLockEnabled: db[.isScreenLockEnabled],
                 checkForCommunityMessageRequests: db[.checkForCommunityMessageRequests],
@@ -109,11 +100,7 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                 areCallsEnabled: db[.areCallsEnabled]
             )
         }
-        .removeDuplicates()
-        .handleEvents(didFail: { SNLog("[PrivacySettingsViewModel] Observation failed with error: \($0)") })
-        .publisher(in: Storage.shared)
-        .withPrevious()
-        .map { (previous: State?, current: State) -> [SectionModel] in
+        .mapWithPrevious { [dependencies] previous, current -> [SectionModel] in
             return [
                 SectionModel(
                     model: .screenSecurity,
@@ -312,5 +299,4 @@ class PrivacySettingsViewModel: SessionTableViewModel<PrivacySettingsViewModel.N
                 )
             ]
         }
-        .mapToSessionTableViewData(for: self)
 }

@@ -289,7 +289,6 @@
 "vc_create_private_chat_scan_qr_code_tab_title" = "扫描二维码";
 "vc_enter_public_key_explanation" = "通过某人的 Session ID 或与他人分享你自己的 Session ID 来开始新的会话.";
 "vc_scan_qr_code_camera_access_explanation" = "Session需要摄像头访问权限才能扫描二维码";
-"vc_scan_qr_code_grant_camera_access_button_title" = "授予摄像头访问权限";
 "vc_create_closed_group_title" = "创建群组";
 "vc_create_closed_group_text_field_hint" = "输入群组名称";
 "vc_create_closed_group_empty_state_message" = "您还没有任何联系人";

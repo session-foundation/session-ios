@@ -33,20 +33,35 @@ final class DocumentView: UIView {
         )
         imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
         imageView.setContentHuggingPriority(.required, for: .horizontal)
+        imageView.contentMode = .scaleAspectFit
         imageView.themeTintColor = textColor
-        imageView.set(.height, to: 22)
+        imageView.set(.width, to: 24)
+        imageView.set(.height, to: 32)
+        
+        if attachment.isAudio {
+            let audioImageView = UIImageView(
+                image: UIImage(systemName: "music.note")?
+                    .withRenderingMode(.alwaysTemplate)
+            )
+            audioImageView.contentMode = .scaleAspectFit
+            audioImageView.themeTintColor = textColor
+            imageView.addSubview(audioImageView)
+            audioImageView.center(.horizontal, in: imageView)
+            audioImageView.center(.vertical, in: imageView, withInset: 4)
+            audioImageView.set(.height, to: .height, of: imageView, multiplier: 0.32)
+        }
         
         // Body label
         let titleLabel = UILabel()
         titleLabel.font = .systemFont(ofSize: Values.mediumFontSize)
-        titleLabel.text = (attachment.sourceFilename ?? "File")
+        titleLabel.text = attachment.documentFileName
         titleLabel.themeTextColor = textColor
         titleLabel.lineBreakMode = .byTruncatingTail
         
         // Size label
         let sizeLabel = UILabel()
         sizeLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
-        sizeLabel.text = Format.fileSize(attachment.byteCount)
+        sizeLabel.text = attachment.documentFileInfo
         sizeLabel.themeTextColor = textColor
         sizeLabel.lineBreakMode = .byTruncatingTail
         
@@ -55,14 +70,19 @@ final class DocumentView: UIView {
         labelStackView.axis = .vertical
         
         // Download image view
-        let downloadImageView = UIImageView(
-            image: UIImage(systemName: "arrow.down")?
-                .withRenderingMode(.alwaysTemplate)
+        let rightImageView = UIImageView(
+            image: {
+                switch attachment.isAudio {
+                    case true: return UIImage(systemName: "play.fill")
+                    case false: return UIImage(systemName: "arrow.down")
+                }
+            }()?.withRenderingMode(.alwaysTemplate)
         )
-        downloadImageView.setContentCompressionResistancePriority(.required, for: .horizontal)
-        downloadImageView.setContentHuggingPriority(.required, for: .horizontal)
-        downloadImageView.themeTintColor = textColor
-        downloadImageView.set(.height, to: 16)
+        rightImageView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        rightImageView.setContentHuggingPriority(.required, for: .horizontal)
+        rightImageView.contentMode = .scaleAspectFit
+        rightImageView.themeTintColor = textColor
+        rightImageView.set(.height, to: 24)
         
         // Stack view
         let stackView = UIStackView(
@@ -70,7 +90,7 @@ final class DocumentView: UIView {
                 imageView,
                 UIView.spacer(withWidth: 0),
                 labelStackView,
-                downloadImageView
+                rightImageView
             ]
         )
         stackView.axis = .horizontal
