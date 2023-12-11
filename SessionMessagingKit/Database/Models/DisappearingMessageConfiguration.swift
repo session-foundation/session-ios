@@ -276,6 +276,22 @@ public extension DisappearingMessagesConfiguration {
             }
         }
         
+        let expiresStartedAtMs: Double? = {
+            if updatedConfiguration.type == .disappearAfterSend ||
+                SessionUtil.timestampAlreadyRead(
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    timestampMs: timestampMs,
+                    userPublicKey: getUserHexEncodedPublicKey(db),
+                    openGroup: nil
+                )
+            {
+                return Double(timestampMs)
+            }
+            
+            return nil
+        }()
+        
         let interaction = try Interaction(
             serverHash: serverHash,
             threadId: threadId,
@@ -288,7 +304,7 @@ public extension DisappearingMessagesConfiguration {
             ),
             timestampMs: timestampMs,
             expiresInSeconds: updatedConfiguration.durationSeconds,
-            expiresStartedAtMs: (updatedConfiguration.type == .disappearAfterSend ? Double(timestampMs) : nil)
+            expiresStartedAtMs: expiresStartedAtMs
         ).inserted(db)
         
         return interaction.id
