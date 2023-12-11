@@ -245,6 +245,56 @@ public extension DisappearingMessagesConfiguration {
     }
 }
 
+// MARK: - Control Message
+
+public extension DisappearingMessagesConfiguration {
+    static func insertControlMessage(
+        _ db: Database,
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        authorId: String,
+        timestampMs: Int64,
+        serverHash: String?,
+        updatedConfiguration: DisappearingMessagesConfiguration,
+        isPreviousOff: Bool
+    ) throws -> Int64? {
+        if Features.useNewDisappearingMessagesConfig {
+            switch threadVariant {
+                case .contact:
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                        .filter(Interaction.Columns.authorId == authorId)
+                        .deleteAll(db)
+                case .legacyGroup:
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                        .deleteAll(db)
+                default:
+                    break
+            }
+        }
+        
+        let interaction = try Interaction(
+            serverHash: serverHash,
+            threadId: threadId,
+            authorId: authorId,
+            variant: .infoDisappearingMessagesUpdate,
+            body: updatedConfiguration.messageInfoString(
+                threadVariant: threadVariant,
+                senderName: (authorId != getUserHexEncodedPublicKey(db) ? Profile.displayName(db, id: authorId) : nil),
+                isPreviousOff: isPreviousOff
+            ),
+            timestampMs: timestampMs,
+            expiresInSeconds: updatedConfiguration.durationSeconds,
+            expiresStartedAtMs: (updatedConfiguration.type == .disappearAfterSend ? Double(timestampMs) : nil)
+        ).inserted(db)
+        
+        return interaction.id
+    }
+}
+
 // MARK: - UI Constraints
 
 extension DisappearingMessagesConfiguration {

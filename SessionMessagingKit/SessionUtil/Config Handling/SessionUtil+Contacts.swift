@@ -180,11 +180,12 @@ internal extension SessionUtil {
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
                 
                 if data.config != localConfig {
-                    _ = try localConfig.with(
-                        isEnabled: data.config.isEnabled,
-                        durationSeconds: data.config.durationSeconds,
-                        type: data.config.type
-                    ).save(db)
+                    _ = try data.config.save(db)
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == sessionId)
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                        .filter(Interaction.Columns.authorId == getUserHexEncodedPublicKey(db))
+                        .deleteAll(db)
                 }
             }
         

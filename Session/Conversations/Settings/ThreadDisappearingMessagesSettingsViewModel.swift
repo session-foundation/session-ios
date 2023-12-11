@@ -477,42 +477,19 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             _ = try updatedConfig.saved(db)
             
             let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-
-            if Features.useNewDisappearingMessagesConfig {
-                switch threadVariant {
-                    case .contact:
-                        _ = try Interaction
-                            .filter(Interaction.Columns.threadId == threadId)
-                            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                            .filter(Interaction.Columns.authorId == userPublicKey)
-                            .deleteAll(db)
-                    case .legacyGroup:
-                        _ = try Interaction
-                            .filter(Interaction.Columns.threadId == threadId)
-                            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                            .deleteAll(db)
-                    default:
-                        break
-                }
-            }
-            
             let currentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
             
-            let interaction: Interaction = try Interaction(
+            let interactionId = try DisappearingMessagesConfiguration.insertControlMessage(
+                db,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 authorId: userPublicKey,
-                variant: .infoDisappearingMessagesUpdate,
-                body: updatedConfig.messageInfoString(
-                    threadVariant: threadVariant,
-                    senderName: nil,
-                    isPreviousOff: !self.config.isEnabled
-                ),
                 timestampMs: currentTimestampMs,
-                expiresInSeconds: updatedConfig.durationSeconds,
-                expiresStartedAtMs: (updatedConfig.type == .disappearAfterSend ? Double(currentTimestampMs) : nil)
+                serverHash: nil,
+                updatedConfiguration: updatedConfig,
+                isPreviousOff: !self.config.isEnabled
             )
-            .inserted(db)
-            
+
             let duration: UInt32? = {
                 guard !Features.useNewDisappearingMessagesConfig else { return nil }
                 return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
@@ -524,7 +501,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     syncTarget: nil,
                     duration: duration
                 ),
-                interactionId: interaction.id,
+                interactionId: interactionId,
                 threadId: threadId,
                 threadVariant: threadVariant,
                 using: dependencies

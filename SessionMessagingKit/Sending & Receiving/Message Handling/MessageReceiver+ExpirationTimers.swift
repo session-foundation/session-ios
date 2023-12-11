@@ -198,68 +198,18 @@ extension MessageReceiver {
                 }
                 fallthrough
             case .contact:
-                try insertExpirationUpdateControlMessage(
+                _ = try DisappearingMessagesConfiguration.insertControlMessage(
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
                     authorId: sender,
-                    timestampMs: timestampMs,
+                    timestampMs: Int64(timestampMs),
                     serverHash: message.serverHash,
-                    localConfig: localConfig,
-                    remoteConfig: remoteConfig
+                    updatedConfiguration: remoteConfig,
+                    isPreviousOff: !localConfig.isEnabled
                 )
             default:
                  return
         }
-    }
-    
-    private static func insertExpirationUpdateControlMessage(
-        _ db: Database,
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        authorId: String,
-        timestampMs: UInt64,
-        serverHash: String?,
-        localConfig: DisappearingMessagesConfiguration,
-        remoteConfig: DisappearingMessagesConfiguration
-    ) throws {
-        guard threadVariant != .contact || authorId != getUserHexEncodedPublicKey(db) else { return }
-        
-        switch threadVariant {
-            case .contact:
-                _ = try Interaction
-                    .filter(Interaction.Columns.threadId == threadId)
-                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                    .filter(Interaction.Columns.authorId == authorId)
-                    .deleteAll(db)
-            case .legacyGroup:
-                _ = try Interaction
-                    .filter(Interaction.Columns.threadId == threadId)
-                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                    .deleteAll(db)
-            default:
-                break
-        }
-        
-        _ = try Interaction
-            .filter(Interaction.Columns.threadId == threadId)
-            .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-            .filter(Interaction.Columns.authorId == authorId)
-            .deleteAll(db)
-        
-        _ = try Interaction(
-            serverHash: serverHash,
-            threadId: threadId,
-            authorId: authorId,
-            variant: .infoDisappearingMessagesUpdate,
-            body: remoteConfig.messageInfoString(
-                threadVariant: threadVariant,
-                senderName: (authorId != getUserHexEncodedPublicKey(db) ? Profile.displayName(db, id: authorId) : nil),
-                isPreviousOff: !localConfig.isEnabled
-            ),
-            timestampMs: Int64(timestampMs),
-            expiresInSeconds: remoteConfig.durationSeconds,
-            expiresStartedAtMs: (remoteConfig.type == .disappearAfterSend ? Double(timestampMs) : nil)
-        ).inserted(db)
     }
 }
