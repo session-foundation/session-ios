@@ -196,24 +196,20 @@ extension MessageSender {
     // MARK: - Convenience
     
     internal static func getSpecifiedTTL(
+        _ db: Database,
+        threadId: String,
         message: Message,
         isSyncMessage: Bool
     ) -> UInt64? {
-        guard let expiresInSeconds = message.expiresInSeconds else { return nil }
+        guard
+            let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId),
+            disappearingMessagesConfiguration.isEnabled,
+            (
+                disappearingMessagesConfiguration.type == .disappearAfterSend ||
+                isSyncMessage
+            )
+        else { return nil }
         
-        // Sync message
-        if isSyncMessage {
-            return UInt64(expiresInSeconds * 1000)
-        }
-        
-        // Disappear after send
-        if let expiresStartedAtMs = message.expiresStartedAtMs,
-            let sentTimestamp = message.sentTimestamp,
-            UInt64(expiresStartedAtMs) == sentTimestamp
-        {
-            return UInt64(expiresInSeconds * 1000)
-        }
-        
-        return nil
+        return UInt64(disappearingMessagesConfiguration.durationSeconds * 1000)
     }
 }
