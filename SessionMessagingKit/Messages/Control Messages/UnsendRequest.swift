@@ -70,8 +70,6 @@ public final class UnsendRequest: ControlMessage {
         let contentProto = SNProtoContent.builder()
         do {
             contentProto.setUnsendRequest(try unsendRequestProto.build())
-            // DisappearingMessagesConfiguration
-            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
             return try contentProto.build()
         } catch {
             SNLog("Couldn't construct unsend request proto from: \(self).")
