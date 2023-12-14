@@ -652,6 +652,33 @@ public extension Message {
             )
         )
     }
+    
+    // MARK: - TTL for disappearing messages
+    
+    internal static func getSpecifiedTTL(
+        message: Message,
+        isSyncMessage: Bool
+    ) -> UInt64 {
+        // Not disappearing messages
+        guard let expiresInSeconds = message.expiresInSeconds else { return message.ttl }
+        
+        // Sync message should be read already, it is the same for disappear after read and disappear after sent
+        guard !isSyncMessage else { return UInt64(expiresInSeconds * 1000) }
+        
+        // Disappear after read messages that have not be read
+        guard let expiresStartedAtMs = message.expiresStartedAtMs else { return message.ttl }
+        
+        // Disappear after read messages that have already be read
+        guard message.sentTimestamp == UInt64(expiresStartedAtMs) else { return message.ttl }
+        
+        // Disappear after sent messages with expections
+        switch message {
+            case is ClosedGroupControlMessage, is UnsendRequest:
+                return message.ttl
+            default:
+                return UInt64(expiresInSeconds * 1000)
+        }
+    }
 }
 
 // MARK: - Mutation

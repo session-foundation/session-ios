@@ -532,6 +532,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 ].compactMap { $0 },
                 body: text
             ),
+            expiresInSeconds: threadData.disappearingMessagesConfiguration?.durationSeconds,
+            expiresStartedAtMs: (threadData.disappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
             linkPreviewUrl: linkPreviewDraft?.urlString
         )
         let optimisticAttachments: Attachment.PreparedData? = attachments

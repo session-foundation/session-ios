@@ -144,19 +144,6 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                     return false
             }
         }
-        
-        fileprivate var shouldFollowDisappearingMessagesConfiguration: Bool {
-            switch self {
-                case .standardIncoming, .standardOutgoing,
-                    .infoCall,
-                    .infoDisappearingMessagesUpdate,
-                    .infoClosedGroupCreated, .infoClosedGroupUpdated, .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving,
-                    .infoScreenshotNotification, .infoMediaSavedNotification:
-                    return true
-                
-                default: return false
-            }
-        }
     }
     
     /// The `id` value is auto incremented by the database, if the `Interaction` hasn't been inserted into
@@ -373,23 +360,6 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
         // Automatically mark interactions which can't be unread as read so the unread count
         // isn't impacted
         self.wasRead = (self.wasRead || !self.variant.canBeUnread)
-        
-        
-        // Automatically add disapeparing messages configuration
-        if self.variant.shouldFollowDisappearingMessagesConfiguration,
-           self.expiresInSeconds == nil,
-           self.expiresStartedAtMs == nil
-        {
-            guard
-                let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId),
-                disappearingMessagesConfiguration.isEnabled
-            else {
-                self.expiresInSeconds = 0
-                return
-            }
-            
-            self.expiresInSeconds = disappearingMessagesConfiguration.durationSeconds
-        }
     }
     
     public func aroundInsert(_ db: Database, insert: () throws -> InsertionSuccess) throws {
@@ -848,8 +818,6 @@ public extension Interaction {
     // MARK: - Variables
     
     var isExpiringMessage: Bool {
-        guard variant.shouldFollowDisappearingMessagesConfiguration else { return false }
-        
         return (expiresInSeconds ?? 0 > 0)
     }
     

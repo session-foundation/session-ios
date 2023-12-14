@@ -225,7 +225,7 @@ public extension VisibleMessage {
     static func from(_ db: Database, interaction: Interaction) -> VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
         
-        return VisibleMessage(
+        var visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
             sentTimestamp: UInt64(interaction.timestampMs),
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
@@ -260,5 +260,10 @@ public extension VisibleMessage {
             },
             reaction: nil   // Reactions are custom messages sent separately
         )
+        
+        visibleMessage.expiresInSeconds = interaction.expiresInSeconds
+        visibleMessage.expiresStartedAtMs = interaction.expiresStartedAtMs
+        
+        return visibleMessage
     }
 }
