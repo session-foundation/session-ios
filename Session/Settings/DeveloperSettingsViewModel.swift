@@ -58,6 +58,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case serviceNetwork
         case networkLayer
+        case resetSnodeCache
         
         case updatedDisappearingMessages
         case debugDisappearingMessageDurations
@@ -197,6 +198,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                 )
                             )
                         }
+                    ),
+                    SessionCell.Info(
+                        id: .resetSnodeCache,
+                        title: "Reset Service Node Cache",
+                        subtitle: """
+                        Reset and rebuild the service node cache and rebuild the paths.
+                        """,
+                        trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache"),
+                        onTap: { [weak self] in self?.resetServiceNodeCache() }
                     )
                 ]
             ),
@@ -406,6 +416,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         TableItem.allCases.forEach { item in
             switch item {
                 case .developerMode: break  // Not a feature
+                case .resetSnodeCache: break  // Not a feature
                 case .exportDatabase: break  // Not a feature
                 
                 case .serviceNetwork: updateServiceNetwork(to: nil)
@@ -540,6 +551,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             _ = try ConfigDump.deleteAll(db)
         }
         
+        /// Notify the UI that the paths were reset
+        DispatchQueue.main.async { [dependencies] in
+            dependencies.notifyObservers(for: .networkLayers, with: .resetPaths)
+        }
+        
         SNLog("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
         
         /// Reload the libSession state
@@ -593,6 +609,65 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         forceRefresh(type: .databaseQuery)
     }
     
+    private func resetServiceNodeCache() {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Reset Service Node Cache",
+                    body: .text("The device will need to fetch a new cache and rebuild it's paths"),
+                    confirmTitle: "Reset Cache",
+                    confirmStyle: .danger,
+                    cancelStyle: .alert_text,
+                    dismissOnConfirm: true,
+                    onConfirm: { [dependencies] _ in
+                        /// Clear the snodeAPI and getSnodePool caches
+                        dependencies.mutate(cache: .snodeAPI) {
+                            $0.snodePool = []
+                            $0.swarmCache = [:]
+                            $0.loadedSwarms = []
+                            $0.snodeFailureCount = [:]
+                            $0.hasLoadedSnodePool = false
+                        }
+                        
+                        dependencies.mutate(cache: .getSnodePool) {
+                            $0.publisher = nil
+                        }
+                        
+                        /// Clear the onionRequestAPI cache
+                        dependencies.mutate(cache: .onionRequestAPI) {
+                            $0.buildPathsPublisher = nil
+                            $0.pathFailureCount = [:]
+                            $0.snodeFailureCount = [:]
+                            $0.guardSnodes = []
+                            $0.paths = []
+                        }
+                        
+                        /// Remove any network-specific data
+                        dependencies[singleton: .storage].write(using: dependencies) { db in
+                            _ = try Snode.deleteAll(db)
+                            _ = try SnodeSet.deleteAll(db)
+                        }
+                        
+                        /// Cancel and remove all current network requests
+                        dependencies.mutate(cache: .network) { networkCache in
+                            networkCache.currentRequests.forEach { _, value in value.cancel() }
+                            networkCache.currentRequests = [:]
+                        }
+                        
+                        /// Notify the UI that the paths were reset
+                        DispatchQueue.main.async {
+                            dependencies.notifyObservers(for: .networkLayers, with: .resetPaths)
+                        }
+                        
+                        /// Trigger the `getSnodePool` job to rebuild the pool
+                        GetSnodePoolJob.run(using: dependencies)
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
     private func exportDatabase(_ targetView: UIView?) {
         let generatedPassword: String = UUID().uuidString
         self.databaseKeyEncryptionPassword = generatedPassword
@@ -619,6 +694,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         onChange: { [weak self] value in self?.databaseKeyEncryptionPassword = value }
                     ),
                     confirmTitle: "Export",
+                    confirmStyle: .danger,
+                    cancelStyle: .alert_text,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         modal.dismiss(animated: true) {

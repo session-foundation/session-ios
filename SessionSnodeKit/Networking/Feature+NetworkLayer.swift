@@ -25,6 +25,7 @@ public extension Network {
         
         public enum Events: FeatureEvent {
             case updatedNetworkLayer
+            case resetPaths
             case buildingPaths
             case pathsBuilt
             case onionRequestPathCountriesLoaded

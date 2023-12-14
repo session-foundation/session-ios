@@ -102,8 +102,9 @@ final class PathStatusView: UIView {
             object: nil
         )
         
-        dependencies.addFeatureObserver(self, for: .networkLayers, events: [.buildingPaths, .pathsBuilt]) { [weak self] _, event in
+        dependencies.addFeatureObserver(self, for: .networkLayers, events: [.resetPaths, .buildingPaths, .pathsBuilt]) { [weak self] _, event in
             switch event {
+                case .resetPaths: self?.setStatus(to: .unknown)
                 case .buildingPaths: self?.handleBuildingPathsNotification()
                 case .pathsBuilt: self?.handlePathsBuiltNotification()
                 default: break
