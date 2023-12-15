@@ -23,6 +23,7 @@ public extension FeatureStorage {
     
     static let updatedGroups: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroups",
+        defaultOption: true,
         automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
             value: true,
             condition: .after(timestamp: Features.legacyGroupDepricationDate.timeIntervalSince1970)
@@ -124,8 +125,16 @@ public struct Feature<T: FeatureOption>: FeatureType {
     // MARK: - Functions
     
     internal func currentValue(using dependencies: Dependencies) -> T {
-        let selectedOption: Int = dependencies[defaults: .appGroup].integer(forKey: identifier)
-        let maybeSelectedOption: T? = T(rawValue: selectedOption)
+        let maybeSelectedOption: T? = {
+            // `Int` defaults to `0` and `Bool` defaults to `false` so rather than those (in case we want
+            // a default value that isn't `0` or `false` which might be considered valid cases) we check
+            // if an entry exists and return `nil` if not before retrieving an `Int` representation of
+            // the value and converting to the desired type
+            guard dependencies[defaults: .appGroup].object(forKey: identifier) != nil else { return nil }
+            
+            let selectedOption: Int = dependencies[defaults: .appGroup].integer(forKey: identifier)
+            return T(rawValue: selectedOption)
+        }()
         
         /// If we have an explicitly set `selectedOption` then we should use that, otherwise we should check if any of the
         /// `automaticChangeBehaviour` conditions have been met, and if so use the specified value

@@ -8,7 +8,8 @@ import Foundation
 
 public extension FeatureStorage {
     static let serviceNetwork: FeatureConfig<ServiceNetwork> = Dependencies.create(
-        identifier: "serviceNetwork"
+        identifier: "serviceNetwork",
+        defaultOption: .testnet
     )
 }
 

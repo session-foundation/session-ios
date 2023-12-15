@@ -15,6 +15,7 @@ public class FeatureConfig<T: FeatureOption>: FeatureStorage {
     /// `fileprivate` to hide when accessing via `dependencies[feature: ]`
     fileprivate init(
         identifier: String,
+        defaultOption: T,
         automaticChangeBehaviour: Feature<T>.ChangeBehaviour?
     ) {
         self.identifier = identifier
@@ -22,7 +23,7 @@ public class FeatureConfig<T: FeatureOption>: FeatureStorage {
             Feature<T>(
                 identifier: identifier,
                 options: Array(T.allCases),
-                defaultOption: T.defaultOption,
+                defaultOption: defaultOption,
                 automaticChangeBehaviour: automaticChangeBehaviour
             )
         }
@@ -34,10 +35,12 @@ public class FeatureConfig<T: FeatureOption>: FeatureStorage {
 public extension Dependencies {
     static func create<T: FeatureOption>(
         identifier: String,
+        defaultOption: T = T.defaultOption,
         automaticChangeBehaviour: Feature<T>.ChangeBehaviour? = nil
     ) -> FeatureConfig<T> {
         return FeatureConfig(
             identifier: identifier,
+            defaultOption: defaultOption,
             automaticChangeBehaviour: automaticChangeBehaviour
         )
     }
