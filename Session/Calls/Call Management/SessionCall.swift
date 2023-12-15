@@ -235,6 +235,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             body: String(data: messageInfoData, encoding: .utf8),
             timestampMs: timestampMs
         )
+        .withDisappearingMessagesConfiguration(db)
         .inserted(db)
         
         self.callInteractionId = interaction?.id

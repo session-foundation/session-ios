@@ -185,7 +185,7 @@ public final class VisibleMessage: Message {
         }
         
         // DisappearingMessagesConfiguration
-        setDisappearingMessagesConfigurationIfNeeded(db, on: proto, threadId: threadId)
+        setDisappearingMessagesConfigurationIfNeeded(on: proto)
         
         // Sync target
         if let syncTarget = syncTarget {

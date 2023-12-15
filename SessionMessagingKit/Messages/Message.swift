@@ -66,17 +66,19 @@ public class Message: Codable {
         preconditionFailure("toProto(_:) is abstract and must be overridden.")
     }
     
-    public func setDisappearingMessagesConfigurationIfNeeded(_ db: Database, on proto: SNProtoContent.SNProtoContentBuilder, threadId: String) {
-        guard let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId) else {
+    public func setDisappearingMessagesConfigurationIfNeeded(on proto: SNProtoContent.SNProtoContentBuilder) {
+        if let expiresInSeconds = self.expiresInSeconds {
+            proto.setExpirationTimer(UInt32(expiresInSeconds))
+        } else {
             proto.setExpirationTimer(0)
+            proto.setExpirationType(.unknown)
             return
         }
         
-        let expireTimer: UInt32 = disappearingMessagesConfiguration.isEnabled ? UInt32(disappearingMessagesConfiguration.durationSeconds) : 0
-        proto.setExpirationTimer(expireTimer)
-        
-        if disappearingMessagesConfiguration.isEnabled, let type = disappearingMessagesConfiguration.type {
-            proto.setExpirationType(type.toProto())
+        if let expiresStartedAtMs = self.expiresStartedAtMs, UInt64(expiresStartedAtMs) == self.sentTimestamp {
+            proto.setExpirationType(.deleteAfterSend)
+        } else {
+            proto.setExpirationType(.deleteAfterRead)
         }
     }
     

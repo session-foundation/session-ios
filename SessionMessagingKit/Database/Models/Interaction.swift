@@ -476,6 +476,20 @@ public extension Interaction {
             openGroupWhisperTo: self.openGroupWhisperTo
         )
     }
+    
+    func withDisappearingMessagesConfiguration(
+        _ db: Database,
+        disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil
+    ) -> Interaction {
+        if let config = disappearingMessagesConfiguration ?? (try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId)) {
+            return self.with(
+                expiresInSeconds: config.durationSeconds,
+                expiresStartedAtMs: (config.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
+            )
+        }
+        
+        return self
+    }
 }
 
 // MARK: - GRDB Interactions

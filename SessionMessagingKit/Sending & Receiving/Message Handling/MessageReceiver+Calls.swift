@@ -228,7 +228,9 @@ extension MessageReceiver {
                 timestampMs: (messageSentTimestamp * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
                 openGroup: nil
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
         .inserted(db)
         
