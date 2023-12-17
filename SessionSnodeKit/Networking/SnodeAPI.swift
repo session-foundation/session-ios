@@ -625,7 +625,7 @@ public final class SnodeAPI {
         let sendTimestamp: UInt64 = UInt64(SnodeAPI.currentOffsetTimestampMs())
         
         // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
-        let serverHashes: [String] = serverHashes.appending("fakehash")
+        let serverHashes: [String] = serverHashes.appending("///////////////////////////////////////////") // Fake hash with valid length
         
         return SnodeAPI
             .send(
@@ -830,6 +830,9 @@ public final class SnodeAPI {
             return Fail(error: SnodeAPIError.generic)
                 .eraseToAnyPublisher()
         }
+        
+        // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
+        let serverHashes: [String] = serverHashes.appending("///////////////////////////////////////////") // Fake hash with valid length
         
         return getSwarm(for: publicKey)
             .tryFlatMapWithRandomSnode(retry: maxRetryCount) { snode -> AnyPublisher<[String: UpdateExpiryResponseResult], Error> in
