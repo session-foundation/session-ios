@@ -670,6 +670,7 @@ extension MessageReceiver {
         guard ClosedGroup.filter(id: threadId).isNotEmpty(db) else { return }
         
         // Insert the info message for this group control message
+        // Note: Control messages for legacy groups are not affected by disappearing messages setting
         _ = try Interaction(
             serverHash: message.serverHash,
             threadId: threadId,
@@ -680,9 +681,7 @@ extension MessageReceiver {
             timestampMs: (
                 message.sentTimestamp.map { Int64($0) } ??
                 SnodeAPI.currentOffsetTimestampMs()
-            ),
-            expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
+            )
         ).inserted(db)
     }
 }

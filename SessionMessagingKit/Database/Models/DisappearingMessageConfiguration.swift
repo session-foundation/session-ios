@@ -303,8 +303,8 @@ public extension DisappearingMessagesConfiguration {
                 isPreviousOff: isPreviousOff
             ),
             timestampMs: timestampMs,
-            expiresInSeconds: updatedConfiguration.durationSeconds,
-            expiresStartedAtMs: expiresStartedAtMs
+            expiresInSeconds: (threadVariant == .legacyGroup ? nil : updatedConfiguration.durationSeconds), // Do not expire this control message in legacy groups
+            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : expiresStartedAtMs)
         ).inserted(db)
         
         return interaction.id
