@@ -148,8 +148,13 @@ extension MessageReceiver {
         
         guard Features.useNewDisappearingMessagesConfig else { return }
         
-        if contactId == getUserHexEncodedPublicKey(db) && version == .legacyDisappearingMessages {
-            TopBannerController.show(warning: .outdatedUserConfig)
+        if contactId == getUserHexEncodedPublicKey(db) {
+            switch version {
+                case .legacyDisappearingMessages:
+                    TopBannerController.show(warning: .outdatedUserConfig)
+                case .newDisappearingMessages:
+                    TopBannerController.hide()
+            }
         }
         
     }
