@@ -957,6 +957,7 @@ public extension SessionThreadViewModel {
                     WHERE (
                         (\(groupMember[.profileId]) = \(contactProfile[.id]) OR
                         \(contact[.id]) = \(threadId)) AND
+                        \(contact[.id]) <> \(userPublicKey) AND
                         \(contact[.lastKnownClientVersion]) = \(FeatureVersion.legacyDisappearingMessages)
                     )
                 ) AS \(ViewModel.Columns.outdatedMemberId),
