@@ -515,6 +515,7 @@ public extension MessageViewModel {
     
     func canDoFollowingSetting() -> Bool {
         guard self.authorId != self.currentUserPublicKey else { return false }
+        guard self.threadVariant == .contact else { return false }
         return self.messageDisappearingConfiguration() != self.threadDisappearingConfiguration()
     }
 }
