@@ -221,21 +221,26 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         let webRTCSession: WebRTCSession = self.webRTCSession
         let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+        let disappearingMessagesConfiguration = try? thread.disappearingMessagesConfiguration.fetchOne(db)
         let message: CallMessage = CallMessage(
             uuid: self.uuid,
             kind: .preOffer,
             sdps: [],
             sentTimestampMs: UInt64(timestampMs)
         )
+        message.expiresInSeconds = disappearingMessagesConfiguration?.durationSeconds
+        message.expiresStartedAtMs = disappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(timestampMs) : nil
+        
         let interaction: Interaction? = try? Interaction(
             messageUuid: self.uuid,
             threadId: sessionId,
             authorId: getUserHexEncodedPublicKey(db),
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
-            timestampMs: timestampMs
+            timestampMs: timestampMs,
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
-        .withDisappearingMessagesConfiguration(db)
         .inserted(db)
         
         self.callInteractionId = interaction?.id
