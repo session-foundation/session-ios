@@ -477,18 +477,19 @@ public extension Interaction {
         )
     }
     
-    func withDisappearingMessagesConfiguration(
-        _ db: Database,
-        disappearingMessagesConfiguration: DisappearingMessagesConfiguration? = nil
-    ) -> Interaction {
-        if let config = disappearingMessagesConfiguration ?? (try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId)) {
-            return self.with(
-                expiresInSeconds: config.durationSeconds,
-                expiresStartedAtMs: (config.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
-            )
+    func withDisappearingMessagesConfiguration(_ db: Database) -> Interaction {
+        if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
+            return self.withDisappearingMessagesConfiguration(config: config)
         }
         
         return self
+    }
+    
+    func withDisappearingMessagesConfiguration(config: DisappearingMessagesConfiguration) -> Interaction {
+        return self.with(
+            expiresInSeconds: config.durationSeconds,
+            expiresStartedAtMs: (config.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
+        )
     }
 }
 

@@ -2087,6 +2087,8 @@ extension ConversationVC:
                         cellViewModel.authorId
                     )
                 )
+                unsendRequest.expiresInSeconds = cellViewModel.expiresInSeconds
+                unsendRequest.expiresStartedAtMs = cellViewModel.expiresStartedAtMs
                 
                 // For incoming interactions or interactions with no serverHash just delete them locally
                 guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
