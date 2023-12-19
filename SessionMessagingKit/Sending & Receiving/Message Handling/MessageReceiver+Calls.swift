@@ -228,10 +228,9 @@ extension MessageReceiver {
                 timestampMs: (messageSentTimestamp * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
                 openGroup: nil
-            ),
-            expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
+            )
         )
+        .withDisappearingMessagesConfiguration(db) // Should follow local setting
         .inserted(db)
         
         MessageSender.sendImmediate(
