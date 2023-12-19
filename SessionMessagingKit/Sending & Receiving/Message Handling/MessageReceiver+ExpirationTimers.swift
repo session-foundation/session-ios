@@ -134,10 +134,19 @@ extension MessageReceiver {
     
     public static func updateContactDisappearingMessagesVersionIfNeeded(
         _ db: Database,
+        messageVariant: Message.Variant?,
         contactId: String?,
         version: FeatureVersion?
     ) {
-        guard let contactId: String = contactId, let version: FeatureVersion = version else { return }
+        guard
+            let messageVariant: Message.Variant = messageVariant,
+            let contactId: String = contactId,
+            let version: FeatureVersion = version
+        else {
+            return
+        }
+        
+        guard [ .visibleMessage, .expirationTimerUpdate ].contains(messageVariant) else { return }
         
         _ = try? Contact
             .filter(id: contactId)

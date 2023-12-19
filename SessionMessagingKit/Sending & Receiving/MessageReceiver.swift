@@ -210,6 +210,7 @@ public enum MessageReceiver {
         
         MessageReceiver.updateContactDisappearingMessagesVersionIfNeeded(
             db,
+            messageVariant: .init(from: message),
             contactId: message.sender,
             version: ((!proto.hasExpirationType && !proto.hasExpirationTimer) ?
                 .legacyDisappearingMessages :

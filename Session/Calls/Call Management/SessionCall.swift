@@ -241,6 +241,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs
         )
+        .withDisappearingMessagesConfiguration(config: disappearingMessagesConfiguration)
         .inserted(db)
         
         self.callInteractionId = interaction?.id

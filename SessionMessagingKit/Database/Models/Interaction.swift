@@ -485,10 +485,10 @@ public extension Interaction {
         return self
     }
     
-    func withDisappearingMessagesConfiguration(config: DisappearingMessagesConfiguration) -> Interaction {
+    func withDisappearingMessagesConfiguration(config: DisappearingMessagesConfiguration?) -> Interaction {
         return self.with(
-            expiresInSeconds: config.durationSeconds,
-            expiresStartedAtMs: (config.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
+            expiresInSeconds: config?.durationSeconds,
+            expiresStartedAtMs: (config?.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
         )
     }
 }
