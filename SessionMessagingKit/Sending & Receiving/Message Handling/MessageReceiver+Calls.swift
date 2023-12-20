@@ -230,7 +230,7 @@ extension MessageReceiver {
                 openGroup: nil
             )
         )
-        .withDisappearingMessagesConfiguration(db) // Should follow local setting
+        .withDisappearAfterReadIfNeeded(db) // Should follow local timer with disappear after read
         .inserted(db)
         
         MessageSender.sendImmediate(
@@ -304,7 +304,7 @@ extension MessageReceiver {
                 openGroup: nil
             )
         )
-        .withDisappearingMessagesConfiguration(db) // Should follow local setting
+        .withDisappearAfterReadIfNeeded(db) // Should follow local timer with disappear after read
         .inserted(db)
     }
 }

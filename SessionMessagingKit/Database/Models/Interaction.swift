@@ -477,6 +477,16 @@ public extension Interaction {
         )
     }
     
+    func withDisappearAfterReadIfNeeded(_ db: Database) -> Interaction {
+        if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
+            return self.withDisappearingMessagesConfiguration(
+                config: config.with(type: .disappearAfterRead)
+            )
+        }
+        
+        return self
+    }
+    
     func withDisappearingMessagesConfiguration(_ db: Database) -> Interaction {
         if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
             return self.withDisappearingMessagesConfiguration(config: config)

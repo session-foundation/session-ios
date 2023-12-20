@@ -200,7 +200,15 @@ extension MessageReceiver {
         
         switch threadVariant {
             case .legacyGroup:
-                if localConfig != remoteConfig {
+                // Only change the config when it is changed from the admin
+                if localConfig != remoteConfig &&
+                   (try? GroupMember
+                    .filter(GroupMember.Columns.groupId == threadId)
+                    .filter(GroupMember.Columns.profileId == sender)
+                    .select(GroupMember.Columns.role)
+                    .asRequest(of: GroupMember.Role.self)
+                    .fetchOne(db)) == .admin
+                {
                     _ = try remoteConfig.save(db)
                     
                     try SessionUtil
