@@ -624,6 +624,7 @@
 		FD428B1D2B4B6FDC006D0888 /* UIApplicationState+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B1C2B4B6FDC006D0888 /* UIApplicationState+Utilities.swift */; };
 		FD428B1F2B4B758B006D0888 /* AppReadiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B1E2B4B758B006D0888 /* AppReadiness.swift */; };
 		FD428B212B4B75EA006D0888 /* Singleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B202B4B75EA006D0888 /* Singleton.swift */; };
+		FD428B232B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */; };
 		FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */; };
 		FD4324302999F0BC008A0213 /* ValidatableResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */; };
 		FD432432299C6933008A0213 /* _011_AddPendingReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */; };
@@ -1742,6 +1743,7 @@
 		FD428B1C2B4B6FDC006D0888 /* UIApplicationState+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplicationState+Utilities.swift"; sourceTree = "<group>"; };
 		FD428B1E2B4B758B006D0888 /* AppReadiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReadiness.swift; sourceTree = "<group>"; };
 		FD428B202B4B75EA006D0888 /* Singleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Singleton.swift; sourceTree = "<group>"; };
+		FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _017_RebuildFTSIfNeeded_2_4_5.swift; sourceTree = "<group>"; };
 		FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidatableResponse.swift; sourceTree = "<group>"; };
 		FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _011_AddPendingReadReceipts.swift; sourceTree = "<group>"; };
 		FD432433299C6985008A0213 /* PendingReadReceipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingReadReceipt.swift; sourceTree = "<group>"; };
@@ -3653,6 +3655,7 @@
 				FD778B6329B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift */,
 				FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */,
 				FDFE75B02ABD2D2400655640 /* _016_MakeBrokenProfileTimestampsNullable.swift */,
+				FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -5964,6 +5967,7 @@
 				FD848B9628422A2A000E298B /* MessageViewModel.swift in Sources */,
 				FDF0B7472804F0CE004C14C5 /* DisappearingMessagesJob.swift in Sources */,
 				FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */,
+				FD428B232B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift in Sources */,
 				FD09797527FAB64300936362 /* ProfileManager.swift in Sources */,
 				FD245C57285065F100B966DD /* Poller.swift in Sources */,
 				FDA8EAFE280E8B78002B68E5 /* FailedMessageSendsJob.swift in Sources */,
