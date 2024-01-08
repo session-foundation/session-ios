@@ -202,12 +202,11 @@ extension MessageReceiver {
             case .legacyGroup:
                 // Only change the config when it is changed from the admin
                 if localConfig != updatedConfig &&
-                   (try? GroupMember
+                   GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == sender)
-                    .select(GroupMember.Columns.role)
-                    .asRequest(of: GroupMember.Role.self)
-                    .fetchOne(db)) == .admin
+                    .filter(GroupMember.Columns.role == GroupMember.Role.admin)
+                    .isNotEmpty(db)
                 {
                     _ = try updatedConfig.save(db)
                     
