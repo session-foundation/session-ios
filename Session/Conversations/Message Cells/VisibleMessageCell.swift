@@ -111,7 +111,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Flip horizontally for RTL languages
         result.transform = CGAffineTransform.identity
             .scaledBy(
-                x: (CurrentAppContext().isRTL ? -1 : 1),
+                x: (Singleton.hasAppContext && Singleton.appContext.isRTL ? -1 : 1),
                 y: 1
             )
         
@@ -795,8 +795,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             // Only allow swipes to the left; allowing swipes to the right gets in the way of
             // the default iOS swipe to go back gesture
             guard
-                (CurrentAppContext().isRTL && v.x > 0) ||
-                (!CurrentAppContext().isRTL && v.x < 0)
+                (Singleton.hasAppContext && Singleton.appContext.isRTL && v.x > 0) ||
+                (!Singleton.hasAppContext || !Singleton.appContext.isRTL && v.x < 0)
             else { return false }
             
             return abs(v.x) > abs(v.y) // It has to be more horizontal than vertical
@@ -935,8 +935,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             .translation(in: self)
             .x
             .clamp(
-                (CurrentAppContext().isRTL ? 0 : -CGFloat.greatestFiniteMagnitude),
-                (CurrentAppContext().isRTL ? CGFloat.greatestFiniteMagnitude : 0)
+                (Singleton.hasAppContext && Singleton.appContext.isRTL ? 0 : -CGFloat.greatestFiniteMagnitude),
+                (Singleton.hasAppContext && Singleton.appContext.isRTL ? CGFloat.greatestFiniteMagnitude : 0)
             )
         
         switch gestureRecognizer.state {
@@ -945,7 +945,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case .changed:
                 // The idea here is to asymptotically approach a maximum drag distance
                 let damping: CGFloat = 20
-                let sign: CGFloat = (CurrentAppContext().isRTL ? 1 : -1)
+                let sign: CGFloat = (Singleton.hasAppContext && Singleton.appContext.isRTL ? 1 : -1)
                 let x = (damping * (sqrt(abs(translationX)) / sqrt(damping))) * sign
                 viewsToMoveForReply.forEach { $0.transform = CGAffineTransform(translationX: x, y: 0) }
                 
@@ -1205,7 +1205,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         // we only highlight those cases)
                         normalizedBody
                             .ranges(
-                                of: (CurrentAppContext().isRTL ?
+                                of: (Singleton.hasAppContext && Singleton.appContext.isRTL ?
                                      "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
                                      "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
                                 ),

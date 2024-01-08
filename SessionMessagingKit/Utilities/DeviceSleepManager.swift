@@ -36,7 +36,7 @@ public class DeviceSleepManager: NSObject {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(didEnterBackground),
-            name: NSNotification.Name.OWSApplicationDidEnterBackground,
+            name: .sessionDidEnterBackground,
             object: nil
         )
     }
@@ -73,6 +73,8 @@ public class DeviceSleepManager: NSObject {
         }
         let shouldBlock = blocks.count > 0
 
-        CurrentAppContext().ensureSleepBlocking(shouldBlock, blockingObjects: blocks)
+        guard Singleton.hasAppContext else { return }
+        
+        Singleton.appContext.ensureSleepBlocking(shouldBlock, blockingObjects: blocks)
     }
 }

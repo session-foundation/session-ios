@@ -2287,7 +2287,7 @@ extension ConversationVC:
         self.viewModel.stopAudio()
         
         // Create URL
-        let directory: String = OWSTemporaryDirectory()
+        let directory: String = Singleton.appContext.temporaryDirectory
         let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a"
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         

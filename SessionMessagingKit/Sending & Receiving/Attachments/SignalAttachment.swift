@@ -900,7 +900,7 @@ public class SignalAttachment: Equatable, Hashable {
     }
 
     private class var videoTempPath: URL {
-        let videoDir = URL(fileURLWithPath: OWSTemporaryDirectory()).appendingPathComponent("video")
+        let videoDir = URL(fileURLWithPath: Singleton.appContext.temporaryDirectory).appendingPathComponent("video")
         OWSFileSystem.ensureDirectoryExists(videoDir.path)
         return videoDir
     }

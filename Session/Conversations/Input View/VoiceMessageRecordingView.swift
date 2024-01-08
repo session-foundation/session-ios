@@ -62,7 +62,7 @@ final class VoiceMessageRecordingView: UIView {
 
     private lazy var chevronImageView: UIImageView = {
         let result: UIImageView = UIImageView(
-            image: (CurrentAppContext().isRTL ?
+            image: (Singleton.hasAppContext && Singleton.appContext.isRTL ?
                     UIImage(named: "small_chevron_left")?.withHorizontallyFlippedOrientation() :
                     UIImage(named: "small_chevron_left")
                 )?
@@ -276,9 +276,9 @@ final class VoiceMessageRecordingView: UIView {
     // MARK: - Interaction
     
     func handleLongPressMoved(to location: CGPoint) {
-        if (!CurrentAppContext().isRTL && location.x < bounds.center.x) || (CurrentAppContext().isRTL && location.x > bounds.center.x) {
+        if (Singleton.hasAppContext && (!Singleton.appContext.isRTL && location.x < bounds.center.x) || (Singleton.appContext.isRTL && location.x > bounds.center.x)) {
             let translationX = location.x - bounds.center.x
-            let sign: CGFloat = (CurrentAppContext().isRTL ? 1 : -1)
+            let sign: CGFloat = (Singleton.appContext.isRTL ? 1 : -1)
             let chevronDamping: CGFloat = 4
             let labelDamping: CGFloat = 3
             let chevronX = (chevronDamping * (sqrt(abs(translationX)) / sqrt(chevronDamping))) * sign

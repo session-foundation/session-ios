@@ -191,8 +191,8 @@ public final class JobRunner: JobRunnerType {
         
         self.allowToExecuteJobs = (
             isTestingJobRunner || (
-                HasAppContext() &&
-                CurrentAppContext().isMainApp &&
+                Singleton.hasAppContext &&
+                Singleton.appContext.isMainApp &&
                 !SNUtilitiesKit.isRunningTests
             )
         )
