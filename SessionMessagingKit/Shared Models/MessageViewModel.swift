@@ -456,7 +456,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             canHaveProfile: (
                 // Only group threads and incoming messages
                 isGroupThread &&
-                self.variant == .standardIncoming
+                (self.variant == .standardIncoming || self.variant == .standardIncomingDeleted)
             ),
             shouldShowProfile: (
                 // Only group threads
