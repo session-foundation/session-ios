@@ -175,7 +175,8 @@ extension MessageReceiver {
         message: ExpirationTimerUpdate,
         proto: SNProtoContent
     ) throws {
-        guard 
+        guard proto.hasExpirationType || proto.hasExpirationTimer else { return }
+        guard
             let sender: String = message.sender,
             let timestampMs: UInt64 = message.sentTimestamp,
             Features.useNewDisappearingMessagesConfig
