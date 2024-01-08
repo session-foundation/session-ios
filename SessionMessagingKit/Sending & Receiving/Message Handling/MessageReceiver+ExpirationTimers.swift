@@ -192,7 +192,7 @@ extension MessageReceiver {
             .init(protoType: proto.expirationType) :
             .unknown
         )
-        let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
+        let updatedConfig: DisappearingMessagesConfiguration = localConfig.with(
             isEnabled: (durationSeconds != 0),
             durationSeconds: durationSeconds,
             type: disappearingType
@@ -201,7 +201,7 @@ extension MessageReceiver {
         switch threadVariant {
             case .legacyGroup:
                 // Only change the config when it is changed from the admin
-                if localConfig != remoteConfig &&
+                if localConfig != updatedConfig &&
                    (try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == sender)
@@ -209,17 +209,24 @@ extension MessageReceiver {
                     .asRequest(of: GroupMember.Role.self)
                     .fetchOne(db)) == .admin
                 {
-                    _ = try remoteConfig.save(db)
+                    _ = try updatedConfig.save(db)
                     
                     try SessionUtil
                         .update(
                             db,
                             groupPublicKey: threadId,
-                            disappearingConfig: remoteConfig
+                            disappearingConfig: updatedConfig
                         )
                 }
                 fallthrough
             case .contact:
+                // Handle Note to Self:
+                // We sync disappearing messages config through shared config message only.
+                // If the updated config from this message is different from local config,
+                // this control message should already be removed.
+                if threadId == getUserHexEncodedPublicKey(db) && updatedConfig != localConfig {
+                    return
+                }
                 _ = try DisappearingMessagesConfiguration.insertControlMessage(
                     db,
                     threadId: threadId,
@@ -227,7 +234,7 @@ extension MessageReceiver {
                     authorId: sender,
                     timestampMs: Int64(timestampMs),
                     serverHash: message.serverHash,
-                    updatedConfiguration: remoteConfig,
+                    updatedConfiguration: updatedConfig,
                     isPreviousOff: !localConfig.isEnabled
                 )
             default:
