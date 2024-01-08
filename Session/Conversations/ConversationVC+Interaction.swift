@@ -935,6 +935,12 @@ extension ConversationVC:
                 ) { [weak self] _ in
                     dependencies.storage.writeAsync { db in
                         try messageDisappearingConfig.save(db)
+                        try SessionUtil
+                            .update(
+                                db,
+                                sessionId: cellViewModel.threadId,
+                                disappearingMessagesConfig: messageDisappearingConfig
+                            )
                     }
                     self?.dismiss(animated: true, completion: nil)
                 }

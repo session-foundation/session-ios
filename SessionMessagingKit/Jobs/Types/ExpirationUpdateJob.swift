@@ -86,8 +86,6 @@ public enum ExpirationUpdateJob: JobExecutor {
                                 )
                             }
                         }
-                        
-                        
                     }
                 }
             )
