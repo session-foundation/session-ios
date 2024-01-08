@@ -14,6 +14,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     var albumView: MediaAlbumView?
     var quoteView: QuoteView?
     var linkPreviewView: LinkPreviewView?
+    var documentView: DocumentView?
     var bodyTappableLabel: TappableLabel?
     var voiceMessageView: VoiceMessageView?
     var audioStateChanged: ((TimeInterval, Bool) -> ())?
@@ -471,6 +472,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         albumView = nil
         quoteView = nil
         linkPreviewView = nil
+        documentView = nil
         bodyTappableLabel = nil
         
         // Handle the deleted state first (it's much simpler than the others)
@@ -649,6 +651,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 
                 // Document view
                 let documentView = DocumentView(attachment: attachment, textColor: bodyLabelTextColor)
+                self.documentView = documentView
                 stackView.addArrangedSubview(documentView)
             
                 // Body text view

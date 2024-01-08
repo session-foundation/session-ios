@@ -897,11 +897,30 @@ extension ConversationVC:
             return
         }
         
+        /// Takes the `cell` and a `targetView` and returns `true` if the user tapped a link in the cell body text instead
+        /// of the `targetView`
+        func handleLinkTapIfNeeded(cell: UITableViewCell, targetView: UIView?) -> Bool {
+            let locationInTargetView: CGPoint = cell.convert(cellLocation, to: targetView)
+            
+            guard
+                let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell,
+                targetView?.bounds.contains(locationInTargetView) != true,
+                visibleCell.bodyTappableLabel?.containsLinks == true
+            else { return false }
+            
+            let tappableLabelPoint: CGPoint = cell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
+            visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+            return true
+        }
+        
         switch cellViewModel.cellType {
             case .voiceMessage: viewModel.playOrPauseAudio(for: cellViewModel)
             
             case .mediaMessage:
-                guard let albumView: MediaAlbumView = (cell as? VisibleMessageCell)?.albumView else { return }
+                guard
+                    let albumView: MediaAlbumView = (cell as? VisibleMessageCell)?.albumView,
+                    !handleLinkTapIfNeeded(cell: cell, targetView: albumView)
+                else { return }
                 
                 // Figure out which of the media views was tapped
                 let locationInAlbumView: CGPoint = cell.convert(cellLocation, to: albumView)
@@ -982,6 +1001,7 @@ extension ConversationVC:
                 
             case .audio:
                 guard
+                    !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
                     let originalFilePath: String = attachment.originalFilePath
                 else { return }
@@ -993,6 +1013,7 @@ extension ConversationVC:
                 
             case .genericAttachment:
                 guard
+                    !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
                     let originalFilePath: String = attachment.originalFilePath
                 else { return }
