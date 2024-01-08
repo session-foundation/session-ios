@@ -847,7 +847,8 @@ extension ConversationVC:
 
     func handleItemTapped(
         _ cellViewModel: MessageViewModel,
-        gestureRecognizer: UITapGestureRecognizer,
+        cell: UITableViewCell,
+        cellLocation: CGPoint,
         using dependencies: Dependencies = Dependencies()
     ) {
         guard cellViewModel.variant != .standardOutgoing || (cellViewModel.state != .failed && cellViewModel.state != .failedToSync) else {
@@ -900,20 +901,10 @@ extension ConversationVC:
             case .voiceMessage: viewModel.playOrPauseAudio(for: cellViewModel)
             
             case .mediaMessage:
-                guard
-                    let sectionIndex: Int = self.viewModel.interactionData
-                        .firstIndex(where: { $0.model == .messages }),
-                    let messageIndex: Int = self.viewModel.interactionData[sectionIndex]
-                        .elements
-                        .firstIndex(where: { $0.id == cellViewModel.id }),
-                    let cell = tableView.cellForRow(at: IndexPath(row: messageIndex, section: sectionIndex)) as? VisibleMessageCell,
-                    let albumView: MediaAlbumView = cell.albumView
-                else { return }
-                
-                let locationInCell: CGPoint = gestureRecognizer.location(in: cell)
+                guard let albumView: MediaAlbumView = (cell as? VisibleMessageCell)?.albumView else { return }
                 
                 // Figure out which of the media views was tapped
-                let locationInAlbumView: CGPoint = cell.convert(locationInCell, to: albumView)
+                let locationInAlbumView: CGPoint = cell.convert(cellLocation, to: albumView)
                 guard let mediaView = albumView.mediaView(forLocation: locationInAlbumView) else { return }
                 
                 switch mediaView.attachment.state {
@@ -1034,26 +1025,51 @@ extension ConversationVC:
                 navigationController?.present(shareVC, animated: true, completion: nil)
                 
             case .textOnlyMessage:
-                if let quote: Quote = cellViewModel.quote {
-                    // Scroll to the original quoted message
-                    let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Storage.shared.read { db in
-                        try quote.originalInteraction
-                            .select(.id, .timestampMs)
-                            .asRequest(of: Interaction.TimestampInfo.self)
-                            .fetchOne(db)
-                    }
+                guard let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell else { return }
+                
+                let quotePoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.quoteView)
+                let linkPreviewPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.linkPreviewView?.previewView)
+                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
+                let containsLinks: Bool = (
+                    // If there is only a single link and it matches the LinkPreview then consider this _just_ a
+                    // LinkPreview
+                    visibleCell.bodyTappableLabel?.containsLinks == true && (
+                        (visibleCell.bodyTappableLabel?.links.count ?? 0) > 1 ||
+                        visibleCell.bodyTappableLabel?.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                    )
+                )
+                let quoteViewContainsTouch: Bool = (visibleCell.quoteView?.bounds.contains(quotePoint) == true)
+                let linkPreviewViewContainsTouch: Bool = (visibleCell.linkPreviewView?.previewView.bounds.contains(linkPreviewPoint) == true)
+                
+                switch (containsLinks, quoteViewContainsTouch, linkPreviewViewContainsTouch, cellViewModel.quote, cellViewModel.linkPreview) {
+                    // If the message contains both links and a quote, and the user tapped on the quote; OR the
+                    // message only contained a quote, then scroll to the quote
+                    case (true, true, _, .some(let quote), _), (false, _, _, .some(let quote), _):
+                        let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Storage.shared.read { db in
+                            try quote.originalInteraction
+                                .select(.id, .timestampMs)
+                                .asRequest(of: Interaction.TimestampInfo.self)
+                                .fetchOne(db)
+                        }
+                        
+                        guard let interactionInfo: Interaction.TimestampInfo = maybeOriginalInteractionInfo else {
+                            return
+                        }
+                        
+                        self.scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
                     
-                    guard let interactionInfo: Interaction.TimestampInfo = maybeOriginalInteractionInfo else {
-                        return
-                    }
+                    // If the message contains both links and a LinkPreview, and the user tapped on
+                    // the LinkPreview; OR the message only contained a LinkPreview, then open the link
+                    case (true, _, true, _, .some(let linkPreview)), (false, _, _, _, .some(let linkPreview)):
+                        switch linkPreview.variant {
+                            case .standard: openUrl(linkPreview.url)
+                            case .openGroupInvitation: joinOpenGroup(name: linkPreview.title, url: linkPreview.url)
+                        }
                     
-                    self.scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
-                }
-                else if let linkPreview: LinkPreview = cellViewModel.linkPreview {
-                    switch linkPreview.variant {
-                        case .standard: openUrl(linkPreview.url)
-                        case .openGroupInvitation: joinOpenGroup(name: linkPreview.title, url: linkPreview.url)
-                    }
+                    // If the message contained links then interact with them directly
+                    case (true, _, _, _, _): visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+                        
+                    default: break
                 }
                 
             default: break

@@ -88,7 +88,7 @@ public class MessageCell: UITableViewCell {
 
 protocol MessageCellDelegate: ReactionDelegate {
     func handleItemLongPressed(_ cellViewModel: MessageViewModel)
-    func handleItemTapped(_ cellViewModel: MessageViewModel, gestureRecognizer: UITapGestureRecognizer, using dependencies: Dependencies)
+    func handleItemTapped(_ cellViewModel: MessageViewModel, cell: UITableViewCell, cellLocation: CGPoint, using dependencies: Dependencies)
     func handleItemDoubleTapped(_ cellViewModel: MessageViewModel)
     func handleItemSwiped(_ cellViewModel: MessageViewModel, state: SwipeState)
     func openUrl(_ urlString: String)
@@ -99,7 +99,7 @@ protocol MessageCellDelegate: ReactionDelegate {
 }
 
 extension MessageCellDelegate {
-    func handleItemTapped(_ cellViewModel: MessageViewModel, gestureRecognizer: UITapGestureRecognizer) {
-        handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer, using: Dependencies())
+    func handleItemTapped(_ cellViewModel: MessageViewModel, cell: UITableViewCell, cellLocation: CGPoint) {
+        handleItemTapped(cellViewModel, cell: cell, cellLocation: cellLocation, using: Dependencies())
     }
 }

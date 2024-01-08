@@ -29,7 +29,6 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     
     var focusedInteractionInfo: Interaction.TimestampInfo?
     var focusBehaviour: ConversationViewModel.FocusBehaviour = .none
-    var shouldHighlightNextScrollToInteraction: Bool = false
     
     // Search
     var isShowingSearchUI = false
@@ -1058,7 +1057,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     self?.searchController.resultsBar.stopLoading()
                     self?.scrollToInteractionIfNeeded(
                         with: focusedInteractionInfo,
-                        focusBehaviour: (self?.shouldHighlightNextScrollToInteraction == true ? .highlight : .none),
+                        focusBehaviour: (self?.focusBehaviour ?? .none),
                         isAnimated: true
                     )
                     
@@ -1135,7 +1134,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                             self?.searchController.resultsBar.stopLoading()
                             self?.scrollToInteractionIfNeeded(
                                 with: focusedInteractionInfo,
-                                focusBehaviour: (self?.shouldHighlightNextScrollToInteraction == true ? .highlight : .none),
+                                focusBehaviour: (self?.focusBehaviour ?? .none),
                                 isAnimated: true
                             )
                         }
@@ -1155,7 +1154,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     self?.searchController.resultsBar.stopLoading()
                     self?.scrollToInteractionIfNeeded(
                         with: focusedInteractionInfo,
-                        focusBehaviour: (self?.shouldHighlightNextScrollToInteraction == true ? .highlight : .none),
+                        focusBehaviour: (self?.focusBehaviour ?? .none),
                         isAnimated: true
                     )
                     
@@ -1660,17 +1659,15 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }
     
     func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
-        guard
-            let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo,
-            self.shouldHighlightNextScrollToInteraction
-        else {
+        guard let focusedInteractionInfo: Interaction.TimestampInfo = self.focusedInteractionInfo else {
             self.focusedInteractionInfo = nil
             self.focusBehaviour = .none
-            self.shouldHighlightNextScrollToInteraction = false
             return
         }
         
         let behaviour: ConversationViewModel.FocusBehaviour = self.focusBehaviour
+        self.focusedInteractionInfo = nil
+        self.focusBehaviour = .none
         
         DispatchQueue.main.async { [weak self] in
             self?.markFullyVisibleAndOlderCellsAsRead(interactionInfo: focusedInteractionInfo)
@@ -1832,8 +1829,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         isAnimated: Bool = true
     ) {
         // Store the info incase we need to load more data (call will be re-triggered)
+        self.focusBehaviour = focusBehaviour
         self.focusedInteractionInfo = interactionInfo
-        self.shouldHighlightNextScrollToInteraction = (focusBehaviour == .highlight)
         
         // Ensure the target interaction has been loaded
         guard
@@ -1920,7 +1917,6 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 self?.updateScrollToBottom(force: true)
             }
             
-            self.shouldHighlightNextScrollToInteraction = false
             self.focusedInteractionInfo = nil
             self.focusBehaviour = .none
             return
@@ -1935,6 +1931,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         guard !self.tableView.bounds.contains(targetRect) else {
             self.markFullyVisibleAndOlderCellsAsRead(interactionInfo: interactionInfo)
             self.highlightCellIfNeeded(interactionId: interactionInfo.id, behaviour: focusBehaviour)
+            self.focusedInteractionInfo = nil
+            self.focusBehaviour = .none
             return
         }
         
@@ -1999,7 +1997,6 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }
     
     func highlightCellIfNeeded(interactionId: Int64, behaviour: ConversationViewModel.FocusBehaviour) {
-        self.shouldHighlightNextScrollToInteraction = false
         self.focusedInteractionInfo = nil
         self.focusBehaviour = .none
         
