@@ -254,7 +254,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         timerView.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
         timerView.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
         messageStatusLabel.center(.vertical, in: messageStatusContainerView)
-//        messageStatusLabel.pin(.leading, to: .leading, of: messageStatusContainerView)
         messageStatusLabelPaddingView.pin(.leading, to: .leading, of: messageStatusContainerView)
         messageStatusLabelPaddingView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
     }
