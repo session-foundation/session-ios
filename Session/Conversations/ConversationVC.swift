@@ -1812,6 +1812,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         hideSearchUI()
     }
     
+    func currentVisibleIds() -> [Int64] { return (fullyVisibleCellViewModels() ?? []).map { $0.id } }
+    
     func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {
         viewModel.lastSearchedText = searchText
         tableView.reloadRows(at: tableView.indexPathsForVisibleRows ?? [], with: UITableView.RowAnimation.none)
@@ -1939,45 +1941,51 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         self.tableView.scrollToRow(at: targetIndexPath, at: targetPosition, animated: true)
     }
     
-    func markFullyVisibleAndOlderCellsAsRead(interactionInfo: Interaction.TimestampInfo?) {
-        // We want to mark messages as read on load and while we scroll, so grab the newest message and mark
-        // everything older as read
-        //
-        // Note: For the 'tableVisualBottom' we remove the 'Values.mediumSpacing' as that is the distance
-        // the table content appears above the input view
+    func fullyVisibleCellViewModels() -> [MessageViewModel]? {
+        // We remove the 'Values.mediumSpacing' as that is the distance the table content appears above the input view
+        let tableVisualTop: CGFloat = tableView.frame.minY//(tableView.frame.minY - (tableView.contentInset.bottom - Values.mediumSpacing))
         let tableVisualBottom: CGFloat = (tableView.frame.maxY - (tableView.contentInset.bottom - Values.mediumSpacing))
         
         guard
             let visibleIndexPaths: [IndexPath] = self.tableView.indexPathsForVisibleRows,
             let messagesSection: Int = visibleIndexPaths
                 .first(where: { self.viewModel.interactionData[$0.section].model == .messages })?
-                .section,
-            let newestCellViewModel: MessageViewModel = visibleIndexPaths
-                .sorted()
-                .filter({ $0.section == messagesSection })
-                .compactMap({ indexPath -> (frame: CGRect, cellViewModel: MessageViewModel)? in
-                    guard let cell: UITableViewCell = tableView.cellForRow(at: indexPath) else { return nil }
-                    
-                    switch cell {
-                        case is VisibleMessageCell, is CallMessageCell, is InfoMessageCell:
-                            return (
-                                view.convert(cell.frame, from: tableView),
-                                self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
-                            )
-                            
-                        case is TypingIndicatorCell, is DateHeaderCell, is UnreadMarkerCell:
-                            return nil
+                .section
+        else { return nil }
+        
+        return visibleIndexPaths
+            .sorted()
+            .filter({ $0.section == messagesSection })
+            .compactMap({ indexPath -> (frame: CGRect, cellViewModel: MessageViewModel)? in
+                guard let cell: UITableViewCell = tableView.cellForRow(at: indexPath) else { return nil }
+                
+                switch cell {
+                    case is VisibleMessageCell, is CallMessageCell, is InfoMessageCell:
+                        return (
+                            view.convert(cell.frame, from: tableView),
+                            self.viewModel.interactionData[indexPath.section].elements[indexPath.row]
+                        )
                         
-                        default:
-                            SNLog("[ConversationVC] Warning: Processing unhandled cell type when marking as read, this could result in intermittent failures")
-                            return nil
-                    }
-                })
-                // Exclude messages that are partially off the bottom of the screen
-                .filter({ $0.frame.maxY <= tableVisualBottom })
-                .last?
-                .cellViewModel
-        else {
+                    case is TypingIndicatorCell, is DateHeaderCell, is UnreadMarkerCell:
+                        return nil
+                    
+                    default:
+                        SNLog("[ConversationVC] Warning: Processing unhandled cell type when marking as read, this could result in intermittent failures")
+                        return nil
+                }
+            })
+            // Exclude messages that are partially off the the screen
+            .filter({ $0.frame.minY >= tableVisualTop && $0.frame.maxY <= tableVisualBottom })
+            .map { $0.cellViewModel }
+    }
+    
+    func markFullyVisibleAndOlderCellsAsRead(interactionInfo: Interaction.TimestampInfo?) {
+        // Only retrieve the `fullyVisibleCellViewModels` if the viewModel things we should mark something as read
+        guard self.viewModel.shouldTryMarkAsRead() else { return }
+        
+        // We want to mark messages as read on load and while we scroll, so grab the newest message and mark
+        // everything older as read
+        guard let newestCellViewModel: MessageViewModel = fullyVisibleCellViewModels()?.last else {
             // If we weren't able to get any visible cells for some reason then we should fall back to
             // marking the provided interactionInfo as read just in case
             if let interactionInfo: Interaction.TimestampInfo = interactionInfo {

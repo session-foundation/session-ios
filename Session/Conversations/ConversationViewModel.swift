@@ -725,6 +725,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         }
     }
     
+    /// This method indicates whether the client should try to mark the thread or it's messages as read (it's an optimisation for fully read
+    /// conversations so we can avoid iterating through the visible conversation cells every scroll)
+    public func shouldTryMarkAsRead() -> Bool {
+        return (
+            (threadData.threadUnreadCount ?? 0) > 0 ||
+            threadData.threadWasMarkedUnread == true
+        )
+    }
+    
     /// This method marks a thread as read and depending on the target may also update the interactions within a thread as read
     public func markAsRead(
         target: SessionThreadViewModel.ReadTarget,
