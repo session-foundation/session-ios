@@ -243,6 +243,14 @@ public extension DisappearingMessagesConfiguration {
         
         return String(data: messageInfoData, encoding: .utf8)
     }
+    
+    func isValidV2Config() -> Bool {
+        if let type = self.type {
+            return !(self.durationSeconds > 0 && self.type == .unknown)
+        } else {
+            return self.durationSeconds == 0
+        }
+    }
 }
 
 // MARK: - Control Message

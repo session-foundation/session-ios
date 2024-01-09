@@ -277,8 +277,8 @@ internal extension SessionUtil {
                     .fetchOne(db, id: group.id)
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(group.id))
                 
-                if let remoteConfig = group.disappearingConfig, localConfig != remoteConfig {
-                    _ = try remoteConfig.save(db)
+                if let updatedConfig = group.disappearingConfig, localConfig != updatedConfig {
+                    _ = try updatedConfig.save(db)
                     
                     _ = try Interaction
                         .filter(Interaction.Columns.threadId == group.id)

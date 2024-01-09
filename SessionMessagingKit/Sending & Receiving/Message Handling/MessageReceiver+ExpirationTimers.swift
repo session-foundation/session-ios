@@ -48,7 +48,7 @@ extension MessageReceiver {
             .fetchOne(db)
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
         
-        let remoteConfig: DisappearingMessagesConfiguration = localConfig.with(
+        let updatedConfig: DisappearingMessagesConfiguration = localConfig.with(
             // If there is no duration then we should disable the expiration timer
             isEnabled: ((message.duration ?? 0) > 0),
             durationSeconds: (
@@ -87,7 +87,7 @@ extension MessageReceiver {
                         .update(
                             db,
                             sessionId: threadId,
-                            disappearingMessagesConfig: remoteConfig
+                            disappearingMessagesConfig: updatedConfig
                         )
                 
                 case .legacyGroup:
@@ -95,7 +95,7 @@ extension MessageReceiver {
                         .update(
                             db,
                             groupPublicKey: threadId,
-                            disappearingConfig: remoteConfig
+                            disappearingConfig: updatedConfig
                         )
                     
                 default: break
@@ -106,7 +106,7 @@ extension MessageReceiver {
         if canPerformChange {
             // Finally save the changes to the DisappearingMessagesConfiguration (If it's a duplicate
             // then the interaction unique constraint will prevent the code from getting here)
-            try remoteConfig.save(db)
+            try updatedConfig.save(db)
         }
         
         // Add an info message for the user
@@ -116,7 +116,7 @@ extension MessageReceiver {
             threadId: threadId,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
-            body: remoteConfig.messageInfoString(
+            body: updatedConfig.messageInfoString(
                 threadVariant: threadVariant,
                 senderName: (sender != currentUserPublicKey ? Profile.displayName(db, id: sender) : nil),
                 isPreviousOff: false

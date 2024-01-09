@@ -179,7 +179,9 @@ internal extension SessionUtil {
                     .fetchOne(db, id: sessionId)
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
                 
-                if data.config != localConfig {
+                let isValid: Bool = Features.useNewDisappearingMessagesConfig ? data.config.isValidV2Config() : true
+                
+                if isValid && data.config != localConfig {
                     _ = try data.config.save(db)
                     _ = try Interaction
                         .filter(Interaction.Columns.threadId == sessionId)
