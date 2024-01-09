@@ -990,7 +990,7 @@ extension Attachment {
         return downloadUrl
             .map { urlString -> String? in
                 urlString
-                    .split(separator: "/")
+                    .split(separator: "/")  // stringlint:disable
                     .last
                     .map { String($0) }
             }
