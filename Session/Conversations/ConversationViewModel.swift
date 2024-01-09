@@ -17,6 +17,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         case highlight
     }
     
+    // MARK: - ContentSwapLocation
+    
+    public enum ContentSwapLocation {
+        case none
+        case earlier
+        case later
+    }
+    
     // MARK: - Action
     
     public enum Action {
@@ -172,12 +180,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // If we don't have a `initialFocusedInfo` then default to `.pageBefore` (it'll query
             // from a `0` offset)
-            guard let initialFocusedInfo: Interaction.TimestampInfo = (focusedInteractionInfo ?? initialData?.initialUnreadInteractionInfo) else {
-                self?.pagedDataObserver?.load(.pageBefore)
-                return
+            switch (focusedInteractionInfo ?? initialData?.initialUnreadInteractionInfo) {
+                case .some(let info): self?.pagedDataObserver?.load(.initialPageAround(id: info.id))
+                case .none: self?.pagedDataObserver?.load(.pageBefore)
             }
-            
-            self?.pagedDataObserver?.load(.initialPageAround(id: initialFocusedInfo.id))
         }
     }
     
@@ -785,14 +791,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         markAsReadTrigger.send((target, timestampMs))
     }
     
-    public func swapToThread(updatedThreadId: String) {
-        let oldestMessageId: Int64? = self.interactionData
-            .filter { $0.model == .messages }
-            .first?
-            .elements
-            .first?
-            .id
-        
+    public func swapToThread(updatedThreadId: String, focussedMessageId: Int64?) {
         self.threadId = updatedThreadId
         self.observableThreadData = self.setupObservableThreadData(for: updatedThreadId)
         self.pagedDataObserver = self.setupPagedObserver(
@@ -804,8 +803,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         
         // Try load everything up to the initial visible message, fallback to just the initial page of messages
         // if we don't have one
-        switch oldestMessageId {
-            case .some(let id): self.pagedDataObserver?.load(.untilInclusive(id: id, padding: 0))
+        switch focussedMessageId {
+            case .some(let id): self.pagedDataObserver?.load(.initialPageAround(id: id))
             case .none: self.pagedDataObserver?.load(.pageBefore)
         }
     }

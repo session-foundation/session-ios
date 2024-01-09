@@ -1077,7 +1077,11 @@ extension ConversationVC:
                             return
                         }
                         
-                        self.scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
+                        self.scrollToInteractionIfNeeded(
+                            with: interactionInfo,
+                            focusBehaviour: .highlight,
+                            originalIndexPath: self.tableView.indexPath(for: cell)
+                        )
                     
                     // If the message contains both links and a LinkPreview, and the user tapped on
                     // the LinkPreview; OR the message only contained a LinkPreview, then open the link
