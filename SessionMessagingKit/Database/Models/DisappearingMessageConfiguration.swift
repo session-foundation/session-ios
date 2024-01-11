@@ -112,6 +112,14 @@ public extension DisappearingMessagesConfiguration {
             type: (isEnabled == false) ? .unknown : (type ?? self.type)
         )
     }
+    
+    func forcedWithDisappearAfterReadIfNeeded() -> DisappearingMessagesConfiguration {
+        if self.isEnabled {
+            return self.with(type: .disappearAfterRead)
+        }
+        
+        return self
+    }
 }
 
 // MARK: - Convenience

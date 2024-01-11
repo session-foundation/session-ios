@@ -39,9 +39,10 @@ extension MessageReceiver {
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
                 openGroup: nil
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
-        .withDisappearAfterReadIfNeeded(db) // Should follow local timer with disappear after read
         .inserted(db)
     }
 }

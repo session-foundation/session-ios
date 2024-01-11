@@ -17,7 +17,8 @@ public final class CallMessage: ControlMessage {
     
     /// See https://developer.mozilla.org/en-US/docs/Glossary/SDP for more information.
     public var sdps: [String]
-        
+    
+    public override var ttl: UInt64 { 5 * 60 * 1000 } // 5 minutes
     public override var isSelfSendValid: Bool {
         switch kind {
             case .answer, .endCall: return true

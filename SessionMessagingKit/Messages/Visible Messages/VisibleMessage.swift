@@ -260,6 +260,10 @@ public extension VisibleMessage {
             },
             reaction: nil   // Reactions are custom messages sent separately
         )
+        .with(
+            expiresInSeconds: interaction.expiresInSeconds,
+            expiresStartedAtMs: interaction.expiresStartedAtMs
+        )
         
         visibleMessage.expiresInSeconds = interaction.expiresInSeconds
         visibleMessage.expiresStartedAtMs = interaction.expiresStartedAtMs

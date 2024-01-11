@@ -685,9 +685,26 @@ public extension Message {
 
 // MARK: - Mutation
 
-internal extension Message {
-    func with(sentTimestamp: UInt64) -> Message {
+public extension Message {
+    func with(sentTimestamp: UInt64) -> Self {
         self.sentTimestamp = sentTimestamp
+        return self
+    }
+    
+    func with(_ disappearingMessagesConfiguration: DisappearingMessagesConfiguration?) -> Self {
+        self.expiresInSeconds = disappearingMessagesConfiguration?.durationSeconds
+        if disappearingMessagesConfiguration?.type == .disappearAfterSend, let sentTimestamp = self.sentTimestamp {
+            self.expiresStartedAtMs =  Double(sentTimestamp)
+        }
+        return self
+    }
+    
+    func with(
+        expiresInSeconds: TimeInterval?,
+        expiresStartedAtMs: Double? = nil
+    ) -> Self {
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
         return self
     }
 }

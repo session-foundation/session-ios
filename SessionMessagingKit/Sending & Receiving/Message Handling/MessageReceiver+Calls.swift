@@ -228,9 +228,10 @@ extension MessageReceiver {
                 timestampMs: (messageSentTimestamp * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
                 openGroup: nil
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
-        .withDisappearAfterReadIfNeeded(db) // Should follow local timer with disappear after read
         .inserted(db)
         
         MessageSender.sendImmediate(
@@ -242,6 +243,10 @@ extension MessageReceiver {
                         kind: .endCall,
                         sdps: [],
                         sentTimestampMs: nil // Explicitly nil as it's a separate message from above
+                    )
+                    .with(try? thread.disappearingMessagesConfiguration
+                        .fetchOne(db)?
+                        .forcedWithDisappearAfterReadIfNeeded()
                     ),
                     to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
                     namespace: try Message.Destination
@@ -302,9 +307,10 @@ extension MessageReceiver {
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: currentUserPublicKey,
                 openGroup: nil
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
-        .withDisappearAfterReadIfNeeded(db) // Should follow local timer with disappear after read
         .inserted(db)
     }
 }

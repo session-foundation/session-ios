@@ -2093,8 +2093,10 @@ extension ConversationVC:
                         cellViewModel.authorId
                     )
                 )
-                unsendRequest.expiresInSeconds = cellViewModel.expiresInSeconds
-                unsendRequest.expiresStartedAtMs = cellViewModel.expiresStartedAtMs
+                .with(
+                    expiresInSeconds: cellViewModel.expiresInSeconds,
+                    expiresStartedAtMs: cellViewModel.expiresStartedAtMs
+                )
                 
                 // For incoming interactions or interactions with no serverHash just delete them locally
                 guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
@@ -2512,6 +2514,10 @@ extension ConversationVC:
                 message: DataExtractionNotification(
                     kind: kind,
                     sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
+                )
+                .with(DisappearingMessagesConfiguration
+                    .fetchOne(db, id: threadId)?
+                    .forcedWithDisappearAfterReadIfNeeded()
                 ),
                 interactionId: nil,
                 threadId: threadId,
