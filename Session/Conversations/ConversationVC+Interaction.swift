@@ -928,7 +928,9 @@ extension ConversationVC:
                                 range: (modalBodyString as NSString).range(of: "DISAPPEARING_MESSAGES_OFF".localized().lowercased())
                             )
                     ),
+                    accessibility: Accessibility(identifier: "Follow setting dialog"),
                     confirmTitle: modalConfirmTitle,
+                    confirmAccessibility: Accessibility(identifier: "Set button"),
                     confirmStyle: .danger,
                     cancelStyle: .textPrimary,
                     dismissOnConfirm: false // Custom dismissal logic
