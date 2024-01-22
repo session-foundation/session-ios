@@ -5,7 +5,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 
-struct DisplayNameView: View {
+struct DisplayNameScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State private var displayName: String = ""
@@ -118,7 +118,7 @@ struct DisplayNameView: View {
         }
         
         // Need to get the PN mode if registering
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeView(flow: flow))
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: flow))
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -126,6 +126,6 @@ struct DisplayNameView: View {
 
 struct DisplayNameView_Previews: PreviewProvider {
     static var previews: some View {
-        DisplayNameView(flow: .register)
+        DisplayNameScreen(flow: .register)
     }
 }

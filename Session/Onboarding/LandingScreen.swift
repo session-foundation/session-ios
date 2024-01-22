@@ -6,7 +6,7 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
-struct LandingView: View {
+struct LandingScreen: View {
     @EnvironmentObject var host: HostWrapper
 
     var body: some View {
@@ -115,7 +115,7 @@ struct LandingView: View {
                 x25519KeyPair: x25519KeyPair
             )
         
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameView(flow: .register))
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: .register))
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -123,7 +123,7 @@ struct LandingView: View {
     private func restore() {
         Onboarding.Flow.register.unregister()
         
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadAccountView())
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadAccountScreen())
         viewController.setNavBarTitle("onboarding_load_account_title".localized())
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -234,6 +234,6 @@ struct FakeChat: View {
 
 struct LandingView_Previews: PreviewProvider {
     static var previews: some View {
-        LandingView()
+        LandingScreen()
     }
 }

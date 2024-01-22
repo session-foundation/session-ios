@@ -808,7 +808,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     // MARK: - Interaction
     
     func handleContinueButtonTapped(from seedReminderView: SeedReminderView) {
-        if let recoveryPasswordView: RecoveryPasswordView = try? RecoveryPasswordView() {
+        if let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
             viewController.setNavBarTitle("recovery_password_title".localized())
             self.navigationController?.pushViewController(viewController, animated: true)

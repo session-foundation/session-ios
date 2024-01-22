@@ -5,7 +5,7 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
-struct RecoveryPasswordView: View {
+struct RecoveryPasswordScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State private var copied: Bool = false
@@ -282,6 +282,6 @@ struct RecoveryPasswordView: View {
 
 struct RecoveryPasswordView_Previews: PreviewProvider {
     static var previews: some View {
-        RecoveryPasswordView(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo penguin  tree grass  building  listen  speak withdraw  terminal  plane")
+        RecoveryPasswordScreen(hardcode: "Voyage  urban  toyed  maverick peculiar  tuxedo penguin  tree grass  building  listen  speak withdraw  terminal  plane")
     }
 }

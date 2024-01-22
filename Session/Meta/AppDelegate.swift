@@ -604,7 +604,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         switch Onboarding.State.current {
             case .newUser:
                 DispatchQueue.main.async {
-                    let viewController = SessionHostingViewController(rootView: LandingView())
+                    let viewController = SessionHostingViewController(rootView: LandingScreen())
                     viewController.setUpNavBarSessionIcon()
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
@@ -612,7 +612,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             case .missingName:
                 DispatchQueue.main.async {
-                    let viewController = SessionHostingViewController(rootView: DisplayNameView(flow: .register))
+                    let viewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: .register))
                     viewController.setUpNavBarSessionIcon()
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)

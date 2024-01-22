@@ -6,7 +6,7 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 import AVFoundation
 
-struct LoadAccountView: View {
+struct LoadAccountScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State var tabIndex = 0
@@ -63,7 +63,7 @@ struct LoadAccountView: View {
             )
         
         // Otherwise continue on to request push notifications permissions
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeView(flow: .link))
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: .link))
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -329,6 +329,6 @@ struct ScanQRCodeView: View {
 
 struct LoadAccountView_Previews: PreviewProvider {
     static var previews: some View {
-        LoadAccountView()
+        LoadAccountScreen()
     }
 }

@@ -5,7 +5,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 
-struct LoadingView: View {
+struct LoadingScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State var percentage: Double = 0.0
@@ -86,7 +86,7 @@ struct LoadingView: View {
     
     private func finishLoading(success: Bool) {
         guard success else {
-            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameView(flow: flow))
+            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: flow))
             viewController.setUpNavBarSessionIcon()
             if let navigationController = self.host.controller?.navigationController {
                 let index = navigationController.viewControllers.count - 1
@@ -169,6 +169,6 @@ struct CircularProgressView: View {
 
 struct LoadingView_Previews: PreviewProvider {
     static var previews: some View {
-        LoadingView(flow: .link, preview: true)
+        LoadingScreen(flow: .link, preview: true)
     }
 }

@@ -12,7 +12,7 @@ enum PNMode {
     case slow
 }
 
-struct PNModeView: View {
+struct PNModeScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State private var currentSelection: PNMode = .fast
@@ -141,7 +141,7 @@ struct PNModeView: View {
         }
         
         // If we don't have one then show a loading indicator and try to retrieve the existing name
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadingView(flow: flow))
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadingScreen(flow: flow))
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
@@ -239,6 +239,6 @@ struct PNOptionView: View {
 
 struct PNModeView_Previews: PreviewProvider {
     static var previews: some View {
-        PNModeView(flow: .register)
+        PNModeScreen(flow: .register)
     }
 }

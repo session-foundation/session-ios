@@ -434,7 +434,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             ),
                             title: "recovery_password_title".localized(),
                             onTap: {
-                                if let recoveryPasswordView: RecoveryPasswordView = try? RecoveryPasswordView() {
+                                if let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
                                     let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
                                     viewController.setNavBarTitle("recovery_password_title".localized())
                                     self?.transitionToScreen(viewController)
