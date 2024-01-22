@@ -160,7 +160,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             style: .plain,
                             accessibilityIdentifier: "Show QR code button",
                             action: { [weak self] in
-                                self?.transitionToScreen(QRCodeVC())
+                                let viewController: SessionHostingViewController = SessionHostingViewController(rootView: QRCodeScreen())
+                                viewController.setNavBarTitle("vc_qr_code_title".localized())
+                                self?.transitionToScreen(viewController)
                             }
                         )
                     ]

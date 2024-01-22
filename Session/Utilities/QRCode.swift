@@ -49,7 +49,7 @@ import SessionUIKit
 struct QRCodeView: View {
     let string: String
     let hasBackground: Bool
-    let hasLogo: Bool
+    let logo: String?
     let themeStyle: UIUserInterfaceStyle
     var backgroundThemeColor: ThemeValue {
         switch themeStyle {
@@ -87,12 +87,12 @@ struct QRCodeView: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             
-            if hasLogo {
+            if let logo = logo {
                 ZStack(alignment: .center) {
                     Rectangle()
                         .fill(themeColor: backgroundThemeColor)
                     
-                    Image("SessionShieldFilled")
+                    Image(logo)
                         .resizable()
                         .renderingMode(.template)
                         .foregroundColor(themeColor: qrCodeThemeColor)

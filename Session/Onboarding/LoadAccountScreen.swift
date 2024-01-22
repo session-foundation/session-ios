@@ -24,21 +24,26 @@ struct LoadAccountScreen: View {
             VStack(
                 spacing: 0
             ){
-                CustomTopTabBar(tabIndex: $tabIndex)
-                    .frame(maxWidth: .infinity)
+                CustomTopTabBar(
+                    tabIndex: $tabIndex,
+                    tabTitles: [
+                        "onboarding_recovery_password_tab_title".localized(),
+                        "vc_qr_code_view_scan_qr_code_tab_title".localized()
+                    ]
+                ).frame(maxWidth: .infinity)
                     
                 if tabIndex == 0 {
-                    EnterRecoveryPasswordView(
+                    EnterRecoveryPasswordScreen(
                         $recoveryPassword,
                         error: $errorString,
                         continueWithMnemonic: continueWithMnemonic
                     )
                 }
                 else {
-                    ScanQRCodeView(
+                    ScanQRCodeScreen(
                         $hexEncodedSeed,
                         error: $errorString,
-                        continueWithhexEncodedSeed: continueWithhexEncodedSeed
+                        continueAction: continueWithhexEncodedSeed
                     )
                 }
             }
@@ -98,72 +103,7 @@ struct LoadAccountScreen: View {
     }
 }
 
-struct TabBarButton: View {
-    @Binding var isSelected: Bool
-    
-    let text: String
-    
-    var body: some View {
-        ZStack(
-            alignment: .bottom
-        ) {
-            Text(text)
-                .bold()
-                .font(.system(size: Values.mediumFontSize))
-                .foregroundColor(themeColor: .textPrimary)
-                .padding(.bottom, 5)
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: .infinity
-                )
-            if isSelected {
-                Rectangle()
-                    .foregroundColor(themeColor: .primary)
-                    .frame(
-                        maxWidth: .infinity,
-                        maxHeight: 5
-                    )
-                    .padding(.horizontal, Values.verySmallSpacing)
-            }
-            
-        }
-    }
-}
-
-struct CustomTopTabBar: View {
-    @Binding var tabIndex: Int
-    
-    private static let height = isIPhone5OrSmaller ? CGFloat(32) : CGFloat(48)
-    
-    var body: some View {
-        HStack(spacing: 0) {
-            TabBarButton(
-                isSelected: .constant(tabIndex == 0),
-                text: "onboarding_recovery_password_tab_title".localized()
-            )
-            .onTapGesture { onButtonTapped(index: 0) }
-            
-            TabBarButton(
-                isSelected: .constant(tabIndex == 1),
-                text: "vc_qr_code_view_scan_qr_code_tab_title".localized()
-            )
-            .onTapGesture { onButtonTapped(index: 1) }
-        }
-        .frame(
-            maxWidth: .infinity,
-            maxHeight: Self.height
-        )
-        .border(width: 1, edges: [.bottom], color: .borderSeparator)
-    }
-    
-    private func onButtonTapped(index: Int) {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            tabIndex = index
-        }
-    }
-}
-
-struct EnterRecoveryPasswordView: View{
+struct EnterRecoveryPasswordScreen: View{
     @Binding var recoveryPassword: String
     @Binding var error: String?
     
@@ -256,73 +196,6 @@ struct EnterRecoveryPasswordView: View{
                 .padding(.horizontal, Values.massiveSpacing)
             }
             .padding(.vertical, Values.mediumSpacing)
-        }
-    }
-}
-
-struct ScanQRCodeView: View {
-    @Binding var hexEncodedSeed: String
-    @Binding var error: String?
-    @State var hasCameraAccess: Bool = (AVCaptureDevice.authorizationStatus(for: .video) == .authorized)
-    
-    var continueWithhexEncodedSeed: (((() -> ())?) -> Void)?
-    
-    init(
-        _ hexEncodedSeed: Binding<String>,
-        error: Binding<String?>,
-        continueWithhexEncodedSeed: (((() -> ())?) -> Void)?
-    ) {
-        self._hexEncodedSeed = hexEncodedSeed
-        self._error = error
-        self.continueWithhexEncodedSeed = continueWithhexEncodedSeed
-    }
-    
-    var body: some View{
-        ZStack{
-            if hasCameraAccess {
-                VStack {
-                    QRCodeScanningVC_SwiftUI { result, onError in
-                        hexEncodedSeed = result
-                        continueWithhexEncodedSeed?(onError)
-                    }
-                }
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: .infinity
-                )
-            } else {
-                VStack(
-                    alignment: .center,
-                    spacing: Values.mediumSpacing
-                ) {
-                    Spacer()
-                    
-                    Text("vc_scan_qr_code_camera_access_explanation".localized())
-                        .font(.system(size: Values.smallFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
-                        .multilineTextAlignment(.center)
-                    
-                    Button {
-                        requestCameraAccess()
-                    } label: {
-                        Text("continue_2".localized())
-                            .bold()
-                            .font(.system(size: Values.mediumFontSize))
-                            .foregroundColor(themeColor: .primary)
-                    }
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, Values.massiveSpacing)
-                .padding(.bottom, Values.massiveSpacing)
-            }
-        }
-        .toastView(message: $error)
-    }
-    
-    private func requestCameraAccess() {
-        Permissions.requestCameraPermissionIfNeeded {
-            hasCameraAccess.toggle()
         }
     }
 }

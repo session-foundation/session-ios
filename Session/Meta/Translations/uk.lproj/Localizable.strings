@@ -860,3 +860,7 @@ The point that a message will disappear in a disappearing message update message
 "hide_recovery_password_modal_warning_2" = "We strongly recommend you save your recovery password in a safe and secure place before continuing.";
 "hide_recovery_password_modal_confirmation" = "Are you sure you want to permanently hide your recovery password on this device? This cannot be undone.";
 "yes_button_title" = "Yes";
+
+"settings_view_qr_code_tab_title" = "View";
+"settings_scan_qr_code_tab_title" = "Scan";
+"settings_view_my_qr_code_explanation" = "This is your Account ID. Other users can scan it to start a conversation with you.";

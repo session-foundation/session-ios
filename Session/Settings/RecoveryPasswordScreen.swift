@@ -81,7 +81,7 @@ struct RecoveryPasswordScreen: View {
                                 QRCodeView(
                                     string: mnemonic,
                                     hasBackground: false,
-                                    hasLogo: true,
+                                    logo: "SessionShieldFilled",
                                     themeStyle: ThemeManager.currentTheme.interfaceStyle
                                 )
                                 .padding(.all, Values.smallSpacing)
