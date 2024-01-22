@@ -47,16 +47,7 @@ struct QRCodeScreen: View {
     
     fileprivate func startNewPrivateChatIfPossible(with hexEncodedPublicKey: String, onError: (() -> ())?) {
         if !KeyPair.isValidHexEncodedPublicKey(candidate: hexEncodedPublicKey) {
-            let modal: ConfirmationModal = ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "invalid_session_id".localized(),
-                    body: .text("INVALID_SESSION_ID_MESSAGE".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
-                    cancelStyle: .alert_text,
-                    afterClosed: onError
-                )
-            )
-            self.host.controller?.present(modal, animated: true)
+            errorString = "invalid_account_id_from_qr_code_message".localized()
         }
         else {
             SessionApp.presentConversationCreatingIfNeeded(
