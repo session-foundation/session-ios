@@ -348,7 +348,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             lastSearchText: lastSearchText
         )
         
-        bubbleView.accessibilityIdentifier = "Message Body"
+        bubbleView.accessibilityIdentifier = "Message body"
         bubbleView.accessibilityLabel = bodyTappableLabel?.attributedText?.string
         bubbleView.isAccessibilityElement = true
         
