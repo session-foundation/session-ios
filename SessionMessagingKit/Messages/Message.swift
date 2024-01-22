@@ -661,6 +661,7 @@ public extension Message {
         message: Message,
         isSyncMessage: Bool
     ) -> UInt64 {
+        guard Features.useNewDisappearingMessagesConfig else { return message.ttl }
         // Not disappearing messages
         guard let expiresInSeconds = message.expiresInSeconds else { return message.ttl }
         
@@ -673,7 +674,7 @@ public extension Message {
         // Disappear after read messages that have already be read
         guard message.sentTimestamp == UInt64(expiresStartedAtMs) else { return message.ttl }
         
-        // Disappear after sent messages with expections
+        // Disappear after sent messages with exceptions
         switch message {
             case is ClosedGroupControlMessage, is UnsendRequest:
                 return message.ttl
