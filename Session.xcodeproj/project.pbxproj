@@ -172,6 +172,7 @@
 		946B34472B5DF0B7004CB4A3 /* QRCodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B34462B5DF0B7004CB4A3 /* QRCodeScreen.swift */; };
 		946B34492B5E04BB004CB4A3 /* CustomTopTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B34482B5E04BB004CB4A3 /* CustomTopTabBar.swift */; };
 		946B344B2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B344A2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift */; };
+		946B344D2B5F67B4004CB4A3 /* StartConversationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B344C2B5F67B4004CB4A3 /* StartConversationScreen.swift */; };
 		99978E3F7A80275823CA9014 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionNotificationServiceExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29E827FDF6C1032BB985740C /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionNotificationServiceExtension.framework */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1311,6 +1312,7 @@
 		946B34462B5DF0B7004CB4A3 /* QRCodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeScreen.swift; sourceTree = "<group>"; };
 		946B34482B5E04BB004CB4A3 /* CustomTopTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTopTabBar.swift; sourceTree = "<group>"; };
 		946B344A2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanQRCodeScreen.swift; sourceTree = "<group>"; };
+		946B344C2B5F67B4004CB4A3 /* StartConversationScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartConversationScreen.swift; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		A1C32D4D17A0652C000A904E /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
@@ -2417,6 +2419,7 @@
 				B8CCF63623961D6D0091D419 /* NewDMVC.swift */,
 				7B8C44C428B49DDA00FBE25F /* NewConversationVC.swift */,
 				7BB92B3E28C825FD0082762F /* NewConversationViewModel.swift */,
+				946B344C2B5F67B4004CB4A3 /* StartConversationScreen.swift */,
 			);
 			path = "New Conversation";
 			sourceTree = "<group>";
@@ -6275,6 +6278,7 @@
 				4C4AE6A1224AF35700D4AF6F /* SendMediaNavigationController.swift in Sources */,
 				B82149C125D605C6009C0F2A /* InfoBanner.swift in Sources */,
 				C3DAB3242480CB2B00725F25 /* SRCopyableLabel.swift in Sources */,
+				946B344D2B5F67B4004CB4A3 /* StartConversationScreen.swift in Sources */,
 				7B9F71D02852EEE2006DFE7B /* Emoji+Category.swift in Sources */,
 				7BAADFCC27B0EF23007BCF92 /* CallVideoView.swift in Sources */,
 				B8CCF63F23975CFB0091D419 /* JoinOpenGroupVC.swift in Sources */,

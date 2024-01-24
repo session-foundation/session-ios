@@ -15,11 +15,6 @@ struct QRCodeScreen: View {
     
     var body: some View {
         ZStack(alignment: .topLeading) {
-            if #available(iOS 14.0, *) {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-            } else {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-            }
             VStack(
                 spacing: 0
             ){
@@ -43,6 +38,7 @@ struct QRCodeScreen: View {
                 }
             }
         }
+        .backgroundColor(themeColor: .backgroundPrimary)
     }
     
     fileprivate func startNewPrivateChatIfPossible(with hexEncodedPublicKey: String, onError: (() -> ())?) {

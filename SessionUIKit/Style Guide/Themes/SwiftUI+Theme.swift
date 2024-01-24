@@ -10,9 +10,15 @@ public extension View {
     }
     
     func backgroundColor(themeColor: ThemeValue) -> some View {
-        return self.background(
-            ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
-        )
+        if #available(iOSApplicationExtension 14.0, *) {
+            return self.background(
+                ThemeManager.currentTheme.colorSwiftUI(for: themeColor)?.ignoresSafeArea()
+            )
+        } else {
+            return self.background(
+                ThemeManager.currentTheme.colorSwiftUI(for: themeColor)
+            )
+        }
     }
 }
 

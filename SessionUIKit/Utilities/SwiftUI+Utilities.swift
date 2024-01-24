@@ -36,6 +36,20 @@ extension UIViewController {
     }
 }
 
+public struct Line: View {
+    let color: ThemeValue
+    
+    public init(color: ThemeValue) {
+        self.color = color
+    }
+    
+    public var body: some View {
+        Rectangle()
+            .fill(themeColor: color)
+            .frame(height: 1)
+    }
+}
+
 struct EdgeBorder: Shape {
     
     var width: CGFloat

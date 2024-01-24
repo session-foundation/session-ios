@@ -26,12 +26,6 @@ struct RecoveryPasswordScreen: View {
     
     var body: some View {
         ZStack(alignment: .center) {
-            if #available(iOS 14.0, *) {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-            } else {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-            }
-            
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(
                     alignment: .leading,
@@ -228,7 +222,9 @@ struct RecoveryPasswordScreen: View {
                 .padding(.horizontal, Values.largeSpacing)
                 .padding(.vertical, Values.mediumSpacing)
             }
-        }.onAppear {
+        }
+        .backgroundColor(themeColor: .backgroundPrimary)
+        .onAppear {
             Storage.shared.writeAsync { db in db[.hasViewedSeed] = true }
         }
     }
