@@ -868,10 +868,14 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     }
     
     @objc func createNewConversation() {
-        let viewController = SessionHostingViewController(rootView: StartConversationScreen())
+        let viewController = SessionHostingViewController(
+            rootView: StartConversationScreen(),
+            customizedNavigationBackground: .backgroundSecondary
+        )
         viewController.setNavBarTitle("start_conversation_screen_title".localized())
+        viewController.setUpDismissingButton(on: .right)
+        
         let navigationController = StyledNavigationController(rootViewController: viewController)
-        navigationController.view.backgroundColor = .blue
         if UIDevice.current.isIPad {
             navigationController.modalPresentationStyle = .fullScreen
         }

@@ -7,10 +7,18 @@ public class HostWrapper: ObservableObject {
     public weak var controller: UIViewController?
 }
 
-public class SessionHostingViewController<Content>: UIHostingController<ModifiedContent<Content,SwiftUI._EnvironmentKeyWritingModifier<HostWrapper?>>> where Content : View {
+public enum NavigationItemPosition {
+    case left
+    case right
+}
+
+public class SessionHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>>, ThemedNavigation where Content : View {
     public override var preferredStatusBarStyle: UIStatusBarStyle {
         return ThemeManager.currentTheme.statusBarStyle
     }
+    
+    public var navigationBackground: ThemeValue { customizedNavigationBackground ?? .backgroundPrimary }
+    private let customizedNavigationBackground: ThemeValue?
 
     lazy var navBarTitleLabel: UILabel = {
         let result = UILabel()
@@ -32,7 +40,8 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         return result
     }()
     
-    public init(rootView:Content) {
+    public init(rootView:Content, customizedNavigationBackground: ThemeValue? = nil) {
+        self.customizedNavigationBackground = customizedNavigationBackground
         let container = HostWrapper()
         let modified = rootView.environmentObject(container) as! ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>
         super.init(rootView: modified)
@@ -93,5 +102,20 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         logoImageView.set(.height, to: 32)
         
         navigationItem.titleView = logoImageView
+    }
+    
+    internal func setUpDismissingButton(on postion: NavigationItemPosition) {
+        let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
+        closeButton.themeTintColor = .textPrimary
+        switch postion {
+            case .left:
+                navigationItem.leftBarButtonItem = closeButton
+            case .right:
+                navigationItem.rightBarButtonItem = closeButton
+        }
+    }
+    
+    @objc private func close() {
+        dismiss(animated: true, completion: nil)
     }
 }

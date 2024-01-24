@@ -76,7 +76,7 @@ struct StartConversationScreen: View {
                     .aspectRatio(1, contentMode: .fit)
                     .padding(.vertical, Values.smallSpacing)
                 }
-                .padding(.all, Values.largeSpacing)
+                .padding(.horizontal, Values.largeSpacing)
             }
         }
         .backgroundColor(themeColor: .backgroundSecondary)
