@@ -78,6 +78,8 @@ struct MyQRCodeScreen: View {
                 .font(.system(size: Values.verySmallFontSize))
                 .foregroundColor(themeColor: .textSecondary)
                 .multilineTextAlignment(.center)
+            
+            Spacer()
         }
         .padding(.horizontal, Values.mediumSpacing)
         .padding(.all, Values.veryLargeSpacing)

@@ -23,7 +23,10 @@ struct StartConversationScreen: View {
                             image: "Message",
                             title: "vc_create_private_chat_title".localized()
                         ) {
-                            
+                            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen())
+                            viewController.setNavBarTitle("vc_create_private_chat_title".localized())
+                            viewController.setUpDismissingButton(on: .right)
+                            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
                         
                         Line(color: .borderSeparator)
