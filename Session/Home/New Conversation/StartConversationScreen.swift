@@ -6,6 +6,8 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 struct StartConversationScreen: View {
+    @EnvironmentObject var host: HostWrapper
+    
     var body: some View {
         ZStack(alignment: .topLeading) {
             ScrollView(.vertical, showsIndicators: false) {
@@ -54,7 +56,10 @@ struct StartConversationScreen: View {
                             image: "icon_invite",
                             title: "vc_settings_invite_a_friend_button_title".localized()
                         ) {
-                            
+                            let viewController: SessionHostingViewController = SessionHostingViewController(rootView: InviteAFriendScreen())
+                            viewController.setNavBarTitle("vc_settings_invite_a_friend_button_title".localized())
+                            viewController.setUpDismissingButton(on: .right)
+                            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
                     }
                     .padding(.bottom, Values.mediumSpacing)
@@ -89,29 +94,30 @@ fileprivate struct NewConversationCell: View {
     let action: () -> ()
     
     var body: some View {
-        HStack(
-            alignment: .center,
-            spacing: Values.smallSpacing
-        ) {
-            ZStack(alignment: .center) {
-                Image(image)
-                    .renderingMode(.template)
-                    .foregroundColor(themeColor: .textPrimary)
-                    .frame(width: 25, height: 24, alignment: .bottom)
-            }
-            .frame(width: 38, height: 38, alignment: .leading)
-            
-            Text(title)
-                .font(.system(size: Values.mediumLargeFontSize))
-                .foregroundColor(themeColor: .textPrimary)
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-        }
-        .frame(height: 55)
-        .onTapGesture {
+        Button {
             action()
+        } label: {
+            HStack(
+                alignment: .center,
+                spacing: Values.smallSpacing
+            ) {
+                ZStack(alignment: .center) {
+                    Image(image)
+                        .renderingMode(.template)
+                        .foregroundColor(themeColor: .textPrimary)
+                        .frame(width: 25, height: 24, alignment: .bottom)
+                }
+                .frame(width: 38, height: 38, alignment: .leading)
+                
+                Text(title)
+                    .font(.system(size: Values.mediumLargeFontSize))
+                    .foregroundColor(themeColor: .textPrimary)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+            }
+            .frame(height: 55)
         }
     }
 }

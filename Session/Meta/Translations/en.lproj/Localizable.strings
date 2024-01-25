@@ -873,3 +873,4 @@ The point that a message will disappear in a disappearing message update message
 "your_account_id" = "Your Account ID";
 "account_id_qr_code_explanation" = "Friends can message you by scanning your QR code.";
 "start_conversation_screen_title" = "Start Conversation";
+"invite_a_friend_explanation" = "Invite your friend to chat with you on Session by sharing your Account ID with them";
