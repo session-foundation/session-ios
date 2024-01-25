@@ -4,6 +4,8 @@ import SwiftUI
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SignalUtilitiesKit
+import SessionSnodeKit
 
 struct NewMessageScreen: View {
     @EnvironmentObject var host: HostWrapper
@@ -43,23 +45,88 @@ struct NewMessageScreen: View {
         .backgroundColor(themeColor: .backgroundSecondary)
     }
     
-    fileprivate func startNewPrivateChatIfPossible(with hexEncodedPublicKey: String, onError: (() -> ())?) {
-        if !KeyPair.isValidHexEncodedPublicKey(candidate: hexEncodedPublicKey) {
+    fileprivate func startNewPrivateChatIfPossible(with sessionId: String, onError: (() -> ())?) {
+        if !KeyPair.isValidHexEncodedPublicKey(candidate: sessionId) {
             errorString = "invalid_account_id_from_qr_code_message".localized()
         }
         else {
-            SessionApp.presentConversationCreatingIfNeeded(
-                for: hexEncodedPublicKey,
-                variant: .contact,
-                dismissing: self.host.controller,
-                animated: false
-            )
+            startNewDM(with: sessionId)
         }
     }
     
     func continueWithAccountId(onError: (() -> ())?) {
-        let hexEncodedPublicKey = accountIdOrONS
-        startNewPrivateChatIfPossible(with: hexEncodedPublicKey, onError: onError)
+        startNewPrivateChatIfPossible(with: accountIdOrONS, onError: onError)
+    }
+    
+    fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String, onError: (() -> ())?) {
+        let maybeSessionId: SessionId? = SessionId(from: onsNameOrPublicKey)
+        
+        if KeyPair.isValidHexEncodedPublicKey(candidate: onsNameOrPublicKey) {
+            switch maybeSessionId?.prefix {
+                case .standard:
+                    startNewDM(with: onsNameOrPublicKey)
+                    
+                case .blinded15, .blinded25:
+                    errorString = "DM_ERROR_DIRECT_BLINDED_ID".localized()
+                    
+                default:
+                    errorString = "DM_ERROR_INVALID".localized()
+            }
+            return
+        }
+        
+        // This could be an ONS name
+        ModalActivityIndicatorViewController
+            .present(fromViewController: self.host.controller?.navigationController!, canCancel: false) { modalActivityIndicator in
+            SnodeAPI
+                .getSessionID(for: onsNameOrPublicKey)
+                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                .receive(on: DispatchQueue.main)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure(let error):
+                                modalActivityIndicator.dismiss {
+                                    var messageOrNil: String?
+                                    if let error = error as? SnodeAPIError {
+                                        switch error {
+                                            case .decryptionFailed, .hashingFailed, .validationFailed:
+                                                messageOrNil = error.errorDescription
+                                            default: break
+                                        }
+                                    }
+                                    let message: String = {
+                                        if let messageOrNil: String = messageOrNil {
+                                            return messageOrNil
+                                        }
+                                        
+                                        return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
+                                            "DM_ERROR_DIRECT_BLINDED_ID".localized() :
+                                            "DM_ERROR_INVALID".localized()
+                                        )
+                                    }()
+                                    
+                                    errorString = message
+                                }
+                        }
+                    },
+                    receiveValue: { sessionId in
+                        modalActivityIndicator.dismiss {
+                            self.startNewDM(with: sessionId)
+                        }
+                    }
+                )
+        }
+    }
+
+    private func startNewDM(with sessionId: String) {
+        SessionApp.presentConversationCreatingIfNeeded(
+            for: sessionId,
+            variant: .contact,
+            dismissing: self.host.controller,
+            animated: false
+        )
     }
 }
 
@@ -101,6 +168,8 @@ struct EnterAccountIdScreen: View {
                 }
             }
             
+            Spacer()
+            
             if !accountIdOrONS.isEmpty {
                 Button {
                     
@@ -110,7 +179,7 @@ struct EnterAccountIdScreen: View {
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .sessionButton_text)
                         .frame(
-                            maxWidth: .infinity,
+                            maxWidth: 160,
                             maxHeight: Values.largeButtonHeight,
                             alignment: .center
                         )
@@ -121,8 +190,6 @@ struct EnterAccountIdScreen: View {
                 }
                 .padding(.horizontal, Values.massiveSpacing)
             }
-            
-            Spacer()
         }
         .padding(.all, Values.largeSpacing)
     }
