@@ -134,8 +134,7 @@ extension MessageReceiver {
             groupSessionId: message.groupSessionId,
             using: dependencies
         )
-        
-        try MessageReceiver.handleNewGroup(
+        let pollResponseJob: Job? = try MessageReceiver.handleNewGroup(
             db,
             groupSessionId: message.groupSessionId.hexString,
             groupIdentityPrivateKey: nil,
@@ -190,26 +189,47 @@ extension MessageReceiver {
         ).inserted(db)
         
         /// Notify the user about the group message request if needed
-        guard !inviteSenderIsApproved else { return }
-        
-        let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
-        dependencies[singleton: .notificationsManager].notifyUser(
-            db,
-            for: interaction,
-            in: try SessionThread.fetchOrCreate(
-                db,
-                id: message.groupSessionId.hexString,
-                variant: .group,
-                shouldBeVisible: nil,
-                calledFromConfigHandling: false,
-                using: dependencies
-            ),
-            applicationState: (isMainAppActive ? .active : .background),
-            using: dependencies
-        )
+        switch inviteSenderIsApproved {
+            /// If the sender was approved then this group will be auto-accepted and we should send the
+            /// `GroupUpdateInviteResponseMessage` to the group
+            case true:
+                /// If we aren't creating a new thread (ie. sending a message request) then send a
+                /// `GroupUpdateInviteResponseMessage` to the group (this allows other members
+                /// to know that the user has joined the group)
+                try MessageSender.send(
+                    db,
+                    message: GroupUpdateInviteResponseMessage(
+                        isApproved: true,
+                        sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+                    ),
+                    interactionId: nil,
+                    threadId: message.groupSessionId.hexString,
+                    threadVariant: .group,
+                    after: pollResponseJob,
+                    using: dependencies
+                )
+                
+            /// If the sender wasn't approved this is a message request so we should notify the user about the invite
+            case false:
+                let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
+                dependencies[singleton: .notificationsManager].notifyUser(
+                    db,
+                    for: interaction,
+                    in: try SessionThread.fetchOrCreate(
+                        db,
+                        id: message.groupSessionId.hexString,
+                        variant: .group,
+                        shouldBeVisible: nil,
+                        calledFromConfigHandling: false,
+                        using: dependencies
+                    ),
+                    applicationState: (isMainAppActive ? .active : .background),
+                    using: dependencies
+                )
+        }
     }
     
-    internal static func handleNewGroup(
+    @discardableResult internal static func handleNewGroup(
         _ db: Database,
         groupSessionId: String,
         groupIdentityPrivateKey: Data?,
@@ -219,7 +239,7 @@ extension MessageReceiver {
         invited: Bool,
         calledFromConfigHandling: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> Job? {
         // Create the group
         try SessionThread.fetchOrCreate(
             db,
@@ -254,9 +274,9 @@ extension MessageReceiver {
         }
         
         // If the group is not in the invite state then handle the approval process
-        guard !invited else { return }
+        guard !invited else { return nil }
         
-        try ClosedGroup.approveGroup(
+        return try ClosedGroup.approveGroup(
             db,
             group: closedGroup,
             calledFromConfigHandling: calledFromConfigHandling,

@@ -181,12 +181,12 @@ public extension ClosedGroup {
         case userGroup
     }
     
-    static func approveGroup(
+    @discardableResult static func approveGroup(
         _ db: Database,
         group: ClosedGroup,
         calledFromConfigHandling: Bool,
         using dependencies: Dependencies
-    ) throws {
+    ) throws -> Job? {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
             throw MessageReceiverError.noUserED25519KeyPair
         }
@@ -223,7 +223,20 @@ public extension ClosedGroup {
             )
         }
         
-        /// Start polling
+        /// Schedule a `pollResponseJob` to be triggered once the first poll completes the start polling
+        let pollResponseJob: Job? = dependencies[singleton: .jobRunner].add(
+            db,
+            job: Job(variant: .manualResultJob),
+            canStartJob: true,
+            using: dependencies
+        )
+        dependencies[singleton: .groupsPoller].afterNextPoll(for: group.id) { _ in
+            dependencies[singleton: .jobRunner].manuallyTriggerResult(
+                pollResponseJob,
+                result: .succeeded,
+                using: dependencies
+            )
+        }
         dependencies[singleton: .groupsPoller].startIfNeeded(for: group.id, using: dependencies)
         
         /// Subscribe for group push notifications
@@ -239,6 +252,8 @@ public extension ClosedGroup {
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .sinkUntilComplete()
         }
+        
+        return pollResponseJob
     }
     
     static func removeData(
