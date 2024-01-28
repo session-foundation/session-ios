@@ -249,6 +249,8 @@ extension MessageReceiver {
             calledFromConfigHandling: calledFromConfigHandling,
             using: dependencies
         )
+        let groupAlreadyApproved: Bool = ((try? ClosedGroup.fetchOne(db, id: groupSessionId))?.invited == false)
+        let groupInvitedState: Bool = (!groupAlreadyApproved && invited)
         let closedGroup: ClosedGroup = try ClosedGroup(
             threadId: groupSessionId,
             name: (name ?? "GROUP_TITLE_FALLBACK".localized()),
@@ -256,7 +258,7 @@ extension MessageReceiver {
             shouldPoll: false,  // Always false here - will be updated in `approveGroup`
             groupIdentityPrivateKey: groupIdentityPrivateKey,
             authData: authData,
-            invited: invited
+            invited: groupInvitedState
         ).upserted(db)
         
         if !calledFromConfigHandling {
@@ -268,13 +270,13 @@ extension MessageReceiver {
                 name: name,
                 authData: authData,
                 joinedAt: joinedAt,
-                invited: invited,
+                invited: groupInvitedState,
                 using: dependencies
             )
         }
         
-        // If the group is not in the invite state then handle the approval process
-        guard !invited else { return nil }
+        // If the group wasn't already approved is not in the invite state then handle the approval process
+        guard !groupAlreadyApproved && !invited else { return nil }
         
         return try ClosedGroup.approveGroup(
             db,

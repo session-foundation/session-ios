@@ -65,6 +65,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 jobRunner
                     .when { $0.upsert(.any, job: .any, canStartJob: .any, using: .any) }
                     .thenReturn(nil)
+                jobRunner
+                    .when { $0.manuallyTriggerResult(.any, result: .any, using: .any) }
+                    .thenReturn(())
             }
         )
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
@@ -212,6 +215,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 poller
                     .when { $0.stopPolling(for: .any) }
                     .thenReturn(())
+                poller
+                    .when { $0.afterNextPoll(for: .any, closure: { _ in }) }
+                    .thenReturn(())
             }
         )
         @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
@@ -268,6 +274,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             let result: GroupUpdateMemberChangeMessage = GroupUpdateMemberChangeMessage(
                 changeType: .added,
                 memberSessionIds: ["051111111111111111111111111111111111111111111111111111111111111112"],
+                historyShared: false,
                 adminSignature: .standard(signature: "TestSignature".bytes)
             )
             result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1373,6 +1380,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1409,6 +1417,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 "051111111111111111111111111111111111111111111111111111111111111112",
                                 "051111111111111111111111111111111111111111111111111111111111111113"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1446,6 +1455,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 "051111111111111111111111111111111111111111111111111111111111111113",
                                 "051111111111111111111111111111111111111111111111111111111111111114"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1484,6 +1494,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1516,6 +1527,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 "051111111111111111111111111111111111111111111111111111111111111112",
                                 "051111111111111111111111111111111111111111111111111111111111111113"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1549,6 +1561,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 "051111111111111111111111111111111111111111111111111111111111111113",
                                 "051111111111111111111111111111111111111111111111111111111111111114"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1583,6 +1596,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             memberSessionIds: [
                                 "051111111111111111111111111111111111111111111111111111111111111112"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1615,6 +1629,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 "051111111111111111111111111111111111111111111111111111111111111112",
                                 "051111111111111111111111111111111111111111111111111111111111111113"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1648,6 +1663,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 "051111111111111111111111111111111111111111111111111111111111111113",
                                 "051111111111111111111111111111111111111111111111111111111111111114"
                             ],
+                            historyShared: false,
                             adminSignature: .standard(signature: "TestSignature".bytes)
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
@@ -1909,6 +1925,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                                 memberSessionIds: [
                                                     "051111111111111111111111111111111111111111111111111111111111111112"
                                                 ],
+                                                historyShared: false,
                                                 sentTimestamp: 1234567800000,
                                                 authMethod: Authentication.groupAdmin(
                                                     groupSessionId: groupId,

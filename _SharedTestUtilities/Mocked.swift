@@ -131,6 +131,10 @@ extension Job.Variant: Mocked {
     static var mock: Job.Variant = .messageSend
 }
 
+extension JobRunner.JobResult: Mocked {
+    static var mock: JobRunner.JobResult = .succeeded
+}
+
 extension Network.RequestType: MockedGeneric {
     typealias Generic = T
     

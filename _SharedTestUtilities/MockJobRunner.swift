@@ -54,8 +54,12 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     }
     
     func afterJob(_ job: Job?, state: JobRunner.JobState, callback: @escaping (JobRunner.JobResult) -> ()) {
-        mockNoReturn(args: [job, callback])
+        mockNoReturn(args: [job], untrackedArgs: [callback])
         callback(.succeeded)
+    }
+    
+    func manuallyTriggerResult(_ job: Job?, result: JobRunner.JobResult, using dependencies: Dependencies) {
+        mockNoReturn(args: [job, result], untrackedArgs: [dependencies])
     }
     
     func removePendingJob(_ job: Job?) {

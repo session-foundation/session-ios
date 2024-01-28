@@ -100,10 +100,6 @@ public extension JobRunnerType {
         return add(db, job: job, dependantJob: nil, canStartJob: canStartJob, using: dependencies)
     }
     
-    func manuallyTriggerResult(_ job: Job?, result: JobRunner.JobResult, using dependencies: Dependencies = Dependencies()) {
-        manuallyTriggerResult(job, result: result, using: dependencies)
-    }
-    
     func afterJob(_ job: Job?, callback: @escaping (JobRunner.JobResult) -> ()) {
         afterJob(job, state: .any, callback: callback)
     }

@@ -46,7 +46,7 @@ class MockPoller: Mock<PollerType>, PollerType {
         for publicKey: String,
         closure: @escaping ([ProcessedMessage]) -> ()
     ) {
-        mockNoReturn(args: [publicKey, closure])
+        mockNoReturn(args: [publicKey], untrackedArgs: [closure])
         closure([])
     }
 }

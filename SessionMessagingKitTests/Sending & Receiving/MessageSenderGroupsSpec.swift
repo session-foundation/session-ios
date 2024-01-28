@@ -1114,7 +1114,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 .addedUsers(
                                     hasCurrentUser: false,
                                     names: ["0511...1112"],
-                                    historyShared: false
+                                    historyShared: true
                                 )
                                 .infoString(using: dependencies)
                         ))
@@ -1146,6 +1146,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                                 memberSessionIds: [
                                                     "051111111111111111111111111111111111111111111111111111111111111112"
                                                 ],
+                                                historyShared: true,
                                                 sentTimestamp: 1234567890000,
                                                 authMethod: Authentication.groupAdmin(
                                                     groupSessionId: groupId,
