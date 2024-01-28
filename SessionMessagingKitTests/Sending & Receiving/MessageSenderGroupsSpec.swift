@@ -1111,7 +1111,11 @@ class MessageSenderGroupsSpec: QuickSpec {
                         expect(interactions?.first?.variant).to(equal(.infoGroupMembersUpdated))
                         expect(interactions?.first?.body).to(equal(
                             ClosedGroup.MessageInfo
-                                .addedUsers(names: ["0511...1112"])
+                                .addedUsers(
+                                    hasCurrentUser: false,
+                                    names: ["0511...1112"],
+                                    historyShared: false
+                                )
                                 .infoString(using: dependencies)
                         ))
                     }

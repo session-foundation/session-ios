@@ -840,13 +840,13 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Фота групы абноўлена.";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ далучыўся да групы.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
 
 /* An informational message displayed when two members joined the group, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ і %@ далучыліся да групы.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ were invited to join the group.";
 
 /* An informational message displayed when multiple members joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@, %@ і іншыя далучыліся да групы.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others were invited to join the group.";
 
 /* An informational message displayed when a single member was removed from the group, the '%@' will be the members. */
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ выдалены з групы.";
@@ -1002,4 +1002,31 @@ The point that a message will disappear in a disappearing message update message
 "EDIT_LEGACY_GROUP_INFO_MESSAGE" = "Назва групы бачна ўсім карыстальнікам групы.";
 
 /* An informational message displayed when the user has been invited to join a group, the '%@' will be the name of the group. */
-"GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "You were invited to join %@.";
+"GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "Вы атрымалі запрашэнне далучыцца да %@.";
+
+/* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ were invited to join the group.";
+
+/* An informational message displayed when a single member joined the group with access to chat history, the '%@' will be the members name. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ was invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY" = "%@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when two members joined the group with access to chat history, the '%@' will be the names of both members. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user and one other user joined the group, the first '%@' will be 'You' and the second will be the name of the other member. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU" = "%@ and %@ were invited to join the group.";
+
+/* An informational message displayed when the current user and one other user joined the group with access to chat history, the first '%@' will be 'You' and the second will be the name of the other member. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when multiple members joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user and multiple other users joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU" = "%@ and %@ others were invited to join the group.";
+
+/* An informational message displayed when the current user and multiple other users joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";

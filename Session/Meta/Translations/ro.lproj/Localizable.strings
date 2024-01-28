@@ -115,7 +115,7 @@
 /* No comment provided by engineer. */
 "GROUP_MEMBERS_REMOVED" = "%@ au fost eliminați din grup. ";
 /* No comment provided by engineer. */
-"GROUP_TITLE_CHANGED" = "Noul titlu al grupului este %@. ";
+"GROUP_TITLE_CHANGED" = "Noul titlu al grupului este '%@'. ";
 /* No comment provided by engineer. */
 "GROUP_UPDATED" = "Grupul este actualizat.";
 /* No comment provided by engineer. */
@@ -258,7 +258,7 @@
 "vc_register_explanation" = "ID-ul tău Session este unica adresă pe care oamenii o pot folosi pentru a intra în contact cu tine pe Session. Fără nici o conexiune la identitatea ta reală, Id-ul tău Session este total anonim si sigur din definiție.";
 "vc_restore_title" = "Restaurează cont";
 "vc_restore_explanation" = "Introdu fraza de recuperare care ți-a fost oferită în momentul în care ți-ai creeat contul pentru a îți recupera contul.";
-"vc_restore_seed_text_field_hint" = "Introdu fraza de recuperare";
+"vc_restore_seed_text_field_hint" = "Scrie fraza de recuperare";
 "vc_link_device_title" = "Atașează un dispozitiv";
 "vc_link_device_scan_qr_code_tab_title" = "Scanează cod QR";
 "vc_display_name_title_2" = "Alege-ți un nickname";
@@ -270,7 +270,7 @@
 "vc_pn_mode_no_option_picked_modal_title" = "Te rog alege o optiune";
 "vc_home_empty_state_message" = "Încă nu ai nici un contact";
 "vc_home_empty_state_button_title" = "Pornește o Sessiune";
-"vc_seed_title" = "Fraza de recuperare este";
+"vc_seed_title" = "Fraza de recuperare";
 "vc_seed_title_2" = "Aceasta este fraza ta de recuperare";
 "vc_seed_explanation" = "Fraza ta de recuperare este cheia absoluta a ID-ului tău Session - o poți folosi ca să îți restaurezi ID-ul Session dacă pierzi accesul la dispozitivul tău. Pune fraza de recuperare la loc sigur și nu o împărtăși cu nimeni.";
 "vc_seed_reveal_button_title" = "Ține apăsat pentru a răzui";
@@ -393,7 +393,7 @@
 "MESSAGE_REQUESTS_TITLE" = "Cereri de mesaj";
 "MESSAGE_REQUESTS_EMPTY_TEXT" = "Nici o cerere de mesaje în așteptare";
 "MESSAGE_REQUESTS_CLEAR_ALL" = "Șterge Toate";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Are you sure you want to clear all message requests and group invites?";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Ești sigur că vrei să ștergi toate cererile de mesaje și invitațiile de grup?";
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Sterge";
 "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Sunteţi sigur că doriţi să ştergeţi această solicitare de mesaj?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Ești sigur că vrei să blochezi acest contact?";
@@ -581,7 +581,7 @@
 "context_menu_info" = "Info";
 
 /* An error that is displayed when the application fails for create it's initial connection to the database */
-"DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
+"DATABASE_STARTUP_FAILED" = "A apărut o eroare la deschiderea bazei de date\n\n Poți exporta jurnalele aplicației pentru reparare sau poți restaura dispozitivul\n\n Atenție: La restaurarea dispozitivului tău, vei pierde toate datele mai vechi de doua săptămâni";
 
 /* A warning displayed to the user when the application takes too long to launch */
 "APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
@@ -840,13 +840,13 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Group display picture updated.";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ joined the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
 
 /* An informational message displayed when two members joined the group, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ joined the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ were invited to join the group.";
 
 /* An informational message displayed when multiple members joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others joined the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others were invited to join the group.";
 
 /* An informational message displayed when a single member was removed from the group, the '%@' will be the members. */
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ was removed from the group.";
@@ -1003,3 +1003,30 @@ The point that a message will disappear in a disappearing message update message
 
 /* An informational message displayed when the user has been invited to join a group, the '%@' will be the name of the group. */
 "GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "You were invited to join %@.";
+
+/* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ were invited to join the group.";
+
+/* An informational message displayed when a single member joined the group with access to chat history, the '%@' will be the members name. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ was invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY" = "%@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when two members joined the group with access to chat history, the '%@' will be the names of both members. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user and one other user joined the group, the first '%@' will be 'You' and the second will be the name of the other member. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU" = "%@ and %@ were invited to join the group.";
+
+/* An informational message displayed when the current user and one other user joined the group with access to chat history, the first '%@' will be 'You' and the second will be the name of the other member. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when multiple members joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user and multiple other users joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU" = "%@ and %@ others were invited to join the group.";
+
+/* An informational message displayed when the current user and multiple other users joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";

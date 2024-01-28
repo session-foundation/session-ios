@@ -450,15 +450,18 @@ extension MessageReceiver {
             )
         else { throw MessageReceiverError.invalidMessage }
         
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let profiles: [String: Profile] = (try? Profile
             .filter(ids: message.memberSessionIds)
             .fetchAll(db))
             .defaulting(to: [])
             .reduce(into: [:]) { result, next in result[next.id] = next }
-        let names: [String] = message.memberSessionIds.map { id in
-            profiles[id]?.displayName(for: .group) ??
-            Profile.truncated(id: id, truncating: .middle)
-        }
+        let names: [String] = message.memberSessionIds
+            .sorted { lhs, rhs in lhs == userSessionId.hexString }
+            .map { id in
+                profiles[id]?.displayName(for: .group) ??
+                Profile.truncated(id: id, truncating: .middle)
+            }
         
         // Add a record of the specific change to the conversation (the actual change is handled via
         // config messages so these are only for record purposes)
@@ -470,7 +473,11 @@ extension MessageReceiver {
                 switch message.changeType {
                     case .added:
                         return ClosedGroup.MessageInfo
-                            .addedUsers(names: names)
+                            .addedUsers(
+                                hasCurrentUser: message.memberSessionIds.contains(userSessionId.hexString),
+                                names: names,
+                                historyShared: message.historyShared
+                            )
                             .infoString(using: dependencies)
                         
                     case .removed:

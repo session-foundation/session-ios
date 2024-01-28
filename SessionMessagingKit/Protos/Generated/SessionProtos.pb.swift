@@ -1748,6 +1748,15 @@ struct SessionProtos_GroupUpdateMemberChangeMessage {
 
   var memberSessionIds: [String] = []
 
+  var historyShared: Bool {
+    get {return _historyShared ?? false}
+    set {_historyShared = newValue}
+  }
+  /// Returns true if `historyShared` has been explicitly set.
+  var hasHistoryShared: Bool {return self._historyShared != nil}
+  /// Clears the value of `historyShared`. Subsequent reads from it will return its default value.
+  mutating func clearHistoryShared() {self._historyShared = nil}
+
   /// @required
   var adminSignature: Data {
     get {return _adminSignature ?? Data()}
@@ -1792,6 +1801,7 @@ struct SessionProtos_GroupUpdateMemberChangeMessage {
   init() {}
 
   fileprivate var _type: SessionProtos_GroupUpdateMemberChangeMessage.TypeEnum? = nil
+  fileprivate var _historyShared: Bool? = nil
   fileprivate var _adminSignature: Data? = nil
 }
 
@@ -3692,7 +3702,8 @@ extension SessionProtos_GroupUpdateMemberChangeMessage: SwiftProtobuf.Message, S
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "type"),
     2: .same(proto: "memberSessionIds"),
-    3: .same(proto: "adminSignature"),
+    3: .same(proto: "historyShared"),
+    4: .same(proto: "adminSignature"),
   ]
 
   public var isInitialized: Bool {
@@ -3709,7 +3720,8 @@ extension SessionProtos_GroupUpdateMemberChangeMessage: SwiftProtobuf.Message, S
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularEnumField(value: &self._type) }()
       case 2: try { try decoder.decodeRepeatedStringField(value: &self.memberSessionIds) }()
-      case 3: try { try decoder.decodeSingularBytesField(value: &self._adminSignature) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self._historyShared) }()
+      case 4: try { try decoder.decodeSingularBytesField(value: &self._adminSignature) }()
       default: break
       }
     }
@@ -3726,8 +3738,11 @@ extension SessionProtos_GroupUpdateMemberChangeMessage: SwiftProtobuf.Message, S
     if !self.memberSessionIds.isEmpty {
       try visitor.visitRepeatedStringField(value: self.memberSessionIds, fieldNumber: 2)
     }
+    try { if let v = self._historyShared {
+      try visitor.visitSingularBoolField(value: v, fieldNumber: 3)
+    } }()
     try { if let v = self._adminSignature {
-      try visitor.visitSingularBytesField(value: v, fieldNumber: 3)
+      try visitor.visitSingularBytesField(value: v, fieldNumber: 4)
     } }()
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -3735,6 +3750,7 @@ extension SessionProtos_GroupUpdateMemberChangeMessage: SwiftProtobuf.Message, S
   static func ==(lhs: SessionProtos_GroupUpdateMemberChangeMessage, rhs: SessionProtos_GroupUpdateMemberChangeMessage) -> Bool {
     if lhs._type != rhs._type {return false}
     if lhs.memberSessionIds != rhs.memberSessionIds {return false}
+    if lhs._historyShared != rhs._historyShared {return false}
     if lhs._adminSignature != rhs._adminSignature {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

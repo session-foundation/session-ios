@@ -3997,6 +3997,9 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
     @objc public func asBuilder() -> SNProtoGroupUpdateMemberChangeMessageBuilder {
         let builder = SNProtoGroupUpdateMemberChangeMessageBuilder(type: type, adminSignature: adminSignature)
         builder.setMemberSessionIds(memberSessionIds)
+        if hasHistoryShared {
+            builder.setHistoryShared(historyShared)
+        }
         return builder
     }
 
@@ -4027,6 +4030,10 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
             proto.memberSessionIds = wrappedItems
         }
 
+        @objc public func setHistoryShared(_ valueParam: Bool) {
+            proto.historyShared = valueParam
+        }
+
         @objc public func setAdminSignature(_ valueParam: Data) {
             proto.adminSignature = valueParam
         }
@@ -4048,6 +4055,13 @@ extension SNProtoGroupUpdateInfoChangeMessage.SNProtoGroupUpdateInfoChangeMessag
 
     @objc public var memberSessionIds: [String] {
         return proto.memberSessionIds
+    }
+
+    @objc public var historyShared: Bool {
+        return proto.historyShared
+    }
+    @objc public var hasHistoryShared: Bool {
+        return proto.hasHistoryShared
     }
 
     private init(proto: SessionProtos_GroupUpdateMemberChangeMessage,

@@ -437,7 +437,9 @@ public extension ClosedGroup {
         case updatedName(String)
         case updatedNameFallback
         case updatedDisplayPicture
-        case addedUsers(names: [String])
+        
+        /// If the added users contain the current user then `names` should be sorted to have the current users name first
+        case addedUsers(hasCurrentUser: Bool, names: [String], historyShared: Bool)
         case removedUsers(names: [String])
         case memberLeft(name: String)
         case promotedUsers(names: [String])
@@ -470,24 +472,102 @@ public extension ClosedGroup {
                 case .updatedDisplayPicture:
                     return NSAttributedString(string: "GROUP_MESSAGE_INFO_PICTURE_UPDATED".localized())
                 
-                case .addedUsers(let names) where names.count > 2:
+                case .addedUsers(false, let names, false) where names.count > 2:
                     return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED".localized(),
                         .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
                         .plain("\(names.count - 1)")
                     )
                     
-                case .addedUsers(let names) where names.count == 2:
+                case .addedUsers(false, let names, true) where names.count > 2:
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY".localized(),
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .plain("\(names.count - 1)")
+                    )
+                    
+                case .addedUsers(true, let names, false) where names.count > 2:
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU".localized(),
+                        .font(
+                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
+                            .boldSystemFont(ofSize: Values.verySmallFontSize)
+                        ),
+                        .plain("\(names.count - 1)")
+                    )
+                    
+                case .addedUsers(true, let names, true) where names.count > 2:
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY".localized(),
+                        .font(
+                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
+                            .boldSystemFont(ofSize: Values.verySmallFontSize)
+                        ),
+                        .plain("\(names.count - 1)")
+                    )
+                    
+                case .addedUsers(false, let names, false) where names.count == 2:
                     return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED".localized(),
                         .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
                         .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
-                case .addedUsers(let names):
+                case .addedUsers(false, let names, true) where names.count == 2:
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY".localized(),
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize)),
+                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
+                    )
+                    
+                case .addedUsers(true, let names, false) where names.count == 2:
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU".localized(),
+                        .font(
+                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
+                            .boldSystemFont(ofSize: Values.verySmallFontSize)
+                        ),
+                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
+                    )
+                    
+                case .addedUsers(true, let names, true) where names.count == 2:
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY".localized(),
+                        .font(
+                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
+                            .boldSystemFont(ofSize: Values.verySmallFontSize)
+                        ),
+                        .font(names[1], .boldSystemFont(ofSize: Values.verySmallFontSize))
+                    )
+                    
+                case .addedUsers(false, let names, false):
                     return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MEMBER_ADDED".localized(),
                         .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
+                    )
+                    
+                case .addedUsers(false, let names, true):
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY".localized(),
+                        .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
+                    )
+                    
+                case .addedUsers(true, _, false):
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU".localized(),
+                        .font(
+                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
+                            .boldSystemFont(ofSize: Values.verySmallFontSize)
+                        )
+                    )
+                    
+                case .addedUsers(true, _, true):
+                    return NSAttributedString(
+                        format: "GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY".localized(),
+                        .font(
+                            "MEDIA_GALLERY_SENDER_NAME_YOU".localized(),
+                            .boldSystemFont(ofSize: Values.verySmallFontSize)
+                        )
                     )
                     
                 case .removedUsers(let names) where names.count > 2:
@@ -507,7 +587,7 @@ public extension ClosedGroup {
                 case .removedUsers(let names):
                     return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MEMBER_REMOVED".localized(),
-                        .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
                     
                 case .memberLeft(let name):
@@ -533,7 +613,7 @@ public extension ClosedGroup {
                 case .promotedUsers(let names):
                     return NSAttributedString(
                         format: "GROUP_MESSAGE_INFO_MEMBER_PROMOTED".localized(),
-                        .font((names.first ?? "Anonymous"), .boldSystemFont(ofSize: Values.verySmallFontSize))
+                        .font(names[0], .boldSystemFont(ofSize: Values.verySmallFontSize))
                     )
             }
         }

@@ -1359,7 +1359,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     expect(interaction?.timestampMs).to(equal(1234567800000))
                     expect(interaction?.body).to(equal(
                         ClosedGroup.MessageInfo
-                            .addedUsers(names: ["TestOtherProfile"])
+                            .addedUsers(hasCurrentUser: false, names: ["TestOtherProfile"], historyShared: false)
                             .infoString(using: dependencies)
                     ))
                 }
@@ -1392,7 +1392,11 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
-                                .addedUsers(names: ["0511...1112"])
+                                .addedUsers(
+                                    hasCurrentUser: false,
+                                    names: ["0511...1112"],
+                                    historyShared: false
+                                )
                                 .infoString(using: dependencies)
                         ))
                     }
@@ -1424,7 +1428,11 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
-                                .addedUsers(names: ["0511...1112", "0511...1113"])
+                                .addedUsers(
+                                    hasCurrentUser: false,
+                                    names: ["0511...1112", "0511...1113"],
+                                    historyShared: false
+                                )
                                 .infoString(using: dependencies)
                         ))
                     }
@@ -1457,7 +1465,11 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         expect(interaction?.timestampMs).to(equal(1234567800000))
                         expect(interaction?.body).to(equal(
                             ClosedGroup.MessageInfo
-                                .addedUsers(names: ["0511...1112", "0511...1113", "0511...1114"])
+                                .addedUsers(
+                                    hasCurrentUser: false,
+                                    names: ["0511...1112", "0511...1113", "0511...1114"],
+                                    historyShared: false
+                                )
                                 .infoString(using: dependencies)
                         ))
                     }

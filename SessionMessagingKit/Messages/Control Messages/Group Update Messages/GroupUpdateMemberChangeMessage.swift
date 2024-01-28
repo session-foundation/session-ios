@@ -10,6 +10,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     private enum CodingKeys: String, CodingKey {
         case changeType
         case memberSessionIds
+        case historyShared
         case adminSignature
     }
     
@@ -21,6 +22,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     
     public var changeType: ChangeType
     public var memberSessionIds: [String]
+    public var historyShared: Bool
     public var adminSignature: Authentication.Signature
     
     override public var processWithBlockedSender: Bool { true }
@@ -30,12 +32,14 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     public init(
         changeType: ChangeType,
         memberSessionIds: [String],
+        historyShared: Bool,
         sentTimestamp: UInt64,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws {
         self.changeType = changeType
         self.memberSessionIds = memberSessionIds
+        self.historyShared = historyShared
         self.adminSignature = try authMethod.generateSignature(
             with: GroupUpdateMemberChangeMessage.generateVerificationBytes(
                 changeType: changeType,
@@ -52,10 +56,12 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
     public init(
         changeType: ChangeType,
         memberSessionIds: [String],
+        historyShared: Bool,
         adminSignature: Authentication.Signature
     ) {
         self.changeType = changeType
         self.memberSessionIds = memberSessionIds
+        self.historyShared = historyShared
         self.adminSignature = adminSignature
         
         super.init()
@@ -80,6 +86,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         
         changeType = try container.decode(ChangeType.self, forKey: .changeType)
         memberSessionIds = try container.decode([String].self, forKey: .memberSessionIds)
+        historyShared = try container.decode(Bool.self, forKey: .historyShared)
         adminSignature = Authentication.Signature.standard(
             signature: try container.decode([UInt8].self, forKey: .adminSignature)
         )
@@ -94,6 +101,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         
         try container.encode(changeType, forKey: .changeType)
         try container.encode(memberSessionIds, forKey: .memberSessionIds)
+        try container.encode(historyShared, forKey: .historyShared)
         
         switch adminSignature {
             case .standard(let signature): try container.encode(signature, forKey: .adminSignature)
@@ -113,6 +121,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         return GroupUpdateMemberChangeMessage(
             changeType: changeType,
             memberSessionIds: groupMemberChangeMessage.memberSessionIds,
+            historyShared: groupMemberChangeMessage.historyShared,
             adminSignature: Authentication.Signature.standard(
                 signature: Array(groupMemberChangeMessage.adminSignature)
             )
@@ -138,6 +147,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
             )
             
             memberChangeMessageBuilder.setMemberSessionIds(memberSessionIds)
+            memberChangeMessageBuilder.setHistoryShared(historyShared)
             
             let groupUpdateMessage = SNProtoGroupUpdateMessage.builder()
             groupUpdateMessage.setMemberChangeMessage(try memberChangeMessageBuilder.build())
@@ -161,6 +171,7 @@ public final class GroupUpdateMemberChangeMessage: ControlMessage {
         GroupUpdateMemberChangeMessage(
             changeType: \(changeType),
             memberSessionIds: \(memberSessionIds),
+            historyShared: \(historyShared),
             adminSignature: \(adminSignature)
         )
         """

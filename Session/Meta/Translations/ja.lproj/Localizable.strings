@@ -393,7 +393,7 @@
 "MESSAGE_REQUESTS_TITLE" = "メッセージリクエスト";
 "MESSAGE_REQUESTS_EMPTY_TEXT" = "保留しているリクエストはありません";
 "MESSAGE_REQUESTS_CLEAR_ALL" = "すべて消去";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Are you sure you want to clear all message requests and group invites?";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "本当に全てのメッセージリクエストを消去しますか？";
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "消去";
 "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "本当にこのリクエストを削除しますか？";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "この連絡先をブロックしてもよろしいですか？";
@@ -584,13 +584,13 @@
 "DATABASE_STARTUP_FAILED" = "\n\nデータベースを開くときにエラーが発生しました。トラブルシューティングのために共有するためにアプリケーションログをエクスポートするか、デバイス\n\n警告: デバイスを復元すると、2週間以上のデータが失われます。";
 
 /* A warning displayed to the user when the application takes too long to launch */
-"APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
+"APP_STARTUP_TIMEOUT" = "アプリの起動に時間がかかっています\n\nアプリが起動するまで待ち続けるか、アプリケーション ログをエクスポートしてトラブルシューティング用に共有するか、アプリを再度開いてみることができます";
 
 /* The title of a button on a modal shown when the application fails to start, pressing the button closes the application */
 "APP_STARTUP_EXIT" = "Exit";
 
 /* An error which occurs if the user tries to restore the database after an initial failure and it fails to restore */
-"DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
+"DATABASE_RESTORE_FAILED" = "復元されたデータベースを開くときにエラーが発生しました\n\nアプリケーション ログをエクスポートしてトラブルシューティングのために共有できますが、セッションを引き続き使用するには再インストールが必要な場合があります";
 
 /* Text displayed in place of a quoted message when the original message is not on the device */
 "QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
@@ -620,139 +620,139 @@
 "MESSAGE_DELIVERY_STATUS_READ" = "読むか";
 
 /* State of a message if it failed to be sent */
-"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"MESSAGE_DELIVERY_STATUS_FAILED" = "送信失敗しました";
 
 /* Title of the message information screen describing the date/time a message was sent */
-"MESSAGE_INFO_SENT" = "Sent";
+"MESSAGE_INFO_SENT" = "送信";
 
 /* Title of the message information screen describing the date/time a message was received on a specific device */
-"MESSAGE_INFO_RECEIVED" = "Received";
+"MESSAGE_INFO_RECEIVED" = "受信";
 
 /* Title of the message information screen describing the sender of the message */
-"MESSAGE_INFO_FROM" = "From";
+"MESSAGE_INFO_FROM" = "差出人";
 
 /* Title of the message information screen describing the identifier of the attachment */
-"ATTACHMENT_INFO_FILE_ID" = "File ID";
+"ATTACHMENT_INFO_FILE_ID" = "ファイルID";
 
 /* Title of the message information screen describing the file type of the attachment */
-"ATTACHMENT_INFO_FILE_TYPE" = "File Type";
+"ATTACHMENT_INFO_FILE_TYPE" = "ファイルタイプ";
 
 /* Title of the message information screen describing the size of the attachment */
-"ATTACHMENT_INFO_FILE_SIZE" = "File Size";
+"ATTACHMENT_INFO_FILE_SIZE" = "ファイルサイズ";
 
 /* Title on the message information screen describing the resolution of a media attachment */
-"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+"ATTACHMENT_INFO_RESOLUTION" = "解決法";
 
 /* Title on the message information screen describing the duration of a media attachment */
-"ATTACHMENT_INFO_DURATION" = "Duration";
+"ATTACHMENT_INFO_DURATION" = "持続期間";
 
 /* State of a message after it failed to sync to the current users other devices */
-"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "同期に失敗しました";
 
 /* State of a message while it's in the process of being synced to the users other devices */
-"MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+"MESSAGE_DELIVERY_STATUS_SYNCING" = "同期中";
 
 /* Title of the modal that appears after a user taps on the state of a message which failed to send */
-"MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
+"MESSAGE_DELIVERY_FAILED_TITLE" = "メッセージの送信に失敗しました";
 
 /* Title of the modal that appears after a user taps on the state of a message which failed to sync to the users other devices */
-"MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
+"MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "メッセージを他のデバイスと同期できませんでした";
 
 /* Action for the modal shown when asking the user whether they want to delete from all of their devices */
-"delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+"delete_message_for_me_and_my_devices" = "すべてのデバイスから削除";
 
 /* Action in the long-press menu to trigger a message to be sent again after it has failed */
-"context_menu_resend" = "Resend";
+"context_menu_resend" = "再送";
 
 /* Action in the long-press menu to trigger a message to be synced again after it has failed */
-"context_menu_resync" = "Resync";
+"context_menu_resync" = "再同期";
 
 /* Title of a modal show the first time a user tries to search for GIFs */
-"GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+"GIPHY_PERMISSION_TITLE" = "GIF を検索しますか?";
 
 /* Message of a modal show the first time a user tries to search for GIFs */
-"GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+"GIPHY_PERMISSION_MESSAGE" = "セッションは検索結果を提供するためにGiphyに接続します。GIFを送信するときに完全なメタデータ保護はありません。";
 
 /* Action in the long-press menu to view more information about a specific message */
-"message_info_title" = "Message Info";
+"message_info_title" = "メッセージ情報";
 
 /* Action to mute a conversation in the swipe menu */
-"mute_button_text" = "Mute";
+"mute_button_text" = "ミュート";
 
 /* Action in the swipe menu to unmute a conversation */
-"unmute_button_text" = "Unmute";
+"unmute_button_text" = "ミュート解除";
 
 /* Action in the swipe menu to mark a conversation as read */
-"MARK_AS_READ" = "Mark read";
+"MARK_AS_READ" = "既読にする";
 
 /* Action in the swipe menu to mark a conversation as unread */
-"MARK_AS_UNREAD" = "Mark unread";
+"MARK_AS_UNREAD" = "未読にする";
 
 /* Title of the confirmation modal show when attempting to leave a group conversation */
-"leave_group_confirmation_alert_title" = "Leave Group";
+"leave_group_confirmation_alert_title" = "グループを抜ける";
 
 /* Title of the confirmation modal show when attempting to leave a community conversation */
-"leave_community_confirmation_alert_title" = "Leave Community";
+"leave_community_confirmation_alert_title" = "コミュニティーを脱退する";
 
 /* Message in the confirmation modal when leaving a community conversation */
-"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"leave_community_confirmation_alert_message" = "本当に\"%@\"から退出しますか？";
 
 /* Conversation subtitle while the user in the process of leaving */
-"group_you_leaving" = "Leaving...";
+"group_you_leaving" = "終了しています...";
 
 /* Conversation subtitle if the user in the failed to leave */
-"group_leave_error" = "Failed to leave Group!";
+"group_leave_error" = "グループから脱退できませんでした！";
 
 /* Message within a conversation indicating the device was unable to leave a group conversation */
-"group_unable_to_leave" = "Unable to leave the Group, please try again";
+"group_unable_to_leave" = "グループから脱退できません。もう一度やり直してください。";
 
 /* Title in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_title" = "Delete Group";
+"delete_group_confirmation_alert_title" = "グループを削除";
 
 /* Message in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+"delete_group_confirmation_alert_message" = "本当に\"%@\"を削除しますか？";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"delete_conversation_confirmation_alert_title" = "会話を削除する";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+"hide_note_to_self_confirmation_alert_title" = "自分用メモを隠す";
 
 /* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
 
 /* Title in the modal for updating the users profile display picture */
-"update_profile_modal_title" = "Set Display Picture";
+"update_profile_modal_title" = "ディスプレイの画像を設定";
 
 /* Save action in the modal for updating the users profile display picture */
-"update_profile_modal_save" = "Save";
+"update_profile_modal_save" = "保存";
 
 /* Remove action in the modal for updating the users profile display picture */
-"update_profile_modal_remove" = "Remove";
+"update_profile_modal_remove" = "削除";
 
 /* Title for the error when failing to remove the users profile display picture */
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
 
 /* Title for the error when the user selects a profile display picture that is too large */
-"update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
+"update_profile_modal_max_size_error_title" = "ファイルの最大サイズを超えています";
 
 /* Message for the error when the user selects a profile display picture that is too large */
 "update_profile_modal_max_size_error_message" = "Please select a smaller photo and try again";
 
 /* Title for the error when the user fails to update their profile display picture */
-"update_profile_modal_error_title" = "Couldn't Update Profile";
+"update_profile_modal_error_title" = "プロフィールを更新できませんでした。";
 
 /* Message for the error when the user fails to update their profile display picture */
 "update_profile_modal_error_message" = "Please check your internet connection and try again";
 
 /* Placeholder when entering a nickname for a contact */
-"CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
+"CONTACT_NICKNAME_PLACEHOLDER" = "名前を入力";
 
 /* The separator within a conversation indicating that following messages are unread */
-"UNREAD_MESSAGES" = "Unread Messages";
+"UNREAD_MESSAGES" = "未読のメッセージ";
 
 /* Empty state for a conversation */
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
@@ -807,10 +807,10 @@
 
 /* DISAPPEARING_MESSAGE_STATE_READ
 The point that a message will disappear in a disappearing message update message for disappear after read */
-"DISAPPEARING_MESSAGE_STATE_READ" = "read";
+"DISAPPEARING_MESSAGE_STATE_READ" = "既読";
 
 /* The point that a message will disappear in a disappearing message update message for disappear after send */
-"DISAPPEARING_MESSAGE_STATE_SENT" = "sent";
+"DISAPPEARING_MESSAGE_STATE_SENT" = "送信";
 
 /* The current state for the legacy disappearing messages setting, the '%@' will be replaced by a short-form duration */
 "DISAPPERING_MESSAGES_SUMMARY_LEGACY" = "Disappear After - %@";
@@ -834,19 +834,19 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_NAME_UPDATED_TO" = "Group name is now %@.";
 
 /* An informational message displayed when the name of a group is changed. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED" = "Group name updated.";
+"GROUP_MESSAGE_INFO_NAME_UPDATED" = "グループ名を更新しました";
 
 /* An informational message displayed when the display picture of a group is changed. */
-"GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Group display picture updated.";
+"GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "グループ表示画像を更新しました。";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ joined the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
 
 /* An informational message displayed when two members joined the group, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ joined the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ were invited to join the group.";
 
 /* An informational message displayed when multiple members joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others joined the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others were invited to join the group.";
 
 /* An informational message displayed when a single member was removed from the group, the '%@' will be the members. */
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ was removed from the group.";
@@ -891,7 +891,7 @@ The point that a message will disappear in a disappearing message update message
 "ERROR_UNABLE_TO_FIND_DATA" = "There is an issue retrieving the required data. Please try again later.";
 
 /* A title for the list of group members. */
-"GROUP_MEMBERS" = "Group Members";
+"GROUP_MEMBERS" = "グループメンバー";
 
 /* The status for a group member while their invite is being sent. */
 "GROUP_MEMBER_STATUS_SENDING" = "Sending invite";
@@ -900,7 +900,7 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MEMBER_STATUS_SENT" = "Invite sent";
 
 /* The status for a group member if their invitation failed to send. */
-"GROUP_MEMBER_STATUS_FAILED" = "Invite failed";
+"GROUP_MEMBER_STATUS_FAILED" = "招待に失敗しました。";
 
 /* The status for a group admin while their invite is being sent. */
 "GROUP_ADMIN_STATUS_SENDING" = "Sending admin promotion";
@@ -912,7 +912,7 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_ADMIN_STATUS_FAILED" = "Admin promotion failed";
 
 /* A title for the modal to edit the group display picture. */
-"EDIT_GROUP_DISPLAY_PICTURE" = "Set Group Display Picture";
+"EDIT_GROUP_DISPLAY_PICTURE" = "ディスプレイの画像を設定";
 
 /* Error message when trying to update the display picture. */
 "EDIT_DISPLAY_PICTURE_ERROR" = "Couldn't update display picture.";
@@ -921,34 +921,34 @@ The point that a message will disappear in a disappearing message update message
 "EDIT_DISPLAY_PICTURE_ERROR_REMOVE" = "Unable to remove display picture.";
 
 /* Placeholder text for editing the name of a group. */
-"EDIT_GROUP_NAME_PLACEHOLDER" = "Enter group name";
+"EDIT_GROUP_NAME_PLACEHOLDER" = "グループ名を入力";
 
 /* Error message when the edited name of a group is empty. */
-"EDIT_GROUP_NAME_ERROR_MISSING" = "Please pick a group name.";
+"EDIT_GROUP_NAME_ERROR_MISSING" = "グループ名を入力してください。";
 
 /* Error message when the edited name of a group is too long. */
 "EDIT_GROUP_NAME_ERROR_LONG" = "Please pick a shorter group name.";
 
 /* Placeholder text for editing the description of a group. */
-"EDIT_GROUP_DESCRIPTION_PLACEHOLDER" = "Enter group description";
+"EDIT_GROUP_DESCRIPTION_PLACEHOLDER" = "グループ説明を入力してください";
 
 /* Error message when the edited description of a group is too long. */
 "EDIT_GROUP_DESCRIPTION_ERROR_LONG" = "Please pick a shorter group description.";
 
 /* Error message when the user attempts to remove an admin from a group. */
-"EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN" = "Admins cannot be removed";
+"EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN" = "管理者を削除することはできません";
 
 /* A title for the button to send invites for members to join groups. */
-"GROUP_ACTION_INVITE" = "Invite";
+"GROUP_ACTION_INVITE" = "招待";
 
 /* A title for the button to send invites to contacts to join groups. */
 "GROUP_ACTION_INVITE_CONTACTS" = "Invite Contacts";
 
 /* Text which appears when all of the users contacts are already part of the group they want to invite contacts to. */
-"GROUP_ACTION_INVITE_EMPTY_STATE" = "You don't have any more contacts.";
+"GROUP_ACTION_INVITE_EMPTY_STATE" = "連絡先がありません。";
 
 /* A toast which indicates that a single invitation to join the group is being sent. */
-"GROUP_ACTION_INVITE_SENDING" = "Sending invite";
+"GROUP_ACTION_INVITE_SENDING" = "招待を送る";
 
 /* A toast which indicates that multiple invitations to join the group are being sent. */
 "GROUP_ACTION_INVITE_SENDING_MULTIPLE" = "Sending invites";
@@ -996,10 +996,37 @@ The point that a message will disappear in a disappearing message update message
 "EDIT_GROUP_INFO_MESSAGE" = "Group name and description is visible to all group members.";
 
 /* Title for the prompt which appears when editing a legacy group name. */
-"EDIT_LEGACY_GROUP_INFO_TITLE" = "Update Group Name";
+"EDIT_LEGACY_GROUP_INFO_TITLE" = "グループ名を更新する";
 
 /* Message for the prompt which appears when editing a legacy group name. */
 "EDIT_LEGACY_GROUP_INFO_MESSAGE" = "Group name is visible to all group members.";
 
 /* An informational message displayed when the user has been invited to join a group, the '%@' will be the name of the group. */
-"GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "You were invited to join %@.";
+"GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "%@ に招待されました。";
+
+/* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ were invited to join the group.";
+
+/* An informational message displayed when a single member joined the group with access to chat history, the '%@' will be the members name. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ was invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY" = "%@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when two members joined the group with access to chat history, the '%@' will be the names of both members. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user and one other user joined the group, the first '%@' will be 'You' and the second will be the name of the other member. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU" = "%@ and %@ were invited to join the group.";
+
+/* An informational message displayed when the current user and one other user joined the group with access to chat history, the first '%@' will be 'You' and the second will be the name of the other member. */
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when multiple members joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+
+/* An informational message displayed when the current user and multiple other users joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU" = "%@ and %@ others were invited to join the group.";
+
+/* An informational message displayed when the current user and multiple other users joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";

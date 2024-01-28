@@ -493,10 +493,14 @@ extension MessageSender {
                 variant: .infoGroupMembersUpdated,
                 body: ClosedGroup.MessageInfo
                     .addedUsers(
-                        names: members.map { id, profile in
-                            profile?.displayName(for: .group) ??
-                            Profile.truncated(id: id, truncating: .middle)
-                        }
+                        hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
+                        names: members
+                            .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
+                            .map { id, profile in
+                                profile?.displayName(for: .group) ??
+                                Profile.truncated(id: id, truncating: .middle)
+                            },
+                        historyShared: allowAccessToHistoricMessages
                     )
                     .infoString(using: dependencies),
                 timestampMs: changeTimestampMs
@@ -508,6 +512,7 @@ extension MessageSender {
                 message: GroupUpdateMemberChangeMessage(
                     changeType: .added,
                     memberSessionIds: members.map { $0.id },
+                    historyShared: allowAccessToHistoricMessages,
                     sentTimestamp: UInt64(changeTimestampMs),
                     authMethod: try Authentication.with(
                         db,
@@ -701,6 +706,7 @@ extension MessageSender {
                         message: GroupUpdateMemberChangeMessage(
                             changeType: .removed,
                             memberSessionIds: Array(memberIds),
+                            historyShared: false,
                             sentTimestamp: UInt64(targetChangeTimestampMs),
                             authMethod: Authentication.groupAdmin(
                                 groupSessionId: sessionId,
@@ -808,6 +814,7 @@ extension MessageSender {
                     message: GroupUpdateMemberChangeMessage(
                         changeType: .promoted,
                         memberSessionIds: members.map { $0.id },
+                        historyShared: false,
                         sentTimestamp: UInt64(changeTimestampMs),
                         authMethod: try Authentication.with(
                             db,
