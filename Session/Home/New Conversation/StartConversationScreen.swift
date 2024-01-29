@@ -37,7 +37,8 @@ struct StartConversationScreen: View {
                             image: "Group",
                             title: "vc_create_closed_group_title".localized()
                         ) {
-                            
+                            let viewController = NewClosedGroupVC()
+                            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
                         
                         Line(color: .borderSeparator)
@@ -48,7 +49,8 @@ struct StartConversationScreen: View {
                             image: "Globe",
                             title: "vc_join_public_chat_title".localized()
                         ) {
-                            
+                            let viewController = JoinOpenGroupVC()
+                            self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
                         
                         Line(color: .borderSeparator)

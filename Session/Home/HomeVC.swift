@@ -884,8 +884,9 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     }
     
     func createNewDMFromDeepLink(sessionId: String) {
-        let newDMVC = NewDMVC(sessionId: sessionId, shouldShowBackButton: false)
-        let navigationController = StyledNavigationController(rootViewController: newDMVC)
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: NewMessageScreen(accountId: sessionId))
+        viewController.setNavBarTitle("vc_create_private_chat_title".localized())
+        let navigationController = StyledNavigationController(rootViewController: viewController)
         if UIDevice.current.isIPad {
             navigationController.modalPresentationStyle = .fullScreen
         }

@@ -11,8 +11,12 @@ struct NewMessageScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State var tabIndex = 0
-    @State private var accountIdOrONS: String = ""
+    @State private var accountIdOrONS: String
     @State private var errorString: String? = nil
+    
+    init(accountId: String = "") {
+        self.accountIdOrONS = accountId
+    }
     
     var body: some View {
         ZStack(alignment: .topLeading) {
