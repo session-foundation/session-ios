@@ -14,7 +14,7 @@ struct RecoveryPasswordScreen: View {
     
     static private let cornerRadius: CGFloat = 13
     static private let backgroundCornerRadius: CGFloat = 17
-    static private let buttonWidth: CGFloat = 130
+    static private let buttonWidth: CGFloat = UIDevice.current.isIPad ? Values.iPadButtonWidth : 130
     
     public init() throws {
         self.mnemonic = try Identity.mnemonic()
@@ -136,7 +136,7 @@ struct RecoveryPasswordScreen: View {
                                             .font(.system(size: Values.verySmallFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
                                             .frame(
-                                                maxWidth: Self.buttonWidth,
+                                                maxWidth: .infinity,
                                                 minHeight: Values.mediumSmallButtonHeight,
                                                 alignment: .center
                                             )
@@ -157,7 +157,7 @@ struct RecoveryPasswordScreen: View {
                                             .font(.system(size: Values.verySmallFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
                                             .frame(
-                                                maxWidth: Self.buttonWidth,
+                                                maxWidth: .infinity,
                                                 minHeight: Values.mediumSmallButtonHeight,
                                                 alignment: .center
                                             )

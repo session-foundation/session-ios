@@ -12,7 +12,6 @@ struct InviteAFriendScreen: View {
     private let accountId: String = getUserHexEncodedPublicKey()
     
     static private let cornerRadius: CGFloat = 13
-    static private let buttonWidth: CGFloat = 160
     
     var body: some View {
         ZStack(alignment: .center) {
@@ -58,7 +57,7 @@ struct InviteAFriendScreen: View {
                             .font(.system(size: Values.mediumFontSize))
                             .foregroundColor(themeColor: .textPrimary)
                             .frame(
-                                maxWidth: Self.buttonWidth,
+                                maxWidth: .infinity,
                                 minHeight: Values.mediumButtonHeight,
                                 alignment: .center
                             )
@@ -80,7 +79,7 @@ struct InviteAFriendScreen: View {
                             .font(.system(size: Values.mediumFontSize))
                             .foregroundColor(themeColor: .textPrimary)
                             .frame(
-                                maxWidth: Self.buttonWidth,
+                                maxWidth: .infinity,
                                 minHeight: Values.mediumButtonHeight,
                                 alignment: .center
                             )

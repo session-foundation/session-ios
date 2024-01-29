@@ -73,41 +73,48 @@ struct QRCodeView: View {
     
     var body: some View {
         ZStack(alignment: .center) {
-            RoundedRectangle(cornerRadius: Self.cornerRadius)
-                .fill(themeColor: backgroundThemeColor)
-            
-            Image(uiImage: QRCode.generate(for: string, hasBackground: hasBackground))
-                .resizable()
-                .renderingMode(.template)
-                .foregroundColor(themeColor: qrCodeThemeColor)
-                .scaledToFit()
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: .infinity
-                )
-                .padding(.vertical, Values.smallSpacing)
-            
-            if let logo = logo {
-                ZStack(alignment: .center) {
-                    Rectangle()
-                        .fill(themeColor: backgroundThemeColor)
-                    
-                    Image(logo)
-                        .resizable()
-                        .renderingMode(.template)
-                        .foregroundColor(themeColor: qrCodeThemeColor)
-                        .scaledToFit()
-                        .frame(
-                            maxWidth: .infinity,
-                            maxHeight: .infinity
-                        )
-                        .padding(.all, 4)
+            ZStack(alignment: .center) {
+                RoundedRectangle(cornerRadius: Self.cornerRadius)
+                    .fill(themeColor: backgroundThemeColor)
+                
+                Image(uiImage: QRCode.generate(for: string, hasBackground: hasBackground))
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundColor(themeColor: qrCodeThemeColor)
+                    .scaledToFit()
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity
+                    )
+                    .padding(.vertical, Values.smallSpacing)
+                
+                if let logo = logo {
+                    ZStack(alignment: .center) {
+                        Rectangle()
+                            .fill(themeColor: backgroundThemeColor)
+                        
+                        Image(logo)
+                            .resizable()
+                            .renderingMode(.template)
+                            .foregroundColor(themeColor: qrCodeThemeColor)
+                            .scaledToFit()
+                            .frame(
+                                maxWidth: .infinity,
+                                maxHeight: .infinity
+                            )
+                            .padding(.all, 4)
+                    }
+                    .frame(
+                        width: Self.logoSize,
+                        height: Self.logoSize
+                    )
                 }
-                .frame(
-                    width: Self.logoSize,
-                    height: Self.logoSize
-                )
             }
+            .frame(
+                maxWidth: 400,
+                maxHeight: 400
+            )
         }
+        .frame(maxWidth: .infinity)
     }
 }
