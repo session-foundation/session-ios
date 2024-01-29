@@ -2485,6 +2485,16 @@
 			path = TurnServers;
 			sourceTree = "<group>";
 		};
+		942C9CA02B67762400B5153A /* SwiftUI */ = {
+			isa = PBXGroup;
+			children = (
+				7BDE2A992A8C59CF00AE4393 /* AttributedText.swift */,
+				7B87EF432A8DA720002A0E8F /* SessionTextField.swift */,
+				7BF570D22A9C1F9300DB013E /* Toast.swift */,
+			);
+			path = SwiftUI;
+			sourceTree = "<group>";
+		};
 		B8041A7325C8F758003C2166 /* Content Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -2974,6 +2984,7 @@
 		C331FFCC2558FAF300070591 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				942C9CA02B67762400B5153A /* SwiftUI */,
 				B8B5BCEB2394D869003823C9 /* SessionButton.swift */,
 				FD52090228B4680F006098F6 /* RadioButton.swift */,
 				B8BB82B02390C37000BA5194 /* SearchBar.swift */,
@@ -2990,9 +3001,6 @@
 				C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */,
 				FD71165A28E6DDBC00B47552 /* StyledNavigationController.swift */,
 				FD0B77AF29B69A65009169BA /* TopBannerController.swift */,
-				7BDE2A992A8C59CF00AE4393 /* AttributedText.swift */,
-				7B87EF432A8DA720002A0E8F /* SessionTextField.swift */,
-				7BF570D22A9C1F9300DB013E /* Toast.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
