@@ -60,8 +60,9 @@ public extension AppContext {
         let dirName: String = "ows_temp_\(UUID().uuidString)"
         let dirPath: String = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(dirName)
-            .absoluteString
+            .path
         _temporaryDirectory = dirPath
+        OWSFileSystem.ensureDirectoryExists(dirPath, fileProtectionType: .complete)
         
         return dirPath
     }

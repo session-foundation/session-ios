@@ -207,7 +207,7 @@ final class MainAppContext: AppContext {
                 //
                 // a) "ows_temp" name prefix.
                 // b) modified time before app launch time.
-                let filePath: String = URL(fileURLWithPath: dirPath).appendingPathComponent(fileName).absoluteString
+                let filePath: String = URL(fileURLWithPath: dirPath).appendingPathComponent(fileName).path
                 
                 if !fileName.hasPrefix("ows_temp") {
                     // It's fine if we can't get the attributes (the file may have been deleted since we found it),

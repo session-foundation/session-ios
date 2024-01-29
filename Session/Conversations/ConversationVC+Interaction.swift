@@ -2333,8 +2333,7 @@ extension ConversationVC:
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
-        let isConfigured = (Environment.shared?.audioSession.startAudioActivity(recordVoiceMessageActivity) == true)
-        guard isConfigured else {
+        guard Environment.shared?.audioSession.startAudioActivity(recordVoiceMessageActivity) == true else {
             return cancelVoiceMessageRecording()
         }
         
