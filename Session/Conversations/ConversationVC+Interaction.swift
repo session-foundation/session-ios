@@ -2363,15 +2363,28 @@ extension ConversationVC:
             self?.endVoiceMessageRecording(using: dependencies)
         })
         
-        // Prepare audio recorder
-        guard audioRecorder.prepareToRecord() else {
-            SNLog("Couldn't prepare audio recorder.")
-            return cancelVoiceMessageRecording()
-        }
+        // Prepare audio recorder and start recording
+        let successfullyPrepared: Bool = audioRecorder.prepareToRecord()
+        let startedRecording: Bool = false//(successfullyPrepared && audioRecorder.record())
         
-        // Start recording
-        guard audioRecorder.record() else {
-            SNLog("Couldn't record audio.")
+        
+        guard successfullyPrepared && startedRecording else {
+            SNLog(successfullyPrepared ? "Couldn't record audio." : "Couldn't prepare audio recorder.")
+            
+            // Dispatch to the next run loop to avoid
+            DispatchQueue.main.async {
+                let modal: ConfirmationModal = ConfirmationModal(
+                    targetView: self.view,
+                    info: ConfirmationModal.Info(
+                        title: "ALERT_ERROR_TITLE".localized(),
+                        body: .text("VOICE_MESSAGE_FAILED_TO_START_MESSAGE".localized()),
+                        cancelTitle: "BUTTON_OK".localized(),
+                        cancelStyle: .alert_text
+                    )
+                )
+                self.present(modal, animated: true)
+            }
+            
             return cancelVoiceMessageRecording()
         }
     }
