@@ -94,6 +94,16 @@ extension MessageReceiver {
                     timestampMs: sentTimestampMs
                 ),
                 using: dependencies
+            ),
+            // Somewhat redundant because we know the sender was a group admin but this confirms the
+            // authData is valid so protects against invalid invite spam from a group admin
+            let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies),
+            dependencies[singleton: .crypto].verify(
+                .memberAuthData(
+                    groupSessionId: message.groupSessionId,
+                    ed25519SecretKey: userEd25519KeyPair.secretKey,
+                    memberAuthData: message.memberAuthData
+                )
             )
         else { throw MessageReceiverError.invalidMessage }
         

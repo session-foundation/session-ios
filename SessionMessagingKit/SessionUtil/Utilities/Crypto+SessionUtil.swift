@@ -88,3 +88,26 @@ public extension Crypto.Generator {
         }
     }
 }
+
+public extension Crypto.Verification {
+    static func memberAuthData(
+        groupSessionId: SessionId,
+        ed25519SecretKey: [UInt8],
+        memberAuthData: Data
+    ) -> Crypto.Verification {
+        return Crypto.Verification(
+            id: "memberAuthData",
+            args: [groupSessionId, ed25519SecretKey, memberAuthData]
+        ) {
+            var cGroupId: [CChar] = groupSessionId.hexString.cArray
+            var cEd25519SecretKey: [UInt8] = ed25519SecretKey
+            var cAuthData: [UInt8] = Array(memberAuthData)
+            
+            return groups_keys_swarm_verify_subaccount(
+                &cGroupId,
+                &cEd25519SecretKey,
+                &cAuthData
+            )
+        }
+    }
+}
