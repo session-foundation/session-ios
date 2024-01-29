@@ -30,14 +30,15 @@ struct NewMessageScreen: View {
                 if tabIndex == 0 {
                     EnterAccountIdScreen(
                         accountIdOrONS: $accountIdOrONS,
-                        error: $errorString
+                        error: $errorString, 
+                        continueAction: continueWithAccountIdOrONS
                     )
                 }
                 else {
                     ScanQRCodeScreen(
                         $accountIdOrONS,
                         error: $errorString,
-                        continueAction: continueWithAccountId
+                        continueAction: continueWithAccountIdFromQRCode
                     )
                 }
             }
@@ -54,8 +55,12 @@ struct NewMessageScreen: View {
         }
     }
     
-    func continueWithAccountId(onError: (() -> ())?) {
+    func continueWithAccountIdFromQRCode(onError: (() -> ())?) {
         startNewPrivateChatIfPossible(with: accountIdOrONS, onError: onError)
+    }
+    
+    func continueWithAccountIdOrONS() {
+        startNewDMIfPossible(with: accountIdOrONS, onError: nil)
     }
     
     fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String, onError: (() -> ())?) {
@@ -67,10 +72,10 @@ struct NewMessageScreen: View {
                     startNewDM(with: onsNameOrPublicKey)
                     
                 case .blinded15, .blinded25:
-                    errorString = "DM_ERROR_DIRECT_BLINDED_ID".localized()
+                    errorString = "new_message_screen_error_msg_invalid_account_id".localized()
                     
                 default:
-                    errorString = "DM_ERROR_INVALID".localized()
+                    break
             }
             return
         }
@@ -93,6 +98,8 @@ struct NewMessageScreen: View {
                                         switch error {
                                             case .decryptionFailed, .hashingFailed, .validationFailed:
                                                 messageOrNil = error.errorDescription
+                                            case .generic:
+                                                messageOrNil = "new_message_screen_error_msg_network_issue".localized()
                                             default: break
                                         }
                                     }
@@ -102,8 +109,8 @@ struct NewMessageScreen: View {
                                         }
                                         
                                         return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
-                                            "DM_ERROR_DIRECT_BLINDED_ID".localized() :
-                                            "DM_ERROR_INVALID".localized()
+                                            "new_message_screen_error_msg_invalid_account_id".localized() :
+                                            "new_message_screen_error_msg_unrecognized_ons".localized()
                                         )
                                     }()
                                     
@@ -133,6 +140,8 @@ struct NewMessageScreen: View {
 struct EnterAccountIdScreen: View {
     @Binding var accountIdOrONS: String
     @Binding var error: String?
+    @State var isTextFieldInErrorMode: Bool = false
+    var continueAction: () -> ()
     
     var body: some View {
         VStack(
@@ -143,9 +152,7 @@ struct EnterAccountIdScreen: View {
                 $accountIdOrONS,
                 placeholder: "new_message_screen_enter_account_id_hint".localized(),
                 error: $error
-            )
-            
-            if error?.isEmpty != true {
+            ) {
                 ZStack {
                     if #available(iOS 14.0, *) {
                         Text("\("new_message_screen_enter_account_id_explanation".localized())\(Image(systemName: "questionmark.circle"))")
@@ -160,7 +167,7 @@ struct EnterAccountIdScreen: View {
                     }
                 }
                 .padding(.horizontal, Values.smallSpacing)
-                .padding(.top, -50)
+                .padding(.top, Values.smallSpacing)
                 .onTapGesture {
                     if let url: URL = URL(string: "https://sessionapp.zendesk.com/hc/en-us/articles/4439132747033-How-do-Session-ID-usernames-work-") {
                         UIApplication.shared.open(url)
@@ -172,7 +179,7 @@ struct EnterAccountIdScreen: View {
             
             if !accountIdOrONS.isEmpty {
                 Button {
-                    
+                    continueAction()
                 } label: {
                     Text("next".localized())
                         .bold()

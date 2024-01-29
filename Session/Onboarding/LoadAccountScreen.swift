@@ -163,7 +163,7 @@ struct EnterRecoveryPasswordScreen: View{
                     $recoveryPassword,
                     placeholder: "onboarding_recovery_password_hint".localized(),
                     error: $error
-                )
+                ) {}
                 
                 Spacer(minLength: 0)
                     .frame(maxHeight: Values.massiveSpacing)

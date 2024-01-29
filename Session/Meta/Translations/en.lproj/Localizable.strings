@@ -877,3 +877,6 @@ The point that a message will disappear in a disappearing message update message
 "new_message_screen_enter_account_id_tab_title" = "Enter Account ID";
 "new_message_screen_enter_account_id_hint" = "Enter Account ID or ONS";
 "new_message_screen_enter_account_id_explanation" = "Start a new conversation by entering your friend's Account ID, ONS or scanning their QR code.";
+"new_message_screen_error_msg_invalid_account_id" = "This Account ID is invalid. Please check and try again.";
+"new_message_screen_error_msg_unrecognized_ons" = "We couldn’t recognize this ONS. Please check and try again.";
+"new_message_screen_error_msg_network_issue" = "We were unable to search for this ONS. Please try again later.";

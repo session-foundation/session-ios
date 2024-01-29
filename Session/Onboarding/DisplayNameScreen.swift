@@ -53,7 +53,7 @@ struct DisplayNameScreen: View {
                     $displayName,
                     placeholder: "onboarding_display_name_hint".localized(),
                     error: $error
-                )
+                ) {}
                 
                 Spacer(minLength: 0)
                     .frame(maxHeight: Values.massiveSpacing)

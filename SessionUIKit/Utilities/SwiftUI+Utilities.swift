@@ -102,6 +102,16 @@ extension View {
     public func toastView(message: Binding<String?>) -> some View {
         self.modifier(ToastModifier(message: message))
     }
+    
+    public func transparentScrolling() -> some View {
+        if #available(iOS 16.0, *) {
+            return scrollContentBackground(.hidden)
+        } else {
+            return onAppear {
+                UITextView.appearance().backgroundColor = .clear
+            }
+        }
+    }
 }
 
 extension Binding {
