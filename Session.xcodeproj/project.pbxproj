@@ -167,6 +167,7 @@
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
 		7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */; };
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
+		942C9CA22B67769000B5153A /* SessionSearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942C9CA12B67769000B5153A /* SessionSearchBar.swift */; };
 		946B34472B5DF0B7004CB4A3 /* QRCodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B34462B5DF0B7004CB4A3 /* QRCodeScreen.swift */; };
 		946B34492B5E04BB004CB4A3 /* CustomTopTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B34482B5E04BB004CB4A3 /* CustomTopTabBar.swift */; };
 		946B344B2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B344A2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift */; };
@@ -1306,6 +1307,7 @@
 		8E946CB54A221018E23599DE /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
 		92E8569C96285EE3CDB5960D /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		93359C81CF2660040B7CD106 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		942C9CA12B67769000B5153A /* SessionSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSearchBar.swift; sourceTree = "<group>"; };
 		946B34462B5DF0B7004CB4A3 /* QRCodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeScreen.swift; sourceTree = "<group>"; };
 		946B34482B5E04BB004CB4A3 /* CustomTopTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTopTabBar.swift; sourceTree = "<group>"; };
 		946B344A2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanQRCodeScreen.swift; sourceTree = "<group>"; };
@@ -2491,6 +2493,7 @@
 				7BDE2A992A8C59CF00AE4393 /* AttributedText.swift */,
 				7B87EF432A8DA720002A0E8F /* SessionTextField.swift */,
 				7BF570D22A9C1F9300DB013E /* Toast.swift */,
+				942C9CA12B67769000B5153A /* SessionSearchBar.swift */,
 			);
 			path = SwiftUI;
 			sourceTree = "<group>";
@@ -5657,6 +5660,7 @@
 				FD09B7E328865FDA00ED0B66 /* HighlightMentionBackgroundView.swift in Sources */,
 				C331FFB82558FA8D00070591 /* DeviceUtilities.swift in Sources */,
 				C331FFE72558FB0000070591 /* TextField.swift in Sources */,
+				942C9CA22B67769000B5153A /* SessionSearchBar.swift in Sources */,
 				FD71165B28E6DDBC00B47552 /* StyledNavigationController.swift in Sources */,
 				C331FFE32558FB0000070591 /* TabBar.swift in Sources */,
 				FD37E9D528A1FCE8003AE748 /* Theme+OceanLight.swift in Sources */,
