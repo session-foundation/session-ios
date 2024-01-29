@@ -149,7 +149,6 @@
 		7BAF54D027ACCEEC003D12F8 /* EmptySearchResultCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAF54CD27ACCEEC003D12F8 /* EmptySearchResultCell.swift */; };
 		7BAF54D327ACCF01003D12F8 /* ShareAppExtensionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAF54D127ACCF01003D12F8 /* ShareAppExtensionContext.swift */; };
 		7BAF54D427ACCF01003D12F8 /* SAEScreenLockViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BAF54D227ACCF01003D12F8 /* SAEScreenLockViewController.swift */; };
-		7BB92B3F28C825FD0082762F /* NewConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB92B3E28C825FD0082762F /* NewConversationViewModel.swift */; };
 		7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BBBDC43286EAD2D00747E59 /* TappableLabel.swift */; };
 		7BBBDC462875600700747E59 /* DocumentTitleViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BBBDC452875600700747E59 /* DocumentTitleViewController.swift */; };
 		7BC01A3E241F40AB00BC7C55 /* NotificationServiceExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC01A3D241F40AB00BC7C55 /* NotificationServiceExtension.swift */; };
@@ -1279,7 +1278,6 @@
 		7BAF54D127ACCF01003D12F8 /* ShareAppExtensionContext.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ShareAppExtensionContext.swift; sourceTree = "<group>"; };
 		7BAF54D227ACCF01003D12F8 /* SAEScreenLockViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SAEScreenLockViewController.swift; sourceTree = "<group>"; };
 		7BAF54D527ACD0E2003D12F8 /* ReusableView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReusableView.swift; sourceTree = "<group>"; };
-		7BB92B3E28C825FD0082762F /* NewConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConversationViewModel.swift; sourceTree = "<group>"; };
 		7BBBDC43286EAD2D00747E59 /* TappableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TappableLabel.swift; sourceTree = "<group>"; };
 		7BBBDC452875600700747E59 /* DocumentTitleViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentTitleViewController.swift; sourceTree = "<group>"; };
 		7BC01A3B241F40AB00BC7C55 /* SessionNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SessionNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2416,7 +2414,6 @@
 		7B8C44C328B49DA900FBE25F /* New Conversation */ = {
 			isa = PBXGroup;
 			children = (
-				7BB92B3E28C825FD0082762F /* NewConversationViewModel.swift */,
 				946B344C2B5F67B4004CB4A3 /* StartConversationScreen.swift */,
 				946B344E2B61D80B004CB4A3 /* InviteAFriendScreen.swift */,
 				946B34502B61D818004CB4A3 /* NewMessageScreen.swift */,
@@ -6273,7 +6270,6 @@
 				B886B4A72398B23E00211ABE /* QRCodeVC.swift in Sources */,
 				4C586926224FAB83003FD070 /* AVAudioSession+OWS.m in Sources */,
 				7B87EF4C2A933355002A0E8F /* LoadingScreen.swift in Sources */,
-				7BB92B3F28C825FD0082762F /* NewConversationViewModel.swift in Sources */,
 				4C4AE6A1224AF35700D4AF6F /* SendMediaNavigationController.swift in Sources */,
 				B82149C125D605C6009C0F2A /* InfoBanner.swift in Sources */,
 				C3DAB3242480CB2B00725F25 /* SRCopyableLabel.swift in Sources */,
