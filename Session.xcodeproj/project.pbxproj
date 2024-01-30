@@ -168,6 +168,7 @@
 		7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */; };
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
 		942C9CA22B67769000B5153A /* SessionSearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942C9CA12B67769000B5153A /* SessionSearchBar.swift */; };
+		942C9CA42B6868B800B5153A /* GlobalSearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942C9CA32B6868B800B5153A /* GlobalSearchScreen.swift */; };
 		946B34472B5DF0B7004CB4A3 /* QRCodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B34462B5DF0B7004CB4A3 /* QRCodeScreen.swift */; };
 		946B34492B5E04BB004CB4A3 /* CustomTopTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B34482B5E04BB004CB4A3 /* CustomTopTabBar.swift */; };
 		946B344B2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B344A2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift */; };
@@ -1308,6 +1309,7 @@
 		92E8569C96285EE3CDB5960D /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		93359C81CF2660040B7CD106 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		942C9CA12B67769000B5153A /* SessionSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSearchBar.swift; sourceTree = "<group>"; };
+		942C9CA32B6868B800B5153A /* GlobalSearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalSearchScreen.swift; sourceTree = "<group>"; };
 		946B34462B5DF0B7004CB4A3 /* QRCodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeScreen.swift; sourceTree = "<group>"; };
 		946B34482B5E04BB004CB4A3 /* CustomTopTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTopTabBar.swift; sourceTree = "<group>"; };
 		946B344A2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanQRCodeScreen.swift; sourceTree = "<group>"; };
@@ -2463,6 +2465,7 @@
 			children = (
 				7BAF54CC27ACCEEC003D12F8 /* GlobalSearchViewController.swift */,
 				7BAF54CD27ACCEEC003D12F8 /* EmptySearchResultCell.swift */,
+				942C9CA32B6868B800B5153A /* GlobalSearchScreen.swift */,
 			);
 			path = GlobalSearch;
 			sourceTree = "<group>";
@@ -6259,6 +6262,7 @@
 				B877E24226CA12910007970A /* CallVC.swift in Sources */,
 				FDC498B92AC15FE300EDD897 /* AppNotificationAction.swift in Sources */,
 				7BA6890D27325CCC00EFC32F /* SessionCallManager+CXCallController.swift in Sources */,
+				942C9CA42B6868B800B5153A /* GlobalSearchScreen.swift in Sources */,
 				C374EEEB25DA3CA70073A857 /* ConversationTitleView.swift in Sources */,
 				FD716E7128505E5200C96BF4 /* MessageRequestsCell.swift in Sources */,
 				FDF848F329413DB0007DCAE5 /* ImagePickerHandler.swift in Sources */,

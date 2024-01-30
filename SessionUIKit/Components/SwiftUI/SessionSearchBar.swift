@@ -2,14 +2,20 @@
 
 import SwiftUI
 
-struct SessionSearchBar: View {
+public struct SessionSearchBar: View {
     @Binding var searchText: String
     
-    let cancelAction: () -> ()
+    let cancelAction: () -> Void
     
     let height: CGFloat = 40
     let cornerRadius: CGFloat = 7
-    var body: some View {
+    
+    public init(searchText: Binding<String>, cancelAction: @escaping () -> Void) {
+        self._searchText = searchText
+        self.cancelAction = cancelAction
+    }
+    
+    public var body: some View {
         HStack(
             alignment: .center,
             spacing: 0
