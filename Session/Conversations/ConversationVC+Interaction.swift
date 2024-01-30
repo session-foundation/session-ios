@@ -2365,7 +2365,7 @@ extension ConversationVC:
         
         // Prepare audio recorder and start recording
         let successfullyPrepared: Bool = audioRecorder.prepareToRecord()
-        let startedRecording: Bool = false//(successfullyPrepared && audioRecorder.record())
+        let startedRecording: Bool = (successfullyPrepared && audioRecorder.record())
         
         
         guard successfullyPrepared && startedRecording else {
