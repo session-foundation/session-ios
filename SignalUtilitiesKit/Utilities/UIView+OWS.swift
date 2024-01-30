@@ -7,10 +7,12 @@ import SessionUtilitiesKit
 
 public extension UIEdgeInsets {
     init(top: CGFloat, leading: CGFloat, bottom: CGFloat, trailing: CGFloat) {
-        self.init(top: top,
-                  left: CurrentAppContext().isRTL ? trailing : leading,
-                  bottom: bottom,
-                  right: CurrentAppContext().isRTL ? leading : trailing)
+        self.init(
+            top: top,
+            left: (Singleton.hasAppContext && Singleton.appContext.isRTL ? trailing : leading),
+            bottom: bottom,
+            right: (Singleton.hasAppContext && Singleton.appContext.isRTL ? leading : trailing)
+        )
     }
 }
 

@@ -94,7 +94,7 @@ final class AppearanceViewController: BaseVC {
             trailing: Values.largeSpacing
         )
         
-        if CurrentAppContext().isRTL {
+        if Singleton.hasAppContext && Singleton.appContext.isRTL {
             result.transform = CGAffineTransform.identity.scaledBy(x: -1, y: 1)
         }
         

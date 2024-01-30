@@ -456,9 +456,9 @@ public enum PushNotificationAPI {
                     // after device restart until device is unlocked for the first time. If the app receives a push
                     // notification, we won't be able to access the keychain to process that notification, so we should
                     // just terminate by throwing an uncaught exception
-                    if CurrentAppContext().isMainApp || CurrentAppContext().isInBackground() {
-                        let appState: UIApplication.State = CurrentAppContext().reportedApplicationState
-                        SNLog("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(NSStringForUIApplicationState(appState))")
+                    if Singleton.hasAppContext && (Singleton.appContext.isMainApp || Singleton.appContext.isInBackground) {
+                        let appState: UIApplication.State = Singleton.appContext.reportedApplicationState
+                        SNLog("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
                         throw StorageError.keySpecInaccessible
                     }
                     

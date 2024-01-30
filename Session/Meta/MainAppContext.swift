@@ -4,14 +4,14 @@ import UIKit
 import SignalCoreKit
 import SessionUtilitiesKit
 
-final class MainAppContext: NSObject, AppContext {
+final class MainAppContext: AppContext {
+    var _temporaryDirectory: String?
     var reportedApplicationState: UIApplication.State
     
     let appLaunchTime = Date()
     let isMainApp: Bool = true
     var isMainAppAndActive: Bool { UIApplication.shared.applicationState == .active }
-    var isShareExtension: Bool = false
-    var appActiveBlocks: [AppActiveBlock] = []
+    var frontmostViewController: UIViewController? { UIApplication.shared.frontmostViewControllerIgnoringAlerts }
     
     var mainWindow: UIWindow?
     var wasWokenUpByPushNotification: Bool = false
@@ -35,10 +35,8 @@ final class MainAppContext: NSObject, AppContext {
     
     // MARK: - Initialization
 
-    override init() {
+    init() {
         self.reportedApplicationState = .inactive
-        
-        super.init()
         
         NotificationCenter.default.addObserver(
             self,
@@ -85,7 +83,7 @@ final class MainAppContext: NSObject, AppContext {
         OWSLogger.info("")
 
         NotificationCenter.default.post(
-            name: .OWSApplicationWillEnterForeground,
+            name: .sessionWillEnterForeground,
             object: nil
         )
     }
@@ -99,7 +97,7 @@ final class MainAppContext: NSObject, AppContext {
         DDLog.flushLog()
         
         NotificationCenter.default.post(
-            name: .OWSApplicationDidEnterBackground,
+            name: .sessionDidEnterBackground,
             object: nil
         )
     }
@@ -113,7 +111,7 @@ final class MainAppContext: NSObject, AppContext {
         DDLog.flushLog()
 
         NotificationCenter.default.post(
-            name: .OWSApplicationWillResignActive,
+            name: .sessionWillResignActive,
             object: nil
         )
     }
@@ -126,11 +124,9 @@ final class MainAppContext: NSObject, AppContext {
         OWSLogger.info("")
 
         NotificationCenter.default.post(
-            name: .OWSApplicationDidBecomeActive,
+            name: .sessionDidBecomeActive,
             object: nil
         )
-
-        self.runAppActiveBlocks()
     }
 
     @objc private func applicationWillTerminate(notification: NSNotification) {
@@ -141,6 +137,10 @@ final class MainAppContext: NSObject, AppContext {
     }
     
     // MARK: - AppContext Functions
+    
+    func setMainWindow(_ mainWindow: UIWindow) {
+        self.mainWindow = mainWindow
+    }
     
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) {
         UIApplication.shared.setStatusBarHidden(isHidden, with: (isAnimated ? .slide : .none))
@@ -154,7 +154,7 @@ final class MainAppContext: NSObject, AppContext {
         return (reportedApplicationState == .background)
     }
     
-    func beginBackgroundTask(expirationHandler: @escaping BackgroundTaskExpirationHandler) -> UIBackgroundTaskIdentifier {
+    func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier {
         return UIApplication.shared.beginBackgroundTask(expirationHandler: expirationHandler)
     }
     
@@ -179,70 +179,51 @@ final class MainAppContext: NSObject, AppContext {
         UIApplication.shared.isIdleTimerDisabled = shouldBeBlocking
     }
     
-    func frontmostViewController() -> UIViewController? {
-        UIApplication.shared.frontmostViewControllerIgnoringAlerts
-    }
-    
     func setNetworkActivityIndicatorVisible(_ value: Bool) {
         UIApplication.shared.isNetworkActivityIndicatorVisible = value
     }
     
     // MARK: -
     
-    func runNowOr(whenMainAppIsActive block: @escaping AppActiveBlock) {
-        Threading.dispatchMainThreadSafe { [weak self] in
-            if self?.isMainAppAndActive == true {
-                // App active blocks typically will be used to safely access the
-                // shared data container, so use a background task to protect this
-                // work.
-                var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: #function)
-                block()
-                if backgroundTask != nil { backgroundTask = nil }
-                return
-            }
+    func clearOldTemporaryDirectories() {
+        // We use the lowest priority queue for this, and wait N seconds
+        // to avoid interfering with app startup.
+        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + .seconds(3)) { [weak self] in
+            guard
+                self?.isAppForegroundAndActive == true,   // Abort if app not active
+                let thresholdDate: Date = self?.appLaunchTime
+            else { return }
+                    
+            // Ignore the "current" temp directory.
+            let currentTempDirName: String = URL(fileURLWithPath: Singleton.appContext.temporaryDirectory).lastPathComponent
+            let dirPath = NSTemporaryDirectory()
             
-            self?.appActiveBlocks.append(block)
+            guard let fileNames: [String] = try? FileManager.default.contentsOfDirectory(atPath: dirPath) else { return }
+            
+            fileNames.forEach { fileName in
+                guard fileName != currentTempDirName else { return }
+                
+                // Delete files with either:
+                //
+                // a) "ows_temp" name prefix.
+                // b) modified time before app launch time.
+                let filePath: String = URL(fileURLWithPath: dirPath).appendingPathComponent(fileName).path
+                
+                if !fileName.hasPrefix("ows_temp") {
+                    // It's fine if we can't get the attributes (the file may have been deleted since we found it),
+                    // also don't delete files which were created in the last N minutes
+                    guard
+                        let attributes: [FileAttributeKey: Any] = try? FileManager.default.attributesOfItem(atPath: filePath),
+                        let modificationDate: Date = attributes[.modificationDate] as? Date,
+                        modificationDate.timeIntervalSince1970 <= thresholdDate.timeIntervalSince1970
+                    else { return }
+                }
+                
+                if (!OWSFileSystem.deleteFile(filePath)) {
+                    // This can happen if the app launches before the phone is unlocked.
+                    // Clean up will occur when app becomes active.
+                }
+            }
         }
-    }
-    
-    func runAppActiveBlocks() {
-        // App active blocks typically will be used to safely access the
-        // shared data container, so use a background task to protect this
-        // work.
-        var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: #function)
-
-        let appActiveBlocks: [AppActiveBlock] = self.appActiveBlocks
-        self.appActiveBlocks.removeAll()
-        
-        appActiveBlocks.forEach { $0() }
-        if backgroundTask != nil { backgroundTask = nil }
-    }
-    
-    func appDocumentDirectoryPath() -> String {
-        let targetPath: String? = FileManager.default
-            .urls(
-                for: .documentDirectory,
-                in: .userDomainMask
-            )
-            .last?
-            .path
-        owsAssertDebug(targetPath != nil)
-        
-        return (targetPath ?? "")
-    }
-    
-    func appSharedDataDirectoryPath() -> String {
-        let targetPath: String? = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?
-            .path
-        owsAssertDebug(targetPath != nil)
-        
-        return (targetPath ?? "")
-    }
-    
-    func appUserDefaults() -> UserDefaults {
-        owsAssertDebug(UserDefaults.sharedLokiProject != nil)
-        
-        return (UserDefaults.sharedLokiProject ?? UserDefaults.standard)
     }
 }

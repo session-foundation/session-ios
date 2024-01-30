@@ -1,7 +1,7 @@
 // stringlint:disable
 
 #import "OWSFileSystem.h"
-#import "AppContext.h"
+#import <SessionUtilitiesKit/SessionUtilitiesKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -67,12 +67,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSString *)appDocumentDirectoryPath
 {
-    return CurrentAppContext().appDocumentDirectoryPath;
+    return [OWSCurrentAppContext appDocumentDirectoryPath];
 }
 
 + (NSString *)appSharedDataDirectoryPath
 {
-    return CurrentAppContext().appSharedDataDirectoryPath;
+    return [OWSCurrentAppContext appSharedDataDirectoryPath];
 }
 
 + (NSString *)cachesDirectoryPath
@@ -231,7 +231,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSString *)temporaryFilePathWithFileExtension:(NSString *_Nullable)fileExtension
 {
-    NSString *temporaryDirectory = OWSTemporaryDirectory();
+    NSString *temporaryDirectory = [OWSCurrentAppContext temporaryDirectory];
     NSString *tempFileName = NSUUID.UUID.UUIDString;
     if (fileExtension.length > 0) {
         tempFileName = [[tempFileName stringByAppendingString:@"."] stringByAppendingString:fileExtension];
@@ -269,88 +269,5 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 @end
-
-#pragma mark -
-
-NSString *OWSTemporaryDirectory(void)
-{
-    static NSString *dirPath;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        NSString *dirName = [NSString stringWithFormat:@"ows_temp_%@", NSUUID.UUID.UUIDString];
-        dirPath = [NSTemporaryDirectory() stringByAppendingPathComponent:dirName];
-        [OWSFileSystem ensureDirectoryExists:dirPath fileProtectionType:NSFileProtectionComplete];
-    });
-    return dirPath;
-}
-
-NSString *OWSTemporaryDirectoryAccessibleAfterFirstAuth(void)
-{
-    NSString *dirPath = NSTemporaryDirectory();
-    [OWSFileSystem ensureDirectoryExists:dirPath
-                      fileProtectionType:NSFileProtectionCompleteUntilFirstUserAuthentication];
-    return dirPath;
-}
-
-void ClearOldTemporaryDirectoriesSync(void)
-{
-    // Ignore the "current" temp directory.
-    NSString *currentTempDirName = OWSTemporaryDirectory().lastPathComponent;
-
-    NSDate *thresholdDate = CurrentAppContext().appLaunchTime;
-    NSString *dirPath = NSTemporaryDirectory();
-    NSError *error;
-    NSArray<NSString *> *fileNames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dirPath error:&error];
-    if (error) {
-        return;
-    }
-    for (NSString *fileName in fileNames) {
-        if (!CurrentAppContext().isAppForegroundAndActive) {
-            // Abort if app not active.
-            return;
-        }
-        if ([fileName isEqualToString:currentTempDirName]) {
-            continue;
-        }
-
-        NSString *filePath = [dirPath stringByAppendingPathComponent:fileName];
-
-        // Delete files with either:
-        //
-        // a) "ows_temp" name prefix.
-        // b) modified time before app launch time.
-        if (![fileName hasPrefix:@"ows_temp"]) {
-            NSError *e;
-            NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:&e];
-            if (!attributes || e) {
-                // This is fine; the file may have been deleted since we found it.
-                continue;
-            }
-            // Don't delete files which were created in the last N minutes.
-            NSDate *creationDate = attributes.fileModificationDate;
-            if (creationDate.timeIntervalSince1970 > thresholdDate.timeIntervalSince1970) {
-                continue;
-            }
-        }
-
-        if (![OWSFileSystem deleteFile:filePath]) {
-            // This can happen if the app launches before the phone is unlocked.
-            // Clean up will occur when app becomes active.
-        }
-    }
-}
-
-// NOTE: We need to call this method on launch _and_ every time the app becomes active,
-// since file protection may prevent it from succeeding in the background.
-void ClearOldTemporaryDirectories(void)
-{
-    // We use the lowest priority queue for this, and wait N seconds
-    // to avoid interfering with app startup.
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.f * NSEC_PER_SEC)),
-        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0),
-        ^{
-            ClearOldTemporaryDirectoriesSync();
-        });
-}
 
 NS_ASSUME_NONNULL_END
