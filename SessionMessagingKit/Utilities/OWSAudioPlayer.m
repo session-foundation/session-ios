@@ -75,7 +75,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(applicationDidEnterBackground:)
-                                                 name:OWSApplicationDidEnterBackgroundNotification
+                                                 name:NSNotification.sessionDidEnterBackground
                                                object:nil];
 
     return self;

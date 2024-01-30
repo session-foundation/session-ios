@@ -53,7 +53,8 @@ extension MessageReceiver {
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance
         guard
-            CurrentAppContext().isMainApp,
+            Singleton.hasAppContext,
+            Singleton.appContext.isMainApp,
             let sender: String = message.sender,
             (try? Contact
                 .filter(id: sender)

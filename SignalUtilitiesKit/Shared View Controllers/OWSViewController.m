@@ -4,7 +4,6 @@
 
 #import "OWSViewController.h"
 #import "UIView+OWS.h"
-#import "AppContext.h"
 #import <PureLayout/PureLayout.h>
 #import <SessionUIKit/SessionUIKit.h>
 #import <SignalCoreKit/OWSAsserts.h>
@@ -214,7 +213,7 @@ UIInterfaceOrientationMask DefaultUIInterfaceOrientationMask(void)
     };
 
 
-    if (self.shouldAnimateBottomLayout && CurrentAppContext().isAppForegroundAndActive) {
+    if (self.shouldAnimateBottomLayout && [OWSCurrentAppContext isAppForegroundAndActive]) {
         updateLayout();
     } else {
         // UIKit by default animates all changes in response to keyboard events.
