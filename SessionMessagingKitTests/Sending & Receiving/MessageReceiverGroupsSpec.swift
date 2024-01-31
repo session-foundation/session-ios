@@ -885,13 +885,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         .thenReturn(nil)
                     
                     mockStorage.write { db in
-                        result = Result(try MessageReceiver.handleGroupUpdateMessage(
-                            db,
-                            threadId: groupId.hexString,
-                            threadVariant: .group,
-                            message: promoteMessage,
-                            using: dependencies
-                        ))
+                        result = Result(catching: {
+                            try MessageReceiver.handleGroupUpdateMessage(
+                                db,
+                                threadId: groupId.hexString,
+                                threadVariant: .group,
+                                message: promoteMessage,
+                                using: dependencies
+                            )
+                        })
                     }
                     
                     expect(result.failure).to(matchError(MessageReceiverError.invalidMessage))

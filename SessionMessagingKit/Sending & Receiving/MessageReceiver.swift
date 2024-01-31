@@ -193,7 +193,7 @@ public enum MessageReceiver {
                 }
         }
         
-        let proto: SNProtoContent = try (customProto ?? Result(SNProtoContent.parseData(plaintext))
+        let proto: SNProtoContent = try (customProto ?? Result(catching: { try SNProtoContent.parseData(plaintext) })
            .onFailure { SNLog("Couldn't parse proto due to error: \($0).") }
            .successOrThrow())
         let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender))

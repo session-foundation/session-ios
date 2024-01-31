@@ -53,6 +53,10 @@ public extension FeatureStorage {
     static let updatedGroupsAllowPromotions: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroupsAllowPromotions"
     )
+    
+    static let updatedGroupsAllowInviteById: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "updatedGroupsAllowInviteById"
+    )
 }
 
 // MARK: - FeatureOption

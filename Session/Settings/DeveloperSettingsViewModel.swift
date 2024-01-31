@@ -70,6 +70,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case updatedGroupsAllowDisplayPicture
         case updatedGroupsAllowDescriptionEditing
         case updatedGroupsAllowPromotions
+        case updatedGroupsAllowInviteById
         
         case exportDatabase
     }
@@ -92,6 +93,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let updatedGroupsAllowDisplayPicture: Bool
         let updatedGroupsAllowDescriptionEditing: Bool
         let updatedGroupsAllowPromotions: Bool
+        let updatedGroupsAllowInviteById: Bool
     }
     
     let title: String = "Developer Settings"
@@ -110,7 +112,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 updatedGroupsAllowHistoricAccessOnInvite: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
                 updatedGroupsAllowDisplayPicture: dependencies[feature: .updatedGroupsAllowDisplayPicture],
                 updatedGroupsAllowDescriptionEditing: dependencies[feature: .updatedGroupsAllowDescriptionEditing],
-                updatedGroupsAllowPromotions: dependencies[feature: .updatedGroupsAllowPromotions]
+                updatedGroupsAllowPromotions: dependencies[feature: .updatedGroupsAllowPromotions],
+                updatedGroupsAllowInviteById: dependencies[feature: .updatedGroupsAllowInviteById]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
@@ -370,7 +373,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         id: .updatedGroupsAllowPromotions,
                         title: "Allow Group Promotions",
                         subtitle: """
-                        Controls whether the UI allows group admins promote other group members to admin within an updated group.
+                        Controls whether the UI allows group admins to promote other group members to admin within an updated group.
                         
                         <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
                         """,
@@ -382,6 +385,25 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             self?.updateFlag(
                                 for: .updatedGroupsAllowPromotions,
                                 to: !current.updatedGroupsAllowPromotions
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .updatedGroupsAllowInviteById,
+                        title: "Allow Invite by ID",
+                        subtitle: """
+                        Controls whether the UI allows group admins to invlide other group members directly by their Account ID.
+                        
+                        <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
+                        """,
+                        trailingAccessory: .toggle(
+                            current.updatedGroupsAllowInviteById,
+                            oldValue: previous?.updatedGroupsAllowInviteById
+                        ),
+                        onTap: { [weak self] in
+                            self?.updateFlag(
+                                for: .updatedGroupsAllowInviteById,
+                                to: !current.updatedGroupsAllowInviteById
                             )
                         }
                     )
@@ -435,6 +457,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .updatedGroupsAllowDescriptionEditing:
                     updateFlag(for: .updatedGroupsAllowDescriptionEditing, to: nil)
                 case .updatedGroupsAllowPromotions: updateFlag(for: .updatedGroupsAllowPromotions, to: nil)
+                case .updatedGroupsAllowInviteById: updateFlag(for: .updatedGroupsAllowInviteById, to: nil)
             }
         }
         

@@ -151,7 +151,7 @@ public final class MessageSender {
                         throw MessageSenderError.protoConversionFailed
                     }
                     
-                    return try Result(proto.serializedData())
+                    return try Result(catching: { try proto.serializedData() })
                         .map { serialisedData -> Data in
                             switch destination {
                                 case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
@@ -175,13 +175,13 @@ public final class MessageSender {
                         using: dependencies
                     )
                     
-                    return try Result(
-                        MessageWrapper.wrap(
+                    return try Result(catching: {
+                        try MessageWrapper.wrap(
                             type: .sessionMessage,
                             timestamp: sentTimestamp,
                             base64EncodedContent: ciphertext.base64EncodedString()
                         )
-                    )
+                    })
                     .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
                     .successOrThrow()
                     .base64EncodedString()
@@ -190,14 +190,14 @@ public final class MessageSender {
                 case (.closedGroup(let groupId), .groupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
                     return try SessionUtil
                         .encrypt(
-                            message: try Result(
-                                MessageWrapper.wrap(
+                            message: try Result(catching: {
+                                try MessageWrapper.wrap(
                                     type: .closedGroupMessage,
                                     timestamp: sentTimestamp,
                                     base64EncodedContent: plaintext.base64EncodedString(),
                                     wrapInWebSocketMessage: false
                                 )
-                            )
+                            })
                             .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
                             .successOrThrow(),
                             groupSessionId: SessionId(.group, hex: groupId),
@@ -227,14 +227,14 @@ public final class MessageSender {
                         using: dependencies
                     )
                     
-                    return try Result(
-                        MessageWrapper.wrap(
+                    return try Result(catching: {
+                        try MessageWrapper.wrap(
                             type: .closedGroupMessage,
                             timestamp: sentTimestamp,
                             senderPublicKey: groupPublicKey,    // Needed for Android
                             base64EncodedContent: ciphertext.base64EncodedString()
                         )
-                    )
+                    })
                     .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
                     .successOrThrow()
                     .base64EncodedString()

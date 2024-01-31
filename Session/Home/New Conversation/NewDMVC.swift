@@ -172,7 +172,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     }
     
     fileprivate func startNewDMIfPossible(with onsNameOrPublicKey: String, onError: (() -> ())?) {
-        switch Result(try SessionId(from: onsNameOrPublicKey)) {
+        switch Result(catching: { try SessionId(from: onsNameOrPublicKey) }) {
             case .success(let sessionId) where sessionId.prefix == .standard: startNewDM(with: onsNameOrPublicKey)
             case .success(let sessionId) where (sessionId.prefix == .blinded15 || sessionId.prefix == .blinded25):
                 let modal: ConfirmationModal = ConfirmationModal(

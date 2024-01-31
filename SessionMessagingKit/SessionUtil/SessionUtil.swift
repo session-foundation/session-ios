@@ -300,7 +300,7 @@ public enum SessionUtil {
                         // Check if the config needs to be pushed
                         guard config.needsPush else { return nil }
                         
-                        return try Result(config.push(variant: variant))
+                        return try Result(catching: { try config.push(variant: variant) })
                             .onFailure { error in
                                 let configCountInfo: String = config.count(for: variant)
                                 

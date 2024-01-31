@@ -31,6 +31,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     fileprivate var newGroupDescription: String?
     private var editDisplayPictureModal: ConfirmationModal?
     private var editDisplayPictureModalInfo: ConfirmationModal.Info?
+    private var inviteByIdValue: String?
     
     // MARK: - Initialization
     
@@ -68,6 +69,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
         case groupDescription
         
         case invite
+        case inviteById
         
         case member(String)
     }
@@ -301,8 +303,20 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             label: "Invite Contacts"
                         ),
                         onTap: { [weak self] in self?.inviteContacts(currentGroupName: state.group.name) }
+                    ),
+                    (!isUpdatedGroup || !dependencies[feature: .updatedGroupsAllowInviteById] ? nil :
+                        SessionCell.Info(
+                            id: .inviteById,
+                            leadingAccessory:  .icon(UIImage(named: "ic_plus_24")?.withRenderingMode(.alwaysTemplate)),
+                            title: "Invite Account ID or ONS",  // FIXME: Localise this
+                            accessibility: Accessibility(
+                                identifier: "Invite by id",
+                                label: "Invite by id"
+                            ),
+                            onTap: { [weak self] in self?.inviteById() }
+                        )
                     )
-                ]
+                ].compactMap { $0 }
             ),
             SectionModel(
                 model: .members,
@@ -774,6 +788,127 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 )
             ),
             transitionType: .push
+        )
+    }
+    
+    private func inviteById() {
+        // Convenience functions to avoid duplicate code
+        func showError(_ errorString: String) {
+            let modal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "ALERT_ERROR_TITLE".localized(),
+                    body: .text(errorString),
+                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelStyle: .alert_text,
+                    dismissType: .single
+                )
+            )
+            self.transitionToScreen(modal, transitionType: .present)
+        }
+        func inviteMember(_ accountId: String, _ modal: UIViewController) {
+            guard !currentMemberIds.contains(accountId) else {
+                // FIXME: Localise this
+                return showError("This Account ID or ONS belongs to an existing member")
+            }
+            
+            MessageSender.addGroupMembers(
+                groupSessionId: threadId,
+                members: [(accountId, nil)],
+                allowAccessToHistoricMessages: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
+                using: dependencies
+            )
+            modal.dismiss(animated: true) { [weak self] in
+                self?.showToast(
+                    text: "GROUP_ACTION_INVITE_SENDING".localized(),
+                    backgroundColor: .backgroundSecondary
+                )
+            }
+        }
+        
+        
+        let currentMemberIds: Set<String> = (tableData
+            .first(where: { $0.model == .members })?
+            .elements
+            .compactMap { item -> String? in
+                switch item.id {
+                    case .member(let profileId): return profileId
+                    default: return nil
+                }
+            })
+            .defaulting(to: [])
+            .asSet()
+        
+        // Make sure inviting another member wouldn't hit the member limit
+        guard (currentMemberIds.count + 1) <= SessionUtil.sizeMaxGroupMemberCount else {
+            return showError("vc_create_closed_group_too_many_group_members_error".localized())
+        }
+        
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Invite Account ID or ONS",  // FIXME: Localise this
+                    body: .input(
+                        explanation: nil,
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter Account ID or ONS"  // FIXME: Localise this
+                        ),
+                        onChange: { [weak self] updatedString in self?.inviteByIdValue = updatedString }
+                    ),
+                    confirmTitle: "Invite",  // FIXME: Localise this
+                    confirmStyle: .danger,
+                    cancelStyle: .alert_text,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self] modal in
+                        // FIXME: Consolidate this with the logic in `NewDMVC`
+                        switch Result(catching: { try SessionId(from: self?.inviteByIdValue) }) {
+                            case .success(let sessionId) where sessionId.prefix == .standard:
+                                inviteMember(sessionId.hexString, modal)
+                                
+                            case .success(let sessionId) where (sessionId.prefix == .blinded15 || sessionId.prefix == .blinded25):
+                                // FIXME: Localise this
+                                return showError("Unable to invite members using their Blinded IDs")
+                                
+                            case .success:
+                                // FIXME: Localise this
+                                return showError("The value entered is not a valid Account ID or ONS")
+                                
+                            case .failure:
+                                guard let inviteByIdValue: String = self?.inviteByIdValue else {
+                                    // FIXME: Localise this
+                                    return showError("Please enter a valid Account ID or ONS")
+                                }
+                                
+                                // This could be an ONS name
+                                let viewController = ModalActivityIndicatorViewController() { modalActivityIndicator in
+                                    SnodeAPI
+                                        .getSessionID(for: inviteByIdValue)
+                                        .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                                        .receive(on: DispatchQueue.main)
+                                        .sinkUntilComplete(
+                                            receiveCompletion: { result in
+                                                switch result {
+                                                    case .finished: break
+                                                    case .failure:
+                                                        modalActivityIndicator.dismiss {
+                                                            // FIXME: Localise this
+                                                            return showError("Unable to find ONS provided.")
+                                                        }
+                                                }
+                                            },
+                                            receiveValue: { sessionIdHexString in
+                                                modalActivityIndicator.dismiss {
+                                                    inviteMember(sessionIdHexString, modal)
+                                                }
+                                            }
+                                        )
+                                }
+                                self?.transitionToScreen(viewController, transitionType: .present)
+                        }
+                    },
+                    afterClosed: { [weak self] in self?.inviteByIdValue = nil }
+                )
+            ),
+            transitionType: .present
         )
     }
     
