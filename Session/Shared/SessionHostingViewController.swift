@@ -19,6 +19,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
     
     public var navigationBackground: ThemeValue { customizedNavigationBackground ?? .backgroundPrimary }
     private let customizedNavigationBackground: ThemeValue?
+    private let shouldHideNavigationBar: Bool
 
     lazy var navBarTitleLabel: UILabel = {
         let result = UILabel()
@@ -40,8 +41,9 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         return result
     }()
     
-    public init(rootView:Content, customizedNavigationBackground: ThemeValue? = nil) {
+    public init(rootView:Content, customizedNavigationBackground: ThemeValue? = nil, shouldHideNavigationBar: Bool = false) {
         self.customizedNavigationBackground = customizedNavigationBackground
+        self.shouldHideNavigationBar = shouldHideNavigationBar
         let container = HostWrapper()
         let modified = rootView.environmentObject(container) as! ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>
         super.init(rootView: modified)
@@ -60,6 +62,20 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         ThemeManager.applyNavigationStylingIfNeeded(to: self)
         
         setNeedsStatusBarAppearanceUpdate()
+    }
+    
+    public override func viewWillAppear(_ animated: Bool) {
+        if shouldHideNavigationBar {
+            self.navigationController?.setNavigationBarHidden(true, animated: animated)
+        }
+        super.viewWillAppear(animated)
+    }
+    
+    public override func viewWillDisappear(_ animated: Bool) {
+        if shouldHideNavigationBar {
+            self.navigationController?.setNavigationBarHidden(false, animated: animated)
+        }
+        super.viewWillDisappear(animated)
     }
 
     internal func setNavBarTitle(_ title: String, customFontSize: CGFloat? = nil) {

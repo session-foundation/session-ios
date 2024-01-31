@@ -64,7 +64,7 @@ public struct SessionSearchBar: View {
                     .padding(.leading, Values.mediumSpacing)
             }
         }
-        .padding(.horizontal, Values.mediumSpacing)
+        .padding(.all, Values.mediumSpacing)
     }
 }
 
