@@ -50,6 +50,7 @@ final class TypingIndicatorCell: MessageCell {
     ) {
         guard cellViewModel.cellType == .typingIndicator else { return }
         
+        self.dependencies = dependencies
         self.viewModel = cellViewModel
         
         // Bubble view

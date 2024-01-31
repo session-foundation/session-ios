@@ -154,7 +154,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(didBecomeActive),
-            name: .OWSApplicationDidBecomeActive,
+            name: .sessionDidBecomeActive,
             object: nil
         )
     }

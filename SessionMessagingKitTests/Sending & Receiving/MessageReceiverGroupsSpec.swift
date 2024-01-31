@@ -102,6 +102,11 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 crypto
                     .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
                     .thenReturn(groupKeyPair)
+                
+                crypto.when {
+                    $0.verify(.memberAuthData(groupSessionId: .any, ed25519SecretKey: .any, memberAuthData: .any))
+                }
+                .thenReturn(true)
             }
         )
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
@@ -571,7 +576,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         receivedAtTimestampMs: 1234567890000,
                                         wasRead: false,
                                         hasMention: false,
-                                        expiresInSeconds: 0,
+                                        expiresInSeconds: nil,
                                         expiresStartedAtMs: nil,
                                         linkPreviewUrl: nil,
                                         openGroupServerMessageId: nil,
@@ -1264,15 +1269,14 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 isEnabled: true,
                                 durationSeconds: 3600,
-                                type: .disappearAfterSend,
-                                lastChangeTimestampMs: nil
+                                type: .disappearAfterSend
                             ).messageInfoString(
-                                with: infoChangedMessage.sender,
-                                isPreviousOff: false,
+                                threadVariant: .group,
+                                senderName: infoChangedMessage.sender,
                                 using: dependencies
                             )
                         ))
-                        expect(interaction?.expiresInSeconds).to(equal(0))
+                        expect(interaction?.expiresInSeconds).to(beNil())
                     }
                 }
             }

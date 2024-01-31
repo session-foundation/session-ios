@@ -198,7 +198,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         lastName
                     )
                 ]
-                .reversed(if: CurrentAppContext().isRTL)
+                .reversed(if: Singleton.hasAppContext && Singleton.appContext.isRTL)
                 .joined(separator: " ")
             }
             
@@ -217,7 +217,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                     (contactNames.count - numNamesToShow)
                 )
             ]
-            .reversed(if: CurrentAppContext().isRTL)
+            .reversed(if: Singleton.hasAppContext && Singleton.appContext.isRTL)
             .joined(separator: " ")
         }()
         let confirmationModal: ConfirmationModal = ConfirmationModal(

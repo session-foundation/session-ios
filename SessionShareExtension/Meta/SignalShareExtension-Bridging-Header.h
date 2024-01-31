@@ -7,6 +7,4 @@
 
 // Separate iOS Frameworks from other imports.
 #import <SessionUtilitiesKit/UIView+OWS.h>
-#import <SessionUtilitiesKit/AppContext.h>
-#import <SessionMessagingKit/AppReadiness.h>
 #import <SessionUtilitiesKit/OWSMath.h>

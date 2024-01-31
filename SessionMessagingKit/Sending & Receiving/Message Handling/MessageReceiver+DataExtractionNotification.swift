@@ -44,6 +44,7 @@ extension MessageReceiver {
             ),
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs
-        ).inserted(db)
+        )
+        .inserted(db)
     }
 }

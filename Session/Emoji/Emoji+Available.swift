@@ -13,7 +13,7 @@ extension Emoji {
     static func warmAvailableCache() {
         owsAssertDebug(!Thread.isMainThread)
 
-        guard CurrentAppContext().isMainAppAndActive else { return }
+        guard Singleton.hasAppContext && Singleton.appContext.isMainAppAndActive else { return }
 
         var availableCache = [Emoji: Bool]()
         var uncachedEmoji = [Emoji]()

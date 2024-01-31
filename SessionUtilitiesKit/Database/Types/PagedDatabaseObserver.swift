@@ -637,11 +637,13 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                             )
                         else { return (nil, nil) }
                         
-                        // If the target id is within a single page of the current cached data
-                        // then trigger the `untilInclusive` behaviour instead
+                        // If the targetIndex is over a page before the current content or more than a page
+                        // after the current content then we want to reload the entire content (to avoid
+                        // loading an excessive amount of data), otherwise we should load all messages between
+                        // the current content and the targetIndex (plus padding)
                         guard
-                            abs(targetIndex - cacheCurrentEndIndex) > currentPageInfo.pageSize ||
-                            abs(targetIndex - currentPageInfo.pageOffset) > currentPageInfo.pageSize
+                            (targetIndex < (currentPageInfo.pageOffset - currentPageInfo.pageSize)) ||
+                            (targetIndex > (cacheCurrentEndIndex + currentPageInfo.pageSize))
                         else {
                             let callback: () -> () = {
                                 self?.load(.untilInclusive(id: targetId, padding: paddingForInclusive))
@@ -654,14 +656,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: TransactionObserver where 
                         let callback: () -> () = {
                             self?.dataCache.mutate { $0 = DataCache() }
                             self?.associatedRecords.forEach { $0.clearCache(db) }
-                            self?.pageInfo.mutate {
-                                $0 = PagedData.PageInfo(
-                                    pageSize: currentPageInfo.pageSize,
-                                    pageOffset: 0,
-                                    currentCount: 0,
-                                    totalCount: 0
-                                )
-                            }
+                            self?.pageInfo.mutate { $0 = PagedData.PageInfo(pageSize: currentPageInfo.pageSize) }
                             self?.load(.initialPageAround(id: targetId))
                         }
                         
@@ -912,9 +907,15 @@ public enum PagedData {
             case initialPageAround(id: SQLExpression)
             case pageBefore
             case pageAfter
-            case untilInclusive(id: SQLExpression, padding: Int)
             case jumpTo(id: SQLExpression, paddingForInclusive: Int)
             case reloadCurrent
+            
+            /// This will be used when `jumpTo`  is called and the `id` is within a single `pageSize` of the currently
+            /// cached data (plus the padding amount)
+            ///
+            /// **Note:** If the id is already within the cache then this will do nothing (even if
+            /// the padding would mean more data should be loaded)
+            case untilInclusive(id: SQLExpression, padding: Int)
         }
         
         public enum Target<ID: SQLExpressible> {
@@ -929,13 +930,6 @@ public enum PagedData {
             /// This will attempt to load a page of data after the last item in the cache
             case pageAfter
             
-            /// This will attempt to load all data between what is currently in the cache until the
-            /// specified id (plus the padding amount)
-            ///
-            /// **Note:** If the id is already within the cache then this will do nothing (even if
-            /// the padding would mean more data should be loaded)
-            case untilInclusive(id: ID, padding: Int)
-            
             /// This will jump to the specified id, loading a page around it and clearing out any
             /// data that was previously cached
             ///
@@ -948,8 +942,6 @@ public enum PagedData {
                     case .initialPageAround(let id): return .initialPageAround(id: id.sqlExpression)
                     case .pageBefore: return .pageBefore
                     case .pageAfter: return .pageAfter
-                    case .untilInclusive(let id, let padding):
-                        return .untilInclusive(id: id.sqlExpression, padding: padding)
                     
                     case .jumpTo(let id, let paddingForInclusive):
                         return .jumpTo(id: id.sqlExpression, paddingForInclusive: paddingForInclusive)

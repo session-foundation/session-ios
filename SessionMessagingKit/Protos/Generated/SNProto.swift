@@ -645,9 +645,6 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         if hasExpirationTimer {
             builder.setExpirationTimer(expirationTimer)
         }
-        if hasLastDisappearingMessageChangeTimestamp {
-            builder.setLastDisappearingMessageChangeTimestamp(lastDisappearingMessageChangeTimestamp)
-        }
         return builder
     }
 
@@ -693,10 +690,6 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             proto.expirationTimer = valueParam
         }
 
-        @objc public func setLastDisappearingMessageChangeTimestamp(_ valueParam: UInt64) {
-            proto.lastDisappearingMessageChangeTimestamp = valueParam
-        }
-
         @objc public func build() throws -> SNProtoContent {
             return try SNProtoContent.parseProto(proto)
         }
@@ -734,13 +727,6 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
     }
     @objc public var hasExpirationTimer: Bool {
         return proto.hasExpirationTimer
-    }
-
-    @objc public var lastDisappearingMessageChangeTimestamp: UInt64 {
-        return proto.lastDisappearingMessageChangeTimestamp
-    }
-    @objc public var hasLastDisappearingMessageChangeTimestamp: Bool {
-        return proto.hasLastDisappearingMessageChangeTimestamp
     }
 
     private init(proto: SessionProtos_Content,

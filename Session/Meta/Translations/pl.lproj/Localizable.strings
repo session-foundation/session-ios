@@ -573,8 +573,10 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Zapisz";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "To ustawienie dotyczy wszystkich w tej rozmowie.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "To ustawienie dotyczy wszystkich w tej konwersacji. Tylko administratorzy grupy mogą zmienić to ustawienie.";
+/* Informational message shown when a conversation participant enables disappearing messages. The first '%@' will be the participants name, the second '%@' will be the duration and the third '%@' will indicate whether the countdown should start after the messages are sent or after they are read. */
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ ustawił(a) znikające wiadomości na %@ po tym, jak były %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ ustawił(a) znikające wiadomości na %@ po tym, jak były %@";
+/* Informational message shown when a conversation participant enables disappearing messages. The '%@' will be the participants name. */
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ wyłączył znikające wiadomości";
 
 /* context_menu_info */
@@ -1031,3 +1033,18 @@ The point that a message will disappear in a disappearing message update message
 
 /* An informational message displayed when the current user and multiple other users joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";
+
+/* Message for the error modal shown when a voice message fails to start recording. */
+"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "An error occurred when trying to start recording for the voice message.";
+
+/* Shortcut to copy the disappearing messages setting from another conversation participant. */
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages on. The first '%@' will be the duration messages will remain and the second '%@' will be whether the countdown starts after the messages are sent or after they are read. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages off. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+
+/* Title for button on a modal which confirms a change. */
+"CONFIRM_BUTTON_TITLE" = "Confirm";

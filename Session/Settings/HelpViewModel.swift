@@ -155,7 +155,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         
         guard
             let latestLogFilePath: String = logFilePaths.first,
-            let viewController: UIViewController = CurrentAppContext().frontmostViewController()
+            Singleton.hasAppContext,
+            let viewController: UIViewController = Singleton.appContext.frontmostViewController
         else { return }
         
         let showShareSheet: () -> () = {

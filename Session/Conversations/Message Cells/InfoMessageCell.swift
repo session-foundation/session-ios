@@ -41,9 +41,19 @@ final class InfoMessageCell: MessageCell {
         
         return result
     }()
+    
+    private lazy var actionLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.themeTextColor = .primary
+        result.textAlignment = .center
+        result.numberOfLines = 1
+        
+        return result
+    }()
 
     private lazy var stackView: UIStackView = {
-        let result: UIStackView = UIStackView(arrangedSubviews: [ iconContainerView, label ])
+        let result: UIStackView = UIStackView(arrangedSubviews: [ iconContainerView, label, actionLabel ])
         result.axis = .vertical
         result.alignment = .center
         result.spacing = Values.smallSpacing
@@ -69,6 +79,10 @@ final class InfoMessageCell: MessageCell {
     override func setUpGestureRecognizers() {
         let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
         addGestureRecognizer(longPressRecognizer)
+        
+        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        tapGestureRecognizer.numberOfTapsRequired = 1
+        addGestureRecognizer(tapGestureRecognizer)
     }
 
     // MARK: - Updating
@@ -85,7 +99,11 @@ final class InfoMessageCell: MessageCell {
         
         self.accessibilityIdentifier = "Control message"
         self.isAccessibilityElement = true
+        self.dependencies = dependencies
         self.viewModel = cellViewModel
+        
+        self.actionLabel.isHidden = true
+        self.actionLabel.text = nil
         
         let icon: UIImage? = {
             switch cellViewModel.variant {
@@ -103,16 +121,46 @@ final class InfoMessageCell: MessageCell {
             iconImageView.themeTintColor = .textSecondary
         }
         
-        switch cellViewModel.attributedBody(using: dependencies) {
-            case .some(let attrText): self.label.attributedText = attrText
-            case .none: self.label.text = cellViewModel.body
+        if cellViewModel.variant == .infoDisappearingMessagesUpdate, let body: String = cellViewModel.body {
+            self.label.attributedText = NSAttributedString(string: body)
+                .adding(
+                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
+                    range: (body as NSString).range(of: cellViewModel.authorName)
+                )
+                .adding(
+                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
+                    range: (body as NSString).range(of: "vc_path_device_row_title".localized())
+                )
+                .adding(
+                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
+                    range: (body as NSString).range(of: floor(cellViewModel.threadExpirationTimer ?? 0).formatted(format: .long))
+                )
+                .adding(
+                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
+                    range: (body as NSString).range(of: (cellViewModel.threadExpirationType == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized()))
+                )
+                .adding(
+                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
+                    range: (body as NSString).range(of: "DISAPPEARING_MESSAGES_OFF".localized().lowercased())
+                )
+            
+            if cellViewModel.canDoFollowingSetting() {
+                self.actionLabel.isHidden = false
+                self.actionLabel.text = "FOLLOW_SETTING_TITLE".localized()
+            }
+        }
+        else {
+            switch cellViewModel.attributedBody(using: dependencies) {
+                case .some(let attrText): self.label.attributedText = attrText
+                case .none: self.label.text = cellViewModel.body
+            }
         }
         
         self.label.themeTextColor = (cellViewModel.variant == .infoGroupCurrentUserErrorLeaving ?
             .danger :
             .textSecondary
         )
-        
+
         let shouldShowIcon: Bool = (icon != nil) || ((cellViewModel.expiresInSeconds ?? 0) > 0)
         
         iconContainerViewWidthConstraint.constant = (shouldShowIcon ? InfoMessageCell.iconSize : 0)
@@ -146,7 +194,7 @@ final class InfoMessageCell: MessageCell {
     
     // MARK: - Interaction
     
-    @objc func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
+    @objc func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         if [ .ended, .cancelled, .failed ].contains(gestureRecognizer.state) {
             isHandlingLongPress = false
             return
@@ -155,5 +203,13 @@ final class InfoMessageCell: MessageCell {
         
         delegate?.handleItemLongPressed(cellViewModel)
         isHandlingLongPress = true
+    }
+    
+    @objc func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+        guard let cellViewModel: MessageViewModel = self.viewModel else { return }
+        
+        if cellViewModel.variant == .infoDisappearingMessagesUpdate && cellViewModel.canDoFollowingSetting() {
+            delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
+        }
     }
 }

@@ -573,8 +573,10 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Задаць";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "Гэты параметр прымяняецца да ўсіх у гэтай размове.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Гэты параметр прымяняецца да ўсіх у гэтай размове.\nТолькі адміністратары групы могуць змяніць гэты параметр.";
+/* Informational message shown when a conversation participant enables disappearing messages. The first '%@' will be the participants name, the second '%@' will be the duration and the third '%@' will indicate whether the countdown should start after the messages are sent or after they are read. */
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ усталяваў знікненне паведамленняў %@ пасля таго, як яны былі %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ змяніў паведамленні, каб яны выдаляліся %@ пасля таго, як яны былі %@";
+/* Informational message shown when a conversation participant enables disappearing messages. The '%@' will be the participants name. */
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ адключыў выдаленне паведамленняў";
 
 /* context_menu_info */
@@ -840,13 +842,13 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Фота групы абноўлена.";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ быў запрошаны ў групу.";
 
 /* An informational message displayed when two members joined the group, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ were invited to join the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ і %@ былі запрошаны ў групу.";
 
 /* An informational message displayed when multiple members joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others were invited to join the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@, %@ і іншыя былі запрошаны ў групу.";
 
 /* An informational message displayed when a single member was removed from the group, the '%@' will be the members. */
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ выдалены з групы.";
@@ -1005,28 +1007,43 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "Вы атрымалі запрашэнне далучыцца да %@.";
 
 /* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ were invited to join the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ былі запрошаны ў групу.";
 
 /* An informational message displayed when a single member joined the group with access to chat history, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ was invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ быў запрошаны ў групу. Быў адкрыты агульны доступ да гісторыі чата.";
 
 /* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY" = "%@ were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY" = "%@ былі запрошаны далучыцца да групы. Быў адкрыты агульны доступ да гісторыі чата.";
 
 /* An informational message displayed when two members joined the group with access to chat history, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY" = "%@ і %@ былі запрошаны далучыцца да групы. Быў адкрыты агульны доступ да гісторыі чата.";
 
 /* An informational message displayed when the current user and one other user joined the group, the first '%@' will be 'You' and the second will be the name of the other member. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU" = "%@ and %@ were invited to join the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU" = "%@ і %@ былі запрошаны ў групу.";
 
 /* An informational message displayed when the current user and one other user joined the group with access to chat history, the first '%@' will be 'You' and the second will be the name of the other member. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ і %@ былі запрошаны далучыцца да групы. Быў адкрыты агульны доступ да гісторыі чата.";
 
 /* An informational message displayed when multiple members joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY" = "%@ і %@ былі запрошаны далучыцца да групы. Быў адкрыты агульны доступ да гісторыі чата.";
 
 /* An informational message displayed when the current user and multiple other users joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU" = "%@ and %@ others were invited to join the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU" = "%@, %@ і іншыя былі запрошаны ў групу.";
 
 /* An informational message displayed when the current user and multiple other users joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ і %@ былі запрошаны далучыцца да групы. Быў адкрыты агульны доступ да гісторыі чата.";
+
+/* Message for the error modal shown when a voice message fails to start recording. */
+"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "Пры спробе пачаць запіс галасавога паведамлення адбылася памылка.";
+
+/* Shortcut to copy the disappearing messages setting from another conversation participant. */
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages on. The first '%@' will be the duration messages will remain and the second '%@' will be whether the countdown starts after the messages are sent or after they are read. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages off. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+
+/* Title for button on a modal which confirms a change. */
+"CONFIRM_BUTTON_TITLE" = "Confirm";

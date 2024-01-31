@@ -65,7 +65,7 @@ public final class ReadReceipt: ControlMessage {
         do {
             contentProto.setReceiptMessage(try receiptProto.build())
             // DisappearingMessagesConfiguration
-            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
+            setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
             return try contentProto.build()
         } catch {
             SNLog("Couldn't construct read receipt proto from: \(self).")

@@ -198,7 +198,10 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     
     public func showCallVC(answer: Bool) {
         dismiss()
-        guard let presentingVC = CurrentAppContext().frontmostViewController() else { preconditionFailure() } // FIXME: Handle more gracefully
+        guard
+            Singleton.hasAppContext,
+            let presentingVC = Singleton.appContext.frontmostViewController
+        else { preconditionFailure() } // FIXME: Handle more gracefully
         
         let callVC = CallVC(for: self.call)
         if let conversationVC = presentingVC as? ConversationVC {
@@ -215,8 +218,9 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
     }
     
     public func show() {
+        guard Singleton.hasAppContext, let window: UIWindow = Singleton.appContext.mainWindow else { return }
+        
         self.alpha = 0.0
-        let window = CurrentAppContext().mainWindow!
         window.addSubview(self)
         
         let topMargin = window.safeAreaInsets.top - Values.smallSpacing

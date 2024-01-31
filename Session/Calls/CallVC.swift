@@ -518,8 +518,10 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     }
     
     private func addFloatingVideoView() {
+        guard Singleton.hasAppContext else { return }
+        
         let safeAreaInsets = UIApplication.shared.keyWindow?.safeAreaInsets
-        CurrentAppContext().mainWindow?.addSubview(floatingViewContainer)
+        Singleton.appContext.mainWindow?.addSubview(floatingViewContainer)
         floatingViewContainer.autoPinEdge(toSuperviewEdge: .right, withInset: Values.smallSpacing)
         let topMargin = (safeAreaInsets?.top ?? 0) + Values.veryLargeSpacing
         floatingViewContainer.autoPinEdge(toSuperviewEdge: .top, withInset: topMargin)

@@ -42,8 +42,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         /// Create the context if we don't have it (needed before _any_ interaction with the database)
-        if !HasAppContext() {
-            SetCurrentAppContext(NotificationServiceExtensionContext())
+        if !Singleton.hasAppContext {
+            Singleton.setup(appContext: NotificationServiceExtensionContext())
         }
         
         let isCallOngoing: Bool = dependencies[defaults: .appGroup, key: .isCallOngoing]
@@ -54,7 +54,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         DispatchQueue.main.sync { self.setUpIfNecessary(using: dependencies) }
 
         // Handle the push notification
-        AppReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
             let openGroupPollingPublishers: [AnyPublisher<Void, Error>] = self.pollForOpenGroups(using: dependencies)
             defer {
                 self.openGroupPollCancellable = Publishers
@@ -310,7 +310,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         AssertIsOnMainThread()
 
         // Only mark the app as ready once.
-        guard !AppReadiness.isAppReady() else { return }
+        guard !Singleton.appReadiness.isAppReady else { return }
 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard dependencies[singleton: .storage].isValid && migrationsCompleted else {
@@ -322,7 +322,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         SignalUtilitiesKit.Configuration.performMainSetup(using: dependencies)
 
         // Note that this does much more than set a flag; it will also run all deferred blocks.
-        AppReadiness.setAppIsReady()
+        Singleton.appReadiness.setAppReady()
     }
     
     // MARK: Handle completion

@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-enum _017_DisappearingMessagesConfiguration: Migration {
+enum _018_DisappearingMessagesConfiguration: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "DisappearingMessagesWithTypes" // stringlint:disable
     static let needsConfigSync: Bool = false
@@ -20,8 +20,6 @@ enum _017_DisappearingMessagesConfiguration: Migration {
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: DisappearingMessagesConfiguration.self) { t in
             t.add(.type, .integer)
-            t.add(.lastChangeTimestampMs, .integer)
-                .defaults(to: 0)
         }
         
         try db.alter(table: Contact.self) { t in

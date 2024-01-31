@@ -70,24 +70,28 @@ public enum ExpirationUpdateJob: JobExecutor {
                     guard !unchangedMessages.isEmpty else { return }
                     
                     dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
-                        try unchangedMessages.forEach { updatedExpiry, hashes in
-                            try hashes.forEach { hash in
+                        unchangedMessages.forEach { updatedExpiry, hashes in
+                            hashes.forEach { hash in
                                 guard
-                                    let expiresInSeconds: TimeInterval = try? Interaction
+                                    let interaction: Interaction = try? Interaction
                                         .filter(Interaction.Columns.serverHash == hash)
-                                        .select(Interaction.Columns.expiresInSeconds)
-                                        .asRequest(of: TimeInterval.self)
-                                        .fetchOne(db)
+                                        .fetchOne(db),
+                                    let expiresInSeconds: TimeInterval = interaction.expiresInSeconds
                                 else { return }
                                 
                                 let expiresStartedAtMs: Double = Double(updatedExpiry - UInt64(expiresInSeconds * 1000))
                                 
-                                _ = try Interaction
-                                    .filter(Interaction.Columns.serverHash == hash)
-                                    .updateAll(
+                                dependencies[singleton: .jobRunner].upsert(
+                                    db,
+                                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
                                         db,
-                                        Interaction.Columns.expiresStartedAtMs.set(to: expiresStartedAtMs)
-                                    )
+                                        interaction: interaction,
+                                        startedAtMs: expiresStartedAtMs,
+                                        using: dependencies
+                                    ),
+                                    canStartJob: true,
+                                    using: dependencies
+                                )
                             }
                         }
                     }

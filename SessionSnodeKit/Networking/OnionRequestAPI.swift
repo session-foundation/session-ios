@@ -532,10 +532,10 @@ public enum OnionRequestAPI {
                     switch result {
                         case .finished: break
                         case .failure(let error):
-                            guard
-                                case HTTPError.httpRequestFailed(let statusCode, let data) = error,
-                                let guardSnode: Snode = guardSnode
-                            else { return }
+                            guard let guardSnode: Snode = guardSnode else {
+                                return SNLog("Request failed with no guardSnode.")
+                            }
+                            guard case HTTPError.httpRequestFailed(let statusCode, let data) = error else { return }
                             
                             let path = dependencies[cache: .onionRequestAPI].paths
                                 .first { $0.contains(guardSnode) }

@@ -150,14 +150,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     identifier: "Disable disappearing messages (Off option)",
                                     label: "Disable disappearing messages (Off option)"
                                 ),
-                                onTap: { [weak self, dependencies] in
+                                onTap: { [weak self] in
                                     self?.configSubject.send(
                                         currentConfig.with(
                                             isEnabled: false,
-                                            durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                            lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                using: dependencies
-                                            )
+                                            durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                         )
                                     )
                                 }
@@ -173,17 +170,14 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             !dependencies[feature: .updatedDisappearingMessages]
                                         )
                                     ),
-                                    onTap: { [weak self, originalConfig, dependencies] in
+                                    onTap: { [weak self, originalConfig] in
                                         switch (originalConfig.isEnabled, originalConfig.type) {
                                             case (true, .disappearAfterRead): self?.configSubject.send(originalConfig)
                                             default: self?.configSubject.send(
                                                 currentConfig.with(
                                                     isEnabled: true,
                                                     durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
-                                                    type: .disappearAfterRead, // Default for 1-1
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                        using: dependencies
-                                                    )
+                                                    type: .disappearAfterRead // Default for 1-1
                                                 )
                                             )
                                         }
@@ -212,17 +206,14 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     identifier: "Disappear after read option",
                                     label: "Disappear after read option"
                                 ),
-                                onTap: { [weak self, originalConfig, dependencies] in
+                                onTap: { [weak self, originalConfig] in
                                     switch (originalConfig.isEnabled, originalConfig.type) {
                                         case (true, .disappearAfterRead): self?.configSubject.send(originalConfig)
                                         default: self?.configSubject.send(
                                             currentConfig.with(
                                                 isEnabled: true,
                                                 durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds,
-                                                type: .disappearAfterRead,
-                                                lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                    using: dependencies
-                                                )
+                                                type: .disappearAfterRead
                                             )
                                         )
                                     }
@@ -250,17 +241,14 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     identifier: "Disappear after send option",
                                     label: "Disappear after send option"
                                 ),
-                                onTap: { [weak self, originalConfig, dependencies] in
+                                onTap: { [weak self, originalConfig] in
                                     switch (originalConfig.isEnabled, originalConfig.type) {
                                         case (true, .disappearAfterSend): self?.configSubject.send(originalConfig)
                                         default: self?.configSubject.send(
                                             currentConfig.with(
                                                 isEnabled: true,
                                                 durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds,
-                                                type: .disappearAfterSend,
-                                                lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                    using: dependencies
-                                                )
+                                                type: .disappearAfterSend
                                             )
                                         )
                                     }
@@ -302,13 +290,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             identifier: "Time option",
                                             label: "Time option"
                                         ),
-                                        onTap: { [weak self, dependencies] in
+                                        onTap: { [weak self] in
                                             self?.configSubject.send(
                                                 currentConfig.with(
-                                                    durationSeconds: duration,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                        using: dependencies
-                                                    )
+                                                    durationSeconds: duration
                                                 )
                                             )
                                         }
@@ -334,14 +319,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     identifier: "Disable disappearing messages (Off option)",
                                     label: "Disable disappearing messages (Off option)"
                                 ),
-                                onTap: { [weak self, dependencies] in
+                                onTap: { [weak self] in
                                     self?.configSubject.send(
                                         currentConfig.with(
                                             isEnabled: false,
-                                            durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                            lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                using: dependencies
-                                            )
+                                            durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                         )
                                     )
                                 }
@@ -367,7 +349,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             identifier: "Time option",
                                             label: "Time option"
                                         ),
-                                        onTap: { [weak self, dependencies] in
+                                        onTap: { [weak self] in
                                             // If the new disappearing messages config feature flag isn't
                                             // enabled then the 'isEnabled' and 'type' values are set via
                                             // the first section so pass `nil` values to keep the existing
@@ -376,10 +358,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 currentConfig.with(
                                                     isEnabled: true,
                                                     durationSeconds: duration,
-                                                    type: .disappearAfterSend,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                        using: dependencies
-                                                    )
+                                                    type: .disappearAfterSend
                                                 )
                                             )
                                         }
@@ -409,14 +388,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         identifier: "Disable disappearing messages (Off option)",
                                         label: "Disable disappearing messages (Off option)"
                                     ),
-                                    onTap: { [weak self, dependencies] in
+                                    onTap: { [weak self] in
                                         self?.configSubject.send(
                                             currentConfig.with(
                                                 isEnabled: false,
-                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                                lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                    using: dependencies
-                                                )
+                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                             )
                                         )
                                     }
@@ -435,17 +411,14 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         isNoteToSelf ||
                                         currentUserIsClosedGroupMember == true
                                     ),
-                                    onTap: { [weak self, originalConfig, dependencies] in
+                                    onTap: { [weak self, originalConfig] in
                                         switch (originalConfig.isEnabled, originalConfig.type) {
                                             case (true, .disappearAfterSend): self?.configSubject.send(originalConfig)
                                             default: self?.configSubject.send(
                                                 currentConfig.with(
                                                     isEnabled: true,
-                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
-                                                    type: .disappearAfterSend, // Default for closed group & note to self
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                        using: dependencies
-                                                    )
+                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds, // Default for legscy groups
+                                                    type: .disappearAfterSend
                                                 )
                                             )
                                         }
@@ -457,7 +430,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                     subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                     trailingAccessory: .radio(isSelected: false),
                                     styling: SessionCell.StyleInfo(tintColor: .disabled),
-                                    isEnabled: false
+                                    isEnabled: false,
+                                    accessibility: Accessibility(
+                                        identifier: "Disappear after send option",
+                                        label: "Disappear after send option"
+                                    )
                                 )
                             ]
                         )
@@ -490,14 +467,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             identifier: "Disable disappearing messages (Off option)",
                                             label: "Disable disappearing messages (Off option)"
                                         ),
-                                        onTap: { [weak self, dependencies] in
+                                        onTap: { [weak self] in
                                             self?.configSubject.send(
                                                 currentConfig.with(
                                                     isEnabled: false,
-                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                        using: dependencies
-                                                    )
+                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                                 )
                                             )
                                         }
@@ -522,7 +496,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             ),
                                             isEnabled: (
                                                 isNoteToSelf ||
-                                                currentUserIsClosedGroupMember == true
+                                                (
+                                                    currentUserIsClosedGroupMember == true &&
+                                                    !dependencies[feature: .updatedDisappearingMessages]
+                                                ) ||
+                                                currentUserIsClosedGroupAdmin == true
                                             ),
                                             accessibility: Accessibility(
                                                 identifier: "Time option",
@@ -543,9 +521,6 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                         type: (dependencies[feature: .updatedDisappearingMessages] ?
                                                             .disappearAfterSend :
                                                            nil
-                                                        ),
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs(
-                                                            using: dependencies
                                                         )
                                                     )
                                                 )
@@ -569,30 +544,20 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
 
         guard self.originalConfig != updatedConfig else { return }
 
-        dependencies[singleton: .storage].writeAsync(using: dependencies) { [threadId, threadVariant, dependencies, originalConfig] db in
+        dependencies[singleton: .storage].writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
             try updatedConfig.upserted(db)
             
-            _ = try Interaction
-                .filter(Interaction.Columns.threadId == threadId)
-                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                .deleteAll(db)
-            
             let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
-            
-            let interaction: Interaction = try Interaction(
+            let interactionId = try DisappearingMessagesConfiguration.insertControlMessage(
+                db,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 authorId: getUserSessionId(db, using: dependencies).hexString,
-                variant: .infoDisappearingMessagesUpdate,
-                body: updatedConfig.messageInfoString(
-                    with: nil,
-                    isPreviousOff: !originalConfig.isEnabled,
-                    using: dependencies
-                ),
                 timestampMs: currentOffsetTimestampMs,
-                expiresInSeconds: (updatedConfig.isEnabled ? nil : originalConfig.durationSeconds),
-                expiresStartedAtMs: (!updatedConfig.isEnabled && originalConfig.type == .disappearAfterSend ? Double(currentOffsetTimestampMs) : nil)
+                serverHash: nil,
+                updatedConfiguration: updatedConfig,
+                using: dependencies
             )
-            .inserted(db)
             
             // Send a control message that the disappearing messages setting changed
             switch threadVariant {
@@ -624,11 +589,10 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
 
                     try MessageSender.send(
                         db,
-                        message: ExpirationTimerUpdate(
-                            syncTarget: nil,
-                            duration: duration
-                        ),
-                        interactionId: interaction.id,
+                        message: ExpirationTimerUpdate(syncTarget: nil, duration: duration)
+                            .with(sentTimestamp: UInt64(currentOffsetTimestampMs))
+                            .with(updatedConfig),
+                        interactionId: interactionId,
                         threadId: threadId,
                         threadVariant: threadVariant,
                         using: dependencies

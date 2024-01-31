@@ -74,7 +74,7 @@ public enum GetExpirationJob: JobExecutor {
                             
                             result[next.key] = Double(next.value - UInt64(expiresInSeconds * 1000))
                         }
-                    let hashesToUseDefault: Set<String> = Set(expirationInfo.keys)
+                    var hashesWithNoExiprationInfo: Set<String> = Set(expirationInfo.keys)
                         .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
                     
                     dependencies[singleton: .storage].write(using: dependencies) { db in
@@ -87,8 +87,24 @@ public enum GetExpirationJob: JobExecutor {
                                 )
                         }
                         
+                        let inferredExpiredMessageHashes: Set<String> = (try? Interaction
+                            .select(Interaction.Columns.serverHash)
+                            .filter(hashesWithNoExiprationInfo.contains(Interaction.Columns.serverHash))
+                            .filter(Interaction.Columns.timestampMs + (Interaction.Columns.expiresInSeconds * 1000) <= details.startedAtTimestampMs)
+                            .asRequest(of: String.self)
+                            .fetchSet(db))
+                            .defaulting(to: [])
+                        
+                        hashesWithNoExiprationInfo = hashesWithNoExiprationInfo.subtracting(inferredExpiredMessageHashes)
+                        
+                        if !inferredExpiredMessageHashes.isEmpty {
+                            try Interaction
+                                .filter(inferredExpiredMessageHashes.contains(Interaction.Columns.serverHash))
+                                .deleteAll(db)
+                        }
+                        
                         try Interaction
-                            .filter(hashesToUseDefault.contains(Interaction.Columns.serverHash))
+                            .filter(hashesWithNoExiprationInfo.contains(Interaction.Columns.serverHash))
                             .filter(Interaction.Columns.expiresStartedAtMs == nil)
                             .updateAll(
                                 db,
@@ -104,7 +120,7 @@ public enum GetExpirationJob: JobExecutor {
                             )
                     }
                     
-                    guard hashesToUseDefault.isEmpty else {
+                    guard hashesWithNoExiprationInfo.isEmpty else {
                         let updatedJob: Job? = dependencies[singleton: .storage].write(using: dependencies) { db in
                             try job
                                 .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + minRunFrequency)

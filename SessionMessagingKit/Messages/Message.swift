@@ -67,18 +67,19 @@ public class Message: Codable {
         preconditionFailure("toProto(_:) is abstract and must be overridden.")
     }
     
-    public func setDisappearingMessagesConfigurationIfNeeded(_ db: Database, on proto: SNProtoContent.SNProtoContentBuilder, threadId: String) {
-        guard let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId) else {
+    public func setDisappearingMessagesConfigurationIfNeeded(on proto: SNProtoContent.SNProtoContentBuilder) {
+        if let expiresInSeconds = self.expiresInSeconds {
+            proto.setExpirationTimer(UInt32(expiresInSeconds))
+        } else {
             proto.setExpirationTimer(0)
+            proto.setExpirationType(.unknown)
             return
         }
         
-        let expireTimer: UInt32 = disappearingMessagesConfiguration.isEnabled ? UInt32(disappearingMessagesConfiguration.durationSeconds) : 0
-        proto.setExpirationTimer(expireTimer)
-        proto.setLastDisappearingMessageChangeTimestamp(UInt64(disappearingMessagesConfiguration.lastChangeTimestampMs ?? 0))
-        
-        if disappearingMessagesConfiguration.isEnabled, let type = disappearingMessagesConfiguration.type {
-            proto.setExpirationType(type.toProto())
+        if let expiresStartedAtMs = self.expiresStartedAtMs, UInt64(expiresStartedAtMs) == self.sentTimestamp {
+            proto.setExpirationType(.deleteAfterSend)
+        } else {
+            proto.setExpirationType(.deleteAfterRead)
         }
     }
     
@@ -682,13 +683,59 @@ public extension Message {
         
         return processedMessage
     }
+    
+    // MARK: - TTL for disappearing messages
+    
+    internal static func getSpecifiedTTL(
+        message: Message,
+        isSyncMessage: Bool,
+        using dependencies: Dependencies
+    ) -> UInt64 {
+        guard dependencies[feature: .updatedDisappearingMessages] else { return message.ttl }
+        // Not disappearing messages
+        guard let expiresInSeconds = message.expiresInSeconds else { return message.ttl }
+        
+        // Sync message should be read already, it is the same for disappear after read and disappear after sent
+        guard !isSyncMessage else { return UInt64(expiresInSeconds * 1000) }
+        
+        // Disappear after read messages that have not be read
+        guard let expiresStartedAtMs = message.expiresStartedAtMs else { return message.ttl }
+        
+        // Disappear after read messages that have already be read
+        guard message.sentTimestamp == UInt64(expiresStartedAtMs) else { return message.ttl }
+        
+        // Disappear after sent messages with exceptions
+        switch message {
+            case is ClosedGroupControlMessage, is UnsendRequest:
+                return message.ttl
+            default:
+                return UInt64(expiresInSeconds * 1000)
+        }
+    }
 }
 
 // MARK: - Mutation
 
-internal extension Message {
-    func with(sentTimestamp: UInt64) -> Message {
+public extension Message {
+    func with(sentTimestamp: UInt64) -> Self {
         self.sentTimestamp = sentTimestamp
+        return self
+    }
+    
+    func with(_ disappearingMessagesConfiguration: DisappearingMessagesConfiguration?) -> Self {
+        self.expiresInSeconds = disappearingMessagesConfiguration?.durationSeconds
+        if disappearingMessagesConfiguration?.type == .disappearAfterSend, let sentTimestamp = self.sentTimestamp {
+            self.expiresStartedAtMs =  Double(sentTimestamp)
+        }
+        return self
+    }
+    
+    func with(
+        expiresInSeconds: TimeInterval?,
+        expiresStartedAtMs: Double? = nil
+    ) -> Self {
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
         return self
     }
 }

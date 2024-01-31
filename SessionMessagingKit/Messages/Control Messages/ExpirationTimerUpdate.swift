@@ -78,7 +78,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
         let contentProto = SNProtoContent.builder()
         
         // DisappearingMessagesConfiguration
-        setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
+        setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
         
         do {
             contentProto.setDataMessage(try dataMessageProto.build())

@@ -635,7 +635,7 @@ private class DoneButton: UIView {
 
     private lazy var chevron: UIView = {
         let image: UIImage = {
-            guard CurrentAppContext().isRTL else { return #imageLiteral(resourceName: "small_chevron_right") }
+            guard Singleton.hasAppContext && Singleton.appContext.isRTL else { return #imageLiteral(resourceName: "small_chevron_right") }
             
             return #imageLiteral(resourceName: "small_chevron_left")
         }()

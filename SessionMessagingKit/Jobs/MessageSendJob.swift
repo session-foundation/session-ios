@@ -164,7 +164,8 @@ public enum MessageSendJob: JobExecutor {
         // Store the sentTimestamp from the message in case it fails due to a clockOutOfSync error
         let originalSentTimestamp: UInt64? = details.message.sentTimestamp
         
-        /// Perform the actual message sending
+        /// Perform the actual message sending - this will timeout if the entire process takes longer than `HTTP.defaultTimeout * 2`
+        /// which can occur if it needs to build a new onion path (which doesn't actually have any limits so can take forever in rare cases)
         ///
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
@@ -184,13 +185,23 @@ public enum MessageSendJob: JobExecutor {
             .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
+            .timeout(.milliseconds(Int(HTTP.defaultTimeout * 2 * 1000)), scheduler: queue, customError: {
+                MessageSenderError.sendJobTimeout
+            })
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
                         case .finished: success(job, false, dependencies)
                         case .failure(let error):
-                            SNLog("[MessageSendJob] Couldn't send message due to error: \(error).")
+                            switch error {
+                                case MessageSenderError.sendJobTimeout:
+                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error) (paths: \(dependencies[cache: .onionRequestAPI].paths.prettifiedDescription)).")
+                                    
+                                default:
+                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error).")
+                            }
                             
+                            // Actual error handling
                             switch error {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
                                     failure(job, error, true, dependencies)

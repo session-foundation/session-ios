@@ -314,7 +314,8 @@ internal extension SessionUtil {
         // we just deleted then return to the home screen
         DispatchQueue.main.async {
             guard
-                let rootViewController: UIViewController = CurrentAppContext().mainWindow?.rootViewController,
+                Singleton.hasAppContext,
+                let rootViewController: UIViewController = Singleton.appContext.mainWindow?.rootViewController,
                 let topBannerController: TopBannerController = (rootViewController as? TopBannerController),
                 !topBannerController.children.isEmpty,
                 let navController: UINavigationController = topBannerController.children[0] as? UINavigationController

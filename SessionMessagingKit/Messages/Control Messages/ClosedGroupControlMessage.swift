@@ -341,10 +341,7 @@ public final class ClosedGroupControlMessage: ControlMessage {
             let contentProto = SNProtoContent.builder()
             let dataMessageProto = SNProtoDataMessage.builder()
             dataMessageProto.setClosedGroupControlMessage(try closedGroupControlMessage.build())
-            
-            // DisappearingMessagesConfiguration
-            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
-            
+
             contentProto.setDataMessage(try dataMessageProto.build())
             return try contentProto.build()
         } catch {

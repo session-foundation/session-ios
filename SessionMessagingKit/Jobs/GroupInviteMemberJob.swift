@@ -168,8 +168,8 @@ public enum GroupInviteMemberJob: JobExecutor {
                         // Don't do anything if there are no 'failedIds' values or we can't get a window
                         guard
                             !failedIds.isEmpty,
-                            HasAppContext(),
-                            let mainWindow: UIWindow = CurrentAppContext().mainWindow
+                            Singleton.hasAppContext,
+                            let mainWindow: UIWindow = Singleton.appContext.mainWindow
                         else { return }
                         
                         typealias FetchedData = (groupName: String, profileInfo: [String: Profile])

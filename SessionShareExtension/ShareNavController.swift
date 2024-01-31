@@ -35,9 +35,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         // This should be the first thing we do (Note: If you leave the share context and return to it
         // the context will already exist, trying to override it results in the share context crashing
         // so ensure it doesn't exist first)
-        if !HasAppContext() {
-            let appContext = ShareAppExtensionContext(rootViewController: self)
-            SetCurrentAppContext(appContext)
+        if !Singleton.hasAppContext {
+            Singleton.setup(appContext: ShareAppExtensionContext(rootViewController: self))
         }
         
         Logger.info("")
@@ -79,7 +78,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(applicationDidEnterBackground),
-            name: .OWSApplicationDidEnterBackground,
+            name: .sessionDidEnterBackground,
             object: nil
         )
         
@@ -128,7 +127,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             showLockScreenOrMainContent()
             return
         }
-        guard !AppReadiness.isAppReady() else {
+        guard !Singleton.appReadiness.isAppReady else {
             // Only mark the app as ready once.
             showLockScreenOrMainContent()
             return
@@ -140,7 +139,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
 
         // Note that this does much more than set a flag;
         // it will also run all deferred blocks.
-        AppReadiness.setAppIsReady()
+        Singleton.appReadiness.setAppReady()
 
         // We don't need to use messageFetcherJob in the SAE.
         // We don't need to use SyncPushTokensJob in the SAE.
@@ -158,7 +157,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        AppReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
             AssertIsOnMainThread()
             self?.showLockScreenOrMainContent()
         }
@@ -184,7 +183,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         // Share extensions reside in a process that may be reused between usages.
         // That isn't safe; the codebase is full of statics (e.g. singletons) which
         // we can't easily clean up.
-        ExitShareExtension()
+        exit(0)
     }
     
     // MARK: - Updating

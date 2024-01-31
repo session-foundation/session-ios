@@ -6,12 +6,13 @@ import Foundation
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
-final class NotificationServiceExtensionContext : NSObject, AppContext {
-    let appLaunchTime = Date()
-    let isMainApp = false
-    let isMainAppAndActive = false
-    var isShareExtension: Bool = false
-
+final class NotificationServiceExtensionContext: AppContext {
+    var _temporaryDirectory: String?
+    
+    let appLaunchTime: Date = Date()
+    let reportedApplicationState: UIApplication.State = .background
+    let isRTL: Bool = false
+    
     var openSystemSettingsAction: UIAlertAction?
     var wasWokenUpByPushNotification = true
 
@@ -25,38 +26,14 @@ final class NotificationServiceExtensionContext : NSObject, AppContext {
         return .init(timeIntervalSince1970: buildTimestamp)
     }()
 
-    override init() { super.init() }
-
     func canPresentNotifications() -> Bool { true }
-    func isAppForegroundAndActive() -> Bool { false }
-    func isInBackground() -> Bool { true }
     func mainApplicationStateOnLaunch() -> UIApplication.State { .inactive }
 
-    func appDocumentDirectoryPath() -> String {
-        guard let documentDirectoryURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last else {
-            preconditionFailure("Couldn't get document directory.")
-        }
-        return documentDirectoryURL.path
-    }
-
     // MARK: - Currently Unused
-    
-    let frame = CGRect.zero
-    let interfaceOrientation = UIInterfaceOrientation.unknown
-    let isRTL = false
-    let reportedApplicationState = UIApplication.State.background
-    let statusBarHeight = CGFloat.zero
 
     var mainWindow: UIWindow?
 
-    func beginBackgroundTask(expirationHandler: @escaping BackgroundTaskExpirationHandler) -> UIBackgroundTaskIdentifier { .invalid }
-    func beginBackgroundTask(expirationHandler: @escaping BackgroundTaskExpirationHandler) -> UInt { 0 }
-    func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) { }
-    func endBackgroundTask(_ backgroundTaskIdentifier: UInt) { }
-    func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) { }
-    func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjectsDescription: String) { }
     func frontmostViewController() -> UIViewController? { nil }
-    func runNowOr(whenMainAppIsActive block: @escaping AppActiveBlock) { }
     func setNetworkActivityIndicatorVisible(_ value: Bool) { }
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) { }
 }

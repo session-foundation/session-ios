@@ -551,7 +551,7 @@ public final class SnodeAPI {
         using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<GetExpiriesResponse> {
         // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
-        let serverHashes: [String] = serverHashes.appending("fakehash")
+        let serverHashes: [String] = serverHashes.appending("///////////////////////////////////////////") // Fake hash with valid length
         
         return try SnodeAPI
             .prepareRequest(
@@ -633,6 +633,9 @@ public final class SnodeAPI {
     ) throws -> HTTP.PreparedRequest<[String: UpdateExpiryResponseResult]> {
         // ShortenOnly and extendOnly cannot be true at the same time
         guard shortenOnly == nil || extendOnly == nil else { throw SnodeAPIError.generic }
+        
+        // FIXME: There is a bug on SS now that a single-hash lookup is not working. Remove it when the bug is fixed
+        let serverHashes: [String] = serverHashes.appending("///////////////////////////////////////////") // Fake hash with valid length
         
         return try SnodeAPI
             .prepareRequest(

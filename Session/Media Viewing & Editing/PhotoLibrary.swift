@@ -191,10 +191,13 @@ class PhotoCollectionContents {
                     exportSession.outputURL = exportURL
                     
                     Logger.debug("starting video export")
-                    exportSession.exportAsynchronously {
+                    exportSession.exportAsynchronously { [weak exportSession] in
                         Logger.debug("Completed video export")
                         
-                        guard let dataSource = DataSourcePath.dataSource(with: exportURL, shouldDeleteOnDeallocation: true) else {
+                        guard
+                            exportSession?.status == .completed,
+                            let dataSource = DataSourcePath.dataSource(with: exportURL, shouldDeleteOnDeallocation: true)
+                        else {
                             resolver(Result.failure(PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL")))
                             return
                         }

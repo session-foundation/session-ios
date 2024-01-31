@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SignalCoreKit
+import SessionSnodeKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalCoreKit
@@ -13,6 +14,7 @@ public enum SyncPushTokensJob: JobExecutor {
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     private static let maxFrequency: TimeInterval = (12 * 60 * 60)
+    private static let maxRunFrequency: TimeInterval = 1
     
     public static func run(
         _ job: Job,
@@ -29,6 +31,27 @@ public enum SyncPushTokensJob: JobExecutor {
         guard Identity.userCompletedRequiredOnboarding() else {
             SNLog("[SyncPushTokensJob] Deferred due to incomplete registration")
             return deferred(job, dependencies)
+        }
+        
+        /// Since this job can be dependant on network conditions it's possible for multiple jobs to run at the same time, while this shouldn't cause issues
+        /// it can result in multiple API calls getting made concurrently so to avoid this we defer the job as if the previous one was successful then the
+        ///  `lastPushNotificationSync` value will prevent the subsequent call being made
+        guard
+            dependencies[singleton: .jobRunner]
+                .jobInfoFor(state: .running, variant: .syncPushTokens)
+                .filter({ key, info in key != job.id })     // Exclude this job
+                .isEmpty
+        else {
+            // Defer the job to run 'maxRunFrequency' from when this one ran (if we don't it'll try start
+            // it again immediately which is pointless)
+            let updatedJob: Job? = dependencies[singleton: .storage].write { db in
+                try job
+                    .with(nextRunTimestamp: dependencies.dateNow.timeIntervalSince1970 + maxRunFrequency)
+                    .upserted(db)
+            }
+            
+            SNLog("[SyncPushTokensJob] Deferred due to in progress job")
+            return deferred(updatedJob ?? job, dependencies)
         }
         
         // Determine if the device has 'Fast Mode' (APNS) enabled
@@ -83,9 +106,16 @@ public enum SyncPushTokensJob: JobExecutor {
         ///
         /// **Note:** Apple's documentation states that we should re-register for notifications on every launch:
         /// https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/HandlingRemoteNotifications.html#//apple_ref/doc/uid/TP40008194-CH6-SW1
-        Logger.info("Re-registering for remote notifications.")
+        SNLog("[SyncPushTokensJob] Re-registering for remote notifications")
         PushRegistrationManager.shared.requestPushTokens(using: dependencies)
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
+                guard !dependencies[cache: .onionRequestAPI].paths.isEmpty else {
+                    SNLog("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to lack of paths")
+                    return Just(())
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
                 /// For our `subscribe` endpoint we only want to call it if:
                 /// • It's been longer than `SyncPushTokensJob.maxFrequency` since the last successful subscription;
                 /// • The token has changed; or

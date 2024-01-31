@@ -20,11 +20,14 @@ extension SessionCallManager {
     public func answerCallAction() -> Bool {
         guard let call: SessionCall = (self.currentCall as? SessionCall) else { return false }
         
-        if let _ = CurrentAppContext().frontmostViewController() as? CallVC {
+        if Singleton.hasAppContext, Singleton.appContext.frontmostViewController is CallVC {
             call.answerSessionCall()
         }
         else {
-            guard let presentingVC = CurrentAppContext().frontmostViewController() else { return false } // FIXME: Handle more gracefully
+            guard
+                Singleton.hasAppContext,
+                let presentingVC = Singleton.appContext.frontmostViewController
+            else { return false } // FIXME: Handle more gracefully
             let callVC = CallVC(for: call)
             
             if let conversationVC = presentingVC as? ConversationVC {

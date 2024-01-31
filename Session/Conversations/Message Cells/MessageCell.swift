@@ -11,6 +11,7 @@ public enum SwipeState {
 }
 
 public class MessageCell: UITableViewCell {
+    var dependencies: Dependencies?
     var viewModel: MessageViewModel?
     weak var delegate: MessageCellDelegate?
     open var contextSnapshotView: UIView? { return nil }
@@ -44,6 +45,13 @@ public class MessageCell: UITableViewCell {
     }
 
     // MARK: - Updating
+    
+    public override func prepareForReuse() {
+        super.prepareForReuse()
+        
+        self.dependencies = nil
+        self.viewModel = nil
+    }
     
     func update(
         with cellViewModel: MessageViewModel,
@@ -89,7 +97,7 @@ public class MessageCell: UITableViewCell {
 
 protocol MessageCellDelegate: ReactionDelegate {
     func handleItemLongPressed(_ cellViewModel: MessageViewModel)
-    func handleItemTapped(_ cellViewModel: MessageViewModel, gestureRecognizer: UITapGestureRecognizer)
+    func handleItemTapped(_ cellViewModel: MessageViewModel, cell: UITableViewCell, cellLocation: CGPoint, using dependencies: Dependencies)
     func handleItemDoubleTapped(_ cellViewModel: MessageViewModel)
     func handleItemSwiped(_ cellViewModel: MessageViewModel, state: SwipeState)
     func openUrl(_ urlString: String)
@@ -97,4 +105,10 @@ protocol MessageCellDelegate: ReactionDelegate {
     func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?)
     func showReactionList(_ cellViewModel: MessageViewModel, selectedReaction: EmojiWithSkinTones?)
     func needsLayout(for cellViewModel: MessageViewModel, expandingReactions: Bool)
+}
+
+extension MessageCellDelegate {
+    func handleItemTapped(_ cellViewModel: MessageViewModel, cell: UITableViewCell, cellLocation: CGPoint) {
+        handleItemTapped(cellViewModel, cell: cell, cellLocation: cellLocation, using: Dependencies())
+    }
 }

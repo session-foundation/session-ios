@@ -247,9 +247,7 @@ public final class MessageSender {
         let snodeMessage = SnodeMessage(
             recipient: recipient,
             data: base64EncodedData,
-            ttl: MessageSender
-                .getSpecifiedTTL(db, threadId: threadId, message: message, isSyncMessage: isSyncMessage)
-                .defaulting(to: message.ttl),
+            ttl: Message.getSpecifiedTTL(message: message, isSyncMessage: isSyncMessage, using: dependencies),
             timestampMs: UInt64(messageSendTimestamp)
         )
         

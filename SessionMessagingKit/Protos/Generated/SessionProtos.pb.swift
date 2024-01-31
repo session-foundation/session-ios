@@ -357,15 +357,6 @@ struct SessionProtos_Content {
   /// Clears the value of `expirationTimer`. Subsequent reads from it will return its default value.
   mutating func clearExpirationTimer() {_uniqueStorage()._expirationTimer = nil}
 
-  var lastDisappearingMessageChangeTimestamp: UInt64 {
-    get {return _storage._lastDisappearingMessageChangeTimestamp ?? 0}
-    set {_uniqueStorage()._lastDisappearingMessageChangeTimestamp = newValue}
-  }
-  /// Returns true if `lastDisappearingMessageChangeTimestamp` has been explicitly set.
-  var hasLastDisappearingMessageChangeTimestamp: Bool {return _storage._lastDisappearingMessageChangeTimestamp != nil}
-  /// Clears the value of `lastDisappearingMessageChangeTimestamp`. Subsequent reads from it will return its default value.
-  mutating func clearLastDisappearingMessageChangeTimestamp() {_uniqueStorage()._lastDisappearingMessageChangeTimestamp = nil}
-
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum ExpirationType: SwiftProtobuf.Enum {
@@ -2166,7 +2157,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     10: .same(proto: "messageRequestResponse"),
     12: .same(proto: "expirationType"),
     13: .same(proto: "expirationTimer"),
-    14: .same(proto: "lastDisappearingMessageChangeTimestamp"),
   ]
 
   fileprivate class _StorageClass {
@@ -2179,7 +2169,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     var _messageRequestResponse: SessionProtos_MessageRequestResponse? = nil
     var _expirationType: SessionProtos_Content.ExpirationType? = nil
     var _expirationTimer: UInt32? = nil
-    var _lastDisappearingMessageChangeTimestamp: UInt64? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -2195,7 +2184,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       _messageRequestResponse = source._messageRequestResponse
       _expirationType = source._expirationType
       _expirationTimer = source._expirationTimer
-      _lastDisappearingMessageChangeTimestamp = source._lastDisappearingMessageChangeTimestamp
     }
   }
 
@@ -2236,7 +2224,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         case 10: try { try decoder.decodeSingularMessageField(value: &_storage._messageRequestResponse) }()
         case 12: try { try decoder.decodeSingularEnumField(value: &_storage._expirationType) }()
         case 13: try { try decoder.decodeSingularUInt32Field(value: &_storage._expirationTimer) }()
-        case 14: try { try decoder.decodeSingularUInt64Field(value: &_storage._lastDisappearingMessageChangeTimestamp) }()
         default: break
         }
       }
@@ -2276,9 +2263,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       try { if let v = _storage._expirationTimer {
         try visitor.visitSingularUInt32Field(value: v, fieldNumber: 13)
       } }()
-      try { if let v = _storage._lastDisappearingMessageChangeTimestamp {
-        try visitor.visitSingularUInt64Field(value: v, fieldNumber: 14)
-      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2297,7 +2281,6 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         if _storage._messageRequestResponse != rhs_storage._messageRequestResponse {return false}
         if _storage._expirationType != rhs_storage._expirationType {return false}
         if _storage._expirationTimer != rhs_storage._expirationTimer {return false}
-        if _storage._lastDisappearingMessageChangeTimestamp != rhs_storage._lastDisappearingMessageChangeTimestamp {return false}
         return true
       }
       if !storagesAreEqual {return false}

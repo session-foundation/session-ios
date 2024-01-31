@@ -427,8 +427,7 @@ extension MessageReceiver {
                     threadId: groupSessionId.hexString,
                     isEnabled: ((message.updatedExpiration ?? 0) > 0),
                     durationSeconds: TimeInterval((message.updatedExpiration ?? 0)),
-                    type: .disappearAfterSend,
-                    lastChangeTimestampMs: Int64(sentTimestampMs)
+                    type: .disappearAfterSend
                 )
                 let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
                     .filter(id: groupSessionId.hexString)
@@ -441,11 +440,11 @@ extension MessageReceiver {
                     authorId: sender,
                     variant: .infoDisappearingMessagesUpdate,
                     body: relevantConfig.messageInfoString(
-                        with: (sender != userSessionId.hexString ?
+                        threadVariant: .group,
+                        senderName: (sender != userSessionId.hexString ?
                             Profile.displayName(db, id: sender) :
                             nil
                         ),
-                        isPreviousOff: false,
                         using: dependencies
                     ),
                     timestampMs: Int64(sentTimestampMs),

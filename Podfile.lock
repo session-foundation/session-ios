@@ -70,22 +70,21 @@ DEPENDENCIES:
   - YYImage/libwebp (from `https://github.com/signalapp/YYImage`)
 
 SPEC REPOS:
-  https://github.com/CocoaPods/Specs.git:
+  trunk:
     - CocoaLumberjack
     - DifferenceKit
     - GRDB.swift
+    - libwebp
+    - Nimble
     - NVActivityIndicatorView
     - OpenSSL-Universal
     - PureLayout
+    - Quick
     - Reachability
     - SAMKeychain
     - SQLCipher
     - SwiftProtobuf
     - WebRTC-lib
-  trunk:
-    - libwebp
-    - Nimble
-    - Quick
     - xcbeautify
 
 EXTERNAL SOURCES:

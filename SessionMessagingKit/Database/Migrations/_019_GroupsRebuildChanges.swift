@@ -8,7 +8,7 @@ import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-enum _018_GroupsRebuildChanges: Migration {
+enum _019_GroupsRebuildChanges: Migration {
     static let target: TargetMigrations.Identifier = .messagingKit
     static let identifier: String = "GroupsRebuildChanges"
     static let needsConfigSync: Bool = false

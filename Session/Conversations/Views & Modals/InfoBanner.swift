@@ -1,13 +1,33 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import UIKit
 import SessionUIKit
 
 final class InfoBanner: UIView {
+    public enum Icon: Equatable, Hashable {
+        case none
+        case link
+        case close
+        
+        var image: UIImage? {
+            switch self {
+                case .none: return nil
+                case .link: return UIImage(systemName: "arrow.up.right.square")?.withRenderingMode(.alwaysTemplate)
+                case .close:
+                    return UIImage(
+                        systemName: "xmark",
+                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold)
+                    )?.withRenderingMode(.alwaysTemplate)
+            }
+        }
+    }
+    
     public struct Info: Equatable, Hashable {
         let font: UIFont
         let message: String
-        let hasIcon: Bool
+        let icon: Icon
         let tintColor: ThemeValue
         let backgroundColor: ThemeValue
         let accessibility: Accessibility?
@@ -18,7 +38,7 @@ final class InfoBanner: UIView {
         func with(
             font: UIFont? = nil,
             message: String? = nil,
-            hasIcon: Bool? = nil,
+            icon: Icon? = nil,
             tintColor: ThemeValue? = nil,
             backgroundColor: ThemeValue? = nil,
             accessibility: Accessibility? = nil,
@@ -29,7 +49,7 @@ final class InfoBanner: UIView {
             return Info(
                 font: font ?? self.font,
                 message: message ?? self.message,
-                hasIcon: hasIcon ?? self.hasIcon,
+                icon: icon ?? self.icon,
                 tintColor: tintColor ?? self.tintColor,
                 backgroundColor: backgroundColor ?? self.backgroundColor,
                 accessibility: accessibility ?? self.accessibility,
@@ -42,7 +62,7 @@ final class InfoBanner: UIView {
         public func hash(into hasher: inout Hasher) {
             font.hash(into: &hasher)
             message.hash(into: &hasher)
-            hasIcon.hash(into: &hasher)
+            icon.hash(into: &hasher)
             tintColor.hash(into: &hasher)
             backgroundColor.hash(into: &hasher)
             accessibility.hash(into: &hasher)
@@ -54,7 +74,7 @@ final class InfoBanner: UIView {
             return (
                 lhs.font == rhs.font &&
                 lhs.message == rhs.message &&
-                lhs.hasIcon == rhs.hasIcon &&
+                lhs.icon == rhs.icon &&
                 lhs.tintColor == rhs.tintColor &&
                 lhs.backgroundColor == rhs.backgroundColor &&
                 lhs.accessibility == rhs.accessibility &&
@@ -163,16 +183,17 @@ final class InfoBanner: UIView {
         label.themeTextColor = info.tintColor
         label.accessibilityIdentifier = info.labelAccessibility?.identifier
         label.accessibilityLabel = info.labelAccessibility?.label
-        leftIconImageView.isHidden = !info.hasIcon
+        leftIconImageView.image = info.icon.image
+        leftIconImageView.isHidden = (info.icon != .none)
         leftIconImageView.themeTintColor = info.tintColor
-        rightIconImageView.isHidden = !info.hasIcon
+        rightIconImageView.isHidden = (info.icon != .none)
         rightIconImageView.themeTintColor = info.tintColor
     }
     
     public func update(
         font: UIFont? = nil,
         message: String? = nil,
-        hasIcon: Bool? = nil,
+        icon: Icon = .none,
         tintColor: ThemeValue? = nil,
         backgroundColor: ThemeValue? = nil,
         accessibility: Accessibility? = nil,
@@ -186,7 +207,7 @@ final class InfoBanner: UIView {
             currentInfo.with(
                 font: font,
                 message: message,
-                hasIcon: hasIcon,
+                icon: icon,
                 tintColor: tintColor,
                 backgroundColor: backgroundColor,
                 accessibility: accessibility,

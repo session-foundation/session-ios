@@ -139,6 +139,7 @@ final class CallMessageCell: MessageCell {
             )
         else { return }
         
+        self.dependencies = dependencies
         self.viewModel = cellViewModel
         self.topConstraint.constant = (cellViewModel.shouldShowDateHeader ? 0 : CallMessageCell.inset)
         
@@ -218,6 +219,6 @@ final class CallMessageCell: MessageCell {
         // Should only be tappable if the info icon is visible
         guard messageInfo.state == .permissionDenied && !Dependencies()[singleton: .storage, key: .areCallsEnabled] else { return }
         
-        self.delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer)
+        self.delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
     }
 }

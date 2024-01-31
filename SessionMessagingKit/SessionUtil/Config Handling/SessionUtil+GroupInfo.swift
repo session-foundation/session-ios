@@ -144,24 +144,18 @@ internal extension SessionUtil {
             threadId: groupSessionId.hexString,
             isEnabled: targetIsEnable,
             durationSeconds: TimeInterval(targetExpiry),
-            type: (targetIsEnable ? .disappearAfterSend : .unknown),
-            lastChangeTimestampMs: serverTimestampMs
+            type: (targetIsEnable ? .disappearAfterSend : .unknown)
         )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: groupSessionId.hexString)
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(groupSessionId.hexString))
 
-        if
-            let remoteLastChangeTimestampMs = targetConfig.lastChangeTimestampMs,
-            let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-            remoteLastChangeTimestampMs > localLastChangeTimestampMs
-        {
-            _ = try localConfig.with(
-                isEnabled: targetConfig.isEnabled,
-                durationSeconds: targetConfig.durationSeconds,
-                type: targetConfig.type,
-                lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
-            ).upsert(db)
+        if targetConfig != localConfig {
+            _ = try targetConfig.upsert(db)
+            _ = try Interaction
+                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .deleteAll(db)
         }
         
         // Check if the user is an admin in the group
