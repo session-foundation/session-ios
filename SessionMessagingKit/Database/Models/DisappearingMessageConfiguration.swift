@@ -131,11 +131,9 @@ public extension DisappearingMessagesConfiguration {
         public let isEnabled: Bool
         public let durationSeconds: TimeInterval
         public let type: DisappearingMessageType?
-        public let isPreviousOff: Bool?
         
         var previewText: String {
             guard Features.useNewDisappearingMessagesConfig && self.threadVariant != nil else { return legacyPreviewText }
-            guard self.threadVariant != .legacyGroup else { return previewTextLegacyGroup }
             
             guard let senderName: String = senderName else {
                 guard isEnabled, durationSeconds > 0 else {
@@ -155,51 +153,6 @@ public extension DisappearingMessagesConfiguration {
             
             return String(
                 format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
-                senderName,
-                floor(durationSeconds).formatted(format: .long),
-                (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-            )
-        }
-        
-        var previewTextLegacyGroup: String {
-            guard Features.useNewDisappearingMessagesConfig else { return legacyPreviewText }
-            
-            guard let senderName: String = senderName else {
-                // Changed by this device or via synced transcript
-                guard isEnabled, durationSeconds > 0 else {
-                    return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE_LEGACY".localized()
-                }
-                
-                guard isPreviousOff == true else {
-                    return String(
-                        format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE_LEGACY".localized(),
-                        floor(durationSeconds).formatted(format: .long),
-                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                    )
-                }
-                
-                return String(
-                    format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE_LEGACY".localized(),
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                )
-            }
-            
-            guard isEnabled, durationSeconds > 0 else {
-                return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE_LEGACY".localized(), senderName)
-            }
-            
-            guard isPreviousOff == true else {
-                return String(
-                    format: "DISAPPERING_MESSAGES_INFO_UPDATE_LEGACY".localized(),
-                    senderName,
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                )
-            }
-            
-            return String(
-                format: "DISAPPERING_MESSAGES_INFO_ENABLE_LEGACY".localized(),
                 senderName,
                 floor(durationSeconds).formatted(format: .long),
                 (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
@@ -235,16 +188,14 @@ public extension DisappearingMessagesConfiguration {
     
     func messageInfoString(
         threadVariant: SessionThread.Variant?,
-        senderName: String?,
-        isPreviousOff: Bool
+        senderName: String?
     ) -> String? {
         let messageInfo: MessageInfo = DisappearingMessagesConfiguration.MessageInfo(
             threadVariant: threadVariant,
             senderName: senderName,
             isEnabled: isEnabled,
             durationSeconds: durationSeconds,
-            type: type,
-            isPreviousOff: isPreviousOff
+            type: type
         )
         
         guard let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) else { return nil }
@@ -253,11 +204,9 @@ public extension DisappearingMessagesConfiguration {
     }
     
     func isValidV2Config() -> Bool {
-        if let type = self.type {
-            return !(self.durationSeconds > 0 && self.type == .unknown)
-        } else {
-            return self.durationSeconds == 0
-        }
+        guard self.type != nil else { return (self.durationSeconds == 0) }
+        
+        return !(self.durationSeconds > 0 && self.type == .unknown)
     }
 }
 
@@ -271,8 +220,7 @@ public extension DisappearingMessagesConfiguration {
         authorId: String,
         timestampMs: Int64,
         serverHash: String?,
-        updatedConfiguration: DisappearingMessagesConfiguration,
-        isPreviousOff: Bool
+        updatedConfiguration: DisappearingMessagesConfiguration
     ) throws -> Int64? {
         if Features.useNewDisappearingMessagesConfig {
             switch threadVariant {
@@ -315,8 +263,7 @@ public extension DisappearingMessagesConfiguration {
             variant: .infoDisappearingMessagesUpdate,
             body: updatedConfiguration.messageInfoString(
                 threadVariant: threadVariant,
-                senderName: (authorId != getUserHexEncodedPublicKey(db) ? Profile.displayName(db, id: authorId) : nil),
-                isPreviousOff: isPreviousOff
+                senderName: (authorId != getUserHexEncodedPublicKey(db) ? Profile.displayName(db, id: authorId) : nil)
             ),
             timestampMs: timestampMs,
             expiresInSeconds: (threadVariant == .legacyGroup ? nil : updatedConfiguration.durationSeconds), // Do not expire this control message in legacy groups

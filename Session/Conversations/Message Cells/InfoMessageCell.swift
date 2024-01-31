@@ -198,7 +198,7 @@ final class InfoMessageCell: MessageCell {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
         
         if cellViewModel.variant == .infoDisappearingMessagesUpdate && cellViewModel.canDoFollowingSetting() {
-            delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer)
+            delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
         }
     }
 }

@@ -486,8 +486,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 authorId: userPublicKey,
                 timestampMs: currentTimestampMs,
                 serverHash: nil,
-                updatedConfiguration: updatedConfig,
-                isPreviousOff: !self.config.isEnabled
+                updatedConfiguration: updatedConfig
             )
 
             let duration: UInt32? = {

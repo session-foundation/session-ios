@@ -118,8 +118,7 @@ extension MessageReceiver {
             variant: .infoDisappearingMessagesUpdate,
             body: updatedConfig.messageInfoString(
                 threadVariant: threadVariant,
-                senderName: (sender != currentUserPublicKey ? Profile.displayName(db, id: sender) : nil),
-                isPreviousOff: false
+                senderName: (sender != currentUserPublicKey ? Profile.displayName(db, id: sender) : nil)
             ),
             timestampMs: timestampMs,
             wasRead: SessionUtil.timestampAlreadyRead(
@@ -234,8 +233,7 @@ extension MessageReceiver {
                     authorId: sender,
                     timestampMs: Int64(timestampMs),
                     serverHash: message.serverHash,
-                    updatedConfiguration: updatedConfig,
-                    isPreviousOff: !localConfig.isEnabled
+                    updatedConfiguration: updatedConfig
                 )
             default:
                  return

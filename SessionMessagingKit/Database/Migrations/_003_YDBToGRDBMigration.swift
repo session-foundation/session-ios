@@ -828,8 +828,7 @@ enum _003_YDBToGRDBMigration: Migration {
                                                         senderName: updateMessage.createdByRemoteName,
                                                         isEnabled: updateMessage.configurationIsEnabled,
                                                         durationSeconds: TimeInterval(updateMessage.configurationDurationSeconds),
-                                                        type: nil,
-                                                        isPreviousOff: false
+                                                        type: nil
                                                     )
                                                 ),
                                                 let infoMessageString: String = String(data: infoMessageData, encoding: .utf8)
