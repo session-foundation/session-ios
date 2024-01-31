@@ -217,6 +217,6 @@ final class CallMessageCell: MessageCell {
         // Should only be tappable if the info icon is visible
         guard messageInfo.state == .permissionDenied && !Storage.shared[.areCallsEnabled] else { return }
         
-        self.delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer)
+        self.delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
     }
 }

@@ -399,7 +399,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.hasEnded = true
         DispatchQueue.main.async {
             if let currentBanner = IncomingCallBanner.current { currentBanner.dismiss() }
-            if let callVC = CurrentAppContext().frontmostViewController() as? CallVC { callVC.handleEndCallMessage() }
+            guard Singleton.hasAppContext else { return }
+            if let callVC = Singleton.appContext.frontmostViewController as? CallVC { callVC.handleEndCallMessage() }
             if let miniCallView = MiniCallView.current { miniCallView.dismiss() }
             AppEnvironment.shared.callManager.reportCurrentCallEnded(reason: .remoteEnded)
         }

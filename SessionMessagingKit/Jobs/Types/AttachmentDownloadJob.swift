@@ -83,7 +83,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         }
         
         let temporaryFileUrl: URL = URL(
-            fileURLWithPath: OWSTemporaryDirectoryAccessibleAfterFirstAuth() + UUID().uuidString
+            fileURLWithPath: Singleton.appContext.temporaryDirectoryAccessibleAfterFirstAuth + UUID().uuidString
         )
         
         Just(attachment.downloadUrl)

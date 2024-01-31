@@ -111,7 +111,7 @@
 		7B50D64D28AC7CF80086CCEC /* silence.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 7B50D64C28AC7CF80086CCEC /* silence.aiff */; };
 		7B521E0A29BFF84400C3C36A /* GroupLeavingJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B521E0929BFF84400C3C36A /* GroupLeavingJob.swift */; };
 		7B5233C42900E90F00F8F375 /* SessionLabelCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B5233C32900E90F00F8F375 /* SessionLabelCarouselView.swift */; };
-		7B5233C6290636D700F8F375 /* _017_DisappearingMessagesConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B5233C5290636D700F8F375 /* _017_DisappearingMessagesConfiguration.swift */; };
+		7B5233C6290636D700F8F375 /* _018_DisappearingMessagesConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B5233C5290636D700F8F375 /* _018_DisappearingMessagesConfiguration.swift */; };
 		7B7037432834B81F000DCF35 /* ReactionContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B7037422834B81F000DCF35 /* ReactionContainerView.swift */; };
 		7B7037452834BCC0000DCF35 /* ReactionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B7037442834BCC0000DCF35 /* ReactionView.swift */; };
 		7B71A98F2925E2A600E54854 /* SessionFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B71A98E2925E2A600E54854 /* SessionFooterView.swift */; };
@@ -277,8 +277,6 @@
 		C32C5A24256DB7DB003C73A2 /* SNUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB6B255A580F00E217F9 /* SNUserDefaults.swift */; };
 		C32C5A48256DB8F0003C73A2 /* BuildConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDAA8255A57FF00E217F9 /* BuildConfiguration.swift */; };
 		C32C5A88256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32C5A87256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift */; };
-		C32C5C3D256DCBAF003C73A2 /* AppReadiness.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB75255A581000E217F9 /* AppReadiness.m */; };
-		C32C5C46256DCBB2003C73A2 /* AppReadiness.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDB01255A580700E217F9 /* AppReadiness.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C32C5D83256DD5B6003C73A2 /* SSKKeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBBC255A581600E217F9 /* SSKKeychainStorage.swift */; };
 		C32C5DBF256DD743003C73A2 /* ClosedGroupPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB34255A580B00E217F9 /* ClosedGroupPoller.swift */; };
 		C32C5DC9256DD935003C73A2 /* ProxiedContentDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDAF2255A580500E217F9 /* ProxiedContentDownloader.swift */; };
@@ -424,8 +422,6 @@
 		C3D9E35E25675F640040E4F3 /* OWSFileSystem.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDA8E255A57FD00E217F9 /* OWSFileSystem.m */; };
 		C3D9E379256760340040E4F3 /* MIMETypeUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDAFC255A580600E217F9 /* MIMETypeUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C3D9E38A256760390040E4F3 /* OWSFileSystem.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDBAB255A581500E217F9 /* OWSFileSystem.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		C3D9E39B256763C20040E4F3 /* AppContext.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB85255A581100E217F9 /* AppContext.m */; };
-		C3D9E3A4256763DE0040E4F3 /* AppContext.h in Headers */ = {isa = PBXBuildFile; fileRef = C33FDB8A255A581200E217F9 /* AppContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C3D9E4C02567767F0040E4F3 /* DataSource.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBB6255A581600E217F9 /* DataSource.m */; };
 		C3D9E4D12567777D0040E4F3 /* OWSMediaUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB22255A580900E217F9 /* OWSMediaUtils.swift */; };
 		C3D9E4DA256778410040E4F3 /* UIImage+OWS.m in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB81255A581100E217F9 /* UIImage+OWS.m */; };
@@ -629,6 +625,12 @@
 		FD3C906D27E43C4B00CD579F /* MessageSenderEncryptionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C906C27E43C4B00CD579F /* MessageSenderEncryptionSpec.swift */; };
 		FD3C907127E445E500CD579F /* MessageReceiverDecryptionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3C907027E445E500CD579F /* MessageReceiverDecryptionSpec.swift */; };
 		FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */; };
+		FD428B192B4B576F006D0888 /* AppContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B182B4B576F006D0888 /* AppContext.swift */; };
+		FD428B1B2B4B6098006D0888 /* Notifications+Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B1A2B4B6098006D0888 /* Notifications+Lifecycle.swift */; };
+		FD428B1D2B4B6FDC006D0888 /* UIApplicationState+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B1C2B4B6FDC006D0888 /* UIApplicationState+Utilities.swift */; };
+		FD428B1F2B4B758B006D0888 /* AppReadiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B1E2B4B758B006D0888 /* AppReadiness.swift */; };
+		FD428B212B4B75EA006D0888 /* Singleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B202B4B75EA006D0888 /* Singleton.swift */; };
+		FD428B232B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */; };
 		FD42F9A8285064B800A0C77D /* PushNotificationAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */; };
 		FD4324302999F0BC008A0213 /* ValidatableResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */; };
 		FD432432299C6933008A0213 /* _011_AddPendingReadReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */; };
@@ -1246,7 +1248,7 @@
 		7B50D64C28AC7CF80086CCEC /* silence.aiff */ = {isa = PBXFileReference; lastKnownFileType = audio.aiff; path = silence.aiff; sourceTree = "<group>"; };
 		7B521E0929BFF84400C3C36A /* GroupLeavingJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupLeavingJob.swift; sourceTree = "<group>"; };
 		7B5233C32900E90F00F8F375 /* SessionLabelCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLabelCarouselView.swift; sourceTree = "<group>"; };
-		7B5233C5290636D700F8F375 /* _017_DisappearingMessagesConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _017_DisappearingMessagesConfiguration.swift; sourceTree = "<group>"; };
+		7B5233C5290636D700F8F375 /* _018_DisappearingMessagesConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _018_DisappearingMessagesConfiguration.swift; sourceTree = "<group>"; };
 		7B6ACADD2A32D3A9009AFB73 /* MessageReceiverSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageReceiverSpec.swift; sourceTree = "<group>"; };
 		7B7037422834B81F000DCF35 /* ReactionContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReactionContainerView.swift; sourceTree = "<group>"; };
 		7B7037442834BCC0000DCF35 /* ReactionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReactionView.swift; sourceTree = "<group>"; };
@@ -1439,7 +1441,6 @@
 		C33FDAF2255A580500E217F9 /* ProxiedContentDownloader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ProxiedContentDownloader.swift; sourceTree = "<group>"; };
 		C33FDAFC255A580600E217F9 /* MIMETypeUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MIMETypeUtil.h; sourceTree = "<group>"; };
 		C33FDAFD255A580600E217F9 /* LRUCache.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LRUCache.swift; sourceTree = "<group>"; };
-		C33FDB01255A580700E217F9 /* AppReadiness.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppReadiness.h; sourceTree = "<group>"; };
 		C33FDB14255A580800E217F9 /* OWSMath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OWSMath.h; sourceTree = "<group>"; };
 		C33FDB1C255A580900E217F9 /* UIImage+OWS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+OWS.h"; sourceTree = "<group>"; };
 		C33FDB22255A580900E217F9 /* OWSMediaUtils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OWSMediaUtils.swift; sourceTree = "<group>"; };
@@ -1456,12 +1457,9 @@
 		C33FDB68255A580F00E217F9 /* ContentProxy.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentProxy.swift; sourceTree = "<group>"; };
 		C33FDB69255A580F00E217F9 /* FeatureFlags.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
 		C33FDB6B255A580F00E217F9 /* SNUserDefaults.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SNUserDefaults.swift; sourceTree = "<group>"; };
-		C33FDB75255A581000E217F9 /* AppReadiness.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppReadiness.m; sourceTree = "<group>"; };
 		C33FDB77255A581000E217F9 /* NSUserDefaults+OWS.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSUserDefaults+OWS.m"; sourceTree = "<group>"; };
 		C33FDB80255A581100E217F9 /* Notification+Loki.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Notification+Loki.swift"; sourceTree = "<group>"; };
 		C33FDB81255A581100E217F9 /* UIImage+OWS.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIImage+OWS.m"; sourceTree = "<group>"; };
-		C33FDB85255A581100E217F9 /* AppContext.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppContext.m; sourceTree = "<group>"; };
-		C33FDB8A255A581200E217F9 /* AppContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppContext.h; sourceTree = "<group>"; };
 		C33FDB8F255A581200E217F9 /* ParamParser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ParamParser.swift; sourceTree = "<group>"; };
 		C33FDBA8255A581500E217F9 /* LinkPreviewDraft.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LinkPreviewDraft.swift; sourceTree = "<group>"; };
 		C33FDBAB255A581500E217F9 /* OWSFileSystem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OWSFileSystem.h; sourceTree = "<group>"; };
@@ -1758,6 +1756,12 @@
 		FD3C907027E445E500CD579F /* MessageReceiverDecryptionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageReceiverDecryptionSpec.swift; sourceTree = "<group>"; };
 		FD3C907427E83AC200CD579F /* OpenGroupServerIdLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupServerIdLookup.swift; sourceTree = "<group>"; };
 		FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModel.swift; sourceTree = "<group>"; };
+		FD428B182B4B576F006D0888 /* AppContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContext.swift; sourceTree = "<group>"; };
+		FD428B1A2B4B6098006D0888 /* Notifications+Lifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notifications+Lifecycle.swift"; sourceTree = "<group>"; };
+		FD428B1C2B4B6FDC006D0888 /* UIApplicationState+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplicationState+Utilities.swift"; sourceTree = "<group>"; };
+		FD428B1E2B4B758B006D0888 /* AppReadiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReadiness.swift; sourceTree = "<group>"; };
+		FD428B202B4B75EA006D0888 /* Singleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Singleton.swift; sourceTree = "<group>"; };
+		FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _017_RebuildFTSIfNeeded_2_4_5.swift; sourceTree = "<group>"; };
 		FD43242F2999F0BC008A0213 /* ValidatableResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidatableResponse.swift; sourceTree = "<group>"; };
 		FD432431299C6933008A0213 /* _011_AddPendingReadReceipts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _011_AddPendingReadReceipts.swift; sourceTree = "<group>"; };
 		FD432433299C6985008A0213 /* PendingReadReceipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingReadReceipt.swift; sourceTree = "<group>"; };
@@ -2658,11 +2662,10 @@
 		B8A582B0258C66C900AFD84C /* General */ = {
 			isa = PBXGroup;
 			children = (
+				FD428B182B4B576F006D0888 /* AppContext.swift */,
 				7BD477A727EC39F5004E2822 /* Atomic.swift */,
 				FDC438CC27BC641200C60D73 /* Set+Utilities.swift */,
 				7BAF54D527ACD0E2003D12F8 /* ReusableView.swift */,
-				C33FDB8A255A581200E217F9 /* AppContext.h */,
-				C33FDB85255A581100E217F9 /* AppContext.m */,
 				C3C2A5D12553860800C340D1 /* Array+Utilities.swift */,
 				FDC4383D27B4708600C60D73 /* Atomic.swift */,
 				C33FDAA8255A57FF00E217F9 /* BuildConfiguration.swift */,
@@ -2701,6 +2704,8 @@
 				FD5D201D27B0D87C00FEA984 /* SessionId.swift */,
 				7B7CB191271508AD0079FF93 /* CallRingTonePlayer.swift */,
 				7B0EFDED274F598600FFAAE7 /* TimestampUtils.swift */,
+				FD428B1A2B4B6098006D0888 /* Notifications+Lifecycle.swift */,
+				FD428B202B4B75EA006D0888 /* Singleton.swift */,
 			);
 			path = General;
 			sourceTree = "<group>";
@@ -3279,8 +3284,7 @@
 		C3BBE0B32554F0D30050F1E3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				C33FDB01255A580700E217F9 /* AppReadiness.h */,
-				C33FDB75255A581000E217F9 /* AppReadiness.m */,
+				FD428B1E2B4B758B006D0888 /* AppReadiness.swift */,
 				FD23CE232A675C440000B97C /* Crypto+SessionMessagingKit.swift */,
 				FD859EF127BF6BA200510D0C /* Data+Utilities.swift */,
 				C38EF309255B6DBE007E1867 /* DeviceSleepManager.swift */,
@@ -3628,6 +3632,7 @@
 				C33FDB38255A580B00E217F9 /* OWSBackgroundTask.h */,
 				C33FDC1B255A581F00E217F9 /* OWSBackgroundTask.m */,
 				FD29598C2A43BC0B00888A17 /* Version.swift */,
+				FD428B1C2B4B6FDC006D0888 /* UIApplicationState+Utilities.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -3679,7 +3684,8 @@
 				FD778B6329B189FF001BAC6B /* _014_GenerateInitialUserConfigDumps.swift */,
 				FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */,
 				FDFE75B02ABD2D2400655640 /* _016_MakeBrokenProfileTimestampsNullable.swift */,
-				7B5233C5290636D700F8F375 /* _017_DisappearingMessagesConfiguration.swift */,
+				FD428B222B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift */,
+				7B5233C5290636D700F8F375 /* _018_DisappearingMessagesConfiguration.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -4578,7 +4584,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C3D9E3A4256763DE0040E4F3 /* AppContext.h in Headers */,
 				C3D9E38A256760390040E4F3 /* OWSFileSystem.h in Headers */,
 				C3D9E379256760340040E4F3 /* MIMETypeUtil.h in Headers */,
 				C3D9E50E25677A510040E4F3 /* DataSource.h in Headers */,
@@ -4599,7 +4604,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				C3C2A6F425539DE700C340D1 /* SessionMessagingKit.h in Headers */,
-				C32C5C46256DCBB2003C73A2 /* AppReadiness.h in Headers */,
 				B8856D72256F1421001CE70E /* OWSWindowManager.h in Headers */,
 				B8856CF7256F105E001CE70E /* OWSAudioPlayer.h in Headers */,
 			);
@@ -5843,10 +5847,10 @@
 				FDE658A129418C7900A33BC1 /* CryptoKit+Utilities.swift in Sources */,
 				FDFD645927F26C6800808CA1 /* Array+Utilities.swift in Sources */,
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
+				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
 				C32C5D83256DD5B6003C73A2 /* SSKKeychainStorage.swift in Sources */,
 				FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */,
 				FDF8488329405A12007DCAE5 /* BatchResponse.swift in Sources */,
-				C3D9E39B256763C20040E4F3 /* AppContext.m in Sources */,
 				FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */,
 				C3BBE0A82554D4DE0050F1E3 /* JSON.swift in Sources */,
 				FD17D7C127F5200100122BE0 /* TypedTableDefinition.swift in Sources */,
@@ -5908,6 +5912,7 @@
 				FD848B9A28442CE6000E298B /* StorageError.swift in Sources */,
 				FD17D7B827F51ECA00122BE0 /* Migration.swift in Sources */,
 				FD7728982849E8110018502F /* UITableView+ReusableView.swift in Sources */,
+				FD428B1B2B4B6098006D0888 /* Notifications+Lifecycle.swift in Sources */,
 				7B0EFDEE274F598600FFAAE7 /* TimestampUtils.swift in Sources */,
 				FDAED05C2A7C6CE600091B25 /* MigrationRequirement.swift in Sources */,
 				FD52090028AF6153006098F6 /* OWSBackgroundTask.m in Sources */,
@@ -5920,8 +5925,10 @@
 				FDF8488629405A61007DCAE5 /* Request.swift in Sources */,
 				FD23CE302A67B8820000B97C /* Caches.swift in Sources */,
 				FD17D7A127F40D2500122BE0 /* Storage.swift in Sources */,
+				FD428B1D2B4B6FDC006D0888 /* UIApplicationState+Utilities.swift in Sources */,
 				FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */,
 				FD5D201E27B0D87C00FEA984 /* SessionId.swift in Sources */,
+				FD428B212B4B75EA006D0888 /* Singleton.swift in Sources */,
 				C32C5A24256DB7DB003C73A2 /* SNUserDefaults.swift in Sources */,
 				FD8ECF922938552800C0D1BB /* Threading.swift in Sources */,
 				B8856D7B256F14F4001CE70E /* UIView+OWS.m in Sources */,
@@ -6005,6 +6012,7 @@
 				FD848B9628422A2A000E298B /* MessageViewModel.swift in Sources */,
 				FDF0B7472804F0CE004C14C5 /* DisappearingMessagesJob.swift in Sources */,
 				FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */,
+				FD428B232B4B9969006D0888 /* _017_RebuildFTSIfNeeded_2_4_5.swift in Sources */,
 				FD09797527FAB64300936362 /* ProfileManager.swift in Sources */,
 				FD245C57285065F100B966DD /* Poller.swift in Sources */,
 				7B7AD41F2A5512CA00469FB1 /* GetExpirationJob.swift in Sources */,
@@ -6061,6 +6069,7 @@
 				FDF8488829405A9A007DCAE5 /* SOGSBatchRequest.swift in Sources */,
 				FD245C662850665900B966DD /* OpenGroupAPI.swift in Sources */,
 				FD245C5B2850660500B966DD /* ReadReceipt.swift in Sources */,
+				FD428B1F2B4B758B006D0888 /* AppReadiness.swift in Sources */,
 				B8F5F60325EDE16F003BF8D4 /* DataExtractionNotification.swift in Sources */,
 				C3A71D1E25589AC30043A11F /* WebSocketProto.swift in Sources */,
 				C3C2A7852553AAF300C340D1 /* SessionProtos.pb.swift in Sources */,
@@ -6094,7 +6103,7 @@
 				FD23CE222A661D000000B97C /* OpenGroupAPI+Crypto.swift in Sources */,
 				FD245C652850665400B966DD /* ClosedGroupControlMessage.swift in Sources */,
 				FDC4387827B5C35400C60D73 /* SendMessageRequest.swift in Sources */,
-				7B5233C6290636D700F8F375 /* _017_DisappearingMessagesConfiguration.swift in Sources */,
+				7B5233C6290636D700F8F375 /* _018_DisappearingMessagesConfiguration.swift in Sources */,
 				FD5C72FD284F0EC90029977D /* MessageReceiver+ExpirationTimers.swift in Sources */,
 				C32C5A88256DBCF9003C73A2 /* MessageReceiver+ClosedGroups.swift in Sources */,
 				B8D0A25925E367AC00C1835E /* Notification+MessageReceiver.swift in Sources */,
@@ -6134,7 +6143,6 @@
 				FD245C642850664F00B966DD /* Threading.swift in Sources */,
 				FD848B8D283E0B26000E298B /* MessageInputTypes.swift in Sources */,
 				FDFE75B12ABD2D2400655640 /* _016_MakeBrokenProfileTimestampsNullable.swift in Sources */,
-				C32C5C3D256DCBAF003C73A2 /* AppReadiness.m in Sources */,
 				FD09799B27FFC82D00936362 /* Quote.swift in Sources */,
 				FD245C6D285066A400B966DD /* NotifyPushServerJob.swift in Sources */,
 				C3C2A74425539EB700C340D1 /* Message.swift in Sources */,
@@ -6682,7 +6690,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 428;
+				CURRENT_PROJECT_VERSION = 429;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6706,7 +6714,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.ShareExtension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6754,7 +6762,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 428;
+				CURRENT_PROJECT_VERSION = 429;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -6783,7 +6791,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.ShareExtension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6819,7 +6827,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 428;
+				CURRENT_PROJECT_VERSION = 429;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -6842,7 +6850,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.NotificationServiceExtension";
@@ -6893,7 +6901,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 428;
+				CURRENT_PROJECT_VERSION = 429;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -6921,7 +6929,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger.NotificationServiceExtension";
@@ -7853,7 +7861,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 428;
+				CURRENT_PROJECT_VERSION = 429;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7891,7 +7899,7 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				OTHER_LDFLAGS = "$(inherited)";
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
@@ -7924,7 +7932,7 @@
 				CODE_SIGN_ENTITLEMENTS = Session/Meta/Signal.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 428;
+				CURRENT_PROJECT_VERSION = 429;
 				DEVELOPMENT_TEAM = SUQ8J2PCT7;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7962,7 +7970,7 @@
 					"$(SRCROOT)",
 				);
 				LLVM_LTO = NO;
-				MARKETING_VERSION = 2.4.4;
+				MARKETING_VERSION = 2.4.5;
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.loki-project.loki-messenger";
 				PRODUCT_NAME = Session;
