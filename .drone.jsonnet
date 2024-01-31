@@ -71,6 +71,20 @@ local update_cocoapods_cache = {
 
 
 [
+  // Machine info
+  {
+    kind: 'pipeline',
+    type: 'exec',
+    name: 'Machine Info',
+    platform: { os: 'darwin', arch: 'amd64' },
+    steps: [
+      name: 'Print info',
+      commands: [
+        'xcodebuild -version',
+        'LANG=en_US.UTF-8 pod --version'
+      ]
+    ],
+  },
   // Unit tests
   {
     kind: 'pipeline',
