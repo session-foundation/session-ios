@@ -112,6 +112,20 @@ extension View {
             }
         }
     }
+    
+    public func hideListRowSeparator() -> some View {
+        if #available(iOS 15.0, *) {
+            return listRowSeparator(.hidden)
+        } else {
+            return onAppear {
+                UITableView.appearance().separatorStyle = .none
+            }
+        }
+    }
+    
+//    public func swipeActions() -> some View {
+//
+//    }
 }
 
 extension Binding {
