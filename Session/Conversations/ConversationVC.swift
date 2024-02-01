@@ -289,8 +289,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         let text: String = viewModel.threadData.emptyStateText
         let result: UILabel = UILabel()
         result.isAccessibilityElement = true
-        result.accessibilityIdentifier = "Empty state label"
-        result.accessibilityLabel = "Empty state label"
+        result.accessibilityIdentifier = "Empty conversation"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.attributedText = NSAttributedString(string: text)

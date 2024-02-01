@@ -329,17 +329,33 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 profile: memberInfo.profile,
                                 profileIcon: memberInfo.value.profileIcon
                             ),
-                            title: (
-                                memberInfo.profile?.displayName() ??
-                                Profile.truncated(id: memberInfo.profileId, truncating: .middle)
+                            title: SessionCell.TextInfo(
+                                (
+                                    memberInfo.profile?.displayName() ??
+                                    Profile.truncated(id: memberInfo.profileId, truncating: .middle)
+                                ),
+                                font: .title,
+                                accessibility: Accessibility(
+                                    identifier: "Contact"
+                                )
                             ),
-                            subtitle: (isUpdatedGroup ? memberInfo.value.statusDescription : nil),
+                            subtitle: (!isUpdatedGroup ? nil : SessionCell.TextInfo(
+                                memberInfo.value.statusDescription,
+                                font: .subtitle,
+                                accessibility: Accessibility(
+                                    identifier: "Status"
+                                )
+                            )),
                             trailingAccessory: {
                                 switch (memberInfo.value.role, memberInfo.value.roleStatus) {
                                     case (.admin, _), (.moderator, _): return nil
                                     case (.standard, .failed), (.standard, .sending):
                                         return .highlightingBackgroundLabel(
-                                            title: "context_menu_resend".localized()
+                                            title: "context_menu_resend".localized(),
+                                            accessibility: Accessibility(
+                                                identifier: "Resend invite",
+                                                label: "Resend invite"
+                                            )
                                         )
                                     
                                     // Intentionally including the 'pending' state in here as we want admins to

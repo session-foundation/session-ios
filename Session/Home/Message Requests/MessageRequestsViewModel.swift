@@ -212,7 +212,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                             ),
                             confirmTitle: "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON".localized(),
                             confirmAccessibility: Accessibility(
-                                identifier: "Clear"
+                                identifier: "Clear all"
                             ),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text,

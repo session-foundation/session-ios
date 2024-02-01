@@ -573,7 +573,7 @@ public extension UIContextualAction {
                                     body: .attributedText(confirmationModalExplanation),
                                     confirmTitle: "TXT_DELETE_TITLE".localized(),
                                     confirmAccessibility: Accessibility(
-                                        identifier: "Confirm delete"
+                                        identifier: "Delete"
                                     ),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,

@@ -18,6 +18,7 @@ public extension SessionCell {
         let textAlignment: NSTextAlignment
         let editingPlaceholder: String?
         let interaction: Interaction
+        let accessibility: Accessibility?
         let extraViewGenerator: (() -> UIView)?
         
         private let fontStyle: FontStyle
@@ -29,6 +30,7 @@ public extension SessionCell {
             alignment: NSTextAlignment = .left,
             editingPlaceholder: String? = nil,
             interaction: Interaction = .none,
+            accessibility: Accessibility? = nil,
             extraViewGenerator: (() -> UIView)? = nil
         ) {
             self.text = text
@@ -36,6 +38,7 @@ public extension SessionCell {
             self.textAlignment = alignment
             self.editingPlaceholder = editingPlaceholder
             self.interaction = interaction
+            self.accessibility = accessibility
             self.extraViewGenerator = extraViewGenerator
         }
         
@@ -47,6 +50,7 @@ public extension SessionCell {
             textAlignment.hash(into: &hasher)
             interaction.hash(into: &hasher)
             editingPlaceholder.hash(into: &hasher)
+            accessibility.hash(into: &hasher)
         }
         
         public static func == (lhs: TextInfo, rhs: TextInfo) -> Bool {
@@ -55,7 +59,8 @@ public extension SessionCell {
                 lhs.fontStyle == rhs.fontStyle &&
                 lhs.textAlignment == rhs.textAlignment &&
                 lhs.interaction == rhs.interaction &&
-                lhs.editingPlaceholder == rhs.editingPlaceholder
+                lhs.editingPlaceholder == rhs.editingPlaceholder &&
+                lhs.accessibility == rhs.accessibility
             )
         }
     }

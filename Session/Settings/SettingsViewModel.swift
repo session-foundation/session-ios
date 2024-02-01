@@ -526,14 +526,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 icon: .rightPlus,
                 style: .circular,
                 accessibility: Accessibility(
-                    identifier: "Image picker",
-                    label: "Image picker"
+                    identifier: "Upload image",
+                    label: "Upload image"
                 ),
                 onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
             ),
             confirmTitle: "update_profile_modal_save".localized(),
+            confirmAccessibility: Accessibility(
+                identifier: "Save"
+            ),
             confirmEnabled: false,
             cancelTitle: "update_profile_modal_remove".localized(),
+            cancelAccessibility: Accessibility(
+                identifier: "Remove"
+            ),
             cancelEnabled: (existingImageData != nil),
             hasCloseButton: true,
             dismissOnConfirm: false,

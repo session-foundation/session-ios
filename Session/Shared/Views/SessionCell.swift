@@ -321,7 +321,7 @@ public class SessionCell: UITableViewCell {
         subtitleExtraView = info.subtitle?.extraViewGenerator?()
         accessibilityIdentifier = info.accessibility?.identifier
         accessibilityLabel = info.accessibility?.label
-        isAccessibilityElement = true
+        isAccessibilityElement = (info.accessibility != nil)
         originalInputValue = info.title?.text
         
         // Convenience Flags
@@ -342,13 +342,15 @@ public class SessionCell: UITableViewCell {
         titleLabel.text = info.title?.text
         titleLabel.themeTextColor = info.styling.tintColor
         titleLabel.textAlignment = (info.title?.textAlignment ?? .left)
+        titleLabel.accessibilityIdentifier = info.title?.accessibility?.identifier
+        titleLabel.accessibilityLabel = info.title?.accessibility?.label
         titleLabel.isHidden = (info.title == nil)
         titleTextField.text = info.title?.text
         titleTextField.textAlignment = (info.title?.textAlignment ?? .left)
         titleTextField.placeholder = info.title?.editingPlaceholder
         titleTextField.isHidden = (info.title == nil)
-        titleTextField.accessibilityIdentifier = info.accessibility?.identifier
-        titleTextField.accessibilityLabel = info.accessibility?.label
+        titleTextField.accessibilityIdentifier = info.title?.accessibility?.identifier
+        titleTextField.accessibilityLabel = info.title?.accessibility?.label
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
         subtitleLabel.attributedText = info.subtitle.map { subtitle -> NSAttributedString? in
@@ -356,6 +358,8 @@ public class SessionCell: UITableViewCell {
         }
         subtitleLabel.themeTextColor = info.styling.subtitleTintColor
         subtitleLabel.textAlignment = (info.subtitle?.textAlignment ?? .left)
+        subtitleLabel.accessibilityIdentifier = info.subtitle?.accessibility?.identifier
+        subtitleLabel.accessibilityLabel = info.subtitle?.accessibility?.label
         subtitleLabel.isHidden = (info.subtitle == nil)
         trailingAccessoryView.update(
             with: info.trailingAccessory,
