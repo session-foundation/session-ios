@@ -67,8 +67,7 @@ public extension UIViewController {
     
     static func createOWSBackButton(target: Any?, selector: Selector) -> UIBarButtonItem {
         let backButton: UIButton = UIButton(type: .custom)
-        
-        let isRTL: Bool = CurrentAppContext().isRTL
+        let isRTL: Bool = (Singleton.hasAppContext && Singleton.appContext.isRTL)
 
         // Nudge closer to the left edge to match default back button item.
         let extraLeftPadding: CGFloat = (isRTL ? 0 : -8)

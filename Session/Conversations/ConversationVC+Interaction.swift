@@ -849,7 +849,8 @@ extension ConversationVC:
 
     func handleItemTapped(
         _ cellViewModel: MessageViewModel,
-        gestureRecognizer: UITapGestureRecognizer,
+        cell: UITableViewCell,
+        cellLocation: CGPoint,
         using dependencies: Dependencies = Dependencies()
     ) {
         guard cellViewModel.variant != .standardOutgoing || (cellViewModel.state != .failed && cellViewModel.state != .failedToSync) else {
@@ -898,24 +899,33 @@ extension ConversationVC:
             return
         }
         
+        /// Takes the `cell` and a `targetView` and returns `true` if the user tapped a link in the cell body text instead
+        /// of the `targetView`
+        func handleLinkTapIfNeeded(cell: UITableViewCell, targetView: UIView?) -> Bool {
+            let locationInTargetView: CGPoint = cell.convert(cellLocation, to: targetView)
+            
+            guard
+                let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell,
+                targetView?.bounds.contains(locationInTargetView) != true,
+                visibleCell.bodyTappableLabel?.containsLinks == true
+            else { return false }
+            
+            let tappableLabelPoint: CGPoint = cell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
+            visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+            return true
+        }
+        
         switch cellViewModel.cellType {
             case .voiceMessage: viewModel.playOrPauseAudio(for: cellViewModel)
             
             case .mediaMessage:
                 guard
-                    let sectionIndex: Int = self.viewModel.interactionData
-                        .firstIndex(where: { $0.model == .messages }),
-                    let messageIndex: Int = self.viewModel.interactionData[sectionIndex]
-                        .elements
-                        .firstIndex(where: { $0.id == cellViewModel.id }),
-                    let cell = tableView.cellForRow(at: IndexPath(row: messageIndex, section: sectionIndex)) as? VisibleMessageCell,
-                    let albumView: MediaAlbumView = cell.albumView
+                    let albumView: MediaAlbumView = (cell as? VisibleMessageCell)?.albumView,
+                    !handleLinkTapIfNeeded(cell: cell, targetView: albumView)
                 else { return }
                 
-                let locationInCell: CGPoint = gestureRecognizer.location(in: cell)
-                
                 // Figure out which of the media views was tapped
-                let locationInAlbumView: CGPoint = cell.convert(locationInCell, to: albumView)
+                let locationInAlbumView: CGPoint = cell.convert(cellLocation, to: albumView)
                 guard let mediaView = albumView.mediaView(forLocation: locationInAlbumView) else { return }
                 
                 switch mediaView.attachment.state {
@@ -993,6 +1003,7 @@ extension ConversationVC:
                 
             case .audio:
                 guard
+                    !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
                     let originalFilePath: String = attachment.originalFilePath
                 else { return }
@@ -1004,6 +1015,7 @@ extension ConversationVC:
                 
             case .genericAttachment:
                 guard
+                    !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
                     let originalFilePath: String = attachment.originalFilePath
                 else { return }
@@ -1036,26 +1048,55 @@ extension ConversationVC:
                 navigationController?.present(shareVC, animated: true, completion: nil)
                 
             case .textOnlyMessage:
-                if let quote: Quote = cellViewModel.quote {
-                    // Scroll to the original quoted message
-                    let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Storage.shared.read { db in
-                        try quote.originalInteraction
-                            .select(.id, .timestampMs)
-                            .asRequest(of: Interaction.TimestampInfo.self)
-                            .fetchOne(db)
-                    }
+                guard let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell else { return }
+                
+                let quotePoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.quoteView)
+                let linkPreviewPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.linkPreviewView?.previewView)
+                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
+                let containsLinks: Bool = (
+                    // If there is only a single link and it matches the LinkPreview then consider this _just_ a
+                    // LinkPreview
+                    visibleCell.bodyTappableLabel?.containsLinks == true && (
+                        (visibleCell.bodyTappableLabel?.links.count ?? 0) > 1 ||
+                        visibleCell.bodyTappableLabel?.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                    )
+                )
+                let quoteViewContainsTouch: Bool = (visibleCell.quoteView?.bounds.contains(quotePoint) == true)
+                let linkPreviewViewContainsTouch: Bool = (visibleCell.linkPreviewView?.previewView.bounds.contains(linkPreviewPoint) == true)
+                
+                switch (containsLinks, quoteViewContainsTouch, linkPreviewViewContainsTouch, cellViewModel.quote, cellViewModel.linkPreview) {
+                    // If the message contains both links and a quote, and the user tapped on the quote; OR the
+                    // message only contained a quote, then scroll to the quote
+                    case (true, true, _, .some(let quote), _), (false, _, _, .some(let quote), _):
+                        let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Storage.shared.read { db in
+                            try quote.originalInteraction
+                                .select(.id, .timestampMs)
+                                .asRequest(of: Interaction.TimestampInfo.self)
+                                .fetchOne(db)
+                        }
+                        
+                        guard let interactionInfo: Interaction.TimestampInfo = maybeOriginalInteractionInfo else {
+                            return
+                        }
+                        
+                        self.scrollToInteractionIfNeeded(
+                            with: interactionInfo,
+                            focusBehaviour: .highlight,
+                            originalIndexPath: self.tableView.indexPath(for: cell)
+                        )
                     
-                    guard let interactionInfo: Interaction.TimestampInfo = maybeOriginalInteractionInfo else {
-                        return
-                    }
+                    // If the message contains both links and a LinkPreview, and the user tapped on
+                    // the LinkPreview; OR the message only contained a LinkPreview, then open the link
+                    case (true, _, true, _, .some(let linkPreview)), (false, _, _, _, .some(let linkPreview)):
+                        switch linkPreview.variant {
+                            case .standard: openUrl(linkPreview.url)
+                            case .openGroupInvitation: joinOpenGroup(name: linkPreview.title, url: linkPreview.url)
+                        }
                     
-                    self.scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
-                }
-                else if let linkPreview: LinkPreview = cellViewModel.linkPreview {
-                    switch linkPreview.variant {
-                        case .standard: openUrl(linkPreview.url)
-                        case .openGroupInvitation: joinOpenGroup(name: linkPreview.title, url: linkPreview.url)
-                    }
+                    // If the message contained links then interact with them directly
+                    case (true, _, _, _, _): visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+                        
+                    default: break
                 }
                 
             default: break
@@ -2303,7 +2344,7 @@ extension ConversationVC:
         self.viewModel.stopAudio()
         
         // Create URL
-        let directory: String = OWSTemporaryDirectory()
+        let directory: String = Singleton.appContext.temporaryDirectory
         let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a"
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
@@ -2339,15 +2380,28 @@ extension ConversationVC:
             self?.endVoiceMessageRecording(using: dependencies)
         })
         
-        // Prepare audio recorder
-        guard audioRecorder.prepareToRecord() else {
-            SNLog("Couldn't prepare audio recorder.")
-            return cancelVoiceMessageRecording()
-        }
+        // Prepare audio recorder and start recording
+        let successfullyPrepared: Bool = audioRecorder.prepareToRecord()
+        let startedRecording: Bool = (successfullyPrepared && audioRecorder.record())
         
-        // Start recording
-        guard audioRecorder.record() else {
-            SNLog("Couldn't record audio.")
+        
+        guard successfullyPrepared && startedRecording else {
+            SNLog(successfullyPrepared ? "Couldn't record audio." : "Couldn't prepare audio recorder.")
+            
+            // Dispatch to the next run loop to avoid
+            DispatchQueue.main.async {
+                let modal: ConfirmationModal = ConfirmationModal(
+                    targetView: self.view,
+                    info: ConfirmationModal.Info(
+                        title: "ALERT_ERROR_TITLE".localized(),
+                        body: .text("VOICE_MESSAGE_FAILED_TO_START_MESSAGE".localized()),
+                        cancelTitle: "BUTTON_OK".localized(),
+                        cancelStyle: .alert_text
+                    )
+                )
+                self.present(modal, animated: true)
+            }
+            
             return cancelVoiceMessageRecording()
         }
     }

@@ -264,7 +264,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // Note: This is a hack to ensure `isRTL` is initially gets run on the main thread so the value
         // is cached (it gets called on background threads and if it hasn't cached the value then it can
         // cause odd performance issues since it accesses UIKit)
-        _ = CurrentAppContext().isRTL
+        if Singleton.hasAppContext { _ = Singleton.appContext.isRTL }
         
         // Preparation
         SessionApp.homeViewController.mutate { $0 = self }

@@ -6,7 +6,7 @@
 #import "OWSMath.h"
 
 #import <PureLayout/PureLayout.h>
-#import <SessionUtilitiesKit/AppContext.h>
+#import <SessionUtilitiesKit/SessionUtilitiesKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -390,7 +390,7 @@ CGFloat ScaleFromIPhone5(CGFloat iPhone5Value)
 
 - (NSTextAlignment)textAlignmentUnnatural
 {
-    return (CurrentAppContext().isRTL ? NSTextAlignmentLeft : NSTextAlignmentRight);
+    return ([OWSCurrentAppContext isRTL] ? NSTextAlignmentLeft : NSTextAlignmentRight);
 }
 
 - (void)setHLayoutMargins:(CGFloat)value

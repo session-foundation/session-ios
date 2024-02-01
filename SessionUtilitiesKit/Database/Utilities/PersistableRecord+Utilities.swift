@@ -46,6 +46,14 @@ public extension MutablePersistableRecord where Self: TableRecord & EncodableRec
     }
 }
 
+public extension MutablePersistableRecord where Self: FetchableRecord {
+    @discardableResult func upserted(_ db: Database) throws -> Self {
+        var mutableSelf: Self = self
+        try mutableSelf.upsert(db)
+        return mutableSelf
+    }
+}
+
 // MARK: - MigrationSafeMutableRecord
 
 private class MigrationSafeRecord<T: PersistableRecord & Encodable>: MigrationSafeMutableRecord<T> {}

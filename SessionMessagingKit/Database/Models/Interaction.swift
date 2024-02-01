@@ -955,7 +955,7 @@ public extension Interaction {
                     !attachmentDescription.isEmpty,
                     !body.isEmpty
                 {
-                    if CurrentAppContext().isRTL {
+                    if Singleton.hasAppContext && Singleton.appContext.isRTL {
                         return "\(body): \(attachmentDescription)"
                     }
                     
