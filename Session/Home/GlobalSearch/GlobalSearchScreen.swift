@@ -365,7 +365,7 @@ struct SearchResultCell: View {
                 // with the term so we use the regex below to ensure we only highlight those cases)
                 normalizedSnippet
                     .ranges(
-                        of: (CurrentAppContext().isRTL ?
+                        of: (Singleton.appContext.isRTL ?
                              "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
                              "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
                         ),
