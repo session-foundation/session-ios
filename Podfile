@@ -27,7 +27,6 @@ abstract_target 'GlobalDependencies' do
     pod 'NVActivityIndicatorView'
     pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
     pod 'DifferenceKit'
-    pod 'SwipeActions'
     
     target 'SessionTests' do
       inherit! :complete

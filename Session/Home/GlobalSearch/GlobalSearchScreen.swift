@@ -8,7 +8,6 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 import SignalCoreKit
-import SwipeActions
 
 enum SearchSection: Int, Differentiable {
     case noResults
@@ -32,7 +31,6 @@ struct GlobalSearchScreen: View {
     @State private var readConnection: Atomic<Database?> = Atomic(nil)
     @State private var termForCurrentSearchResultSet: String = ""
     @State private var lastSearchText: String?
-    @State private var swipeState: SwipeActions.SwipeState = .untouched
     
     fileprivate static var defaultSearchResults: [SectionModel] = {
         let result: [SessionThreadViewModel]? = Storage.shared.read { db -> [SessionThreadViewModel]? in
@@ -189,50 +187,6 @@ struct GlobalSearchScreen: View {
                                                     }()
                                                 )
                                             }
-                                            .addSwipeAction(
-                                                edge: .trailing,
-                                                state: $swipeState
-                                            ) {
-                                                Button {
-                                                    
-                                                } label: {
-                                                    VStack {
-                                                        Image("icon_bin")
-                                                            .renderingMode(.template)
-                                                            .foregroundColor(themeColor: .textPrimary)
-                                                        Text("TXT_DELETE_TITLE".localized())
-                                                            .foregroundColor(themeColor: .textPrimary)
-                                                    }
-                                                }
-                                                .frame(width: 60)
-                                                .frame(maxHeight: .infinity)
-                                                .contentShape(Rectangle())
-                                                .backgroundColor(themeColor: .danger)
-                                            }
-                                            
-                                            
-                                            Text("Text")
-                                                .addSwipeAction(
-                                                    edge: .trailing,
-                                                    state: $swipeState
-                                                ) {
-                                                    Button {
-                                                        
-                                                    } label: {
-                                                        VStack {
-                                                            Image("icon_bin")
-                                                                .renderingMode(.template)
-                                                                .foregroundColor(themeColor: .textPrimary)
-                                                            Text("TXT_DELETE_TITLE".localized())
-                                                                .font(.system(size: Values.mediumFontSize))
-                                                                .foregroundColor(themeColor: .textPrimary)
-                                                        }
-                                                    }
-                                                    .frame(width: 100)
-                                                    .frame(maxHeight: .infinity)
-                                                    .contentShape(Rectangle())
-                                                    .backgroundColor(themeColor: .danger)
-                                                }
                                         }
                                     }
                                 }
@@ -361,102 +315,102 @@ struct SearchResultCell: View {
     var action: () -> Void
     
     var body: some View {
-        HStack(
-            alignment: .center,
-            spacing: Values.mediumSpacing
-        ) {
-            let size: ProfilePictureView.Size = .list
-            
-            ProfilePictureSwiftUI(
-                size: size,
-                publicKey: viewModel.threadId,
-                threadVariant: viewModel.threadVariant,
-                customImageData: viewModel.openGroupProfilePictureData,
-                profile: viewModel.profile,
-                additionalProfile: viewModel.additionalProfile
-            )
-            .frame(
-                width: size.viewSize,
-                height: size.viewSize,
-                alignment: .topLeading
-            )
-            .padding(.vertical, Values.smallSpacing)
-            
-            VStack(
-                alignment: .leading,
-                spacing: Values.verySmallSpacing
+        Button {
+            action()
+        } label: {
+            HStack(
+                alignment: .center,
+                spacing: Values.mediumSpacing
             ) {
-                HStack {
-                    Text(viewModel.displayName)
-                        .bold()
-                        .font(.system(size: Values.mediumFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
+                let size: ProfilePictureView.Size = .list
+                
+                ProfilePictureSwiftUI(
+                    size: size,
+                    publicKey: viewModel.threadId,
+                    threadVariant: viewModel.threadVariant,
+                    customImageData: viewModel.openGroupProfilePictureData,
+                    profile: viewModel.profile,
+                    additionalProfile: viewModel.additionalProfile
+                )
+                .frame(
+                    width: size.viewSize,
+                    height: size.viewSize,
+                    alignment: .topLeading
+                )
+                .padding(.vertical, Values.smallSpacing)
+                
+                VStack(
+                    alignment: .leading,
+                    spacing: Values.verySmallSpacing
+                ) {
+                    HStack {
+                        Text(viewModel.displayName)
+                            .bold()
+                            .font(.system(size: Values.mediumFontSize))
+                            .foregroundColor(themeColor: .textPrimary)
+                        
+                        Spacer()
+                        
+                        if searchSection == .messages {
+                            Text(viewModel.lastInteractionDate.formattedForDisplay)
+                                .font(.system(size: Values.smallFontSize))
+                                .foregroundColor(themeColor: .textSecondary)
+                                .opacity(Values.lowOpacity)
+                        }
+                    }
                     
-                    Spacer()
-                    
-                    if searchSection == .messages {
-                        Text(viewModel.lastInteractionDate.formattedForDisplay)
-                            .font(.system(size: Values.smallFontSize))
-                            .foregroundColor(themeColor: .textSecondary)
-                            .opacity(Values.lowOpacity)
+                    if let textColor: UIColor = ThemeManager.currentTheme.color(for: .textPrimary) {
+                        let maybeSnippet: NSAttributedString? = {
+                            switch searchSection {
+                                case .noResults, .defaultContacts:
+                                    return nil
+                                case .contactsAndGroups:
+                                    switch viewModel.threadVariant {
+                                        case .contact, .community: return nil
+                                        case .legacyGroup, .group:
+                                            return self.getHighlightedSnippet(
+                                                content: (viewModel.threadMemberNames ?? ""),
+                                                currentUserPublicKey: viewModel.currentUserPublicKey,
+                                                currentUserBlinded15PublicKey: viewModel.currentUserBlinded15PublicKey,
+                                                currentUserBlinded25PublicKey: viewModel.currentUserBlinded25PublicKey,
+                                                searchText: searchText.lowercased(),
+                                                fontSize: Values.smallFontSize,
+                                                textColor: textColor
+                                            )
+                                    }
+                                case .messages:
+                                    return self.getHighlightedSnippet(
+                                        content: Interaction.previewText(
+                                            variant: (viewModel.interactionVariant ?? .standardIncoming),
+                                            body: viewModel.interactionBody,
+                                            authorDisplayName: viewModel.authorName(for: .contact),
+                                            attachmentDescriptionInfo: viewModel.interactionAttachmentDescriptionInfo,
+                                            attachmentCount: viewModel.interactionAttachmentCount,
+                                            isOpenGroupInvitation: (viewModel.interactionIsOpenGroupInvitation == true)
+                                        ),
+                                        authorName: (viewModel.authorId != viewModel.currentUserPublicKey ?
+                                            viewModel.authorName(for: .contact) :
+                                            nil
+                                        ),
+                                        currentUserPublicKey: viewModel.currentUserPublicKey,
+                                        currentUserBlinded15PublicKey: viewModel.currentUserBlinded15PublicKey,
+                                        currentUserBlinded25PublicKey: viewModel.currentUserBlinded25PublicKey,
+                                        searchText: searchText.lowercased(),
+                                        fontSize: Values.smallFontSize,
+                                        textColor: textColor
+                                    )
+                                }
+                        }()
+                        
+                        if let snippet = maybeSnippet {
+                            AttributedText(snippet).lineLimit(1)
+                        }
                     }
                 }
                 
-                if let textColor: UIColor = ThemeManager.currentTheme.color(for: .textPrimary) {
-                    let maybeSnippet: NSAttributedString? = {
-                        switch searchSection {
-                            case .noResults, .defaultContacts:
-                                return nil
-                            case .contactsAndGroups:
-                                switch viewModel.threadVariant {
-                                    case .contact, .community: return nil
-                                    case .legacyGroup, .group:
-                                        return self.getHighlightedSnippet(
-                                            content: (viewModel.threadMemberNames ?? ""),
-                                            currentUserPublicKey: viewModel.currentUserPublicKey,
-                                            currentUserBlinded15PublicKey: viewModel.currentUserBlinded15PublicKey,
-                                            currentUserBlinded25PublicKey: viewModel.currentUserBlinded25PublicKey,
-                                            searchText: searchText.lowercased(),
-                                            fontSize: Values.smallFontSize,
-                                            textColor: textColor
-                                        )
-                                }
-                            case .messages:
-                                return self.getHighlightedSnippet(
-                                    content: Interaction.previewText(
-                                        variant: (viewModel.interactionVariant ?? .standardIncoming),
-                                        body: viewModel.interactionBody,
-                                        authorDisplayName: viewModel.authorName(for: .contact),
-                                        attachmentDescriptionInfo: viewModel.interactionAttachmentDescriptionInfo,
-                                        attachmentCount: viewModel.interactionAttachmentCount,
-                                        isOpenGroupInvitation: (viewModel.interactionIsOpenGroupInvitation == true)
-                                    ),
-                                    authorName: (viewModel.authorId != viewModel.currentUserPublicKey ?
-                                        viewModel.authorName(for: .contact) :
-                                        nil
-                                    ),
-                                    currentUserPublicKey: viewModel.currentUserPublicKey,
-                                    currentUserBlinded15PublicKey: viewModel.currentUserBlinded15PublicKey,
-                                    currentUserBlinded25PublicKey: viewModel.currentUserBlinded25PublicKey,
-                                    searchText: searchText.lowercased(),
-                                    fontSize: Values.smallFontSize,
-                                    textColor: textColor
-                                )
-                            }
-                    }()
-                    
-                    if let snippet = maybeSnippet {
-                        AttributedText(snippet).lineLimit(1)
-                    }
-                }
+                Spacer(minLength: 0)
             }
-            
-            Spacer(minLength: 0)
-        }
-        .padding(.leading, Values.mediumSpacing)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            action()
+            .padding(.leading, Values.mediumSpacing)
         }
     }
     
