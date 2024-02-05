@@ -31,7 +31,6 @@ struct GlobalSearchScreen: View {
     @State private var readConnection: Atomic<Database?> = Atomic(nil)
     @State private var termForCurrentSearchResultSet: String = ""
     @State private var lastSearchText: String?
-    @State private var isLoading = false
     
     fileprivate static var defaultSearchResults: [SectionModel] = {
         let result: [SessionThreadViewModel]? = Storage.shared.read { db -> [SessionThreadViewModel]? in
@@ -98,28 +97,59 @@ struct GlobalSearchScreen: View {
             ) {
                 ForEach(0..<searchResultSet.count, id: \.self) { sectionIndex in
                     let section = searchResultSet[sectionIndex]
-                    let sectionTitle: String = {
-                        switch section.model {
+                    switch section.model {
                         case .noResults:
-                            return ""
-                        case .contactsAndGroups:
-                            return (section.elements.isEmpty ? "" : "CONVERSATION_SETTINGS_TITLE".localized())
-                        case .messages:
-                            return (section.elements.isEmpty ? "" : "SEARCH_SECTION_MESSAGES".localized())
-                        case .defaultContacts:
-                            return "NEW_CONVERSATION_CONTACTS_SECTION_TITLE".localized()
-                        }
-                    }()
-                    if section.elements.count > 0 {
-                        Section(
-                            header: Text(sectionTitle)
-                                .bold()
-                                .font(.system(size: Values.mediumLargeFontSize))
+                            Text("CONVERSATION_SEARCH_NO_RESULTS".localized())
+                                .font(.system(size: Values.mediumFontSize))
                                 .foregroundColor(themeColor: .textPrimary)
-                                .padding(.horizontal, Values.mediumSpacing + Values.verySmallSpacing)
-                                .padding(.top, Values.verySmallSpacing)
-                        ) {
-                            if section.model == .defaultContacts {
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 150)
+                        case .contactsAndGroups, .messages:
+                            if section.elements.count > 0 {
+                                let sectionTitle: String = section.model == .contactsAndGroups ? "CONVERSATION_SETTINGS_TITLE".localized() : "SEARCH_SECTION_MESSAGES".localized()
+                                Section(
+                                    header: Text(sectionTitle)
+                                        .bold()
+                                        .font(.system(size: Values.mediumLargeFontSize))
+                                        .foregroundColor(themeColor: .textPrimary)
+                                        .padding(.horizontal, Values.mediumSpacing + Values.verySmallSpacing)
+                                        .padding(.top, Values.verySmallSpacing)
+                                ) {
+                                    ForEach(0..<section.elements.count, id: \.self) { rowIndex in
+                                        let rowViewModel = section.elements[rowIndex]
+                                        SearchResultCell(
+                                            searchText: searchText,
+                                            searchSection: section.model,
+                                            viewModel: rowViewModel
+                                        ) {
+                                            show(
+                                                threadId: rowViewModel.threadId,
+                                                threadVariant: rowViewModel.threadVariant,
+                                                focusedInteractionInfo: {
+                                                    guard
+                                                        let interactionId: Int64 = rowViewModel.interactionId,
+                                                        let timestampMs: Int64 = rowViewModel.interactionTimestampMs
+                                                    else { return nil }
+                                                    
+                                                    return Interaction.TimestampInfo(
+                                                        id: interactionId,
+                                                        timestampMs: timestampMs
+                                                    )
+                                                }()
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        case .defaultContacts:
+                            Section(
+                                header: Text("NEW_CONVERSATION_CONTACTS_SECTION_TITLE".localized())
+                                    .bold()
+                                    .font(.system(size: Values.mediumLargeFontSize))
+                                    .foregroundColor(themeColor: .textPrimary)
+                                    .padding(.horizontal, Values.mediumSpacing + Values.verySmallSpacing)
+                                    .padding(.top, Values.verySmallSpacing)
+                            ) {
                                 ForEach(0..<defaultGroupedContacts.count, id: \.self) { groupIndex in
                                     let sectionData = defaultGroupedContacts[groupIndex]
                                     
@@ -160,33 +190,7 @@ struct GlobalSearchScreen: View {
                                         }
                                     }
                                 }
-                            } else {
-                                ForEach(0..<section.elements.count, id: \.self) { rowIndex in
-                                    let rowViewModel = section.elements[rowIndex]
-                                    SearchResultCell(
-                                        searchText: searchText,
-                                        searchSection: section.model,
-                                        viewModel: rowViewModel
-                                    ) {
-                                        show(
-                                            threadId: rowViewModel.threadId,
-                                            threadVariant: rowViewModel.threadVariant,
-                                            focusedInteractionInfo: {
-                                                guard
-                                                    let interactionId: Int64 = rowViewModel.interactionId,
-                                                    let timestampMs: Int64 = rowViewModel.interactionTimestampMs
-                                                else { return nil }
-                                                
-                                                return Interaction.TimestampInfo(
-                                                    id: interactionId,
-                                                    timestampMs: timestampMs
-                                                )
-                                            }()
-                                        )
-                                    }
-                                }
                             }
-                        }
                     }
                 }
             }
@@ -267,7 +271,6 @@ struct GlobalSearchScreen: View {
                         ]
                         .compactMap { $0 }
                         .flatMap { $0 }
-                        self.isLoading = false
                         
                     default: break
                 }
