@@ -44,6 +44,7 @@ PODS:
   - SQLCipher/standard (4.5.3):
     - SQLCipher/common
   - SwiftProtobuf (1.5.0)
+  - SwipeActions (0.3.3)
   - WebRTC-lib (114.0.0)
   - xcbeautify (0.17.0)
   - YapDatabase/SQLCipher (3.1.1):
@@ -127,6 +128,7 @@ DEPENDENCIES:
   - Sodium (from `https://github.com/oxen-io/session-ios-swift-sodium.git`, branch `session-build`)
   - SQLCipher (~> 4.5.3)
   - SwiftProtobuf (~> 1.5.0)
+  - SwipeActions
   - WebRTC-lib
   - xcbeautify
   - YapDatabase/SQLCipher (from `https://github.com/oxen-io/session-ios-yap-database.git`, branch `signal-release`)
@@ -147,6 +149,7 @@ SPEC REPOS:
     - SAMKeychain
     - SQLCipher
     - SwiftProtobuf
+    - SwipeActions
     - WebRTC-lib
     - xcbeautify
 
@@ -200,11 +203,12 @@ SPEC CHECKSUMS:
   Sodium: a7d42cb46e789d2630fa552d35870b416ed055ae
   SQLCipher: 57fa9f863fa4a3ed9dd3c90ace52315db8c0fdca
   SwiftProtobuf: 241400280f912735c1e1b9fe675fdd2c6c4d42e2
+  SwipeActions: 3c35871b408cab23ea67f3946a650356795250d2
   WebRTC-lib: d83df8976fa608b980f1d85796b3de66d60a1953
   xcbeautify: 6e2f57af5c3a86d490376d5758030a8dcc201c1b
   YapDatabase: b418a4baa6906e8028748938f9159807fd039af4
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
 
-PODFILE CHECKSUM: dd814a5a92577bb2a94dac6a1cc482f193721cdf
+PODFILE CHECKSUM: 27f8a988cf382c38e480ea914df9d0899bab1ed9
 
 COCOAPODS: 1.15.0
