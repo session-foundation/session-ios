@@ -340,10 +340,21 @@ struct SearchResultCell: View {
                     alignment: .leading,
                     spacing: Values.verySmallSpacing
                 ) {
-                    Text(viewModel.displayName)
-                        .bold()
-                        .font(.system(size: Values.mediumFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
+                    HStack {
+                        Text(viewModel.displayName)
+                            .bold()
+                            .font(.system(size: Values.mediumFontSize))
+                            .foregroundColor(themeColor: .textPrimary)
+                        
+                        Spacer()
+                        
+                        if searchSection == .messages {
+                            Text(viewModel.lastInteractionDate.formattedForDisplay)
+                                .font(.system(size: Values.smallFontSize))
+                                .foregroundColor(themeColor: .textSecondary)
+                                .opacity(Values.lowOpacity)
+                        }
+                    }
                     
                     if let textColor: UIColor = ThemeManager.currentTheme.color(for: .textPrimary) {
                         let maybeSnippet: NSAttributedString? = {
@@ -396,7 +407,7 @@ struct SearchResultCell: View {
                 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, Values.mediumSpacing)
+            .padding(.leading, Values.mediumSpacing)
         }
     }
     
