@@ -18,6 +18,11 @@ enum SearchSection: Int, Differentiable {
 
 struct GlobalSearchScreen: View {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
+    
+    struct SectionData {
+            var sectionName: String
+            var contacts: [SessionThreadViewModel]
+        }
 
     @EnvironmentObject var host: HostWrapper
     
@@ -29,14 +34,52 @@ struct GlobalSearchScreen: View {
     @State private var isLoading = false
     
     fileprivate static var defaultSearchResults: [SectionModel] = {
-        let result: SessionThreadViewModel? = Storage.shared.read { db -> SessionThreadViewModel? in
+        let result: [SessionThreadViewModel]? = Storage.shared.read { db -> [SessionThreadViewModel]? in
             try SessionThreadViewModel
-                .noteToSelfOnlyQuery(userPublicKey: getUserHexEncodedPublicKey(db))
-                .fetchOne(db)
+                .defaultContactsQuery(userPublicKey: getUserHexEncodedPublicKey(db))
+                .fetchAll(db)
         }
         
-        return [ result.map { ArraySection(model: .defaultContacts, elements: [$0]) } ]
+        return [ result.map { ArraySection(model: .defaultContacts, elements: $0) } ]
             .compactMap { $0 }
+    }()
+    
+    fileprivate var defaultGroupedContacts: [SectionData] = {
+        let contacts = Self.defaultSearchResults[0].elements
+        var groupedContacts: [String: SectionData] = [:]
+        contacts.forEach { contactViewModel in
+            guard !contactViewModel.threadIsNoteToSelf else {
+                groupedContacts[""] = SectionData(
+                    sectionName: "",
+                    contacts: [contactViewModel]
+                )
+                return
+            }
+            
+            let displayName = NSMutableString(string: contactViewModel.displayName)
+            CFStringTransform(displayName, nil, kCFStringTransformToLatin, false)
+            CFStringTransform(displayName, nil, kCFStringTransformStripDiacritics, false)
+                
+            let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
+            let section: String = initialCharacter.capitalized.isSingleAlphabet ?
+                initialCharacter.capitalized :
+                "Unknown"
+                
+            if groupedContacts[section] == nil {
+                groupedContacts[section] = SectionData(
+                    sectionName: section,
+                    contacts: []
+                )
+            }
+            groupedContacts[section]?.contacts.append(contactViewModel)
+        }
+        
+        return groupedContacts.values.sorted {
+            if  $0.sectionName.count != $1.sectionName.count {
+                return $0.sectionName.count < $1.sectionName.count
+            }
+            return $0.sectionName < $1.sectionName
+        }
     }()
     
     var body: some View {
@@ -50,19 +93,21 @@ struct GlobalSearchScreen: View {
                 }
             )
             
-            List{
+            CompatibleScrollingVStack(
+                alignment: .leading
+            ) {
                 ForEach(0..<searchResultSet.count, id: \.self) { sectionIndex in
                     let section = searchResultSet[sectionIndex]
                     let sectionTitle: String = {
                         switch section.model {
-                            case .noResults: 
-                                return ""
-                            case .contactsAndGroups:
-                                return (section.elements.isEmpty ? "" : "CONVERSATION_SETTINGS_TITLE".localized())
-                            case .messages:
-                                return (section.elements.isEmpty ? "" : "SEARCH_SECTION_MESSAGES".localized())
-                            case .defaultContacts:
-                                return "NEW_CONVERSATION_CONTACTS_SECTION_TITLE".localized()
+                        case .noResults:
+                            return ""
+                        case .contactsAndGroups:
+                            return (section.elements.isEmpty ? "" : "CONVERSATION_SETTINGS_TITLE".localized())
+                        case .messages:
+                            return (section.elements.isEmpty ? "" : "SEARCH_SECTION_MESSAGES".localized())
+                        case .defaultContacts:
+                            return "NEW_CONVERSATION_CONTACTS_SECTION_TITLE".localized()
                         }
                     }()
                     if section.elements.count > 0 {
@@ -71,40 +116,80 @@ struct GlobalSearchScreen: View {
                                 .bold()
                                 .font(.system(size: Values.mediumLargeFontSize))
                                 .foregroundColor(themeColor: .textPrimary)
+                                .padding(.horizontal, Values.mediumSpacing + Values.verySmallSpacing)
+                                .padding(.top, Values.verySmallSpacing)
                         ) {
-                            ForEach(0..<section.elements.count, id: \.self) { rowIndex in
-                                let rowViewModel = section.elements[rowIndex]
-                                SearchResultCell(
-                                    searchText: searchText,
-                                    searchSection: section.model,
-                                    viewModel: rowViewModel
-                                ) {
-                                    show(
-                                        threadId: rowViewModel.threadId,
-                                        threadVariant: rowViewModel.threadVariant,
-                                        focusedInteractionInfo: {
-                                            guard
-                                                let interactionId: Int64 = rowViewModel.interactionId,
-                                                let timestampMs: Int64 = rowViewModel.interactionTimestampMs
-                                            else { return nil }
-                                            
-                                            return Interaction.TimestampInfo(
-                                                id: interactionId,
-                                                timestampMs: timestampMs
-                                            )
-                                        }()
-                                    )
+                            if section.model == .defaultContacts {
+                                ForEach(0..<defaultGroupedContacts.count, id: \.self) { groupIndex in
+                                    let sectionData = defaultGroupedContacts[groupIndex]
+                                    
+                                    Section(
+                                        header: Group{
+                                            if !sectionData.sectionName.isEmpty {
+                                                Text(sectionData.sectionName)
+                                                    .font(.system(size: Values.smallFontSize))
+                                                    .foregroundColor(themeColor: .textPrimary)
+                                                    .padding(.horizontal, Values.mediumSpacing + Values.verySmallSpacing)
+                                                    .padding(.top, Values.verySmallSpacing)
+                                            }
+                                        }
+                                    ) {
+                                        ForEach(0..<sectionData.contacts.count, id: \.self) { rowIndex in
+                                            let rowViewModel = sectionData.contacts[rowIndex]
+                                            SearchResultCell(
+                                                searchText: searchText,
+                                                searchSection: section.model,
+                                                viewModel: rowViewModel
+                                            ) {
+                                                show(
+                                                    threadId: rowViewModel.threadId,
+                                                    threadVariant: rowViewModel.threadVariant,
+                                                    focusedInteractionInfo: {
+                                                        guard
+                                                            let interactionId: Int64 = rowViewModel.interactionId,
+                                                            let timestampMs: Int64 = rowViewModel.interactionTimestampMs
+                                                        else { return nil }
+                                                        
+                                                        return Interaction.TimestampInfo(
+                                                            id: interactionId,
+                                                            timestampMs: timestampMs
+                                                        )
+                                                    }()
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-                                .hideListRowSeparator()
-                                
+                            } else {
+                                ForEach(0..<section.elements.count, id: \.self) { rowIndex in
+                                    let rowViewModel = section.elements[rowIndex]
+                                    SearchResultCell(
+                                        searchText: searchText,
+                                        searchSection: section.model,
+                                        viewModel: rowViewModel
+                                    ) {
+                                        show(
+                                            threadId: rowViewModel.threadId,
+                                            threadVariant: rowViewModel.threadVariant,
+                                            focusedInteractionInfo: {
+                                                guard
+                                                    let interactionId: Int64 = rowViewModel.interactionId,
+                                                    let timestampMs: Int64 = rowViewModel.interactionTimestampMs
+                                                else { return nil }
+                                                
+                                                return Interaction.TimestampInfo(
+                                                    id: interactionId,
+                                                    timestampMs: timestampMs
+                                                )
+                                            }()
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-            .transparentScrolling()
-            .listStyle(.plain)
-            .padding(.top, -Values.mediumSpacing)
         }
         .backgroundColor(themeColor: .backgroundPrimary)
     }
@@ -249,6 +334,7 @@ struct SearchResultCell: View {
                     height: size.viewSize,
                     alignment: .topLeading
                 )
+                .padding(.vertical, Values.smallSpacing)
                 
                 VStack(
                     alignment: .leading,
@@ -307,7 +393,10 @@ struct SearchResultCell: View {
                         }
                     }
                 }
+                
+                Spacer(minLength: 0)
             }
+            .padding(.horizontal, Values.mediumSpacing)
         }
     }
     

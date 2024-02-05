@@ -68,7 +68,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                         )
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: textThemeColor)
-                        .transparentScrolling()
+                        .textViewTransparentScrolling()
                         .frame(maxHeight: self.height)
                         .padding(.all, -4)
                         

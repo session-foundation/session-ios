@@ -169,6 +169,7 @@
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
 		942C9CA22B67769000B5153A /* SessionSearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942C9CA12B67769000B5153A /* SessionSearchBar.swift */; };
 		942C9CA42B6868B800B5153A /* GlobalSearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942C9CA32B6868B800B5153A /* GlobalSearchScreen.swift */; };
+		943C6D762B705B7D004ACE64 /* CompatibleScrollingVStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D752B705B7D004ACE64 /* CompatibleScrollingVStack.swift */; };
 		946B34472B5DF0B7004CB4A3 /* QRCodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B34462B5DF0B7004CB4A3 /* QRCodeScreen.swift */; };
 		946B34492B5E04BB004CB4A3 /* CustomTopTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B34482B5E04BB004CB4A3 /* CustomTopTabBar.swift */; };
 		946B344B2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946B344A2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift */; };
@@ -1312,6 +1313,7 @@
 		93359C81CF2660040B7CD106 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		942C9CA12B67769000B5153A /* SessionSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSearchBar.swift; sourceTree = "<group>"; };
 		942C9CA32B6868B800B5153A /* GlobalSearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalSearchScreen.swift; sourceTree = "<group>"; };
+		943C6D752B705B7D004ACE64 /* CompatibleScrollingVStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompatibleScrollingVStack.swift; sourceTree = "<group>"; };
 		946B34462B5DF0B7004CB4A3 /* QRCodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeScreen.swift; sourceTree = "<group>"; };
 		946B34482B5E04BB004CB4A3 /* CustomTopTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTopTabBar.swift; sourceTree = "<group>"; };
 		946B344A2B5E08F3004CB4A3 /* ScanQRCodeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanQRCodeScreen.swift; sourceTree = "<group>"; };
@@ -2501,6 +2503,7 @@
 				7B87EF432A8DA720002A0E8F /* SessionTextField.swift */,
 				7BF570D22A9C1F9300DB013E /* Toast.swift */,
 				942C9CA12B67769000B5153A /* SessionSearchBar.swift */,
+				943C6D752B705B7D004ACE64 /* CompatibleScrollingVStack.swift */,
 			);
 			path = SwiftUI;
 			sourceTree = "<group>";
@@ -5683,6 +5686,7 @@
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
 				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
+				943C6D762B705B7D004ACE64 /* CompatibleScrollingVStack.swift in Sources */,
 				FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */,
 				C331FFE02558FB0000070591 /* SearchBar.swift in Sources */,
 				FD16AB5B2A1DD7CA0083D849 /* PlaceholderIcon.swift in Sources */,

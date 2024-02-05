@@ -103,12 +103,22 @@ extension View {
         self.modifier(ToastModifier(message: message))
     }
     
-    public func transparentScrolling() -> some View {
+    public func textViewTransparentScrolling() -> some View {
         if #available(iOS 16.0, *) {
             return scrollContentBackground(.hidden)
         } else {
             return onAppear {
                 UITextView.appearance().backgroundColor = .clear
+            }
+        }
+    }
+    
+    public func transparentListBackground() -> some View {
+        if #available(iOS 16.0, *) {
+            return scrollContentBackground(.hidden)
+        } else {
+            return onAppear {
+                UITableView.appearance().backgroundColor = .clear
             }
         }
     }
