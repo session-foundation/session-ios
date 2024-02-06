@@ -10,6 +10,9 @@ target_file_pattern="$(basename "${upload_url}")"
 echo "Starting to poll ${upload_dir} every 10s to check for a build matching '${target_file_pattern}'"
 
 # Loop indefinitely the CI can timeout the script if it takes too long
+total_poll_duration=0
+max_poll_duration=(30 * 60)	# Poll for a maximum of 30 mins
+
 while true; do
 	# Need to add the trailing '/' or else we get a '301' response
 	build_artifacts_html=$(curl -s "${upload_dir}/")
@@ -32,4 +35,9 @@ while true; do
 
 	# Sleep for 10 seconds before checking again
 	sleep 10
+	total_poll_duration=$((total_poll_duration + 10))
+
+	if [ $total_poll_duration -gt $max_poll_duration ]; then
+		echo -e "\n\n\n\n\e[31;1mCould not find existing build artifact after polling for 30 minutes\e[0m\n\n\n"
+	fi
 done
