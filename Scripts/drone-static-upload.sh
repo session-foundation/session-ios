@@ -56,9 +56,10 @@ else
 fi
 
 archive="$base.tar.xz"
-upload_to="oxen.rocks/${DRONE_REPO// /_}/${DRONE_BRANCH// /_}"
 
 if [ "$should_upload" == "true" ]; then
+    upload_to="oxen.rocks/${DRONE_REPO// /_}/${DRONE_BRANCH// /_}"
+
     # Copy over the build products
     mkdir -vp "$base"
     mkdir -p build
@@ -90,5 +91,5 @@ SFTP
 
     echo -e "\n\n\n\n\e[32;1mUploaded to https://${upload_to}/${archive}\e[0m\n\n\n"
 else
-    echo -e "https://${upload_to}/${archive}"
+    echo -e "https://oxen.rocks/${DRONE_REPO// /_}/${DRONE_SOURCE_BRANCH// /_}/${archive}"
 fi

@@ -39,5 +39,6 @@ while true; do
 
 	if [ $total_poll_duration -gt $max_poll_duration ]; then
 		echo -e "\n\n\n\n\e[31;1mCould not find existing build artifact after polling for 30 minutes\e[0m\n\n\n"
+		exit 1
 	fi
 done
