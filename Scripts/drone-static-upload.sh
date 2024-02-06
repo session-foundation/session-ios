@@ -23,11 +23,9 @@ sim_path="build/Session_sim.xcarchive/Products/Applications/Session.app"
 
 # Validate the paths exist
 if [ -d $prod_path ]; then
-    suffix="-store"
     suffix="store"
     target_path=$prod_path
 elif [ -d $sim_path ]; then
-    suffix="-sim"
     suffix="sim"
     target_path=$sim_path
 else

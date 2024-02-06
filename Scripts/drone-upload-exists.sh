@@ -32,12 +32,15 @@ while true; do
 	build_artifacts_html=$(curl -s "${upload_dir}/")
 
 	if [ $? != 0 ]; then
-		echo "Failed to retrieve build artifact list"
+		echo -e "\n\n\n\n\e[31;1mFailed to retrieve build artifact list\e[0m\n\n\n"
 		exit 1
 	fi
 
 	# Extract 'session-ios...' titles using grep and awk
 	current_build_artifacts=$(echo "$build_artifacts_html" | grep -o 'href="${prefix}[^"]*' | sed 's/href="//')
+
+	echo -e "\n\n\n\nDebug - Existing build artifacts:"
+	echo -e "${current_build_artifacts}"
 
 	# Use grep to check for the combination
 	target_file=$(echo "$current_build_artifacts" | grep -o "${prefix}.*${suffix}" | tail -n 1)
