@@ -22,7 +22,7 @@ fork_branch=$(echo "$head_info" | grep -o '"ref":"[^"]*' | sed 's/"ref":"//')
 upload_dir="https://oxen.rocks/${fork_repo}/${fork_branch}"
 
 echo "Starting to poll ${upload_dir} every 10s to check for a build matching '${prefix}.*${suffix}'"
-exit 1
+
 # Loop indefinitely the CI can timeout the script if it takes too long
 total_poll_duration=0
 max_poll_duration=$((30 * 60))	# Poll for a maximum of 30 mins
