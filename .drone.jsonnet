@@ -71,12 +71,13 @@ local update_cocoapods_cache = {
 
 
 [
-  // Unit tests
+  // Unit tests (PRs only)
   {
     kind: 'pipeline',
     type: 'exec',
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
+    trigger: { event: { exclude: [ 'push' ] } },
     steps: [
       clone_submodules,
       load_cocoapods_cache,
@@ -91,7 +92,23 @@ local update_cocoapods_cache = {
       update_cocoapods_cache
     ],
   },
-  // Simulator build
+  // Validate build artifact was created by the direct branch push (PRs only)
+  {
+    kind: 'pipeline',
+    type: 'exec',
+    name: 'Check Build Artifact Existence',
+    platform: { os: 'darwin', arch: 'amd64' },
+    trigger: { event: { exclude: [ 'push' ] } },
+    steps: [
+      {
+        name: 'Poll for build artifact existence',
+        commands: [
+          './Scripts/drone-upload-exists.sh'
+        ]
+      }
+    ]
+  },
+  // Simulator build (non-PRs only)
   {
     kind: 'pipeline',
     type: 'exec',
@@ -118,33 +135,5 @@ local update_cocoapods_cache = {
         ]
       },
     ],
-  },
-  // AppStore build (generate an archive to be signed later)
-  {
-    kind: 'pipeline',
-    type: 'exec',
-    name: 'AppStore Build',
-    platform: { os: 'darwin', arch: 'amd64' },
-    trigger: { event: { exclude: [ 'pull_request' ] } },
-    steps: [
-      clone_submodules,
-      load_cocoapods_cache,
-      install_cocoapods,
-      {
-        name: 'Build',
-        commands: [
-          'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -configuration "App Store Release" -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO | ./Pods/xcbeautify/xcbeautify --is-ci'
-        ],
-      },
-      update_cocoapods_cache,
-      {
-        name: 'Upload artifacts',
-        environment: { SSH_KEY: { from_secret: 'SSH_KEY' } },
-        commands: [
-          './Scripts/drone-static-upload.sh'
-        ]
-      },
-    ],
-  },
+  }
 ]
