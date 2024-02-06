@@ -48,8 +48,7 @@ if [ -n "$DRONE_TAG" ]; then
 elif [ "$should_upload" == "false" ]; then
     # Instead of the datetime include a wildcard in the base name as it'll differ in the actual build:
     # session-ios-.*-2fba13878
-    # base="session-ios-.*-${DRONE_COMMIT:0:9}-$suffix"
-    base="session-ios-.*-2fba13878-$suffix"
+    base="session-ios-.*-${DRONE_COMMIT:0:9}-$suffix"
 else
     # Otherwise build a length name from the datetime and commit hash, such as:
     # session-ios-20200522T212342Z-2fba13878
@@ -57,8 +56,7 @@ else
 fi
 
 archive="$base.tar.xz"
-#upload_to="oxen.rocks/${DRONE_REPO// /_}/${DRONE_BRANCH// /_}"
-upload_to="oxen.rocks/mpretty-cyro/session-ios/feature/groups-rebuild"
+upload_to="oxen.rocks/${DRONE_REPO// /_}/${DRONE_BRANCH// /_}"
 
 if [ "$should_upload" == "true" ]; then
     # Copy over the build products
