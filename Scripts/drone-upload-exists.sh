@@ -21,7 +21,7 @@ fork_repo=$(echo "$head_info" | grep -o '"full_name":"[^"]*' | sed 's/"full_name
 fork_branch=$(echo "$head_info" | grep -o '"ref":"[^"]*' | sed 's/"ref":"//')
 upload_dir="https://oxen.rocks/${fork_repo}/${fork_branch}"
 
-echo "Starting to poll ${upload_dir} every 10s to check for a build matching '${prefix}.*${suffix}'"
+echo "Starting to poll ${upload_dir}/ every 10s to check for a build matching '${prefix}.*${suffix}'"
 
 # Loop indefinitely the CI can timeout the script if it takes too long
 total_poll_duration=0
@@ -37,7 +37,7 @@ while true; do
 	fi
 
 	# Extract 'session-ios...' titles using grep and awk
-	current_build_artifacts=$(echo "$build_artifacts_html" | grep -o 'href="${prefix}[^"]*' | sed 's/href="//')
+	current_build_artifacts=$(echo "$build_artifacts_html" | grep -o "href=\"${prefix}[^\"]*" | sed 's/href="//')
 
 	echo -e "\n\n\n\nDebug - Existing build artifacts:"
 	echo -e "${current_build_artifacts}"
