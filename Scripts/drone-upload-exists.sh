@@ -1,17 +1,31 @@
 #!/usr/bin/env bash
-
+#
 # Script used with Drone CI to check for the existence of a build artifact.
 
-current_dir="$(dirname "$0")"
-upload_url=$("${current_dir}/drone-static-upload.sh" false)
-upload_dir="$(dirname "${upload_url}")"
-target_file_pattern="$(basename "${upload_url}")"
+if [[ -z ${DRONE_REPO} || -z ${DRONE_PULL_REQUEST} ]]; then
+	echo -e "\n\n\n\n\e[31;1mRequired env variables not specified, likely a tag build so just failing\e[0m\n\n\n"
+	exit 1
+fi
 
-echo "Starting to poll ${upload_dir} every 10s to check for a build matching '${target_file_pattern}'"
+# This file info MUST match the structure of `base` in the `drone-static-upload.sh` script in
+# order to function correctly
+prefix="session-ios-"
+suffix="-${DRONE_COMMIT:0:9}-sim.tar.xz"
 
+# Extracting head.label using string manipulation
+echo "Extracting repo information for 'https://api.github.com/repos/oxen-io/${DRONE_REPO}/pulls/${DRONE_PULL_REQUEST}'"
+pr_info=$(curl -s https://api.github.com/repos/oxen-io/${DRONE_REPO}/pulls/${DRONE_PULL_REQUEST})
+pr_info_clean=$(echo "$pr_info" | tr -d '[:space:]')
+head_info=$(echo "$pr_info_clean" | sed -n 's/.*"head"\(.*\)"base".*/\1/p')
+fork_repo=$(echo "$head_info" | grep -o '"full_name":"[^"]*' | sed 's/"full_name":"//')
+fork_branch=$(echo "$head_info" | grep -o '"ref":"[^"]*' | sed 's/"ref":"//')
+upload_dir="https://oxen.rocks/${fork_repo}/${fork_branch}"
+
+echo "Starting to poll ${upload_dir} every 10s to check for a build matching '${prefix}.*${suffix}'"
+exit 1
 # Loop indefinitely the CI can timeout the script if it takes too long
 total_poll_duration=0
-max_poll_duration=(30 * 60)	# Poll for a maximum of 30 mins
+max_poll_duration=$((30 * 60))	# Poll for a maximum of 30 mins
 
 while true; do
 	# Need to add the trailing '/' or else we get a '301' response
@@ -23,10 +37,10 @@ while true; do
 	fi
 
 	# Extract 'session-ios...' titles using grep and awk
-	current_build_artifacts=$(echo "$build_artifacts_html" | grep -o 'href="session-ios-[^"]*' | sed 's/href="//')
+	current_build_artifacts=$(echo "$build_artifacts_html" | grep -o 'href="${prefix}[^"]*' | sed 's/href="//')
 
 	# Use grep to check for the combination
-	target_file=$(echo "$current_build_artifacts" | grep -o "$target_file_pattern" | tail -n 1)
+	target_file=$(echo "$current_build_artifacts" | grep -o "${prefix}.*${suffix}" | tail -n 1)
 
 	if [ -n "$target_file" ]; then
 		echo -e "\n\n\n\n\e[32;1mExisting build artifact at ${upload_dir}/${target_file}\e[0m\n\n\n"
