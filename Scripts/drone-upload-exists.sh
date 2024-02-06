@@ -13,8 +13,8 @@ prefix="session-ios-"
 suffix="-${DRONE_COMMIT:0:9}-sim.tar.xz"
 
 # Extracting head.label using string manipulation
-echo "Extracting repo information for 'https://api.github.com/repos/oxen-io/${DRONE_REPO}/pulls/${DRONE_PULL_REQUEST}'"
-pr_info=$(curl -s https://api.github.com/repos/oxen-io/${DRONE_REPO}/pulls/${DRONE_PULL_REQUEST})
+echo "Extracting repo information for 'https://api.github.com/repos/${DRONE_REPO}/pulls/${DRONE_PULL_REQUEST}'"
+pr_info=$(curl -s https://api.github.com/repos/${DRONE_REPO}/pulls/${DRONE_PULL_REQUEST})
 pr_info_clean=$(echo "$pr_info" | tr -d '[:space:]')
 head_info=$(echo "$pr_info_clean" | sed -n 's/.*"head"\(.*\)"base".*/\1/p')
 fork_repo=$(echo "$head_info" | grep -o '"full_name":"[^"]*' | sed 's/"full_name":"//')
