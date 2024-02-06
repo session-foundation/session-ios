@@ -7,10 +7,12 @@ upload_url=$("${current_dir}/drone-static-upload.sh" false)
 upload_dir="$(dirname "${upload_url}")"
 target_file_pattern="$(basename "${upload_url}")"
 
+echo "Starting to poll ${upload_dir} every 10s to check for a build matching '${target_file_pattern}'"
+
 # Loop indefinitely the CI can timeout the script if it takes too long
 while true; do
 	# Need to add the trailing '/' or else we get a '301' response
-	build_artifacts_html=$(curl -X GET "${upload_dir}/")
+	build_artifacts_html=$(curl -s "${upload_dir}/")
 
 	if [ $? != 0 ]; then
 		echo "Failed to retrieve build artifact list"
