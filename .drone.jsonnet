@@ -11,7 +11,7 @@ local version_info = {
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
 local clone_submodules = {
   name: 'Clone Submodules',
-  commands: ['git fetch --tags', 'git submodule update --init --recursive --depth=2']
+  commands: ['git fetch --tags', 'git submodule update --init --recursive --depth=2 --jobs=4']
 };
 
 // cmake options for static deps mirror
