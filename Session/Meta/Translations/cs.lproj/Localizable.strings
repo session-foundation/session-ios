@@ -842,13 +842,13 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Obrázek skupiny aktualizován.";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ byl(a) pozván(a) k připojení do skupiny.";
 
 /* An informational message displayed when two members joined the group, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ were invited to join the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ a %@ byli pozváni k připojení do skupiny.";
 
 /* An informational message displayed when multiple members joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others were invited to join the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ a %@ další byli pozváni k připojení do skupiny.";
 
 /* An informational message displayed when a single member was removed from the group, the '%@' will be the members. */
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ byl/a odebrán/a ze skupiny.";
@@ -1007,43 +1007,46 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "Byli jsi pozváni k připojení do %@.";
 
 /* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ were invited to join the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ jste byli pozváni k připojení do skupiny.";
 
 /* An informational message displayed when a single member joined the group with access to chat history, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ was invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ byl(a) pozván(a) k připojení do skupiny. Historie konverzace byla sdílena.";
 
 /* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY" = "%@ were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY" = "%@ jste byli pozváni k připojení do skupiny. Historie konverzace byla sdílena.";
 
 /* An informational message displayed when two members joined the group with access to chat history, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_WITH_HISTORY" = "%@ a %@ byli pozváni k připojení do skupiny. Historie konverzace byla sdílena.";
 
 /* An informational message displayed when the current user and one other user joined the group, the first '%@' will be 'You' and the second will be the name of the other member. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU" = "%@ and %@ were invited to join the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU" = "%@ a %@ byli pozváni k připojení do skupiny.";
 
 /* An informational message displayed when the current user and one other user joined the group with access to chat history, the first '%@' will be 'You' and the second will be the name of the other member. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ a %@ jste byli pozváni k připojení do skupiny. Historie konverzace byla sdílena.";
 
 /* An informational message displayed when multiple members joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY" = "%@ and %@ were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_WITH_HISTORY" = "%@ a %@ byli pozváni k připojení do skupiny. Historie konverzace byla sdílena.";
 
 /* An informational message displayed when the current user and multiple other users joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU" = "%@ and %@ others were invited to join the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU" = "%@ a %@ další byli pozváni k připojení do skupiny.";
 
 /* An informational message displayed when the current user and multiple other users joined the group with access to chat history, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ a %@ další jste byli pozváni k připojení do skupiny. Historie konverzace byla sdílena.";
 
 /* Message for the error modal shown when a voice message fails to start recording. */
-"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "An error occurred when trying to start recording for the voice message.";
+"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "Při pokusu o spuštění nahrávání hlasové zprávy došlo k chybě.";
 
 /* Shortcut to copy the disappearing messages setting from another conversation participant. */
-"FOLLOW_SETTING_TITLE" = "Follow Setting";
+"FOLLOW_SETTING_TITLE" = "Nastavení Sledování";
 
 /* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages on. The first '%@' will be the duration messages will remain and the second '%@' will be whether the countdown starts after the messages are sent or after they are read. */
-"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Nastavit zprávy tak, aby zmizely %@ poté, co byly %@?";
 
 /* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages off. */
-"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Odeslané zprávy již nebudou mizet. Určitě chcete mizení zpráv vypnout?";
 
 /* Title for button on a modal which confirms a change. */
-"CONFIRM_BUTTON_TITLE" = "Confirm";
+"CONFIRM_BUTTON_TITLE" = "Potvrdit";
+
+/* The subtitle of delete action in long press menu screen indicating the time that a message will disappear */
+"DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN" = "Auto-deletes in %@";

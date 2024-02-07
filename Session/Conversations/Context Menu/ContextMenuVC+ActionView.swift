@@ -112,14 +112,14 @@ extension ContextMenuVC {
             
             subtitleLabel.isHidden = false
             let timeToExpireInSeconds: TimeInterval =  (expiresStartedAtMs + expiresInSeconds * 1000 - Double(SnodeAPI.currentOffsetTimestampMs())) / 1000
-            subtitleLabel.text = "Auto-deletes in \(timeToExpireInSeconds.formatted(format: .twoUnits))"
+            subtitleLabel.text = String(format: "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN".localized(), timeToExpireInSeconds.formatted(format: .twoUnits))
             
             timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 1, repeats: true, block: { [weak self] _ in
                 let timeToExpireInSeconds: TimeInterval =  (expiresStartedAtMs + expiresInSeconds * 1000 - Double(SnodeAPI.currentOffsetTimestampMs())) / 1000
                 if timeToExpireInSeconds <= 0 {
                     self?.dismissWithTimerInvalidationIfNeeded()
                 } else {
-                    self?.subtitleLabel.text = "Auto-deletes in \(timeToExpireInSeconds.formatted(format: .twoUnits))"
+                    self?.subtitleLabel.text = String(format: "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN".localized(), timeToExpireInSeconds.formatted(format: .twoUnits))
                 }
             })
         }
