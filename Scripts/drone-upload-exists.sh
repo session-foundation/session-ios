@@ -36,13 +36,8 @@ while true; do
 		exit 1
 	fi
 
-	# Extract 'session-ios...' titles using grep and awk
+	# Extract 'session-ios...' titles using grep and awk then look for the target file
 	current_build_artifacts=$(echo "$build_artifacts_html" | grep -o "href=\"${prefix}[^\"]*" | sed 's/href="//')
-
-	echo -e "\n\n\n\nDebug - Existing build artifacts:"
-	echo -e "${current_build_artifacts}"
-
-	# Use grep to check for the combination
 	target_file=$(echo "$current_build_artifacts" | grep -o "${prefix}.*${suffix}" | tail -n 1)
 
 	if [ -n "$target_file" ]; then
