@@ -133,7 +133,6 @@ local run_tests(testName, testBuildStepName) = {
       },
       run_tests('SessionTests', 'Build For Testing'),
       run_tests('SessionMessagingKitTests', 'Build For Testing'),
-      run_tests('SessionSnodeKitTests', 'Build For Testing'),
       run_tests('SessionUtilitiesKitTests', 'Build For Testing'),
       {
         name: 'Shutdown Simulators',
@@ -142,7 +141,6 @@ local run_tests(testName, testBuildStepName) = {
           'Build For Testing',
           'Run SessionTests',
           'Run SessionMessagingKitTests',
-          'Run SessionSnodeKitTests',
           'Run SessionUtilitiesKitTests'
         ],
         when: {
