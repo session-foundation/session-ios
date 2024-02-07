@@ -42,6 +42,19 @@ extension ContextMenuVC {
             
             return result
         }()
+        
+        private lazy var labelContainer: UIView = {
+            let result: UIView = UIView()
+            result.addSubview(titleLabel)
+            result.addSubview(subtitleLabel)
+            titleLabel.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top ], to: result)
+            subtitleLabel.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.bottom ], to: result)
+            titleLabel.pin(.bottom, to: .top, of: subtitleLabel)
+            
+            return result
+        }()
+        
+        private lazy var subtitleWidthConstraint = labelContainer.set(.width, greaterThanOrEqualTo: 115)
 
         // MARK: - Lifecycle
         
@@ -71,14 +84,6 @@ extension ContextMenuVC {
             titleLabel.text = action.title
             setUpSubtitle()
             
-            let labelContainer: UIView = UIView()
-            labelContainer.set(.width, greaterThanOrEqualTo: 115)
-            labelContainer.addSubview(titleLabel)
-            labelContainer.addSubview(subtitleLabel)
-            titleLabel.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top ], to: labelContainer)
-            subtitleLabel.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.bottom ], to: labelContainer)
-            titleLabel.pin(.bottom, to: .top, of: subtitleLabel)
-            
             // Stack view
             let stackView: UIStackView = UIStackView(arrangedSubviews: [ iconImageView, labelContainer ])
             stackView.axis = .horizontal
@@ -107,10 +112,12 @@ extension ContextMenuVC {
                 let expiresStartedAtMs = self.action.expirationInfo?.expiresStartedAtMs
             else {
                 subtitleLabel.isHidden = true
+                subtitleWidthConstraint.isActive = false
                 return
             }
             
             subtitleLabel.isHidden = false
+            subtitleWidthConstraint.isActive = true
             let timeToExpireInSeconds: TimeInterval =  (expiresStartedAtMs + expiresInSeconds * 1000 - Double(SnodeAPI.currentOffsetTimestampMs())) / 1000
             subtitleLabel.text = String(format: "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN".localized(), timeToExpireInSeconds.formatted(format: .twoUnits))
             
