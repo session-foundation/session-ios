@@ -90,7 +90,7 @@ local update_cocoapods_cache(depends_on) = {
 local run_tests(testName, testBuildStepName) = {
   name: 'Run ' + testName,
   commands: [
-    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test-without-building -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -destination "platform=iOS Simulator,name=iPhone 14" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -only-testing ' + testName + ' -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci',
+    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test-without-building -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -destination "platform=iOS Simulator,name=iPhone 14" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -only-testing ' + testName,
   ],
   depends_on: [
     testBuildStepName
