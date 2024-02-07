@@ -251,6 +251,84 @@ public extension String {
                             )
                         )
                 }
-        }
+            case .twoUnits:
+                let seconds: Int = Int(duration.truncatingRemainder(dividingBy: 60))
+                let minutes: Int = Int((duration / 60).truncatingRemainder(dividingBy: 60))
+                let hours: Int = Int((duration / 3600).truncatingRemainder(dividingBy: 24))
+                let days: Int = Int((duration / 3600 / 24).truncatingRemainder(dividingBy: 7))
+                let weeks: Int = Int(duration / 3600 / 24 / 7)
+            
+                guard weeks == 0 else {
+                    return String(
+                        format: "TIME_AMOUNT_WEEKS_SHORT_FORMAT".localized(),
+                        NumberFormatter.localizedString(
+                            from: NSNumber(integerLiteral: weeks),
+                            number: .none
+                        )
+                    ) + " " + String(
+                        format: "TIME_AMOUNT_DAYS_SHORT_FORMAT".localized(),
+                        NumberFormatter.localizedString(
+                            from: NSNumber(integerLiteral: days),
+                            number: .none
+                        )
+                    )
+                }
+                
+                guard days == 0 else {
+                    return String(
+                        format: "TIME_AMOUNT_DAYS_SHORT_FORMAT".localized(),
+                        NumberFormatter.localizedString(
+                            from: NSNumber(integerLiteral: days),
+                            number: .none
+                        )
+                    ) + " " + String(
+                        format: "TIME_AMOUNT_HOURS_SHORT_FORMAT".localized(),
+                        NumberFormatter.localizedString(
+                            from: NSNumber(integerLiteral: hours),
+                            number: .none
+                        )
+                    )
+                }
+            
+                guard hours == 0 else {
+                    return String(
+                        format: "TIME_AMOUNT_HOURS_SHORT_FORMAT".localized(),
+                        NumberFormatter.localizedString(
+                            from: NSNumber(integerLiteral: hours),
+                            number: .none
+                        )
+                    ) + " " + String(
+                        format: "TIME_AMOUNT_MINUTES_SHORT_FORMAT".localized(),
+                        NumberFormatter.localizedString(
+                            from: NSNumber(integerLiteral: minutes),
+                            number: .none
+                        )
+                    )
+                }
+            
+                guard minutes == 0 else {
+                    return String(
+                        format: "TIME_AMOUNT_MINUTES_SHORT_FORMAT".localized(),
+                        NumberFormatter.localizedString(
+                            from: NSNumber(integerLiteral: minutes),
+                            number: .none
+                        )
+                    ) + " " + String(
+                        format: "TIME_AMOUNT_SECONDS_SHORT_FORMAT".localized(),
+                        NumberFormatter.localizedString(
+                            from: NSNumber(integerLiteral: seconds),
+                            number: .none
+                        )
+                    )
+                }
+            
+                return String(
+                    format: "TIME_AMOUNT_SECONDS_SHORT_FORMAT".localized(), 
+                    NumberFormatter.localizedString(
+                        from: NSNumber(integerLiteral: seconds),
+                        number: .none
+                    )
+                )
+            }
     }
 }
