@@ -131,47 +131,12 @@ extension MessageReceiver {
         ).inserted(db)
     }
     
-    public static func updateContactDisappearingMessagesVersionIfNeeded(
-        _ db: Database,
-        messageVariant: Message.Variant?,
-        contactId: String?,
-        version: FeatureVersion?
-    ) {
-        guard
-            let messageVariant: Message.Variant = messageVariant,
-            let contactId: String = contactId,
-            let version: FeatureVersion = version
-        else {
-            return
-        }
-        
-        guard [ .visibleMessage, .expirationTimerUpdate ].contains(messageVariant) else { return }
-        
-        _ = try? Contact
-            .filter(id: contactId)
-            .updateAllAndConfig(
-                db,
-                Contact.Columns.lastKnownClientVersion.set(to: version)
-            )
-        
-        guard Features.useNewDisappearingMessagesConfig else { return }
-        
-        if contactId == getUserHexEncodedPublicKey(db) {
-            switch version {
-                case .legacyDisappearingMessages:
-                    TopBannerController.show(warning: .outdatedUserConfig)
-                case .newDisappearingMessages:
-                    TopBannerController.hide()
-            }
-        }
-        
-    }
-    
     internal static func handleExpirationTimerUpdate(
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: ExpirationTimerUpdate,
+        serverExpirationTimestamp: TimeInterval?,
         proto: SNProtoContent
     ) throws {
         guard proto.hasExpirationType || proto.hasExpirationTimer else { return }

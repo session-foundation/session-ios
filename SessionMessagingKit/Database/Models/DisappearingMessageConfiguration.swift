@@ -220,6 +220,7 @@ public extension DisappearingMessagesConfiguration {
         authorId: String,
         timestampMs: Int64,
         serverHash: String?,
+        serverExpirationTimestamp: TimeInterval?,
         updatedConfiguration: DisappearingMessagesConfiguration,
         using dependencies: Dependencies = Dependencies()
     ) throws -> Int64? {
@@ -252,7 +253,13 @@ public extension DisappearingMessagesConfiguration {
                 openGroup: nil
             )
         )
-        let expiresStartedAtMs: Double? = (updatedConfiguration.type == .disappearAfterSend || wasRead) ? Double(timestampMs) : nil
+        let messageExpirationInfo: MessageReceiver.MessageExpirationInfo = MessageReceiver.getMessageExpirationInfo(
+            db, 
+            wasRead: wasRead, 
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            expiresInSeconds: (updatedConfiguration.type == .disappearAfterSend) ? Double(timestampMs) : nil,
+            expiresStartedAtMs: updatedConfiguration.durationSeconds
+        )
         let interaction = try Interaction(
             serverHash: serverHash,
             threadId: threadId,
@@ -265,8 +272,18 @@ public extension DisappearingMessagesConfiguration {
             timestampMs: timestampMs,
             wasRead: wasRead,
             expiresInSeconds: (threadVariant == .legacyGroup ? nil : updatedConfiguration.durationSeconds), // Do not expire this control message in legacy groups
-            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : expiresStartedAtMs)
+            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresStartedAtMs)
         ).inserted(db)
+        
+        if messageExpirationInfo.shouldUpdateExpiry {
+            MessageReceiver.updateExpiryForDisappearAfterReadMessages(
+                db,
+                threadId: threadId,
+                serverHash: serverHash,
+                expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+                expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs
+            )
+        }
         
         return interaction.id
     }

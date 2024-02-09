@@ -264,6 +264,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     proto: proto
                 )
                 
@@ -280,7 +281,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp
                 )
                 
             case let message as MessageRequestResponse:
@@ -295,7 +297,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message,
+                    message: message, 
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     associatedWithProto: proto
                 )
                 

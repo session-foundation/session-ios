@@ -11,7 +11,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: CallMessage
+        message: CallMessage,
+        serverExpirationTimestamp: TimeInterval?
     ) throws {
         // Only support calls from contact threads
         guard threadVariant == .contact else { return }
