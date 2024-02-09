@@ -220,7 +220,8 @@ public extension DisappearingMessagesConfiguration {
         authorId: String,
         timestampMs: Int64,
         serverHash: String?,
-        updatedConfiguration: DisappearingMessagesConfiguration
+        updatedConfiguration: DisappearingMessagesConfiguration,
+        using dependencies: Dependencies = Dependencies()
     ) throws -> Int64? {
         if Features.useNewDisappearingMessagesConfig {
             switch threadVariant {
@@ -240,22 +241,18 @@ public extension DisappearingMessagesConfiguration {
             }
         }
         
-        let expiresStartedAtMs: Double? = {
-            if updatedConfiguration.type == .disappearAfterSend ||
-                SessionUtil.timestampAlreadyRead(
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    timestampMs: timestampMs,
-                    userPublicKey: getUserHexEncodedPublicKey(db),
-                    openGroup: nil
-                )
-            {
-                return Double(timestampMs)
-            }
-            
-            return nil
-        }()
-        
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let wasRead: Bool = (
+            authorId == currentUserPublicKey ||
+            SessionUtil.timestampAlreadyRead(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                timestampMs: timestampMs,
+                userPublicKey: getUserHexEncodedPublicKey(db),
+                openGroup: nil
+            )
+        )
+        let expiresStartedAtMs: Double? = (updatedConfiguration.type == .disappearAfterSend || wasRead) ? Double(timestampMs) : nil
         let interaction = try Interaction(
             serverHash: serverHash,
             threadId: threadId,
@@ -266,6 +263,7 @@ public extension DisappearingMessagesConfiguration {
                 senderName: (authorId != getUserHexEncodedPublicKey(db) ? Profile.displayName(db, id: authorId) : nil)
             ),
             timestampMs: timestampMs,
+            wasRead: wasRead,
             expiresInSeconds: (threadVariant == .legacyGroup ? nil : updatedConfiguration.durationSeconds), // Do not expire this control message in legacy groups
             expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : expiresStartedAtMs)
         ).inserted(db)
