@@ -486,6 +486,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 authorId: userPublicKey,
                 timestampMs: currentTimestampMs,
                 serverHash: nil,
+                serverExpirationTimestamp: nil,
                 updatedConfiguration: updatedConfig
             )
 

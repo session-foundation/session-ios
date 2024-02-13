@@ -248,7 +248,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp
                 )
                 
             case let message as ExpirationTimerUpdate:
@@ -281,8 +282,7 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message,
-                    serverExpirationTimestamp: serverExpirationTimestamp
+                    message: message
                 )
                 
             case let message as MessageRequestResponse:

@@ -197,11 +197,47 @@ extension MessageReceiver {
                     threadVariant: threadVariant,
                     authorId: sender,
                     timestampMs: Int64(timestampMs),
-                    serverHash: message.serverHash,
+                    serverHash: message.serverHash, 
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     updatedConfiguration: updatedConfig
                 )
             default:
                  return
+        }
+    }
+    
+    public static func updateContactDisappearingMessagesVersionIfNeeded(
+        _ db: Database,
+        messageVariant: Message.Variant?,
+        contactId: String?,
+        version: FeatureVersion?
+    ) {
+        guard
+            let messageVariant: Message.Variant = messageVariant,
+            let contactId: String = contactId,
+            let version: FeatureVersion = version
+        else {
+            return
+        }
+        
+        guard [ .visibleMessage, .expirationTimerUpdate ].contains(messageVariant) else { return }
+        
+        _ = try? Contact
+            .filter(id: contactId)
+            .updateAllAndConfig(
+                db,
+                Contact.Columns.lastKnownClientVersion.set(to: version)
+            )
+        
+        guard Features.useNewDisappearingMessagesConfig else { return }
+        
+        if contactId == getUserHexEncodedPublicKey(db) {
+            switch version {
+                case .legacyDisappearingMessages:
+                    TopBannerController.show(warning: .outdatedUserConfig)
+                case .newDisappearingMessages:
+                    TopBannerController.hide()
+            }
         }
     }
 }

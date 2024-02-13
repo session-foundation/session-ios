@@ -151,8 +151,7 @@ extension MessageReceiver {
                 openGroup: maybeOpenGroup
             )
         )
-        let messageExpirationInfo: MessageExpirationInfo = getMessageExpirationInfo(
-            db,
+        let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
             wasRead: wasRead,
             serverExpirationTimestamp: serverExpirationTimestamp,
             expiresInSeconds: message.expiresInSeconds,
@@ -217,7 +216,7 @@ extension MessageReceiver {
                         syncTarget: message.syncTarget
                     )
                     
-                    getExpirationForOutgoingDisappearingMessages(
+                    Message.getExpirationForOutgoingDisappearingMessages(
                         db,
                         threadId: threadId,
                         variant: variant,
@@ -244,16 +243,16 @@ extension MessageReceiver {
         )
         
         if messageExpirationInfo.shouldUpdateExpiry {
-            updateExpiryForDisappearAfterReadMessages(
+            Message.updateExpiryForDisappearAfterReadMessages(
                 db,
                 threadId: threadId,
                 serverHash: message.serverHash,
-                expiresInSeconds: messageExpirationInfo.expiresInSeconds,
-                expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs
+                expiresInSeconds: message.expiresInSeconds,
+                expiresStartedAtMs: message.expiresStartedAtMs
             )
         }
         
-        getExpirationForOutgoingDisappearingMessages(
+        Message.getExpirationForOutgoingDisappearingMessages(
             db,
             threadId: threadId,
             variant: variant,

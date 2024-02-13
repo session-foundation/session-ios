@@ -253,8 +253,7 @@ public extension DisappearingMessagesConfiguration {
                 openGroup: nil
             )
         )
-        let messageExpirationInfo: MessageReceiver.MessageExpirationInfo = MessageReceiver.getMessageExpirationInfo(
-            db, 
+        let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
             wasRead: wasRead, 
             serverExpirationTimestamp: serverExpirationTimestamp,
             expiresInSeconds: (updatedConfiguration.type == .disappearAfterSend) ? Double(timestampMs) : nil,
@@ -276,7 +275,7 @@ public extension DisappearingMessagesConfiguration {
         ).inserted(db)
         
         if messageExpirationInfo.shouldUpdateExpiry {
-            MessageReceiver.updateExpiryForDisappearAfterReadMessages(
+            Message.updateExpiryForDisappearAfterReadMessages(
                 db,
                 threadId: threadId,
                 serverHash: serverHash,
