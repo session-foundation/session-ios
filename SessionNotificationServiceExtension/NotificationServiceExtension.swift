@@ -135,8 +135,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 db,
                                 threadId: processedMessage.threadId,
                                 threadVariant: processedMessage.threadVariant,
-                                message: callMessage,
-                                serverExpirationTimestamp: processedMessage.messageInfo.serverExpirationTimestamp
+                                message: callMessage
                             )
                             
                             guard case .preOffer = callMessage.kind else { return self.completeSilenty() }
