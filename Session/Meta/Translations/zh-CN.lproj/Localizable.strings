@@ -1,7 +1,5 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "附件";
-/* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "注释";
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "文件类型: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
@@ -422,8 +420,6 @@
 "SEND_BUTTON_TITLE" = "发送";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "重试";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "显示聊天";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "消息发送失败";
 "INVALID_SESSION_ID_MESSAGE" = "请检查 Session ID，然后重试。";

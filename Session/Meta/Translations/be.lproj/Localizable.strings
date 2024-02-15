@@ -1,7 +1,5 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "Далучэнне";
-/* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Загаловак";
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Тып файла: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
@@ -422,8 +420,6 @@
 "SEND_BUTTON_TITLE" = "Адправіць";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Паўтарыць";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Паказаць чат";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Ваша паведамленне не можа быць адпраўлена.";
 "INVALID_SESSION_ID_MESSAGE" = "Калі ласка, праверце Session ID і паспрабуйце зноў.";

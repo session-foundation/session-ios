@@ -1,7 +1,5 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "Anexo";
-/* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Legenda";
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Tipo de arquivo: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
@@ -422,8 +420,6 @@
 "SEND_BUTTON_TITLE" = "Enviar";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Tentar novamente";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Exibir conversa";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Falha ao enviar a sua mensagem.";
 "INVALID_SESSION_ID_MESSAGE" = "Por favor, verifique o ID da sessão e tente novamente.";

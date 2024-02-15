@@ -1,7 +1,5 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "संम्लगन गर्नुहोस्";
-/* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "क्याप्शन";
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "फाईलको प्रकार";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */

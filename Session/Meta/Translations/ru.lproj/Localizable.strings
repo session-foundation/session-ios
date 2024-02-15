@@ -1,7 +1,5 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "Вложение";
-/* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Подпись";
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Тип файла: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
@@ -422,8 +420,6 @@
 "SEND_BUTTON_TITLE" = "Отправить";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Повторить";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Показать чат";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Ваше сообщение не было отправлено.";
 "INVALID_SESSION_ID_MESSAGE" = "Пожалуйста, проверьте Session ID или ONS имя и попробуйте снова.";

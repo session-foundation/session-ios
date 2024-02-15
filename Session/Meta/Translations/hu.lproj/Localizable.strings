@@ -1,7 +1,5 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "Csatolmány";
-/* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Felirat";
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Fájltípus";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
@@ -422,8 +420,6 @@
 "SEND_BUTTON_TITLE" = "Küldés";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Újra";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Chat mutatása";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Üzenet küldése sikertelen.";
 "INVALID_SESSION_ID_MESSAGE" = "Ellenőrizd a Session azonosítót és próbáld újra!";

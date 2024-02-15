@@ -1,7 +1,5 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "Liite";
-/* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Otsikko";
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Tiedostotyyppi: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
@@ -422,8 +420,6 @@
 "SEND_BUTTON_TITLE" = "Lähetä";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Yritä uudelleen";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Näytä keskustelu";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Viestin lähetys epäonnistui";
 "INVALID_SESSION_ID_MESSAGE" = "Tarkista Session ID ja yritä uudelleen";

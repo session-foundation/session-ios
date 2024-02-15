@@ -1,7 +1,5 @@
 /* No comment provided by engineer. */
 "ATTACHMENT" = "Príloha";
-/* Title for 'caption' mode of the attachment approval view. */
-"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Titulok";
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Typ súboru: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
@@ -422,8 +420,6 @@
 "SEND_BUTTON_TITLE" = "Odoslať";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Znova";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Zobraziť rozhovor";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Vašu správu sa nepodarilo odoslať.";
 "INVALID_SESSION_ID_MESSAGE" = "Skontrolujte prosím Session ID a skúste to znova.";

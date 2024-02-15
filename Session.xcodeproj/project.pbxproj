@@ -351,7 +351,6 @@
 		C38EF387255B6DD2007E1867 /* AttachmentItemCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF37E255B6DD0007E1867 /* AttachmentItemCollection.swift */; };
 		C38EF388255B6DD2007E1867 /* AttachmentApprovalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF37F255B6DD0007E1867 /* AttachmentApprovalViewController.swift */; };
 		C38EF389255B6DD2007E1867 /* AttachmentTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF380255B6DD0007E1867 /* AttachmentTextView.swift */; };
-		C38EF38A255B6DD2007E1867 /* AttachmentCaptionToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF381255B6DD1007E1867 /* AttachmentCaptionToolbar.swift */; };
 		C38EF38B255B6DD2007E1867 /* AttachmentPrepViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF382255B6DD1007E1867 /* AttachmentPrepViewController.swift */; };
 		C38EF38C255B6DD2007E1867 /* ApprovalRailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF383255B6DD1007E1867 /* ApprovalRailCellView.swift */; };
 		C38EF3B8255B6DE7007E1867 /* ImageEditorTextViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF3A8255B6DE4007E1867 /* ImageEditorTextViewController.swift */; };
@@ -1506,7 +1505,6 @@
 		C38EF37E255B6DD0007E1867 /* AttachmentItemCollection.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentItemCollection.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentItemCollection.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF37F255B6DD0007E1867 /* AttachmentApprovalViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentApprovalViewController.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentApprovalViewController.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF380255B6DD0007E1867 /* AttachmentTextView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentTextView.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentTextView.swift"; sourceTree = SOURCE_ROOT; };
-		C38EF381255B6DD1007E1867 /* AttachmentCaptionToolbar.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentCaptionToolbar.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentCaptionToolbar.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF382255B6DD1007E1867 /* AttachmentPrepViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentPrepViewController.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentPrepViewController.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF383255B6DD1007E1867 /* ApprovalRailCellView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ApprovalRailCellView.swift; path = "SignalUtilitiesKit/Shared Views/ApprovalRailCellView.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF3A8255B6DE4007E1867 /* ImageEditorTextViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ImageEditorTextViewController.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Image Editing/ImageEditorTextViewController.swift"; sourceTree = SOURCE_ROOT; };
@@ -3205,7 +3203,6 @@
 			children = (
 				C38EF37D255B6DCF007E1867 /* AttachmentApprovalInputAccessoryView.swift */,
 				C38EF37F255B6DD0007E1867 /* AttachmentApprovalViewController.swift */,
-				C38EF381255B6DD1007E1867 /* AttachmentCaptionToolbar.swift */,
 				C38EF37E255B6DD0007E1867 /* AttachmentItemCollection.swift */,
 				C38EF382255B6DD1007E1867 /* AttachmentPrepViewController.swift */,
 				C38EF37C255B6DCF007E1867 /* AttachmentTextToolbar.swift */,
@@ -5679,7 +5676,6 @@
 				C38EF3FB255B6DF7007E1867 /* UIAlertController+OWS.swift in Sources */,
 				C38EF30C255B6DBF007E1867 /* ScreenLock.swift in Sources */,
 				C38EF363255B6DCC007E1867 /* ModalActivityIndicatorViewController.swift in Sources */,
-				C38EF38A255B6DD2007E1867 /* AttachmentCaptionToolbar.swift in Sources */,
 				C38EF402255B6DF7007E1867 /* CommonStrings.swift in Sources */,
 				C38EF3C1255B6DE7007E1867 /* ImageEditorBrushViewController.swift in Sources */,
 				C3F0A530255C80BC007BE2A3 /* NoopNotificationsManager.swift in Sources */,
