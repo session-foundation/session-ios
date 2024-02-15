@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "(Alapértelmezett)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "Üzenet hangja";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "Nincs";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ nap";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "Mégse";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "Törlés";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "Hangüzenet";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Hangüzenet küldéséhez érintsd meg és tartsd nyomva.";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "Hangüzenet";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Kikapcsoltad az eltűnő üzeneteket.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "Válasszon megjelenítési nevet";
 "vc_display_name_display_name_too_long_error" = "Válasszon rövidebb megjelenítési nevet";
 "vc_pn_mode_recommended_option_tag" = "Ajánlott";
-"vc_pn_mode_no_option_picked_modal_title" = "Kérjük, válasszon egy lehetőséget";
 "vc_home_empty_state_message" = "Még nincsenek névjegyei";
 "vc_home_empty_state_button_title" = "Munkamenet indítása";
 "vc_seed_title" = "Helyreállítási szavak";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "Melléklet csatolása";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "Dokumentum";
-"accessibility_library_button" = "Képgaléria";
-"accessibility_camera_button" = "Kamera";
 "accessibility_main_button_collapse" = "Csatolási lehetőségek összecsukása";
 "invalid_recovery_phrase" = "Helyreállító kódmondat felfedése";
 "DISMISS_BUTTON_TEXT" = "Elvetés";

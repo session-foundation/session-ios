@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (standard)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "Meddelandeljud";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "Inga";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ dagar";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "Avbryt";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "Radera";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "Röstmeddelande";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Tryck och håll ned för att spela in ett röstmeddelande.";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "Röstmeddelande";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Du inaktiverade försvinnande meddelanden.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "Vänligen välj ett visningsnamn";
 "vc_display_name_display_name_too_long_error" = "Vänligen välj ett kortare visningsnamn";
 "vc_pn_mode_recommended_option_tag" = "Rekommenderat";
-"vc_pn_mode_no_option_picked_modal_title" = "Välj ett alternativ";
 "vc_home_empty_state_message" = "Du har inga kontakter";
 "vc_home_empty_state_button_title" = "Starta en Session";
 "vc_seed_title" = "Din Återställningsfras";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "Bifoga filer";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "Dokument";
-"accessibility_library_button" = "Bildbibliotek";
-"accessibility_camera_button" = "Kamera";
 "accessibility_main_button_collapse" = "Minimera bilagoalternativ";
 "invalid_recovery_phrase" = "Ogiltig återställningsfras";
 "DISMISS_BUTTON_TEXT" = "Avfärda";
@@ -431,8 +422,6 @@
 "SEND_BUTTON_TITLE" = "Skicka";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Försök igen";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Show Chat";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
 "INVALID_SESSION_ID_MESSAGE" = "Please check the Session ID and try again.";

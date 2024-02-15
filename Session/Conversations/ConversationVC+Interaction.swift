@@ -2411,16 +2411,16 @@ extension ConversationVC:
         guard duration > 1 else {
             self.audioRecorder = nil
             
-            let modal: ConfirmationModal = ConfirmationModal(
-                targetView: self.view,
-                info: ConfirmationModal.Info(
-                    title: "VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE".localized(),
-                    body: .text("VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
-                    cancelStyle: .alert_text
-                )
-            )
-            self.present(modal, animated: true)
+//            let modal: ConfirmationModal = ConfirmationModal(
+//                targetView: self.view,
+//                info: ConfirmationModal.Info(
+//                    title: "ATTACHMENT_TYPE_VOICE_MESSAGE".localized(),
+//                    body: .text("VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE".localized()),
+//                    cancelTitle: "BUTTON_OK".localized(),
+//                    cancelStyle: .alert_text
+//                )
+//            )
+//            self.present(modal, animated: true)
             return
         }
         
@@ -2431,7 +2431,7 @@ extension ConversationVC:
         guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }
         
         // Create attachment
-        let fileName = ("VOICE_MESSAGE_FILE_NAME".localized() as NSString).appendingPathExtension("m4a")
+        let fileName = ("ATTACHMENT_TYPE_VOICE_MESSAGE".localized() as NSString).appendingPathExtension("m4a")
         dataSource.sourceFilename = fileName
         
         let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4Audio as String)

@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (standard)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "Besked Lyd";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "Ingen";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ dage";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "Afbryd";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "Slet";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "Talebesked";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Tryk og hold for at optage en talebesked.";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "Talebesked";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Du deaktiverede forsvindende beskeder.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "Vælg venligst et brugernavn";
 "vc_display_name_display_name_too_long_error" = "Vælg venligst et kortere brugernavn";
 "vc_pn_mode_recommended_option_tag" = "Anbefalet";
-"vc_pn_mode_no_option_picked_modal_title" = "Vælg Venligst en Mulighed";
 "vc_home_empty_state_message" = "Du har endnu ingen kontakter";
 "vc_home_empty_state_button_title" = "Start en Session";
 "vc_seed_title" = "Din Gendannelsessætning";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "Tilføj vedhæftninger";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "Dokument";
-"accessibility_library_button" = "Foto bibliotek";
-"accessibility_camera_button" = "Kamera";
 "accessibility_main_button_collapse" = "Skjul vedhæftnings muligheder";
 "invalid_recovery_phrase" = "Ugyldig Gendannelsessætning";
 "DISMISS_BUTTON_TEXT" = "Afvis";
@@ -431,8 +422,6 @@
 "SEND_BUTTON_TITLE" = "Send";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Retry";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Show Chat";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
 "INVALID_SESSION_ID_MESSAGE" = "Please check the Session ID and try again.";

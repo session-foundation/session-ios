@@ -688,8 +688,8 @@ public class SignalAttachment: Equatable, Hashable {
                 dstImage = resizedImage
             }
             guard let jpgImageData = dstImage.jpegData(compressionQuality: jpegCompressionQuality(imageUploadQuality: imageUploadQuality)) else {
-                                                                attachment.error = .couldNotConvertToJpeg
-                                                                return attachment
+                attachment.error = .couldNotConvertToJpeg
+                return attachment
             }
 
             guard let dataSource = DataSourceValue.dataSource(with: jpgImageData, fileExtension: "jpg") else {

@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (por defecto)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "Mensaje con sonido";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "Ninguno";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ días";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "Cancelar";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "Eliminar";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "Mensaje de voz";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Toca y mantén presionado para enviar un mensaje de voz.";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "Nota de voz";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Has desactivado la desaparición de mensajes.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "Por favor, elige un nombre para mostrar";
 "vc_display_name_display_name_too_long_error" = "Por favor, elige un nombre para mostrar más corto";
 "vc_pn_mode_recommended_option_tag" = "Recomendado";
-"vc_pn_mode_no_option_picked_modal_title" = "Por favor, elige una opción";
 "vc_home_empty_state_message" = "Aún no tienes contactos";
 "vc_home_empty_state_button_title" = "Empieza una Session";
 "vc_seed_title" = "Tu frase de recuperación";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "Añadir adjuntos 	Añadir archivo adjunto";
 "accessibility_gif_button" = "GIF";
 "accessibility_document_button" = "Documento";
-"accessibility_library_button" = "Fototeca";
-"accessibility_camera_button" = "Cámara";
 "accessibility_main_button_collapse" = "Colapsar opciones de adjuntar";
 "invalid_recovery_phrase" = "Frase de Recuperación Incorrecta";
 "DISMISS_BUTTON_TEXT" = "Descartar";

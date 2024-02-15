@@ -45,13 +45,6 @@ class UserNotificationConfig {
                     textInputButtonTitle: MessageStrings.sendButton,
                     textInputPlaceholder: ""
                 )
-                
-            case .showThread:
-                return UNNotificationAction(
-                    identifier: action.identifier,
-                    title: CallStrings.showThreadButtonTitle,
-                    options: [.foreground]
-                )
         }
     }
 
@@ -315,11 +308,6 @@ public class UserNotificationActionHandler: NSObject {
                 }
 
                 return actionHandler.reply(userInfo: userInfo, replyText: textInputResponse.userText, applicationState: applicationState)
-                    
-            case .showThread:
-                return actionHandler.showThread(userInfo: userInfo)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
         }
     }
 }

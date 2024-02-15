@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (پیشفرض)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "صدای پیام";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "هیچکدام";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ روز";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "لغو";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "حذف";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "پیام صوتی";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "برای ضبط و ارسال پیام صوتی اینجا را لمس کرده و نگه دارید";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "پیام صوتی";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "شما پیام‌های محوشونده را غیرفعال کردید.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "لطفا نام نمایشی را انتخاب کنید";
 "vc_display_name_display_name_too_long_error" = "لطفا نام نمایشی کوتاه‌تری انتخاب کنید";
 "vc_pn_mode_recommended_option_tag" = "گزینه پیشنهادی";
-"vc_pn_mode_no_option_picked_modal_title" = "لطفا یک گزینه را انتخاب کنید";
 "vc_home_empty_state_message" = "فهرست مخاطبان شما خالی است.";
 "vc_home_empty_state_button_title" = "شروع Session";
 "vc_seed_title" = "عبارت بازیابی شما";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "افزودن پیوست ها";
 "accessibility_gif_button" = "گیف";
 "accessibility_document_button" = "مدرک";
-"accessibility_library_button" = "گالری عکس";
-"accessibility_camera_button" = "دوربین";
 "accessibility_main_button_collapse" = "کوچک کردن گزینه‌های پیوست";
 "invalid_recovery_phrase" = "جمله ی بازیابی نامعتبر است";
 "DISMISS_BUTTON_TEXT" = "رد کردن";

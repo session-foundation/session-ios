@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (預設)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "訊息通知";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "無";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ 天";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "關閉";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "刪除";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "語音訊息";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "點擊並長按來錄製語音訊息。";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "語音訊息";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "您取消了閱後即焚模式。";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "請選擇一個名稱";
 "vc_display_name_display_name_too_long_error" = "請使用一個較短的名稱";
 "vc_pn_mode_recommended_option_tag" = "建議";
-"vc_pn_mode_no_option_picked_modal_title" = "請選擇其中一項選項";
 "vc_home_empty_state_message" = "您尚未添加聯絡人";
 "vc_home_empty_state_button_title" = "開始一個 Session";
 "vc_seed_title" = "您的復原片語";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "增加附件檔案";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "文件";
-"accessibility_library_button" = "前往照片圖庫";
-"accessibility_camera_button" = "相機";
 "accessibility_main_button_collapse" = "摺疊附件選項";
 "invalid_recovery_phrase" = "無效的復原片語";
 "DISMISS_BUTTON_TEXT" = "關閉";

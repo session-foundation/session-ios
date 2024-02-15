@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (noklusējums)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "Ziņojuma skaņa";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "Neviena";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ dienas";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "Atcelt";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "Dzēst";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "Balss ziņojums";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Pieskaries un turi, lai ierakstītu ziņojumu.";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "Balss ziņojums";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Tu atspējoji gaistošos ziņojumus.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "Lūdzu, izvēlies atainojamo vārdu";
 "vc_display_name_display_name_too_long_error" = "Lūdzu, izvēlies īsāku atainojamo vārdu";
 "vc_pn_mode_recommended_option_tag" = "Ieteicamais";
-"vc_pn_mode_no_option_picked_modal_title" = "Lūdzu, izvēlies opciju";
 "vc_home_empty_state_message" = "Patreiz Tev nav neviena kontakta";
 "vc_home_empty_state_button_title" = "Uzsākt sesiju";
 "vc_seed_title" = "Tava atjaunošanas frāze";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "Pievienot pielikumus";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "Dokuments";
-"accessibility_library_button" = "Attēlu bibliotēka";
-"accessibility_camera_button" = "Kamera";
 "accessibility_main_button_collapse" = "Sakļaut pielikumu iespējas";
 "invalid_recovery_phrase" = "Atjaunošanas frāze nav pareiza";
 "DISMISS_BUTTON_TEXT" = "Noraidīt";
@@ -431,8 +422,6 @@
 "SEND_BUTTON_TITLE" = "Sūtīt";
 /* Generic text for button that retries whatever the last action was. */
 "RETRY_BUTTON_TEXT" = "Mēģināt vēlreiz";
-/* notification action */
-"SHOW_THREAD_BUTTON_TITLE" = "Show Chat";
 /* notification body */
 "SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
 "INVALID_SESSION_ID_MESSAGE" = "Lūdzu pārbaudiet savu Sassion ID un mēģiniet vēlreiz.";

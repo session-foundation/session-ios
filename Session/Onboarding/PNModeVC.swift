@@ -15,8 +15,8 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         [ apnsOptionView, backgroundPollingOptionView ]
     }
 
-    private var selectedOptionView: OptionView? {
-        return optionViews.first { $0.isSelected }
+    private var selectedOptionView: OptionView {
+        return optionViews.first { $0.isSelected } ?? apnsOptionView
     }
     
     // MARK: - Initialization
@@ -129,19 +129,6 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
     }
 
     @objc private func register() {
-        guard selectedOptionView != nil else {
-            let modal: ConfirmationModal = ConfirmationModal(
-                targetView: self.view,
-                info: ConfirmationModal.Info(
-                    title: "vc_pn_mode_no_option_picked_modal_title".localized(),
-                    cancelTitle: "BUTTON_OK".localized(),
-                    cancelStyle: .alert_text
-                )
-            )
-            self.present(modal, animated: true)
-            return
-        }
-        
         let useAPNS: Bool = (selectedOptionView == apnsOptionView)
         UserDefaults.standard[.isUsingFullAPNs] = useAPNS
         

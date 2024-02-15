@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (за замовчуванням)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "Звук повідомлення";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "Жодного";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ днів";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "Скасувати";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "Видалити";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "Голосове повідомлення";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Торкніться та утримуйте, щоб записати голосове повідомлення.";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "Голосове повідомлення";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Ви вимкнули зникаючі повідомлення.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "Будь ласка, виберіть псевдонім для показу";
 "vc_display_name_display_name_too_long_error" = "Будь ласка, виберіть коротший псевдонім для показу";
 "vc_pn_mode_recommended_option_tag" = "Рекомендовано";
-"vc_pn_mode_no_option_picked_modal_title" = "Будь ласка, виберіть варіант";
 "vc_home_empty_state_message" = "У вас ще немає жодних контактів";
 "vc_home_empty_state_button_title" = "Почати розмову";
 "vc_seed_title" = "Ваша фраза відновлення";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "Додати вкладення";
 "accessibility_gif_button" = "Gif";
 "accessibility_document_button" = "Документ";
-"accessibility_library_button" = "Галерея фотографій";
-"accessibility_camera_button" = "Камера";
 "accessibility_main_button_collapse" = "Згорнути параметри вкладень";
 "invalid_recovery_phrase" = "Невірна фраза відновлення";
 "DISMISS_BUTTON_TEXT" = "Відхилити";

@@ -192,8 +192,6 @@
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (προεπιλογή)";
 /* Label for settings view that allows user to change the notification sound. */
 "SETTINGS_ITEM_NOTIFICATION_SOUND" = "Ήχος Μηνύματος";
-/* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
-"SOUNDS_NONE" = "Κανένας";
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@ ημέρες";
 /* Label text below navbar button, embeds {{number of days}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5d' not '5 d'. See other *_TIME_AMOUNT strings */
@@ -226,12 +224,8 @@
 "TXT_CANCEL_TITLE" = "Ακύρωση";
 /* No comment provided by engineer. */
 "TXT_DELETE_TITLE" = "Διαγραφή";
-/* Filename for voice messages. */
-"VOICE_MESSAGE_FILE_NAME" = "Ηχητικό Μήνυμα";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
 "VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Πατήστε παρατεταμένα για να ηχογραφήσετε ένα φωνητικό μήνυμα.";
-/* Title for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_TITLE" = "Ηχητικό Μήνυμα";
 /* Info Message when you disable disappearing messages */
 "YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Απενεργοποιήσατε τα εξαφανιζόμενα μηνύματα.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
@@ -267,7 +261,6 @@
 "vc_display_name_display_name_missing_error" = "Παρακαλώ επιλέξτε ένα όνομα εμφάνισης";
 "vc_display_name_display_name_too_long_error" = "Παρακαλώ επιλέξτε ένα μικρότερο όνομα εμφάνισης";
 "vc_pn_mode_recommended_option_tag" = "Προτείνεται";
-"vc_pn_mode_no_option_picked_modal_title" = "Παρακαλώ Διαλέξτε μία από τις Επιλογές";
 "vc_home_empty_state_message" = "Δεν έχετε επαφές ακόμα";
 "vc_home_empty_state_button_title" = "Ξεκινήστε ένα Session";
 "vc_seed_title" = "Η Φράση σας Ανάκτησης";
@@ -370,8 +363,6 @@
 "accessibility_expanding_attachments_button" = "Προσθήκη συνημμένων";
 "accessibility_gif_button" = "GIF";
 "accessibility_document_button" = "Έγγραφο";
-"accessibility_library_button" = "Βιβλιοθήκη φωτογραφιών";
-"accessibility_camera_button" = "Κάμερα";
 "accessibility_main_button_collapse" = "Σύμπτυξη επιλογών συνημμένου";
 "invalid_recovery_phrase" = "Μη έγκυρη Φράση Ανάκτησης";
 "DISMISS_BUTTON_TEXT" = "Παράλειψη";
