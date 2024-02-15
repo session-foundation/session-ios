@@ -47,6 +47,8 @@ final class InfoMessageCell: MessageCell {
         result.themeTextColor = .primary
         result.textAlignment = .center
         result.numberOfLines = 1
+        result.isAccessibilityElement = true
+        result.accessibilityIdentifier = "Follow setting"
         
         return result
     }()
