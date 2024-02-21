@@ -134,7 +134,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     private lazy var createGroupButton: SessionButton = {
         let result = SessionButton(style: .bordered, size: .large)
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("CREATE_GROUP_BUTTON_TITLE".localized(), for: .normal)
+        result.setTitle("create".localized(), for: .normal)
         result.addTarget(self, action: #selector(createClosedGroup), for: .touchUpInside)
         result.accessibilityIdentifier = "Create group"
         result.isAccessibilityElement = true
@@ -167,7 +167,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         guard !contactProfiles.isEmpty else {
             let explanationLabel: UILabel = UILabel()
             explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-            explanationLabel.text = "vc_create_closed_group_empty_state_message".localized()
+            explanationLabel.text = "contactNone".localized()
             explanationLabel.themeTextColor = .textSecondary
             explanationLabel.textAlignment = .center
             explanationLabel.lineBreakMode = .byWordWrapping
@@ -324,7 +324,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
         }
         guard selectedContacts.count >= 1 else {
-            return showError(title: "GROUP_ERROR_NO_MEMBER_SELECTION".localized())
+            return showError(title: "groupCreateErrorNoMembers".localized())
         }
         guard selectedContacts.count < 100 else { // Minus one because we're going to include self later
             return showError(title: "vc_create_closed_group_too_many_group_members_error".localized())

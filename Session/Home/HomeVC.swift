@@ -195,7 +195,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     private lazy var emptyStateView: UIView = {
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_home_empty_state_message".localized()
+        explanationLabel.text = "contactNone".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -753,7 +753,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
             
             return ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "ALERT_ERROR_TITLE".localized(),
+                    title: "error".localized(),
                     body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text

@@ -315,7 +315,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         result.textAlignment = .center
         result.isHidden = call.hasConnected
         
-        if call.hasStartedConnecting { result.text = "Connecting..." }
+        if call.hasStartedConnecting { result.text = "callsConnecting".localized() }
         
         return result
     }()
@@ -360,7 +360,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         
         self.call.hasStartedConnectingDidChange = {
             DispatchQueue.main.async {
-                self.callInfoLabel.text = "Connecting..."
+                self.callInfoLabel.text = "callsConnecting".localized()
                 self.answerButton.alpha = 0
                 
                 UIView.animate(
@@ -403,7 +403,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
             DispatchQueue.main.async {
                 self?.callInfoLabel.isHidden = false
                 self?.callDurationLabel.isHidden = true
-                self?.callInfoLabel.text = "Reconnecting..."
+                self?.callInfoLabel.text = "callsReconnecting".localized()
             }
         }
         
@@ -435,7 +435,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
                     self?.endCall()
                 }
                 else {
-                    self?.callInfoLabel.text = "Ringing..."
+                    self?.callInfoLabel.text = "callsRinging".localized()
                     self?.answerButton.isHidden = true
                 }
             }
@@ -580,7 +580,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     
     // MARK: Call signalling
     func handleAnswerMessage(_ message: CallMessage) {
-        callInfoLabel.text = "Connecting..."
+        callInfoLabel.text = "callsConnecting".localized()
     }
     
     func handleEndCallMessage() {

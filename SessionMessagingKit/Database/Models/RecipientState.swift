@@ -61,8 +61,8 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
                     
                     return "MESSAGE_STATUS_READ".localized()
                 
-                case .failedToSync: return "MESSAGE_DELIVERY_STATUS_FAILED_SYNC".localized()
-                case .syncing: return "MESSAGE_DELIVERY_STATUS_SYNCING".localized()
+                case .failedToSync: return "messageStatusFailedToSync".localized()
+                case .syncing: return "messageStatusSyncing".localized()
                     
                 default:
                     owsFailDebug("Message has unexpected status: \(self).")
@@ -98,21 +98,21 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
                 case (.failed, _):
                     return (
                         UIImage(systemName: "exclamationmark.triangle"),
-                        "MESSAGE_DELIVERY_STATUS_FAILED".localized(),
+                        "messageStatusFailedToSend".localized(),
                         .danger
                     )
                     
                 case (.failedToSync, _):
                     return (
                         UIImage(systemName: "exclamationmark.triangle"),
-                        "MESSAGE_DELIVERY_STATUS_FAILED_SYNC".localized(),
+                        "messageStatusFailedToSync".localized(),
                         .warning
                     )
                     
                 case (.syncing, _):
                     return (
                         UIImage(systemName: "ellipsis.circle"),
-                        "MESSAGE_DELIVERY_STATUS_SYNCING".localized(),
+                        "messageStatusSyncing".localized(),
                         .warning
                     )
 

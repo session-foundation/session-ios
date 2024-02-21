@@ -37,7 +37,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
     public let url: String
     
     /// The number of seconds since epoch rounded down to the nearest 100,000 seconds (~day) - This
-    /// allows us to optimise against duplicate urls without having “stale” data last too long
+    /// allows us to optimise against duplicate urls without having "stale" data last too long
     public let timestamp: TimeInterval
     
     /// The type of link preview

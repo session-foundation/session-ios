@@ -183,7 +183,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                     let modal: ConfirmationModal = ConfirmationModal(
                         targetView: self.view,
                         info: ConfirmationModal.Info(
-                            title: "ALERT_ERROR_TITLE".localized(),
+                            title: "error".localized(),
                             body: .text("DM_ERROR_DIRECT_BLINDED_ID".localized()),
                             cancelTitle: "BUTTON_OK".localized(),
                             cancelStyle: .alert_text,
@@ -196,7 +196,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                     let modal: ConfirmationModal = ConfirmationModal(
                         targetView: self.view,
                         info: ConfirmationModal.Info(
-                            title: "ALERT_ERROR_TITLE".localized(),
+                            title: "error".localized(),
                             body: .text("DM_ERROR_INVALID".localized()),
                             cancelTitle: "BUTTON_OK".localized(),
                             cancelStyle: .alert_text,
@@ -243,7 +243,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
-                                            title: "ALERT_ERROR_TITLE".localized(),
+                                            title: "error".localized(),
                                             body: .text(message),
                                             cancelTitle: "BUTTON_OK".localized(),
                                             cancelStyle: .alert_text,
@@ -285,7 +285,7 @@ private final class EnterPublicKeyVC: UIViewController {
     // MARK: - Components
     
     private lazy var publicKeyTextView: TextView = {
-        let result = TextView(placeholder: "vc_enter_public_key_text_field_hint".localized()) { [weak self] text in
+        let result = TextView(placeholder: "accountIdOrOnsEnter".localized()) { [weak self] text in
             self?.nextButton.isEnabled = !text.isEmpty
         }
         result.accessibilityLabel = "Session id input box"

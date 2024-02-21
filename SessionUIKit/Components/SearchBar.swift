@@ -53,7 +53,7 @@ public extension UISearchBar {
             guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
             
             searchTextField?.attributedPlaceholder = NSAttributedString(
-                string: "Search",
+                string: "search".localized(),
                 attributes: [
                     .foregroundColor: textColor
                 ])
@@ -85,7 +85,7 @@ public extension UISearchBar {
             guard let textColor: UIColor = theme.color(for: .textSecondary) else { return }
             
             searchTextField?.attributedPlaceholder = NSAttributedString(
-                string: "Search Contacts",
+                string: "searchContacts".localized(),
                 attributes: [
                     .foregroundColor: textColor
                 ]

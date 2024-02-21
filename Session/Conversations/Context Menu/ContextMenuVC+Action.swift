@@ -39,7 +39,7 @@ extension ContextMenuVC {
         static func info(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?, using dependencies: Dependencies) -> Action {
             return Action(
                 icon: UIImage(named: "ic_info"),
-                title: "context_menu_info".localized(),
+                title: "info".localized(),
                 accessibilityLabel: "Message info"
             ) { delegate?.info(cellViewModel, using: dependencies) }
         }
@@ -49,7 +49,7 @@ extension ContextMenuVC {
                 icon: UIImage(systemName: "arrow.triangle.2.circlepath"),
                 title: (cellViewModel.state == .failedToSync ?
                     "context_menu_resync".localized() :
-                    "context_menu_resend".localized()
+                    "resend".localized()
                 ),
                 accessibilityLabel: (cellViewModel.state == .failedToSync ? "Resync message" : "Resend message")
             ) { delegate?.retry(cellViewModel, using: dependencies) }

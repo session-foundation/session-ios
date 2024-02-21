@@ -102,7 +102,7 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
         
         ViewControllerUtilities.setUpDefaultSessionStyle(
             for: self,
-            title: "message_info_title".localized(),
+            title: "messageInfo".localized(),
             hasCustomBackButton: false
         )
         

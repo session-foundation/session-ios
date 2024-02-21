@@ -30,7 +30,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         
         var title: String? {
             switch self {
-                case .messageTrimming: return "CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING".localized()
+                case .messageTrimming: return "conversationsMessageTrimming".localized()
                 case .audioMessages: return "CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES".localized()
                 case .blockedContacts: return nil
             }
@@ -67,8 +67,8 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .messageTrimming,
-                            title: "CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE".localized(),
-                            subtitle: "CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION".localized(),
+                            title: "conversationsMessageTrimmingTrimCommunities".localized(),
+                            subtitle: "conversationsMessageTrimmingTrimCommunitiesDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .trimOpenGroupMessagesOlderThanSixMonths,
@@ -111,7 +111,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .blockedContacts,
-                            title: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE".localized(),
+                            title: "conversationsBlockedContacts".localized(),
                             styling: SessionCell.StyleInfo(
                                 tintColor: .danger,
                                 backgroundStyle: .noBackground

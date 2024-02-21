@@ -341,7 +341,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: (threadViewModel.threadVariant == .community ?
-                                    "COPY_GROUP_URL".localized() :
+                                    "communityUrlCopy".localized() :
                                     "vc_conversation_settings_copy_session_id_button_title".localized()
                                 ),
                                 accessibility: Accessibility(
@@ -403,7 +403,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "conversation_settings_search")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "CONVERSATION_SETTINGS_SEARCH".localized(),
+                            title: "searchConversation".localized(),
                             accessibility: Accessibility(
                                 identifier: "\(ThreadSettingsViewModel.self).search",
                                 label: "Search"
@@ -460,7 +460,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER".localized(),
                                         arguments: [current.disappearingMessagesConfig.durationString]
                                     ) :
-                                    "DISAPPEARING_MESSAGES_SUBTITLE_OFF".localized()
+                                    "off".localized()
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
@@ -487,7 +487,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     UIImage(named: "table_ic_group_edit")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: "EDIT_GROUP_ACTION".localized(),
+                                title: "groupEdit".localized(),
                                 accessibility: Accessibility(
                                     identifier: "Edit group",
                                     label: "Edit group"
@@ -516,7 +516,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     label: "Leave group"
                                 ),
                                 confirmationInfo: ConfirmationModal.Info(
-                                    title: "leave_group_confirmation_alert_title".localized(),
+                                    title: "groupLeave".localized(),
                                     body: .attributedText({
                                         if currentUserIsClosedGroupAdmin {
                                             return NSAttributedString(string: "admin_group_leave_warning".localized())
@@ -524,7 +524,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         
                                         let mutableAttributedString = NSMutableAttributedString(
                                             string: String(
-                                                format: "leave_community_confirmation_alert_message".localized(),
+                                                format: "communityLeaveDescription".localized(),
                                                 threadViewModel.displayName
                                             )
                                         )
@@ -535,7 +535,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         )
                                         return mutableAttributedString
                                     }()),
-                                    confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
+                                    confirmTitle: "leave".localized(),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text
                                 ),
@@ -623,7 +623,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     UIImage(named: "Mute")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: "CONVERSATION_SETTINGS_MUTE_LABEL".localized(),
+                                title: "notificationsMute".localized(),
                                 rightAccessory: .toggle(
                                     .boolValue(
                                         threadViewModel.threadMutedUntilTimestamp != nil,
@@ -813,45 +813,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies.storage.writeAsync(
-            updates: { db in
-                try Contact
-                    .filter(id: threadId)
-                    .updateAllAndConfig(
-                        db,
-                        Contact.Columns.isBlocked.set(to: isBlocked)
-                    )
-            },
-            completion: { [weak self] db, _ in
-                DispatchQueue.main.async {
-                    let modal: ConfirmationModal = ConfirmationModal(
-                        info: ConfirmationModal.Info(
-                            title: (oldBlockedState == false ?
-                                "BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE".localized() :
-                                String(
-                                    format: "BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT".localized(),
-                                    displayName
-                                )
-                            ),
-                            body: (oldBlockedState == true ? .none : .text(
-                                String(
-                                    format: "BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT".localized(),
-                                    displayName
-                                )
-                            )),
-                            accessibility: Accessibility(
-                                identifier: "Test_name",
-                                label: (oldBlockedState == false ? "User blocked" : "Confirm unblock")
-                            ),
-                            cancelTitle: "BUTTON_OK".localized(),
-                            cancelAccessibility: Accessibility(identifier: "OK_BUTTON"),
-                            cancelStyle: .alert_text
-                        )
-                    )
-                    
-                    self?.transitionToScreen(modal, transitionType: .present)
-                }
-            }
-        )
+        dependencies.storage.writeAsync{ db in
+            try Contact
+                .filter(id: threadId)
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isBlocked.set(to: isBlocked)
+                )
+        }
     }
 }

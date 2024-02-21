@@ -136,7 +136,7 @@ final class NukeDataModal: Modal {
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modal_clear_all_data_title".localized(),
-                body: .text("modal_clear_all_data_explanation_2".localized()),
+                body: .text("clearDeviceAndNetworkConfirm".localized()),
                 confirmTitle: "modal_clear_all_data_confirm".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
@@ -178,7 +178,7 @@ final class NukeDataModal: Modal {
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
-                                            title: "ALERT_ERROR_TITLE".localized(),
+                                            title: "clearDataError".localized(),
                                             body: .text(error.localizedDescription),
                                             cancelTitle: "BUTTON_OK".localized(),
                                             cancelStyle: .alert_text
@@ -208,7 +208,7 @@ final class NukeDataModal: Modal {
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
-                                        title: "ALERT_ERROR_TITLE".localized(),
+                                        title: "clearDataError".localized(),
                                         body: .text(message),
                                         cancelTitle: "BUTTON_OK".localized(),
                                         cancelStyle: .alert_text

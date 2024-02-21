@@ -66,9 +66,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     threadVariant: threadData.threadVariant
                 )
                 
-                return "\(name) is blocked. Unblock them?"
+            return "blockBlockedDescription".localized()
                 
-            default: return "Thread is blocked. Unblock it?"
+            default: return "Thread is blocked. Unblock it?" // Should not happen
         }
     }()
     

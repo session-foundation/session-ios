@@ -85,7 +85,7 @@ public extension UIContextualAction {
                         return UIContextualAction(
                             title: (isUnread ?
                                 "MARK_AS_READ".localized() :
-                                "MARK_AS_UNREAD".localized()
+                                "messageMarkUnread".localized()
                             ),
                             icon: (isUnread ?
                                 UIImage(systemName: "envelope.open") :
@@ -134,7 +134,7 @@ public extension UIContextualAction {
                                 default:
                                     let confirmationModalExplanation: NSAttributedString = {
                                         let message = String(
-                                            format: "hide_note_to_self_confirmation_alert_message".localized(),
+                                            format: "noteToSelfHideDescription".localized(),
                                             threadViewModel.displayName
                                         )
                                         
@@ -149,7 +149,7 @@ public extension UIContextualAction {
                                     
                                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                                         info: ConfirmationModal.Info(
-                                            title: "hide_note_to_self_confirmation_alert_title".localized(),
+                                            title: "noteToSelfHide".localized(),
                                             body: .attributedText(confirmationModalExplanation),
                                             confirmTitle: "TXT_HIDE_TITLE".localized(),
                                             confirmAccessibility: Accessibility(
@@ -224,7 +224,7 @@ public extension UIContextualAction {
                     case .mute:
                         return UIContextualAction(
                             title: (threadViewModel.threadMutedUntilTimestamp == nil ?
-                                "mute_button_text".localized() :
+                                "notificationsMute".localized() :
                                 "unmute_button_text".localized()
                             ),
                             icon: (threadViewModel.threadMutedUntilTimestamp == nil ?
@@ -362,7 +362,7 @@ public extension UIContextualAction {
 
                     case .leave:
                         return UIContextualAction(
-                            title: "LEAVE_BUTTON_TITLE".localized(),
+                            title: "leave".localized(),
                             icon: UIImage(systemName: "rectangle.portrait.and.arrow.right"),
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
@@ -375,9 +375,9 @@ public extension UIContextualAction {
                             let confirmationModalTitle: String = {
                                 switch threadViewModel.threadVariant {
                                     case .legacyGroup, .group:
-                                        return "leave_group_confirmation_alert_title".localized()
+                                        return "groupLeave".localized()
                                         
-                                    default: return "leave_community_confirmation_alert_title".localized()
+                                    default: return "communityLeave".localized()
                                 }
                             }()
                             
@@ -388,7 +388,7 @@ public extension UIContextualAction {
                                 
                                 let mutableAttributedString = NSMutableAttributedString(
                                     string: String(
-                                        format: "leave_community_confirmation_alert_message".localized(),
+                                        format: "communityLeaveDescription".localized(),
                                         threadViewModel.displayName
                                     )
                                 )
@@ -404,7 +404,7 @@ public extension UIContextualAction {
                                 info: ConfirmationModal.Info(
                                     title: confirmationModalTitle,
                                     body: .attributedText(confirmationModalExplanation),
-                                    confirmTitle: "LEAVE_BUTTON_TITLE".localized(),
+                                    confirmTitle: "leave".localized(),
                                     confirmAccessibility: Accessibility(
                                         identifier: "Leave"
                                     ),
@@ -454,7 +454,7 @@ public extension UIContextualAction {
                                         return "delete_conversation_confirmation_alert_title".localized()
                                         
                                     case (.legacyGroup, _), (.group, _):
-                                        return "delete_group_confirmation_alert_title".localized()
+                                        return "groupDelete".localized()
                                         
                                     case (.community, _): return "TXT_DELETE_TITLE".localized()
                                 }
@@ -480,10 +480,10 @@ public extension UIContextualAction {
                                                 
                                             case .legacyGroup, .group:
                                                 return
-                                                    "delete_group_confirmation_alert_message".localized()
+                                                    "groupDeleteDescription".localized()
                                                 
                                             case .community:
-                                                return "leave_community_confirmation_alert_message".localized()
+                                                return "communityLeaveDescription".localized()
                                         }
                                     }(),
                                     threadViewModel.displayName

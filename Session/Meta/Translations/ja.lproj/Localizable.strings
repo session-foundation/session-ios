@@ -46,12 +46,6 @@
 "BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "%@のブロックを解除しますか？";
 /* Button label for the 'unblock' button */
 "BLOCK_LIST_UNBLOCK_BUTTON" = "ブロックを解除する";
-/* The message format of the 'conversation blocked' alert. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@はブロックされました。";
-/* The title of the 'user blocked' alert. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "ユーザがブロックされました";
-/* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@のブロックを解除しました";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "ブロックされたユーザは、あなたにメッセージや通話を発信することができなくなります。";
 /* Label for generic done button. */
@@ -59,7 +53,7 @@
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "選択";
 /* keyboard toolbar label when starting to search with no current results */
-"CONVERSATION_SEARCH_SEARCHING" = "検索中です。。。";
+"searchSearching" = "検索中です。。。";
 /* keyboard toolbar label when no messages match the search string */
 "CONVERSATION_SEARCH_NO_RESULTS" = "見つかりません";
 /* keyboard toolbar label when exactly 1 message matches the search string */
@@ -69,9 +63,9 @@
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "このユーザをブロックする";
 /* label for 'mute thread' cell in conversation settings */
-"CONVERSATION_SETTINGS_MUTE_LABEL" = "消音";
+"notificationsMute" = "消音";
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
-"CONVERSATION_SETTINGS_SEARCH" = "会話の検索";
+"searchConversation" = "会話の検索";
 /* Title for the 'crop/scale image' dialog. */
 "CROP_SCALE_IMAGE_VIEW_TITLE" = "編集";
 /* Subtitle shown while the app is updating its database. */
@@ -83,7 +77,7 @@
 /* table cell label in conversation settings */
 "DISAPPEARING_MESSAGES" = "消えるメッセージ";
 /* table cell label in conversation settings */
-"EDIT_GROUP_ACTION" = "グループを編集";
+"groupEdit" = "グループを編集";
 /* Label indicating media gallery is empty */
 "GALLERY_TILES_EMPTY_GALLERY" = "この会話にはメディアがありません。";
 /* Label indicating loading is in progress */
@@ -127,7 +121,7 @@
 /* Message for the alert indicating that an audio file is invalid. */
 "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "無効な音声ファイル";
 /* Confirmation button within contextual alert */
-"LEAVE_BUTTON_TITLE" = "離脱";
+"leave" = "離脱";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "グループを離脱";
 /* nav bar button item */
@@ -182,10 +176,6 @@
 "SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Sessionの起動認証";
 /* Title for alert indicating that screen lock could not be unlocked. */
 "SCREEN_LOCK_UNLOCK_FAILED" = "認証失敗";
-/* alert title when user attempts to leave the send media flow when they have an in-progress album */
-"SEND_MEDIA_ABANDON_TITLE" = "メディアを破棄しますか？";
-/* alert action, confirming the user wants to exit the media flow and abandon any photos they've taken */
-"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "メディアを破棄する";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@（デフォルト）";
 /* Label for settings view that allows user to change the notification sound. */
@@ -259,7 +249,7 @@
 "vc_display_name_display_name_missing_error" = "表示名を選択してください";
 "vc_display_name_display_name_too_long_error" = "短い表示名を選択してください";
 "vc_pn_mode_recommended_option_tag" = "オススメ";
-"vc_home_empty_state_message" = "まだ連絡先がありません";
+"contactNone" = "まだ連絡先がありません";
 "vc_home_empty_state_button_title" = "Session を開始する";
 "vc_seed_title" = "あなたのリカバリーフレーズ";
 "vc_seed_title_2" = "リカバリーフレーズに合致する";
@@ -282,7 +272,7 @@
 "vc_scan_qr_code_camera_access_explanation" = "Session で QR コードをスキャンするにはカメラへのアクセスが必要です";
 "vc_create_closed_group_title" = "グループを作成";
 "vc_create_closed_group_text_field_hint" = "グループ名を入力してください";
-"vc_create_closed_group_empty_state_message" = "まだ連絡先がありません";
+"contactNone" = "まだ連絡先がありません";
 "vc_create_closed_group_group_name_missing_error" = "グループ名を入力してください";
 "vc_create_closed_group_group_name_too_long_error" = "短いグループ名を入力してください";
 "vc_create_closed_group_too_many_group_members_error" = "非公開グループは 100 人を超えるメンバーを抱えることはできません";
@@ -305,15 +295,15 @@
 "vc_view_my_qr_code_explanation" = "これはあなたの QR コードです。他のユーザーはそれをスキャンして、あなたとの Session を開始できます。";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Appleの通知サーバーの利用で、すぐかつ確実に新しいメッセージの受信を通知されます。";
-"fast_mode" = "高速モード";
+"notificationsFastMode" = "高速モード";
 "slow_mode_explanation" = "Sessionは時々バックグラウンドで新しいメッセージの受信をチェックします。";
-"slow_mode" = "低速モード";
+"notificationsSlowMode" = "低速モード";
 "vc_pn_mode_title" = "メッセージ通知";
 "vc_link_device_recovery_phrase_tab_title" = "リカバリーフレーズ";
 "vc_link_device_scan_qr_code_explanation" = "QRコードを表示するのに、他のデバイスから「設定→リカバリーフレーズ」へナビゲートする";
 "vc_enter_recovery_phrase_title" = "リカバリーフレーズ";
 "vc_enter_recovery_phrase_explanation" = "デバイスをリンクするのに、サインアップした時に与えられたリカバリーフレーズを入力します。";
-"vc_enter_public_key_text_field_hint" = "Session IDを入力する";
+"accountIdOrOnsEnter" = "Session IDを入力する";
 "admin_group_leave_warning" = "このグループの作成者なので、削除すると全てのメンバーが追い出されます。元に戻せません。";
 "vc_join_open_group_suggestions_title" = "または、以下のグループに参加する…";
 "vc_settings_invite_a_friend_button_title" = "友達を招待";
@@ -335,7 +325,6 @@
 "modal_link_previews_explanation" = "リンクプレビューを有効すると、URLを送受信する場合にプレビューが表示されます。これは便利ですが、プレビューを作成するのにSessionはそのウェブサイトに接続する必要があります。Sessionの設定から、リンクプレビューをいつでも無効にできます。";
 "modal_link_previews_button_title" = "有効にする";
 "vc_share_title" = "Sessionと共有";
-"vc_share_loading_message" = "添付ファイルを準備しています...";
 "vc_share_sending_message" = "送信中…";
 "vc_share_link_previews_unsecure" = "セキュアでないリンクのプレビューは読み込めません";
 "vc_share_link_previews_error" = "プレビューを読み込めません";
@@ -392,7 +381,7 @@
 "TXT_HIDE_TITLE" = "非表示";
 "TXT_DELETE_ACCEPT" = "許可";
 "TXT_BLOCK_USER_TITLE" = "ユーザーをブロック";
-"ALERT_ERROR_TITLE" = "エラー";
+"error" = "エラー";
 "modal_call_permission_request_title" = "許可が必要です";
 "modal_call_permission_request_explanation" = "プライバシー設定から音声とビデオ通話の許可を有効にできます。";
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "エラーが発生してしまいました！";
@@ -424,9 +413,9 @@
 "SEND_FAILED_NOTIFICATION_BODY" = "メッセージの送信に失敗しました。";
 "INVALID_SESSION_ID_MESSAGE" = "セッションIDを確認してもう一度やり直してください";
 "INVALID_RECOVERY_PHRASE_MESSAGE" = "リカバリーフレーズを確認してもう一度やり直してください。";
-"MEDIA_TAB_TITLE" = "メディア";
+"media" = "メディア";
 "DOCUMENT_TAB_TITLE" = "ドキュメント";
-"DOCUMENT_TILES_EMPTY_DOCUMENT" = "この会話にはドキュメントがありません。";
+"attachmentsFilesEmpty" = "この会話にはドキュメントがありません。";
 "DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL" = "新しいドキュメントを読み込んでいます…";
 "DOCUMENT_TILES_LOADING_OLDER_LABEL" = "古いドキュメントを読み込んでいます…";
 /* The name for the emoji category 'Activities' */
@@ -452,49 +441,48 @@
 "EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "%@ が %@ をこのメッセージに反応しました.";
 "EMOJI_REACTS_RATE_LIMIT_TOAST" = "スローダウンしました。絵文字リアクターが多すぎます。しばらくしてからもう一度試してください。";
 /* New conversation screen*/
-"vc_new_conversation_title" = "新しい会話";
-"CREATE_GROUP_BUTTON_TITLE" = "作成する";
-"JOIN_COMMUNITY_BUTTON_TITLE" = "参加";
+"conversationsNew" = "新しい会話";
+"create" = "作成する";
+"join" = "参加";
 "PRIVACY_TITLE" = "プライバシー";
-"PRIVACY_SECTION_SCREEN_SECURITY" = "スクリーン・セキュリティ";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Sessionをロック";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "セッションのロックを解除するには、Touch ID、Face ID、またはパスコードが必要です。";
-"PRIVACY_SECTION_READ_RECEIPTS" = "既読通知";
-"PRIVACY_READ_RECEIPTS_TITLE" = "既読通知";
-"PRIVACY_READ_RECEIPTS_DESCRIPTION" = "1対1のチャットで既読通知を送信します。";
-"PRIVACY_SECTION_TYPING_INDICATORS" = "入力中アイコン";
-"PRIVACY_TYPING_INDICATORS_TITLE" = "入力中アイコン";
-"PRIVACY_TYPING_INDICATORS_DESCRIPTION" = "入力中の表示を1対1のチャットで相手に表示します。";
-"PRIVACY_SECTION_LINK_PREVIEWS" = "リンクプレビュー";
-"PRIVACY_LINK_PREVIEWS_TITLE" = "リンクプレビューを送る";
-"PRIVACY_LINK_PREVIEWS_DESCRIPTION" = "サポートされている URL のリンクプレビューを表示します。";
-"PRIVACY_SECTION_CALLS" = "通話 (ベータ版)";
-"PRIVACY_CALLS_TITLE" = "音声とビデオ通話";
-"PRIVACY_CALLS_DESCRIPTION" = "他のユーザーとの音声通話やビデオ通話を有効にします。";
-"PRIVACY_CALLS_WARNING_TITLE" = "音声通話とビデオ通話 (ベータ版)";
-"PRIVACY_CALLS_WARNING_DESCRIPTION" = "音声通話とビデオ通話を使用している間、あなたのIPはあなたの通話相手とOxen Foundationサーバーに表示されます。 音声通話とビデオ通話を有効にしてもよろしいですか？";
+"lockApp" = "Sessionをロック";
+"lockAppDescriptionIos" = "セッションのロックを解除するには、Touch ID、Face ID、またはパスコードが必要です。";
+"readReceipts" = "既読通知";
+"readReceipts" = "既読通知";
+"readReceiptsDescription" = "1対1のチャットで既読通知を送信します。";
+"typingIndicators" = "入力中アイコン";
+"typingIndicators" = "入力中アイコン";
+"typingIndicatorsDescription" = "入力中の表示を1対1のチャットで相手に表示します。";
+"linkPreviews" = "リンクプレビュー";
+"linkPreviewsSend" = "リンクプレビューを送る";
+"linkPreviewsDescription" = "サポートされている URL のリンクプレビューを表示します。";
+"callsSettings" = "通話 (ベータ版)";
+"callsVoiceAndVideo" = "音声とビデオ通話";
+"callsVoiceAndVideoToggleDescription" = "他のユーザーとの音声通話やビデオ通話を有効にします。";
+"callsVoiceAndVideoBeta" = "音声通話とビデオ通話 (ベータ版)";
+"callsVoiceAndVideoModalDescription" = "音声通話とビデオ通話を使用している間、あなたのIPはあなたの通話相手とOxen Foundationサーバーに表示されます。 音声通話とビデオ通話を有効にしてもよろしいですか？";
 "NOTIFICATIONS_TITLE" = "通知";
-"NOTIFICATIONS_SECTION_STRATEGY" = "通知スタイル";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE" = "高速モードを使用する";
+"notificationsStrategy" = "通知スタイル";
+"useFastMode" = "高速モードを使用する";
 "NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION" = "Appleの通知サーバーの利用で、すぐかつ確実に新しいメッセージの受信を通知されます。";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION" = "端末の通知設定に移動";
-"NOTIFICATIONS_SECTION_STYLE" = "通知スタイル";
-"NOTIFICATIONS_STYLE_SOUND_TITLE" = "サウンド";
-"NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE" = "アプリが開いているときの音";
-"NOTIFICATIONS_STYLE_CONTENT_TITLE" = "通知内容";
-"NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION" = "通知に表示される情報";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT" = "名前とメッセージ";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY" = "名前のみ";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT" = "名前もメッセージも無し";
+"notificationsGoToDevice" = "端末の通知設定に移動";
+"notificationsStyle" = "通知スタイル";
+"notificationsSound" = "サウンド";
+"notificationsSoundDescription" = "アプリが開いているときの音";
+"notificationsContent" = "通知内容";
+"notificationsContentDescription" = "通知に表示される情報";
+"notificationsContentShowNameAndContent" = "名前とメッセージ";
+"notificationsContentShowNameOnly" = "名前のみ";
+"notificationsContentShowNoNameOrContent" = "名前もメッセージも無し";
 "CONVERSATION_SETTINGS_TITLE" = "会話";
-"CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING" = "メッセージの削減";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE" = "コミュニティをトリムする";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION" = "2,000件以上のメッセージを持つコミュニティから6ヶ月以上のメッセージを削除します。";
+"conversationsMessageTrimming" = "メッセージの削減";
+"conversationsMessageTrimmingTrimCommunities" = "コミュニティをトリムする";
+"conversationsMessageTrimmingTrimCommunitiesDescription" = "2,000件以上のメッセージを持つコミュニティから6ヶ月以上のメッセージを削除します。";
 "CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "音声メッセージ";
 "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "音声メッセージの自動再生";
 "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "音声メッセージを自動再生します";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE" = "ブロックされた連絡先";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE" = "ブロックされた連絡先がありません。";
+"conversationsBlockedContacts" = "ブロックされた連絡先";
+"blockBlockedNone" = "ブロックされた連絡先がありません。";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK" = "ブロック解除";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE" = "%@のブロックを解除してもよろしいですか?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "この連絡先";
@@ -502,25 +490,25 @@
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "と %@?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "%dとその他";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON" = "ブロック解除";
-"APPEARANCE_TITLE" = "デザイン設定";
-"APPEARANCE_THEMES_TITLE" = "テーマ";
-"APPEARANCE_PRIMARY_COLOR_TITLE" = "プライマリーカラー";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE" = "調子はどうだい?";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE" = "いい感じだよ、貴方はどう？";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE" = "絶好調だよ！";
-"APPEARANCE_NIGHT_MODE_TITLE" = "自動ナイトモード";
-"APPEARANCE_NIGHT_MODE_TOGGLE" = "システム設定に一致する";
-"HELP_TITLE" = "ヘルプ";
-"HELP_REPORT_BUG_TITLE" = "バグを報告";
-"HELP_REPORT_BUG_DESCRIPTION" = "ログをエクスポートし、Sessionのヘルプデスクにてファイルをアップロードします。";
-"HELP_REPORT_BUG_ACTION_TITLE" = "ログのエクスポート";
-"HELP_TRANSLATE_TITLE" = "セッションを翻訳";
-"HELP_FEEDBACK_TITLE" = "ご意見をお聞かせください。";
-"HELP_FAQ_TITLE" = "よくある質問";
-"HELP_SUPPORT_TITLE" = "サポート";
+"sessionAppearance" = "デザイン設定";
+"appearanceThemes" = "テーマ";
+"appearancePrimaryColor" = "プライマリーカラー";
+"appearancePreview1" = "調子はどうだい?";
+"appearancePreview2" = "いい感じだよ、貴方はどう？";
+"appearancePreview3" = "絶好調だよ！";
+"appearanceAutoDarkMode" = "自動ナイトモード";
+"followSystemSettings" = "システム設定に一致する";
+"sessionHelp" = "ヘルプ";
+"helpReportABug" = "バグを報告";
+"helpReportABugExportLogsDescription" = "ログをエクスポートし、Sessionのヘルプデスクにてファイルをアップロードします。";
+"helpReportABugExportLogs" = "ログのエクスポート";
+"helpHelpUsTranslateSession" = "セッションを翻訳";
+"helpWedLoveYourFeedback" = "ご意見をお聞かせください。";
+"helpFAQ" = "よくある質問";
+"helpSupport" = "サポート";
 "modal_clear_all_data_title" = "すべてのデータを消去する";
 "modal_clear_all_data_explanation" = "これにより、メッセージと連絡先が完全に削除されます。このデバイスのみを消去するか、ネットワークからデータを削除しますか？";
-"modal_clear_all_data_explanation_2" = "ネットワークからデータを削除してもよろしいですか？ 続行すると、メッセージや連絡先を復元することはできません。";
+"clearDeviceAndNetworkConfirm" = "ネットワークからデータを削除してもよろしいですか？ 続行すると、メッセージや連絡先を復元することはできません。";
 "modal_clear_all_data_device_only_button_title" = "端末のみ消去";
 "modal_clear_all_data_entire_account_button_title" = "端末とネットワークを消去";
 "dialog_clear_all_data_deletion_failed_1" = "このサービスノードからデータが削除されませんでした。ID: %@";
@@ -531,43 +519,43 @@
 "modal_permission_explanation" = "セッションを続行するには %@ のアクセスが必要です。iOSの設定でアクセスを有効にできます。";
 "modal_permission_settings_title" = "設定";
 "modal_permission_camera" = "カメラ";
-"modal_permission_microphone" = "マイクロフォン";
+"permissionsMicrophoneAccessRequired" = "マイクロフォン";
 "modal_permission_library" = "ライブラリ";
-"DISAPPEARING_MESSAGES_OFF" = "オフ";
-"DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "オフ";
+"off" = "オフ";
+"off" = "オフ";
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "- %@ の後に消えます";
-"COPY_GROUP_URL" = "グループのURLをコピー";
+"communityUrlCopy" = "グループのURLをコピー";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "連絡先";
-"GROUP_ERROR_NO_MEMBER_SELECTION" = "グループメンバーを少なくとも 2 人選択してください";
+"groupCreateErrorNoMembers" = "グループメンバーを少なくとも 2 人選択してください";
 "GROUP_CREATION_PLEASE_WAIT" = "グループが作成されるまでお待ちください...";
 "GROUP_CREATION_ERROR_TITLE" = "グループを作成できませんでした";
 "GROUP_CREATION_ERROR_MESSAGE" = "インターネット接続を確認して、もう一度やり直してください。";
 "GROUP_UPDATE_ERROR_TITLE" = "グループの更新ができませんでした";
 "GROUP_UPDATE_ERROR_MESSAGE" = "他のメンバーを追加または削除中は退出できません。";
-"GROUP_ACTION_REMOVE" = "削除";
+"remove" = "削除";
 "GROUP_TITLE_MEMBERS" = "メンバー";
 "GROUP_TITLE_FALLBACK" = "グループ";
 "DM_ERROR_DIRECT_BLINDED_ID" = "Blinded IDへのメッセージの送信は、コミュニティ内からのみ可能です。";
 "DM_ERROR_INVALID" = "セッションIDまたはONS名を確認して再度お試しください。";
-"COMMUNITY_ERROR_INVALID_URL" = "入力されたURLをご確認の上、再度お試しください。";
+"communityEnterUrlErrorInvalidDescription" = "入力されたURLをご確認の上、再度お試しください。";
 "COMMUNITY_ERROR_GENERIC" = "参加できませんでした";
-"DISAPPERING_MESSAGES_TITLE" = "消えるメッセージ";
-"DISAPPERING_MESSAGES_TYPE_TITLE" = "削除の種類";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "既読後に消えます";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "メッセージは読み込んだ後に削除されます。";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "送信後に消えます";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "メッセージは送信後に削除されます。";
-"DISAPPERING_MESSAGES_TIMER_TITLE" = "タイマー";
-"DISAPPERING_MESSAGES_SAVE_TITLE" = "セット";
-"DISAPPERING_MESSAGES_GROUP_WARNING" = "この設定は、この会話の全員に適用されます。";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "この設定はこの会話の全員に適用されます。グループ管理者のみがこの設定を変更できます。";
-"DISAPPERING_MESSAGES_SUMMARY" = "%@ - %@ の後に消えます";
+"disappearingMessages" = "消えるメッセージ";
+"disappearingMessagesDeleteType" = "削除の種類";
+"disappearingMessagesDisappearAfterRead" = "既読後に消えます";
+"disappearingMessagesDisappearAfterReadDescription" = "メッセージは読み込んだ後に削除されます。";
+"disappearingMessagesDisappearAfterSend" = "送信後に消えます";
+"disappearingMessagesDisappearAfterSendDescription" = "メッセージは送信後に削除されます。";
+"disappearingMessagesTimer" = "タイマー";
+"set" = "セット";
+"disappearingMessagesDescription" = "この設定は、この会話の全員に適用されます。";
+"disappearingMessagesOnlyAdmins" = "この設定はこの会話の全員に適用されます。グループ管理者のみがこの設定を変更できます。";
+"disappearingMessagesDisappear" = "%@ - %@ の後に消えます";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ が %@ になった後、 %@消えるようにメッセージを設定しました";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ が %@ になった後、 %@消えるようにメッセージを設定しました";
+"disappearingMessagesChanged" = "%@ が %@ になった後、 %@消えるようにメッセージを設定しました";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ は消えているメッセージをオフにしました";
 
 /* context_menu_info */
-"context_menu_info" = "お知らせ";
+"info" = "お知らせ";
 
 /* An error that is displayed when the application fails for create it's initial connection to the database */
 "DATABASE_STARTUP_FAILED" = "\n\nデータベースを開くときにエラーが発生しました。トラブルシューティングのために共有するためにアプリケーションログをエクスポートするか、デバイス\n\n警告: デバイスを復元すると、2週間以上のデータが失われます。";
@@ -582,7 +570,7 @@
 "DATABASE_RESTORE_FAILED" = "復元されたデータベースを開くときにエラーが発生しました\n\nアプリケーション ログをエクスポートしてトラブルシューティングのために共有できますが、セッションを引き続き使用するには再インストールが必要な場合があります";
 
 /* Text displayed in place of a quoted message when the original message is not on the device */
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+"messageErrorOriginal" = "Original message not found.";
 
 /* EMOJI_REACTS_SHOW_LESS */
 "EMOJI_REACTS_SHOW_LESS" = "表示を隠す";
@@ -597,7 +585,7 @@
 "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "コミュニティの会話からのメッセージリクエストを許可する";
 
 /* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "受信者がこのメッセージリクエストを承認すると、音声メッセージと添付ファイルを送信できます";
+"messageRequestPendingDescription" = "受信者がこのメッセージリクエストを承認すると、音声メッセージと添付ファイルを送信できます";
 
 /* State of a message while it's still in the process of being sent */
 "MESSAGE_DELIVERY_STATUS_SENDING" = "送金中";
@@ -609,19 +597,19 @@
 "MESSAGE_DELIVERY_STATUS_READ" = "読むか";
 
 /* State of a message if it failed to be sent */
-"MESSAGE_DELIVERY_STATUS_FAILED" = "送信失敗しました";
+"messageStatusFailedToSend" = "送信失敗しました";
 
 /* Title of the message information screen describing the date/time a message was sent */
 "MESSAGE_INFO_SENT" = "送信";
 
 /* Title of the message information screen describing the date/time a message was received on a specific device */
-"MESSAGE_INFO_RECEIVED" = "受信";
+"received" = "受信";
 
 /* Title of the message information screen describing the sender of the message */
-"MESSAGE_INFO_FROM" = "差出人";
+"from" = "差出人";
 
 /* Title of the message information screen describing the identifier of the attachment */
-"ATTACHMENT_INFO_FILE_ID" = "ファイルID";
+"attachmentsFileId" = "ファイルID";
 
 /* Title of the message information screen describing the file type of the attachment */
 "ATTACHMENT_INFO_FILE_TYPE" = "ファイルタイプ";
@@ -630,16 +618,16 @@
 "ATTACHMENT_INFO_FILE_SIZE" = "ファイルサイズ";
 
 /* Title on the message information screen describing the resolution of a media attachment */
-"ATTACHMENT_INFO_RESOLUTION" = "解決法";
+"attachmentsResolution" = "解決法";
 
 /* Title on the message information screen describing the duration of a media attachment */
-"ATTACHMENT_INFO_DURATION" = "持続期間";
+"attachmentsDuration" = "持続期間";
 
 /* State of a message after it failed to sync to the current users other devices */
-"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "同期に失敗しました";
+"messageStatusFailedToSync" = "同期に失敗しました";
 
 /* State of a message while it's in the process of being synced to the users other devices */
-"MESSAGE_DELIVERY_STATUS_SYNCING" = "同期中";
+"messageStatusSyncing" = "同期中";
 
 /* Title of the modal that appears after a user taps on the state of a message which failed to send */
 "MESSAGE_DELIVERY_FAILED_TITLE" = "メッセージの送信に失敗しました";
@@ -651,7 +639,7 @@
 "delete_message_for_me_and_my_devices" = "すべてのデバイスから削除";
 
 /* Action in the long-press menu to trigger a message to be sent again after it has failed */
-"context_menu_resend" = "再送";
+"resend" = "再送";
 
 /* Action in the long-press menu to trigger a message to be synced again after it has failed */
 "context_menu_resync" = "再同期";
@@ -663,10 +651,10 @@
 "GIPHY_PERMISSION_MESSAGE" = "セッションは検索結果を提供するためにGiphyに接続します。GIFを送信するときに完全なメタデータ保護はありません。";
 
 /* Action in the long-press menu to view more information about a specific message */
-"message_info_title" = "メッセージ情報";
+"messageInfo" = "メッセージ情報";
 
 /* Action to mute a conversation in the swipe menu */
-"mute_button_text" = "ミュート";
+"notificationsMute" = "ミュート";
 
 /* Action in the swipe menu to unmute a conversation */
 "unmute_button_text" = "ミュート解除";
@@ -675,16 +663,16 @@
 "MARK_AS_READ" = "既読にする";
 
 /* Action in the swipe menu to mark a conversation as unread */
-"MARK_AS_UNREAD" = "未読にする";
+"messageMarkUnread" = "未読にする";
 
 /* Title of the confirmation modal show when attempting to leave a group conversation */
-"leave_group_confirmation_alert_title" = "グループを抜ける";
+"groupLeave" = "グループを抜ける";
 
 /* Title of the confirmation modal show when attempting to leave a community conversation */
-"leave_community_confirmation_alert_title" = "コミュニティーを脱退する";
+"communityLeave" = "コミュニティーを脱退する";
 
 /* Message in the confirmation modal when leaving a community conversation */
-"leave_community_confirmation_alert_message" = "本当に\"%@\"から退出しますか？";
+"communityLeaveDescription" = "本当に\"%@\"から退出しますか？";
 
 /* Conversation subtitle while the user in the process of leaving */
 "group_you_leaving" = "終了しています...";
@@ -696,10 +684,10 @@
 "group_unable_to_leave" = "グループから脱退できません。もう一度やり直してください。";
 
 /* Title in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_title" = "グループを削除";
+"groupDelete" = "グループを削除";
 
 /* Message in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_message" = "本当に\"%@\"を削除しますか？";
+"groupDeleteDescription" = "本当に\"%@\"を削除しますか？";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_title" = "会話を削除する";
@@ -708,19 +696,19 @@
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_title" = "自分用メモを隠す";
+"noteToSelfHide" = "自分用メモを隠す";
 
 /* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+"noteToSelfHideDescription" = "Are you sure you want to hide %@?";
 
 /* Title in the modal for updating the users profile display picture */
-"update_profile_modal_title" = "ディスプレイの画像を設定";
+"profileSetDisplayPicturel" = "ディスプレイの画像を設定";
 
 /* Save action in the modal for updating the users profile display picture */
 "update_profile_modal_save" = "保存";
 
 /* Remove action in the modal for updating the users profile display picture */
-"update_profile_modal_remove" = "削除";
+"remove" = "削除";
 
 /* Title for the error when failing to remove the users profile display picture */
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
@@ -741,16 +729,16 @@
 "CONTACT_NICKNAME_PLACEHOLDER" = "名前を入力";
 
 /* The separator within a conversation indicating that following messages are unread */
-"UNREAD_MESSAGES" = "未読のメッセージ";
+"messageUnread" = "未読のメッセージ";
 
 /* Empty state for a conversation */
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
 
 /* Empty state for a read-only conversation */
-"CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+"conversationsEmpty" = "There are no messages in %@.";
 
 /* Empty state for the 'Note to Self' conversation */
-"CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+"noteToSelfEmpty" = "You have no messages in %@.";
 
 /* Message to indicate a user has Community Message Requests disabled */
 "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
@@ -774,13 +762,13 @@
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"disappearingMessagesSetYou" = "You have set messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
 "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+"disappearingMessagesTurnedOffYou" = "You have turned off disappearing messages";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
@@ -820,13 +808,13 @@ The point that a message will disappear in a disappearing message update message
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";
 
 /* An informational message displayed when the name of a group is changed, the '%@' will be the updated name. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED_TO" = "Group name is now %@.";
+"groupNameNew" = "Group name is now %@.";
 
 /* An informational message displayed when the name of a group is changed. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED" = "グループ名を更新しました";
+"groupNameUpdated" = "グループ名を更新しました";
 
 /* An informational message displayed when the display picture of a group is changed. */
-"GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "グループ表示画像を更新しました。";
+"groupDisplayPictureUpdated" = "グループ表示画像を更新しました。";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
 "GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
@@ -841,7 +829,7 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ was removed from the group.";
 
 /* An informational message displayed when two members were removed from the group, the '%@' will be the members names. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED" = "%@ and %@ were removed from the group.";
+"groupRemovedTwo" = "%@ and %@ were removed from the group.";
 
 /* An informational message displayed when multiple members were removed from the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members removed. */
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED" = "%@ and %@ others were removed from the group.";
@@ -850,55 +838,55 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MEMBER_LEFT" = "%@ left the group.";
 
 /* An informational message displayed when a member of the group was promoted to admin, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_PROMOTED" = "%@ was promoted to Admin.";
+"adminPromotedToAdmin" = "%@ was promoted to Admin.";
 
 /* An informational message displayed when two members of the group were promoted to admin, the '%@' will be the members names. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED" = "%@ and %@ were promoted to Admin.";
+"adminTwoPromotedToAdmin" = "%@ and %@ were promoted to Admin.";
 
 /* An informational message displayed when multiple members of the group were promoted to admin, the first '%@' will be the first members name and the second '%@' will be the number of additional members promoted. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED" = "%@ and %@ others were promoted to Admin.";
+"adminMorePromotedToAdmin" = "%@ and %@ others were promoted to Admin.";
 
 /* An informational message displayed the current user was removed from a group, the '%@' will be the name of the group. */
 "GROUP_MESSAGE_INFO_REMOVED" = "You were removed from %@.";
 
 /* Description of a warning prompt when deleting an invitation to join a group conversation. */
-"MESSAGE_REQUESTS_GROUP_DELETE_CONFIRMATION_ACTON" = "Are you sure you want to delete this group invite?";
+"groupInviteDelete" = "Are you sure you want to delete this group invite?";
 
 /* Description of a confirmation prompt when blocking an invitation to join a group conversation. The '%@' will be replaced with the name of the user that sent the invitation. */
 "MESSAGE_REQUESTS_GROUP_BLOCK_CONFIRMATION_ACTON" = "Are you sure you want to block %@? Blocked users cannot send you message requests, group invites or call you.";
 
 /* An informational message displayed when the user has been invited to join a group, the first '%@' will be the name of the user that sent the invitation and the second '%@' will be the name of the group. */
-"GROUP_MESSAGE_INFO_INVITED" = "%@ invited you to join %@.";
+"messageRequestGroupInvite" = "%@ invited you to join %@.";
 
 /* Message within a conversation indicating the device was unable to delete a group conversation */
 "group_unable_to_delete" = "Unable to delete the Group, please try again.";
 
 /* Information displayed above the input when opening an invitation to join a group. */
-"GROUP_MESSAGE_REQUEST_INFO" = "Sending a message to this group will automatically accept the group invite.";
+"messageRequestGroupInviteDescription" = "Sending a message to this group will automatically accept the group invite.";
 
 /* An error indicating we were unable to retrieve the required data for some reason. */
 "ERROR_UNABLE_TO_FIND_DATA" = "There is an issue retrieving the required data. Please try again later.";
 
 /* A title for the list of group members. */
-"GROUP_MEMBERS" = "グループメンバー";
+"groupMembers" = "グループメンバー";
 
 /* The status for a group member while their invite is being sent. */
-"GROUP_MEMBER_STATUS_SENDING" = "Sending invite";
+"groupInviteSending" = "Sending invite";
 
 /* The status for a group member while their invite is pending. */
-"GROUP_MEMBER_STATUS_SENT" = "Invite sent";
+"groupInviteSent" = "Invite sent";
 
 /* The status for a group member if their invitation failed to send. */
-"GROUP_MEMBER_STATUS_FAILED" = "招待に失敗しました。";
+"groupInviteFailed" = "招待に失敗しました。";
 
 /* The status for a group admin while their invite is being sent. */
-"GROUP_ADMIN_STATUS_SENDING" = "Sending admin promotion";
+"adminSendingPromotion" = "Sending admin promotion";
 
 /* The status for a group admin while their invite is pending. */
-"GROUP_ADMIN_STATUS_SENT" = "Admin promotion sent";
+"adminPromotionSent" = "Admin promotion sent";
 
 /* The status for a group admin if their invitation failed to send. */
-"GROUP_ADMIN_STATUS_FAILED" = "Admin promotion failed";
+"adminPromotionFailed" = "Admin promotion failed";
 
 /* A title for the modal to edit the group display picture. */
 "EDIT_GROUP_DISPLAY_PICTURE" = "ディスプレイの画像を設定";
@@ -925,37 +913,37 @@ The point that a message will disappear in a disappearing message update message
 "EDIT_GROUP_DESCRIPTION_ERROR_LONG" = "Please pick a shorter group description.";
 
 /* Error message when the user attempts to remove an admin from a group. */
-"EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN" = "管理者を削除することはできません";
+"adminCannotBeRemoved" = "管理者を削除することはできません";
 
 /* A title for the button to send invites for members to join groups. */
-"GROUP_ACTION_INVITE" = "招待";
+"membersInviteTitle" = "招待";
 
 /* A title for the button to send invites to contacts to join groups. */
-"GROUP_ACTION_INVITE_CONTACTS" = "Invite Contacts";
+"membersInvite" = "Invite Contacts";
 
 /* Text which appears when all of the users contacts are already part of the group they want to invite contacts to. */
 "GROUP_ACTION_INVITE_EMPTY_STATE" = "連絡先がありません。";
 
 /* A toast which indicates that a single invitation to join the group is being sent. */
-"GROUP_ACTION_INVITE_SENDING" = "招待を送る";
+"groupInviteSending" = "招待を送る";
 
 /* A toast which indicates that multiple invitations to join the group are being sent. */
 "GROUP_ACTION_INVITE_SENDING_MULTIPLE" = "Sending invites";
 
 /* A toast which indicates that a single invitation to join a group failed to send, the first '%@' will be the name of the member that couldn't be invited and the second '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_ONE" = "Failed to invite %@ to %@";
+"groupInviteFailedUser" = "Failed to invite %@ to %@";
 
 /* A toast which indicates that two invitation to join a group failed to send, the first '%@' will be the name of the first member that couldn't be invited, the second '%@' will be the name of the second member that couldn't be invited, and the third '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_TWO" = "Failed to invite %@ and %@ to %@";
+"groupInviteFailedTwo" = "Failed to invite %@ and %@ to %@";
 
 /* A toast which indicates multiple invitations to join a group failed to send, the first '%@' will be the name of the first member that couldn't be invited, the second '%@' will be the number of other members that couldn't be invited, and the third '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_MULTIPLE" = "Failed to invite %@ and %@ others to %@";
+"groupInviteFailedMore" = "Failed to invite %@ and %@ others to %@";
 
 /* A title for the screen to select which group members should receive promotions to admin. */
-"GROUP_ACTION_PROMOTE_ADMINS" = "Promote Admins";
+"adminPromote" = "Promote Admins";
 
 /* A title for the button to send promotions to members of a group. */
-"GROUP_ACTION_PROMOTE" = "Promote";
+"promote" = "Promote";
 
 /* Text which appears when all of the members of a group are already admins. */
 "GROUP_ACTION_PROMOTE_EMPTY_STATE" = "There are no more members in this group.";
@@ -1021,4 +1009,4 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";
 
 /* Message for the error modal shown when a voice message fails to start recording. */
-"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "An error occurred when trying to start recording for the voice message.";
+"audioUnableToRecord" = "An error occurred when trying to start recording for the voice message.";

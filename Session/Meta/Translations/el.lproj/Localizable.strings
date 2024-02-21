@@ -46,12 +46,6 @@
 "BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Αναίρεση φραγής %@;";
 /* Button label for the 'unblock' button */
 "BLOCK_LIST_UNBLOCK_BUTTON" = "Αναίρεση φραγής";
-/* The message format of the 'conversation blocked' alert. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ έχει φραγεί.";
-/* The title of the 'user blocked' alert. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "Ο Χρήστης έχει Φραγεί";
-/* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "Έγινε κατάργηση φραγής σε %@.";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Οι φραγμένοι χρήστες δεν θα είναι σε θέση να σας καλούν ή να σας στέλνουν μηνύματα.";
 /* Label for generic done button. */
@@ -59,7 +53,7 @@
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Επιλογή";
 /* keyboard toolbar label when starting to search with no current results */
-"CONVERSATION_SEARCH_SEARCHING" = "Αναζήτηση...";
+"searchSearching" = "Αναζήτηση...";
 /* keyboard toolbar label when no messages match the search string */
 "CONVERSATION_SEARCH_NO_RESULTS" = "Χωρίς αποτελέσματα";
 /* keyboard toolbar label when exactly 1 message matches the search string */
@@ -69,9 +63,9 @@
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Φραγή Αυτού του Χρήστη";
 /* label for 'mute thread' cell in conversation settings */
-"CONVERSATION_SETTINGS_MUTE_LABEL" = "Σίγαση";
+"notificationsMute" = "Σίγαση";
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
-"CONVERSATION_SETTINGS_SEARCH" = "Αναζήτηση στη Συνομιλία";
+"searchConversation" = "Αναζήτηση στη Συνομιλία";
 /* Title for the 'crop/scale image' dialog. */
 "CROP_SCALE_IMAGE_VIEW_TITLE" = "Μετακίνηση και Κλιμάκωση";
 /* Subtitle shown while the app is updating its database. */
@@ -83,7 +77,7 @@
 /* table cell label in conversation settings */
 "DISAPPEARING_MESSAGES" = "Εξαφανιζόμενα Μηνύματα";
 /* table cell label in conversation settings */
-"EDIT_GROUP_ACTION" = "Επεξεργασία Ομάδας";
+"groupEdit" = "Επεξεργασία Ομάδας";
 /* Label indicating media gallery is empty */
 "GALLERY_TILES_EMPTY_GALLERY" = "Δεν έχετε κανένα πολυμέσο σε αυτή τη συνομιλία.";
 /* Label indicating loading is in progress */
@@ -127,7 +121,7 @@
 /* Message for the alert indicating that an audio file is invalid. */
 "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Μη έγκυρο αρχείο ήχου.";
 /* Confirmation button within contextual alert */
-"LEAVE_BUTTON_TITLE" = "Αποχώρηση";
+"leave" = "Αποχώρηση";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Αποχώρηση από την ομάδα";
 /* nav bar button item */
@@ -182,10 +176,6 @@
 "SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Πραγματοποιήστε έλεγχο ταυτότητας για να ανοίξετε το Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
 "SCREEN_LOCK_UNLOCK_FAILED" = "Ο Έλεγχος Ταυτότητας Απέτυχε";
-/* alert title when user attempts to leave the send media flow when they have an in-progress album */
-"SEND_MEDIA_ABANDON_TITLE" = "Απόρριψη Πολυμέσων;";
-/* alert action, confirming the user wants to exit the media flow and abandon any photos they've taken */
-"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "Απόρριψη Πολυμέσων";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (προεπιλογή)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -259,7 +249,7 @@
 "vc_display_name_display_name_missing_error" = "Παρακαλώ επιλέξτε ένα όνομα εμφάνισης";
 "vc_display_name_display_name_too_long_error" = "Παρακαλώ επιλέξτε ένα μικρότερο όνομα εμφάνισης";
 "vc_pn_mode_recommended_option_tag" = "Προτείνεται";
-"vc_home_empty_state_message" = "Δεν έχετε επαφές ακόμα";
+"contactNone" = "Δεν έχετε επαφές ακόμα";
 "vc_home_empty_state_button_title" = "Ξεκινήστε ένα Session";
 "vc_seed_title" = "Η Φράση σας Ανάκτησης";
 "vc_seed_title_2" = "Γνωρίστε τη φράση σας ανάκτησης";
@@ -282,7 +272,7 @@
 "vc_scan_qr_code_camera_access_explanation" = "Το Session χρειάζεται πρόσβαση στην κάμερα για σάρωση κωδικών QR";
 "vc_create_closed_group_title" = "Δημιουργία Ομάδας";
 "vc_create_closed_group_text_field_hint" = "Εισαγάγετε ένα όνομα ομάδας";
-"vc_create_closed_group_empty_state_message" = "Δεν έχετε επαφές ακόμη";
+"contactNone" = "Δεν έχετε επαφές ακόμη";
 "vc_create_closed_group_group_name_missing_error" = "Παρακαλώ εισαγάγετε ένα όνομα ομάδας";
 "vc_create_closed_group_group_name_too_long_error" = "Παρακαλώ εισαγάγετε ένα μικρότερο όνομα ομάδας";
 "vc_create_closed_group_too_many_group_members_error" = "Μια κλειστή ομάδα δεν μπορεί να έχει περισσότερα από 100 μέλη";
@@ -305,15 +295,15 @@
 "vc_view_my_qr_code_explanation" = "Αυτός είναι ο δικός σας κωδικός QR. Άλλοι χρήστες μπορούν να τον σαρώσουν για να ξεκινήσουν μια συνομιλία μαζί σας.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Θα ειδοποιηθείτε για νέα μηνύματα αξιόπιστα και άμεσα χρησιμοποιώντας τους διακομιστές ειδοποιήσεων της Apple.";
-"fast_mode" = "Γρήγορη Λειτουργία";
+"notificationsFastMode" = "Γρήγορη Λειτουργία";
 "slow_mode_explanation" = "Το Session θα ελέγχει περιστασιακά για νέα μηνύματα στο παρασκήνιο.";
-"slow_mode" = "Αργή Λειτουργία";
+"notificationsSlowMode" = "Αργή Λειτουργία";
 "vc_pn_mode_title" = "Ειδοποιήσεις Μηνυμάτων";
 "vc_link_device_recovery_phrase_tab_title" = "Φράση Ανάκτησης";
 "vc_link_device_scan_qr_code_explanation" = "Μεταβείτε στις Ρυθμίσεις → Φράση Ανάκτησης στην άλλη σας συσκευή για να εμφανίσετε τον κωδικό QR σας.";
 "vc_enter_recovery_phrase_title" = "Φράση Ανάκτησης";
 "vc_enter_recovery_phrase_explanation" = "Για να συνδέσετε τη συσκευή σας, εισάγετε τη φράση ανάκτησης που σας δόθηκε κατά την εγγραφή σας.";
-"vc_enter_public_key_text_field_hint" = "Εισαγάγετε Session ID ή όνομα ONS";
+"accountIdOrOnsEnter" = "Εισαγάγετε Session ID ή όνομα ONS";
 "admin_group_leave_warning" = "Επειδή είστε ο δημιουργός αυτής της ομάδας θα διαγραφεί για όλους. Αυτό δεν μπορεί να αναιρεθεί.";
 "vc_join_open_group_suggestions_title" = "Ή γίνετε μέλος σε ένα από αυτά...";
 "vc_settings_invite_a_friend_button_title" = "Προσκαλέστε ένα Φίλο";
@@ -335,7 +325,6 @@
 "modal_link_previews_explanation" = "Η ενεργοποίηση προεπισκοπήσεων συνδέσμων θα εμφανίζει προεπισκοπήσεις για τα URL που στέλνετε και λαμβάνετε. Αυτό μπορεί να είναι χρήσιμο, αλλά το Session θα πρέπει να επικοινωνήσει με τους αντίστοιχους ιστότοπους για να δημιουργήσει προεπισκοπήσεις. Μπορείτε ανά πάσα στιγμή να απενεργοποιήσετε τις προεπισκοπήσεις συνδέσμων στις ρυθμίσεις του Session.";
 "modal_link_previews_button_title" = "Ενεργοποίηση";
 "vc_share_title" = "Κοινοποίηση στο Session";
-"vc_share_loading_message" = "Προετοιμασία συνημμένων...";
 "vc_share_sending_message" = "Αποστολή...";
 "vc_share_link_previews_unsecure" = "Η προεπισκόπηση δε φορτώθηκε για μη ασφαλή σύνδεσμο";
 "vc_share_link_previews_error" = "Αδυναμία φόρτωσης προεπισκόπησης";
@@ -392,7 +381,7 @@
 "TXT_HIDE_TITLE" = "Απόκρυψη";
 "TXT_DELETE_ACCEPT" = "Αποδοχή";
 "TXT_BLOCK_USER_TITLE" = "Φραγή Χρήστη";
-"ALERT_ERROR_TITLE" = "Σφάλμα";
+"error" = "Σφάλμα";
 "modal_call_permission_request_title" = "Απαιτείται Άδεια Κλήσης";
 "modal_call_permission_request_explanation" = "Μπορείτε να ενεργοποιήσετε την άδεια «Κλήσεις Φωνής και Βίντεο» στις Ρυθμίσεις Απορρήτου.";
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Ωχ, προέκυψε σφάλμα";
@@ -424,9 +413,9 @@
 "SEND_FAILED_NOTIFICATION_BODY" = "Η αποστολή του μηνύματός σας απέτυχε.";
 "INVALID_SESSION_ID_MESSAGE" = "Παρακαλώ ελέγξτε το Session ID και προσπαθήστε ξανά.";
 "INVALID_RECOVERY_PHRASE_MESSAGE" = "Παρακαλώ ελέγξτε τη Φράση Ανάκτησης και προσπαθήστε ξανά.";
-"MEDIA_TAB_TITLE" = "Πολυμέσα";
+"media" = "Πολυμέσα";
 "DOCUMENT_TAB_TITLE" = "Έγγραφα";
-"DOCUMENT_TILES_EMPTY_DOCUMENT" = "Δεν έχετε κανένα έγγραφο σε αυτή τη συνομιλία.";
+"attachmentsFilesEmpty" = "Δεν έχετε κανένα έγγραφο σε αυτή τη συνομιλία.";
 "DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL" = "Φόρτωση Νεότερου Εγγράφου...";
 "DOCUMENT_TILES_LOADING_OLDER_LABEL" = "Φόρτωση Παλαιότερου Εγγράφου...";
 /* The name for the emoji category 'Activities' */
@@ -452,49 +441,48 @@
 "EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "Και %@ άλλοι αντέδρασαν με %@ σε αυτό το μήνυμα.";
 "EMOJI_REACTS_RATE_LIMIT_TOAST" = "Ηρεμήστε! Έχετε στείλει πάρα πολλές αντιδράσεις emoji. Δοκιμάστε ξανά σύντομα.";
 /* New conversation screen*/
-"vc_new_conversation_title" = "Νέα Συνομιλία";
-"CREATE_GROUP_BUTTON_TITLE" = "Δημιουργία";
-"JOIN_COMMUNITY_BUTTON_TITLE" = "Γίνετε μέλος";
+"conversationsNew" = "Νέα Συνομιλία";
+"create" = "Δημιουργία";
+"join" = "Γίνετε μέλος";
 "PRIVACY_TITLE" = "Απόρρητο";
-"PRIVACY_SECTION_SCREEN_SECURITY" = "Ασφάλεια Οθόνης";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Κλείδωμα του Session";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Απαιτείται Touch ID, Face ID ή ο κωδικός πρόσβασης για να ξεκλειδώσετε το Session.";
-"PRIVACY_SECTION_READ_RECEIPTS" = "Αναφορές Ανάγνωσης";
-"PRIVACY_READ_RECEIPTS_TITLE" = "Αναφορές Ανάγνωσης";
-"PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Αποστολή αναφορών ανάγνωσης σε ένας προς έναν συνομιλίες.";
-"PRIVACY_SECTION_TYPING_INDICATORS" = "Δείκτες Πληκτρολόγησης";
-"PRIVACY_TYPING_INDICATORS_TITLE" = "Δείκτες Πληκτρολόγησης";
-"PRIVACY_TYPING_INDICATORS_DESCRIPTION" = "Δείτε και κοινοποιήστε δείκτες πληκτρολόγησης σε ένας προς έναν συνομιλίες.";
-"PRIVACY_SECTION_LINK_PREVIEWS" = "Προεπισκοπήσεις Συνδέσμου";
-"PRIVACY_LINK_PREVIEWS_TITLE" = "Αποστολή Προεπισκοπήσεων Συνδέσμου";
-"PRIVACY_LINK_PREVIEWS_DESCRIPTION" = "Δημιουργία προεπισκοπήσεων συνδέσμου για υποστηριζόμενα URL.";
-"PRIVACY_SECTION_CALLS" = "Κλήσεις (Beta)";
-"PRIVACY_CALLS_TITLE" = "Κλήσεις Φωνής και Βίντεο";
-"PRIVACY_CALLS_DESCRIPTION" = "Επιτρέπει κλήσεις φωνής και βίντεο από και προς άλλους χρήστες.";
-"PRIVACY_CALLS_WARNING_TITLE" = "Κλήσεις Φωνής και Βίντεο (Beta)";
-"PRIVACY_CALLS_WARNING_DESCRIPTION" = "Η IP διεύθυνσή σας είναι ορατή στον συνομιλητή σας και σε έναν Oxen Foundation server κατά τη χρήση κλήσεων beta. Σίγουρα θέλετε να ενεργοποιήσετε τις Κλήσεις Φωνής και Βίντεο;";
+"lockApp" = "Κλείδωμα του Session";
+"lockAppDescriptionIos" = "Απαιτείται Touch ID, Face ID ή ο κωδικός πρόσβασης για να ξεκλειδώσετε το Session.";
+"readReceipts" = "Αναφορές Ανάγνωσης";
+"readReceipts" = "Αναφορές Ανάγνωσης";
+"readReceiptsDescription" = "Αποστολή αναφορών ανάγνωσης σε ένας προς έναν συνομιλίες.";
+"typingIndicators" = "Δείκτες Πληκτρολόγησης";
+"typingIndicators" = "Δείκτες Πληκτρολόγησης";
+"typingIndicatorsDescription" = "Δείτε και κοινοποιήστε δείκτες πληκτρολόγησης σε ένας προς έναν συνομιλίες.";
+"linkPreviews" = "Προεπισκοπήσεις Συνδέσμου";
+"linkPreviewsSend" = "Αποστολή Προεπισκοπήσεων Συνδέσμου";
+"linkPreviewsDescription" = "Δημιουργία προεπισκοπήσεων συνδέσμου για υποστηριζόμενα URL.";
+"callsSettings" = "Κλήσεις (Beta)";
+"callsVoiceAndVideo" = "Κλήσεις Φωνής και Βίντεο";
+"callsVoiceAndVideoToggleDescription" = "Επιτρέπει κλήσεις φωνής και βίντεο από και προς άλλους χρήστες.";
+"callsVoiceAndVideoBeta" = "Κλήσεις Φωνής και Βίντεο (Beta)";
+"callsVoiceAndVideoModalDescription" = "Η IP διεύθυνσή σας είναι ορατή στον συνομιλητή σας και σε έναν Oxen Foundation server κατά τη χρήση κλήσεων beta. Σίγουρα θέλετε να ενεργοποιήσετε τις Κλήσεις Φωνής και Βίντεο;";
 "NOTIFICATIONS_TITLE" = "Ειδοποιήσεις";
-"NOTIFICATIONS_SECTION_STRATEGY" = "Στρατηγική Ειδοποιήσεων";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE" = "Χρήση Γρήγορης Λειτουργίας";
+"notificationsStrategy" = "Στρατηγική Ειδοποιήσεων";
+"useFastMode" = "Χρήση Γρήγορης Λειτουργίας";
 "NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION" = "Θα ειδοποιηθείτε για νέα μηνύματα αξιόπιστα και άμεσα χρησιμοποιώντας τους διακομιστές ειδοποιήσεων της Apple.";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION" = "Μεταβείτε στις ρυθμίσεις ειδοποιήσεων της συσκευής";
-"NOTIFICATIONS_SECTION_STYLE" = "Στυλ Ειδοποιήσεων";
-"NOTIFICATIONS_STYLE_SOUND_TITLE" = "Ήχος";
-"NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE" = "Ήχος όταν η Εφαρμογή είναι Ανοιχτή";
-"NOTIFICATIONS_STYLE_CONTENT_TITLE" = "Περιεχόμενο Ειδοποίησης";
-"NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION" = "Οι πληροφορίες που εμφανίζονται στις ειδοποιήσεις.";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT" = "Όνομα & Περιεχόμενο";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY" = "Όνομα Μόνο";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT" = "Χωρίς Όνομα ή Περιεχόμενο";
+"notificationsGoToDevice" = "Μεταβείτε στις ρυθμίσεις ειδοποιήσεων της συσκευής";
+"notificationsStyle" = "Στυλ Ειδοποιήσεων";
+"notificationsSound" = "Ήχος";
+"notificationsSoundDescription" = "Ήχος όταν η Εφαρμογή είναι Ανοιχτή";
+"notificationsContent" = "Περιεχόμενο Ειδοποίησης";
+"notificationsContentDescription" = "Οι πληροφορίες που εμφανίζονται στις ειδοποιήσεις.";
+"notificationsContentShowNameAndContent" = "Όνομα & Περιεχόμενο";
+"notificationsContentShowNameOnly" = "Όνομα Μόνο";
+"notificationsContentShowNoNameOrContent" = "Χωρίς Όνομα ή Περιεχόμενο";
 "CONVERSATION_SETTINGS_TITLE" = "Συνομιλίες";
-"CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING" = "Περικοπή Μηνυμάτων";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE" = "Περικοπή Κοινοτήτων";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION" = "Διαγραφή μηνυμάτων παλαιότερων από 6 μήνες από Κοινότητες που έχουν πάνω από 2.000 μηνύματα.";
+"conversationsMessageTrimming" = "Περικοπή Μηνυμάτων";
+"conversationsMessageTrimmingTrimCommunities" = "Περικοπή Κοινοτήτων";
+"conversationsMessageTrimmingTrimCommunitiesDescription" = "Διαγραφή μηνυμάτων παλαιότερων από 6 μήνες από Κοινότητες που έχουν πάνω από 2.000 μηνύματα.";
 "CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "Ηχητικά Μηνύματα";
 "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "Αυτόματη Αναπαραγωγή Ηχητικών Μηνυμάτων";
 "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "Αυτόματη αναπαραγωγή διαδοχικών ηχητικών μηνυμάτων.";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE" = "Επαφές σε Φραγή";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE" = "Δεν έχετε επαφές σε φραγή.";
+"conversationsBlockedContacts" = "Επαφές σε Φραγή";
+"blockBlockedNone" = "Δεν έχετε επαφές σε φραγή.";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK" = "Κατάργηση φραγής";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE" = "Σίγουρα θέλετε να καταργήσετε τη φραγή από %@;";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "αυτή την επαφή";
@@ -502,25 +490,25 @@
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "και %@;";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "και %d άλλους;";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON" = "Κατάργηση φραγής";
-"APPEARANCE_TITLE" = "Εμφάνιση";
-"APPEARANCE_THEMES_TITLE" = "Θέματα";
-"APPEARANCE_PRIMARY_COLOR_TITLE" = "Κύριο χρώμα";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE" = "Πώς είσαι;";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE" = "Είμαι καλά ευχαριστώ, εσύ;";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE" = "Τα πάω τέλεια, ευχαριστώ.";
-"APPEARANCE_NIGHT_MODE_TITLE" = "Αυτόματη νυχτερινή λειτουργία";
-"APPEARANCE_NIGHT_MODE_TOGGLE" = "Αντιστοίχιση ρυθμίσεων συστήματος";
-"HELP_TITLE" = "Βοήθεια";
-"HELP_REPORT_BUG_TITLE" = "Αναφορά Σφάλματος";
-"HELP_REPORT_BUG_DESCRIPTION" = "Εξαγάγετε τα αρχεία καταγραφής σας και στη συνέχεια μεταφορτώστε το αρχείο μέσω του Help Desk του Session.";
-"HELP_REPORT_BUG_ACTION_TITLE" = "Εξαγωγή Αρχείων Καταγραφής";
-"HELP_TRANSLATE_TITLE" = "Μετάφραση του Session";
-"HELP_FEEDBACK_TITLE" = "Θα θέλαμε πολύ τα Σχόλιά σας";
-"HELP_FAQ_TITLE" = "Συχνές Ερωτήσεις";
-"HELP_SUPPORT_TITLE" = "Υποστήριξη";
+"sessionAppearance" = "Εμφάνιση";
+"appearanceThemes" = "Θέματα";
+"appearancePrimaryColor" = "Κύριο χρώμα";
+"appearancePreview1" = "Πώς είσαι;";
+"appearancePreview2" = "Είμαι καλά ευχαριστώ, εσύ;";
+"appearancePreview3" = "Τα πάω τέλεια, ευχαριστώ.";
+"appearanceAutoDarkMode" = "Αυτόματη νυχτερινή λειτουργία";
+"followSystemSettings" = "Αντιστοίχιση ρυθμίσεων συστήματος";
+"sessionHelp" = "Βοήθεια";
+"helpReportABug" = "Αναφορά Σφάλματος";
+"helpReportABugExportLogsDescription" = "Εξαγάγετε τα αρχεία καταγραφής σας και στη συνέχεια μεταφορτώστε το αρχείο μέσω του Help Desk του Session.";
+"helpReportABugExportLogs" = "Εξαγωγή Αρχείων Καταγραφής";
+"helpHelpUsTranslateSession" = "Μετάφραση του Session";
+"helpWedLoveYourFeedback" = "Θα θέλαμε πολύ τα Σχόλιά σας";
+"helpFAQ" = "Συχνές Ερωτήσεις";
+"helpSupport" = "Υποστήριξη";
 "modal_clear_all_data_title" = "Διαγραφή Όλων των Δεδομένων";
 "modal_clear_all_data_explanation" = "Αυτό θα διαγράψει μόνιμα τα μηνύματα και τις επαφές σας. Θα θέλατε να καθαρίσετε αυτή τη συσκευή μόνο ή να διαγράψετε και τα δεδομένα σας από το δίκτυο;";
-"modal_clear_all_data_explanation_2" = "Σίγουρα θέλετε να διαγράψετε τα δεδομένα σας από το δίκτυο; Εάν συνεχίσετε, δε θα μπορείτε να επαναφέρετε τα μηνύματα ή τις επαφές σας.";
+"clearDeviceAndNetworkConfirm" = "Σίγουρα θέλετε να διαγράψετε τα δεδομένα σας από το δίκτυο; Εάν συνεχίσετε, δε θα μπορείτε να επαναφέρετε τα μηνύματα ή τις επαφές σας.";
 "modal_clear_all_data_device_only_button_title" = "Διαγραφή Μόνο Συσκευής";
 "modal_clear_all_data_entire_account_button_title" = "Διαγραφή Συσκευής Και Δικτύου";
 "dialog_clear_all_data_deletion_failed_1" = "Τα δεδομένα δε διαγράφηκαν από 1 Κόμβο Εξυπηρέτησης. ID Κόμβου Εξυπηρέτησης: %@.";
@@ -531,43 +519,43 @@
 "modal_permission_explanation" = "Το Session χρειάζεται πρόσβαση σε %@ για να συνεχίσει. Μπορείτε να ενεργοποιήσετε την πρόσβαση στις ρυθμίσεις του iOS σας.";
 "modal_permission_settings_title" = "Ρυθμίσεις";
 "modal_permission_camera" = "κάμερα";
-"modal_permission_microphone" = "μικρόφωνο";
+"permissionsMicrophoneAccessRequired" = "μικρόφωνο";
 "modal_permission_library" = "βιβλιοθήκη";
-"DISAPPEARING_MESSAGES_OFF" = "Απενεργοποιημένο";
-"DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Απενεργοποιημένη";
+"off" = "Απενεργοποιημένο";
+"off" = "Απενεργοποιημένη";
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Εξαφάνιση Μετά Από: %@";
-"COPY_GROUP_URL" = "Αντιγραφή URL Ομάδας";
+"communityUrlCopy" = "Αντιγραφή URL Ομάδας";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Επαφές";
-"GROUP_ERROR_NO_MEMBER_SELECTION" = "Παρακαλώ επιλέξτε τουλάχιστον 1 μέλος από την ομάδα";
+"groupCreateErrorNoMembers" = "Παρακαλώ επιλέξτε τουλάχιστον 1 μέλος από την ομάδα";
 "GROUP_CREATION_PLEASE_WAIT" = "Παρακαλώ περιμένετε όσο δημιουργείται η ομάδα...";
 "GROUP_CREATION_ERROR_TITLE" = "Αδυναμία Δημιουργίας Ομάδας";
 "GROUP_CREATION_ERROR_MESSAGE" = "Παρακαλώ ελέγξτε τη σύνδεση σας στο διαδίκτυο και προσπαθήστε ξανά.";
 "GROUP_UPDATE_ERROR_TITLE" = "Αδυναμία Ενημέρωσης Ομάδας";
 "GROUP_UPDATE_ERROR_MESSAGE" = "Δεν είναι δυνατή η αποχώρηση από την ομάδα κατά την προσθήκη ή αφαίρεση άλλων μελών.";
-"GROUP_ACTION_REMOVE" = "Αφαίρεση";
+"remove" = "Αφαίρεση";
 "GROUP_TITLE_MEMBERS" = "Μέλη";
 "GROUP_TITLE_FALLBACK" = "Ομάδα";
 "DM_ERROR_DIRECT_BLINDED_ID" = "Μπορείτε να στείλετε μόνο μηνύματα σε Blinded IDs από μέσα από μια Κοινότητα";
 "DM_ERROR_INVALID" = "Παρακαλώ ελέγξτε το Session ID ή το όνομα ONS και δοκιμάστε ξανά";
-"COMMUNITY_ERROR_INVALID_URL" = "Παρακαλώ ελέγξτε το URL που εισαγάγατε και προσπαθήστε ξανά.";
+"communityEnterUrlErrorInvalidDescription" = "Παρακαλώ ελέγξτε το URL που εισαγάγατε και προσπαθήστε ξανά.";
 "COMMUNITY_ERROR_GENERIC" = "Αδυναμία Συμμετοχής";
-"DISAPPERING_MESSAGES_TITLE" = "Εξαφανιζόμενα Μηνύματα";
-"DISAPPERING_MESSAGES_TYPE_TITLE" = "Τύπος Διαγραφής";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Εξαφάνιση Μετά από Ανάγνωση";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Τα μηνύματα διαγράφονται αφού έχουν αναγνωσθεί.";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "Εξαφάνιση Μετά από Αποστολή";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "Τα μηνύματα διαγράφονται αφού έχουν αποσταλεί.";
-"DISAPPERING_MESSAGES_TIMER_TITLE" = "Χρονόμετρο";
-"DISAPPERING_MESSAGES_SAVE_TITLE" = "Ορισμός";
-"DISAPPERING_MESSAGES_GROUP_WARNING" = "Αυτή η ρύθμιση ισχύει για όλους σε αυτή τη συνομιλία.";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Αυτή η ρύθμιση ισχύει για όλους σε αυτή τη συνομιλία. Μόνο οι διαχειριστές της ομάδας μπορούν να αλλάξουν αυτή τη ρύθμιση.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Εξαφάνιση Μετά Από %@ - %@";
+"disappearingMessages" = "Εξαφανιζόμενα Μηνύματα";
+"disappearingMessagesDeleteType" = "Τύπος Διαγραφής";
+"disappearingMessagesDisappearAfterRead" = "Εξαφάνιση Μετά από Ανάγνωση";
+"disappearingMessagesDisappearAfterReadDescription" = "Τα μηνύματα διαγράφονται αφού έχουν αναγνωσθεί.";
+"disappearingMessagesDisappearAfterSend" = "Εξαφάνιση Μετά από Αποστολή";
+"disappearingMessagesDisappearAfterSendDescription" = "Τα μηνύματα διαγράφονται αφού έχουν αποσταλεί.";
+"disappearingMessagesTimer" = "Χρονόμετρο";
+"set" = "Ορισμός";
+"disappearingMessagesDescription" = "Αυτή η ρύθμιση ισχύει για όλους σε αυτή τη συνομιλία.";
+"disappearingMessagesOnlyAdmins" = "Αυτή η ρύθμιση ισχύει για όλους σε αυτή τη συνομιλία. Μόνο οι διαχειριστές της ομάδας μπορούν να αλλάξουν αυτή τη ρύθμιση.";
+"disappearingMessagesDisappear" = "Εξαφάνιση Μετά Από %@ - %@";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ όρισε τα μηνύματα να εξαφανίζονται %@ αφότου έχουν %@";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ άλλαξε τα μηνύματα να εξαφανίζονται %@ αφότου έχουν %@";
+"disappearingMessagesChanged" = "%@ άλλαξε τα μηνύματα να εξαφανίζονται %@ αφότου έχουν %@";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ απενεργοποίησε τα εξαφανιζόμενα μηνύματα";
 
 /* context_menu_info */
-"context_menu_info" = "Info";
+"info" = "Info";
 
 /* An error that is displayed when the application fails for create it's initial connection to the database */
 "DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
@@ -582,7 +570,7 @@
 "DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
 
 /* Text displayed in place of a quoted message when the original message is not on the device */
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+"messageErrorOriginal" = "Original message not found.";
 
 /* EMOJI_REACTS_SHOW_LESS */
 "EMOJI_REACTS_SHOW_LESS" = "Show less";
@@ -597,7 +585,7 @@
 "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
 
 /* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+"messageRequestPendingDescription" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
 
 /* State of a message while it's still in the process of being sent */
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
@@ -609,19 +597,19 @@
 "MESSAGE_DELIVERY_STATUS_READ" = "Read";
 
 /* State of a message if it failed to be sent */
-"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"messageStatusFailedToSend" = "Failed to send";
 
 /* Title of the message information screen describing the date/time a message was sent */
 "MESSAGE_INFO_SENT" = "Sent";
 
 /* Title of the message information screen describing the date/time a message was received on a specific device */
-"MESSAGE_INFO_RECEIVED" = "Received";
+"received" = "Received";
 
 /* Title of the message information screen describing the sender of the message */
-"MESSAGE_INFO_FROM" = "From";
+"from" = "From";
 
 /* Title of the message information screen describing the identifier of the attachment */
-"ATTACHMENT_INFO_FILE_ID" = "File ID";
+"attachmentsFileId" = "File ID";
 
 /* Title of the message information screen describing the file type of the attachment */
 "ATTACHMENT_INFO_FILE_TYPE" = "File Type";
@@ -630,16 +618,16 @@
 "ATTACHMENT_INFO_FILE_SIZE" = "File Size";
 
 /* Title on the message information screen describing the resolution of a media attachment */
-"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+"attachmentsResolution" = "Resolution";
 
 /* Title on the message information screen describing the duration of a media attachment */
-"ATTACHMENT_INFO_DURATION" = "Duration";
+"attachmentsDuration" = "Duration";
 
 /* State of a message after it failed to sync to the current users other devices */
-"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+"messageStatusFailedToSync" = "Failed to sync";
 
 /* State of a message while it's in the process of being synced to the users other devices */
-"MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+"messageStatusSyncing" = "Syncing";
 
 /* Title of the modal that appears after a user taps on the state of a message which failed to send */
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
@@ -651,7 +639,7 @@
 "delete_message_for_me_and_my_devices" = "Delete from all of my devices";
 
 /* Action in the long-press menu to trigger a message to be sent again after it has failed */
-"context_menu_resend" = "Resend";
+"resend" = "Resend";
 
 /* Action in the long-press menu to trigger a message to be synced again after it has failed */
 "context_menu_resync" = "Resync";
@@ -663,10 +651,10 @@
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
 
 /* Action in the long-press menu to view more information about a specific message */
-"message_info_title" = "Message Info";
+"messageInfo" = "Message Info";
 
 /* Action to mute a conversation in the swipe menu */
-"mute_button_text" = "Mute";
+"notificationsMute" = "Mute";
 
 /* Action in the swipe menu to unmute a conversation */
 "unmute_button_text" = "Unmute";
@@ -675,16 +663,16 @@
 "MARK_AS_READ" = "Mark read";
 
 /* Action in the swipe menu to mark a conversation as unread */
-"MARK_AS_UNREAD" = "Mark unread";
+"messageMarkUnread" = "Mark unread";
 
 /* Title of the confirmation modal show when attempting to leave a group conversation */
-"leave_group_confirmation_alert_title" = "Leave Group";
+"groupLeave" = "Leave Group";
 
 /* Title of the confirmation modal show when attempting to leave a community conversation */
-"leave_community_confirmation_alert_title" = "Leave Community";
+"communityLeave" = "Leave Community";
 
 /* Message in the confirmation modal when leaving a community conversation */
-"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"communityLeaveDescription" = "Are you sure you want to leave %@?";
 
 /* Conversation subtitle while the user in the process of leaving */
 "group_you_leaving" = "Leaving...";
@@ -696,10 +684,10 @@
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
 
 /* Title in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_title" = "Delete Group";
+"groupDelete" = "Delete Group";
 
 /* Message in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+"groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_title" = "Delete Conversation";
@@ -708,19 +696,19 @@
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+"noteToSelfHide" = "Hide Note to Self";
 
 /* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+"noteToSelfHideDescription" = "Are you sure you want to hide %@?";
 
 /* Title in the modal for updating the users profile display picture */
-"update_profile_modal_title" = "Set Display Picture";
+"profileSetDisplayPicturel" = "Set Display Picture";
 
 /* Save action in the modal for updating the users profile display picture */
 "update_profile_modal_save" = "Save";
 
 /* Remove action in the modal for updating the users profile display picture */
-"update_profile_modal_remove" = "Remove";
+"remove" = "Remove";
 
 /* Title for the error when failing to remove the users profile display picture */
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
@@ -741,16 +729,16 @@
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
 
 /* The separator within a conversation indicating that following messages are unread */
-"UNREAD_MESSAGES" = "Unread Messages";
+"messageUnread" = "Unread Messages";
 
 /* Empty state for a conversation */
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
 
 /* Empty state for a read-only conversation */
-"CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+"conversationsEmpty" = "There are no messages in %@.";
 
 /* Empty state for the 'Note to Self' conversation */
-"CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+"noteToSelfEmpty" = "You have no messages in %@.";
 
 /* Message to indicate a user has Community Message Requests disabled */
 "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
@@ -774,13 +762,13 @@
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"disappearingMessagesSetYou" = "You have set messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
 "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+"disappearingMessagesTurnedOffYou" = "You have turned off disappearing messages";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
@@ -820,13 +808,13 @@ The point that a message will disappear in a disappearing message update message
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";
 
 /* An informational message displayed when the name of a group is changed, the '%@' will be the updated name. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED_TO" = "Group name is now %@.";
+"groupNameNew" = "Group name is now %@.";
 
 /* An informational message displayed when the name of a group is changed. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED" = "Group name updated.";
+"groupNameUpdated" = "Group name updated.";
 
 /* An informational message displayed when the display picture of a group is changed. */
-"GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Group display picture updated.";
+"groupDisplayPictureUpdated" = "Group display picture updated.";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
 "GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
@@ -841,7 +829,7 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ was removed from the group.";
 
 /* An informational message displayed when two members were removed from the group, the '%@' will be the members names. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED" = "%@ and %@ were removed from the group.";
+"groupRemovedTwo" = "%@ and %@ were removed from the group.";
 
 /* An informational message displayed when multiple members were removed from the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members removed. */
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED" = "%@ and %@ others were removed from the group.";
@@ -850,55 +838,55 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MEMBER_LEFT" = "%@ left the group.";
 
 /* An informational message displayed when a member of the group was promoted to admin, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_PROMOTED" = "%@ was promoted to Admin.";
+"adminPromotedToAdmin" = "%@ was promoted to Admin.";
 
 /* An informational message displayed when two members of the group were promoted to admin, the '%@' will be the members names. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED" = "%@ and %@ were promoted to Admin.";
+"adminTwoPromotedToAdmin" = "%@ and %@ were promoted to Admin.";
 
 /* An informational message displayed when multiple members of the group were promoted to admin, the first '%@' will be the first members name and the second '%@' will be the number of additional members promoted. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED" = "%@ and %@ others were promoted to Admin.";
+"adminMorePromotedToAdmin" = "%@ and %@ others were promoted to Admin.";
 
 /* An informational message displayed the current user was removed from a group, the '%@' will be the name of the group. */
 "GROUP_MESSAGE_INFO_REMOVED" = "You were removed from %@.";
 
 /* Description of a warning prompt when deleting an invitation to join a group conversation. */
-"MESSAGE_REQUESTS_GROUP_DELETE_CONFIRMATION_ACTON" = "Are you sure you want to delete this group invite?";
+"groupInviteDelete" = "Are you sure you want to delete this group invite?";
 
 /* Description of a confirmation prompt when blocking an invitation to join a group conversation. The '%@' will be replaced with the name of the user that sent the invitation. */
 "MESSAGE_REQUESTS_GROUP_BLOCK_CONFIRMATION_ACTON" = "Are you sure you want to block %@? Blocked users cannot send you message requests, group invites or call you.";
 
 /* An informational message displayed when the user has been invited to join a group, the first '%@' will be the name of the user that sent the invitation and the second '%@' will be the name of the group. */
-"GROUP_MESSAGE_INFO_INVITED" = "%@ invited you to join %@.";
+"messageRequestGroupInvite" = "%@ invited you to join %@.";
 
 /* Message within a conversation indicating the device was unable to delete a group conversation */
 "group_unable_to_delete" = "Unable to delete the Group, please try again.";
 
 /* Information displayed above the input when opening an invitation to join a group. */
-"GROUP_MESSAGE_REQUEST_INFO" = "Sending a message to this group will automatically accept the group invite.";
+"messageRequestGroupInviteDescription" = "Sending a message to this group will automatically accept the group invite.";
 
 /* An error indicating we were unable to retrieve the required data for some reason. */
 "ERROR_UNABLE_TO_FIND_DATA" = "There is an issue retrieving the required data. Please try again later.";
 
 /* A title for the list of group members. */
-"GROUP_MEMBERS" = "Group Members";
+"groupMembers" = "Group Members";
 
 /* The status for a group member while their invite is being sent. */
-"GROUP_MEMBER_STATUS_SENDING" = "Sending invite";
+"groupInviteSending" = "Sending invite";
 
 /* The status for a group member while their invite is pending. */
-"GROUP_MEMBER_STATUS_SENT" = "Invite sent";
+"groupInviteSent" = "Invite sent";
 
 /* The status for a group member if their invitation failed to send. */
-"GROUP_MEMBER_STATUS_FAILED" = "Invite failed";
+"groupInviteFailed" = "Invite failed";
 
 /* The status for a group admin while their invite is being sent. */
-"GROUP_ADMIN_STATUS_SENDING" = "Sending admin promotion";
+"adminSendingPromotion" = "Sending admin promotion";
 
 /* The status for a group admin while their invite is pending. */
-"GROUP_ADMIN_STATUS_SENT" = "Admin promotion sent";
+"adminPromotionSent" = "Admin promotion sent";
 
 /* The status for a group admin if their invitation failed to send. */
-"GROUP_ADMIN_STATUS_FAILED" = "Admin promotion failed";
+"adminPromotionFailed" = "Admin promotion failed";
 
 /* A title for the modal to edit the group display picture. */
 "EDIT_GROUP_DISPLAY_PICTURE" = "Set Group Display Picture";
@@ -925,37 +913,37 @@ The point that a message will disappear in a disappearing message update message
 "EDIT_GROUP_DESCRIPTION_ERROR_LONG" = "Please pick a shorter group description.";
 
 /* Error message when the user attempts to remove an admin from a group. */
-"EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN" = "Admins cannot be removed";
+"adminCannotBeRemoved" = "Admins cannot be removed";
 
 /* A title for the button to send invites for members to join groups. */
-"GROUP_ACTION_INVITE" = "Invite";
+"membersInviteTitle" = "Invite";
 
 /* A title for the button to send invites to contacts to join groups. */
-"GROUP_ACTION_INVITE_CONTACTS" = "Invite Contacts";
+"membersInvite" = "Invite Contacts";
 
 /* Text which appears when all of the users contacts are already part of the group they want to invite contacts to. */
 "GROUP_ACTION_INVITE_EMPTY_STATE" = "You don't have any more contacts.";
 
 /* A toast which indicates that a single invitation to join the group is being sent. */
-"GROUP_ACTION_INVITE_SENDING" = "Sending invite";
+"groupInviteSending" = "Sending invite";
 
 /* A toast which indicates that multiple invitations to join the group are being sent. */
 "GROUP_ACTION_INVITE_SENDING_MULTIPLE" = "Sending invites";
 
 /* A toast which indicates that a single invitation to join a group failed to send, the first '%@' will be the name of the member that couldn't be invited and the second '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_ONE" = "Failed to invite %@ to %@";
+"groupInviteFailedUser" = "Failed to invite %@ to %@";
 
 /* A toast which indicates that two invitation to join a group failed to send, the first '%@' will be the name of the first member that couldn't be invited, the second '%@' will be the name of the second member that couldn't be invited, and the third '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_TWO" = "Failed to invite %@ and %@ to %@";
+"groupInviteFailedTwo" = "Failed to invite %@ and %@ to %@";
 
 /* A toast which indicates multiple invitations to join a group failed to send, the first '%@' will be the name of the first member that couldn't be invited, the second '%@' will be the number of other members that couldn't be invited, and the third '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_MULTIPLE" = "Failed to invite %@ and %@ others to %@";
+"groupInviteFailedMore" = "Failed to invite %@ and %@ others to %@";
 
 /* A title for the screen to select which group members should receive promotions to admin. */
-"GROUP_ACTION_PROMOTE_ADMINS" = "Promote Admins";
+"adminPromote" = "Promote Admins";
 
 /* A title for the button to send promotions to members of a group. */
-"GROUP_ACTION_PROMOTE" = "Promote";
+"promote" = "Promote";
 
 /* Text which appears when all of the members of a group are already admins. */
 "GROUP_ACTION_PROMOTE_EMPTY_STATE" = "There are no more members in this group.";
@@ -1021,4 +1009,4 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";
 
 /* Message for the error modal shown when a voice message fails to start recording. */
-"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "An error occurred when trying to start recording for the voice message.";
+"audioUnableToRecord" = "An error occurred when trying to start recording for the voice message.";

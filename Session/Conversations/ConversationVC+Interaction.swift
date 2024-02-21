@@ -319,7 +319,7 @@ extension ConversationVC:
                 let modal: ConfirmationModal = ConfirmationModal(
                     targetView: self?.view,
                     info: ConfirmationModal.Info(
-                        title: "Session",
+                        title: "sessionMessenger".localized(),
                         body: .text("An error occurred."),
                         cancelTitle: "BUTTON_OK".localized(),
                         cancelStyle: .alert_text
@@ -1609,7 +1609,7 @@ extension ConversationVC:
         sheet.addAction(UIAlertAction(
             title: (cellViewModel.state == .failedToSync ?
                 "context_menu_resync".localized() :
-                "context_menu_resend".localized()
+                "resend".localized()
             ),
             style: .default,
             handler: { [weak self] _ in self?.retry(cellViewModel, using: dependencies) }
@@ -1647,7 +1647,7 @@ extension ConversationVC:
                             range: (message as NSString).range(of: finalName)
                         )
                 ),
-                confirmTitle: "JOIN_COMMUNITY_BUTTON_TITLE".localized(),
+                confirmTitle: "join".localized(),
                 onConfirm: { modal in
                     guard let presentingViewController: UIViewController = modal.presentingViewController else {
                         return
@@ -1745,7 +1745,7 @@ extension ConversationVC:
                 // Show an error for the retry
                 let modal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "ALERT_ERROR_TITLE".localized(),
+                        title: "error".localized(),
                         body: .text("FAILED_TO_STORE_OUTGOING_MESSAGE".localized()),
                         cancelTitle: "BUTTON_OK".localized(),
                         cancelStyle: .alert_text
@@ -2205,7 +2205,7 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "Session",
+                title: "sessionMessenger".localized(),
                 body: .text("This will ban the selected user from this room. It won't ban them from other rooms."),
                 confirmTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
@@ -2261,7 +2261,7 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "Session",
+                title: "sessionMessenger".localized(),
                 body: .text("This will ban the selected user from this room and delete all messages sent by them. It won't ban them from other rooms or delete the messages they sent there."),
                 confirmTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,
@@ -2376,8 +2376,8 @@ extension ConversationVC:
                 let modal: ConfirmationModal = ConfirmationModal(
                     targetView: self.view,
                     info: ConfirmationModal.Info(
-                        title: "ALERT_ERROR_TITLE".localized(),
-                        body: .text("VOICE_MESSAGE_FAILED_TO_START_MESSAGE".localized()),
+                        title: "error".localized(),
+                        body: .text("audioUnableToRecord".localized()),
                         cancelTitle: "BUTTON_OK".localized(),
                         cancelStyle: .alert_text
                     )
@@ -2411,16 +2411,16 @@ extension ConversationVC:
         guard duration > 1 else {
             self.audioRecorder = nil
             
-//            let modal: ConfirmationModal = ConfirmationModal(
-//                targetView: self.view,
-//                info: ConfirmationModal.Info(
-//                    title: "ATTACHMENT_TYPE_VOICE_MESSAGE".localized(),
-//                    body: .text("VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE".localized()),
-//                    cancelTitle: "BUTTON_OK".localized(),
-//                    cancelStyle: .alert_text
-//                )
-//            )
-//            self.present(modal, animated: true)
+            let modal: ConfirmationModal = ConfirmationModal(
+                targetView: self.view,
+                info: ConfirmationModal.Info(
+                    title: "ATTACHMENT_TYPE_VOICE_MESSAGE".localized(),
+                    body: .text("VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE".localized()),
+                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelStyle: .alert_text
+                )
+            )
+            self.present(modal, animated: true)
             return
         }
         

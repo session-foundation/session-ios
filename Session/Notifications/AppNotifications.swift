@@ -137,12 +137,12 @@ public class NotificationPresenter: NotificationsProtocol {
         
         switch previewType {
             case .noNameNoPreview:
-                notificationTitle = "Session"
+                notificationTitle = "sessionMessenger".localized()
                 
             case .nameNoPreview, .nameAndPreview:
                 switch thread.variant {
                     case .contact:
-                        notificationTitle = (isMessageRequest ? "Session" : senderName)
+                        notificationTitle = (isMessageRequest ? "sessionMessenger".localized() : senderName)
                         
                     case .legacyGroup, .group, .community:
                         notificationTitle = String(
@@ -256,7 +256,7 @@ public class NotificationPresenter: NotificationsProtocol {
             AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
-        let notificationTitle: String = "Session"
+        let notificationTitle: String = "sessionMessenger".localized()
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
         let notificationBody: String? = {
             switch messageInfo.state {
@@ -315,7 +315,7 @@ public class NotificationPresenter: NotificationsProtocol {
         guard !isMessageRequest else { return }
         
         let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
-        let notificationTitle = "Session"
+        let notificationTitle = "sessionMessenger".localized()
         var notificationBody = String(format: "EMOJI_REACTS_NOTIFICATION".localized(), senderName, reaction.emoji)
         
         // Title & body

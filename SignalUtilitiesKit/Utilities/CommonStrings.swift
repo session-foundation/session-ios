@@ -20,7 +20,7 @@ import Foundation
     @objc
     static public let openSettingsButton = NSLocalizedString("OPEN_SETTINGS_BUTTON", comment: "Button text which opens the settings app")
     @objc
-    static public let errorAlertTitle = NSLocalizedString("ALERT_ERROR_TITLE", comment: "")
+    static public let errorAlertTitle = NSLocalizedString("error", comment: "")
 }
 
 @objc public class MessageStrings: NSObject {
@@ -53,7 +53,7 @@ public class NotificationStrings: NSObject {
     @objc
     static public let allMedia = NSLocalizedString("MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON", comment: "nav bar button item")
     @objc
-    static public let media = NSLocalizedString("MEDIA_TAB_TITLE", comment: "media tab title")
+    static public let media = NSLocalizedString("media", comment: "media tab title")
     @objc
     static public let document = NSLocalizedString("DOCUMENT_TAB_TITLE", comment: "document tab title")
 }

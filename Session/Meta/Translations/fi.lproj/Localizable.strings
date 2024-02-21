@@ -46,12 +46,6 @@
 "BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Poistetaanko käyttäjän %@ esto?";
 /* Button label for the 'unblock' button */
 "BLOCK_LIST_UNBLOCK_BUTTON" = "Poista esto";
-/* The message format of the 'conversation blocked' alert. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_MESSAGE_FORMAT" = "%@ on estetty.";
-/* The title of the 'user blocked' alert. */
-"BLOCK_LIST_VIEW_BLOCKED_ALERT_TITLE" = "Käyttäjä estettiin";
-/* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "Käyttäjän %@ esto poistettiin.";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Estetyt käyttäjät eivät voi soittaa tai lähettää sinulle viestejä.";
 /* Label for generic done button. */
@@ -59,7 +53,7 @@
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Valitse";
 /* keyboard toolbar label when starting to search with no current results */
-"CONVERSATION_SEARCH_SEARCHING" = "Etsitään...";
+"searchSearching" = "Etsitään...";
 /* keyboard toolbar label when no messages match the search string */
 "CONVERSATION_SEARCH_NO_RESULTS" = "Ei tuloksia";
 /* keyboard toolbar label when exactly 1 message matches the search string */
@@ -69,9 +63,9 @@
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Estä käyttäjä";
 /* label for 'mute thread' cell in conversation settings */
-"CONVERSATION_SETTINGS_MUTE_LABEL" = "Hiljennä";
+"notificationsMute" = "Hiljennä";
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
-"CONVERSATION_SETTINGS_SEARCH" = "Etsi keskustelusta";
+"searchConversation" = "Etsi keskustelusta";
 /* Title for the 'crop/scale image' dialog. */
 "CROP_SCALE_IMAGE_VIEW_TITLE" = "Siirrä ja Skaalaa";
 /* Subtitle shown while the app is updating its database. */
@@ -83,7 +77,7 @@
 /* table cell label in conversation settings */
 "DISAPPEARING_MESSAGES" = "Katoavat viestit";
 /* table cell label in conversation settings */
-"EDIT_GROUP_ACTION" = "Muokkaa Ryhmää";
+"groupEdit" = "Muokkaa Ryhmää";
 /* Label indicating media gallery is empty */
 "GALLERY_TILES_EMPTY_GALLERY" = "Sinulla ei ole yhtään mediaa tässä keskustelussa.";
 /* Label indicating loading is in progress */
@@ -113,7 +107,7 @@
 /* No comment provided by engineer. */
 "GROUP_MEMBERS_REMOVED" = "%@ poistettiin ryhmästä. ";
 /* No comment provided by engineer. */
-"GROUP_TITLE_CHANGED" = "Ryhmän kuvaus on nyt ”%@”. ";
+"GROUP_TITLE_CHANGED" = "Ryhmän kuvaus on nyt "%@". ";
 /* No comment provided by engineer. */
 "GROUP_UPDATED" = "Ryhmä päivitetty.";
 /* No comment provided by engineer. */
@@ -127,7 +121,7 @@
 /* Message for the alert indicating that an audio file is invalid. */
 "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Virheellinen äänitiedosto.";
 /* Confirmation button within contextual alert */
-"LEAVE_BUTTON_TITLE" = "Poistu";
+"leave" = "Poistu";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Poistu ryhmästä";
 /* nav bar button item */
@@ -182,10 +176,6 @@
 "SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Tunnistaudu avataksesi Sessionin.";
 /* Title for alert indicating that screen lock could not be unlocked. */
 "SCREEN_LOCK_UNLOCK_FAILED" = "Tunnistautuminen epäonnistui";
-/* alert title when user attempts to leave the send media flow when they have an in-progress album */
-"SEND_MEDIA_ABANDON_TITLE" = "Hylkää media?";
-/* alert action, confirming the user wants to exit the media flow and abandon any photos they've taken */
-"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "Hylkää media";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (oletus)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -259,7 +249,7 @@
 "vc_display_name_display_name_missing_error" = "Valitse näyttönimi";
 "vc_display_name_display_name_too_long_error" = "Valitse lyhyempi näyttönimi";
 "vc_pn_mode_recommended_option_tag" = "Suositeltu";
-"vc_home_empty_state_message" = "Sinulla ei ole yhteystietoja";
+"contactNone" = "Sinulla ei ole yhteystietoja";
 "vc_home_empty_state_button_title" = "Aloita keskustelu";
 "vc_seed_title" = "Palautuslausekkeesi";
 "vc_seed_title_2" = "Tutustu palautuslausekkeeseesi";
@@ -282,7 +272,7 @@
 "vc_scan_qr_code_camera_access_explanation" = "Session tarvitsee QR-koodien lukua varten kameran käyttöoikeuden";
 "vc_create_closed_group_title" = "Luo ryhmä";
 "vc_create_closed_group_text_field_hint" = "Anna ryhmälle nimi";
-"vc_create_closed_group_empty_state_message" = "Sinulla ei ole yhteystietoja";
+"contactNone" = "Sinulla ei ole yhteystietoja";
 "vc_create_closed_group_group_name_missing_error" = "Syötä ryhmän nimi";
 "vc_create_closed_group_group_name_too_long_error" = "Anna ryhmälle lyhyempi nimi";
 "vc_create_closed_group_too_many_group_members_error" = "Suljetussa ryhmässä voi olla enintään 100 jäsentä";
@@ -305,15 +295,15 @@
 "vc_view_my_qr_code_explanation" = "Tämä on QR-koodisi. Muut käyttäjät voivat aloittaa keskustelun kanssasi lukemalla sen.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Sinulle ilmoitetaan uusista viesteistä luotettavasti ja viivyttelemättä Applen ilmoituspalvelua käyttäen.";
-"fast_mode" = "Nopeasti";
+"notificationsFastMode" = "Nopeasti";
 "slow_mode_explanation" = "Session tarkistaa taustalla ajoittain uudet viestit.";
-"slow_mode" = "Hitaasti";
+"notificationsSlowMode" = "Hitaasti";
 "vc_pn_mode_title" = "Viesti-ilmoitukset";
 "vc_link_device_recovery_phrase_tab_title" = "Palautuslauseke";
 "vc_link_device_scan_qr_code_explanation" = "Avaa Asetukset → Palautuslauseke toisella laitteellasi nähdäksesi QR-koodisi.";
 "vc_enter_recovery_phrase_title" = "Palautuslauseke";
 "vc_enter_recovery_phrase_explanation" = "Yhdistä laitteesi syöttämällä palautuslauseke, jonka sait rekisteröitymisen yhteydessä.";
-"vc_enter_public_key_text_field_hint" = "Syötä Session ID tai ONS-nimi";
+"accountIdOrOnsEnter" = "Syötä Session ID tai ONS-nimi";
 "admin_group_leave_warning" = "Koska olet ryhmän luoja, poistetaan se kaikilta. Tämä ei ole peruttavissa.";
 "vc_join_open_group_suggestions_title" = "Tai liity johonkin näistä...";
 "vc_settings_invite_a_friend_button_title" = "Kutsu ystäviä";
@@ -335,7 +325,6 @@
 "modal_link_previews_explanation" = "Linkkien esikatselu näyttää esikatselun lähetetyistä ja vastaanotetuista URL-osoitteiden sisällöstä. Tämä voi olla hyödyllistä, mutta Sessionin on yhdistettävä linkkeihin esikatseluiden luontia varten. Voit aina poistaa toiminnon käytöstä Sessionin asetuksista.";
 "modal_link_previews_button_title" = "Ota käyttöön";
 "vc_share_title" = "Jaa Sessioniin";
-"vc_share_loading_message" = "Valmistellaan liitteitä...";
 "vc_share_sending_message" = "Lähetetään...";
 "vc_share_link_previews_unsecure" = "Esikatselua ei ladattu suojaamattomalle linkille";
 "vc_share_link_previews_error" = "Esikatselua ei voida ladata";
@@ -392,7 +381,7 @@
 "TXT_HIDE_TITLE" = "Piilota";
 "TXT_DELETE_ACCEPT" = "Hyväksy";
 "TXT_BLOCK_USER_TITLE" = "Estä käyttäjä";
-"ALERT_ERROR_TITLE" = "Virhe";
+"error" = "Virhe";
 "modal_call_permission_request_title" = "Puheluiden käyttöoikeus tarvitaan";
 "modal_call_permission_request_explanation" = "Voit aktivoida 'Ääni- ja videopuhelut' -käyttöoikeuden yksityisyysasetuksista.";
 "DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Hups, tapahtui virhe";
@@ -424,9 +413,9 @@
 "SEND_FAILED_NOTIFICATION_BODY" = "Viestin lähetys epäonnistui";
 "INVALID_SESSION_ID_MESSAGE" = "Tarkista Session ID ja yritä uudelleen";
 "INVALID_RECOVERY_PHRASE_MESSAGE" = "Tarkista palautuslauseke ja yritä uudelleen";
-"MEDIA_TAB_TITLE" = "Media";
+"media" = "Media";
 "DOCUMENT_TAB_TITLE" = "Dokumentit";
-"DOCUMENT_TILES_EMPTY_DOCUMENT" = "Sinulla ei ole dokumentteja tässä keskustelussa.";
+"attachmentsFilesEmpty" = "Sinulla ei ole dokumentteja tässä keskustelussa.";
 "DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL" = "Ladataan uudempaa dokumenttia…";
 "DOCUMENT_TILES_LOADING_OLDER_LABEL" = "Ladataan vanhempaa dokumenttia…";
 /* The name for the emoji category 'Activities' */
@@ -452,49 +441,49 @@
 "EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "Ja %@ muuta on reagoinut viestiin: %@.";
 "EMOJI_REACTS_RATE_LIMIT_TOAST" = "Hidasta! Olet lähettänyt liian monta emojireaktiota. Yritä hetken kuluttua uudelleen.";
 /* New conversation screen*/
-"vc_new_conversation_title" = "Uusi keskustelu";
-"CREATE_GROUP_BUTTON_TITLE" = "Luo";
-"JOIN_COMMUNITY_BUTTON_TITLE" = "Liity";
+"conversationsNew" = "Uusi keskustelu";
+"create" = "Luo";
+"join" = "Liity";
 "PRIVACY_TITLE" = "Yksityisyys";
-"PRIVACY_SECTION_SCREEN_SECURITY" = "Näytön suojaus";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_TITLE" = "Lukitse Session";
-"PRIVACY_SCREEN_SECURITY_LOCK_SESSION_DESCRIPTION" = "Vaadi Sessionin avaukseen Touch ID, Face ID tai salasana.";
-"PRIVACY_SECTION_READ_RECEIPTS" = "Lukukuittaukset";
-"PRIVACY_READ_RECEIPTS_TITLE" = "Lukukuittaukset";
-"PRIVACY_READ_RECEIPTS_DESCRIPTION" = "Lähetä lukukuittauksia kahdenkeskisissä keskusteluissa.";
-"PRIVACY_SECTION_TYPING_INDICATORS" = "Kirjoitusindikaattorit";
-"PRIVACY_TYPING_INDICATORS_TITLE" = "Kirjoitusindikaattorit";
-"PRIVACY_TYPING_INDICATORS_DESCRIPTION" = "Näe ja jaa kirjoitusindikaattorit kahdenkeskisissä keskusteluissa.";
-"PRIVACY_SECTION_LINK_PREVIEWS" = "Linkkien esikatselut";
-"PRIVACY_LINK_PREVIEWS_TITLE" = "Lähetä linkkien esikatselut";
-"PRIVACY_LINK_PREVIEWS_DESCRIPTION" = "Luo linkkien esikatselut tuetuille URL-osoitteille.";
-"PRIVACY_SECTION_CALLS" = "Puhelut (beta)";
-"PRIVACY_CALLS_TITLE" = "Ääni- ja videopuhelut";
-"PRIVACY_CALLS_DESCRIPTION" = "Mahdollistaa ääni- ja videopuheluiden soiton ja vastaanoton.";
-"PRIVACY_CALLS_WARNING_TITLE" = "Ääni- ja videopuhelut (beta)";
-"PRIVACY_CALLS_WARNING_DESCRIPTION" = "IP-osoitteesi paljastuu beta-puheluita käytettäessä puhelukumppanillesi ja Oxen Säätiön palvelimelle. Haluatko varmasti ottaa ääni- ja videopuhelut käyttöön?";
+"screenSecurity" = "Näytön suojaus";
+"lockApp" = "Lukitse Session";
+"lockAppDescriptionIos" = "Vaadi Sessionin avaukseen Touch ID, Face ID tai salasana.";
+"readReceipts" = "Lukukuittaukset";
+"readReceipts" = "Lukukuittaukset";
+"readReceiptsDescription" = "Lähetä lukukuittauksia kahdenkeskisissä keskusteluissa.";
+"typingIndicators" = "Kirjoitusindikaattorit";
+"typingIndicators" = "Kirjoitusindikaattorit";
+"typingIndicatorsDescription" = "Näe ja jaa kirjoitusindikaattorit kahdenkeskisissä keskusteluissa.";
+"linkPreviews" = "Linkkien esikatselut";
+"linkPreviewsSend" = "Lähetä linkkien esikatselut";
+"linkPreviewsDescription" = "Luo linkkien esikatselut tuetuille URL-osoitteille.";
+"callsSettings" = "Puhelut (beta)";
+"callsVoiceAndVideo" = "Ääni- ja videopuhelut";
+"callsVoiceAndVideoToggleDescription" = "Mahdollistaa ääni- ja videopuheluiden soiton ja vastaanoton.";
+"callsVoiceAndVideoBeta" = "Ääni- ja videopuhelut (beta)";
+"callsVoiceAndVideoModalDescription" = "IP-osoitteesi paljastuu beta-puheluita käytettäessä puhelukumppanillesi ja Oxen Säätiön palvelimelle. Haluatko varmasti ottaa ääni- ja videopuhelut käyttöön?";
 "NOTIFICATIONS_TITLE" = "Ilmoitukset";
-"NOTIFICATIONS_SECTION_STRATEGY" = "Ilmoituskäytäntö";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE" = "Käytä nopeaa tilaa";
+"notificationsStrategy" = "Ilmoituskäytäntö";
+"useFastMode" = "Käytä nopeaa tilaa";
 "NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION" = "Uusista viesteistä ilmoitetaan luotettavasti ja viiveettä Applen ilmoituspalvelinten avulla.";
-"NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION" = "Järjestelmän ilmoitusasetukset";
-"NOTIFICATIONS_SECTION_STYLE" = "Ilmoitusten tyyli";
-"NOTIFICATIONS_STYLE_SOUND_TITLE" = "Ääni";
-"NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE" = "Ääni sovelluksen ollessa avoinna";
-"NOTIFICATIONS_STYLE_CONTENT_TITLE" = "Ilmoituksen sisältö";
-"NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION" = "Ilmoituksissa näytettävät tiedot.";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_AND_CONTENT" = "Nimi ja sisältö";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NAME_ONLY" = "Vain nimi";
-"NOTIFICATIONS_STYLE_CONTENT_OPTION_NO_NAME_OR_CONTENT" = "Ei nimeä tai sisältöä";
+"notificationsGoToDevice" = "Järjestelmän ilmoitusasetukset";
+"notificationsStyle" = "Ilmoitusten tyyli";
+"notificationsSound" = "Ääni";
+"notificationsSoundDescription" = "Ääni sovelluksen ollessa avoinna";
+"notificationsContent" = "Ilmoituksen sisältö";
+"notificationsContentDescription" = "Ilmoituksissa näytettävät tiedot.";
+"notificationsContentShowNameAndContent" = "Nimi ja sisältö";
+"notificationsContentShowNameOnly" = "Vain nimi";
+"notificationsContentShowNoNameOrContent" = "Ei nimeä tai sisältöä";
 "CONVERSATION_SETTINGS_TITLE" = "Keskustelut";
-"CONVERSATION_SETTINGS_SECTION_MESSAGE_TRIMMING" = "Keskustelujen tiivistys";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_TITLE" = "Yhteisöjen tiivistys";
-"CONVERSATION_SETTINGS_MESSAGE_TRIMMING_DESCRIPTION" = "Poista yli 6 kuukauden ikäiset viestit yli 2000 viestin yhteisöistä.";
+"conversationsMessageTrimming" = "Keskustelujen tiivistys";
+"conversationsMessageTrimmingTrimCommunities" = "Yhteisöjen tiivistys";
+"conversationsMessageTrimmingTrimCommunitiesDescription" = "Poista yli 6 kuukauden ikäiset viestit yli 2000 viestin yhteisöistä.";
 "CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "Ääniviestit";
 "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "Toista ääniviestit automaattisesti";
 "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "Toista peräkkäiset ääniviestit automaattisesti.";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE" = "Estetyt yhteystiedot";
-"CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE" = "Sinulla ei ole estettyjä yhteystietoja.";
+"conversationsBlockedContacts" = "Estetyt yhteystiedot";
+"blockBlockedNone" = "Sinulla ei ole estettyjä yhteystietoja.";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK" = "Poista esto";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE" = "Haluatko varmasti poistaa käyttäjän %@ eston?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "tämä yhteystieto";
@@ -502,25 +491,25 @@
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "ja %@?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "ja %d muuta?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON" = "Poista esto";
-"APPEARANCE_TITLE" = "Ulkoasu";
-"APPEARANCE_THEMES_TITLE" = "Teemat";
-"APPEARANCE_PRIMARY_COLOR_TITLE" = "Pääväri";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_QUOTE" = "Mitä kuuluu?";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_INC_MESSAGE" = "Hyvää, kiitos. Mitäs sinne?";
-"APPEARANCE_PRIMARY_COLOR_PREVIEW_OUT_MESSAGE" = "Erinomaista, kiitos.";
-"APPEARANCE_NIGHT_MODE_TITLE" = "Automaattinen yötila";
-"APPEARANCE_NIGHT_MODE_TOGGLE" = "Seuraa järjestelmän asetusta";
-"HELP_TITLE" = "Tuki";
-"HELP_REPORT_BUG_TITLE" = "Ilmoita virheestä";
-"HELP_REPORT_BUG_DESCRIPTION" = "Vie lokitiedot ja lähetä tiedosto Sessionin tukipalvelusta.";
-"HELP_REPORT_BUG_ACTION_TITLE" = "Vie lokitiedot";
-"HELP_TRANSLATE_TITLE" = "Käännä Session";
-"HELP_FEEDBACK_TITLE" = "Haluaisimme kuulla mielipiteesi";
-"HELP_FAQ_TITLE" = "UKK";
-"HELP_SUPPORT_TITLE" = "Tue";
+"sessionAppearance" = "Ulkoasu";
+"appearanceThemes" = "Teemat";
+"appearancePrimaryColor" = "Pääväri";
+"appearancePreview1" = "Mitä kuuluu?";
+"appearancePreview2" = "Hyvää, kiitos. Mitäs sinne?";
+"appearancePreview3" = "Erinomaista, kiitos.";
+"appearanceAutoDarkMode" = "Automaattinen yötila";
+"followSystemSettings" = "Seuraa järjestelmän asetusta";
+"sessionHelp" = "Tuki";
+"helpReportABug" = "Ilmoita virheestä";
+"helpReportABugExportLogsDescription" = "Vie lokitiedot ja lähetä tiedosto Sessionin tukipalvelusta.";
+"helpReportABugExportLogs" = "Vie lokitiedot";
+"helpHelpUsTranslateSession" = "Käännä Session";
+"helpWedLoveYourFeedback" = "Haluaisimme kuulla mielipiteesi";
+"helpFAQ" = "UKK";
+"helpSupport" = "Tue";
 "modal_clear_all_data_title" = "Tyhjennä kaikki tiedot";
 "modal_clear_all_data_explanation" = "Tämä poistaa viestisi ja yhteystietosi pysyvästi. Haluatko poistaa tietosi vain tältä laitteelta vai myös verkosta?";
-"modal_clear_all_data_explanation_2" = "Haluatko varmasti poistaa tietosi verkosta? Jos jatkat, et voi palauttaa viestejäsi etkä yhteystietojasi.";
+"clearDeviceAndNetworkConfirm" = "Haluatko varmasti poistaa tietosi verkosta? Jos jatkat, et voi palauttaa viestejäsi etkä yhteystietojasi.";
 "modal_clear_all_data_device_only_button_title" = "Tyhjennä vain laitteelta";
 "modal_clear_all_data_entire_account_button_title" = "Tyhjennä laitteelta ja verkosta";
 "dialog_clear_all_data_deletion_failed_1" = "Tietoja ei poistettu 1 palvelusolmusta. Solmun ID: %@.";
@@ -531,43 +520,43 @@
 "modal_permission_explanation" = "Jatkaakseen Session tarvitsee \"%@\" -käyttöoikeuden. Voit myöntää sen iOS:n järjestelmäsetuksista.";
 "modal_permission_settings_title" = "Asetukset";
 "modal_permission_camera" = "kamera";
-"modal_permission_microphone" = "mikrofoni";
+"permissionsMicrophoneAccessRequired" = "mikrofoni";
 "modal_permission_library" = "kirjasto";
-"DISAPPEARING_MESSAGES_OFF" = "Pois käytöstä";
-"DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Pois käytöstä";
+"off" = "Pois käytöstä";
+"off" = "Pois käytöstä";
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Katoa, kun on kulunut: %@";
-"COPY_GROUP_URL" = "Kopioi ryhmän URL-osoite";
+"communityUrlCopy" = "Kopioi ryhmän URL-osoite";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Yhteystiedot";
-"GROUP_ERROR_NO_MEMBER_SELECTION" = "Valitse ainakin 1 ryhmän jäsen";
+"groupCreateErrorNoMembers" = "Valitse ainakin 1 ryhmän jäsen";
 "GROUP_CREATION_PLEASE_WAIT" = "Odota kunnes ryhmä on luotu...";
 "GROUP_CREATION_ERROR_TITLE" = "Ryhmää ei voitu luoda";
 "GROUP_CREATION_ERROR_MESSAGE" = "Tarkista Internet-yhteytesi ja yritä uudelleen.";
 "GROUP_UPDATE_ERROR_TITLE" = "Ryhmää ei voitu päivittää";
 "GROUP_UPDATE_ERROR_MESSAGE" = "Ei voida poistua lisättäessä tai poistettaessa muita jäseniä.";
-"GROUP_ACTION_REMOVE" = "Poista";
+"remove" = "Poista";
 "GROUP_TITLE_MEMBERS" = "Jäsenet";
 "GROUP_TITLE_FALLBACK" = "Ryhmä";
 "DM_ERROR_DIRECT_BLINDED_ID" = "Voit lähettää viestejä vain sokaistuille ID:ille yhteisöstä";
 "DM_ERROR_INVALID" = "Tarkista Session ID tai ONS-nimi ja yritä uudelleen";
-"COMMUNITY_ERROR_INVALID_URL" = "Tarkista syöttämäsi URL-osoite ja yritä uudelleen.";
+"communityEnterUrlErrorInvalidDescription" = "Tarkista syöttämäsi URL-osoite ja yritä uudelleen.";
 "COMMUNITY_ERROR_GENERIC" = "Ei voitu liittyä";
-"DISAPPERING_MESSAGES_TITLE" = "Katoavat viestit";
-"DISAPPERING_MESSAGES_TYPE_TITLE" = "Poista tyyppi";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_TITLE" = "Katoa, kun luettu";
-"DISAPPERING_MESSAGES_TYPE_AFTER_READ_DESCRIPTION" = "Viestit poistuvat, kun ne on luettu.";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE" = "Katoa lähetyksen jälkeen";
-"DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION" = "Viestit poistuvat, kun ne on lähetetty.";
-"DISAPPERING_MESSAGES_TIMER_TITLE" = "Ajastin";
-"DISAPPERING_MESSAGES_SAVE_TITLE" = "Aseta";
-"DISAPPERING_MESSAGES_GROUP_WARNING" = "Tämä asetus koskee kaikkia tässä keskustelussa.";
-"DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Tämä asetus koskee kaikkia tässä keskustelussa. Vain ryhmän ylläpitäjät voivat muuttaa asetusta.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Katoa, kun %@ - %@";
+"disappearingMessages" = "Katoavat viestit";
+"disappearingMessagesDeleteType" = "Poista tyyppi";
+"disappearingMessagesDisappearAfterRead" = "Katoa, kun luettu";
+"disappearingMessagesDisappearAfterReadDescription" = "Viestit poistuvat, kun ne on luettu.";
+"disappearingMessagesDisappearAfterSend" = "Katoa lähetyksen jälkeen";
+"disappearingMessagesDisappearAfterSendDescription" = "Viestit poistuvat, kun ne on lähetetty.";
+"disappearingMessagesTimer" = "Ajastin";
+"set" = "Aseta";
+"disappearingMessagesDescription" = "Tämä asetus koskee kaikkia tässä keskustelussa.";
+"disappearingMessagesOnlyAdmins" = "Tämä asetus koskee kaikkia tässä keskustelussa. Vain ryhmän ylläpitäjät voivat muuttaa asetusta.";
+"disappearingMessagesDisappear" = "Katoa, kun %@ - %@";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ on asettanut viestit katoamaan %@, kun ne on %@";
-"DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ on vahtanut viestit katoamaan %@, kun ne on %@";
+"disappearingMessagesChanged" = "%@ on vahtanut viestit katoamaan %@, kun ne on %@";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ poisti katoavat viestit käytöstä";
 
 /* context_menu_info */
-"context_menu_info" = "Info";
+"info" = "Info";
 
 /* An error that is displayed when the application fails for create it's initial connection to the database */
 "DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
@@ -582,7 +571,7 @@
 "DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
 
 /* Text displayed in place of a quoted message when the original message is not on the device */
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+"messageErrorOriginal" = "Original message not found.";
 
 /* EMOJI_REACTS_SHOW_LESS */
 "EMOJI_REACTS_SHOW_LESS" = "Show less";
@@ -597,7 +586,7 @@
 "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
 
 /* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+"messageRequestPendingDescription" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
 
 /* State of a message while it's still in the process of being sent */
 "MESSAGE_DELIVERY_STATUS_SENDING" = "Jippikajee";
@@ -609,19 +598,19 @@
 "MESSAGE_DELIVERY_STATUS_READ" = "Jippikajee";
 
 /* State of a message if it failed to be sent */
-"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"messageStatusFailedToSend" = "Failed to send";
 
 /* Title of the message information screen describing the date/time a message was sent */
 "MESSAGE_INFO_SENT" = "Sent";
 
 /* Title of the message information screen describing the date/time a message was received on a specific device */
-"MESSAGE_INFO_RECEIVED" = "Received";
+"received" = "Received";
 
 /* Title of the message information screen describing the sender of the message */
-"MESSAGE_INFO_FROM" = "From";
+"from" = "From";
 
 /* Title of the message information screen describing the identifier of the attachment */
-"ATTACHMENT_INFO_FILE_ID" = "File ID";
+"attachmentsFileId" = "File ID";
 
 /* Title of the message information screen describing the file type of the attachment */
 "ATTACHMENT_INFO_FILE_TYPE" = "File Type";
@@ -630,16 +619,16 @@
 "ATTACHMENT_INFO_FILE_SIZE" = "File Size";
 
 /* Title on the message information screen describing the resolution of a media attachment */
-"ATTACHMENT_INFO_RESOLUTION" = "Resolution";
+"attachmentsResolution" = "Resolution";
 
 /* Title on the message information screen describing the duration of a media attachment */
-"ATTACHMENT_INFO_DURATION" = "Duration";
+"attachmentsDuration" = "Duration";
 
 /* State of a message after it failed to sync to the current users other devices */
-"MESSAGE_DELIVERY_STATUS_FAILED_SYNC" = "Failed to sync";
+"messageStatusFailedToSync" = "Failed to sync";
 
 /* State of a message while it's in the process of being synced to the users other devices */
-"MESSAGE_DELIVERY_STATUS_SYNCING" = "Syncing";
+"messageStatusSyncing" = "Syncing";
 
 /* Title of the modal that appears after a user taps on the state of a message which failed to send */
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
@@ -651,7 +640,7 @@
 "delete_message_for_me_and_my_devices" = "Delete from all of my devices";
 
 /* Action in the long-press menu to trigger a message to be sent again after it has failed */
-"context_menu_resend" = "Resend";
+"resend" = "Resend";
 
 /* Action in the long-press menu to trigger a message to be synced again after it has failed */
 "context_menu_resync" = "Resync";
@@ -663,10 +652,10 @@
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
 
 /* Action in the long-press menu to view more information about a specific message */
-"message_info_title" = "Message Info";
+"messageInfo" = "Message Info";
 
 /* Action to mute a conversation in the swipe menu */
-"mute_button_text" = "Mute";
+"notificationsMute" = "Mute";
 
 /* Action in the swipe menu to unmute a conversation */
 "unmute_button_text" = "Unmute";
@@ -675,16 +664,16 @@
 "MARK_AS_READ" = "Mark read";
 
 /* Action in the swipe menu to mark a conversation as unread */
-"MARK_AS_UNREAD" = "Mark unread";
+"messageMarkUnread" = "Mark unread";
 
 /* Title of the confirmation modal show when attempting to leave a group conversation */
-"leave_group_confirmation_alert_title" = "Leave Group";
+"groupLeave" = "Leave Group";
 
 /* Title of the confirmation modal show when attempting to leave a community conversation */
-"leave_community_confirmation_alert_title" = "Leave Community";
+"communityLeave" = "Leave Community";
 
 /* Message in the confirmation modal when leaving a community conversation */
-"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"communityLeaveDescription" = "Are you sure you want to leave %@?";
 
 /* Conversation subtitle while the user in the process of leaving */
 "group_you_leaving" = "Leaving...";
@@ -696,10 +685,10 @@
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
 
 /* Title in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_title" = "Delete Group";
+"groupDelete" = "Delete Group";
 
 /* Message in the confirmation modal to delete a group */
-"delete_group_confirmation_alert_message" = "Are you sure you want to delete %@?";
+"groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
 "delete_conversation_confirmation_alert_title" = "Delete Conversation";
@@ -708,19 +697,19 @@
 "delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_title" = "Hide Note to Self";
+"noteToSelfHide" = "Hide Note to Self";
 
 /* Message in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
-"hide_note_to_self_confirmation_alert_message" = "Are you sure you want to hide %@?";
+"noteToSelfHideDescription" = "Are you sure you want to hide %@?";
 
 /* Title in the modal for updating the users profile display picture */
-"update_profile_modal_title" = "Set Display Picture";
+"profileSetDisplayPicturel" = "Set Display Picture";
 
 /* Save action in the modal for updating the users profile display picture */
 "update_profile_modal_save" = "Save";
 
 /* Remove action in the modal for updating the users profile display picture */
-"update_profile_modal_remove" = "Remove";
+"remove" = "Remove";
 
 /* Title for the error when failing to remove the users profile display picture */
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
@@ -741,16 +730,16 @@
 "CONTACT_NICKNAME_PLACEHOLDER" = "Enter a name";
 
 /* The separator within a conversation indicating that following messages are unread */
-"UNREAD_MESSAGES" = "Unread Messages";
+"messageUnread" = "Unread Messages";
 
 /* Empty state for a conversation */
 "CONVERSATION_EMPTY_STATE" = "You have no messages from %@. Send a message to start the conversation!";
 
 /* Empty state for a read-only conversation */
-"CONVERSATION_EMPTY_STATE_READ_ONLY" = "There are no messages in %@.";
+"conversationsEmpty" = "There are no messages in %@.";
 
 /* Empty state for the 'Note to Self' conversation */
-"CONVERSATION_EMPTY_STATE_NOTE_TO_SELF" = "You have no messages in %@.";
+"noteToSelfEmpty" = "You have no messages in %@.";
 
 /* Message to indicate a user has Community Message Requests disabled */
 "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
@@ -774,13 +763,13 @@
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"disappearingMessagesSetYou" = "You have set messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
 "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+"disappearingMessagesTurnedOffYou" = "You have turned off disappearing messages";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
@@ -820,13 +809,13 @@ The point that a message will disappear in a disappearing message update message
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND" = "Disappear After Send: %@";
 
 /* An informational message displayed when the name of a group is changed, the '%@' will be the updated name. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED_TO" = "Group name is now %@.";
+"groupNameNew" = "Group name is now %@.";
 
 /* An informational message displayed when the name of a group is changed. */
-"GROUP_MESSAGE_INFO_NAME_UPDATED" = "Group name updated.";
+"groupNameUpdated" = "Group name updated.";
 
 /* An informational message displayed when the display picture of a group is changed. */
-"GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Group display picture updated.";
+"groupDisplayPictureUpdated" = "Group display picture updated.";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
 "GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
@@ -841,7 +830,7 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ was removed from the group.";
 
 /* An informational message displayed when two members were removed from the group, the '%@' will be the members names. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_REMOVED" = "%@ and %@ were removed from the group.";
+"groupRemovedTwo" = "%@ and %@ were removed from the group.";
 
 /* An informational message displayed when multiple members were removed from the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members removed. */
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_REMOVED" = "%@ and %@ others were removed from the group.";
@@ -850,55 +839,55 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MEMBER_LEFT" = "%@ left the group.";
 
 /* An informational message displayed when a member of the group was promoted to admin, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_PROMOTED" = "%@ was promoted to Admin.";
+"adminPromotedToAdmin" = "%@ was promoted to Admin.";
 
 /* An informational message displayed when two members of the group were promoted to admin, the '%@' will be the members names. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_PROMOTED" = "%@ and %@ were promoted to Admin.";
+"adminTwoPromotedToAdmin" = "%@ and %@ were promoted to Admin.";
 
 /* An informational message displayed when multiple members of the group were promoted to admin, the first '%@' will be the first members name and the second '%@' will be the number of additional members promoted. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_PROMOTED" = "%@ and %@ others were promoted to Admin.";
+"adminMorePromotedToAdmin" = "%@ and %@ others were promoted to Admin.";
 
 /* An informational message displayed the current user was removed from a group, the '%@' will be the name of the group. */
 "GROUP_MESSAGE_INFO_REMOVED" = "You were removed from %@.";
 
 /* Description of a warning prompt when deleting an invitation to join a group conversation. */
-"MESSAGE_REQUESTS_GROUP_DELETE_CONFIRMATION_ACTON" = "Are you sure you want to delete this group invite?";
+"groupInviteDelete" = "Are you sure you want to delete this group invite?";
 
 /* Description of a confirmation prompt when blocking an invitation to join a group conversation. The '%@' will be replaced with the name of the user that sent the invitation. */
 "MESSAGE_REQUESTS_GROUP_BLOCK_CONFIRMATION_ACTON" = "Are you sure you want to block %@? Blocked users cannot send you message requests, group invites or call you.";
 
 /* An informational message displayed when the user has been invited to join a group, the first '%@' will be the name of the user that sent the invitation and the second '%@' will be the name of the group. */
-"GROUP_MESSAGE_INFO_INVITED" = "%@ invited you to join %@.";
+"messageRequestGroupInvite" = "%@ invited you to join %@.";
 
 /* Message within a conversation indicating the device was unable to delete a group conversation */
 "group_unable_to_delete" = "Unable to delete the Group, please try again.";
 
 /* Information displayed above the input when opening an invitation to join a group. */
-"GROUP_MESSAGE_REQUEST_INFO" = "Sending a message to this group will automatically accept the group invite.";
+"messageRequestGroupInviteDescription" = "Sending a message to this group will automatically accept the group invite.";
 
 /* An error indicating we were unable to retrieve the required data for some reason. */
 "ERROR_UNABLE_TO_FIND_DATA" = "There is an issue retrieving the required data. Please try again later.";
 
 /* A title for the list of group members. */
-"GROUP_MEMBERS" = "Group Members";
+"groupMembers" = "Group Members";
 
 /* The status for a group member while their invite is being sent. */
-"GROUP_MEMBER_STATUS_SENDING" = "Sending invite";
+"groupInviteSending" = "Sending invite";
 
 /* The status for a group member while their invite is pending. */
-"GROUP_MEMBER_STATUS_SENT" = "Invite sent";
+"groupInviteSent" = "Invite sent";
 
 /* The status for a group member if their invitation failed to send. */
-"GROUP_MEMBER_STATUS_FAILED" = "Invite failed";
+"groupInviteFailed" = "Invite failed";
 
 /* The status for a group admin while their invite is being sent. */
-"GROUP_ADMIN_STATUS_SENDING" = "Sending admin promotion";
+"adminSendingPromotion" = "Sending admin promotion";
 
 /* The status for a group admin while their invite is pending. */
-"GROUP_ADMIN_STATUS_SENT" = "Admin promotion sent";
+"adminPromotionSent" = "Admin promotion sent";
 
 /* The status for a group admin if their invitation failed to send. */
-"GROUP_ADMIN_STATUS_FAILED" = "Admin promotion failed";
+"adminPromotionFailed" = "Admin promotion failed";
 
 /* A title for the modal to edit the group display picture. */
 "EDIT_GROUP_DISPLAY_PICTURE" = "Set Group Display Picture";
@@ -925,37 +914,37 @@ The point that a message will disappear in a disappearing message update message
 "EDIT_GROUP_DESCRIPTION_ERROR_LONG" = "Please pick a shorter group description.";
 
 /* Error message when the user attempts to remove an admin from a group. */
-"EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN" = "Admins cannot be removed";
+"adminCannotBeRemoved" = "Admins cannot be removed";
 
 /* A title for the button to send invites for members to join groups. */
-"GROUP_ACTION_INVITE" = "Invite";
+"membersInviteTitle" = "Invite";
 
 /* A title for the button to send invites to contacts to join groups. */
-"GROUP_ACTION_INVITE_CONTACTS" = "Invite Contacts";
+"membersInvite" = "Invite Contacts";
 
 /* Text which appears when all of the users contacts are already part of the group they want to invite contacts to. */
 "GROUP_ACTION_INVITE_EMPTY_STATE" = "You don't have any more contacts.";
 
 /* A toast which indicates that a single invitation to join the group is being sent. */
-"GROUP_ACTION_INVITE_SENDING" = "Sending invite";
+"groupInviteSending" = "Sending invite";
 
 /* A toast which indicates that multiple invitations to join the group are being sent. */
 "GROUP_ACTION_INVITE_SENDING_MULTIPLE" = "Sending invites";
 
 /* A toast which indicates that a single invitation to join a group failed to send, the first '%@' will be the name of the member that couldn't be invited and the second '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_ONE" = "Failed to invite %@ to %@";
+"groupInviteFailedUser" = "Failed to invite %@ to %@";
 
 /* A toast which indicates that two invitation to join a group failed to send, the first '%@' will be the name of the first member that couldn't be invited, the second '%@' will be the name of the second member that couldn't be invited, and the third '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_TWO" = "Failed to invite %@ and %@ to %@";
+"groupInviteFailedTwo" = "Failed to invite %@ and %@ to %@";
 
 /* A toast which indicates multiple invitations to join a group failed to send, the first '%@' will be the name of the first member that couldn't be invited, the second '%@' will be the number of other members that couldn't be invited, and the third '%@' will be the name of the group. */
-"GROUP_ACTION_INVITE_FAILED_MULTIPLE" = "Failed to invite %@ and %@ others to %@";
+"groupInviteFailedMore" = "Failed to invite %@ and %@ others to %@";
 
 /* A title for the screen to select which group members should receive promotions to admin. */
-"GROUP_ACTION_PROMOTE_ADMINS" = "Promote Admins";
+"adminPromote" = "Promote Admins";
 
 /* A title for the button to send promotions to members of a group. */
-"GROUP_ACTION_PROMOTE" = "Promote";
+"promote" = "Promote";
 
 /* Text which appears when all of the members of a group are already admins. */
 "GROUP_ACTION_PROMOTE_EMPTY_STATE" = "There are no more members in this group.";
@@ -1021,4 +1010,4 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";
 
 /* Message for the error modal shown when a voice message fails to start recording. */
-"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "An error occurred when trying to start recording for the voice message.";
+"audioUnableToRecord" = "An error occurred when trying to start recording for the voice message.";

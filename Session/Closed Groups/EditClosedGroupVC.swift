@@ -98,7 +98,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setNavBarTitle("EDIT_GROUP_ACTION".localized())
+        setNavBarTitle("groupEdit".localized())
         
         let threadId: String = self.threadId
         
@@ -259,7 +259,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let profileId: String = self.membersAndZombies[indexPath.row].profileId
         
         let delete: UIContextualAction = UIContextualAction(
-            title: "GROUP_ACTION_REMOVE".localized(),
+            title: "remove".localized(),
             icon: UIImage(named: "icon_bin"),
             themeTintColor: .white,
             themeBackgroundColor: .conversationButton_swipeDestructive,

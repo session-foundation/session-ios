@@ -1192,10 +1192,10 @@ public extension SessionThreadViewModel {
     }
     
     static func standardQuotes(_ term: String) -> String {
-        // Apple like to use the special '”“' quote characters when typing so replace them with normal ones
+        // Apple like to use the special '""' quote characters when typing so replace them with normal ones
         return term
-            .replacingOccurrences(of: "”", with: "\"")
-            .replacingOccurrences(of: "“", with: "\"")
+            .replacingOccurrences(of: """, with: "\"")
+            .replacingOccurrences(of: """, with: "\"")
     }
     
     static func pattern(_ db: Database, searchTerm: String) throws -> FTS5Pattern {

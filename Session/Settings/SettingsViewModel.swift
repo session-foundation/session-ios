@@ -393,7 +393,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_apperance")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "APPEARANCE_TITLE".localized(),
+                            title: "sessionAppearance".localized(),
                             onTap: {
                                 self?.transitionToScreen(AppearanceViewController())
                             }
@@ -432,7 +432,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     
                                     return ConfirmationModal(
                                         info: ConfirmationModal.Info(
-                                            title: "ALERT_ERROR_TITLE".localized(),
+                                            title: "error".localized(),
                                             body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
                                             cancelTitle: "BUTTON_OK".localized(),
                                             cancelStyle: .alert_text
@@ -449,7 +449,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_help")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "HELP_TITLE".localized(),
+                            title: "sessionHelp".localized(),
                             onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: HelpViewModel())
@@ -482,7 +482,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let existingImageData: Data? = ProfileManager
             .profileAvatar(id: self.userSessionId)
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
-            title: "update_profile_modal_title".localized(),
+            title: "profileSetDisplayPicturel".localized(),
             body: .image(
                 placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
                 valueData: existingImageData,
@@ -496,7 +496,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ),
             confirmTitle: "update_profile_modal_save".localized(),
             confirmEnabled: false,
-            cancelTitle: "update_profile_modal_remove".localized(),
+            cancelTitle: "remove".localized(),
             cancelEnabled: (existingImageData != nil),
             hasCloseButton: true,
             dismissOnConfirm: false,

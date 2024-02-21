@@ -399,11 +399,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
         /// have access to the database when displaying this so can't extract theme information for styling purposes
         let alert: UIAlertController = UIAlertController(
-            title: "Session",
+            title: "sessionMessenger".localized(),
             message: error.message,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "HELP_REPORT_BUG_ACTION_TITLE".localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "helpReportABugExportLogs".localized(), style: .default) { _ in
             HelpViewModel.shareLogs(viewControllerToDismiss: alert) { [weak self] in
                 // Don't bother showing the "Failed Startup" modal again if we happen to now
                 // have an initial view controller (this most likely means that the startup

@@ -280,7 +280,7 @@ public final class SearchResultsBar: UIView {
         
         DispatchQueue.main.async { [weak self] in
             if hasNoExistingResults {
-                self?.label.text = "CONVERSATION_SEARCH_SEARCHING".localized()
+                self?.label.text = "searchSearching".localized()
             }
             
             self?.startLoading()

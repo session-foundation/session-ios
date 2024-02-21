@@ -148,7 +148,7 @@ final class ConversationTitleView: UIView {
                         .foregroundColor: textPrimary
                     ]
                 )
-                .appending(string: "Muted")
+                .appending(string: "notificationsMuted".localized())
                 return
             }
             guard !onlyNotifyForMentions else {

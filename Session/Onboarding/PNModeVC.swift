@@ -35,7 +35,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
     
     private lazy var apnsOptionView: OptionView = {
         let result: OptionView = OptionView(
-            title: "fast_mode".localized(),
+            title: "notificationsFastMode".localized(),
             explanation: "fast_mode_explanation".localized(),
             delegate: self,
             isRecommended: true
@@ -47,7 +47,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
     
     private lazy var backgroundPollingOptionView: OptionView = {
         let result: OptionView = OptionView(
-            title: "slow_mode".localized(),
+            title: "notificationsSlowMode".localized(),
             explanation: "slow_mode_explanation".localized(),
             delegate: self
         )

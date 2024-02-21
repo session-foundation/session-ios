@@ -68,9 +68,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                id: "off".localized(),
                                 position: .top,
-                                title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                title: "off".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
                                 )
@@ -126,9 +126,9 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                id: "off".localized(),
                                 position: .top,
-                                title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                                title: "off".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
                                 )

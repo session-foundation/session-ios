@@ -209,8 +209,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         ModalActivityIndicatorViewController
             .present(
                 fromViewController: self,
-                canCancel: false,
-                message: "vc_share_loading_message".localized()
+                canCancel: false
             ) { activityIndicator in
                 publisher
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -245,7 +244,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "Session",
+                title: "sessionMessenger".localized(),
                 body: .text(error.localizedDescription),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,

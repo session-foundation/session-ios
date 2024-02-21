@@ -97,8 +97,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                     model: .content,
                     elements: [
                         SessionCell.Info(
-                            id: "DISAPPEARING_MESSAGES_OFF".localized(),
-                            title: "DISAPPEARING_MESSAGES_OFF".localized(),
+                            id: "off".localized(),
+                            title: "off".localized(),
                             rightAccessory: .radio(
                                 isSelected: { (self?.currentSelection.value == 0) }
                             ),

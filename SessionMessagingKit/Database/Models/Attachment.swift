@@ -791,16 +791,16 @@ extension Attachment {
     
     public var documentFileName: String {
         if let sourceFilename: String = sourceFilename { return sourceFilename }
-        if isImage { return "Image File" }
-        if isAudio { return "Audio File" }
-        if isVideo { return "Video File" }
-        return "File"
+        if isImage { return "photo".localized() + " " + "file".localized() }
+        if isAudio { return "audio".localized() + " " + "file".localized() }
+        if isVideo { return "video".localized() + " " + "file".localized() }
+        return "file".localized()
     }
     
     public var shortDescription: String {
-        if isImage { return "Image" }
-        if isAudio { return "Audio" }
-        if isVideo { return "Video" }
+        if isImage { return "photo".localized() }
+        if isAudio { return "audio".localized() }
+        if isVideo { return "video".localized() }
         return "Document"
     }
     

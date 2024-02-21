@@ -89,7 +89,7 @@ extension MediaInfoVC {
             let fileIdTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-                result.text = "ATTACHMENT_INFO_FILE_ID".localized() + ":"
+                result.text = "attachmentsFileId".localized() + ":"
                 result.themeTextColor = .textPrimary
                 
                 return result
@@ -137,7 +137,7 @@ extension MediaInfoVC {
             let resolutionTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-                result.text = "ATTACHMENT_INFO_RESOLUTION".localized() + ":"
+                result.text = "attachmentsResolution".localized() + ":"
                 result.themeTextColor = .textPrimary
                 
                 return result
@@ -153,7 +153,7 @@ extension MediaInfoVC {
             let durationTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-                result.text = "ATTACHMENT_INFO_DURATION".localized() + ":"
+                result.text = "attachmentsDuration".localized() + ":"
                 result.themeTextColor = .textPrimary
                 
                 return result
@@ -182,11 +182,11 @@ extension MediaInfoVC {
             fileTypeLabel.text = attachment.contentType
             fileSizeLabel.text = Format.fileSize(attachment.byteCount)
             resolutionLabel.text = {
-                guard let width = attachment.width, let height = attachment.height else { return "N/A" }
+                guard let width = attachment.width, let height = attachment.height else { return "attachmentsNa".localized() }
                 return "\(width)×\(height)"
             }()
             durationLabel.text = {
-                guard let duration = attachment.duration else { return "N/A" }
+                guard let duration = attachment.duration else { return "attachmentsNa".localized() }
                 return floor(duration).formatted(format: .videoDuration)
             }()
         }

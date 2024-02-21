@@ -292,7 +292,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.font = UIFont.systemFont(ofSize: 12)
         result.text = (self.viewModel.threadData.threadRequiresApproval == false ?
             "MESSAGE_REQUESTS_INFO".localized() :
-            "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
+            "messageRequestPendingDescription".localized()
         )
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
@@ -328,7 +328,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.accessibilityLabel = "Delete message request"
         result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("TXT_DELETE_TITLE".localized(), for: .normal)
+        result.setTitle("decline".localized(), for: .normal)
         result.addTarget(self, action: #selector(deleteMessageRequest), for: .touchUpInside)
 
         return result
@@ -699,11 +699,11 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         return String(
             format: {
                 switch (threadData.threadIsNoteToSelf, threadData.canWrite) {
-                    case (true, _): return "CONVERSATION_EMPTY_STATE_NOTE_TO_SELF".localized()
+                    case (true, _): return "noteToSelfEmpty".localized()
                     case (_, false):
                         return (threadData.profile?.blocksCommunityMessageRequests == true ?
                             "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized() :
-                            "CONVERSATION_EMPTY_STATE_READ_ONLY".localized()
+                            "conversationsEmpty".localized()
                         )
                        
                     default: return "CONVERSATION_EMPTY_STATE".localized()
@@ -780,7 +780,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             
             messageRequestDescriptionLabel.text = (updatedThreadData.threadRequiresApproval == false ?
                 "MESSAGE_REQUESTS_INFO".localized() :
-                "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized()
+                "messageRequestPendingDescription".localized()
             )
             
             let messageRequestsViewWasVisible: Bool = (

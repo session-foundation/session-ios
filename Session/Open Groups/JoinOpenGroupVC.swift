@@ -154,7 +154,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: urlString) else {
             showError(
                 title: "invalid_url".localized(),
-                message: "COMMUNITY_ERROR_INVALID_URL".localized(),
+                message: "communityEnterUrlErrorInvalidDescription".localized(),
                 onError: onError
             )
             return
@@ -302,7 +302,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         
         // Next button
         let joinButton = SessionButton(style: .bordered, size: .large)
-        joinButton.setTitle("JOIN_COMMUNITY_BUTTON_TITLE".localized(), for: UIControl.State.normal)
+        joinButton.setTitle("join".localized(), for: UIControl.State.normal)
         joinButton.addTarget(self, action: #selector(joinOpenGroup), for: UIControl.Event.touchUpInside)
         
         let joinButtonContainer = UIView(

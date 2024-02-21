@@ -94,8 +94,8 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
     
     // MARK: - Content
     
-    let title: String = "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_TITLE".localized()
-    let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("CONVERSATION_SETTINGS_BLOCKED_CONTACTS_EMPTY_STATE".localized())
+    let title: String = "conversationsBlockedContacts".localized()
+    let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("blockBlockedNone".localized())
             .eraseToAnyPublisher()
     
     lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = selectedContactIdsSubject

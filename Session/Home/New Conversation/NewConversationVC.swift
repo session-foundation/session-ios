@@ -64,7 +64,7 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.mediumFontSize)
         result.text = (newConversationViewModel.sectionData.isEmpty ?
-            "vc_create_closed_group_empty_state_message".localized() :
+            "contactNone".localized() :
             "NEW_CONVERSATION_CONTACTS_SECTION_TITLE".localized()
         )
         result.themeTextColor = (newConversationViewModel.sectionData.isEmpty ?
@@ -95,7 +95,7 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setNavBarTitle("vc_new_conversation_title".localized())
+        setNavBarTitle("conversationsNew".localized())
         view.themeBackgroundColor = .newConversation_background
         
         // Set up navigation bar buttons

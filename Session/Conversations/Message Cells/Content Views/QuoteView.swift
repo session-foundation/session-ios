@@ -228,7 +228,7 @@ final class QuoteView: UIView {
                         NSAttributedString(string: $0.shortDescription, attributes: [ .foregroundColor: textColor ])
                     }
                 )
-                .defaulting(to: NSAttributedString(string: "QUOTED_MESSAGE_NOT_FOUND".localized(), attributes: [ .foregroundColor: textColor ]))
+                .defaulting(to: NSAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .foregroundColor: textColor ]))
         }
         
         // Label stack view

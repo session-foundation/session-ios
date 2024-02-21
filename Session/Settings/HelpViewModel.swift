@@ -44,7 +44,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
     
     // MARK: - Content
     
-    let title: String = "HELP_TITLE".localized()
+    let title: String = "sessionHelp".localized()
     
     lazy var observation: TargetObservation = [
         SectionModel(
@@ -52,10 +52,10 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .report,
-                    title: "HELP_REPORT_BUG_TITLE".localized(),
-                    subtitle: "HELP_REPORT_BUG_DESCRIPTION".localized(),
+                    title: "helpReportABug".localized(),
+                    subtitle: "helpReportABugExportLogsDescription".localized(),
                     rightAccessory: .highlightingBackgroundLabel(
-                        title: "HELP_REPORT_BUG_ACTION_TITLE".localized()
+                        title: "helpReportABugExportLogs".localized()
                     ),
                     onTapView: { HelpViewModel.shareLogs(targetView: $0) }
                 )
@@ -66,7 +66,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .translate,
-                    title: "HELP_TRANSLATE_TITLE".localized(),
+                    title: "helpHelpUsTranslateSession".localized(),
                     rightAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
@@ -87,7 +87,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .feedback,
-                    title: "HELP_FEEDBACK_TITLE".localized(),
+                    title: "helpWedLoveYourFeedback".localized(),
                     rightAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
@@ -108,7 +108,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .faq,
-                    title: "HELP_FAQ_TITLE".localized(),
+                    title: "helpFAQ".localized(),
                     rightAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),
@@ -129,7 +129,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             elements: [
                 SessionCell.Info(
                     id: .support,
-                    title: "HELP_SUPPORT_TITLE".localized(),
+                    title: "helpSupport".localized(),
                     rightAccessory: .icon(
                         UIImage(systemName: "arrow.up.forward.app")?
                             .withRenderingMode(.alwaysTemplate),

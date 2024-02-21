@@ -28,8 +28,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         
         var title: String? {
             switch self {
-                case .strategy: return "NOTIFICATIONS_SECTION_STRATEGY".localized()
-                case .style: return "NOTIFICATIONS_SECTION_STYLE".localized()
+                case .strategy: return "notificationsStrategy".localized()
+                case .style: return "notificationsStyle".localized()
                 case .content: return nil
             }
         }
@@ -87,7 +87,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .strategyUseFastMode,
-                            title: "NOTIFICATIONS_STRATEGY_FAST_MODE_TITLE".localized(),
+                            title: "useFastMode".localized(),
                             subtitle: "NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
@@ -113,7 +113,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         SessionCell.Info(
                             id: .strategyDeviceSettings,
                             title: SessionCell.TextInfo(
-                                "NOTIFICATIONS_STRATEGY_FAST_MODE_ACTION".localized(),
+                                "notificationsGoToDevice".localized(),
                                 font: .subtitleBold
                             ),
                             styling: SessionCell.StyleInfo(
@@ -130,7 +130,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .styleSound,
-                            title: "NOTIFICATIONS_STYLE_SOUND_TITLE".localized(),
+                            title: "notificationsSound".localized(),
                             rightAccessory: .dropDown(
                                 .dynamicString { current.notificationSound.displayName }
                             ),
@@ -142,7 +142,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         ),
                         SessionCell.Info(
                             id: .styleSoundWhenAppIsOpen,
-                            title: "NOTIFICATIONS_STYLE_SOUND_WHEN_OPEN_TITLE".localized(),
+                            title: "notificationsSoundDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .playNotificationSoundInForeground,
@@ -163,8 +163,8 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .content,
-                            title: "NOTIFICATIONS_STYLE_CONTENT_TITLE".localized(),
-                            subtitle: "NOTIFICATIONS_STYLE_CONTENT_DESCRIPTION".localized(),
+                            title: "notificationsContent".localized(),
+                            subtitle: "notificationsContentDescription".localized(),
                             rightAccessory: .dropDown(
                                 .dynamicString { current.previewType.name }
                             ),

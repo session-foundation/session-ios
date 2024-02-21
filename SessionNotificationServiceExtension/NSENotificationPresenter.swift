@@ -74,14 +74,14 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
                 notificationContent.body = NotificationStrings.incomingMessageBody
                 
             case .noNameNoPreview:
-                notificationContent.title = "Session"
+                notificationContent.title = "sessionMessenger".localized()
                 notificationContent.body = NotificationStrings.incomingMessageBody
         }
         
         // If it's a message request then overwrite the body to be something generic (only show a notification
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
-            notificationContent.title = "Session"
+            notificationContent.title = "sessionMessenger".localized()
             notificationContent.body = "MESSAGE_REQUESTS_NOTIFICATION".localized()
         }
         
@@ -161,7 +161,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
-        notificationContent.title = "Session"
+        notificationContent.title = "sessionMessenger".localized()
         notificationContent.body = ""
         
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
@@ -193,7 +193,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         guard !isMessageRequest else { return }
         
         let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
-        let notificationTitle = "Session"
+        let notificationTitle = "sessionMessenger".localized()
         var notificationBody = String(format: "EMOJI_REACTS_NOTIFICATION".localized(), senderName, reaction.emoji)
         
         // Title & body

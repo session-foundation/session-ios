@@ -49,7 +49,7 @@ final class IP2Country {
             let countryNamesTableIndex = countryNamesTable["geoname_id"]?.firstIndex(of: String(countryID)),
             let result: String = countryNamesTable["country_name"]?[countryNamesTableIndex]
         else {
-            return "Unknown Country" // Relies on the array being sorted
+            return "onionRoutingPathUnknownCountry".localized() // Relies on the array being sorted
         }
         
         cache[ip] = result
