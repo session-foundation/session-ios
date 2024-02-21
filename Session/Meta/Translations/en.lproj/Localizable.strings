@@ -1320,3 +1320,4 @@ The point that a message will disappear in a disappearing message update message
 "disappearingMessagesUpdatedYou" = "<b>You</b> updated disappearing message settings.";
 "groupInviteDelete" = "Are you sure you want to delete this group invite?";
 "notificationsMuted" = "Muted";
+"none" = "None";

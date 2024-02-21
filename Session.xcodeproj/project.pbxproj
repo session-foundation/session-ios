@@ -158,6 +158,7 @@
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
 		7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */; };
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
+		943C6D842B86B5F1004ACE64 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D832B86B5F1004ACE64 /* Localization.swift */; };
 		99978E3F7A80275823CA9014 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionNotificationServiceExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29E827FDF6C1032BB985740C /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_SessionNotificationServiceExtension.framework */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1292,6 +1293,7 @@
 		8E946CB54A221018E23599DE /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
 		92E8569C96285EE3CDB5960D /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		93359C81CF2660040B7CD106 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		A1C32D4D17A0652C000A904E /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
@@ -2675,6 +2677,7 @@
 				7B0EFDED274F598600FFAAE7 /* TimestampUtils.swift */,
 				FD428B1A2B4B6098006D0888 /* Notifications+Lifecycle.swift */,
 				FD428B202B4B75EA006D0888 /* Singleton.swift */,
+				943C6D832B86B5F1004ACE64 /* Localization.swift */,
 			);
 			path = General;
 			sourceTree = "<group>";
@@ -5799,6 +5802,7 @@
 			files = (
 				FDE658A129418C7900A33BC1 /* CryptoKit+Utilities.swift in Sources */,
 				FDFD645927F26C6800808CA1 /* Array+Utilities.swift in Sources */,
+				943C6D842B86B5F1004ACE64 /* Localization.swift in Sources */,
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
 				C32C5D83256DD5B6003C73A2 /* SSKKeychainStorage.swift in Sources */,

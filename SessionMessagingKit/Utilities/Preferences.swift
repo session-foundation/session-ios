@@ -212,7 +212,7 @@ public enum Preferences {
                 
                 // Other
                 case .messageSent: return "Message Sent"
-                case .none: return "None"
+                case .none: return "none".localized()
             }
         }
         
