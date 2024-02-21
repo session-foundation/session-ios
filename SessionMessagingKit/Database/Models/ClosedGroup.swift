@@ -358,11 +358,13 @@ public extension ClosedGroup {
                     ClosedGroup.Columns.authData.set(to: nil)
                 )
             
-            try SessionUtil.markAsKicked(
-                db,
-                groupSessionIds: threadIds,
-                using: dependencies
-            )
+            if !calledFromConfigHandling {
+                try SessionUtil.markAsKicked(
+                    db,
+                    groupSessionIds: threadIds,
+                    using: dependencies
+                )
+            }
         }
         
         if dataToRemove.contains(.messages) {
