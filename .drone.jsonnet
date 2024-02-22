@@ -179,7 +179,6 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Check Build Artifact Existence',
     platform: { os: 'darwin', arch: 'amd64' },
     trigger: { event: { exclude: [ 'push' ] } },
-    clone: { disable: true },
     steps: [
       {
         name: 'Poll for build artifact existence',
