@@ -163,7 +163,7 @@ local update_cocoapods_cache(depends_on) = {
       {
         name: 'Upload coverage to Codecov',
         commands: [
-          '~/Library/Python/3.9/bin/codecovcli --verbose upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+          '~/Library/Python/3.9/bin/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
         ],
         depends_on: [
           'Convert xcresult to xml',
