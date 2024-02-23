@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "آزادسازی کاربر";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "کاربری که مسدود شده است، امکان تماس یا ارسال پیام به شما را ندارد.";
+"blockDescription" = "کاربری که مسدود شده است، امکان تماس یا ارسال پیام به شما را ندارد.";
 /* Label for generic done button. */
 "done" = "انجام شد";
 /* Button text to enable batch selection mode */

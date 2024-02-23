@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "Odblokovať";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "Zablokovaný používatelia vám nebudú môcť zavolať ani posielať správy.";
+"blockDescription" = "Zablokovaný používatelia vám nebudú môcť zavolať ani posielať správy.";
 /* Label for generic done button. */
 "done" = "Hotovo";
 /* Button text to enable batch selection mode */

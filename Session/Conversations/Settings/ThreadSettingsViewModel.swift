@@ -698,7 +698,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         )
                                     }(),
                                     body: (threadViewModel.threadIsBlocked == true ? .none :
-                                        .text("BLOCK_USER_BEHAVIOR_EXPLANATION".localized())
+                                        .text("blockDescription".localized())
                                     ),
                                     confirmTitle: (threadViewModel.threadIsBlocked == true ?
                                         "blockUnblock".localized() :

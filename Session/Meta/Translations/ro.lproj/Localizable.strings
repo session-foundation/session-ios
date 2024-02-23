@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "Deblochează";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "Utilizatorii blocați nu te vor apela sau trimite mesaje.";
+"blockDescription" = "Utilizatorii blocați nu te vor apela sau trimite mesaje.";
 /* Label for generic done button. */
 "done" = "Gata";
 /* Button text to enable batch selection mode */

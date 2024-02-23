@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "解除封鎖";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "被您封鎖的使用者將無法傳送訊息與撥打電話給您";
+"blockDescription" = "被您封鎖的使用者將無法傳送訊息與撥打電話給您";
 /* Label for generic done button. */
 "done" = "完成";
 /* Button text to enable batch selection mode */

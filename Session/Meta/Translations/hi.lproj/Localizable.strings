@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "अनब्लॉक करें";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "अवरुद्ध उपयोगकर्ता आपको कॉल नहीं कर पाएंगे या आपको संदेश नहीं भेज पाएंगे।";
+"blockDescription" = "अवरुद्ध उपयोगकर्ता आपको कॉल नहीं कर पाएंगे या आपको संदेश नहीं भेज पाएंगे।";
 /* Label for generic done button. */
 "done" = "पूरा हुआ";
 /* Button text to enable batch selection mode */

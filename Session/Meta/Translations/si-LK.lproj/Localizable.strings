@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "අවහිර කිරීම ඉවත් කරන්න";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "අවහිර කළ පරිශීලකයින්ට ඔබට ඇමතීමට හෝ ඔබට පණිවිඩ යැවීමට නොහැකි වනු ඇත.";
+"blockDescription" = "අවහිර කළ පරිශීලකයින්ට ඔබට ඇමතීමට හෝ ඔබට පණිවිඩ යැවීමට නොහැකි වනු ඇත.";
 /* Label for generic done button. */
 "done" = "කළා";
 /* Button text to enable batch selection mode */

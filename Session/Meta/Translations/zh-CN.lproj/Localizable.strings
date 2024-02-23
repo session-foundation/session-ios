@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "从黑名单中移除";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "被屏蔽的用户将无法向您发起通话，或发送消息。";
+"blockDescription" = "被屏蔽的用户将无法向您发起通话，或发送消息。";
 /* Label for generic done button. */
 "done" = "完成";
 /* Button text to enable batch selection mode */

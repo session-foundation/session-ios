@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "Desbloquear";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "Os utilizadores bloqueados não poderão ligar-lhe nem enviar-lhe mensagens.";
+"blockDescription" = "Os utilizadores bloqueados não poderão ligar-lhe nem enviar-lhe mensagens.";
 /* Label for generic done button. */
 "done" = "Concluir";
 /* Button text to enable batch selection mode */

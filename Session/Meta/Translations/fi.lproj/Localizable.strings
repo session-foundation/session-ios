@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "Poista esto";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "Estetyt käyttäjät eivät voi soittaa tai lähettää sinulle viestejä.";
+"blockDescription" = "Estetyt käyttäjät eivät voi soittaa tai lähettää sinulle viestejä.";
 /* Label for generic done button. */
 "done" = "Valmis";
 /* Button text to enable batch selection mode */

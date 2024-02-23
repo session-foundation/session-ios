@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "ブロックを解除する";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "ブロックされたユーザは、あなたにメッセージや通話を発信することができなくなります。";
+"blockDescription" = "ブロックされたユーザは、あなたにメッセージや通話を発信することができなくなります。";
 /* Label for generic done button. */
 "done" = "完了";
 /* Button text to enable batch selection mode */

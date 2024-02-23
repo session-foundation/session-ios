@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "আনব্লক করুন";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "ব্লক করা ব্যবহারকারীরা আপনাকে কল করতে বা মেসেজ পাঠাতে পারবে না।";
+"blockDescription" = "ব্লক করা ব্যবহারকারীরা আপনাকে কল করতে বা মেসেজ পাঠাতে পারবে না।";
 /* Label for generic done button. */
 "done" = "সম্পন্ন হয়েছে";
 /* Button text to enable batch selection mode */

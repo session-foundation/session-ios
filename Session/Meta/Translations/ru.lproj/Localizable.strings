@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "Разблокировать";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "Заблокированные пользователи не смогут звонить или отправлять сообщения Вам.";
+"blockDescription" = "Заблокированные пользователи не смогут звонить или отправлять сообщения Вам.";
 /* Label for generic done button. */
 "done" = "Готово";
 /* Button text to enable batch selection mode */

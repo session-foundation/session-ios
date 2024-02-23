@@ -47,7 +47,7 @@
 /* Button label for the 'unblock' button */
 "blockUnblock" = "เลิกบล็อก";
 /* An explanation of the consequences of blocking another user. */
-"BLOCK_USER_BEHAVIOR_EXPLANATION" = "คนที่บล็อกแล้วส่งข้อความและโทรมาหาไม่ได้";
+"blockDescription" = "คนที่บล็อกแล้วส่งข้อความและโทรมาหาไม่ได้";
 /* Label for generic done button. */
 "done" = "เสร็จ";
 /* Button text to enable batch selection mode */
