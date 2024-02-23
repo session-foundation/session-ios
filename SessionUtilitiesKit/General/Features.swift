@@ -6,6 +6,5 @@ public final class Features {
     public static let useOnionRequests: Bool = true
     public static let useTestnet: Bool = false
     
-//    public static let useNewDisappearingMessagesConfig: Bool = Date().timeIntervalSince1970 > 1671062400 // 15/12/2022
-    public static let useNewDisappearingMessagesConfig: Bool = true
+    public static let useNewDisappearingMessagesConfig: Bool = Date().timeIntervalSince1970 > 1710198000
 }
