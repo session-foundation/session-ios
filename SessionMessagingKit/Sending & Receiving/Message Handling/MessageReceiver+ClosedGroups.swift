@@ -185,15 +185,14 @@ extension MessageReceiver {
         }
         
         // Update the DisappearingMessages config
+        let isEnabled: Bool = (expirationTimer > 0)
         let disappearingConfig: DisappearingMessagesConfiguration = try thread.disappearingMessagesConfiguration
             .fetchOne(db)
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
             .with(
-                isEnabled: (expirationTimer > 0),
-                durationSeconds: (expirationTimer > 0) ?
-                    TimeInterval(expirationTimer) :
-                    DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds,
-                type: .disappearAfterSend
+                isEnabled: isEnabled,
+                durationSeconds: TimeInterval(expirationTimer),
+                type: isEnabled ? .disappearAfterSend : .unknown
             )
             .saved(db)
         
