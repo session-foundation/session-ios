@@ -355,7 +355,7 @@ public extension ConfirmationModal {
             confirmAccessibility: Accessibility? = nil,
             confirmStyle: ThemeValue = .alert_text,
             confirmEnabled: Bool = true,
-            cancelTitle: String = "TXT_CANCEL_TITLE".localized(),
+            cancelTitle: String = "cancel".localized(),
             cancelAccessibility: Accessibility? = Accessibility(
                 identifier: "Cancel"
             ),

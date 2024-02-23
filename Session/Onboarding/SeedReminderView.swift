@@ -85,7 +85,7 @@ final class SeedReminderView: UIView {
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
         button.accessibilityLabel = "Continue"
         button.isAccessibilityElement = true
-        button.setTitle("continue_2".localized(), for: UIControl.State.normal)
+        button.setTitle("continue".localized(), for: UIControl.State.normal)
         button.set(.width, greaterThanOrEqualTo: 96)
         button.addTarget(self, action: #selector(handleContinueButtonTapped), for: UIControl.Event.touchUpInside)
         

@@ -266,7 +266,7 @@ extension Attachment: CustomStringConvertible {
     public static func description(for descriptionInfo: DescriptionInfo, count: Int) -> String {
         // We only support multi-attachment sending of images so we can just default to the image attachment
         // if there were multiple attachments
-        guard count == 1 else { return "\(emoji(for: OWSMimeTypeImageJpeg)) \("ATTACHMENT".localized())" }
+        guard count == 1 else { return "\(emoji(for: OWSMimeTypeImageJpeg)) \("attachment".localized())" }
         
         if MIMETypeUtil.isAudio(descriptionInfo.contentType) {
             // a missing filename is the legacy way to determine if an audio attachment is
@@ -276,11 +276,11 @@ extension Attachment: CustomStringConvertible {
                 descriptionInfo.sourceFilename == nil ||
                 (descriptionInfo.sourceFilename?.count ?? 0) == 0
             {
-                return "🎙️ \("ATTACHMENT_TYPE_VOICE_MESSAGE".localized())"
+                return "🎙️ \("messageVoice".localized())"
             }
         }
         
-        return "\(emoji(for: descriptionInfo.contentType)) \("ATTACHMENT".localized())"
+        return "\(emoji(for: descriptionInfo.contentType)) \("attachment".localized())"
     }
     
     public static func emoji(for contentType: String) -> String {

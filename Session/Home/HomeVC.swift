@@ -195,7 +195,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     private lazy var emptyStateView: UIView = {
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "contactNone".localized()
+        explanationLabel.text = "conversationsNone".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping

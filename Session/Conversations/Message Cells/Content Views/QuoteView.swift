@@ -244,7 +244,7 @@ final class QuoteView: UIView {
         let authorLabel = UILabel()
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
         authorLabel.text = {
-            guard !isCurrentUser else { return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() }
+            guard !isCurrentUser else { return "onionRoutingPathYou".localized() }
             guard body != nil else {
                 // When we can't find the quoted message we want to hide the author label
                 return Profile.displayNameNoFallback(

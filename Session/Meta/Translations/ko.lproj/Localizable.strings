@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "첨부파일";
+"attachment" = "첨부파일";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "파일 형식: %@";
+"attachmentsFileType" = "파일 형식: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "크기: %@";
+"attachmentsFileSize" = "크기: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "글자 수 제한을 초과했습니다.";
+"messageErrorLimit" = "글자 수 제한을 초과했습니다.";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "전송";
+"send" = "전송";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "첨부 파일";
+"attachment" = "첨부 파일";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "첨부파일 전송 오류";
+"attachmentsErrorSending" = "첨부파일 전송 오류";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "이미지를 변환할 수 없습니다.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "이미지를 분석할 수 없습니다";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "이미지에서 메타데이터를 제거할 수 없습니다.";
+"attachmentsImageErrorMetadata" = "이미지에서 메타데이터를 제거할 수 없습니다.";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "이미지 크기를 조절할 수 없습니다.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "첨부파일 용량이 너무 큽니다.";
+"attachmentsErrorSize" = "첨부파일 용량이 너무 큽니다.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "첨부 파일에 잘못된 내용이 포함되어 있습니다.";
+"attachmentsErrorNotSupported" = "첨부 파일에 잘못된 내용이 포함되어 있습니다.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "첨부 파일 유형이 잘못되었습니다!";
+"attachmentsErrorNotSupported" = "첨부 파일 유형이 잘못되었습니다!";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "첨부 파일의 내용이 없습니다.";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "알 수 없는 이유로 파일을 불러올 수 없습니다.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Please create a compressed archive of this file or directory and try sending that instead.";
+"attachmentsErrorSize" = "Please create a compressed archive of this file or directory and try sending that instead.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "지원되지 않는 파일 형식입니다.";
+"attachmentsErrorNotSupported" = "지원되지 않는 파일 형식입니다.";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "음성 메시지";
+"messageVoice" = "음성 메시지";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "차단";
+"block" = "차단";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "차단 %@";
+"block" = "차단 %@";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Unblock %@?";
+"blockUnblock" = "Unblock %@?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "차단 해제";
+"blockUnblock" = "차단 해제";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Blocked users will not be able to call you or send you messages.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "완료";
+"done" = "완료";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "선택";
+"select" = "선택";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Searching...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "일치하는 항목 없음";
+"searchMatchesNoneSpecific" = "일치하는 항목 없음";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 match";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d of %d matches";
+"searchMatches" = "%d of %d matches";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "이 사용자를 차단";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "대화 검색";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Move and Scale";
+"attachmentsMoveAndScale" = "Move and Scale";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "이 작업은 몇 분 정도 소요될 수 있습니다.";
+"waitFewMinutes" = "이 작업은 몇 분 정도 소요될 수 있습니다.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "데이터베이스 최적화";
+"databaseOptimizing" = "데이터베이스 최적화";
 /* The present; the current time. */
 "DATE_NOW" = "최근";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "그룹 편집";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "You don't have any media in this conversation.";
+"attachmentsMediaEmpty" = "You don't have any media in this conversation.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Loading Newer Media…";
+"attachmentsLoadingNewer" = "Loading Newer Media…";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Loading Older Media…";
+"attachmentsLoadingOlder" = "Loading Older Media…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Failed to fetch the requested GIF. Please verify you are online.";
+"errorUnknown" = "Failed to fetch the requested GIF. Please verify you are online.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "An unknown error occurred.";
+"errorUnknown" = "An unknown error occurred.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "GIF를 선택할 수 없습니다.";
+"errorUnknown" = "GIF를 선택할 수 없습니다.";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "검색할 내용을 입력하십시오.";
+"searchEnter" = "검색할 내용을 입력하십시오.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Error. Tap to Retry.";
+"searchMatchesNone" = "Error. Tap to Retry.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "검색 결과 없음";
+"searchMatchesNone" = "검색 결과 없음";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "그룹이 생성되었습니다.";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ joined the group. ";
+"groupMemberNew" = "%@ joined the group. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ left the group. ";
+"groupMemberLeft" = "%@ left the group. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ was removed from the group. ";
+"groupRemoved" = "%@ was removed from the group. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ were removed from the group. ";
+"groupRemovedMore" = "%@ were removed from the group. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "Title is now '%@'. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "그룹 정보가 업데이트되었습니다.";
+"groupUpdated" = "그룹 정보가 업데이트되었습니다.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "You have left the group.";
+"groupMemberYouLeft" = "You have left the group.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " You were removed from the group. ";
+"groupRemovedYou" = " You were removed from the group. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "You can't share more than %@ items.";
+"attachmentsErrorNumber" = "You can't share more than %@ items.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Failed to select attachment.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Invalid audio file.";
+"audioUnableToPlay" = "Invalid audio file.";
 /* Confirmation button within contextual alert */
 "leave" = "나가기";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "그룹 나가기";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "모든 미디어";
+"conversationsSettingsAllMedia" = "모든 미디어";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Delete %d Messages";
+"deleteMessages" = "Delete %d Messages";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Delete Message";
+"deleteMessage" = "Delete Message";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ on %@";
+"attachmentsMedia" = "%@ on %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "나";
+"onionRoutingPathYou" = "나";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "이번 달";
+"attachmentsThisMonth" = "이번 달";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "전송 실패";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "읽음";
+"read" = "읽음";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "전송중…";
+"sending" = "전송중…";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "보냄";
+"disappearingMessagesSent" = "보냄";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "업로드 중…";
+"uploading" = "업로드 중…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ to %@";
+"notificationsIosGroup" = "%@ to %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "개인용 메모";
+"noteToSelf" = "개인용 메모";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "You may have received messages while your %@ was restarting.";
+"notificationsIosRestart" = "You may have received messages while your %@ was restarting.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "확인";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ disabled disappearing messages.";
+"disappearingMessagesTurnedOff" = "%@ disabled disappearing messages.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ set disappearing message time to %@";
+"disappearingMessagesSet" = "%@ set disappearing message time to %@";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Unable to capture image.";
+"cameraErrorUnavailable" = "Unable to capture image.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Unable to capture image.";
+"cameraErrorUnavailable" = "Unable to capture image.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Failed to configure camera.";
+"cameraErrorUnavailable" = "Failed to configure camera.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Unnamed Album";
+"attachmentsAlbumUnnamed" = "Unnamed Album";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "읽음으로 표시";
+"messageMarkRead" = "읽음으로 표시";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "답장";
+"reply" = "답장";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Authenticate to open Session.";
+"authenticateToOpen" = "Authenticate to open Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Authentication Failed";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Authentication Failed";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (default)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@주";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "취소";
+"cancel" = "취소";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "삭제";
+"delete" = "삭제";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Tap and hold to record a voice message.";
+"messageVoiceErrorShort" = "Tap and hold to record a voice message.";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "You disabled disappearing messages.";
+"disappearingMessagesTurnedOffYou" = "You disabled disappearing messages.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "You set disappearing message time to %@";
+"disappearingMessagesSetYou" = "You set disappearing message time to %@";
 // MARK: - Session
-"continue_2" = "Continue";
+"continue" = "Continue";
 "copy" = "복사";
-"invalid_url" = "Invalid URL";
+"communityEnterUrlErrorInvalid" = "Invalid URL";
 "next" = "다음";
 "share" = "공유";
 "invalid_session_id" = "Invalid Session ID";
 "cancel" = "취소";
-"your_session_id" = "당신의 세션 ID";
-"vc_landing_title_2" = "Your Session begins here...";
-"vc_landing_register_button_title" = "세션 ID 생성";
-"vc_landing_restore_button_title" = "Continue Your Session";
-"vc_landing_link_button_title" = "다른 장치와 연결";
+"accountIdYours" = "당신의 세션 ID";
+"onboardingBubblePrivacyInYourPocket" = "Your Session begins here...";
+"onboardingAccountCreate" = "세션 ID 생성";
+"onboardingAccountExists" = "Continue Your Session";
+"onboardingAccountExists" = "다른 장치와 연결";
 "view_fake_chat_bubble_1" = "세션은 무엇인가요?";
 "view_fake_chat_bubble_2" = "탈 중앙화 된 암호화 메시지 앱입니다.";
 "view_fake_chat_bubble_3" = "So it doesn't collect my personal information or my conversation metadata? How does it work?";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "Friends don't let friends use compromised messengers. You're welcome.";
 "vc_register_title" = "당신의 Session ID에게 인사해주세요.";
 "vc_register_explanation" = "Your Session ID is the unique address people can use to contact you on Session. With no connection to your real identity, your Session ID is totally anonymous and private by design.";
-"vc_restore_title" = "Restore your account";
-"vc_restore_explanation" = "Enter the recovery phrase that was given to you when you signed up to restore your account.";
-"vc_restore_seed_text_field_hint" = "Enter your recovery phrase";
-"vc_link_device_title" = "Link a Device";
-"vc_link_device_scan_qr_code_tab_title" = "Scan QR Code";
-"vc_display_name_title_2" = "Pick your display name";
-"vc_display_name_explanation" = "This will be your name when you use Session. It can be your real name, an alias, or anything else you like.";
-"vc_display_name_text_field_hint" = "Enter a display name";
-"vc_display_name_display_name_missing_error" = "Please pick a display name";
-"vc_display_name_display_name_too_long_error" = "Please pick a shorter display name";
-"vc_pn_mode_recommended_option_tag" = "Recommended";
-"contactNone" = "You don't have any contacts yet";
+"onboardingAccountExists" = "Restore your account";
+"recoveryPasswordExplanation" = "Enter the recovery phrase that was given to you when you signed up to restore your account.";
+"recoveryPasswordEnter" = "Enter your recovery phrase";
+"onboardingAccountExists" = "Link a Device";
+"qrScan" = "Scan QR Code";
+"displayNamePick" = "Pick your display name";
+"displayNameDescription" = "This will be your name when you use Session. It can be your real name, an alias, or anything else you like.";
+"displayNameEnter" = "Enter a display name";
+"displayNameErrorDescription" = "Please pick a display name";
+"displayNameErrorDescriptionShorter" = "Please pick a shorter display name";
+"recommended" = "Recommended";
+"conversationsNone" = "You don't have any contacts yet";
 "vc_home_empty_state_button_title" = "Start a Session";
-"vc_seed_title" = "Your Recovery Phrase";
+"sessionRecoveryPassword" = "Your Recovery Phrase";
 "vc_seed_title_2" = "Meet your recovery phrase";
 "vc_seed_explanation" = "Your recovery phrase is the master key to your Session ID — you can use it to restore your Session ID if you lose access to your device. Store your recovery phrase in a safe place, and don’t give it to anyone.";
 "vc_seed_reveal_button_title" = "Hold to reveal";
 "view_seed_reminder_subtitle_1" = "Secure your account by saving your recovery phrase";
 "view_seed_reminder_subtitle_2" = "Tap and hold the redacted words to reveal your recovery phrase, then store it safely to secure your Session ID.";
 "view_seed_reminder_subtitle_3" = "Make sure to store your recovery phrase in a safe place";
-"vc_path_title" = "Path";
-"vc_path_explanation" = "Session hides your IP by routing your messages through multiple Service Nodes in Session's decentralized network. These are the countries your connection is currently being routed through:";
-"vc_path_device_row_title" = "사용자";
-"vc_path_guard_node_row_title" = "출구 노드";
-"vc_path_service_node_row_title" = "서비스 통신망";
-"vc_path_destination_row_title" = "목적지";
-"vc_path_learn_more_button_title" = "더 알아보기";
-"vc_create_private_chat_title" = "New Message";
-"vc_create_private_chat_enter_session_id_tab_title" = "Session ID 입력";
-"vc_create_private_chat_scan_qr_code_tab_title" = "QR 코드 스캔";
+"onionRoutingPath" = "Path";
+"onionRoutingPathDescription" = "Session hides your IP by routing your messages through multiple Service Nodes in Session's decentralized network. These are the countries your connection is currently being routed through:";
+"onionRoutingPathYou" = "사용자";
+"onionRoutingPathEntryNode" = "출구 노드";
+"onionRoutingPathServiceNode" = "서비스 통신망";
+"onionRoutingPathDestination" = "목적지";
+"learnMore" = "더 알아보기";
+"messageNew" = "New Message";
+"accountIdEnter" = "Session ID 입력";
+"qrScan" = "QR 코드 스캔";
 "vc_enter_public_key_explanation" = "Start a new conversation by entering someone's Session ID or share your Session ID with them.";
-"vc_scan_qr_code_camera_access_explanation" = "Session needs camera access to scan QR codes";
-"vc_create_closed_group_title" = "Create Group";
-"vc_create_closed_group_text_field_hint" = "Enter a group name";
-"contactNone" = "You don't have any contacts yet";
-"vc_create_closed_group_group_name_missing_error" = "Please enter a group name";
-"vc_create_closed_group_group_name_too_long_error" = "Please enter a shorter group name";
-"vc_create_closed_group_too_many_group_members_error" = "A closed group cannot have more than 100 members";
-"vc_join_public_chat_title" = "Join Community";
-"vc_join_public_chat_enter_group_url_tab_title" = "Community URL";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Scan QR Code";
-"vc_enter_chat_url_text_field_hint" = "Enter Community URL";
-"vc_settings_title" = "설정";
+"cameraGrantAccessQr" = "Session needs camera access to scan QR codes";
+"groupCreate" = "Create Group";
+"groupNameEnter" = "Enter a group name";
+"conversationsNone" = "You don't have any contacts yet";
+"groupNameEnterPlease" = "Please enter a group name";
+"groupNameEnterShorter" = "Please enter a shorter group name";
+"groupAddMemberMaximum" = "A closed group cannot have more than 100 members";
+"communityJoin" = "Join Community";
+"communityUrl" = "Community URL";
+"qrScan" = "Scan QR Code";
+"communityEnterUrl" = "Enter Community URL";
+"sessionSettings" = "설정";
 "vc_group_settings_title" = "Group Settings";
-"vc_settings_display_name_missing_error" = "Please pick a display name";
-"vc_settings_display_name_too_long_error" = "Please pick a shorter display name";
-"vc_settings_privacy_button_title" = "개인정보";
-"vc_settings_notifications_button_title" = "알림";
-"vc_settings_recovery_phrase_button_title" = "Recovery Phrase";
-"vc_settings_clear_all_data_button_title" = "데이터 삭제";
-"vc_qr_code_title" = "QR Code";
-"vc_qr_code_view_my_qr_code_tab_title" = "View My QR Code";
-"vc_qr_code_view_scan_qr_code_tab_title" = "QR 코드 스캔";
+"displayNameErrorDescription" = "Please pick a display name";
+"displayNameErrorDescriptionShorter" = "Please pick a shorter display name";
+"sessionPrivacy" = "개인정보";
+"sessionNotifications" = "알림";
+"sessionRecoveryPassword" = "Recovery Phrase";
+"sessionClearData" = "데이터 삭제";
+"qrCode" = "QR Code";
+"view" = "View My QR Code";
+"qrScan" = "QR 코드 스캔";
 "vc_qr_code_view_scan_qr_code_explanation" = "Scan someone's QR code to start a conversation with them";
-"vc_view_my_qr_code_explanation" = "This is your QR code. Other users can scan it to start a session with you.";
+"qrYoursDescription" = "This is your QR code. Other users can scan it to start a session with you.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "You’ll be notified of new messages reliably and immediately using Apple’s notification servers.";
 "notificationsFastMode" = "Fast 모드";
-"slow_mode_explanation" = "Session will occasionally check for new messages in the background.";
+"notificationsSlowModeDescription" = "Session will occasionally check for new messages in the background.";
 "notificationsSlowMode" = "Slow 모드";
-"vc_pn_mode_title" = "Message Notifications";
-"vc_link_device_recovery_phrase_tab_title" = "복구 구문";
+"notificationsMessage" = "Message Notifications";
+"sessionRecoveryPassword" = "복구 구문";
 "vc_link_device_scan_qr_code_explanation" = "Navigate to Settings → Recovery Phrase on your other device to show your QR code.";
-"vc_enter_recovery_phrase_title" = "복구 구문";
+"sessionRecoveryPassword" = "복구 구문";
 "vc_enter_recovery_phrase_explanation" = "To link your device, enter the recovery phrase that was given to you when you signed up.";
-"accountIdOrOnsEnter" = "Session ID나 ONS name을 입력하세요.";
-"admin_group_leave_warning" = "Because you are the creator of this group it will be deleted for everyone. This cannot be undone.";
-"vc_join_open_group_suggestions_title" = "Or join one of these...";
-"vc_settings_invite_a_friend_button_title" = "친구 초대";
+"accountIdEnterYourFriends" = "Session ID나 ONS name을 입력하세요.";
+"groupOnlyAdmin" = "Because you are the creator of this group it will be deleted for everyone. This cannot be undone.";
+"communityJoinOfficial" = "Or join one of these...";
+"sessionInviteAFriend" = "친구 초대";
 "copied" = "Copied";
-"vc_conversation_settings_copy_session_id_button_title" = "Session ID 복사";
-"vc_conversation_input_prompt" = "메시지";
+"accountIDCopy" = "Session ID 복사";
+"message" = "메시지";
 "vc_conversation_voice_message_cancel_message" = "취소하려면 슬라이드";
-"modal_download_attachment_title" = "Trust %@?";
-"modal_download_attachment_explanation" = "Are you sure you want to download media sent by %@?";
-"modal_download_button_title" = "다운로드";
-"modal_open_url_title" = "URL 열기";
-"modal_open_url_explanation" = "Are you sure you want to open %@?";
-"modal_open_url_button_title" = "열기";
-"modal_copy_url_button_title" = "링크 복사";
-"modal_blocked_title" = "%@님의 차단을 해제 하시겠습니까?";
-"modal_blocked_explanation" = "Are you sure you want to unblock %@?";
-"modal_blocked_button_title" = "차단 해제";
-"modal_link_previews_title" = "링크 미리보기를 사용하시겠습니까?";
-"modal_link_previews_explanation" = "링크 미리보기를 켤 경우 송수신자에게 웹사이트의 미리보기를 제공합니다. 이는 유용한 기능이지만, Session은 미리보기를 만들기 위해 링크된 주소를 접근하게 됩니다. 사용자는 언제나 설정에서 링크 미리보기를 끌 수 있습니다.";
-"modal_link_previews_button_title" = "활성화";
-"vc_share_title" = "Session으로 공유하기";
-"vc_share_sending_message" = "전송 중...";
-"vc_share_link_previews_unsecure" = "Preview not loaded for unsecure link";
-"vc_share_link_previews_error" = "미리보기를 사용할 수 없습니다.";
+"attachmentsAutoDownloadModalTitle" = "Trust %@?";
+"attachmentsAutoDownloadModalDescription" = "Are you sure you want to download media sent by %@?";
+"download" = "다운로드";
+"urlOpen" = "URL 열기";
+"urlOpenDescription" = "Are you sure you want to open %@?";
+"open" = "열기";
+"urlCopy" = "링크 복사";
+"blockUnblock" = "%@님의 차단을 해제 하시겠습니까?";
+"blockUnblockDescription" = "Are you sure you want to unblock %@?";
+"blockUnblock" = "차단 해제";
+"linkPreviewsEnable" = "링크 미리보기를 사용하시겠습니까?";
+"linkPreviewsFirstDescription" = "링크 미리보기를 켤 경우 송수신자에게 웹사이트의 미리보기를 제공합니다. 이는 유용한 기능이지만, Session은 미리보기를 만들기 위해 링크된 주소를 접근하게 됩니다. 사용자는 언제나 설정에서 링크 미리보기를 끌 수 있습니다.";
+"enable" = "활성화";
+"shareToSession" = "Session으로 공유하기";
+"sending" = "전송 중...";
+"linkPreviewsErrorUnsecure" = "Preview not loaded for unsecure link";
+"linkPreviewsErrorLoad" = "미리보기를 사용할 수 없습니다.";
 "vc_share_link_previews_disabled_title" = "링크 미리보기 끄기";
 "vc_share_link_previews_disabled_explanation" = "Enabling link previews will show previews for URLs you share. This can be useful, but Session will need to contact linked websites to generate previews.\n\nYou can enable link previews in Session's settings.";
-"view_open_group_invitation_description" = "Open group invitation";
+"communityInvitation" = "Open group invitation";
 "vc_conversation_settings_invite_button_title" = "멤버 추가";
-"modal_send_seed_title" = "경고";
-"modal_send_seed_explanation" = "이것은 당신의 복구 구절입니다. 복구 구절을 가지고 있는 사용자는 누구든 당신의 세션계정의 접근할 수 있습니다.";
-"modal_send_seed_send_button_title" = "전송";
+"warning" = "경고";
+"recoveryPasswordWarningSendDescription" = "이것은 당신의 복구 구절입니다. 복구 구절을 가지고 있는 사용자는 누구든 당신의 세션계정의 접근할 수 있습니다.";
+"send" = "전송";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Notify for Mentions Only";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "When enabled, you'll only be notified for messages mentioning you.";
-"view_conversation_title_notify_for_mentions_only" = "Notifying for Mentions Only";
-"message_deleted" = "삭제된 메세지 입니다.";
-"delete_message_for_me" = "나에게서만 삭제";
-"delete_message_for_everyone" = "모두에게서 삭제";
-"delete_message_for_me_and_recipient" = "Delete for me and %@";
-"context_menu_reply" = "답장";
-"context_menu_save" = "저장";
-"context_menu_ban_user" = "사용자 차단";
+"notificationsMentionsOnly" = "Notifying for Mentions Only";
+"deleteMessageDeleted" = "삭제된 메세지 입니다.";
+"clearMessagesForMe" = "나에게서만 삭제";
+"clearMessagesForEveryone" = "모두에게서 삭제";
+"clearMessagesForEveryone" = "Delete for me and %@";
+"reply" = "답장";
+"save" = "저장";
+"banUser" = "사용자 차단";
 "context_menu_ban_and_delete_all" = "차단 및 전부 삭제";
 "context_menu_ban_user_error_alert_message" = "Unable to ban user";
 "accessibility_expanding_attachments_button" = "첨부파일 추가";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "문서";
 "accessibility_main_button_collapse" = "Collapse attachment options";
-"invalid_recovery_phrase" = "잘못된 복구 구문 입니다.";
-"DISMISS_BUTTON_TEXT" = "취소";
+"recoveryPasswordErrorTitle" = "잘못된 복구 구문 입니다.";
+"dismiss" = "취소";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "설정";
-"call_outgoing" = "%@님에게 전화함";
-"call_incoming" = "%@ 님의 전화";
-"call_missed" = "%@ 님의 부재중 통화";
-"APN_Message" = "새 메시지가 도착했습니다.";
-"APN_Collapsed_Messages" = "%@ 님에게 새 메시지가 도착했습니다.";
-"PIN_BUTTON_TEXT" = "고정";
-"UNPIN_BUTTON_TEXT" = "고정 해제";
-"modal_call_missed_tips_title" = "부재중 전화";
-"modal_call_missed_tips_explanation" = "%@ 님의 전화를 받지 못했습니다. 개인정보 설정에서 '음성 및 영상 통화' 항목을 활성화 시켜주십시오.";
-"media_saved" = "Media saved by %@.";
-"screenshot_taken" = "%@ took a screenshot.";
-"SEARCH_SECTION_CONTACTS" = "Contacts & Groups";
-"SEARCH_SECTION_MESSAGES" = "메시지";
-"MESSAGE_REQUESTS_TITLE" = "Message Requests";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "No pending message requests";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "모두 지우기";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Are you sure you want to clear all message requests?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "지우기";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "정말 이 메시지를 삭제하시겠습니까?";
+"sessionSettings" = "설정";
+"callsYouCalled" = "%@님에게 전화함";
+"callsCalledYou" = "%@ 님의 전화";
+"callsMissedCallFrom" = "%@ 님의 부재중 통화";
+"messageNewYouveGotA" = "새 메시지가 도착했습니다.";
+"messageNewYouveGotMany" = "%@ 님에게 새 메시지가 도착했습니다.";
+"pin" = "고정";
+"pinUnpin" = "고정 해제";
+"callsMissed" = "부재중 전화";
+"callsYouMissedCallPermissions" = "%@ 님의 전화를 받지 못했습니다. 개인정보 설정에서 '음성 및 영상 통화' 항목을 활성화 시켜주십시오.";
+"attachmentsMediaSaved" = "Media saved by %@.";
+"screenshotTaken" = "%@ took a screenshot.";
+"sessionConversations" = "Contacts & Groups";
+"messages" = "메시지";
+"sessionMessageRequests" = "Message Requests";
+"messageRequestsNonePending" = "No pending message requests";
+"clearAll" = "모두 지우기";
+"messageRequestsClearAllExplanation" = "Are you sure you want to clear all message requests?";
+"clear" = "지우기";
+"messageRequestsDelete" = "정말 이 메시지를 삭제하시겠습니까?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Are you sure you want to block this contact?";
-"MESSAGE_REQUESTS_INFO" = "Sending a message to this user will automatically accept their message request and reveal your Session ID.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Your message request has been accepted.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "새로운 메시지가 왔습니다";
-"TXT_HIDE_TITLE" = "숨기기";
-"TXT_DELETE_ACCEPT" = "수락";
+"messageRequestsAcceptDescription" = "Sending a message to this user will automatically accept their message request and reveal your Session ID.";
+"messageRequestsAccepted" = "Your message request has been accepted.";
+"messageRequestsNew" = "새로운 메시지가 왔습니다";
+"hide" = "숨기기";
+"accept" = "수락";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "error" = "Error";
-"modal_call_permission_request_title" = "통화 권한이 필요합니다.";
-"modal_call_permission_request_explanation" = "개인정보 설정에서 '음성 및 영상 통화' 항목을 활성화 시킬 수 있습니다.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "그룹을 불러오는데 오류가 발생하였습니다.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "나중에 다시 시도해주십시오";
+"callsPermissionsRequired" = "통화 권한이 필요합니다.";
+"callsPermissionsRequiredDescription" = "개인정보 설정에서 '음성 및 영상 통화' 항목을 활성화 시킬 수 있습니다.";
+"communityError" = "그룹을 불러오는데 오류가 발생하였습니다.";
+"communityErrorDescription" = "나중에 다시 시도해주십시오";
 "LOADING_CONVERSATIONS" = "Loading Conversations...";
 "DATABASE_MIGRATION_FAILED" = "An error occurred when optimising the database\n\nYou can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Something went wrong. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "You seem to be missing the last word of your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "There appears to be an invalid word in your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Your recovery phrase couldn't be verified. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Something went wrong. Please check your recovery phrase and try again.";
+"recoveryPasswordErrorMessageShort" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
+"recoveryPasswordErrorMessageShort" = "You seem to be missing the last word of your recovery phrase. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageIncorrect" = "There appears to be an invalid word in your recovery phrase. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Your recovery phrase couldn't be verified. Please check what you entered and try again.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Authentication could not be accessed.";
+"authenticateNotAccessed" = "Authentication could not be accessed.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Authentication failed.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Authentication failed.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Too many failed authentication attempts. Please try again later.";
+"authenticateFailedTooManyAttempts" = "Too many failed authentication attempts. Please try again later.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Send";
+"send" = "Send";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Retry";
+"retry" = "Retry";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
+"messageErrorDelivery" = "Your message failed to send.";
 "INVALID_SESSION_ID_MESSAGE" = "Please check the Session ID and try again.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Please check the Recovery Phrase and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Please check the Recovery Phrase and try again.";
 "media" = "Media";
 "DOCUMENT_TAB_TITLE" = "Documents";
 "attachmentsFilesEmpty" = "You don't have any document in this conversation.";
@@ -507,16 +513,16 @@
 "helpWedLoveYourFeedback" = "We'd love your Feedback";
 "helpFAQ" = "FAQ";
 "helpSupport" = "Support";
-"modal_clear_all_data_title" = "모든 데이터 삭제";
-"modal_clear_all_data_explanation" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
+"clearDataAll" = "모든 데이터 삭제";
+"clearDataAllDescription" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
 "clearDeviceAndNetworkConfirm" = "Are you sure you want to delete your data from the network?   If you continue, you will not be able to restore your messages or contacts.";
-"modal_clear_all_data_device_only_button_title" = "Clear Device Only";
-"modal_clear_all_data_entire_account_button_title" = "Clear Device and Network";
-"dialog_clear_all_data_deletion_failed_1" = "Data not deleted by 1 Service Node. Service Node ID: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Data not deleted by %@ Service Nodes. Service Node IDs: %@.";
+"clearDeviceOnly" = "Clear Device Only";
+"clearDeviceAndNetwork" = "Clear Device and Network";
+"clearDataErrorDescription1" = "Data not deleted by 1 Service Node. Service Node ID: %@.";
+"clearDataErrorDescription2" = "Data not deleted by %@ Service Nodes. Service Node IDs: %@.";
 "modal_clear_all_data_confirm" = "Clear";
-"modal_seed_title" = "Your Recovery Phrase";
-"modal_seed_explanation" = "You can use your recovery phrase to restore your account or link a device.";
+"sessionRecoveryPassword" = "Your Recovery Phrase";
+"recoveryPasswordDescription" = "You can use your recovery phrase to restore your account or link a device.";
 "modal_permission_explanation" = "Session needs %@ access to continue. You can enable access in the iOS settings.";
 "modal_permission_settings_title" = "Settings";
 "modal_permission_camera" = "camera";
@@ -691,10 +697,10 @@
 "groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"conversationsDelete" = "Delete Conversation";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"conversationsDeleteDescription" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Hide Note to Self";

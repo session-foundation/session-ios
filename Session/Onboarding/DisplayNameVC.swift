@@ -28,7 +28,7 @@ final class DisplayNameVC: BaseVC {
     // MARK: - Components
     
     private lazy var displayNameTextField: TextField = {
-        let result = TextField(placeholder: "vc_display_name_text_field_hint".localized())
+        let result = TextField(placeholder: "displayNameEnter".localized())
         result.accessibilityLabel = "Enter display name"
         result.isAccessibilityElement = true
         result.themeBorderColor = .textPrimary
@@ -46,7 +46,7 @@ final class DisplayNameVC: BaseVC {
         // Set up title label
         let titleLabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: isIPhone5OrSmaller ? Values.largeFontSize : Values.veryLargeFontSize)
-        titleLabel.text = "vc_display_name_title_2".localized()
+        titleLabel.text = "displayNamePick".localized()
         titleLabel.themeTextColor = .textPrimary
         titleLabel.lineBreakMode = .byWordWrapping
         titleLabel.numberOfLines = 0
@@ -54,7 +54,7 @@ final class DisplayNameVC: BaseVC {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_display_name_explanation".localized()
+        explanationLabel.text = "displayNameDescription".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.lineBreakMode = .byWordWrapping
         explanationLabel.numberOfLines = 0
@@ -72,7 +72,7 @@ final class DisplayNameVC: BaseVC {
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
         registerButton.accessibilityLabel = "Continue"
-        registerButton.setTitle("continue_2".localized(), for: UIControl.State.normal)
+        registerButton.setTitle("continue".localized(), for: UIControl.State.normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         
         // Set up register button container
@@ -181,10 +181,10 @@ final class DisplayNameVC: BaseVC {
         }
         let displayName = displayNameTextField.text!.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         guard !displayName.isEmpty else {
-            return showError(title: "vc_display_name_display_name_missing_error".localized())
+            return showError(title: "displayNameErrorDescription".localized())
         }
         guard !ProfileManager.isToLong(profileName: displayName) else {
-            return showError(title: "vc_display_name_display_name_too_long_error".localized())
+            return showError(title: "displayNameErrorDescriptionShorter".localized())
         }
         
         // Try to save the user name but ignore the result

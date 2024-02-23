@@ -17,7 +17,7 @@ final class LandingVC: BaseVC {
     private lazy var registerButton: SessionButton = {
         let result = SessionButton(style: .filled, size: .large)
         result.accessibilityLabel = "Create session ID"
-        result.setTitle("vc_landing_register_button_title".localized(), for: .normal)
+        result.setTitle("onboardingAccountCreate".localized(), for: .normal)
         result.addTarget(self, action: #selector(register), for: .touchUpInside)
         
         return result
@@ -25,7 +25,7 @@ final class LandingVC: BaseVC {
     
     private lazy var restoreButton: SessionButton = {
         let result = SessionButton(style: .bordered, size: .large)
-        result.setTitle("vc_landing_restore_button_title".localized(), for: .normal)
+        result.setTitle("onboardingAccountExists".localized(), for: .normal)
         result.addTarget(self, action: #selector(restore), for: .touchUpInside)
         
         return result
@@ -45,7 +45,7 @@ final class LandingVC: BaseVC {
         // Title label
         let titleLabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: isIPhone5OrSmaller ? Values.largeFontSize : Values.veryLargeFontSize)
-        titleLabel.text = "vc_landing_title_2".localized()
+        titleLabel.text = "onboardingBubblePrivacyInYourPocket".localized()
         titleLabel.themeTextColor = .textPrimary
         titleLabel.lineBreakMode = .byWordWrapping
         titleLabel.numberOfLines = 0
@@ -66,7 +66,7 @@ final class LandingVC: BaseVC {
         let linkButton = UIButton()
         linkButton.accessibilityLabel = "Link a device"
         linkButton.titleLabel?.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        linkButton.setTitle("vc_landing_link_button_title".localized(), for: .normal)
+        linkButton.setTitle("onboardingAccountExists".localized(), for: .normal)
         linkButton.setThemeTitleColor(.textPrimary, for: .normal)
         linkButton.addTarget(self, action: #selector(link), for: .touchUpInside)
         

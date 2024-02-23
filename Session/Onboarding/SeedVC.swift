@@ -108,7 +108,7 @@ final class SeedVC: BaseVC {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setNavBarTitle("vc_seed_title".localized())
+        setNavBarTitle("sessionRecoveryPassword".localized())
         
         // Set up navigation bar buttons
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))

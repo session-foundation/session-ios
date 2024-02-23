@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Pielikums";
+"attachment" = "Pielikums";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Faila paplašinājums: %@";
+"attachmentsFileType" = "Faila paplašinājums: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Izmērs: %@";
+"attachmentsFileSize" = "Izmērs: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Sasniegts ziņojuma garuma ierobežojums";
+"messageErrorLimit" = "Sasniegts ziņojuma garuma ierobežojums";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Nosūtīt";
+"send" = "Nosūtīt";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Pielikums";
+"attachment" = "Pielikums";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Pielikuma nosūtīšana neizdevās";
+"attachmentsErrorSending" = "Pielikuma nosūtīšana neizdevās";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Nevar konvertēt attēlu.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Nevar analizēt attēlu.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Nav iespējams noņemt metadatus no attēla.";
+"attachmentsImageErrorMetadata" = "Nav iespējams noņemt metadatus no attēla.";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Nevar mainīt attēla izmēru.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Pielikums ir pārāk liels.";
+"attachmentsErrorSize" = "Pielikums ir pārāk liels.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Pielikumā ir ietverts nederīgs saturs.";
+"attachmentsErrorNotSupported" = "Pielikumā ir ietverts nederīgs saturs.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Pielikumam ir nederīgs faila formāts.";
+"attachmentsErrorNotSupported" = "Pielikumam ir nederīgs faila formāts.";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "Pielikums ir tukšs.";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Neizdevās izvēlēties dokumentu.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Lūdzu, izveido šīs datnes vai mapes saspiestu arhīvu un mēģini nosūtīt to.";
+"attachmentsErrorSize" = "Lūdzu, izveido šīs datnes vai mapes saspiestu arhīvu un mēģini nosūtīt to.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Fails nav atbalstīts";
+"attachmentsErrorNotSupported" = "Fails nav atbalstīts";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Balss ziņojums";
+"messageVoice" = "Balss ziņojums";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Bloķēt";
+"block" = "Bloķēt";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Bloķēt %@?";
+"block" = "Bloķēt %@?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Atbloķēt %@?";
+"blockUnblock" = "Atbloķēt %@?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Atbloķēt";
+"blockUnblock" = "Atbloķēt";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Bloķētie lietotāji nevarēs tev piezvanīt vai nosūtīt ziņojumu.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Pabeigts";
+"done" = "Pabeigts";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Atlasīt";
+"select" = "Atlasīt";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Meklē...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "Sakritību nav";
+"searchMatchesNoneSpecific" = "Sakritību nav";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 sakritība";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d sakritība no %d";
+"searchMatches" = "%d sakritība no %d";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Bloķēt šo lietotāju";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "Meklēt sarunu";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Pārvietot un mainīt izmēru";
+"attachmentsMoveAndScale" = "Pārvietot un mainīt izmēru";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Var paiet dažas minūtes.";
+"waitFewMinutes" = "Var paiet dažas minūtes.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Optimizē datu bāzi";
+"databaseOptimizing" = "Optimizē datu bāzi";
 /* The present; the current time. */
 "DATE_NOW" = "Tagad";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "Rediģēt grupu";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "Šajā sarunā tev nav neviena medija.";
+"attachmentsMediaEmpty" = "Šajā sarunā tev nav neviena medija.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Ielādē jaunāku mediju…";
+"attachmentsLoadingNewer" = "Ielādē jaunāku mediju…";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Ielādē vecāku mediju…";
+"attachmentsLoadingOlder" = "Ielādē vecāku mediju…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Pieprasītais GIF netika saņemts. Lūdzu pārbaudi, vai esi tiešsaistē.";
+"errorUnknown" = "Pieprasītais GIF netika saņemts. Lūdzu pārbaudi, vai esi tiešsaistē.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "Radusies nezināma kļūda.";
+"errorUnknown" = "Radusies nezināma kļūda.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "GIF nevar tikt izvēlēts";
+"errorUnknown" = "GIF nevar tikt izvēlēts";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Lūdzu ievadi savu meklējumu.";
+"searchEnter" = "Lūdzu ievadi savu meklējumu.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Kļūda. Klikšķini, lai mēģinātu vēlreiz.";
+"searchMatchesNone" = "Kļūda. Klikšķini, lai mēģinātu vēlreiz.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "Nekas netika atrasts.";
+"searchMatchesNone" = "Nekas netika atrasts.";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Grupa ir izveidota";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "Grupai pievienojās %@. ";
+"groupMemberNew" = "Grupai pievienojās %@. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ atstāja grupu. ";
+"groupMemberLeft" = "%@ atstāja grupu. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ tika noņemts no grupas. ";
+"groupRemoved" = "%@ tika noņemts no grupas. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ tika noņemti no grupas. ";
+"groupRemovedMore" = "%@ tika noņemti no grupas. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "Jaunais nosaukums ir '%@'. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Grupas informācija atjaunināta.";
+"groupUpdated" = "Grupas informācija atjaunināta.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "Tu esi atstājis grupu.";
+"groupMemberYouLeft" = "Tu esi atstājis grupu.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " Tu tiki noņemts no grupas. ";
+"groupRemovedYou" = " Tu tiki noņemts no grupas. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Tu nevari atzīmēt vairāk, kā %@ vienumus.";
+"attachmentsErrorNumber" = "Tu nevari atzīmēt vairāk, kā %@ vienumus.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Neizdevās atzīmēt pielikumu.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Neatbalstīts audio fails.";
+"audioUnableToPlay" = "Neatbalstīts audio fails.";
 /* Confirmation button within contextual alert */
 "leave" = "Atstāt";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Atstāt grupu";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Visi mediji";
+"conversationsSettingsAllMedia" = "Visi mediji";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Dzēst %d ziņojumus";
+"deleteMessages" = "Dzēst %d ziņojumus";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Dzēst ziņojumu";
+"deleteMessage" = "Dzēst ziņojumu";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ %@";
+"attachmentsMedia" = "%@ %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "Tu";
+"onionRoutingPathYou" = "Tu";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Šomēnes";
+"attachmentsThisMonth" = "Šomēnes";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Nosūtīšana neizdevās.";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "Izlasīts";
+"read" = "Izlasīts";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "Sūta…";
+"sending" = "Sūta…";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "Nosūtīts";
+"disappearingMessagesSent" = "Nosūtīts";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "Augšupielādē…";
+"uploading" = "Augšupielādē…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ no %@";
+"notificationsIosGroup" = "%@ no %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Ziņojums man";
+"noteToSelf" = "Ziņojums man";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Tu varētu būt saņēmis ziņojumus, kamēr %@ pārstartējās.";
+"notificationsIosRestart" = "Tu varētu būt saņēmis ziņojumus, kamēr %@ pārstartējās.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "Labi";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ ir atspējojis gaistošos ziņojumus.";
+"disappearingMessagesTurnedOff" = "%@ ir atspējojis gaistošos ziņojumus.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ ir uzstādījis gaistošos ziņojumus uz %@";
+"disappearingMessagesSet" = "%@ ir uzstādījis gaistošos ziņojumus uz %@";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Nevar satvert attēlu.";
+"cameraErrorUnavailable" = "Nevar satvert attēlu.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Nevar satvert attēlu.";
+"cameraErrorUnavailable" = "Nevar satvert attēlu.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Kameru neizdevās uzstādīt.";
+"cameraErrorUnavailable" = "Kameru neizdevās uzstādīt.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Nenosaukts albums";
+"attachmentsAlbumUnnamed" = "Nenosaukts albums";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Atzīmēt kā izlasītu";
+"messageMarkRead" = "Atzīmēt kā izlasītu";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Atbildēt";
+"reply" = "Atbildēt";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Autentificēties, lai atvērtu Session.";
+"authenticateToOpen" = "Autentificēties, lai atvērtu Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Autentifikācija neizdevās";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Autentifikācija neizdevās";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (noklusējums)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@ned.";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Atcelt";
+"cancel" = "Atcelt";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Dzēst";
+"delete" = "Dzēst";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Pieskaries un turi, lai ierakstītu ziņojumu.";
+"messageVoiceErrorShort" = "Pieskaries un turi, lai ierakstītu ziņojumu.";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Tu atspējoji gaistošos ziņojumus.";
+"disappearingMessagesTurnedOffYou" = "Tu atspējoji gaistošos ziņojumus.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Tu uzstādīji gaistošo ziņojumu laiku uz %@";
+"disappearingMessagesSetYou" = "Tu uzstādīji gaistošo ziņojumu laiku uz %@";
 // MARK: - Session
-"continue_2" = "Turpināt";
+"continue" = "Turpināt";
 "copy" = "Kopēt";
-"invalid_url" = "Nepareiza URL adrese";
+"communityEnterUrlErrorInvalid" = "Nepareiza URL adrese";
 "next" = "Nākamais";
 "share" = "Dalīties";
 "invalid_session_id" = "Nepareizs Session ID";
 "cancel" = "Atcelt";
-"your_session_id" = "Tavs Session ID";
-"vc_landing_title_2" = "Tavs sesija sākas šeit...";
-"vc_landing_register_button_title" = "Izveidot Session ID";
-"vc_landing_restore_button_title" = "Turpini savu sesiju";
-"vc_landing_link_button_title" = "Pievienot iekārtu";
+"accountIdYours" = "Tavs Session ID";
+"onboardingBubblePrivacyInYourPocket" = "Tavs sesija sākas šeit...";
+"onboardingAccountCreate" = "Izveidot Session ID";
+"onboardingAccountExists" = "Turpini savu sesiju";
+"onboardingAccountExists" = "Pievienot iekārtu";
 "view_fake_chat_bubble_1" = "Kāda sesija?";
 "view_fake_chat_bubble_2" = "Šī ir decentralizētas, šifrētas ziņojumapmaiņas aplikācija";
 "view_fake_chat_bubble_3" = "Tātad, tā nevāc manu personīgo informāciju vai manu sarunu metadatus? Kā tā darbojas?";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "Draugi neļauj draugiem izmantot kompromitētus ziņojumapmaiņas rīkus. Nav par ko.";
 "vc_register_title" = "Saki \"sveiks!\" savam Session ID";
 "vc_register_explanation" = "Tavs Session ID ir unikāla adrese, ko cilvēki var lietot, lai sazinātos ar tevi Session. Ja neapvieno Session ID ar tavu reālo identitāti, tad tas ir anonīms un privāts pēc dizaina.";
-"vc_restore_title" = "Atjauno savu kontu";
-"vc_restore_explanation" = "Lai atjaunotu savu kontu, ievadi atjaunošanas frāzi, kuru tu saņēmi reģistrējoties.";
-"vc_restore_seed_text_field_hint" = "Ievadi savu atjaunošanas frāzi";
-"vc_link_device_title" = "Pievienot iekārtu";
-"vc_link_device_scan_qr_code_tab_title" = "Skenēt QR kodu";
-"vc_display_name_title_2" = "Izvēlies savu atainojamo vārdu";
-"vc_display_name_explanation" = "Šis būs tavs vārds Session lietošanai. Tas var būt tavs īstais vārds, pseidonīms, vai jebkas, kas vien tev patīk.";
-"vc_display_name_text_field_hint" = "Ievadi atainojamo vārdu";
-"vc_display_name_display_name_missing_error" = "Lūdzu, izvēlies atainojamo vārdu";
-"vc_display_name_display_name_too_long_error" = "Lūdzu, izvēlies īsāku atainojamo vārdu";
-"vc_pn_mode_recommended_option_tag" = "Ieteicamais";
-"contactNone" = "Patreiz Tev nav neviena kontakta";
+"onboardingAccountExists" = "Atjauno savu kontu";
+"recoveryPasswordExplanation" = "Lai atjaunotu savu kontu, ievadi atjaunošanas frāzi, kuru tu saņēmi reģistrējoties.";
+"recoveryPasswordEnter" = "Ievadi savu atjaunošanas frāzi";
+"onboardingAccountExists" = "Pievienot iekārtu";
+"qrScan" = "Skenēt QR kodu";
+"displayNamePick" = "Izvēlies savu atainojamo vārdu";
+"displayNameDescription" = "Šis būs tavs vārds Session lietošanai. Tas var būt tavs īstais vārds, pseidonīms, vai jebkas, kas vien tev patīk.";
+"displayNameEnter" = "Ievadi atainojamo vārdu";
+"displayNameErrorDescription" = "Lūdzu, izvēlies atainojamo vārdu";
+"displayNameErrorDescriptionShorter" = "Lūdzu, izvēlies īsāku atainojamo vārdu";
+"recommended" = "Ieteicamais";
+"conversationsNone" = "Patreiz Tev nav neviena kontakta";
 "vc_home_empty_state_button_title" = "Uzsākt sesiju";
-"vc_seed_title" = "Tava atjaunošanas frāze";
+"sessionRecoveryPassword" = "Tava atjaunošanas frāze";
 "vc_seed_title_2" = "Iepazīsties ar savu atjaunošanas frāzi";
 "vc_seed_explanation" = "Atjaunošanas frāze ir galvenā atslēga tavam Session ID - tu vari to izmantot, lai atjaunotu savu Session ID gadījumā, ja zaudē piekļuvi savai ierīcei. Saglabā savu atjaunošanas frāzi drošā vietā un nenodod to nevienam.";
 "vc_seed_reveal_button_title" = "Turi lai atklātu";
 "view_seed_reminder_subtitle_1" = "Aizsargā savu kontu, saglabājot savu atjaunošanas frāzi";
 "view_seed_reminder_subtitle_2" = "Pieskaries un turi rediģētos vārdus, lai atklātu savu atjaunošanas frāzi, tad noglabā to drošā vietā lai aizsargātu savu Session ID.";
 "view_seed_reminder_subtitle_3" = "Pārliecinies, ka glabā savu atjaunošanas frāzi drošā vietā";
-"vc_path_title" = "Ceļš";
-"vc_path_explanation" = "Session slēpj tavu IP adresi, maršrutējot tavus ziņojumus caur vairākiem pakalpojuma mezgliem Session decentralizētajā tīklā. Patreiz tavs savienojums tiek maršrutēts caur šādām valstīm:";
-"vc_path_device_row_title" = "Tu";
-"vc_path_guard_node_row_title" = "Ieejas mezgls";
-"vc_path_service_node_row_title" = "Pakalpojuma mezgls";
-"vc_path_destination_row_title" = "Galamērķis";
-"vc_path_learn_more_button_title" = "Uzzināt vairāk";
-"vc_create_private_chat_title" = "Jauna ziņa";
-"vc_create_private_chat_enter_session_id_tab_title" = "Ievadīt Session ID";
-"vc_create_private_chat_scan_qr_code_tab_title" = "Skenēt QR kodu";
+"onionRoutingPath" = "Ceļš";
+"onionRoutingPathDescription" = "Session slēpj tavu IP adresi, maršrutējot tavus ziņojumus caur vairākiem pakalpojuma mezgliem Session decentralizētajā tīklā. Patreiz tavs savienojums tiek maršrutēts caur šādām valstīm:";
+"onionRoutingPathYou" = "Tu";
+"onionRoutingPathEntryNode" = "Ieejas mezgls";
+"onionRoutingPathServiceNode" = "Pakalpojuma mezgls";
+"onionRoutingPathDestination" = "Galamērķis";
+"learnMore" = "Uzzināt vairāk";
+"messageNew" = "Jauna ziņa";
+"accountIdEnter" = "Ievadīt Session ID";
+"qrScan" = "Skenēt QR kodu";
 "vc_enter_public_key_explanation" = "Sāciet jaunu sarunu ievadot kāda lietotāja Session ID vai kopīgojiet ar viņu savu Sessions ID.";
-"vc_scan_qr_code_camera_access_explanation" = "Lai skenētu QR kodus, Session ir nepieciešama piekļuve kamerai";
-"vc_create_closed_group_title" = "Izveidot grupu";
-"vc_create_closed_group_text_field_hint" = "Ievadīt grupas nosaukumu";
-"contactNone" = "Patreiz Tev nav neviena kontakta";
-"vc_create_closed_group_group_name_missing_error" = "Lūdzu, ievadiet grupas nosaukumu";
-"vc_create_closed_group_group_name_too_long_error" = "Lūdzu, ievadiet īsāku grupas nosaukumu";
-"vc_create_closed_group_too_many_group_members_error" = "Slēgtajā grupā nedrīkst būt vairāk par 100 dalībniekiem";
-"vc_join_public_chat_title" = "Pievienoties kopienai";
-"vc_join_public_chat_enter_group_url_tab_title" = "Kopienas URL";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Skenēt QR kodu";
-"vc_enter_chat_url_text_field_hint" = "Ievadiet kopienas URL";
-"vc_settings_title" = "Iestatījumi";
+"cameraGrantAccessQr" = "Lai skenētu QR kodus, Session ir nepieciešama piekļuve kamerai";
+"groupCreate" = "Izveidot grupu";
+"groupNameEnter" = "Ievadīt grupas nosaukumu";
+"conversationsNone" = "Patreiz Tev nav neviena kontakta";
+"groupNameEnterPlease" = "Lūdzu, ievadiet grupas nosaukumu";
+"groupNameEnterShorter" = "Lūdzu, ievadiet īsāku grupas nosaukumu";
+"groupAddMemberMaximum" = "Slēgtajā grupā nedrīkst būt vairāk par 100 dalībniekiem";
+"communityJoin" = "Pievienoties kopienai";
+"communityUrl" = "Kopienas URL";
+"qrScan" = "Skenēt QR kodu";
+"communityEnterUrl" = "Ievadiet kopienas URL";
+"sessionSettings" = "Iestatījumi";
 "vc_group_settings_title" = "Grupas iestatījumi";
-"vc_settings_display_name_missing_error" = "Lūdzu, izvēlies atainojamo vārdu";
-"vc_settings_display_name_too_long_error" = "Lūdzu, izvēlies īsāku atainojamo vārdu";
-"vc_settings_privacy_button_title" = "Privātums";
-"vc_settings_notifications_button_title" = "Paziņojumi";
-"vc_settings_recovery_phrase_button_title" = "Atjaunošanas frāze";
-"vc_settings_clear_all_data_button_title" = "Izdzēst datus";
-"vc_qr_code_title" = "QR kods";
-"vc_qr_code_view_my_qr_code_tab_title" = "Skatīt manu QR kodu";
-"vc_qr_code_view_scan_qr_code_tab_title" = "Skenēt QR kodu";
+"displayNameErrorDescription" = "Lūdzu, izvēlies atainojamo vārdu";
+"displayNameErrorDescriptionShorter" = "Lūdzu, izvēlies īsāku atainojamo vārdu";
+"sessionPrivacy" = "Privātums";
+"sessionNotifications" = "Paziņojumi";
+"sessionRecoveryPassword" = "Atjaunošanas frāze";
+"sessionClearData" = "Izdzēst datus";
+"qrCode" = "QR kods";
+"view" = "Skatīt manu QR kodu";
+"qrScan" = "Skenēt QR kodu";
 "vc_qr_code_view_scan_qr_code_explanation" = "Lai uzsāktu ar kādu sarunu, noskenē viņa QR kodu";
-"vc_view_my_qr_code_explanation" = "Šis ir tavs QR kods. Lai uzsāktu sesiju ar tevi, citi lietotāji var noskenēt to.";
+"qrYoursDescription" = "Šis ir tavs QR kods. Lai uzsāktu sesiju ar tevi, citi lietotāji var noskenēt to.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Tu saņemsi paziņojumus par jauniem ziņojumiem droši un nekavējoties, izmantojot Apple paziņojumu pakalpojumus.";
 "notificationsFastMode" = "Ātrais režīms";
-"slow_mode_explanation" = "Session laiku pa laikam fonā pārbaudīs, vai nav jaunu ziņojumu.";
+"notificationsSlowModeDescription" = "Session laiku pa laikam fonā pārbaudīs, vai nav jaunu ziņojumu.";
 "notificationsSlowMode" = "Lēnais režīms";
-"vc_pn_mode_title" = "Paziņojumi par ziņojumiem";
-"vc_link_device_recovery_phrase_tab_title" = "Atjaunošanas frāze";
+"notificationsMessage" = "Paziņojumi par ziņojumiem";
+"sessionRecoveryPassword" = "Atjaunošanas frāze";
 "vc_link_device_scan_qr_code_explanation" = "Lai parādītu QR kodu, savā citā ierīcē izvēlies Iestatījumi -> Atjaunošanas frāze.";
-"vc_enter_recovery_phrase_title" = "Atjaunošanas frāze";
+"sessionRecoveryPassword" = "Atjaunošanas frāze";
 "vc_enter_recovery_phrase_explanation" = "Lai pievienotu savu iekārtu, ievadi atjaunošanas frāzi, kuru tu saņēmi reģistrējoties.";
-"accountIdOrOnsEnter" = "Ievadi Session ID vai ONS nosaukumu";
-"admin_group_leave_warning" = "Ņemot vērā, ka Tu esi šīs grupas izveidotājs, tā tiks dzēsta visiem. Šo darbību nevarēs atsaukt.";
-"vc_join_open_group_suggestions_title" = "Vai pievienojies kādai no šīm...";
-"vc_settings_invite_a_friend_button_title" = "Uzaicināt draugu";
+"accountIdEnterYourFriends" = "Ievadi Session ID vai ONS nosaukumu";
+"groupOnlyAdmin" = "Ņemot vērā, ka Tu esi šīs grupas izveidotājs, tā tiks dzēsta visiem. Šo darbību nevarēs atsaukt.";
+"communityJoinOfficial" = "Vai pievienojies kādai no šīm...";
+"sessionInviteAFriend" = "Uzaicināt draugu";
 "copied" = "Nokopēts";
-"vc_conversation_settings_copy_session_id_button_title" = "Kopēt Session ID";
-"vc_conversation_input_prompt" = "Ziņojums";
+"accountIDCopy" = "Kopēt Session ID";
+"message" = "Ziņojums";
 "vc_conversation_voice_message_cancel_message" = "Velc, lai atceltu";
-"modal_download_attachment_title" = "Uzticēties %@?";
-"modal_download_attachment_explanation" = "Vai esi pārliecināts, ka vēlies lejupielādēt mediju, ko atsūtījis %@?";
-"modal_download_button_title" = "Lejupielādēt";
-"modal_open_url_title" = "Atvērt URL adresi?";
-"modal_open_url_explanation" = "Vai esi pārliecināts, ka vēlies atvērt %@?";
-"modal_open_url_button_title" = "Atvērt";
-"modal_copy_url_button_title" = "Kopēt Saiti";
-"modal_blocked_title" = "Atbloķēt %@?";
-"modal_blocked_explanation" = "Vai esi pārliecināts, ka vēlies atbloķēt %@?";
-"modal_blocked_button_title" = "Atbloķēt";
-"modal_link_previews_title" = "Iespējot saišu priekšskatījumus?";
-"modal_link_previews_explanation" = "Saišu priekšskatījumu iespējošana parādīs URL, kuras tu sūti vai saņem. Tas var būt noderīgi, taču Session būs jāsazinās ar saistītajām interneta vietnēm, lai atainotu šos priekšskatījumus. Tu vari vienmēr atspējot saišu priekšskatījumus Session uzstādījumos.";
-"modal_link_previews_button_title" = "Iespējot";
-"vc_share_title" = "Dalīties ar Session";
-"vc_share_sending_message" = "Sūta...";
-"vc_share_link_previews_unsecure" = "Priekšskatījums nav ielādēts nedrošai saitei";
-"vc_share_link_previews_error" = "Nevar ielādēt priekšskatījumu";
+"attachmentsAutoDownloadModalTitle" = "Uzticēties %@?";
+"attachmentsAutoDownloadModalDescription" = "Vai esi pārliecināts, ka vēlies lejupielādēt mediju, ko atsūtījis %@?";
+"download" = "Lejupielādēt";
+"urlOpen" = "Atvērt URL adresi?";
+"urlOpenDescription" = "Vai esi pārliecināts, ka vēlies atvērt %@?";
+"open" = "Atvērt";
+"urlCopy" = "Kopēt Saiti";
+"blockUnblock" = "Atbloķēt %@?";
+"blockUnblockDescription" = "Vai esi pārliecināts, ka vēlies atbloķēt %@?";
+"blockUnblock" = "Atbloķēt";
+"linkPreviewsEnable" = "Iespējot saišu priekšskatījumus?";
+"linkPreviewsFirstDescription" = "Saišu priekšskatījumu iespējošana parādīs URL, kuras tu sūti vai saņem. Tas var būt noderīgi, taču Session būs jāsazinās ar saistītajām interneta vietnēm, lai atainotu šos priekšskatījumus. Tu vari vienmēr atspējot saišu priekšskatījumus Session uzstādījumos.";
+"enable" = "Iespējot";
+"shareToSession" = "Dalīties ar Session";
+"sending" = "Sūta...";
+"linkPreviewsErrorUnsecure" = "Priekšskatījums nav ielādēts nedrošai saitei";
+"linkPreviewsErrorLoad" = "Nevar ielādēt priekšskatījumu";
 "vc_share_link_previews_disabled_title" = "Saites priekšskatījumi atspējoti";
 "vc_share_link_previews_disabled_explanation" = "Ieslēdzot saites priekšskatījumus, tiks rādīti kopīgoto URL priekšskati. Tas var būt noderīgi, taču Session būs jāsazinās ar saistītajām vietnēm, lai ģenerētu priekšskatījumus.\n\nSaites priekšskatījumus varat iespējot Session iestatījumos.";
-"view_open_group_invitation_description" = "Atvērtās grupas uzaicinājums";
+"communityInvitation" = "Atvērtās grupas uzaicinājums";
 "vc_conversation_settings_invite_button_title" = "Pievienot dalībniekus";
-"modal_send_seed_title" = "Brīdinājums";
-"modal_send_seed_explanation" = "Šī ir tava atjaunošanas frāze. Ja kādam to nosūtīsi, tad viņš iegūs pilnas piekļuves tiesības tavam kontam.";
-"modal_send_seed_send_button_title" = "Nosūtīt";
+"warning" = "Brīdinājums";
+"recoveryPasswordWarningSendDescription" = "Šī ir tava atjaunošanas frāze. Ja kādam to nosūtīsi, tad viņš iegūs pilnas piekļuves tiesības tavam kontam.";
+"send" = "Nosūtīt";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Paziņot tikai pieminēšanas gadījumā";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "Ja iespējots, tev tiks paziņots tikai par ziņojumiem, kuros esi pieminēts.";
-"view_conversation_title_notify_for_mentions_only" = "Paziņot tikai pieminēšanas gadījumā";
-"message_deleted" = "Šis ziņojums tika izdzēsts";
-"delete_message_for_me" = "Dzēst tikai man";
-"delete_message_for_everyone" = "Dzēst visiem";
-"delete_message_for_me_and_recipient" = "Dzēst man un %@";
-"context_menu_reply" = "Atbildēt";
-"context_menu_save" = "Saglabāt";
-"context_menu_ban_user" = "Aizliegt lietotāju";
+"notificationsMentionsOnly" = "Paziņot tikai pieminēšanas gadījumā";
+"deleteMessageDeleted" = "Šis ziņojums tika izdzēsts";
+"clearMessagesForMe" = "Dzēst tikai man";
+"clearMessagesForEveryone" = "Dzēst visiem";
+"clearMessagesForEveryone" = "Dzēst man un %@";
+"reply" = "Atbildēt";
+"save" = "Saglabāt";
+"banUser" = "Aizliegt lietotāju";
 "context_menu_ban_and_delete_all" = "Aizliegt un izdzēst visu";
 "context_menu_ban_user_error_alert_message" = "Lietotāju bloķēt neizdevās";
 "accessibility_expanding_attachments_button" = "Pievienot pielikumus";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "Dokuments";
 "accessibility_main_button_collapse" = "Sakļaut pielikumu iespējas";
-"invalid_recovery_phrase" = "Atjaunošanas frāze nav pareiza";
-"DISMISS_BUTTON_TEXT" = "Noraidīt";
+"recoveryPasswordErrorTitle" = "Atjaunošanas frāze nav pareiza";
+"dismiss" = "Noraidīt";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Iestatījumi";
-"call_outgoing" = "Jūs zvanījāt %@";
-"call_incoming" = "Jums zvanīja %@";
-"call_missed" = "Neatbildēts zvans no %@";
-"APN_Message" = "Jums ir jauna ziņa.";
-"APN_Collapsed_Messages" = "Jums ir %@ jaunas ziņas.";
-"PIN_BUTTON_TEXT" = "Piespraust";
-"UNPIN_BUTTON_TEXT" = "Atspraust";
-"modal_call_missed_tips_title" = "Neatbildēts zvans";
-"modal_call_missed_tips_explanation" = "Jūs palaidāt zvanu no ‘%@' jo konfidencialitātes iestatījumos bija jāaktivizē atļauja \"Balss un video zvani\".";
-"media_saved" = "Multividi saglabāja %@.";
-"screenshot_taken" = "%@ veica ekrānuzņēmumu.";
-"SEARCH_SECTION_CONTACTS" = "Kontakti un grupas";
-"SEARCH_SECTION_MESSAGES" = "Ziņojumi";
-"MESSAGE_REQUESTS_TITLE" = "Ziņu pieprasījumi";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "Nav gaidošu ziņojumu pieprasījumu";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Notīrīt visu";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Vai esat pārliecināts ka vēlaties dzēst visus ziņojumus?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Notīrīt";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Vai jūs esat pārliecināti ka vēlaties nodzēst šo ziņu?";
+"sessionSettings" = "Iestatījumi";
+"callsYouCalled" = "Jūs zvanījāt %@";
+"callsCalledYou" = "Jums zvanīja %@";
+"callsMissedCallFrom" = "Neatbildēts zvans no %@";
+"messageNewYouveGotA" = "Jums ir jauna ziņa.";
+"messageNewYouveGotMany" = "Jums ir %@ jaunas ziņas.";
+"pin" = "Piespraust";
+"pinUnpin" = "Atspraust";
+"callsMissed" = "Neatbildēts zvans";
+"callsYouMissedCallPermissions" = "Jūs palaidāt zvanu no ‘%@' jo konfidencialitātes iestatījumos bija jāaktivizē atļauja \"Balss un video zvani\".";
+"attachmentsMediaSaved" = "Multividi saglabāja %@.";
+"screenshotTaken" = "%@ veica ekrānuzņēmumu.";
+"sessionConversations" = "Kontakti un grupas";
+"messages" = "Ziņojumi";
+"sessionMessageRequests" = "Ziņu pieprasījumi";
+"messageRequestsNonePending" = "Nav gaidošu ziņojumu pieprasījumu";
+"clearAll" = "Notīrīt visu";
+"messageRequestsClearAllExplanation" = "Vai esat pārliecināts ka vēlaties dzēst visus ziņojumus?";
+"clear" = "Notīrīt";
+"messageRequestsDelete" = "Vai jūs esat pārliecināti ka vēlaties nodzēst šo ziņu?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Vai tiešām vēlaties bloķēt šo kontaktu?";
-"MESSAGE_REQUESTS_INFO" = "Nosūtot ziņu šim lietotājam, automātiski tiks pieņemts viņa ziņu pieprasījums un atklāts Jūsu Session ID.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Jūsu ziņojuma pieprasījums tika pieņemts.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "Jums ir jauns ziņojuma pieprasījums";
-"TXT_HIDE_TITLE" = "Slēpt";
-"TXT_DELETE_ACCEPT" = "Pieņemt";
+"messageRequestsAcceptDescription" = "Nosūtot ziņu šim lietotājam, automātiski tiks pieņemts viņa ziņu pieprasījums un atklāts Jūsu Session ID.";
+"messageRequestsAccepted" = "Jūsu ziņojuma pieprasījums tika pieņemts.";
+"messageRequestsNew" = "Jums ir jauns ziņojuma pieprasījums";
+"hide" = "Slēpt";
+"accept" = "Pieņemt";
 "TXT_BLOCK_USER_TITLE" = "Bloķēt lietotāju";
 "error" = "Kļūda";
-"modal_call_permission_request_title" = "Nepieciešama zvanu atļauja";
-"modal_call_permission_request_explanation" = "Jūs varat atļaut 'Bals un Video zvanus' privātuma iestatījumos.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Ups, notika kļūda";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Lūdzu, mēģiniet vēlreiz vēlāk";
+"callsPermissionsRequired" = "Nepieciešama zvanu atļauja";
+"callsPermissionsRequiredDescription" = "Jūs varat atļaut 'Bals un Video zvanus' privātuma iestatījumos.";
+"communityError" = "Ups, notika kļūda";
+"communityErrorDescription" = "Lūdzu, mēģiniet vēlreiz vēlāk";
 "LOADING_CONVERSATIONS" = "Ielādē sarakstes...";
 "DATABASE_MIGRATION_FAILED" = "An error occurred when optimising the database\n\nYou can export your application logs to be able to share for troubleshooting or you can restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Something went wrong. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "You seem to be missing the last word of your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "There appears to be an invalid word in your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Your recovery phrase couldn't be verified. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Something went wrong. Please check your recovery phrase and try again.";
+"recoveryPasswordErrorMessageShort" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
+"recoveryPasswordErrorMessageShort" = "You seem to be missing the last word of your recovery phrase. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageIncorrect" = "There appears to be an invalid word in your recovery phrase. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Your recovery phrase couldn't be verified. Please check what you entered and try again.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Authentication could not be accessed.";
+"authenticateNotAccessed" = "Authentication could not be accessed.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Authentication failed.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Authentication failed.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Too many failed authentication attempts. Please try again later.";
+"authenticateFailedTooManyAttempts" = "Too many failed authentication attempts. Please try again later.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Sūtīt";
+"send" = "Sūtīt";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Mēģināt vēlreiz";
+"retry" = "Mēģināt vēlreiz";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
+"messageErrorDelivery" = "Your message failed to send.";
 "INVALID_SESSION_ID_MESSAGE" = "Lūdzu pārbaudiet savu Sassion ID un mēģiniet vēlreiz.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Please check the Recovery Phrase and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Please check the Recovery Phrase and try again.";
 "media" = "Media";
 "DOCUMENT_TAB_TITLE" = "Documents";
 "attachmentsFilesEmpty" = "You don't have any document in this conversation.";
@@ -507,16 +513,16 @@
 "helpWedLoveYourFeedback" = "We'd love your Feedback";
 "helpFAQ" = "FAQ";
 "helpSupport" = "Support";
-"modal_clear_all_data_title" = "Izdzēst visus datus";
-"modal_clear_all_data_explanation" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
+"clearDataAll" = "Izdzēst visus datus";
+"clearDataAllDescription" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
 "clearDeviceAndNetworkConfirm" = "Are you sure you want to delete your data from the network?   If you continue, you will not be able to restore your messages or contacts.";
-"modal_clear_all_data_device_only_button_title" = "Clear Device Only";
-"modal_clear_all_data_entire_account_button_title" = "Clear Device and Network";
-"dialog_clear_all_data_deletion_failed_1" = "1 pakalpojuma mezglā dati netika dzēsti. Pakalpojuma mezgla ID %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Dati netika izdzēsti %@ pakalpojuma mezglos. Pakalpojuma mezgla ID %@.";
+"clearDeviceOnly" = "Clear Device Only";
+"clearDeviceAndNetwork" = "Clear Device and Network";
+"clearDataErrorDescription1" = "1 pakalpojuma mezglā dati netika dzēsti. Pakalpojuma mezgla ID %@.";
+"clearDataErrorDescription2" = "Dati netika izdzēsti %@ pakalpojuma mezglos. Pakalpojuma mezgla ID %@.";
 "modal_clear_all_data_confirm" = "Clear";
-"modal_seed_title" = "Tava atjaunošanas frāze";
-"modal_seed_explanation" = "You can use your recovery phrase to restore your account or link a device.";
+"sessionRecoveryPassword" = "Tava atjaunošanas frāze";
+"recoveryPasswordDescription" = "You can use your recovery phrase to restore your account or link a device.";
 "modal_permission_explanation" = "Session needs %@ access to continue. You can enable access in the iOS settings.";
 "modal_permission_settings_title" = "Settings";
 "modal_permission_camera" = "camera";
@@ -691,10 +697,10 @@
 "groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"conversationsDelete" = "Delete Conversation";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"conversationsDeleteDescription" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Hide Note to Self";

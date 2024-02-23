@@ -83,7 +83,7 @@ final class ReactionListSheet: BaseVC {
     private lazy var clearAllButton: SessionButton = {
         let result: SessionButton = SessionButton(style: .destructiveBorderless, size: .small)
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("MESSAGE_REQUESTS_CLEAR_ALL".localized(), for: .normal)
+        result.setTitle("clearAll".localized(), for: .normal)
         result.addTarget(self, action: #selector(clearAllTapped), for: .touchUpInside)
         result.isHidden = true
         

@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Allegato";
+"attachment" = "Allegato";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Tipo file: %@";
+"attachmentsFileType" = "Tipo file: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Dimensione: %@";
+"attachmentsFileSize" = "Dimensione: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Limite caratteri raggiunto";
+"messageErrorLimit" = "Limite caratteri raggiunto";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Invia";
+"send" = "Invia";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Allegato";
+"attachment" = "Allegato";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Errore nell'invio dell'allegato";
+"attachmentsErrorSending" = "Errore nell'invio dell'allegato";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Impossibile convertire l'immagine.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Impossibile elaborare l'immagine.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Impossibile rimuovere i metadati dall'immagine.";
+"attachmentsImageErrorMetadata" = "Impossibile rimuovere i metadati dall'immagine.";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Impossibile ridimensionare l'immagine.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Allegato troppo pesante.";
+"attachmentsErrorSize" = "Allegato troppo pesante.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "L'allegato contiene contenuti non validi.";
+"attachmentsErrorNotSupported" = "L'allegato contiene contenuti non validi.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Il formato dell'allegato non è valido.";
+"attachmentsErrorNotSupported" = "Il formato dell'allegato non è valido.";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "L'allegato è vuoto.";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Selezione del documento non riuscita.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Crea un archivio compresso di questo file o cartella e prova a inviare quello.";
+"attachmentsErrorSize" = "Crea un archivio compresso di questo file o cartella e prova a inviare quello.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "File non supportato";
+"attachmentsErrorNotSupported" = "File non supportato";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Messaggio vocale";
+"messageVoice" = "Messaggio vocale";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Blocca";
+"block" = "Blocca";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Bloccare %@?";
+"block" = "Bloccare %@?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Sbloccare %@?";
+"blockUnblock" = "Sbloccare %@?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Sblocca";
+"blockUnblock" = "Sblocca";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Gli utenti bloccati non potranno chiamarti o inviarti messaggi.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Fatto";
+"done" = "Fatto";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Seleziona";
+"select" = "Seleziona";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Cerco...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "Nessun risultato";
+"searchMatchesNoneSpecific" = "Nessun risultato";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 risultato";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d di %d risultati";
+"searchMatches" = "%d di %d risultati";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Blocca questo utente ";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "Cerca nella conversazione";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Sposta e ridimensiona";
+"attachmentsMoveAndScale" = "Sposta e ridimensiona";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Potrebbe richiedere alcuni minuti.";
+"waitFewMinutes" = "Potrebbe richiedere alcuni minuti.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Ottimizzazione database";
+"databaseOptimizing" = "Ottimizzazione database";
 /* The present; the current time. */
 "DATE_NOW" = "Ora";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "Modifica gruppo";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "Non hai media in questa conversazione.";
+"attachmentsMediaEmpty" = "Non hai media in questa conversazione.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Carico media più recenti...";
+"attachmentsLoadingNewer" = "Carico media più recenti...";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Carico media meno recenti…";
+"attachmentsLoadingOlder" = "Carico media meno recenti…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Errore nel recupero della GIF richiesta. Verifica che la connessione sia attiva.";
+"errorUnknown" = "Errore nel recupero della GIF richiesta. Verifica che la connessione sia attiva.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "Si è verificato un errore sconosciuto.";
+"errorUnknown" = "Si è verificato un errore sconosciuto.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Impossibile selezionare GIF";
+"errorUnknown" = "Impossibile selezionare GIF";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Inserisci la tua ricerca.";
+"searchEnter" = "Inserisci la tua ricerca.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Errore. Tocca per riprovare.";
+"searchMatchesNone" = "Errore. Tocca per riprovare.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "Nessun risultato.";
+"searchMatchesNone" = "Nessun risultato.";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Gruppo creato.";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ fa ora parte del gruppo. ";
+"groupMemberNew" = "%@ fa ora parte del gruppo. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ ha abbandonato il gruppo. ";
+"groupMemberLeft" = "%@ ha abbandonato il gruppo. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ è stato rimosso dal gruppo. ";
+"groupRemoved" = "%@ è stato rimosso dal gruppo. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ sono stati rimossi dal gruppo. ";
+"groupRemovedMore" = "%@ sono stati rimossi dal gruppo. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "Il titolo ora è '%@'. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Gruppo aggiornato.";
+"groupUpdated" = "Gruppo aggiornato.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "Hai abbandonato il gruppo.";
+"groupMemberYouLeft" = "Hai abbandonato il gruppo.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " Sei stato rimosso dal gruppo. ";
+"groupRemovedYou" = " Sei stato rimosso dal gruppo. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Non puoi condividere più di %@ elementi.";
+"attachmentsErrorNumber" = "Non puoi condividere più di %@ elementi.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Selezione allegato non riuscita.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "File audio non valido.";
+"audioUnableToPlay" = "File audio non valido.";
 /* Confirmation button within contextual alert */
 "leave" = "Abbandona";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Abbandona gruppo";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Tutti i media";
+"conversationsSettingsAllMedia" = "Tutti i media";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Elimina %d messaggi";
+"deleteMessages" = "Elimina %d messaggi";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Elimina messaggio";
+"deleteMessage" = "Elimina messaggio";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ il %@";
+"attachmentsMedia" = "%@ il %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "Tu";
+"onionRoutingPathYou" = "Tu";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Questo mese";
+"attachmentsThisMonth" = "Questo mese";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Invio non riuscito.";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "Letto";
+"read" = "Letto";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "Invio in corso...";
+"sending" = "Invio in corso...";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "Inviato";
+"disappearingMessagesSent" = "Inviato";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "Carico…";
+"uploading" = "Carico…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ su %@";
+"notificationsIosGroup" = "%@ su %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Note personali";
+"noteToSelf" = "Note personali";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Potresti aver ricevuto messaggi mentre il tuo %@ si riavviava.";
+"notificationsIosRestart" = "Potresti aver ricevuto messaggi mentre il tuo %@ si riavviava.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "OK";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ ha disabilitato i messaggi effimeri.";
+"disappearingMessagesTurnedOff" = "%@ ha disabilitato i messaggi effimeri.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ ha impostato il timer dei messaggi effimeri su %@.";
+"disappearingMessagesSet" = "%@ ha impostato il timer dei messaggi effimeri su %@.";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Impossibile scattare foto.";
+"cameraErrorUnavailable" = "Impossibile scattare foto.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Impossibile scattare foto.";
+"cameraErrorUnavailable" = "Impossibile scattare foto.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Configurazione fotocamera non riuscita.";
+"cameraErrorUnavailable" = "Configurazione fotocamera non riuscita.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Album senza nome";
+"attachmentsAlbumUnnamed" = "Album senza nome";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Segna come letto";
+"messageMarkRead" = "Segna come letto";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Rispondi";
+"reply" = "Rispondi";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Identificati per aprire Session.";
+"authenticateToOpen" = "Identificati per aprire Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Autenticazione fallita";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Autenticazione fallita";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (predefinito)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@sett";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Annulla";
+"cancel" = "Annulla";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Elimina";
+"delete" = "Elimina";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Tieni premuto per registrare un messaggio vocale.";
+"messageVoiceErrorShort" = "Tieni premuto per registrare un messaggio vocale.";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Hai disabilitato i messaggi effimeri.";
+"disappearingMessagesTurnedOffYou" = "Hai disabilitato i messaggi effimeri.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Hai impostato il timer dei messaggi effimeri su %@.";
+"disappearingMessagesSetYou" = "Hai impostato il timer dei messaggi effimeri su %@.";
 // MARK: - Session
-"continue_2" = "Continua";
+"continue" = "Continua";
 "copy" = "Copia";
-"invalid_url" = "URL non valido";
+"communityEnterUrlErrorInvalid" = "URL non valido";
 "next" = "Avanti";
 "share" = "Condividi";
 "invalid_session_id" = "Session ID non valido";
 "cancel" = "Annulla";
-"your_session_id" = "Il tuo Session ID";
-"vc_landing_title_2" = "La tua sessione inizia qui...";
-"vc_landing_register_button_title" = "Crea Session ID";
-"vc_landing_restore_button_title" = "Continua la tua sessione";
-"vc_landing_link_button_title" = "Collega un dispositivo";
+"accountIdYours" = "Il tuo Session ID";
+"onboardingBubblePrivacyInYourPocket" = "La tua sessione inizia qui...";
+"onboardingAccountCreate" = "Crea Session ID";
+"onboardingAccountExists" = "Continua la tua sessione";
+"onboardingAccountExists" = "Collega un dispositivo";
 "view_fake_chat_bubble_1" = "Che cos'è Session?";
 "view_fake_chat_bubble_2" = "È un'app di messaggistica decentralizzata e cifrata";
 "view_fake_chat_bubble_3" = "Quindi non raccoglie le mie informazioni personali o i metadati delle mie conversazioni? Come funziona?";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "Gli amici veri non lasciano che i propri amici utilizzino app di messaggistica compromesse. Non c'è di che.";
 "vc_register_title" = "Ecco il tuo Session ID";
 "vc_register_explanation" = "Il tuo Session ID è l'indirizzo univoco che le persone possono utilizzare per contattarti su Session. Senza alcun legame con la tua vera identità, il Session ID è progettato per essere totalmente anonimo e privato.";
-"vc_restore_title" = "Ripristina il tuo account";
-"vc_restore_explanation" = "Inserisci la frase di recupero che ti è stata data quando ti sei registrato per ripristinare il tuo account.";
-"vc_restore_seed_text_field_hint" = "Inserisci la tua frase di recupero";
-"vc_link_device_title" = "Collega un dispositivo";
-"vc_link_device_scan_qr_code_tab_title" = "Scansiona il codice QR";
-"vc_display_name_title_2" = "Scegli il tuo nome";
-"vc_display_name_explanation" = "Questo sarà il tuo nome quando usi Session. Può essere il tuo vero nome, uno pseudonimo o quello che ti pare.";
-"vc_display_name_text_field_hint" = "Inserisci un nome";
-"vc_display_name_display_name_missing_error" = "Scegli un nome";
-"vc_display_name_display_name_too_long_error" = "Inserisci un nome più breve";
-"vc_pn_mode_recommended_option_tag" = "Consigliato";
-"contactNone" = "Non hai ancora nessun contatto";
+"onboardingAccountExists" = "Ripristina il tuo account";
+"recoveryPasswordExplanation" = "Inserisci la frase di recupero che ti è stata data quando ti sei registrato per ripristinare il tuo account.";
+"recoveryPasswordEnter" = "Inserisci la tua frase di recupero";
+"onboardingAccountExists" = "Collega un dispositivo";
+"qrScan" = "Scansiona il codice QR";
+"displayNamePick" = "Scegli il tuo nome";
+"displayNameDescription" = "Questo sarà il tuo nome quando usi Session. Può essere il tuo vero nome, uno pseudonimo o quello che ti pare.";
+"displayNameEnter" = "Inserisci un nome";
+"displayNameErrorDescription" = "Scegli un nome";
+"displayNameErrorDescriptionShorter" = "Inserisci un nome più breve";
+"recommended" = "Consigliato";
+"conversationsNone" = "Non hai ancora nessun contatto";
 "vc_home_empty_state_button_title" = "Inizia una sessione";
-"vc_seed_title" = "La tua frase di recupero";
+"sessionRecoveryPassword" = "La tua frase di recupero";
 "vc_seed_title_2" = "Ecco la tua frase di recupero";
 "vc_seed_explanation" = "La tua frase di recupero è la chiave principale per il tuo Session ID: puoi usarla per ripristinare il Session ID se perdi l'accesso al tuo dispositivo. Conserva la frase di recupero in un luogo sicuro e non condividerla con nessuno.";
 "vc_seed_reveal_button_title" = "Tieni premuto per rivelare";
 "view_seed_reminder_subtitle_1" = "Proteggi il tuo account salvando la frase di recupero";
 "view_seed_reminder_subtitle_2" = "Tocca e tieni premute le parole redatte per rivelare la tua frase di recupero, poi salvala in un posto sicuro per proteggere il tuo Session ID.";
 "view_seed_reminder_subtitle_3" = "Assicurati di salvare la tua frase di recupero in un luogo sicuro";
-"vc_path_title" = "Percorso";
-"vc_path_explanation" = "Session nasconde il tuo IP facendo rimbalzare i messaggi attraverso diversi nodi di servizio nella sua rete decentralizzata. Questi sono i paesi attraverso cui la tua connessione sta passando al momento:";
-"vc_path_device_row_title" = "Tu";
-"vc_path_guard_node_row_title" = "Nodo di entrata";
-"vc_path_service_node_row_title" = "Nodo di servizio";
-"vc_path_destination_row_title" = "Destinazione";
-"vc_path_learn_more_button_title" = "Per saperne di più";
-"vc_create_private_chat_title" = "Nuovo messaggio";
-"vc_create_private_chat_enter_session_id_tab_title" = "Inserisci il Session ID";
-"vc_create_private_chat_scan_qr_code_tab_title" = "Scansiona il codice QR";
+"onionRoutingPath" = "Percorso";
+"onionRoutingPathDescription" = "Session nasconde il tuo IP facendo rimbalzare i messaggi attraverso diversi nodi di servizio nella sua rete decentralizzata. Questi sono i paesi attraverso cui la tua connessione sta passando al momento:";
+"onionRoutingPathYou" = "Tu";
+"onionRoutingPathEntryNode" = "Nodo di entrata";
+"onionRoutingPathServiceNode" = "Nodo di servizio";
+"onionRoutingPathDestination" = "Destinazione";
+"learnMore" = "Per saperne di più";
+"messageNew" = "Nuovo messaggio";
+"accountIdEnter" = "Inserisci il Session ID";
+"qrScan" = "Scansiona il codice QR";
 "vc_enter_public_key_explanation" = "Inizia una nuova conversazione inserendo il Session ID di qualcuno o condividendo con loro il tuo Session ID.";
-"vc_scan_qr_code_camera_access_explanation" = "La Sessione ha bisogno dell'accesso alla fotocamera per scansionare i codici QR";
-"vc_create_closed_group_title" = "Crea gruppo";
-"vc_create_closed_group_text_field_hint" = "Inserisci un nome per il gruppo";
-"contactNone" = "Non hai ancora nessun contatto";
-"vc_create_closed_group_group_name_missing_error" = "Inserisci un nome per il gruppo";
-"vc_create_closed_group_group_name_too_long_error" = "Inserisci un nome gruppo più breve";
-"vc_create_closed_group_too_many_group_members_error" = "Un gruppo chiuso non può avere più di 100 membri";
-"vc_join_public_chat_title" = "Unisciti alla comunità";
-"vc_join_public_chat_enter_group_url_tab_title" = "URL comunità";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Scansiona il codice QR";
-"vc_enter_chat_url_text_field_hint" = "Inserisci l'URL della comunità";
-"vc_settings_title" = "Impostazioni";
+"cameraGrantAccessQr" = "La Sessione ha bisogno dell'accesso alla fotocamera per scansionare i codici QR";
+"groupCreate" = "Crea gruppo";
+"groupNameEnter" = "Inserisci un nome per il gruppo";
+"conversationsNone" = "Non hai ancora nessun contatto";
+"groupNameEnterPlease" = "Inserisci un nome per il gruppo";
+"groupNameEnterShorter" = "Inserisci un nome gruppo più breve";
+"groupAddMemberMaximum" = "Un gruppo chiuso non può avere più di 100 membri";
+"communityJoin" = "Unisciti alla comunità";
+"communityUrl" = "URL comunità";
+"qrScan" = "Scansiona il codice QR";
+"communityEnterUrl" = "Inserisci l'URL della comunità";
+"sessionSettings" = "Impostazioni";
 "vc_group_settings_title" = "Impostazioni gruppo";
-"vc_settings_display_name_missing_error" = "Scegli un nome visualizzare";
-"vc_settings_display_name_too_long_error" = "Scegli un nome più breve";
-"vc_settings_privacy_button_title" = "Privacy";
-"vc_settings_notifications_button_title" = "Notifiche";
-"vc_settings_recovery_phrase_button_title" = "Frase di recupero";
-"vc_settings_clear_all_data_button_title" = "Elimina dati";
-"vc_qr_code_title" = "Codice QR";
-"vc_qr_code_view_my_qr_code_tab_title" = "Visualizza il mio codice QR";
-"vc_qr_code_view_scan_qr_code_tab_title" = "Scansiona il codice QR";
+"displayNameErrorDescription" = "Scegli un nome visualizzare";
+"displayNameErrorDescriptionShorter" = "Scegli un nome più breve";
+"sessionPrivacy" = "Privacy";
+"sessionNotifications" = "Notifiche";
+"sessionRecoveryPassword" = "Frase di recupero";
+"sessionClearData" = "Elimina dati";
+"qrCode" = "Codice QR";
+"view" = "Visualizza il mio codice QR";
+"qrScan" = "Scansiona il codice QR";
 "vc_qr_code_view_scan_qr_code_explanation" = "Scansiona il codice QR di un altro utente per avviare una conversazione";
-"vc_view_my_qr_code_explanation" = "Questo è il tuo codice QR. Gli altri utenti possono scansionarlo per iniziare una sessione con te.";
+"qrYoursDescription" = "Questo è il tuo codice QR. Gli altri utenti possono scansionarlo per iniziare una sessione con te.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Riceverai notifiche di nuovi messaggi in modo affidabile e immediato utilizzando i server di notifica di Apple.";
 "notificationsFastMode" = "Modalità veloce";
-"slow_mode_explanation" = "Session controllerà di tanto in tanto la presenza di nuovi messaggi in background.";
+"notificationsSlowModeDescription" = "Session controllerà di tanto in tanto la presenza di nuovi messaggi in background.";
 "notificationsSlowMode" = "Modalità lenta";
-"vc_pn_mode_title" = "Notifiche messaggi";
-"vc_link_device_recovery_phrase_tab_title" = "Frase di recupero";
+"notificationsMessage" = "Notifiche messaggi";
+"sessionRecoveryPassword" = "Frase di recupero";
 "vc_link_device_scan_qr_code_explanation" = "Vai su Impostazioni → Frase di recupero sul tuo altro dispositivo per mostrare il tuo codice QR.";
-"vc_enter_recovery_phrase_title" = "Frase di recupero";
+"sessionRecoveryPassword" = "Frase di recupero";
 "vc_enter_recovery_phrase_explanation" = "Per collegare il tuo dispositivo, inserisci la frase di recupero che ti è stata data quando ti sei registrato.";
-"accountIdOrOnsEnter" = "Inserisci Session ID o nome ONS";
-"admin_group_leave_warning" = "Perché sei il creatore di questo gruppo sarà eliminato per tutti. Questo non può essere annullato.";
-"vc_join_open_group_suggestions_title" = "Oppure unisciti a uno di questi...";
-"vc_settings_invite_a_friend_button_title" = "Invita un Amico";
+"accountIdEnterYourFriends" = "Inserisci Session ID o nome ONS";
+"groupOnlyAdmin" = "Perché sei il creatore di questo gruppo sarà eliminato per tutti. Questo non può essere annullato.";
+"communityJoinOfficial" = "Oppure unisciti a uno di questi...";
+"sessionInviteAFriend" = "Invita un Amico";
 "copied" = "Copiato";
-"vc_conversation_settings_copy_session_id_button_title" = "Copia Session ID";
-"vc_conversation_input_prompt" = "Messaggio";
+"accountIDCopy" = "Copia Session ID";
+"message" = "Messaggio";
 "vc_conversation_voice_message_cancel_message" = "Scorri per annullare";
-"modal_download_attachment_title" = "Ti fidi di %@?";
-"modal_download_attachment_explanation" = "Vuoi scaricare i media inviati da %@?";
-"modal_download_button_title" = "Scarica";
-"modal_open_url_title" = "Aprire URL?";
-"modal_open_url_explanation" = "Vuoi aprire %@?";
-"modal_open_url_button_title" = "Apri";
-"modal_copy_url_button_title" = "Copia link";
-"modal_blocked_title" = "Sbloccare %@?";
-"modal_blocked_explanation" = "Vuoi sbloccare %@?";
-"modal_blocked_button_title" = "Sblocca";
-"modal_link_previews_title" = "Abilitare anteprime dei link?";
-"modal_link_previews_explanation" = "Abilitare le anteprime dei link farà mostrare delle anteprime per gli URL che invii e ricevi. Questo può essere utile, ma Session dovrà contattare i siti web collegati per generare le anteprime. Puoi sempre disabilitare le anteprime dei link nelle impostazioni di Session.";
-"modal_link_previews_button_title" = "Abilita";
-"vc_share_title" = "Condividi con Session";
-"vc_share_sending_message" = "Invio...";
-"vc_share_link_previews_unsecure" = "Anteprima non caricata: il link non è sicuro";
-"vc_share_link_previews_error" = "Impossibile caricare l'anteprima";
+"attachmentsAutoDownloadModalTitle" = "Ti fidi di %@?";
+"attachmentsAutoDownloadModalDescription" = "Vuoi scaricare i media inviati da %@?";
+"download" = "Scarica";
+"urlOpen" = "Aprire URL?";
+"urlOpenDescription" = "Vuoi aprire %@?";
+"open" = "Apri";
+"urlCopy" = "Copia link";
+"blockUnblock" = "Sbloccare %@?";
+"blockUnblockDescription" = "Vuoi sbloccare %@?";
+"blockUnblock" = "Sblocca";
+"linkPreviewsEnable" = "Abilitare anteprime dei link?";
+"linkPreviewsFirstDescription" = "Abilitare le anteprime dei link farà mostrare delle anteprime per gli URL che invii e ricevi. Questo può essere utile, ma Session dovrà contattare i siti web collegati per generare le anteprime. Puoi sempre disabilitare le anteprime dei link nelle impostazioni di Session.";
+"enable" = "Abilita";
+"shareToSession" = "Condividi con Session";
+"sending" = "Invio...";
+"linkPreviewsErrorUnsecure" = "Anteprima non caricata: il link non è sicuro";
+"linkPreviewsErrorLoad" = "Impossibile caricare l'anteprima";
 "vc_share_link_previews_disabled_title" = "Anteprime dei link disabilitate";
 "vc_share_link_previews_disabled_explanation" = "Abilitare le anteprime dei link farà mostrare delle anteprime per gli URL che invii e ricevi. Questo può essere utile, ma Session dovrà contattare i siti web collegati per generare le anteprime.\n\nPuoi abilitare le anteprime dei link nelle impostazioni di Session.";
-"view_open_group_invitation_description" = "Apri invito di gruppo";
+"communityInvitation" = "Apri invito di gruppo";
 "vc_conversation_settings_invite_button_title" = "Aggiungi membri";
-"modal_send_seed_title" = "Attenzione";
-"modal_send_seed_explanation" = "Questa è la tua frase di recupero. Se la invii a qualcuno, quella persona avrà accesso totale al tuo account.";
-"modal_send_seed_send_button_title" = "Invia";
+"warning" = "Attenzione";
+"recoveryPasswordWarningSendDescription" = "Questa è la tua frase di recupero. Se la invii a qualcuno, quella persona avrà accesso totale al tuo account.";
+"send" = "Invia";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Notifica solo per le menzioni";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "Se abilitato, verrai notificato solo per i messaggi che ti menzionano.";
-"view_conversation_title_notify_for_mentions_only" = "Notificando solo per le menzioni";
-"message_deleted" = "Questo messaggio è stato eliminato";
-"delete_message_for_me" = "Elimina solo per me";
-"delete_message_for_everyone" = "Elimina per tutti";
-"delete_message_for_me_and_recipient" = "Elimina per me e %@";
-"context_menu_reply" = "Rispondi";
-"context_menu_save" = "Salva";
-"context_menu_ban_user" = "Bandisci utente";
+"notificationsMentionsOnly" = "Notificando solo per le menzioni";
+"deleteMessageDeleted" = "Questo messaggio è stato eliminato";
+"clearMessagesForMe" = "Elimina solo per me";
+"clearMessagesForEveryone" = "Elimina per tutti";
+"clearMessagesForEveryone" = "Elimina per me e %@";
+"reply" = "Rispondi";
+"save" = "Salva";
+"banUser" = "Bandisci utente";
 "context_menu_ban_and_delete_all" = "Bandisci ed elimina tutto";
 "context_menu_ban_user_error_alert_message" = "Impossibile bandire l'utente";
 "accessibility_expanding_attachments_button" = "Aggiungi allegati";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "Documento";
 "accessibility_main_button_collapse" = "Comprimi opzioni allegato";
-"invalid_recovery_phrase" = "Frase di recupero non valida";
-"DISMISS_BUTTON_TEXT" = "Chiudi";
+"recoveryPasswordErrorTitle" = "Frase di recupero non valida";
+"dismiss" = "Chiudi";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Impostazioni";
-"call_outgoing" = "Hai chiamato %@";
-"call_incoming" = "%@ ti ha chiamato";
-"call_missed" = "Chiamata persa da %@";
-"APN_Message" = "Hai ricevuto un nuovo messaggio";
-"APN_Collapsed_Messages" = "Hai %@ nuovi messaggi.";
-"PIN_BUTTON_TEXT" = "Fissa";
-"UNPIN_BUTTON_TEXT" = "Togli";
-"modal_call_missed_tips_title" = "Chiamata persa";
-"modal_call_missed_tips_explanation" = "Chiamata persa da '%@' perché era necessario abilitare l'autorizzazione \"Chiamate vocali e video\" nelle impostazioni di privacy.";
-"media_saved" = "Media salvato da %@.";
-"screenshot_taken" = "%@ ha acquisito una schermata.";
-"SEARCH_SECTION_CONTACTS" = "Contatti e gruppi";
-"SEARCH_SECTION_MESSAGES" = "Messaggi";
-"MESSAGE_REQUESTS_TITLE" = "Richieste di messaggi";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "Nessuna richiesta in sospeso";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Cancella tutto";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Cancellare tutte le richieste di messaggi?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Cancella";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Vuoi eliminare questa richiesta?";
+"sessionSettings" = "Impostazioni";
+"callsYouCalled" = "Hai chiamato %@";
+"callsCalledYou" = "%@ ti ha chiamato";
+"callsMissedCallFrom" = "Chiamata persa da %@";
+"messageNewYouveGotA" = "Hai ricevuto un nuovo messaggio";
+"messageNewYouveGotMany" = "Hai %@ nuovi messaggi.";
+"pin" = "Fissa";
+"pinUnpin" = "Togli";
+"callsMissed" = "Chiamata persa";
+"callsYouMissedCallPermissions" = "Chiamata persa da '%@' perché era necessario abilitare l'autorizzazione \"Chiamate vocali e video\" nelle impostazioni di privacy.";
+"attachmentsMediaSaved" = "Media salvato da %@.";
+"screenshotTaken" = "%@ ha acquisito una schermata.";
+"sessionConversations" = "Contatti e gruppi";
+"messages" = "Messaggi";
+"sessionMessageRequests" = "Richieste di messaggi";
+"messageRequestsNonePending" = "Nessuna richiesta in sospeso";
+"clearAll" = "Cancella tutto";
+"messageRequestsClearAllExplanation" = "Cancellare tutte le richieste di messaggi?";
+"clear" = "Cancella";
+"messageRequestsDelete" = "Vuoi eliminare questa richiesta?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Vuoi bloccare questo contatto?";
-"MESSAGE_REQUESTS_INFO" = "Se mandi un messaggio a questo utente, accetterai automaticamente la sua richiesta e rivelerai il tuo Session ID.";
-"MESSAGE_REQUESTS_ACCEPTED" = "La tua richiesta di messaggio è stata accettata.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "Hai una nuova richiesta di messaggio";
-"TXT_HIDE_TITLE" = "Nascondi";
-"TXT_DELETE_ACCEPT" = "Accetta";
+"messageRequestsAcceptDescription" = "Se mandi un messaggio a questo utente, accetterai automaticamente la sua richiesta e rivelerai il tuo Session ID.";
+"messageRequestsAccepted" = "La tua richiesta di messaggio è stata accettata.";
+"messageRequestsNew" = "Hai una nuova richiesta di messaggio";
+"hide" = "Nascondi";
+"accept" = "Accetta";
 "TXT_BLOCK_USER_TITLE" = "Blocca utente";
 "error" = "Errore";
-"modal_call_permission_request_title" = "Permessi di chiamata necessari";
-"modal_call_permission_request_explanation" = "Puoi concedere l'autorizzazione alle \"Chiamate vocali e video\" nelle impostazioni di privacy.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Ops, si è verificato un errore";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Riprova più tardi";
+"callsPermissionsRequired" = "Permessi di chiamata necessari";
+"callsPermissionsRequiredDescription" = "Puoi concedere l'autorizzazione alle \"Chiamate vocali e video\" nelle impostazioni di privacy.";
+"communityError" = "Ops, si è verificato un errore";
+"communityErrorDescription" = "Riprova più tardi";
 "LOADING_CONVERSATIONS" = "Carico conversazioni...";
 "DATABASE_MIGRATION_FAILED" = "Si è verificato un errore durante l'ottimizzazione del database\n\nPuoi esportare il resoconto per aiutare a risolvere l'errore o puoi ripristinare il tuo dispositivo\n\nAttenzione: ripristinare il tuo dispositivo comporterà la perdita di tutti i dati più vecchi di due settimane";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Qualcosa è andato storto. Controlla la tua frase di recupero e riprova.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Sembra che tu non abbia inserito abbastanza parole. Controlla la tua frase di recupero e riprova.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "Sembra che manchi l'ultima parola della tua frase di recupero. Controlla cosa hai inserito e riprova.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "Sembra ci sia una parola non valida nella tua frase di recupero. Controlla cosa hai inserito e riprova.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Non è stato possibile verificare la tua frase di recupero. Controlla cosa hai inserito e riprova.";
+"recoveryPasswordErrorMessageGeneric" = "Qualcosa è andato storto. Controlla la tua frase di recupero e riprova.";
+"recoveryPasswordErrorMessageShort" = "Sembra che tu non abbia inserito abbastanza parole. Controlla la tua frase di recupero e riprova.";
+"recoveryPasswordErrorMessageShort" = "Sembra che manchi l'ultima parola della tua frase di recupero. Controlla cosa hai inserito e riprova.";
+"recoveryPasswordErrorMessageIncorrect" = "Sembra ci sia una parola non valida nella tua frase di recupero. Controlla cosa hai inserito e riprova.";
+"recoveryPasswordErrorMessageGeneric" = "Non è stato possibile verificare la tua frase di recupero. Controlla cosa hai inserito e riprova.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Impossibile accedere all'autenticazione.";
+"authenticateNotAccessed" = "Impossibile accedere all'autenticazione.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Autenticazione fallita.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Autenticazione fallita.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Troppi tentativi di autenticazione falliti. Riprova più tardi.";
+"authenticateFailedTooManyAttempts" = "Troppi tentativi di autenticazione falliti. Riprova più tardi.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Devi abilitare il codice nelle impostazioni di iOS per poter usare il blocco schermo.";
+"lockAppEnablePasscode" = "Devi abilitare il codice nelle impostazioni di iOS per poter usare il blocco schermo.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Devi abilitare il codice nelle impostazioni di iOS per poter usare il blocco schermo.";
+"lockAppEnablePasscode" = "Devi abilitare il codice nelle impostazioni di iOS per poter usare il blocco schermo.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Devi abilitare il codice nelle impostazioni di iOS per poter usare il blocco schermo.";
+"lockAppEnablePasscode" = "Devi abilitare il codice nelle impostazioni di iOS per poter usare il blocco schermo.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Invia";
+"send" = "Invia";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Riprova";
+"retry" = "Riprova";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Invio del tuo messaggio non riuscito.";
+"messageErrorDelivery" = "Invio del tuo messaggio non riuscito.";
 "INVALID_SESSION_ID_MESSAGE" = "Controlla il Session ID e riprova.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Controlla la frase di recupero e riprova.";
+"recoveryPasswordErrorMessageGeneric" = "Controlla la frase di recupero e riprova.";
 "media" = "Media";
 "DOCUMENT_TAB_TITLE" = "Documenti";
 "attachmentsFilesEmpty" = "Non hai alcun documento in questa conversazione.";
@@ -507,16 +513,16 @@
 "helpWedLoveYourFeedback" = "Dicci la tua opinione";
 "helpFAQ" = "Domande frequenti";
 "helpSupport" = "Assistenza";
-"modal_clear_all_data_title" = "Elimina tutti i dati";
-"modal_clear_all_data_explanation" = "Questo eliminerà definitivamente i tuoi messaggi e contatti. Vorresti cancellare solo questo dispositivo o eliminare anche i tuoi dati dalla rete?";
+"clearDataAll" = "Elimina tutti i dati";
+"clearDataAllDescription" = "Questo eliminerà definitivamente i tuoi messaggi e contatti. Vorresti cancellare solo questo dispositivo o eliminare anche i tuoi dati dalla rete?";
 "clearDeviceAndNetworkConfirm" = "Sei sicuro di voler eliminare i tuoi dati dalla rete? Se continui, non potrai più recuperare i tuoi messaggi o i contatti.";
-"modal_clear_all_data_device_only_button_title" = "Cancella solo il dispositivo";
-"modal_clear_all_data_entire_account_button_title" = "Cancella dispositivo e rete";
-"dialog_clear_all_data_deletion_failed_1" = "Dati non eliminati da 1 nodo di servizio. ID nodo di servizio: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Dati non eliminati da %@ nodi di servizio. ID nodi di servizio: %@.";
+"clearDeviceOnly" = "Cancella solo il dispositivo";
+"clearDeviceAndNetwork" = "Cancella dispositivo e rete";
+"clearDataErrorDescription1" = "Dati non eliminati da 1 nodo di servizio. ID nodo di servizio: %@.";
+"clearDataErrorDescription2" = "Dati non eliminati da %@ nodi di servizio. ID nodi di servizio: %@.";
 "modal_clear_all_data_confirm" = "Cancella";
-"modal_seed_title" = "La tua frase di recupero";
-"modal_seed_explanation" = "Puoi usare la tua frase di recupero per recuperare il tuo account o collegare un dispositivo.";
+"sessionRecoveryPassword" = "La tua frase di recupero";
+"recoveryPasswordDescription" = "Puoi usare la tua frase di recupero per recuperare il tuo account o collegare un dispositivo.";
 "modal_permission_explanation" = "Session ha bisogno dell'accesso a %@ per continuare. Puoi consentire l'accesso nelle impostazioni di iOS.";
 "modal_permission_settings_title" = "Impostazioni";
 "modal_permission_camera" = "Fotocamera";
@@ -691,10 +697,10 @@
 "groupDeleteDescription" = "Vuoi eliminare %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Elimina conversazione";
+"conversationsDelete" = "Elimina conversazione";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Vuoi eliminare la tua conversazione con %@?";
+"conversationsDeleteDescription" = "Vuoi eliminare la tua conversazione con %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Nascondi Note personali";

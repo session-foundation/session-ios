@@ -41,7 +41,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     
     private lazy var nameTextField: TextField = {
         let result = TextField(
-            placeholder: "vc_create_closed_group_text_field_hint".localized(),
+            placeholder: "groupNameEnter".localized(),
             usesDefaultHeight: false,
             customHeight: NewClosedGroupVC.textFieldHeight
         )
@@ -151,7 +151,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         view.themeBackgroundColor = .newConversation_background
         
         let customTitleFontSize = Values.largeFontSize
-        setNavBarTitle("vc_create_closed_group_title".localized(), customFontSize: customTitleFontSize)
+        setNavBarTitle("groupCreate".localized(), customFontSize: customTitleFontSize)
         
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
@@ -167,7 +167,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         guard !contactProfiles.isEmpty else {
             let explanationLabel: UILabel = UILabel()
             explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-            explanationLabel.text = "contactNone".localized()
+            explanationLabel.text = "conversationsNone".localized()
             explanationLabel.themeTextColor = .textSecondary
             explanationLabel.textAlignment = .center
             explanationLabel.lineBreakMode = .byWordWrapping
@@ -273,7 +273,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
     
     func textFieldDidEndEditing(_ textField: UITextField) {
         crossfadeLabel.text = (textField.text?.isEmpty == true ?
-            "vc_create_closed_group_title".localized() :
+            "groupCreate".localized() :
             textField.text
         )
     }
@@ -318,16 +318,16 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             let name: String = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
             name.count > 0
         else {
-            return showError(title: "vc_create_closed_group_group_name_missing_error".localized())
+            return showError(title: "groupNameEnterPlease".localized())
         }
         guard name.utf8CString.count < SessionUtil.libSessionMaxGroupNameByteLength else {
-            return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
+            return showError(title: "groupNameEnterShorter".localized())
         }
         guard selectedContacts.count >= 1 else {
             return showError(title: "groupCreateErrorNoMembers".localized())
         }
         guard selectedContacts.count < 100 else { // Minus one because we're going to include self later
-            return showError(title: "vc_create_closed_group_too_many_group_members_error".localized())
+            return showError(title: "groupAddMemberMaximum".localized())
         }
         let selectedContacts = self.selectedContacts
         let message: String? = (selectedContacts.count > 20 ? "GROUP_CREATION_PLEASE_WAIT".localized() : nil)

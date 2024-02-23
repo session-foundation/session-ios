@@ -19,11 +19,11 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     
     private lazy var tabBar: TabBar = {
         let tabs = [
-            TabBar.Tab(title: "vc_create_private_chat_enter_session_id_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "accountIdEnter".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[0] ], direction: .forward, animated: false, completion: nil)
             },
-            TabBar.Tab(title: "vc_create_private_chat_scan_qr_code_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "qrScan".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[1] ], direction: .forward, animated: false, completion: nil)
             }
@@ -78,7 +78,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setNavBarTitle("vc_create_private_chat_title".localized())
+        setNavBarTitle("messageNew".localized())
         view.themeBackgroundColor = .newConversation_background
         
         // Set up navigation bar buttons
@@ -285,7 +285,7 @@ private final class EnterPublicKeyVC: UIViewController {
     // MARK: - Components
     
     private lazy var publicKeyTextView: TextView = {
-        let result = TextView(placeholder: "accountIdOrOnsEnter".localized()) { [weak self] text in
+        let result = TextView(placeholder: "accountIdEnterYourFriends".localized()) { [weak self] text in
             self?.nextButton.isEnabled = !text.isEmpty
         }
         result.accessibilityLabel = "Session id input box"
@@ -313,7 +313,7 @@ private final class EnterPublicKeyVC: UIViewController {
     private lazy var spacer3 = UIView.spacer(withHeight: Values.largeSpacing)
     private lazy var spacer4 = UIView.spacer(withHeight: Values.largeSpacing)
     
-    private lazy var separator = Separator(title: "your_session_id".localized())
+    private lazy var separator = Separator(title: "accountIdYours".localized())
     
     private lazy var qrCodeView: UIView = {
         let result: UIView = UIView()
@@ -686,7 +686,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_scan_qr_code_camera_access_explanation".localized()
+        explanationLabel.text = "cameraGrantAccessQr".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -695,7 +695,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Set up call to action button
         let callToActionButton = UIButton()
         callToActionButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        callToActionButton.setTitle("continue_2".localized(), for: .normal)
+        callToActionButton.setTitle("continue".localized(), for: .normal)
         callToActionButton.setThemeTitleColor(.primary, for: .normal)
         callToActionButton.addTarget(self, action: #selector(requestCameraAccess), for: UIControl.Event.touchUpInside)
         

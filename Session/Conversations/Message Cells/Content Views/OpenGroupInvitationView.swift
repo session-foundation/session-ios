@@ -40,7 +40,7 @@ final class OpenGroupInvitationView: UIView {
         // Subtitle
         let subtitleLabel = UILabel()
         subtitleLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        subtitleLabel.text = "view_open_group_invitation_description".localized()
+        subtitleLabel.text = "communityInvitation".localized()
         subtitleLabel.themeTextColor = textColor
         subtitleLabel.lineBreakMode = .byTruncatingTail
         

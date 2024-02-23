@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Συνημμένο";
+"attachment" = "Συνημμένο";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Τύπος αρχείου: %@";
+"attachmentsFileType" = "Τύπος αρχείου: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Μέγεθος: %@";
+"attachmentsFileSize" = "Μέγεθος: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Συμπληρώθηκε το όριο μηνυμάτων";
+"messageErrorLimit" = "Συμπληρώθηκε το όριο μηνυμάτων";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Αποστολή";
+"send" = "Αποστολή";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Συνημμένο";
+"attachment" = "Συνημμένο";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Σφάλμα Αποστολής Συνημμένου";
+"attachmentsErrorSending" = "Σφάλμα Αποστολής Συνημμένου";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Αδυναμία μετατροπής της εικόνας.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Αδυναμία ανάλυσης της εικόνας.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Αδυναμία αφαίρεσης των μεταδεδομένων από την εικόνα.";
+"attachmentsImageErrorMetadata" = "Αδυναμία αφαίρεσης των μεταδεδομένων από την εικόνα.";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Αδυναμία αλλαγής μεγέθους της εικόνας.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Το συνημμένο είναι πολύ μεγάλο.";
+"attachmentsErrorSize" = "Το συνημμένο είναι πολύ μεγάλο.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Το συνημμένο περιλαμβάνει μη έγκυρο περιεχόμενο.";
+"attachmentsErrorNotSupported" = "Το συνημμένο περιλαμβάνει μη έγκυρο περιεχόμενο.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Το συνημμένο έχει μη έγκυρη μορφή αρχείου.";
+"attachmentsErrorNotSupported" = "Το συνημμένο έχει μη έγκυρη μορφή αρχείου.";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "Το συνημμένο είναι κενό.";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Αποτυχία επιλογής εγγράφου.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Παρακαλώ δημιουργήστε ένα συμπιεσμένο αρχείο αυτού του αρχείου ή καταλόγου και προσπαθήστε να στείλετε αυτό.";
+"attachmentsErrorSize" = "Παρακαλώ δημιουργήστε ένα συμπιεσμένο αρχείο αυτού του αρχείου ή καταλόγου και προσπαθήστε να στείλετε αυτό.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Μη υποστηριζόμενο Αρχείο";
+"attachmentsErrorNotSupported" = "Μη υποστηριζόμενο Αρχείο";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Ηχητικό μήνυμα";
+"messageVoice" = "Ηχητικό μήνυμα";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Φραγή";
+"block" = "Φραγή";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Φραγή %@;";
+"block" = "Φραγή %@;";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Αναίρεση φραγής %@;";
+"blockUnblock" = "Αναίρεση φραγής %@;";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Αναίρεση φραγής";
+"blockUnblock" = "Αναίρεση φραγής";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Οι φραγμένοι χρήστες δεν θα είναι σε θέση να σας καλούν ή να σας στέλνουν μηνύματα.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Ολοκληρώθηκε";
+"done" = "Ολοκληρώθηκε";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Επιλογή";
+"select" = "Επιλογή";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Αναζήτηση...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "Χωρίς αποτελέσματα";
+"searchMatchesNoneSpecific" = "Χωρίς αποτελέσματα";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 αντιστοιχία";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d από %d αντιστοιχίσεις";
+"searchMatches" = "%d από %d αντιστοιχίσεις";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Φραγή Αυτού του Χρήστη";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "Αναζήτηση στη Συνομιλία";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Μετακίνηση και Κλιμάκωση";
+"attachmentsMoveAndScale" = "Μετακίνηση και Κλιμάκωση";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Αυτό μπορεί να διαρκέσει μερικά λεπτά.";
+"waitFewMinutes" = "Αυτό μπορεί να διαρκέσει μερικά λεπτά.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Βελτιστοποίηση Βάσης Δεδομένων";
+"databaseOptimizing" = "Βελτιστοποίηση Βάσης Δεδομένων";
 /* The present; the current time. */
 "DATE_NOW" = "Τώρα";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "Επεξεργασία Ομάδας";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "Δεν έχετε κανένα πολυμέσο σε αυτή τη συνομιλία.";
+"attachmentsMediaEmpty" = "Δεν έχετε κανένα πολυμέσο σε αυτή τη συνομιλία.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Φόρτωση Νεότερων Πολυμέσων...";
+"attachmentsLoadingNewer" = "Φόρτωση Νεότερων Πολυμέσων...";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Φόρτωση Παλαιότερων Πολυμέσων...";
+"attachmentsLoadingOlder" = "Φόρτωση Παλαιότερων Πολυμέσων...";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Αποτυχία ανάκτησης του GIF. Παρακαλώ επιβεβαιώστε ότι είστε συνδεδεμένοι.";
+"errorUnknown" = "Αποτυχία ανάκτησης του GIF. Παρακαλώ επιβεβαιώστε ότι είστε συνδεδεμένοι.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "Παρουσιάστηκε άγνωστο σφάλμα.";
+"errorUnknown" = "Παρουσιάστηκε άγνωστο σφάλμα.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Αδυναμία επιλογής GIF";
+"errorUnknown" = "Αδυναμία επιλογής GIF";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Παρακαλώ εισάγετε την αναζήτηση.";
+"searchEnter" = "Παρακαλώ εισάγετε την αναζήτηση.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Σφάλμα. Πατήστε για επανάληψη.";
+"searchMatchesNone" = "Σφάλμα. Πατήστε για επανάληψη.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "Κανένα Αποτέλεσμα.";
+"searchMatchesNone" = "Κανένα Αποτέλεσμα.";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Η ομάδα δημιουργήθηκε";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ έγινε μέλος στην ομάδα. ";
+"groupMemberNew" = "%@ έγινε μέλος στην ομάδα. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ αποχώρησε από την ομάδα. ";
+"groupMemberLeft" = "%@ αποχώρησε από την ομάδα. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ αφαιρέθηκε από την ομάδα. ";
+"groupRemoved" = "%@ αφαιρέθηκε από την ομάδα. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ αφαιρέθηκαν από την ομάδα. ";
+"groupRemovedMore" = "%@ αφαιρέθηκαν από την ομάδα. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "Ο τίτλος είναι τώρα '%@'. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Η ομάδα ενημερώθηκε.";
+"groupUpdated" = "Η ομάδα ενημερώθηκε.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "Αποχωρήσατε από την ομάδα.";
+"groupMemberYouLeft" = "Αποχωρήσατε από την ομάδα.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " Έχετε διαγραφεί από την ομάδα. ";
+"groupRemovedYou" = " Έχετε διαγραφεί από την ομάδα. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Δεν μπορείτε να μοιραστείτε πάνω από %@ αντικείμενα.";
+"attachmentsErrorNumber" = "Δεν μπορείτε να μοιραστείτε πάνω από %@ αντικείμενα.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Αποτυχία επιλογής συνημμένου.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Μη έγκυρο αρχείο ήχου.";
+"audioUnableToPlay" = "Μη έγκυρο αρχείο ήχου.";
 /* Confirmation button within contextual alert */
 "leave" = "Αποχώρηση";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Αποχώρηση από την ομάδα";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Όλα τα πολυμέσα";
+"conversationsSettingsAllMedia" = "Όλα τα πολυμέσα";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Διαγραφή %d μηνυμάτων";
+"deleteMessages" = "Διαγραφή %d μηνυμάτων";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Διαγραφή Μηνύματος";
+"deleteMessage" = "Διαγραφή Μηνύματος";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ στις %@";
+"attachmentsMedia" = "%@ στις %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "Εσείς";
+"onionRoutingPathYou" = "Εσείς";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Αυτό το μήνα";
+"attachmentsThisMonth" = "Αυτό το μήνα";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Η αποστολή απέτυχε.";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "Διαβάστηκε";
+"read" = "Διαβάστηκε";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "Γίνεται Αποστολή…";
+"sending" = "Γίνεται Αποστολή…";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "Στάλθηκε";
+"disappearingMessagesSent" = "Στάλθηκε";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "Μεταφόρτωση…";
+"uploading" = "Μεταφόρτωση…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ σε %@";
+"notificationsIosGroup" = "%@ σε %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Σημείωση προς εμένα";
+"noteToSelf" = "Σημείωση προς εμένα";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Μπορεί να έχετε λάβει μηνύματα κατά την επανεκκίνηση του %@.";
+"notificationsIosRestart" = "Μπορεί να έχετε λάβει μηνύματα κατά την επανεκκίνηση του %@.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "ΟΚ";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ απενεργοποίησε τα εξαφανιζόμενα μηνύματα.";
+"disappearingMessagesTurnedOff" = "%@ απενεργοποίησε τα εξαφανιζόμενα μηνύματα.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ όρισε το χρόνο εξαφάνισης μηνύματος σε %@";
+"disappearingMessagesSet" = "%@ όρισε το χρόνο εξαφάνισης μηνύματος σε %@";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Αδυναμία λήψης εικόνας.";
+"cameraErrorUnavailable" = "Αδυναμία λήψης εικόνας.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Αδυναμία λήψης εικόνας.";
+"cameraErrorUnavailable" = "Αδυναμία λήψης εικόνας.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Αποτυχία ρύθμισης της κάμερας.";
+"cameraErrorUnavailable" = "Αποτυχία ρύθμισης της κάμερας.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Άλμπουμ Χωρίς Όνομα";
+"attachmentsAlbumUnnamed" = "Άλμπουμ Χωρίς Όνομα";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Σήμανση ως Αναγνωσμένο";
+"messageMarkRead" = "Σήμανση ως Αναγνωσμένο";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Απάντηση";
+"reply" = "Απάντηση";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Πραγματοποιήστε έλεγχο ταυτότητας για να ανοίξετε το Session.";
+"authenticateToOpen" = "Πραγματοποιήστε έλεγχο ταυτότητας για να ανοίξετε το Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Ο Έλεγχος Ταυτότητας Απέτυχε";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Ο Έλεγχος Ταυτότητας Απέτυχε";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (προεπιλογή)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@εβδ";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Ακύρωση";
+"cancel" = "Ακύρωση";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Διαγραφή";
+"delete" = "Διαγραφή";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Πατήστε παρατεταμένα για να ηχογραφήσετε ένα φωνητικό μήνυμα.";
+"messageVoiceErrorShort" = "Πατήστε παρατεταμένα για να ηχογραφήσετε ένα φωνητικό μήνυμα.";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Απενεργοποιήσατε τα εξαφανιζόμενα μηνύματα.";
+"disappearingMessagesTurnedOffYou" = "Απενεργοποιήσατε τα εξαφανιζόμενα μηνύματα.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Ορίσατε τον χρόνο του εξαφανιζόμενου μηνύματος σε %@";
+"disappearingMessagesSetYou" = "Ορίσατε τον χρόνο του εξαφανιζόμενου μηνύματος σε %@";
 // MARK: - Session
-"continue_2" = "Συνέχεια";
+"continue" = "Συνέχεια";
 "copy" = "Αντιγραφή";
-"invalid_url" = "Μη έγκυρο URL";
+"communityEnterUrlErrorInvalid" = "Μη έγκυρο URL";
 "next" = "Επόμενο";
 "share" = "Κοινοποίηση";
 "invalid_session_id" = "Μη έγκυρο Session ID";
 "cancel" = "Ακύρωση";
-"your_session_id" = "Το Session ID σας";
-"vc_landing_title_2" = "Το Session σας ξεκινά εδώ...";
-"vc_landing_register_button_title" = "Δημιουργία Session ID";
-"vc_landing_restore_button_title" = "Συνεχίστε το Session σας";
-"vc_landing_link_button_title" = "Συνδέστε μια Συσκευή";
+"accountIdYours" = "Το Session ID σας";
+"onboardingBubblePrivacyInYourPocket" = "Το Session σας ξεκινά εδώ...";
+"onboardingAccountCreate" = "Δημιουργία Session ID";
+"onboardingAccountExists" = "Συνεχίστε το Session σας";
+"onboardingAccountExists" = "Συνδέστε μια Συσκευή";
 "view_fake_chat_bubble_1" = "Τι είναι το Session;";
 "view_fake_chat_bubble_2" = "Είναι μια αποκεντρωμένη, κρυπτογραφημένη εφαρμογή ανταλλαγής μηνυμάτων";
 "view_fake_chat_bubble_3" = "Άρα δε συλλέγει τα προσωπικά μου στοιχεία ή τα μεταδεδομένα της συνομιλίας μου; Πώς λειτουργεί;";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "Οι φίλοι δεν αφήνουν τους φίλους να χρησιμοποιούν ευάλωτες εφαρμογές ανταλλαγής μηνυμάτων. Παρακαλώ.";
 "vc_register_title" = "Πείτε γεια στο Session ID σας";
 "vc_register_explanation" = "Το Session ID σας είναι η μοναδική διεύθυνση που μπορούν να χρησιμοποιήσουν κάποιοι για να επικοινωνήσουν μαζί σας στο Session. Χωρίς σύνδεση με την πραγματική σας ταυτότητα, το Session ID σας είναι σχεδιασμένο να είναι εντελώς ανώνυμο και ιδιωτικό.";
-"vc_restore_title" = "Επαναφορά του λογαριασμού σας";
-"vc_restore_explanation" = "Εισαγάγετε τη φράση ανάκτησης που σας δόθηκε κατά την εγγραφή σας για να επαναφέρετε τον λογαριασμό σας.";
-"vc_restore_seed_text_field_hint" = "Εισαγάγετε τη φράση σας ανάκτησης";
-"vc_link_device_title" = "Συνδέστε μια Συσκευή";
-"vc_link_device_scan_qr_code_tab_title" = "Σάρωση Κωδικού QR";
-"vc_display_name_title_2" = "Επιλέξτε το όνομα εμφάνισής σας";
-"vc_display_name_explanation" = "Αυτό θα είναι το όνομά σας όταν χρησιμοποιείτε το Session. Μπορεί να είναι το πραγματικό σας όνομα, ένα ψευδώνυμο ή οτιδήποτε άλλο θέλετε.";
-"vc_display_name_text_field_hint" = "Εισαγάγετε ένα όνομα εμφάνισης";
-"vc_display_name_display_name_missing_error" = "Παρακαλώ επιλέξτε ένα όνομα εμφάνισης";
-"vc_display_name_display_name_too_long_error" = "Παρακαλώ επιλέξτε ένα μικρότερο όνομα εμφάνισης";
-"vc_pn_mode_recommended_option_tag" = "Προτείνεται";
-"contactNone" = "Δεν έχετε επαφές ακόμα";
+"onboardingAccountExists" = "Επαναφορά του λογαριασμού σας";
+"recoveryPasswordExplanation" = "Εισαγάγετε τη φράση ανάκτησης που σας δόθηκε κατά την εγγραφή σας για να επαναφέρετε τον λογαριασμό σας.";
+"recoveryPasswordEnter" = "Εισαγάγετε τη φράση σας ανάκτησης";
+"onboardingAccountExists" = "Συνδέστε μια Συσκευή";
+"qrScan" = "Σάρωση Κωδικού QR";
+"displayNamePick" = "Επιλέξτε το όνομα εμφάνισής σας";
+"displayNameDescription" = "Αυτό θα είναι το όνομά σας όταν χρησιμοποιείτε το Session. Μπορεί να είναι το πραγματικό σας όνομα, ένα ψευδώνυμο ή οτιδήποτε άλλο θέλετε.";
+"displayNameEnter" = "Εισαγάγετε ένα όνομα εμφάνισης";
+"displayNameErrorDescription" = "Παρακαλώ επιλέξτε ένα όνομα εμφάνισης";
+"displayNameErrorDescriptionShorter" = "Παρακαλώ επιλέξτε ένα μικρότερο όνομα εμφάνισης";
+"recommended" = "Προτείνεται";
+"conversationsNone" = "Δεν έχετε επαφές ακόμα";
 "vc_home_empty_state_button_title" = "Ξεκινήστε ένα Session";
-"vc_seed_title" = "Η Φράση σας Ανάκτησης";
+"sessionRecoveryPassword" = "Η Φράση σας Ανάκτησης";
 "vc_seed_title_2" = "Γνωρίστε τη φράση σας ανάκτησης";
 "vc_seed_explanation" = "Η φράση σας ανάκτησης είναι το κύριο κλειδί στο Session ID σας - μπορείτε να τη χρησιμοποιήσετε για να επαναφέρετε το Session ID σας εάν χάσετε την πρόσβαση στη συσκευή σας. Αποθηκεύστε τη φράση ανάκτησης σε ένα ασφαλές μέρος, και μην τη δώσετε σε κανέναν.";
 "vc_seed_reveal_button_title" = "Πατήστε για αποκάλυψη";
 "view_seed_reminder_subtitle_1" = "Ασφαλίστε τον λογαριασμό σας αποθηκεύοντας τη φράση σας ανάκτησης";
 "view_seed_reminder_subtitle_2" = "Πατήστε παρατεταμένα τις λέξεις που τροποποιήθηκαν για να αποκαλύψετε τη φράση ανάκτησης και μετά αποθηκεύστε την με ασφάλεια για να εξασφαλίσετε το αναγνωριστικό σας.";
 "view_seed_reminder_subtitle_3" = "Φροντίστε να αποθηκεύσετε τη φράση ανάκτησής σας σε ασφαλές μέρος";
-"vc_path_title" = "Διαδρομή";
-"vc_path_explanation" = "Το Session αποκρύπτει την IP σας, δρομολογώντας τα μηνύματά σας μέσω αρκετών Κόμβων υπηρεσιών στο αποκεντρωμένο Session δίκτυο. Αυτές είναι οι χώρες που δρομολογείται η σύνδεσή σας αυτή τη στιγμή:";
-"vc_path_device_row_title" = "Εσείς";
-"vc_path_guard_node_row_title" = "Κόμβος Εισόδου";
-"vc_path_service_node_row_title" = "Κόμβος Εξυπηρέτησης";
-"vc_path_destination_row_title" = "Προορισμός";
-"vc_path_learn_more_button_title" = "Μάθετε Περισσότερα";
-"vc_create_private_chat_title" = "Νέο Μήνυμα";
-"vc_create_private_chat_enter_session_id_tab_title" = "Εισαγάγετε το Session ID";
-"vc_create_private_chat_scan_qr_code_tab_title" = "Σάρωση Κωδικού QR";
+"onionRoutingPath" = "Διαδρομή";
+"onionRoutingPathDescription" = "Το Session αποκρύπτει την IP σας, δρομολογώντας τα μηνύματά σας μέσω αρκετών Κόμβων υπηρεσιών στο αποκεντρωμένο Session δίκτυο. Αυτές είναι οι χώρες που δρομολογείται η σύνδεσή σας αυτή τη στιγμή:";
+"onionRoutingPathYou" = "Εσείς";
+"onionRoutingPathEntryNode" = "Κόμβος Εισόδου";
+"onionRoutingPathServiceNode" = "Κόμβος Εξυπηρέτησης";
+"onionRoutingPathDestination" = "Προορισμός";
+"learnMore" = "Μάθετε Περισσότερα";
+"messageNew" = "Νέο Μήνυμα";
+"accountIdEnter" = "Εισαγάγετε το Session ID";
+"qrScan" = "Σάρωση Κωδικού QR";
 "vc_enter_public_key_explanation" = "Ξεκινήστε μια νέα συνομιλία εισάγοντας το Session ID κάποιου ή μοιραστείτε το δικό σας Session ID μαζί τους.";
-"vc_scan_qr_code_camera_access_explanation" = "Το Session χρειάζεται πρόσβαση στην κάμερα για σάρωση κωδικών QR";
-"vc_create_closed_group_title" = "Δημιουργία Ομάδας";
-"vc_create_closed_group_text_field_hint" = "Εισαγάγετε ένα όνομα ομάδας";
-"contactNone" = "Δεν έχετε επαφές ακόμη";
-"vc_create_closed_group_group_name_missing_error" = "Παρακαλώ εισαγάγετε ένα όνομα ομάδας";
-"vc_create_closed_group_group_name_too_long_error" = "Παρακαλώ εισαγάγετε ένα μικρότερο όνομα ομάδας";
-"vc_create_closed_group_too_many_group_members_error" = "Μια κλειστή ομάδα δεν μπορεί να έχει περισσότερα από 100 μέλη";
-"vc_join_public_chat_title" = "Γίνετε μέλος της Κοινότητας";
-"vc_join_public_chat_enter_group_url_tab_title" = "URL Κοινότητας";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Σάρωση Κωδικού QR";
-"vc_enter_chat_url_text_field_hint" = "Εισαγάγετε URL Κοινότητας";
-"vc_settings_title" = "Ρυθμίσεις";
+"cameraGrantAccessQr" = "Το Session χρειάζεται πρόσβαση στην κάμερα για σάρωση κωδικών QR";
+"groupCreate" = "Δημιουργία Ομάδας";
+"groupNameEnter" = "Εισαγάγετε ένα όνομα ομάδας";
+"conversationsNone" = "Δεν έχετε επαφές ακόμη";
+"groupNameEnterPlease" = "Παρακαλώ εισαγάγετε ένα όνομα ομάδας";
+"groupNameEnterShorter" = "Παρακαλώ εισαγάγετε ένα μικρότερο όνομα ομάδας";
+"groupAddMemberMaximum" = "Μια κλειστή ομάδα δεν μπορεί να έχει περισσότερα από 100 μέλη";
+"communityJoin" = "Γίνετε μέλος της Κοινότητας";
+"communityUrl" = "URL Κοινότητας";
+"qrScan" = "Σάρωση Κωδικού QR";
+"communityEnterUrl" = "Εισαγάγετε URL Κοινότητας";
+"sessionSettings" = "Ρυθμίσεις";
 "vc_group_settings_title" = "Ρυθμίσεις Ομάδας";
-"vc_settings_display_name_missing_error" = "Παρακαλώ επιλέξτε ένα όνομα εμφάνισης";
-"vc_settings_display_name_too_long_error" = "Παρακαλώ επιλέξτε ένα μικρότερο όνομα εμφάνισης";
-"vc_settings_privacy_button_title" = "Απόρρητο";
-"vc_settings_notifications_button_title" = "Ειδοποιήσεις";
-"vc_settings_recovery_phrase_button_title" = "Φράση Ανάκτησης";
-"vc_settings_clear_all_data_button_title" = "Διαγραφή Δεδομένων";
-"vc_qr_code_title" = "Κωδικός QR";
-"vc_qr_code_view_my_qr_code_tab_title" = "Προβολή του Κωδικού QR Μου";
-"vc_qr_code_view_scan_qr_code_tab_title" = "Σάρωση Κωδικού QR";
+"displayNameErrorDescription" = "Παρακαλώ επιλέξτε ένα όνομα εμφάνισης";
+"displayNameErrorDescriptionShorter" = "Παρακαλώ επιλέξτε ένα μικρότερο όνομα εμφάνισης";
+"sessionPrivacy" = "Απόρρητο";
+"sessionNotifications" = "Ειδοποιήσεις";
+"sessionRecoveryPassword" = "Φράση Ανάκτησης";
+"sessionClearData" = "Διαγραφή Δεδομένων";
+"qrCode" = "Κωδικός QR";
+"view" = "Προβολή του Κωδικού QR Μου";
+"qrScan" = "Σάρωση Κωδικού QR";
 "vc_qr_code_view_scan_qr_code_explanation" = "Σαρώστε τον κωδικό QR κάποιου για να ξεκινήσετε μια συνομιλία μαζί του";
-"vc_view_my_qr_code_explanation" = "Αυτός είναι ο δικός σας κωδικός QR. Άλλοι χρήστες μπορούν να τον σαρώσουν για να ξεκινήσουν μια συνομιλία μαζί σας.";
+"qrYoursDescription" = "Αυτός είναι ο δικός σας κωδικός QR. Άλλοι χρήστες μπορούν να τον σαρώσουν για να ξεκινήσουν μια συνομιλία μαζί σας.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Θα ειδοποιηθείτε για νέα μηνύματα αξιόπιστα και άμεσα χρησιμοποιώντας τους διακομιστές ειδοποιήσεων της Apple.";
 "notificationsFastMode" = "Γρήγορη Λειτουργία";
-"slow_mode_explanation" = "Το Session θα ελέγχει περιστασιακά για νέα μηνύματα στο παρασκήνιο.";
+"notificationsSlowModeDescription" = "Το Session θα ελέγχει περιστασιακά για νέα μηνύματα στο παρασκήνιο.";
 "notificationsSlowMode" = "Αργή Λειτουργία";
-"vc_pn_mode_title" = "Ειδοποιήσεις Μηνυμάτων";
-"vc_link_device_recovery_phrase_tab_title" = "Φράση Ανάκτησης";
+"notificationsMessage" = "Ειδοποιήσεις Μηνυμάτων";
+"sessionRecoveryPassword" = "Φράση Ανάκτησης";
 "vc_link_device_scan_qr_code_explanation" = "Μεταβείτε στις Ρυθμίσεις → Φράση Ανάκτησης στην άλλη σας συσκευή για να εμφανίσετε τον κωδικό QR σας.";
-"vc_enter_recovery_phrase_title" = "Φράση Ανάκτησης";
+"sessionRecoveryPassword" = "Φράση Ανάκτησης";
 "vc_enter_recovery_phrase_explanation" = "Για να συνδέσετε τη συσκευή σας, εισάγετε τη φράση ανάκτησης που σας δόθηκε κατά την εγγραφή σας.";
-"accountIdOrOnsEnter" = "Εισαγάγετε Session ID ή όνομα ONS";
-"admin_group_leave_warning" = "Επειδή είστε ο δημιουργός αυτής της ομάδας θα διαγραφεί για όλους. Αυτό δεν μπορεί να αναιρεθεί.";
-"vc_join_open_group_suggestions_title" = "Ή γίνετε μέλος σε ένα από αυτά...";
-"vc_settings_invite_a_friend_button_title" = "Προσκαλέστε ένα Φίλο";
+"accountIdEnterYourFriends" = "Εισαγάγετε Session ID ή όνομα ONS";
+"groupOnlyAdmin" = "Επειδή είστε ο δημιουργός αυτής της ομάδας θα διαγραφεί για όλους. Αυτό δεν μπορεί να αναιρεθεί.";
+"communityJoinOfficial" = "Ή γίνετε μέλος σε ένα από αυτά...";
+"sessionInviteAFriend" = "Προσκαλέστε ένα Φίλο";
 "copied" = "Αντιγράφηκε";
-"vc_conversation_settings_copy_session_id_button_title" = "Αντιγραφή Session ID";
-"vc_conversation_input_prompt" = "Μήνυμα";
+"accountIDCopy" = "Αντιγραφή Session ID";
+"message" = "Μήνυμα";
 "vc_conversation_voice_message_cancel_message" = "Σύρετε για Ακύρωση";
-"modal_download_attachment_title" = "Εμπιστεύεστε την επαφή %@;";
-"modal_download_attachment_explanation" = "Σίγουρα θέλετε να κάνετε λήψη των πολυμέσων που έχουν σταλεί από %@;";
-"modal_download_button_title" = "Λήψη";
-"modal_open_url_title" = "Άνοιγμα URL;";
-"modal_open_url_explanation" = "Σίγουρα θέλετε να ανοίξετε το %@;";
-"modal_open_url_button_title" = "Άνοιγμα";
-"modal_copy_url_button_title" = "Αντιγραφή Συνδέσμου";
-"modal_blocked_title" = "Κατάργηση φραγής %@;";
-"modal_blocked_explanation" = "Σίγουρα θέλετε να καταργήσετε τη φραγή από %@;";
-"modal_blocked_button_title" = "Κατάργηση φραγής";
-"modal_link_previews_title" = "Ενεργοποίηση Προεπισκοπήσεων Συνδέσμου;";
-"modal_link_previews_explanation" = "Η ενεργοποίηση προεπισκοπήσεων συνδέσμων θα εμφανίζει προεπισκοπήσεις για τα URL που στέλνετε και λαμβάνετε. Αυτό μπορεί να είναι χρήσιμο, αλλά το Session θα πρέπει να επικοινωνήσει με τους αντίστοιχους ιστότοπους για να δημιουργήσει προεπισκοπήσεις. Μπορείτε ανά πάσα στιγμή να απενεργοποιήσετε τις προεπισκοπήσεις συνδέσμων στις ρυθμίσεις του Session.";
-"modal_link_previews_button_title" = "Ενεργοποίηση";
-"vc_share_title" = "Κοινοποίηση στο Session";
-"vc_share_sending_message" = "Αποστολή...";
-"vc_share_link_previews_unsecure" = "Η προεπισκόπηση δε φορτώθηκε για μη ασφαλή σύνδεσμο";
-"vc_share_link_previews_error" = "Αδυναμία φόρτωσης προεπισκόπησης";
+"attachmentsAutoDownloadModalTitle" = "Εμπιστεύεστε την επαφή %@;";
+"attachmentsAutoDownloadModalDescription" = "Σίγουρα θέλετε να κάνετε λήψη των πολυμέσων που έχουν σταλεί από %@;";
+"download" = "Λήψη";
+"urlOpen" = "Άνοιγμα URL;";
+"urlOpenDescription" = "Σίγουρα θέλετε να ανοίξετε το %@;";
+"open" = "Άνοιγμα";
+"urlCopy" = "Αντιγραφή Συνδέσμου";
+"blockUnblock" = "Κατάργηση φραγής %@;";
+"blockUnblockDescription" = "Σίγουρα θέλετε να καταργήσετε τη φραγή από %@;";
+"blockUnblock" = "Κατάργηση φραγής";
+"linkPreviewsEnable" = "Ενεργοποίηση Προεπισκοπήσεων Συνδέσμου;";
+"linkPreviewsFirstDescription" = "Η ενεργοποίηση προεπισκοπήσεων συνδέσμων θα εμφανίζει προεπισκοπήσεις για τα URL που στέλνετε και λαμβάνετε. Αυτό μπορεί να είναι χρήσιμο, αλλά το Session θα πρέπει να επικοινωνήσει με τους αντίστοιχους ιστότοπους για να δημιουργήσει προεπισκοπήσεις. Μπορείτε ανά πάσα στιγμή να απενεργοποιήσετε τις προεπισκοπήσεις συνδέσμων στις ρυθμίσεις του Session.";
+"enable" = "Ενεργοποίηση";
+"shareToSession" = "Κοινοποίηση στο Session";
+"sending" = "Αποστολή...";
+"linkPreviewsErrorUnsecure" = "Η προεπισκόπηση δε φορτώθηκε για μη ασφαλή σύνδεσμο";
+"linkPreviewsErrorLoad" = "Αδυναμία φόρτωσης προεπισκόπησης";
 "vc_share_link_previews_disabled_title" = "Προεπισκοπήσεις Συνδέσμου Απενεργοποιημένες";
 "vc_share_link_previews_disabled_explanation" = "Η ενεργοποίηση προεπισκοπήσεων συνδέσμου θα εμφανίζει προεπισκοπήσεις για τα URL που κοινοποιείτε. Αυτό μπορεί να είναι χρήσιμο, αλλά το Session θα πρέπει να επικοινωνήσει με τους αντίστοιχους ιστότοπους για να δημιουργήσει προεπισκοπήσεις.\n\nΜπορείτε να ενεργοποιήσετε τις προεπισκοπήσεις συνδέσμου στις ρυθμίσεις του Session.";
-"view_open_group_invitation_description" = "Πρόσκληση ανοιχτής ομάδας";
+"communityInvitation" = "Πρόσκληση ανοιχτής ομάδας";
 "vc_conversation_settings_invite_button_title" = "Προσθήκη Μελών";
-"modal_send_seed_title" = "Προειδοποίηση";
-"modal_send_seed_explanation" = "Αυτή είναι η φράση σας ανάκτησης. Αν τη στείλετε σε κάποιον θα έχει πλήρη πρόσβαση στον λογαριασμό σας.";
-"modal_send_seed_send_button_title" = "Αποστολή";
+"warning" = "Προειδοποίηση";
+"recoveryPasswordWarningSendDescription" = "Αυτή είναι η φράση σας ανάκτησης. Αν τη στείλετε σε κάποιον θα έχει πλήρη πρόσβαση στον λογαριασμό σας.";
+"send" = "Αποστολή";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Ειδοποίηση Μόνο για Αναφορές";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "Όταν είναι ενεργοποιημένο, θα ειδοποιηθείτε μόνο για μηνύματα που σας αναφέρουν.";
-"view_conversation_title_notify_for_mentions_only" = "Ειδοποιεί Μόνο για Αναφορές";
-"message_deleted" = "Αυτό το μήνυμα έχει διαγραφεί";
-"delete_message_for_me" = "Διαγραφή μόνο για εμένα";
-"delete_message_for_everyone" = "Διαγραφή για όλους";
-"delete_message_for_me_and_recipient" = "Διαγραφή για εμένα και %@";
-"context_menu_reply" = "Απάντηση";
-"context_menu_save" = "Αποθήκευση";
-"context_menu_ban_user" = "Αποκλεισμός Χρήστη";
+"notificationsMentionsOnly" = "Ειδοποιεί Μόνο για Αναφορές";
+"deleteMessageDeleted" = "Αυτό το μήνυμα έχει διαγραφεί";
+"clearMessagesForMe" = "Διαγραφή μόνο για εμένα";
+"clearMessagesForEveryone" = "Διαγραφή για όλους";
+"clearMessagesForEveryone" = "Διαγραφή για εμένα και %@";
+"reply" = "Απάντηση";
+"save" = "Αποθήκευση";
+"banUser" = "Αποκλεισμός Χρήστη";
 "context_menu_ban_and_delete_all" = "Αποκλεισμός και Διαγραφή Όλων";
 "context_menu_ban_user_error_alert_message" = "Αδυναμία αποκλεισμού χρήστη";
 "accessibility_expanding_attachments_button" = "Προσθήκη συνημμένων";
-"accessibility_gif_button" = "GIF";
+"gif" = "GIF";
 "accessibility_document_button" = "Έγγραφο";
 "accessibility_main_button_collapse" = "Σύμπτυξη επιλογών συνημμένου";
-"invalid_recovery_phrase" = "Μη έγκυρη Φράση Ανάκτησης";
-"DISMISS_BUTTON_TEXT" = "Παράλειψη";
+"recoveryPasswordErrorTitle" = "Μη έγκυρη Φράση Ανάκτησης";
+"dismiss" = "Παράλειψη";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Ρυθμίσεις";
-"call_outgoing" = "Καλέσατε %@";
-"call_incoming" = "Είχατε κλήση από %@";
-"call_missed" = "Αναπάντητη Κλήση από %@";
-"APN_Message" = "Έχετε ένα νέο μήνυμα";
-"APN_Collapsed_Messages" = "Έχετε %@ νέα μηνύματα.";
-"PIN_BUTTON_TEXT" = "Καρφίτσωμα";
-"UNPIN_BUTTON_TEXT" = "Ξεκαρφίτσωμα";
-"modal_call_missed_tips_title" = "Αναπάντητη κλήση";
-"modal_call_missed_tips_explanation" = "Η κλήση από «%@» χάθηκε επειδή πρέπει να ενεργοποιήσετε την άδεια «Κλήσεις Φωνής και Βίντεο» στις Ρυθμίσεις Απορρήτου.";
-"media_saved" = "Αποθηκεύτηκαν πολυμέσα από %@.";
-"screenshot_taken" = "Λήφθηκε στιγμιότυπο οθόνης από %@.";
-"SEARCH_SECTION_CONTACTS" = "Επαφές & Ομάδες";
-"SEARCH_SECTION_MESSAGES" = "Μηνύματα";
-"MESSAGE_REQUESTS_TITLE" = "Αιτήματα Μηνύματος";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "Δεν υπάρχουν αιτήματα μηνυμάτων σε εκκρεμότητα";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Διαγραφή Όλων";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Σίγουρα θέλετε να διαγράψετε όλα τα αιτήματα μηνύματος;";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Διαγραφή";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Σίγουρα θέλετε να διαγράψετε αυτό το αίτημα μηνύματος;";
+"sessionSettings" = "Ρυθμίσεις";
+"callsYouCalled" = "Καλέσατε %@";
+"callsCalledYou" = "Είχατε κλήση από %@";
+"callsMissedCallFrom" = "Αναπάντητη Κλήση από %@";
+"messageNewYouveGotA" = "Έχετε ένα νέο μήνυμα";
+"messageNewYouveGotMany" = "Έχετε %@ νέα μηνύματα.";
+"pin" = "Καρφίτσωμα";
+"pinUnpin" = "Ξεκαρφίτσωμα";
+"callsMissed" = "Αναπάντητη κλήση";
+"callsYouMissedCallPermissions" = "Η κλήση από «%@» χάθηκε επειδή πρέπει να ενεργοποιήσετε την άδεια «Κλήσεις Φωνής και Βίντεο» στις Ρυθμίσεις Απορρήτου.";
+"attachmentsMediaSaved" = "Αποθηκεύτηκαν πολυμέσα από %@.";
+"screenshotTaken" = "Λήφθηκε στιγμιότυπο οθόνης από %@.";
+"sessionConversations" = "Επαφές & Ομάδες";
+"messages" = "Μηνύματα";
+"sessionMessageRequests" = "Αιτήματα Μηνύματος";
+"messageRequestsNonePending" = "Δεν υπάρχουν αιτήματα μηνυμάτων σε εκκρεμότητα";
+"clearAll" = "Διαγραφή Όλων";
+"messageRequestsClearAllExplanation" = "Σίγουρα θέλετε να διαγράψετε όλα τα αιτήματα μηνύματος;";
+"clear" = "Διαγραφή";
+"messageRequestsDelete" = "Σίγουρα θέλετε να διαγράψετε αυτό το αίτημα μηνύματος;";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Σίγουρα θέλετε να θέσετε σε φραγή αυτή την επαφή;";
-"MESSAGE_REQUESTS_INFO" = "Η αποστολή μηνύματος σε αυτόν τον χρήστη θα αποδεχτεί αυτόματα το αίτημα μηνύματός του και θα αποκαλύψει το Session ID σας.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Το αίτημα μηνύματός σας έγινε δεκτό.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "Έχετε ένα νέο αίτημα μηνύματος";
-"TXT_HIDE_TITLE" = "Απόκρυψη";
-"TXT_DELETE_ACCEPT" = "Αποδοχή";
+"messageRequestsAcceptDescription" = "Η αποστολή μηνύματος σε αυτόν τον χρήστη θα αποδεχτεί αυτόματα το αίτημα μηνύματός του και θα αποκαλύψει το Session ID σας.";
+"messageRequestsAccepted" = "Το αίτημα μηνύματός σας έγινε δεκτό.";
+"messageRequestsNew" = "Έχετε ένα νέο αίτημα μηνύματος";
+"hide" = "Απόκρυψη";
+"accept" = "Αποδοχή";
 "TXT_BLOCK_USER_TITLE" = "Φραγή Χρήστη";
 "error" = "Σφάλμα";
-"modal_call_permission_request_title" = "Απαιτείται Άδεια Κλήσης";
-"modal_call_permission_request_explanation" = "Μπορείτε να ενεργοποιήσετε την άδεια «Κλήσεις Φωνής και Βίντεο» στις Ρυθμίσεις Απορρήτου.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Ωχ, προέκυψε σφάλμα";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Παρακαλώ δοκιμάστε ξανά αργότερα";
+"callsPermissionsRequired" = "Απαιτείται Άδεια Κλήσης";
+"callsPermissionsRequiredDescription" = "Μπορείτε να ενεργοποιήσετε την άδεια «Κλήσεις Φωνής και Βίντεο» στις Ρυθμίσεις Απορρήτου.";
+"communityError" = "Ωχ, προέκυψε σφάλμα";
+"communityErrorDescription" = "Παρακαλώ δοκιμάστε ξανά αργότερα";
 "LOADING_CONVERSATIONS" = "Φόρτωση Συνομιλιών...";
 "DATABASE_MIGRATION_FAILED" = "Παρουσιάστηκε σφάλμα κατά τη βελτιστοποίηση της βάσης δεδομένων\n\nΜπορείτε να εξάγετε τα αρχεία καταγραφής της εφαρμογής σας για να μπορείτε να τα μοιραστείτε για την αντιμετώπιση προβλημάτων ή μπορείτε να επαναφέρετε τη συσκευή σας\n\nΠροειδοποίηση: Η επαναφορά της συσκευής σας θα οδηγήσει σε απώλεια δεδομένων παλαιότερων από δύο εβδομάδες";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Κάτι πήγε στραβά. Παρακαλώ ελέγξτε τη φράση ανάκτησης και προσπαθήστε ξανά.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Φαίνεται ότι δεν εισαγάγατε αρκετές λέξεις. Παρακαλώ ελέγξτε τη φράση σας ανάκτησης και προσπαθήστε ξανά.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "Φαίνεται πως λείπει η τελευταία λέξη από τη φράση σας ανάκτησης. Παρακαλώ ελέγξτε τι εισαγάγατε και προσπαθήστε ξανά.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "Φαίνεται να υπάρχει μια μη έγκυρη λέξη στη φράση σας ανάκτησης. Παρακαλώ ελέγξτε τι εισαγάγατε και προσπαθήστε ξανά.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Η φράση ανάκτησης δεν μπόρεσε να επαληθευτεί. Παρακαλώ ελέγξτε τι εισαγάγατε και προσπαθήστε ξανά.";
+"recoveryPasswordErrorMessageGeneric" = "Κάτι πήγε στραβά. Παρακαλώ ελέγξτε τη φράση ανάκτησης και προσπαθήστε ξανά.";
+"recoveryPasswordErrorMessageShort" = "Φαίνεται ότι δεν εισαγάγατε αρκετές λέξεις. Παρακαλώ ελέγξτε τη φράση σας ανάκτησης και προσπαθήστε ξανά.";
+"recoveryPasswordErrorMessageShort" = "Φαίνεται πως λείπει η τελευταία λέξη από τη φράση σας ανάκτησης. Παρακαλώ ελέγξτε τι εισαγάγατε και προσπαθήστε ξανά.";
+"recoveryPasswordErrorMessageIncorrect" = "Φαίνεται να υπάρχει μια μη έγκυρη λέξη στη φράση σας ανάκτησης. Παρακαλώ ελέγξτε τι εισαγάγατε και προσπαθήστε ξανά.";
+"recoveryPasswordErrorMessageGeneric" = "Η φράση ανάκτησης δεν μπόρεσε να επαληθευτεί. Παρακαλώ ελέγξτε τι εισαγάγατε και προσπαθήστε ξανά.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Δεν ήταν δυνατή η πρόσβαση στον έλεγχο ταυτότητας.";
+"authenticateNotAccessed" = "Δεν ήταν δυνατή η πρόσβαση στον έλεγχο ταυτότητας.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Ο έλεγχος ταυτότητας απέτυχε.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Ο έλεγχος ταυτότητας απέτυχε.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Πάρα πολλές αποτυχημένες προσπάθειες ταυτοποίησης. Παρακαλώ προσπαθήστε ξανά αργότερα.";
+"authenticateFailedTooManyAttempts" = "Πάρα πολλές αποτυχημένες προσπάθειες ταυτοποίησης. Παρακαλώ προσπαθήστε ξανά αργότερα.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Απαιτείται να ορίσετε έναν κωδικό πρόσβασης στις Ρυθμίσεις του iOS σας για να χρησιμοποιήσετε το Κλείδωμα Οθόνης.";
+"lockAppEnablePasscode" = "Απαιτείται να ορίσετε έναν κωδικό πρόσβασης στις Ρυθμίσεις του iOS σας για να χρησιμοποιήσετε το Κλείδωμα Οθόνης.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Πρέπει να ορίσετε έναν κωδικό πρόσβασης στις Ρυθμίσεις του iOS σας για να χρησιμοποιήσετε το Κλείδωμα Οθόνης.";
+"lockAppEnablePasscode" = "Πρέπει να ορίσετε έναν κωδικό πρόσβασης στις Ρυθμίσεις του iOS σας για να χρησιμοποιήσετε το Κλείδωμα Οθόνης.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Πρέπει να ενεργοποιήσετε έναν κωδικό πρόσβασης στις Ρυθμίσεις του iOS σας για να χρησιμοποιήσετε το Κλείδωμα Οθόνης.";
+"lockAppEnablePasscode" = "Πρέπει να ενεργοποιήσετε έναν κωδικό πρόσβασης στις Ρυθμίσεις του iOS σας για να χρησιμοποιήσετε το Κλείδωμα Οθόνης.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Αποστολή";
+"send" = "Αποστολή";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Επανάληψη";
+"retry" = "Επανάληψη";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Η αποστολή του μηνύματός σας απέτυχε.";
+"messageErrorDelivery" = "Η αποστολή του μηνύματός σας απέτυχε.";
 "INVALID_SESSION_ID_MESSAGE" = "Παρακαλώ ελέγξτε το Session ID και προσπαθήστε ξανά.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Παρακαλώ ελέγξτε τη Φράση Ανάκτησης και προσπαθήστε ξανά.";
+"recoveryPasswordErrorMessageGeneric" = "Παρακαλώ ελέγξτε τη Φράση Ανάκτησης και προσπαθήστε ξανά.";
 "media" = "Πολυμέσα";
 "DOCUMENT_TAB_TITLE" = "Έγγραφα";
 "attachmentsFilesEmpty" = "Δεν έχετε κανένα έγγραφο σε αυτή τη συνομιλία.";
@@ -506,16 +512,16 @@
 "helpWedLoveYourFeedback" = "Θα θέλαμε πολύ τα Σχόλιά σας";
 "helpFAQ" = "Συχνές Ερωτήσεις";
 "helpSupport" = "Υποστήριξη";
-"modal_clear_all_data_title" = "Διαγραφή Όλων των Δεδομένων";
-"modal_clear_all_data_explanation" = "Αυτό θα διαγράψει μόνιμα τα μηνύματα και τις επαφές σας. Θα θέλατε να καθαρίσετε αυτή τη συσκευή μόνο ή να διαγράψετε και τα δεδομένα σας από το δίκτυο;";
+"clearDataAll" = "Διαγραφή Όλων των Δεδομένων";
+"clearDataAllDescription" = "Αυτό θα διαγράψει μόνιμα τα μηνύματα και τις επαφές σας. Θα θέλατε να καθαρίσετε αυτή τη συσκευή μόνο ή να διαγράψετε και τα δεδομένα σας από το δίκτυο;";
 "clearDeviceAndNetworkConfirm" = "Σίγουρα θέλετε να διαγράψετε τα δεδομένα σας από το δίκτυο; Εάν συνεχίσετε, δε θα μπορείτε να επαναφέρετε τα μηνύματα ή τις επαφές σας.";
-"modal_clear_all_data_device_only_button_title" = "Διαγραφή Μόνο Συσκευής";
-"modal_clear_all_data_entire_account_button_title" = "Διαγραφή Συσκευής Και Δικτύου";
-"dialog_clear_all_data_deletion_failed_1" = "Τα δεδομένα δε διαγράφηκαν από 1 Κόμβο Εξυπηρέτησης. ID Κόμβου Εξυπηρέτησης: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Τα δεδομένα δε διαγράφηκαν από %@ Κόμβους Εξυπηρέτησης. ID Κόμβων Εξυπηρέτησης: %@.";
+"clearDeviceOnly" = "Διαγραφή Μόνο Συσκευής";
+"clearDeviceAndNetwork" = "Διαγραφή Συσκευής Και Δικτύου";
+"clearDataErrorDescription1" = "Τα δεδομένα δε διαγράφηκαν από 1 Κόμβο Εξυπηρέτησης. ID Κόμβου Εξυπηρέτησης: %@.";
+"clearDataErrorDescription2" = "Τα δεδομένα δε διαγράφηκαν από %@ Κόμβους Εξυπηρέτησης. ID Κόμβων Εξυπηρέτησης: %@.";
 "modal_clear_all_data_confirm" = "Διαγραφή";
-"modal_seed_title" = "Η Φράση σας Ανάκτησης";
-"modal_seed_explanation" = "Μπορείτε να χρησιμοποιήσετε τη φράση σας ανάκτησης για να επαναφέρετε τον λογαριασμό σας ή να συνδέσετε μια συσκευή.";
+"sessionRecoveryPassword" = "Η Φράση σας Ανάκτησης";
+"recoveryPasswordDescription" = "Μπορείτε να χρησιμοποιήσετε τη φράση σας ανάκτησης για να επαναφέρετε τον λογαριασμό σας ή να συνδέσετε μια συσκευή.";
 "modal_permission_explanation" = "Το Session χρειάζεται πρόσβαση σε %@ για να συνεχίσει. Μπορείτε να ενεργοποιήσετε την πρόσβαση στις ρυθμίσεις του iOS σας.";
 "modal_permission_settings_title" = "Ρυθμίσεις";
 "modal_permission_camera" = "κάμερα";
@@ -690,10 +696,10 @@
 "groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"conversationsDelete" = "Delete Conversation";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"conversationsDeleteDescription" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Hide Note to Self";

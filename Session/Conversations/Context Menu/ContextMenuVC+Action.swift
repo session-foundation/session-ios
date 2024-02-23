@@ -58,7 +58,7 @@ extension ContextMenuVC {
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?, using dependencies: Dependencies) -> Action {
             return Action(
                 icon: UIImage(named: "ic_reply"),
-                title: "context_menu_reply".localized(),
+                title: "reply".localized(),
                 accessibilityLabel: "Reply to message"
             ) { delegate?.reply(cellViewModel, using: dependencies) }
         }
@@ -74,7 +74,7 @@ extension ContextMenuVC {
         static func copySessionID(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
                 icon: UIImage(named: "ic_copy"),
-                title: "vc_conversation_settings_copy_session_id_button_title".localized(),
+                title: "accountIDCopy".localized(),
                 accessibilityLabel: "Copy Session ID"
                 
             ) { delegate?.copySessionID(cellViewModel) }
@@ -83,7 +83,7 @@ extension ContextMenuVC {
         static func delete(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?, using dependencies: Dependencies) -> Action {
             return Action(
                 icon: UIImage(named: "ic_trash"),
-                title: "TXT_DELETE_TITLE".localized(),
+                title: "delete".localized(),
                 accessibilityLabel: "Delete message"
             ) { delegate?.delete(cellViewModel, using: dependencies) }
         }
@@ -91,7 +91,7 @@ extension ContextMenuVC {
         static func save(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?, using dependencies: Dependencies) -> Action {
             return Action(
                 icon: UIImage(named: "ic_download"),
-                title: "context_menu_save".localized(),
+                title: "save".localized(),
                 accessibilityLabel: "Save attachment"
             ) { delegate?.save(cellViewModel, using: dependencies) }
         }
@@ -99,7 +99,7 @@ extension ContextMenuVC {
         static func ban(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?, using dependencies: Dependencies) -> Action {
             return Action(
                 icon: UIImage(named: "ic_block"),
-                title: "context_menu_ban_user".localized(),
+                title: "banUser".localized(),
                 accessibilityLabel: "Ban user"
             ) { delegate?.ban(cellViewModel, using: dependencies) }
         }

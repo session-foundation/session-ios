@@ -15,11 +15,11 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
     
     private lazy var tabBar: TabBar = {
         let tabs = [
-            TabBar.Tab(title: "vc_qr_code_view_my_qr_code_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "view".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[0] ], direction: .forward, animated: false, completion: nil)
             },
-            TabBar.Tab(title: "vc_qr_code_view_scan_qr_code_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "qrScan".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[1] ], direction: .forward, animated: false, completion: nil)
             }
@@ -54,7 +54,7 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setNavBarTitle("vc_qr_code_title".localized())
+        setNavBarTitle("qrCode".localized())
         
         // Set up tab bar
         view.addSubview(tabBar)
@@ -219,7 +219,7 @@ private final class ViewMyQRCodeVC : UIViewController {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.mediumFontSize)
-        explanationLabel.text = "vc_view_my_qr_code_explanation".localized()
+        explanationLabel.text = "qrYoursDescription".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -294,7 +294,7 @@ private final class ScanQRCodePlaceholderVC : UIViewController {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_scan_qr_code_camera_access_explanation".localized()
+        explanationLabel.text = "cameraGrantAccessQr".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -303,7 +303,7 @@ private final class ScanQRCodePlaceholderVC : UIViewController {
         // Set up call to action button
         let callToActionButton = UIButton()
         callToActionButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        callToActionButton.setTitle("continue_2".localized(), for: .normal)
+        callToActionButton.setTitle("continue".localized(), for: .normal)
         callToActionButton.setThemeTitleColor(.primary, for: .normal)
         callToActionButton.addTarget(self, action: #selector(requestCameraAccess), for: UIControl.Event.touchUpInside)
         

@@ -573,7 +573,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let itemToDelete: MediaGalleryViewModel.Item = self.currentItem
         let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         let deleteAction = UIAlertAction(
-            title: "delete_message_for_me".localized(),
+            title: "clearMessagesForMe".localized(),
             style: .destructive
         ) { _ in
             Storage.shared.writeAsync { db in
@@ -600,7 +600,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                     .deleteAll(db)
             }
         }
-        actionSheet.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel))
+        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
         actionSheet.addAction(deleteAction)
 
         Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
@@ -884,7 +884,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         .defaulting(to: Profile.truncated(id: targetItem.interactionAuthorId, truncating: .middle))
                     
                 case .standardOutgoing:
-                    return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() //"Short sender label for media sent by you"
+                    return "onionRoutingPathYou".localized() //"Short sender label for media sent by you"
                         
                 default:
                     owsFailDebug("Unsupported message variant: \(targetItem.interactionVariant)")
@@ -899,7 +899,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let formattedDate = dateFormatter.string(from: date)
         portraitHeaderDateLabel.text = formattedDate
 
-        let landscapeHeaderFormat = NSLocalizedString("MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT", comment: "embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29'")
+        let landscapeHeaderFormat = NSLocalizedString("attachmentsMedia", comment: "embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29'")
         let landscapeHeaderText = String(format: landscapeHeaderFormat, name, formattedDate)
         self.title = landscapeHeaderText
         self.navigationItem.title = landscapeHeaderText

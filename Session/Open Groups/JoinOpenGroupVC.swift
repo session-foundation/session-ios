@@ -19,11 +19,11 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     
     private lazy var tabBar: TabBar = {
         let tabs: [TabBar.Tab] = [
-            TabBar.Tab(title: "vc_join_public_chat_enter_group_url_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "communityUrl".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[0] ], direction: .forward, animated: false, completion: nil)
             },
-            TabBar.Tab(title: "vc_join_public_chat_scan_qr_code_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "qrScan".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[1] ], direction: .forward, animated: false, completion: nil)
             }
@@ -58,7 +58,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setNavBarTitle("vc_join_public_chat_title".localized())
+        setNavBarTitle("communityJoin".localized())
         view.themeBackgroundColor = .newConversation_background
         
         let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
@@ -153,7 +153,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // The host doesn't parse if no explicit scheme is provided
         guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: urlString) else {
             showError(
-                title: "invalid_url".localized(),
+                title: "communityEnterUrlErrorInvalid".localized(),
                 message: "communityEnterUrlErrorInvalidDescription".localized(),
                 onError: onError
             )
@@ -263,7 +263,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
     private var keyboardTransitionSnapshot2: UIView?
     
     private lazy var urlTextView: TextView = {
-        let result: TextView = TextView(placeholder: "vc_enter_chat_url_text_field_hint".localized())
+        let result: TextView = TextView(placeholder: "communityEnterUrl".localized())
         result.keyboardType = .URL
         result.autocapitalizationType = .none
         result.autocorrectionType = .no
@@ -275,7 +275,7 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
         let result: UILabel = UILabel()
         result.setContentHuggingPriority(.required, for: .vertical)
         result.font = .boldSystemFont(ofSize: Values.largeFontSize)
-        result.text = "vc_join_open_group_suggestions_title".localized()
+        result.text = "communityJoinOfficial".localized()
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
@@ -504,7 +504,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_scan_qr_code_camera_access_explanation".localized()
+        explanationLabel.text = "cameraGrantAccessQr".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -513,7 +513,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Call to action button
         let callToActionButton = UIButton()
         callToActionButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        callToActionButton.setTitle("continue_2".localized(), for: .normal)
+        callToActionButton.setTitle("continue".localized(), for: .normal)
         callToActionButton.setThemeTitleColor(.primary, for: .normal)
         callToActionButton.addTarget(self, action: #selector(requestCameraAccess), for: .touchUpInside)
         

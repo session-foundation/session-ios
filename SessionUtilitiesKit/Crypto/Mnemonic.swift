@@ -70,11 +70,11 @@ public enum Mnemonic {
         
         public var errorDescription: String? {
             switch self {
-                case .generic: return "RECOVERY_PHASE_ERROR_GENERIC".localized()
-                case .inputTooShort: return "RECOVERY_PHASE_ERROR_LENGTH".localized()
-                case .missingLastWord: return "RECOVERY_PHASE_ERROR_LAST_WORD".localized()
-                case .invalidWord: return "RECOVERY_PHASE_ERROR_INVALID_WORD".localized()
-                case .verificationFailed: return "RECOVERY_PHASE_ERROR_FAILED".localized()
+                case .generic: return "recoveryPasswordErrorMessageGeneric".localized()
+                case .inputTooShort: return "recoveryPasswordErrorMessageShort".localized()
+                case .missingLastWord: return "recoveryPasswordErrorMessageShort".localized()
+                case .invalidWord: return "recoveryPasswordErrorMessageIncorrect".localized()
+                case .verificationFailed: return "recoveryPasswordErrorMessageGeneric".localized()
             }
         }
     }

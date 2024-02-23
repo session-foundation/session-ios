@@ -123,7 +123,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE".localized(),
+                                                title: "lockAppEnablePasscode".localized(),
                                                 cancelTitle: "BUTTON_OK".localized(),
                                                 cancelStyle: .alert_text
                                             )
@@ -284,7 +284,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 title: "callsVoiceAndVideoBeta".localized(),
                                 body: .text("callsVoiceAndVideoModalDescription".localized()),
                                 showCondition: .disabled,
-                                confirmTitle: "continue_2".localized(),
+                                confirmTitle: "continue".localized(),
                                 confirmAccessibility: Accessibility(identifier: "Enable"),
                                 confirmStyle: .textPrimary,
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }

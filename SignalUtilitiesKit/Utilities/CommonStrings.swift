@@ -10,48 +10,48 @@ import Foundation
 
 @objc public class CommonStrings: NSObject {
     @objc
-    static public let dismissButton = NSLocalizedString("DISMISS_BUTTON_TEXT", comment: "Short text to dismiss current modal / actionsheet / screen")
+    static public let dismissButton = NSLocalizedString("dismiss", comment: "Short text to dismiss current modal / actionsheet / screen")
     @objc
-    static public let cancelButton = NSLocalizedString("TXT_CANCEL_TITLE", comment: "Label for the cancel button in an alert or action sheet.")
+    static public let cancelButton = NSLocalizedString("cancel", comment: "Label for the cancel button in an alert or action sheet.")
     @objc
-    static public let doneButton = NSLocalizedString("BUTTON_DONE", comment: "Label for generic done button.")
+    static public let doneButton = NSLocalizedString("done", comment: "Label for generic done button.")
     @objc
-    static public let retryButton = "RETRY_BUTTON_TEXT".localized()
+    static public let retryButton = "retry".localized()
     @objc
-    static public let openSettingsButton = NSLocalizedString("OPEN_SETTINGS_BUTTON", comment: "Button text which opens the settings app")
+    static public let openSettingsButton = NSLocalizedString("sessionSettings", comment: "Button text which opens the settings app")
     @objc
     static public let errorAlertTitle = NSLocalizedString("error", comment: "")
 }
 
 @objc public class MessageStrings: NSObject {
     @objc
-    static public let replyNotificationAction = NSLocalizedString("PUSH_MANAGER_REPLY", comment: "Notification action button title")
+    static public let replyNotificationAction = NSLocalizedString("reply", comment: "Notification action button title")
 
     @objc
-    static public let markAsReadNotificationAction = NSLocalizedString("PUSH_MANAGER_MARKREAD", comment: "Notification action button title")
+    static public let markAsReadNotificationAction = NSLocalizedString("messageMarkRead", comment: "Notification action button title")
 
     @objc
-    static public let sendButton = "SEND_BUTTON_TITLE".localized()
+    static public let sendButton = "send".localized()
 }
 
 @objc
 public class NotificationStrings: NSObject {
     @objc
-    static public let incomingMessageBody = NSLocalizedString("APN_Message", comment: "notification body")
+    static public let incomingMessageBody = NSLocalizedString("messageNewYouveGotA", comment: "notification body")
     
     @objc
-    static public let incomingCollapsedMessagesBody = NSLocalizedString("APN_Collapsed_Messages", comment: "collapsed notification body for background polling")
+    static public let incomingCollapsedMessagesBody = NSLocalizedString("messageNewYouveGotMany", comment: "collapsed notification body for background polling")
 
     @objc
-    static public let incomingGroupMessageTitleFormat = NSLocalizedString("NEW_GROUP_MESSAGE_NOTIFICATION_TITLE", comment: "notification title. Embeds {{author name}} and {{group name}}")
+    static public let incomingGroupMessageTitleFormat = NSLocalizedString("notificationsIosGroup", comment: "notification title. Embeds {{author name}} and {{group name}}")
 
     @objc
-    static public let failedToSendBody = "SEND_FAILED_NOTIFICATION_BODY".localized()
+    static public let failedToSendBody = "messageErrorDelivery".localized()
 }
 
 @objc public class MediaStrings: NSObject {
     @objc
-    static public let allMedia = NSLocalizedString("MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON", comment: "nav bar button item")
+    static public let allMedia = NSLocalizedString("conversationsSettingsAllMedia", comment: "nav bar button item")
     @objc
     static public let media = NSLocalizedString("media", comment: "media tab title")
     @objc

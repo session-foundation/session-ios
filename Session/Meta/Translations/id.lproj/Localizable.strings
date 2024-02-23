@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Lampiran";
+"attachment" = "Lampiran";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Tipe Berkas: %@";
+"attachmentsFileType" = "Tipe Berkas: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Ukuran: %@";
+"attachmentsFileSize" = "Ukuran: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Batas pesan tercapai.";
+"messageErrorLimit" = "Batas pesan tercapai.";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Kirim";
+"send" = "Kirim";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Lampiran";
+"attachment" = "Lampiran";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Gagal Mengirim Lampiran";
+"attachmentsErrorSending" = "Gagal Mengirim Lampiran";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Tidak dapat mengonversi gambar.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Tidak dapat mengurai gambar.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Tidak dapat menghapus metadata dari gambar.";
+"attachmentsImageErrorMetadata" = "Tidak dapat menghapus metadata dari gambar.";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Tidak dapat mengubah ukuran gambar.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Lampiran terlalu besar.";
+"attachmentsErrorSize" = "Lampiran terlalu besar.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Lampiran berisi konten yang tidak valid.";
+"attachmentsErrorNotSupported" = "Lampiran berisi konten yang tidak valid.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Lampiran memiliki format file yang tidak valid.";
+"attachmentsErrorNotSupported" = "Lampiran memiliki format file yang tidak valid.";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "Lampiran kosong.";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Gagal memilih dokumen.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Mohon buat arsip terkompres dari berkas atau direktori ini dan cobalah untuk mengirim arsip terkompres tersebut.";
+"attachmentsErrorSize" = "Mohon buat arsip terkompres dari berkas atau direktori ini dan cobalah untuk mengirim arsip terkompres tersebut.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Berkas tidak didukung.";
+"attachmentsErrorNotSupported" = "Berkas tidak didukung.";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Pesan Suara";
+"messageVoice" = "Pesan Suara";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Blokir";
+"block" = "Blokir";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Blokir %@?";
+"block" = "Blokir %@?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Buka blokir %@?";
+"blockUnblock" = "Buka blokir %@?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Buka blokir";
+"blockUnblock" = "Buka blokir";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Pengguna terblokir tidak bisa menghubungi atau mengirimkan pesan kepada Anda.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Selesai";
+"done" = "Selesai";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Pilih";
+"select" = "Pilih";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Mencari...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "Tidak ada yang cocok";
+"searchMatchesNoneSpecific" = "Tidak ada yang cocok";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 hasil cocok";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d dari %d cocok";
+"searchMatches" = "%d dari %d cocok";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Blokir Pengguna Ini";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "Penelusuran Percakapan";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Pindahkan dan Ubah Skala";
+"attachmentsMoveAndScale" = "Pindahkan dan Ubah Skala";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Ini akan memerlukan beberapa menit.";
+"waitFewMinutes" = "Ini akan memerlukan beberapa menit.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Mengoptimalkan Database";
+"databaseOptimizing" = "Mengoptimalkan Database";
 /* The present; the current time. */
 "DATE_NOW" = "Sekarang";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "Ubah Grup";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "Anda tidak memiliki media apapun dalam percakapan ini.";
+"attachmentsMediaEmpty" = "Anda tidak memiliki media apapun dalam percakapan ini.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Memuat Media Baru…";
+"attachmentsLoadingNewer" = "Memuat Media Baru…";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Memuat Media Lama…";
+"attachmentsLoadingOlder" = "Memuat Media Lama…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Gagal untuk menghadirkan GIF yang diinginkan. Mohon verifikasi Anda daring.";
+"errorUnknown" = "Gagal untuk menghadirkan GIF yang diinginkan. Mohon verifikasi Anda daring.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "Terjadi kegagalan yang tidak diketahui.";
+"errorUnknown" = "Terjadi kegagalan yang tidak diketahui.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Tak Dapat Memilih GIF";
+"errorUnknown" = "Tak Dapat Memilih GIF";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Mohon masukkan pencarian anda.";
+"searchEnter" = "Mohon masukkan pencarian anda.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Gagal. Ketuk untuk Mencoba Ulang.";
+"searchMatchesNone" = "Gagal. Ketuk untuk Mencoba Ulang.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "Tak Ada Hasil.";
+"searchMatchesNone" = "Tak Ada Hasil.";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Grup dibuat.";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ bergabung dalam grup. ";
+"groupMemberNew" = "%@ bergabung dalam grup. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ keluar dari grup. ";
+"groupMemberLeft" = "%@ keluar dari grup. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ telah dikeluarkan dari grup. ";
+"groupRemoved" = "%@ telah dikeluarkan dari grup. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ telah dikeluarkan dari grup. ";
+"groupRemovedMore" = "%@ telah dikeluarkan dari grup. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "Topik baru saat ini '%@'.";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Group dimutakhirkan";
+"groupUpdated" = "Group dimutakhirkan";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "Anda telah keluar dari group";
+"groupMemberYouLeft" = "Anda telah keluar dari group";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " Anda dikeluarkan dari grup. ";
+"groupRemovedYou" = " Anda dikeluarkan dari grup. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Anda tidak dapat membagikan lebih dari %@ item.";
+"attachmentsErrorNumber" = "Anda tidak dapat membagikan lebih dari %@ item.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Gagal memilih lampiran.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Berkas audio tidak valid.";
+"audioUnableToPlay" = "Berkas audio tidak valid.";
 /* Confirmation button within contextual alert */
 "leave" = "Tinggalkan";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Meninggalkan Grup.";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Semua Media";
+"conversationsSettingsAllMedia" = "Semua Media";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Hapus %d Pesan";
+"deleteMessages" = "Hapus %d Pesan";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Hapus Pesan";
+"deleteMessage" = "Hapus Pesan";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ pada %@";
+"attachmentsMedia" = "%@ pada %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "Anda";
+"onionRoutingPathYou" = "Anda";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Bulan Ini";
+"attachmentsThisMonth" = "Bulan Ini";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Gagal mengirim";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "Baca";
+"read" = "Baca";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "Mengirim…";
+"sending" = "Mengirim…";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "Terkirim";
+"disappearingMessagesSent" = "Terkirim";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "Mengunggah...";
+"uploading" = "Mengunggah...";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ ke %@";
+"notificationsIosGroup" = "%@ ke %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Catatan Pribadi";
+"noteToSelf" = "Catatan Pribadi";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Anda mungkin telah menerima pesan ketika %@ Anda sedang memulai ulang.";
+"notificationsIosRestart" = "Anda mungkin telah menerima pesan ketika %@ Anda sedang memulai ulang.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "OK";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@menonaktifkan pesan tersembunyi";
+"disappearingMessagesTurnedOff" = "%@menonaktifkan pesan tersembunyi";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@mengatur waktu penghilangan pesan menjadi %@";
+"disappearingMessagesSet" = "%@mengatur waktu penghilangan pesan menjadi %@";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Tidak dapat menangkap gambar.";
+"cameraErrorUnavailable" = "Tidak dapat menangkap gambar.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Tidak dapat menangkap gambar.";
+"cameraErrorUnavailable" = "Tidak dapat menangkap gambar.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Gagal mengkonfigurasi kamera.";
+"cameraErrorUnavailable" = "Gagal mengkonfigurasi kamera.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Album tanpa nama";
+"attachmentsAlbumUnnamed" = "Album tanpa nama";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Tandai telah dibaca";
+"messageMarkRead" = "Tandai telah dibaca";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Balas";
+"reply" = "Balas";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Otentikasi untuk membuka Session.";
+"authenticateToOpen" = "Otentikasi untuk membuka Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Autentikasi gagal.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Autentikasi gagal.";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (bawaan)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@mgg";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Batal";
+"cancel" = "Batal";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Hapus";
+"delete" = "Hapus";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Ketuk dan tahan untuk merekam suara pesan";
+"messageVoiceErrorShort" = "Ketuk dan tahan untuk merekam suara pesan";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Nonaktif pesan tersembunyi";
+"disappearingMessagesTurnedOffYou" = "Nonaktif pesan tersembunyi";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Anda mengatur pesan tersembunyi pada %@.";
+"disappearingMessagesSetYou" = "Anda mengatur pesan tersembunyi pada %@.";
 // MARK: - Session
-"continue_2" = "Lanjut";
+"continue" = "Lanjut";
 "copy" = "Salin";
-"invalid_url" = "URL salah";
+"communityEnterUrlErrorInvalid" = "URL salah";
 "next" = "Selanjutnya";
 "share" = "Bagikan";
 "invalid_session_id" = "Session salah";
 "cancel" = "Batal";
-"your_session_id" = "Session ID anda";
-"vc_landing_title_2" = "Session anda dimulai di sini";
-"vc_landing_register_button_title" = "Buat Session ID";
-"vc_landing_restore_button_title" = "Lanjutkan Session";
-"vc_landing_link_button_title" = "Tautkan dengan akun";
+"accountIdYours" = "Session ID anda";
+"onboardingBubblePrivacyInYourPocket" = "Session anda dimulai di sini";
+"onboardingAccountCreate" = "Buat Session ID";
+"onboardingAccountExists" = "Lanjutkan Session";
+"onboardingAccountExists" = "Tautkan dengan akun";
 "view_fake_chat_bubble_1" = "Apa itu Session?";
 "view_fake_chat_bubble_2" = "Session adalah aplikasi pesan terenkripsi yang terdesentralisasi";
 "view_fake_chat_bubble_3" = "Bagaimana dengan pengumpulan informasi personal atau metadata percakapan? Bagaimana cara kerjanya?";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "Rekan yang baik tak membiarkan rekannya menggunakan aplikasi bertukar pesan yang tak aman. Terima kasih kembali.";
 "vc_register_title" = "Ucapkan halo pada Session ID anda";
 "vc_register_explanation" = "Session ID adalah alamat unik yang bisa digunakan untuk mengontak anda. Tanpa koneksi dengan identitas asli, Session ID anda didesain bersifat anonim dan rahasia.";
-"vc_restore_title" = "Kembalikan akun";
-"vc_restore_explanation" = "Masukkan kata pemulihan yang diberikan saat anda mencoba masuk ke akun";
-"vc_restore_seed_text_field_hint" = "masukan kata pemulihan";
-"vc_link_device_title" = "Tautkan perangkat";
-"vc_link_device_scan_qr_code_tab_title" = "Pindai kode QR";
-"vc_display_name_title_2" = "Pilih nama yang ditampilkan";
-"vc_display_name_explanation" = "Ini akan menjadi nama anda ketika menggunakan Session. Bisa merupakan nama asli, alias, atau apapun yang anda suka";
-"vc_display_name_text_field_hint" = "Masukkan nama";
-"vc_display_name_display_name_missing_error" = "Pilih nama yang ditampilkan";
-"vc_display_name_display_name_too_long_error" = "Nama yang dibuat terlalu panjang";
-"vc_pn_mode_recommended_option_tag" = "Direkomendasikan";
-"contactNone" = "Anda belum memiliki kontak";
+"onboardingAccountExists" = "Kembalikan akun";
+"recoveryPasswordExplanation" = "Masukkan kata pemulihan yang diberikan saat anda mencoba masuk ke akun";
+"recoveryPasswordEnter" = "masukan kata pemulihan";
+"onboardingAccountExists" = "Tautkan perangkat";
+"qrScan" = "Pindai kode QR";
+"displayNamePick" = "Pilih nama yang ditampilkan";
+"displayNameDescription" = "Ini akan menjadi nama anda ketika menggunakan Session. Bisa merupakan nama asli, alias, atau apapun yang anda suka";
+"displayNameEnter" = "Masukkan nama";
+"displayNameErrorDescription" = "Pilih nama yang ditampilkan";
+"displayNameErrorDescriptionShorter" = "Nama yang dibuat terlalu panjang";
+"recommended" = "Direkomendasikan";
+"conversationsNone" = "Anda belum memiliki kontak";
 "vc_home_empty_state_button_title" = "Mulai sebuah Session";
-"vc_seed_title" = "Kata pemulihan anda";
+"sessionRecoveryPassword" = "Kata pemulihan anda";
 "vc_seed_title_2" = "Inilah kata pemulihan anda";
 "vc_seed_explanation" = "Kata pemulihan adalah kunci Session ID -- bisa digunakan untuk mengembalikan Session ID ketika anda kehilangan perangkat. Simpan kata pemulihan di tempat yang aman dan jangan berikan kepada siapapun";
 "vc_seed_reveal_button_title" = "Tekan untuk melihat";
 "view_seed_reminder_subtitle_1" = "Amankan akun anda dengan menyimpan kata pemulihan";
 "view_seed_reminder_subtitle_2" = "Ketuk dan tekan kata yang disensor untuk mengetahui kata pemulihan anda, lalu simpan baik-baik untuk mengamnkan Session ID anda";
 "view_seed_reminder_subtitle_3" = "Pastikan untuk menyimpan kata pemulihan di tempat yang aman";
-"vc_path_title" = "Jalur";
-"vc_path_explanation" = "Session menyembunyikan IP dengan memantulkan pesan melalui berbagai simpul layanan di jaringan Session yang terdesentralisasi. Ini adalah negara yang menjadi lokasi pesan anda dipantulkan";
-"vc_path_device_row_title" = "Anda";
-"vc_path_guard_node_row_title" = "Simpul masuk";
-"vc_path_service_node_row_title" = "Simpul layanan";
-"vc_path_destination_row_title" = "Tujuan";
-"vc_path_learn_more_button_title" = "Pelajari lebih lanjut";
-"vc_create_private_chat_title" = "Pesan Baru";
-"vc_create_private_chat_enter_session_id_tab_title" = "Masukkan Session ID";
-"vc_create_private_chat_scan_qr_code_tab_title" = "Pindai kode QR";
+"onionRoutingPath" = "Jalur";
+"onionRoutingPathDescription" = "Session menyembunyikan IP dengan memantulkan pesan melalui berbagai simpul layanan di jaringan Session yang terdesentralisasi. Ini adalah negara yang menjadi lokasi pesan anda dipantulkan";
+"onionRoutingPathYou" = "Anda";
+"onionRoutingPathEntryNode" = "Simpul masuk";
+"onionRoutingPathServiceNode" = "Simpul layanan";
+"onionRoutingPathDestination" = "Tujuan";
+"learnMore" = "Pelajari lebih lanjut";
+"messageNew" = "Pesan Baru";
+"accountIdEnter" = "Masukkan Session ID";
+"qrScan" = "Pindai kode QR";
 "vc_enter_public_key_explanation" = "Mulai percakapan baru dengan memasukkan ID Session seseorang atau bagikan ID Session Anda dengan mereka.";
-"vc_scan_qr_code_camera_access_explanation" = "Session membutuhkan akses kamera untuk memindai kode QR";
-"vc_create_closed_group_title" = "Buat Grup";
-"vc_create_closed_group_text_field_hint" = "Masukkan nama grup";
-"contactNone" = "anda belum memiliki kontak";
-"vc_create_closed_group_group_name_missing_error" = "Masukkan nama grup";
-"vc_create_closed_group_group_name_too_long_error" = "Masukkan nama grup yang lebih pendek";
-"vc_create_closed_group_too_many_group_members_error" = "Grup tertutup maksimal berisi 100 anggota";
-"vc_join_public_chat_title" = "Gabung dengan Komunitas";
-"vc_join_public_chat_enter_group_url_tab_title" = "Tautan Komunitas";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Pindai kode QR";
-"vc_enter_chat_url_text_field_hint" = "Masukkan Tautan Komunitas";
-"vc_settings_title" = "Pengaturan";
+"cameraGrantAccessQr" = "Session membutuhkan akses kamera untuk memindai kode QR";
+"groupCreate" = "Buat Grup";
+"groupNameEnter" = "Masukkan nama grup";
+"conversationsNone" = "anda belum memiliki kontak";
+"groupNameEnterPlease" = "Masukkan nama grup";
+"groupNameEnterShorter" = "Masukkan nama grup yang lebih pendek";
+"groupAddMemberMaximum" = "Grup tertutup maksimal berisi 100 anggota";
+"communityJoin" = "Gabung dengan Komunitas";
+"communityUrl" = "Tautan Komunitas";
+"qrScan" = "Pindai kode QR";
+"communityEnterUrl" = "Masukkan Tautan Komunitas";
+"sessionSettings" = "Pengaturan";
 "vc_group_settings_title" = "Pengaturan grup";
-"vc_settings_display_name_missing_error" = "Pilih sebuah nama";
-"vc_settings_display_name_too_long_error" = "Nama yang dibuat terlalu panjang";
-"vc_settings_privacy_button_title" = "Privasi";
-"vc_settings_notifications_button_title" = "Notifikasi";
-"vc_settings_recovery_phrase_button_title" = "Kata pemulihan";
-"vc_settings_clear_all_data_button_title" = "Hapus data";
-"vc_qr_code_title" = "Kode QR";
-"vc_qr_code_view_my_qr_code_tab_title" = "Lihat kode QR saya";
-"vc_qr_code_view_scan_qr_code_tab_title" = "Pindai kode QR";
+"displayNameErrorDescription" = "Pilih sebuah nama";
+"displayNameErrorDescriptionShorter" = "Nama yang dibuat terlalu panjang";
+"sessionPrivacy" = "Privasi";
+"sessionNotifications" = "Notifikasi";
+"sessionRecoveryPassword" = "Kata pemulihan";
+"sessionClearData" = "Hapus data";
+"qrCode" = "Kode QR";
+"view" = "Lihat kode QR saya";
+"qrScan" = "Pindai kode QR";
 "vc_qr_code_view_scan_qr_code_explanation" = "Pindai kode QR pengguna lain untuk memulai percakapan";
-"vc_view_my_qr_code_explanation" = "Ini adalah kode QR anda. Pengguna lain bisa memindainya untuk memulai percakapan dengan anda";
+"qrYoursDescription" = "Ini adalah kode QR anda. Pengguna lain bisa memindainya untuk memulai percakapan dengan anda";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Anda akan menerima pesan baru dengan andal dan cepat menggunakan server notifikasi Apple.";
 "notificationsFastMode" = "Mode Cepat";
-"slow_mode_explanation" = "Session sesekali akan memeriksa pesan baru di latar belakang.";
+"notificationsSlowModeDescription" = "Session sesekali akan memeriksa pesan baru di latar belakang.";
 "notificationsSlowMode" = "Mode Lambat";
-"vc_pn_mode_title" = "Notifikasi Pesan";
-"vc_link_device_recovery_phrase_tab_title" = "Frasa Pemulihan";
+"notificationsMessage" = "Notifikasi Pesan";
+"sessionRecoveryPassword" = "Frasa Pemulihan";
 "vc_link_device_scan_qr_code_explanation" = "Arahkan ke Pengaturan → Frasa Pemulihan di perangkat Anda yang lain untuk menampilkan kode QR Anda.";
-"vc_enter_recovery_phrase_title" = "Frasa Pemulihan";
+"sessionRecoveryPassword" = "Frasa Pemulihan";
 "vc_enter_recovery_phrase_explanation" = "Untuk menautkan perangkat Anda, masukkan frasa pemulihan yang diberikan kepada Anda saat mendaftar.";
-"accountIdOrOnsEnter" = "Masukkan ID Session atau nama ONS";
-"admin_group_leave_warning" = "Karena Anda adalah pembuat grup ini, grup ini akan dihapus untuk semua orang. Hal ini tidak dapat dibatalkan.";
-"vc_join_open_group_suggestions_title" = "Atau gabung salah satu dari ini...";
-"vc_settings_invite_a_friend_button_title" = "Undang Teman";
+"accountIdEnterYourFriends" = "Masukkan ID Session atau nama ONS";
+"groupOnlyAdmin" = "Karena Anda adalah pembuat grup ini, grup ini akan dihapus untuk semua orang. Hal ini tidak dapat dibatalkan.";
+"communityJoinOfficial" = "Atau gabung salah satu dari ini...";
+"sessionInviteAFriend" = "Undang Teman";
 "copied" = "Disalin";
-"vc_conversation_settings_copy_session_id_button_title" = "Salin ID Session";
-"vc_conversation_input_prompt" = "Pesan";
+"accountIDCopy" = "Salin ID Session";
+"message" = "Pesan";
 "vc_conversation_voice_message_cancel_message" = "Geser untuk Batal";
-"modal_download_attachment_title" = "Percayai %@?";
-"modal_download_attachment_explanation" = "Apakah Anda yakin ingin mengunduh media yang dikirim oleh %@?";
-"modal_download_button_title" = "Unduh";
-"modal_open_url_title" = "Buka Tautan?";
-"modal_open_url_explanation" = "Apakah Anda yakin ingin membuka %@?";
-"modal_open_url_button_title" = "Buka";
-"modal_copy_url_button_title" = "Salin Tautan";
-"modal_blocked_title" = "Buka blokir %@?";
-"modal_blocked_explanation" = "Apakah Anda yakin ingin membuka blokir %@?";
-"modal_blocked_button_title" = "Buka blokir";
-"modal_link_previews_title" = "Aktifkan Pratinjau Tautan?";
-"modal_link_previews_explanation" = "Mengaktifkan pratinjau tautan akan menampilkan pratinjau untuk URL yang anda kirim dan terima. Ini bisa berguna, tetapi Session perlu menghubungi situs web yang ditautkan untuk menghasilkan pratinjau. Anda selalu dapat menonaktifkan pratinjau tautan di pengaturan Session.";
-"modal_link_previews_button_title" = "Aktifkan";
-"vc_share_title" = "Bagikan ke Session";
-"vc_share_sending_message" = "Mengirim...";
-"vc_share_link_previews_unsecure" = "Pratinjau tidak dimuat untuk tautan yang tidak aman";
-"vc_share_link_previews_error" = "Tidak dapat memuat pratinjau";
+"attachmentsAutoDownloadModalTitle" = "Percayai %@?";
+"attachmentsAutoDownloadModalDescription" = "Apakah Anda yakin ingin mengunduh media yang dikirim oleh %@?";
+"download" = "Unduh";
+"urlOpen" = "Buka Tautan?";
+"urlOpenDescription" = "Apakah Anda yakin ingin membuka %@?";
+"open" = "Buka";
+"urlCopy" = "Salin Tautan";
+"blockUnblock" = "Buka blokir %@?";
+"blockUnblockDescription" = "Apakah Anda yakin ingin membuka blokir %@?";
+"blockUnblock" = "Buka blokir";
+"linkPreviewsEnable" = "Aktifkan Pratinjau Tautan?";
+"linkPreviewsFirstDescription" = "Mengaktifkan pratinjau tautan akan menampilkan pratinjau untuk URL yang anda kirim dan terima. Ini bisa berguna, tetapi Session perlu menghubungi situs web yang ditautkan untuk menghasilkan pratinjau. Anda selalu dapat menonaktifkan pratinjau tautan di pengaturan Session.";
+"enable" = "Aktifkan";
+"shareToSession" = "Bagikan ke Session";
+"sending" = "Mengirim...";
+"linkPreviewsErrorUnsecure" = "Pratinjau tidak dimuat untuk tautan yang tidak aman";
+"linkPreviewsErrorLoad" = "Tidak dapat memuat pratinjau";
 "vc_share_link_previews_disabled_title" = "Pratinjau Tautan Dinonaktifkan";
 "vc_share_link_previews_disabled_explanation" = "Mengaktifkan pratinjau tautan akan menampilkan pratinjau untuk URL yang Anda bagikan. Ini bisa berguna, tetapi Session perlu menghubungi situs web tertaut untuk membuat pratinjau.\n\nAnda dapat mengaktifkan pratinjau tautan di setelan Session.";
-"view_open_group_invitation_description" = "Undangan grup terbuka";
+"communityInvitation" = "Undangan grup terbuka";
 "vc_conversation_settings_invite_button_title" = "Tambah Anggota";
-"modal_send_seed_title" = "Peringatan";
-"modal_send_seed_explanation" = "Ini adalah frasa pemulihan Anda. Jika Anda mengirimkannya ke seseorang, mereka akan memiliki akses penuh ke akun Anda.";
-"modal_send_seed_send_button_title" = "Kirim";
+"warning" = "Peringatan";
+"recoveryPasswordWarningSendDescription" = "Ini adalah frasa pemulihan Anda. Jika Anda mengirimkannya ke seseorang, mereka akan memiliki akses penuh ke akun Anda.";
+"send" = "Kirim";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Beri Tahu Hanya untuk Sebutan";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "Saat diaktifkan, Anda hanya akan diberi tahu untuk pesan yang menyebut Anda.";
-"view_conversation_title_notify_for_mentions_only" = "Beri Tahu Hanya untuk Sebutan";
-"message_deleted" = "Pesan ini telah dihapus";
-"delete_message_for_me" = "Hapus untuk saya";
-"delete_message_for_everyone" = "Hapus untuk semua orang";
-"delete_message_for_me_and_recipient" = "Hapus untuk saya dan %@";
-"context_menu_reply" = "Balas";
-"context_menu_save" = "Simpan";
-"context_menu_ban_user" = "Blokir Pengguna";
+"notificationsMentionsOnly" = "Beri Tahu Hanya untuk Sebutan";
+"deleteMessageDeleted" = "Pesan ini telah dihapus";
+"clearMessagesForMe" = "Hapus untuk saya";
+"clearMessagesForEveryone" = "Hapus untuk semua orang";
+"clearMessagesForEveryone" = "Hapus untuk saya dan %@";
+"reply" = "Balas";
+"save" = "Simpan";
+"banUser" = "Blokir Pengguna";
 "context_menu_ban_and_delete_all" = "Blokir dan Hapus Semua";
 "context_menu_ban_user_error_alert_message" = "Gagal untuk memblokir pengguna";
 "accessibility_expanding_attachments_button" = "Tambah lampiran";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "Dokumen";
 "accessibility_main_button_collapse" = "Kecilkan opsi lampiran";
-"invalid_recovery_phrase" = "Frasa Pemulihan Tidak Valid";
-"DISMISS_BUTTON_TEXT" = "Buang";
+"recoveryPasswordErrorTitle" = "Frasa Pemulihan Tidak Valid";
+"dismiss" = "Buang";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Pengaturan";
-"call_outgoing" = "Anda memanggil %@";
-"call_incoming" = "%@ memanggil Anda";
-"call_missed" = "Panggilan Tak Terjawab dari %@";
-"APN_Message" = "Anda menerima pesan baru.";
-"APN_Collapsed_Messages" = "Anda menerima pesan baru %@.";
-"PIN_BUTTON_TEXT" = "Semat";
-"UNPIN_BUTTON_TEXT" = "Lepaskan";
-"modal_call_missed_tips_title" = "Panggilan tak terjawab";
-"modal_call_missed_tips_explanation" = "Panggilan tidak terjawab dari '%@' karena Anda perlu mengaktifkan izin 'Panggilan suara dan video' di Pengaturan Privasi.";
-"media_saved" = "Media disimpan oleh %@.";
-"screenshot_taken" = "%@ mengambil tangkapan layar.";
-"SEARCH_SECTION_CONTACTS" = "Kontak & Grup";
-"SEARCH_SECTION_MESSAGES" = "Pesan";
-"MESSAGE_REQUESTS_TITLE" = "Permintaan Pesan";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "Tidak ada permintaan pesan tertunda";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Hapus Semua";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Apakah Anda yakin ingin menghapus semua permintaan pesan?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Hapus";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Apakah Anda yakin ingin menolak permintaan pesan ini?";
+"sessionSettings" = "Pengaturan";
+"callsYouCalled" = "Anda memanggil %@";
+"callsCalledYou" = "%@ memanggil Anda";
+"callsMissedCallFrom" = "Panggilan Tak Terjawab dari %@";
+"messageNewYouveGotA" = "Anda menerima pesan baru.";
+"messageNewYouveGotMany" = "Anda menerima pesan baru %@.";
+"pin" = "Semat";
+"pinUnpin" = "Lepaskan";
+"callsMissed" = "Panggilan tak terjawab";
+"callsYouMissedCallPermissions" = "Panggilan tidak terjawab dari '%@' karena Anda perlu mengaktifkan izin 'Panggilan suara dan video' di Pengaturan Privasi.";
+"attachmentsMediaSaved" = "Media disimpan oleh %@.";
+"screenshotTaken" = "%@ mengambil tangkapan layar.";
+"sessionConversations" = "Kontak & Grup";
+"messages" = "Pesan";
+"sessionMessageRequests" = "Permintaan Pesan";
+"messageRequestsNonePending" = "Tidak ada permintaan pesan tertunda";
+"clearAll" = "Hapus Semua";
+"messageRequestsClearAllExplanation" = "Apakah Anda yakin ingin menghapus semua permintaan pesan?";
+"clear" = "Hapus";
+"messageRequestsDelete" = "Apakah Anda yakin ingin menolak permintaan pesan ini?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Apakah Anda yakin ingin memblokir kontak ini?";
-"MESSAGE_REQUESTS_INFO" = "Mengirim pesan ke pengguna ini akan secara otomatis menerima permintaan pesan mereka dan mengungkapkan ID Session Anda.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Permintaan pesan Anda telah diterima.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "Anda mendapatkan permintaan pesan baru";
-"TXT_HIDE_TITLE" = "Sembunyikan";
-"TXT_DELETE_ACCEPT" = "Terima";
+"messageRequestsAcceptDescription" = "Mengirim pesan ke pengguna ini akan secara otomatis menerima permintaan pesan mereka dan mengungkapkan ID Session Anda.";
+"messageRequestsAccepted" = "Permintaan pesan Anda telah diterima.";
+"messageRequestsNew" = "Anda mendapatkan permintaan pesan baru";
+"hide" = "Sembunyikan";
+"accept" = "Terima";
 "TXT_BLOCK_USER_TITLE" = "Blokir Pengguna";
 "error" = "Kesalahan";
-"modal_call_permission_request_title" = "Izin Panggilan Diperlukan";
-"modal_call_permission_request_explanation" = "Anda dapat mengaktifkan izin 'Panggilan suara dan video' di Pengaturan Privasi.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Ups, terjadi kesalahan";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Silakan coba lagi nanti";
+"callsPermissionsRequired" = "Izin Panggilan Diperlukan";
+"callsPermissionsRequiredDescription" = "Anda dapat mengaktifkan izin 'Panggilan suara dan video' di Pengaturan Privasi.";
+"communityError" = "Ups, terjadi kesalahan";
+"communityErrorDescription" = "Silakan coba lagi nanti";
 "LOADING_CONVERSATIONS" = "Memuat percakapan...";
 "DATABASE_MIGRATION_FAILED" = "Terjadi kesalahan saat mengoptimalkan database\n\nAnda dapat mengekspor log aplikasi Anda agar dapat dibagikan untuk pemecahan masalah atau Anda dapat memulihkan perangkat Anda\n\nPeringatan: Memulihkan perangkat Anda akan mengakibatkan hilangnya data apa pun yang lebih lama dari dua minggu";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Ada yang salah. Silakan periksa frase pemulihan Anda dan coba lagi.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Sepertinya Anda tidak memasukkan cukup kata. Silakan periksa frase pemulihan Anda dan coba lagi.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "Sepertinya Anda melewatkan kata terakhir dari frasa pemulihan Anda. Harap periksa apa yang Anda masukkan dan coba lagi.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "Tampaknya ada kata yang tidak valid dalam frasa pemulihan Anda. Harap periksa apa yang Anda masukkan dan coba lagi.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Frasa pemulihan Anda tidak dapat diverifikasi. Harap periksa apa yang Anda masukkan dan coba lagi.";
+"recoveryPasswordErrorMessageGeneric" = "Ada yang salah. Silakan periksa frase pemulihan Anda dan coba lagi.";
+"recoveryPasswordErrorMessageShort" = "Sepertinya Anda tidak memasukkan cukup kata. Silakan periksa frase pemulihan Anda dan coba lagi.";
+"recoveryPasswordErrorMessageShort" = "Sepertinya Anda melewatkan kata terakhir dari frasa pemulihan Anda. Harap periksa apa yang Anda masukkan dan coba lagi.";
+"recoveryPasswordErrorMessageIncorrect" = "Tampaknya ada kata yang tidak valid dalam frasa pemulihan Anda. Harap periksa apa yang Anda masukkan dan coba lagi.";
+"recoveryPasswordErrorMessageGeneric" = "Frasa pemulihan Anda tidak dapat diverifikasi. Harap periksa apa yang Anda masukkan dan coba lagi.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Autentikasi tidak dapat diakses.";
+"authenticateNotAccessed" = "Autentikasi tidak dapat diakses.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Autentikasi gagal.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Autentikasi gagal.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Terlalu banyak upaya autentikasi yang gagal. Silakan coba lagi nanti.";
+"authenticateFailedTooManyAttempts" = "Terlalu banyak upaya autentikasi yang gagal. Silakan coba lagi nanti.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Anda harus mengaktifkan kode sandi di Pengaturan iOS untuk menggunakan Kunci Layar.";
+"lockAppEnablePasscode" = "Anda harus mengaktifkan kode sandi di Pengaturan iOS untuk menggunakan Kunci Layar.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Anda harus mengaktifkan kode sandi di Pengaturan iOS untuk menggunakan Kunci Layar.";
+"lockAppEnablePasscode" = "Anda harus mengaktifkan kode sandi di Pengaturan iOS untuk menggunakan Kunci Layar.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Anda harus mengaktifkan kode sandi di Pengaturan iOS untuk menggunakan Kunci Layar.";
+"lockAppEnablePasscode" = "Anda harus mengaktifkan kode sandi di Pengaturan iOS untuk menggunakan Kunci Layar.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Kirim";
+"send" = "Kirim";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Coba lagi";
+"retry" = "Coba lagi";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Pesan Anda gagal terkirim.";
+"messageErrorDelivery" = "Pesan Anda gagal terkirim.";
 "INVALID_SESSION_ID_MESSAGE" = "Periksa ID Session dan coba lagi.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Silakan periksa Frasa Pemulihan dan coba lagi.";
+"recoveryPasswordErrorMessageGeneric" = "Silakan periksa Frasa Pemulihan dan coba lagi.";
 "media" = "Media";
 "DOCUMENT_TAB_TITLE" = "Dokumen";
 "attachmentsFilesEmpty" = "Anda tidak memiliki media apapun dalam percakapan ini.";
@@ -507,16 +513,16 @@
 "helpWedLoveYourFeedback" = "Kami ingin masukan Anda";
 "helpFAQ" = "FAQ";
 "helpSupport" = "Dukungan";
-"modal_clear_all_data_title" = "Hapus semua data";
-"modal_clear_all_data_explanation" = "Tindakan ini akan menghapus pesan dan kontak Anda secara permanen. Apakah Anda ingin menghapus hanya di perangkat ini saja, atau juga menghapus data Anda dari jaringan?";
+"clearDataAll" = "Hapus semua data";
+"clearDataAllDescription" = "Tindakan ini akan menghapus pesan dan kontak Anda secara permanen. Apakah Anda ingin menghapus hanya di perangkat ini saja, atau juga menghapus data Anda dari jaringan?";
 "clearDeviceAndNetworkConfirm" = "Apakah Anda yakin ingin menghapus data Anda dari jaringan? Jika Anda melanjutkan, Anda tidak akan dapat memulihkan pesan atau kontak Anda.";
-"modal_clear_all_data_device_only_button_title" = "Hapus di Perangkat Saja";
-"modal_clear_all_data_entire_account_button_title" = "Hapus di Perangkat dan Jaringan";
-"dialog_clear_all_data_deletion_failed_1" = "Data tidak dihapus oleh 1 Service Node. Service Node ID: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Data tidak dihapus oleh %@ Service Nodes. Service Node IDs: %@.";
+"clearDeviceOnly" = "Hapus di Perangkat Saja";
+"clearDeviceAndNetwork" = "Hapus di Perangkat dan Jaringan";
+"clearDataErrorDescription1" = "Data tidak dihapus oleh 1 Service Node. Service Node ID: %@.";
+"clearDataErrorDescription2" = "Data tidak dihapus oleh %@ Service Nodes. Service Node IDs: %@.";
 "modal_clear_all_data_confirm" = "Hapus";
-"modal_seed_title" = "Kata pemulihan anda";
-"modal_seed_explanation" = "Anda dapat menggunakan frasa pemulihan untuk memulihkan akun atau menautkan perangkat.";
+"sessionRecoveryPassword" = "Kata pemulihan anda";
+"recoveryPasswordDescription" = "Anda dapat menggunakan frasa pemulihan untuk memulihkan akun atau menautkan perangkat.";
 "modal_permission_explanation" = "Session membutuhkan %@ akses untuk melanjutkan. Anda dapat mengaktifkan akses di pengaturan iOS.";
 "modal_permission_settings_title" = "Pengaturan";
 "modal_permission_camera" = "kamera";
@@ -691,10 +697,10 @@
 "groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"conversationsDelete" = "Delete Conversation";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"conversationsDeleteDescription" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Hide Note to Self";

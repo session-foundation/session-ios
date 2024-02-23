@@ -238,19 +238,19 @@ public extension CallMessage {
             switch state {
                 case .incoming:
                     return String(
-                        format: "call_incoming".localized(),
+                        format: "callsCalledYou".localized(),
                         threadContactDisplayName
                     )
                     
                 case .outgoing:
                     return String(
-                        format: "call_outgoing".localized(),
+                        format: "callsYouCalled".localized(),
                         threadContactDisplayName
                     )
                     
                 case .missed, .permissionDenied:
                     return String(
-                        format: "call_missed".localized(),
+                        format: "callsMissedCallFrom".localized(),
                         threadContactDisplayName
                     )
                 

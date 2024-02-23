@@ -68,7 +68,7 @@ public enum GroupLeavingJob: JobExecutor {
                     let successfulChanges: [ConfigColumnAssignment] = [
                         Interaction.Columns.variant
                             .set(to: Interaction.Variant.infoClosedGroupCurrentUserLeft),
-                        Interaction.Columns.body.set(to: "GROUP_YOU_LEFT".localized())
+                        Interaction.Columns.body.set(to: "groupMemberYouLeft".localized())
                     ]
                     
                     // Handle the appropriate response

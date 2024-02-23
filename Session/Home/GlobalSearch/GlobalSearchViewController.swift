@@ -390,8 +390,8 @@ extension GlobalSearchViewController {
         
         switch section.model {
             case .noResults: return nil
-            case .contactsAndGroups: return (section.elements.isEmpty ? nil : "SEARCH_SECTION_CONTACTS".localized())
-            case .messages: return (section.elements.isEmpty ? nil : "SEARCH_SECTION_MESSAGES".localized())
+            case .contactsAndGroups: return (section.elements.isEmpty ? nil : "sessionConversations".localized())
+            case .messages: return (section.elements.isEmpty ? nil : "messages".localized())
         }
     }
 

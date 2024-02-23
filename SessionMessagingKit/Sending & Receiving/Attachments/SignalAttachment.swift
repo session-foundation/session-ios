@@ -43,19 +43,19 @@ extension SignalAttachmentError: LocalizedError {
         case .missingData:
             return NSLocalizedString("ATTACHMENT_ERROR_MISSING_DATA", comment: "Attachment error message for attachments without any data")
         case .fileSizeTooLarge:
-            return NSLocalizedString("ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE", comment: "Attachment error message for attachments whose data exceed file size limits")
+            return NSLocalizedString("attachmentsErrorSize", comment: "Attachment error message for attachments whose data exceed file size limits")
         case .invalidData:
-            return NSLocalizedString("ATTACHMENT_ERROR_INVALID_DATA", comment: "Attachment error message for attachments with invalid data")
+            return NSLocalizedString("attachmentsErrorNotSupported", comment: "Attachment error message for attachments with invalid data")
         case .couldNotParseImage:
             return NSLocalizedString("ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE", comment: "Attachment error message for image attachments which cannot be parsed")
         case .couldNotConvertToJpeg:
             return NSLocalizedString("ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG", comment: "Attachment error message for image attachments which could not be converted to JPEG")
         case .invalidFileFormat:
-            return NSLocalizedString("ATTACHMENT_ERROR_INVALID_FILE_FORMAT", comment: "Attachment error message for attachments with an invalid file format")
+            return NSLocalizedString("attachmentsErrorNotSupported", comment: "Attachment error message for attachments with an invalid file format")
         case .couldNotConvertToMpeg4:
             return NSLocalizedString("ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4", comment: "Attachment error message for video attachments which could not be converted to MP4")
         case .couldNotRemoveMetadata:
-            return NSLocalizedString("ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA", comment: "Attachment error message for image attachments in which metadata could not be removed")
+            return NSLocalizedString("attachmentsImageErrorMetadata", comment: "Attachment error message for image attachments in which metadata could not be removed")
         case .couldNotResizeImage:
             return NSLocalizedString("ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE", comment: "Attachment error message for image attachments which could not be resized")
         }

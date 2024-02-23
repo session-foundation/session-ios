@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "添付ファイル";
+"attachment" = "添付ファイル";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "ファイルの種類：%@";
+"attachmentsFileType" = "ファイルの種類：%@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "サイズ：%@";
+"attachmentsFileSize" = "サイズ：%@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "メッセージの上限に達しました。";
+"messageErrorLimit" = "メッセージの上限に達しました。";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "送信";
+"send" = "送信";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "添付ファイル";
+"attachment" = "添付ファイル";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "添付ファイルの送信エラー";
+"attachmentsErrorSending" = "添付ファイルの送信エラー";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "画像を変換できません。";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "画像の解析に失敗しました。";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "画像からメタデータを消去できませんでした。";
+"attachmentsImageErrorMetadata" = "画像からメタデータを消去できませんでした。";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "画像のサイズを変換できません。";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "添付ファイルのサイズが大きすぎます。";
+"attachmentsErrorSize" = "添付ファイルのサイズが大きすぎます。";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "添付ファイルに無効なコンテンツが含まれています。";
+"attachmentsErrorNotSupported" = "添付ファイルに無効なコンテンツが含まれています。";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "添付ファイルに無効なファイル形式があります";
+"attachmentsErrorNotSupported" = "添付ファイルに無効なファイル形式があります";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "添付ファイルの中身が空です";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "ドキュメントの選択に失敗しました";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "ファイルやディレクトリを圧縮して再送信してみてください。";
+"attachmentsErrorSize" = "ファイルやディレクトリを圧縮して再送信してみてください。";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "未対応ファイル";
+"attachmentsErrorNotSupported" = "未対応ファイル";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "音声メッセージ";
+"messageVoice" = "音声メッセージ";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "ブロックする";
+"block" = "ブロックする";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "%@ をブロックしますか？";
+"block" = "%@ をブロックしますか？";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "%@のブロックを解除しますか？";
+"blockUnblock" = "%@のブロックを解除しますか？";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "ブロックを解除する";
+"blockUnblock" = "ブロックを解除する";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "ブロックされたユーザは、あなたにメッセージや通話を発信することができなくなります。";
 /* Label for generic done button. */
-"BUTTON_DONE" = "完了";
+"done" = "完了";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "選択";
+"select" = "選択";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "検索中です。。。";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "見つかりません";
+"searchMatchesNoneSpecific" = "見つかりません";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "ありました";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d （ %d のうち）";
+"searchMatches" = "%d （ %d のうち）";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "このユーザをブロックする";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "会話の検索";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "編集";
+"attachmentsMoveAndScale" = "編集";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "数分かかる可能性があります。";
+"waitFewMinutes" = "数分かかる可能性があります。";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "データベースを更新中";
+"databaseOptimizing" = "データベースを更新中";
 /* The present; the current time. */
 "DATE_NOW" = "現在";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "グループを編集";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "この会話にはメディアがありません。";
+"attachmentsMediaEmpty" = "この会話にはメディアがありません。";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "新しいメディアを読み込んでいます...";
+"attachmentsLoadingNewer" = "新しいメディアを読み込んでいます...";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "古いメディアを読み込んでいます...";
+"attachmentsLoadingOlder" = "古いメディアを読み込んでいます...";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "GIFの取り込みに失敗しました。ネットに接続しているか確認してください。";
+"errorUnknown" = "GIFの取り込みに失敗しました。ネットに接続しているか確認してください。";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "未知のエラー";
+"errorUnknown" = "未知のエラー";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "GIFを選べません";
+"errorUnknown" = "GIFを選べません";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "検索語を入力してください";
+"searchEnter" = "検索語を入力してください";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "エラーです。タップして再試行してください。";
+"searchMatchesNone" = "エラーです。タップして再試行してください。";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "該当なし";
+"searchMatchesNone" = "該当なし";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "グループが作成されました";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@がグループに加わりました ";
+"groupMemberNew" = "%@がグループに加わりました ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ がグループを退会しました. ";
+"groupMemberLeft" = "%@ がグループを退会しました. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ はグループから削除されました。 ";
+"groupRemoved" = "%@ はグループから削除されました。 ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ はグループから削除されました。 ";
+"groupRemovedMore" = "%@ はグループから削除されました。 ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "タイトルが「%@」に変更されました";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "グループを更新しました";
+"groupUpdated" = "グループを更新しました";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "グループを離れました";
+"groupMemberYouLeft" = "グループを離れました";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " あなたはこのグループから削除されました ";
+"groupRemovedYou" = " あなたはこのグループから削除されました ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "画像の共有は%@点までです。";
+"attachmentsErrorNumber" = "画像の共有は%@点までです。";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "添付ファイルを選択できませんでした";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "無効な音声ファイル";
+"audioUnableToPlay" = "無効な音声ファイル";
 /* Confirmation button within contextual alert */
 "leave" = "離脱";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "グループを離脱";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "すべてのメディア";
+"conversationsSettingsAllMedia" = "すべてのメディア";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "%d個のメッセージを削除";
+"deleteMessages" = "%d個のメッセージを削除";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "メッセージを削除";
+"deleteMessage" = "メッセージを削除";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ - %@";
+"attachmentsMedia" = "%@ - %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "あなた";
+"onionRoutingPathYou" = "あなた";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "今月";
+"attachmentsThisMonth" = "今月";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "送信失敗";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "既読";
+"read" = "既読";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "送信しています...";
+"sending" = "送信しています...";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "送信済み";
+"disappearingMessagesSent" = "送信済み";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "アップロード中";
+"uploading" = "アップロード中";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ から %@";
+"notificationsIosGroup" = "%@ から %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "自分のためのメモ";
+"noteToSelf" = "自分のためのメモ";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "%@の再起動中にメッセージが届いたかもしれません";
+"notificationsIosRestart" = "%@の再起動中にメッセージが届いたかもしれません";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "OK";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@がメッセージの消失をオフにしました";
+"disappearingMessagesTurnedOff" = "%@がメッセージの消失をオフにしました";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@がメッセージの消失時間を%@に設定しました";
+"disappearingMessagesSet" = "%@がメッセージの消失時間を%@に設定しました";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "画像はキャプチャできません";
+"cameraErrorUnavailable" = "画像はキャプチャできません";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "画像はキャプチャできません";
+"cameraErrorUnavailable" = "画像はキャプチャできません";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "カメラの設定ができませんでした";
+"cameraErrorUnavailable" = "カメラの設定ができませんでした";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "無名のアルバム";
+"attachmentsAlbumUnnamed" = "無名のアルバム";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "既読にする";
+"messageMarkRead" = "既読にする";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "返信";
+"reply" = "返信";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Sessionの起動認証";
+"authenticateToOpen" = "Sessionの起動認証";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "認証失敗";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "認証失敗";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@（デフォルト）";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@週間";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "キャンセル";
+"cancel" = "キャンセル";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "削除";
+"delete" = "削除";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "タップを保持して音声録音";
+"messageVoiceErrorShort" = "タップを保持して音声録音";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "消えるメッセージをオフにしました";
+"disappearingMessagesTurnedOffYou" = "消えるメッセージをオフにしました";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "消えるメッセージの消失時間を%@に設定しました";
+"disappearingMessagesSetYou" = "消えるメッセージの消失時間を%@に設定しました";
 // MARK: - Session
-"continue_2" = "続行する";
+"continue" = "続行する";
 "copy" = "コピーする";
-"invalid_url" = "URL が不正です";
+"communityEnterUrlErrorInvalid" = "URL が不正です";
 "next" = "次";
 "share" = "共有する";
 "invalid_session_id" = "Session ID が不正です";
 "cancel" = "取り消す";
-"your_session_id" = "あなたの Session ID";
-"vc_landing_title_2" = "ここから Session が始まります...";
-"vc_landing_register_button_title" = "Session ID を作成する";
-"vc_landing_restore_button_title" = "Session を続ける";
-"vc_landing_link_button_title" = "既存のアカウントにリンクする";
+"accountIdYours" = "あなたの Session ID";
+"onboardingBubblePrivacyInYourPocket" = "ここから Session が始まります...";
+"onboardingAccountCreate" = "Session ID を作成する";
+"onboardingAccountExists" = "Session を続ける";
+"onboardingAccountExists" = "既存のアカウントにリンクする";
 "view_fake_chat_bubble_1" = "Session とは？";
 "view_fake_chat_bubble_2" = "分散型の暗号化されたメッセージングアプリです";
 "view_fake_chat_bubble_3" = "個人情報や会話のメタデータは収集されませんか？どのように機能しますか？";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "友人は、セキュリティ侵害されたメッセンジャーを自らの友人に使用させません。どういたしまして。";
 "vc_register_title" = "Session ID をご紹介します";
 "vc_register_explanation" = "Session ID は、Session で連絡を取るために使用できる一意のアドレスです。本当のアイデンティティに関係なく、あなたの Session ID は設計上完全に匿名でプライベートです。";
-"vc_restore_title" = "アカウントを復元する";
-"vc_restore_explanation" = "アカウントを復元するためにサインアップしたときに与えられたリカバリーフレーズを入力します。";
-"vc_restore_seed_text_field_hint" = "リカバリーフレーズを入力してください";
-"vc_link_device_title" = "端末をリンクする";
-"vc_link_device_scan_qr_code_tab_title" = "QR コードをスキャンする";
-"vc_display_name_title_2" = "表示名を選択してください";
-"vc_display_name_explanation" = "これは、Session を使用するときの名前になります。あなたの本当の名前、エイリアス、またはあなたが好きな他のものに設定することができます。";
-"vc_display_name_text_field_hint" = "表示名を入力してください";
-"vc_display_name_display_name_missing_error" = "表示名を選択してください";
-"vc_display_name_display_name_too_long_error" = "短い表示名を選択してください";
-"vc_pn_mode_recommended_option_tag" = "オススメ";
-"contactNone" = "まだ連絡先がありません";
+"onboardingAccountExists" = "アカウントを復元する";
+"recoveryPasswordExplanation" = "アカウントを復元するためにサインアップしたときに与えられたリカバリーフレーズを入力します。";
+"recoveryPasswordEnter" = "リカバリーフレーズを入力してください";
+"onboardingAccountExists" = "端末をリンクする";
+"qrScan" = "QR コードをスキャンする";
+"displayNamePick" = "表示名を選択してください";
+"displayNameDescription" = "これは、Session を使用するときの名前になります。あなたの本当の名前、エイリアス、またはあなたが好きな他のものに設定することができます。";
+"displayNameEnter" = "表示名を入力してください";
+"displayNameErrorDescription" = "表示名を選択してください";
+"displayNameErrorDescriptionShorter" = "短い表示名を選択してください";
+"recommended" = "オススメ";
+"conversationsNone" = "まだ連絡先がありません";
 "vc_home_empty_state_button_title" = "Session を開始する";
-"vc_seed_title" = "あなたのリカバリーフレーズ";
+"sessionRecoveryPassword" = "あなたのリカバリーフレーズ";
 "vc_seed_title_2" = "リカバリーフレーズに合致する";
 "vc_seed_explanation" = "リカバリーフレーズは、Session ID のマスターキーです。端末にアクセスできなくなった場合、これを使用して Session ID を復元できます。リカバリーフレーズを安全な場所に保管し、誰にも教えないでください。";
 "vc_seed_reveal_button_title" = "ホールドして表示";
 "view_seed_reminder_subtitle_1" = "リカバリーフレーズを保存してアカウントを保護する";
 "view_seed_reminder_subtitle_2" = "編集された単語をタップして長押ししてリカバリーフレーズを表示し、それを安全に保管して Session ID を保護します。";
 "view_seed_reminder_subtitle_3" = "リカバリーフレーズは安全な場所に保管してください";
-"vc_path_title" = "パス";
-"vc_path_explanation" = "Session は、Sessionの分散型ネットワークの複数のサービスノードを介してメッセージをバウンスすることにより、IP を隠します。これらは、接続が現在バウンスされている国です。";
-"vc_path_device_row_title" = "あなた";
-"vc_path_guard_node_row_title" = "エントリーノード";
-"vc_path_service_node_row_title" = "サービスノード";
-"vc_path_destination_row_title" = "目的先";
-"vc_path_learn_more_button_title" = "詳細";
-"vc_create_private_chat_title" = "新着メッセージ";
-"vc_create_private_chat_enter_session_id_tab_title" = "Session ID を入力してください";
-"vc_create_private_chat_scan_qr_code_tab_title" = "QR コードをスキャンする";
+"onionRoutingPath" = "パス";
+"onionRoutingPathDescription" = "Session は、Sessionの分散型ネットワークの複数のサービスノードを介してメッセージをバウンスすることにより、IP を隠します。これらは、接続が現在バウンスされている国です。";
+"onionRoutingPathYou" = "あなた";
+"onionRoutingPathEntryNode" = "エントリーノード";
+"onionRoutingPathServiceNode" = "サービスノード";
+"onionRoutingPathDestination" = "目的先";
+"learnMore" = "詳細";
+"messageNew" = "新着メッセージ";
+"accountIdEnter" = "Session ID を入力してください";
+"qrScan" = "QR コードをスキャンする";
 "vc_enter_public_key_explanation" = "新しい会話を始めるには、セッションIDを入力するか、セッションIDを共有します。";
-"vc_scan_qr_code_camera_access_explanation" = "Session で QR コードをスキャンするにはカメラへのアクセスが必要です";
-"vc_create_closed_group_title" = "グループを作成";
-"vc_create_closed_group_text_field_hint" = "グループ名を入力してください";
-"contactNone" = "まだ連絡先がありません";
-"vc_create_closed_group_group_name_missing_error" = "グループ名を入力してください";
-"vc_create_closed_group_group_name_too_long_error" = "短いグループ名を入力してください";
-"vc_create_closed_group_too_many_group_members_error" = "非公開グループは 100 人を超えるメンバーを抱えることはできません";
-"vc_join_public_chat_title" = "コミュニティに参加する";
-"vc_join_public_chat_enter_group_url_tab_title" = "コミュニティ URL";
-"vc_join_public_chat_scan_qr_code_tab_title" = "QR コードをスキャンする";
-"vc_enter_chat_url_text_field_hint" = "コミュニティ URL を入力してください";
-"vc_settings_title" = "設定";
+"cameraGrantAccessQr" = "Session で QR コードをスキャンするにはカメラへのアクセスが必要です";
+"groupCreate" = "グループを作成";
+"groupNameEnter" = "グループ名を入力してください";
+"conversationsNone" = "まだ連絡先がありません";
+"groupNameEnterPlease" = "グループ名を入力してください";
+"groupNameEnterShorter" = "短いグループ名を入力してください";
+"groupAddMemberMaximum" = "非公開グループは 100 人を超えるメンバーを抱えることはできません";
+"communityJoin" = "コミュニティに参加する";
+"communityUrl" = "コミュニティ URL";
+"qrScan" = "QR コードをスキャンする";
+"communityEnterUrl" = "コミュニティ URL を入力してください";
+"sessionSettings" = "設定";
 "vc_group_settings_title" = "グループ設定";
-"vc_settings_display_name_missing_error" = "表示名を選択してください";
-"vc_settings_display_name_too_long_error" = "短い表示名を選択してください";
-"vc_settings_privacy_button_title" = "プライバシー";
-"vc_settings_notifications_button_title" = "通知";
-"vc_settings_recovery_phrase_button_title" = "リカバリーフレーズ";
-"vc_settings_clear_all_data_button_title" = "データを消去する";
-"vc_qr_code_title" = "QR コード";
-"vc_qr_code_view_my_qr_code_tab_title" = "私の QR コードを表示する";
-"vc_qr_code_view_scan_qr_code_tab_title" = "QR コードをスキャンする";
+"displayNameErrorDescription" = "表示名を選択してください";
+"displayNameErrorDescriptionShorter" = "短い表示名を選択してください";
+"sessionPrivacy" = "プライバシー";
+"sessionNotifications" = "通知";
+"sessionRecoveryPassword" = "リカバリーフレーズ";
+"sessionClearData" = "データを消去する";
+"qrCode" = "QR コード";
+"view" = "私の QR コードを表示する";
+"qrScan" = "QR コードをスキャンする";
 "vc_qr_code_view_scan_qr_code_explanation" = "誰かの QR コードをスキャンして、会話を始めましょう";
-"vc_view_my_qr_code_explanation" = "これはあなたの QR コードです。他のユーザーはそれをスキャンして、あなたとの Session を開始できます。";
+"qrYoursDescription" = "これはあなたの QR コードです。他のユーザーはそれをスキャンして、あなたとの Session を開始できます。";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Appleの通知サーバーの利用で、すぐかつ確実に新しいメッセージの受信を通知されます。";
 "notificationsFastMode" = "高速モード";
-"slow_mode_explanation" = "Sessionは時々バックグラウンドで新しいメッセージの受信をチェックします。";
+"notificationsSlowModeDescription" = "Sessionは時々バックグラウンドで新しいメッセージの受信をチェックします。";
 "notificationsSlowMode" = "低速モード";
-"vc_pn_mode_title" = "メッセージ通知";
-"vc_link_device_recovery_phrase_tab_title" = "リカバリーフレーズ";
+"notificationsMessage" = "メッセージ通知";
+"sessionRecoveryPassword" = "リカバリーフレーズ";
 "vc_link_device_scan_qr_code_explanation" = "QRコードを表示するのに、他のデバイスから「設定→リカバリーフレーズ」へナビゲートする";
-"vc_enter_recovery_phrase_title" = "リカバリーフレーズ";
+"sessionRecoveryPassword" = "リカバリーフレーズ";
 "vc_enter_recovery_phrase_explanation" = "デバイスをリンクするのに、サインアップした時に与えられたリカバリーフレーズを入力します。";
-"accountIdOrOnsEnter" = "Session IDを入力する";
-"admin_group_leave_warning" = "このグループの作成者なので、削除すると全てのメンバーが追い出されます。元に戻せません。";
-"vc_join_open_group_suggestions_title" = "または、以下のグループに参加する…";
-"vc_settings_invite_a_friend_button_title" = "友達を招待";
+"accountIdEnterYourFriends" = "Session IDを入力する";
+"groupOnlyAdmin" = "このグループの作成者なので、削除すると全てのメンバーが追い出されます。元に戻せません。";
+"communityJoinOfficial" = "または、以下のグループに参加する…";
+"sessionInviteAFriend" = "友達を招待";
 "copied" = "コピーしました";
-"vc_conversation_settings_copy_session_id_button_title" = "Session ID をコピーする";
-"vc_conversation_input_prompt" = "メッセージ";
+"accountIDCopy" = "Session ID をコピーする";
+"message" = "メッセージ";
 "vc_conversation_voice_message_cancel_message" = "スライドして取り消す";
-"modal_download_attachment_title" = "%@ を信頼しますか？";
-"modal_download_attachment_explanation" = "%@ が送信したメディアをダウンロードしてもよろしいですか？";
-"modal_download_button_title" = "ダウンロード";
-"modal_open_url_title" = "URLを開きますか？";
-"modal_open_url_explanation" = "%@を本当に開いてもよろしいですか？";
-"modal_open_url_button_title" = "開く";
-"modal_copy_url_button_title" = "リンクをコピーする";
-"modal_blocked_title" = "%@のブロックを解除しますか？";
-"modal_blocked_explanation" = "%@のブロックを解除してもよろしいですか?";
-"modal_blocked_button_title" = "ブロックを解除する";
-"modal_link_previews_title" = "リンクプレビューを有効にしますか？";
-"modal_link_previews_explanation" = "リンクプレビューを有効すると、URLを送受信する場合にプレビューが表示されます。これは便利ですが、プレビューを作成するのにSessionはそのウェブサイトに接続する必要があります。Sessionの設定から、リンクプレビューをいつでも無効にできます。";
-"modal_link_previews_button_title" = "有効にする";
-"vc_share_title" = "Sessionと共有";
-"vc_share_sending_message" = "送信中…";
-"vc_share_link_previews_unsecure" = "セキュアでないリンクのプレビューは読み込めません";
-"vc_share_link_previews_error" = "プレビューを読み込めません";
+"attachmentsAutoDownloadModalTitle" = "%@ を信頼しますか？";
+"attachmentsAutoDownloadModalDescription" = "%@ が送信したメディアをダウンロードしてもよろしいですか？";
+"download" = "ダウンロード";
+"urlOpen" = "URLを開きますか？";
+"urlOpenDescription" = "%@を本当に開いてもよろしいですか？";
+"open" = "開く";
+"urlCopy" = "リンクをコピーする";
+"blockUnblock" = "%@のブロックを解除しますか？";
+"blockUnblockDescription" = "%@のブロックを解除してもよろしいですか?";
+"blockUnblock" = "ブロックを解除する";
+"linkPreviewsEnable" = "リンクプレビューを有効にしますか？";
+"linkPreviewsFirstDescription" = "リンクプレビューを有効すると、URLを送受信する場合にプレビューが表示されます。これは便利ですが、プレビューを作成するのにSessionはそのウェブサイトに接続する必要があります。Sessionの設定から、リンクプレビューをいつでも無効にできます。";
+"enable" = "有効にする";
+"shareToSession" = "Sessionと共有";
+"sending" = "送信中…";
+"linkPreviewsErrorUnsecure" = "セキュアでないリンクのプレビューは読み込めません";
+"linkPreviewsErrorLoad" = "プレビューを読み込めません";
 "vc_share_link_previews_disabled_title" = "リンクのプレビューが無効です";
 "vc_share_link_previews_disabled_explanation" = "リンクプレビューを有効すると、URLを送受信する場合にプレビューが表示されます。これは便利ですが、プレビューを作成するのにSessionはそのウェブサイトに接続する必要があります。Sessionの設定から、リンクプレビューをいつでも無効にできます。";
-"view_open_group_invitation_description" = "公開グループからの招待";
+"communityInvitation" = "公開グループからの招待";
 "vc_conversation_settings_invite_button_title" = "メンバーを追加する";
-"modal_send_seed_title" = "警告";
-"modal_send_seed_explanation" = "これはあなたの復元フレーズです。もし誰かに送信すると、あなたのアカウントにフルアクセスできます。";
-"modal_send_seed_send_button_title" = "送信";
+"warning" = "警告";
+"recoveryPasswordWarningSendDescription" = "これはあなたの復元フレーズです。もし誰かに送信すると、あなたのアカウントにフルアクセスできます。";
+"send" = "送信";
 "vc_conversation_settings_notify_for_mentions_only_title" = "メンションのみ";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "有効にすると、あなたに言及するメッセージのみが通知されます。";
-"view_conversation_title_notify_for_mentions_only" = "メンションのみを通知する";
-"message_deleted" = "このメッセージは削除されました";
-"delete_message_for_me" = "自分の端末から削除";
-"delete_message_for_everyone" = "全員の端末から削除";
-"delete_message_for_me_and_recipient" = "自分と %@ の端末から削除する";
-"context_menu_reply" = "返信";
-"context_menu_save" = "保存";
-"context_menu_ban_user" = "ユーザーをBAN";
+"notificationsMentionsOnly" = "メンションのみを通知する";
+"deleteMessageDeleted" = "このメッセージは削除されました";
+"clearMessagesForMe" = "自分の端末から削除";
+"clearMessagesForEveryone" = "全員の端末から削除";
+"clearMessagesForEveryone" = "自分と %@ の端末から削除する";
+"reply" = "返信";
+"save" = "保存";
+"banUser" = "ユーザーをBAN";
 "context_menu_ban_and_delete_all" = "BANしてすべてを削除する";
 "context_menu_ban_user_error_alert_message" = "ユーザーをBANできません";
 "accessibility_expanding_attachments_button" = "添付ファイルを追加";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "ドキュメント";
 "accessibility_main_button_collapse" = "添付ファイルのオプションを閉じる";
-"invalid_recovery_phrase" = "無効な復元フレーズ";
-"DISMISS_BUTTON_TEXT" = "中止";
+"recoveryPasswordErrorTitle" = "無効な復元フレーズ";
+"dismiss" = "中止";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "設定";
-"call_outgoing" = "%@ に発信";
-"call_incoming" = "%@から着信";
-"call_missed" = "%@からの不在着信";
-"APN_Message" = "新しいメッセージがあります。";
-"APN_Collapsed_Messages" = "%@ 件の新規メッセージがあります。";
-"PIN_BUTTON_TEXT" = "ピン留め";
-"UNPIN_BUTTON_TEXT" = "ピン留めを外す";
-"modal_call_missed_tips_title" = "通話できません";
-"modal_call_missed_tips_explanation" = "プライバシー設定で「音声通話とビデオ通話」を許可していないため、%@から着信できませんでした。";
-"media_saved" = "メディアは%@によって保存されました。";
-"screenshot_taken" = "%@はスクリーンショットを撮りました。";
-"SEARCH_SECTION_CONTACTS" = "連絡先とグループ";
-"SEARCH_SECTION_MESSAGES" = "メッセージ";
-"MESSAGE_REQUESTS_TITLE" = "メッセージリクエスト";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "保留しているリクエストはありません";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "すべて消去";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "本当に全てのリクエストを消去しますか？";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "消去";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "本当にこのリクエストを削除しますか？";
+"sessionSettings" = "設定";
+"callsYouCalled" = "%@ に発信";
+"callsCalledYou" = "%@から着信";
+"callsMissedCallFrom" = "%@からの不在着信";
+"messageNewYouveGotA" = "新しいメッセージがあります。";
+"messageNewYouveGotMany" = "%@ 件の新規メッセージがあります。";
+"pin" = "ピン留め";
+"pinUnpin" = "ピン留めを外す";
+"callsMissed" = "通話できません";
+"callsYouMissedCallPermissions" = "プライバシー設定で「音声通話とビデオ通話」を許可していないため、%@から着信できませんでした。";
+"attachmentsMediaSaved" = "メディアは%@によって保存されました。";
+"screenshotTaken" = "%@はスクリーンショットを撮りました。";
+"sessionConversations" = "連絡先とグループ";
+"messages" = "メッセージ";
+"sessionMessageRequests" = "メッセージリクエスト";
+"messageRequestsNonePending" = "保留しているリクエストはありません";
+"clearAll" = "すべて消去";
+"messageRequestsClearAllExplanation" = "本当に全てのリクエストを消去しますか？";
+"clear" = "消去";
+"messageRequestsDelete" = "本当にこのリクエストを削除しますか？";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "この連絡先をブロックしてもよろしいですか？";
-"MESSAGE_REQUESTS_INFO" = "このユーザーにメッセージを送信すると、自動的にメッセージのリクエストが受け付けられ、あなたのセッションIDが公開されます。";
-"MESSAGE_REQUESTS_ACCEPTED" = "リクエストが承認されました";
-"MESSAGE_REQUESTS_NOTIFICATION" = "新しいリクエストがあります";
-"TXT_HIDE_TITLE" = "非表示";
-"TXT_DELETE_ACCEPT" = "許可";
+"messageRequestsAcceptDescription" = "このユーザーにメッセージを送信すると、自動的にメッセージのリクエストが受け付けられ、あなたのセッションIDが公開されます。";
+"messageRequestsAccepted" = "リクエストが承認されました";
+"messageRequestsNew" = "新しいリクエストがあります";
+"hide" = "非表示";
+"accept" = "許可";
 "TXT_BLOCK_USER_TITLE" = "ユーザーをブロック";
 "error" = "エラー";
-"modal_call_permission_request_title" = "許可が必要です";
-"modal_call_permission_request_explanation" = "プライバシー設定から音声とビデオ通話の許可を有効にできます。";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "エラーが発生してしまいました！";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "後でもう一度お試しください";
+"callsPermissionsRequired" = "許可が必要です";
+"callsPermissionsRequiredDescription" = "プライバシー設定から音声とビデオ通話の許可を有効にできます。";
+"communityError" = "エラーが発生してしまいました！";
+"communityErrorDescription" = "後でもう一度お試しください";
 "LOADING_CONVERSATIONS" = "会話データを読み込んでいます";
 "DATABASE_MIGRATION_FAILED" = "データベースの最適化時にエラーが発生しました\n\nトラブルシューティングのために共有するためにアプリケーションログをエクスポートするか、デバイスを復元することができます。\n\n警告: お使いのデバイスを復元すると、2週間以上のデータが失われます。";
-"RECOVERY_PHASE_ERROR_GENERIC" = "エラーが発生しました。接続を確認してもう一度やり直してください。";
-"RECOVERY_PHASE_ERROR_LENGTH" = "十分な単語を入力していないようです。復元フレーズを確認して、もう一度やり直してください。";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "復元フレーズの最後の単語が見つかりませんでした。入力したものを確認して、もう一度やり直してください。";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "復元フレーズに無効な単語が表示されます。入力した単語を確認して、もう一度お試しください。";
-"RECOVERY_PHASE_ERROR_FAILED" = "復元フレーズを確認できませんでした。入力したものを確認して、もう一度やり直してください。";
+"recoveryPasswordErrorMessageGeneric" = "エラーが発生しました。接続を確認してもう一度やり直してください。";
+"recoveryPasswordErrorMessageShort" = "十分な単語を入力していないようです。復元フレーズを確認して、もう一度やり直してください。";
+"recoveryPasswordErrorMessageShort" = "復元フレーズの最後の単語が見つかりませんでした。入力したものを確認して、もう一度やり直してください。";
+"recoveryPasswordErrorMessageIncorrect" = "復元フレーズに無効な単語が表示されます。入力した単語を確認して、もう一度お試しください。";
+"recoveryPasswordErrorMessageGeneric" = "復元フレーズを確認できませんでした。入力したものを確認して、もう一度やり直してください。";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "認証情報にアクセスできませんでした。";
+"authenticateNotAccessed" = "認証情報にアクセスできませんでした。";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "認証に失敗しました。";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "認証に失敗しました。";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "ログイン試行回数を超えました。しばらくして再度お試しください。";
+"authenticateFailedTooManyAttempts" = "ログイン試行回数を超えました。しばらくして再度お試しください。";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "画面ロックを使うにはiOSでパスコードを設定してください。";
+"lockAppEnablePasscode" = "画面ロックを使うにはiOSでパスコードを設定してください。";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "画面ロックを使うにはiOSでパスコードを設定してください。";
+"lockAppEnablePasscode" = "画面ロックを使うにはiOSでパスコードを設定してください。";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "画面ロックを使うにはiOSでパスコードを設定してください。";
+"lockAppEnablePasscode" = "画面ロックを使うにはiOSでパスコードを設定してください。";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "送信";
+"send" = "送信";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "再試行";
+"retry" = "再試行";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "メッセージの送信に失敗しました。";
+"messageErrorDelivery" = "メッセージの送信に失敗しました。";
 "INVALID_SESSION_ID_MESSAGE" = "セッションIDを確認してもう一度やり直してください";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "リカバリーフレーズを確認してもう一度やり直してください。";
+"recoveryPasswordErrorMessageGeneric" = "リカバリーフレーズを確認してもう一度やり直してください。";
 "media" = "メディア";
 "DOCUMENT_TAB_TITLE" = "ドキュメント";
 "attachmentsFilesEmpty" = "この会話にはドキュメントがありません。";
@@ -506,16 +512,16 @@
 "helpWedLoveYourFeedback" = "ご意見をお聞かせください。";
 "helpFAQ" = "よくある質問";
 "helpSupport" = "サポート";
-"modal_clear_all_data_title" = "すべてのデータを消去する";
-"modal_clear_all_data_explanation" = "これにより、メッセージと連絡先が完全に削除されます。このデバイスのみを消去するか、ネットワークからデータを削除しますか？";
+"clearDataAll" = "すべてのデータを消去する";
+"clearDataAllDescription" = "これにより、メッセージと連絡先が完全に削除されます。このデバイスのみを消去するか、ネットワークからデータを削除しますか？";
 "clearDeviceAndNetworkConfirm" = "ネットワークからデータを削除してもよろしいですか？ 続行すると、メッセージや連絡先を復元することはできません。";
-"modal_clear_all_data_device_only_button_title" = "端末のみ消去";
-"modal_clear_all_data_entire_account_button_title" = "端末とネットワークを消去";
-"dialog_clear_all_data_deletion_failed_1" = "このサービスノードからデータが削除されませんでした。ID: %@";
-"dialog_clear_all_data_deletion_failed_2" = "%@ つのサービスノードからデータが削除されませんでした。ID %@";
+"clearDeviceOnly" = "端末のみ消去";
+"clearDeviceAndNetwork" = "端末とネットワークを消去";
+"clearDataErrorDescription1" = "このサービスノードからデータが削除されませんでした。ID: %@";
+"clearDataErrorDescription2" = "%@ つのサービスノードからデータが削除されませんでした。ID %@";
 "modal_clear_all_data_confirm" = "消去";
-"modal_seed_title" = "あなたのリカバリーフレーズ";
-"modal_seed_explanation" = "復元フレーズを使用してアカウントを復元したり、デバイスをリンクしたりできます。";
+"sessionRecoveryPassword" = "あなたのリカバリーフレーズ";
+"recoveryPasswordDescription" = "復元フレーズを使用してアカウントを復元したり、デバイスをリンクしたりできます。";
 "modal_permission_explanation" = "セッションを続行するには %@ のアクセスが必要です。iOSの設定でアクセスを有効にできます。";
 "modal_permission_settings_title" = "設定";
 "modal_permission_camera" = "カメラ";
@@ -690,10 +696,10 @@
 "groupDeleteDescription" = "本当に\"%@\"を削除しますか？";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "会話を削除する";
+"conversationsDelete" = "会話を削除する";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"conversationsDeleteDescription" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "自分用メモを隠す";

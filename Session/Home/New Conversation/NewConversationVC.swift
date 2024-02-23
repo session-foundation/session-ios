@@ -15,7 +15,7 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
     var navigationBackground: ThemeValue { .newConversation_background }
     
     private lazy var newDMButton: NewConversationButton = {
-        let result = NewConversationButton(icon: #imageLiteral(resourceName: "Message"), title: "vc_create_private_chat_title".localized())
+        let result = NewConversationButton(icon: #imageLiteral(resourceName: "Message"), title: "messageNew".localized())
         result.accessibilityIdentifier = "New direct message"
         result.isAccessibilityElement = true
         
@@ -23,13 +23,13 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
     }()
     
     private lazy var newGroupButton: NewConversationButton = {
-        let result = NewConversationButton(icon: #imageLiteral(resourceName: "Group"), title: "vc_create_closed_group_title".localized())
+        let result = NewConversationButton(icon: #imageLiteral(resourceName: "Group"), title: "groupCreate".localized())
         result.accessibilityLabel = "Create group"
         result.isAccessibilityElement = true
         
         return result
     }()
-    private lazy var joinCommunityButton: NewConversationButton = NewConversationButton(icon: #imageLiteral(resourceName: "Globe"), title: "vc_join_public_chat_title".localized(), shouldShowSeparator: false)
+    private lazy var joinCommunityButton: NewConversationButton = NewConversationButton(icon: #imageLiteral(resourceName: "Globe"), title: "communityJoin".localized(), shouldShowSeparator: false)
     
     private lazy var buttonStackView: UIStackView = {
         let lineTop: UIView = UIView()
@@ -64,7 +64,7 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.mediumFontSize)
         result.text = (newConversationViewModel.sectionData.isEmpty ?
-            "contactNone".localized() :
+            "conversationsNone".localized() :
             "NEW_CONVERSATION_CONTACTS_SECTION_TITLE".localized()
         )
         result.themeTextColor = (newConversationViewModel.sectionData.isEmpty ?

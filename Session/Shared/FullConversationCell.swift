@@ -621,7 +621,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         fontSize: CGFloat,
         textColor: UIColor
     ) -> NSAttributedString {
-        guard !content.isEmpty, content != "NOTE_TO_SELF".localized() else {
+        guard !content.isEmpty, content != "noteToSelf".localized() else {
             return NSMutableAttributedString(
                 string: (authorName != nil && authorName?.isEmpty != true ?
                     "\(authorName ?? ""): \(content)" :

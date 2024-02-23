@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Atașament";
+"attachment" = "Atașament";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Tipul fișierului: %@";
+"attachmentsFileType" = "Tipul fișierului: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Dimensiune: %@";
+"attachmentsFileSize" = "Dimensiune: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Limita de mesaje a fost atinsă";
+"messageErrorLimit" = "Limita de mesaje a fost atinsă";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Trimite";
+"send" = "Trimite";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Atașament";
+"attachment" = "Atașament";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Eroare la trimiterea atașamentului";
+"attachmentsErrorSending" = "Eroare la trimiterea atașamentului";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Nu se poate converti imaginea.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Imaginea nu poate fi procesata.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Eliminarea metadata din imagine este imposibila.";
+"attachmentsImageErrorMetadata" = "Eliminarea metadata din imagine este imposibila.";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Nu se poate redimensiona imaginea.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Atasamentul este prea mare.";
+"attachmentsErrorSize" = "Atasamentul este prea mare.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Conținutul atașamentului este invalid.";
+"attachmentsErrorNotSupported" = "Conținutul atașamentului este invalid.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Formatul atașamentului este invalid.";
+"attachmentsErrorNotSupported" = "Formatul atașamentului este invalid.";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "Atașamentul este gol.";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Alegere document nereușită.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Creează o arhivă a acestui fișier sau director și încearcă trimiterea acesteia.";
+"attachmentsErrorSize" = "Creează o arhivă a acestui fișier sau director și încearcă trimiterea acesteia.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Tip fișier incompatibil";
+"attachmentsErrorNotSupported" = "Tip fișier incompatibil";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Mesaj vocal";
+"messageVoice" = "Mesaj vocal";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Blochează";
+"block" = "Blochează";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Blochează %@?";
+"block" = "Blochează %@?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Deblocați %@?";
+"blockUnblock" = "Deblocați %@?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Deblochează";
+"blockUnblock" = "Deblochează";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Utilizatorii blocați nu te vor apela sau trimite mesaje.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Gata";
+"done" = "Gata";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Selectează";
+"select" = "Selectează";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Căutare...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "Nu există rezultate";
+"searchMatchesNoneSpecific" = "Nu există rezultate";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "Un rezultat";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d din %d potriviri";
+"searchMatches" = "%d din %d potriviri";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Blochează acest utilizator";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "Caută conversație";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Mută și modifică mărimea";
+"attachmentsMoveAndScale" = "Mută și modifică mărimea";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Poate dura câteva minute.";
+"waitFewMinutes" = "Poate dura câteva minute.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Optimizare bază de date";
+"databaseOptimizing" = "Optimizare bază de date";
 /* The present; the current time. */
 "DATE_NOW" = "Acum";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "Editează grupul";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "Nu aveți fișier media în această conversație.";
+"attachmentsMediaEmpty" = "Nu aveți fișier media în această conversație.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Încărcăre fișiere media noi…";
+"attachmentsLoadingNewer" = "Încărcăre fișiere media noi…";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Încărcăre fișiere media vechi…";
+"attachmentsLoadingOlder" = "Încărcăre fișiere media vechi…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Nu s-a putut găsi GIF-ul cautat. Va rugăm verificați dacă sunteți online.";
+"errorUnknown" = "Nu s-a putut găsi GIF-ul cautat. Va rugăm verificați dacă sunteți online.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "O eroare neașteptată a avut loc.";
+"errorUnknown" = "O eroare neașteptată a avut loc.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Nu s-a putut găsi GIF-ul";
+"errorUnknown" = "Nu s-a putut găsi GIF-ul";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Căutați.";
+"searchEnter" = "Căutați.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Eroare. Apasă pentru a reîncerca.";
+"searchMatchesNone" = "Eroare. Apasă pentru a reîncerca.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "Nici un rezultat.";
+"searchMatchesNone" = "Nici un rezultat.";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Grupul a fost creat";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ s-a alăturat grupului. ";
+"groupMemberNew" = "%@ s-a alăturat grupului. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ a părăsit grupul. ";
+"groupMemberLeft" = "%@ a părăsit grupul. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ a fost eliminat din grup. ";
+"groupRemoved" = "%@ a fost eliminat din grup. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ au fost eliminați din grup. ";
+"groupRemovedMore" = "%@ au fost eliminați din grup. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "Noul titlu al grupului este '%@'. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Grupul este actualizat.";
+"groupUpdated" = "Grupul este actualizat.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "Ați ieșit din grup.";
+"groupMemberYouLeft" = "Ați ieșit din grup.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " Ați fost eliminat din grup. ";
+"groupRemovedYou" = " Ați fost eliminat din grup. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "No poți partaja mai mult de %@ elemente.";
+"attachmentsErrorNumber" = "No poți partaja mai mult de %@ elemente.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Nu a putut fi selectat atașamentul.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Fișier audio invalid.";
+"audioUnableToPlay" = "Fișier audio invalid.";
 /* Confirmation button within contextual alert */
 "leave" = "Părăsește";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Părăsește grupul";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Media";
+"conversationsSettingsAllMedia" = "Media";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Șterge %d de mesaje";
+"deleteMessages" = "Șterge %d de mesaje";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Șterge mesaj";
+"deleteMessage" = "Șterge mesaj";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ pe %@";
+"attachmentsMedia" = "%@ pe %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "Tu";
+"onionRoutingPathYou" = "Tu";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Luna aceasta";
+"attachmentsThisMonth" = "Luna aceasta";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Trimitere eșuată.";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "Citit";
+"read" = "Citit";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "Trimitere…";
+"sending" = "Trimitere…";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "Trimis";
+"disappearingMessagesSent" = "Trimis";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "Încărcare…";
+"uploading" = "Încărcare…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ către %@";
+"notificationsIosGroup" = "%@ către %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Notă personală";
+"noteToSelf" = "Notă personală";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Este posibil să fi primit mesaje cât timp %@ a fost repornit.";
+"notificationsIosRestart" = "Este posibil să fi primit mesaje cât timp %@ a fost repornit.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "Ok";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ a dezactivat mesajele care dispar.";
+"disappearingMessagesTurnedOff" = "%@ a dezactivat mesajele care dispar.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ a fixat timpul in care dispar mesajele la %@";
+"disappearingMessagesSet" = "%@ a fixat timpul in care dispar mesajele la %@";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Imposibil de realizat captură foto.";
+"cameraErrorUnavailable" = "Imposibil de realizat captură foto.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Nu se poate efectua captura foto.";
+"cameraErrorUnavailable" = "Nu se poate efectua captura foto.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Nu am putut configura camera.";
+"cameraErrorUnavailable" = "Nu am putut configura camera.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Album fara nume";
+"attachmentsAlbumUnnamed" = "Album fara nume";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Marchează ca și citit";
+"messageMarkRead" = "Marchează ca și citit";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Răspunde";
+"reply" = "Răspunde";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Autentifică-te pentru a deschide Session.";
+"authenticateToOpen" = "Autentifică-te pentru a deschide Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Autentificare eșuată";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Autentificare eșuată";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (implicit)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@săpt";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Renunță";
+"cancel" = "Renunță";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Șterge";
+"delete" = "Șterge";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Apasă și menține apăsat pentru a înregistra un mesaj vocal.";
+"messageVoiceErrorShort" = "Apasă și menține apăsat pentru a înregistra un mesaj vocal.";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Ai dezactivat funcția de mesaje care dispar.";
+"disappearingMessagesTurnedOffYou" = "Ai dezactivat funcția de mesaje care dispar.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Ai setat intervalul de timp al mesajelor care dispar la %@";
+"disappearingMessagesSetYou" = "Ai setat intervalul de timp al mesajelor care dispar la %@";
 // MARK: - Session
-"continue_2" = "Continuă";
+"continue" = "Continuă";
 "copy" = "Copiază";
-"invalid_url" = "Adresa URL invalidă";
+"communityEnterUrlErrorInvalid" = "Adresa URL invalidă";
 "next" = "Următorul";
 "share" = "Partajează";
 "invalid_session_id" = "Id Session invalid";
 "cancel" = "Renunță";
-"your_session_id" = "ID-ul tău Session";
-"vc_landing_title_2" = "Pentru tine, Session începe aici...";
-"vc_landing_register_button_title" = "Creează ID Session";
-"vc_landing_restore_button_title" = "Continuă Sessiunea";
-"vc_landing_link_button_title" = "Atașează un dispozitiv contului tău";
+"accountIdYours" = "ID-ul tău Session";
+"onboardingBubblePrivacyInYourPocket" = "Pentru tine, Session începe aici...";
+"onboardingAccountCreate" = "Creează ID Session";
+"onboardingAccountExists" = "Continuă Sessiunea";
+"onboardingAccountExists" = "Atașează un dispozitiv contului tău";
 "view_fake_chat_bubble_1" = "Ce este Session?";
 "view_fake_chat_bubble_2" = "Este o aplicație decentralizată, criptată și destinată mesajelor sigure";
 "view_fake_chat_bubble_3" = "Deci nu colectează informații personale despre mine sau metadatele conversațiilor mele? Cum funcționează?";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "Prietenii nu își pot lăsa prietenii sa folosească aplicații de mesagerie compromise. Cu plăcere.";
 "vc_register_title" = "Salută-ți noul ID Session";
 "vc_register_explanation" = "ID-ul tău Session este unica adresă pe care oamenii o pot folosi pentru a intra în contact cu tine pe Session. Fără nici o conexiune la identitatea ta reală, Id-ul tău Session este total anonim si sigur din definiție.";
-"vc_restore_title" = "Restaurează cont";
-"vc_restore_explanation" = "Introdu fraza de recuperare care ți-a fost oferită în momentul în care ți-ai creeat contul pentru a îți recupera contul.";
-"vc_restore_seed_text_field_hint" = "Scrie fraza de recuperare";
-"vc_link_device_title" = "Atașează un dispozitiv";
-"vc_link_device_scan_qr_code_tab_title" = "Scanează cod QR";
-"vc_display_name_title_2" = "Alege-ți un nickname";
-"vc_display_name_explanation" = "Acesta va fi numele tău cand folosești Session. Acesta poate fi numele tău real, un alias, sau orice iți vine în minte.";
-"vc_display_name_text_field_hint" = "Introdu un nickname";
-"vc_display_name_display_name_missing_error" = "Alege un nume care va fi afișat";
-"vc_display_name_display_name_too_long_error" = "Alege un nume care va fi afișat mai scurt";
-"vc_pn_mode_recommended_option_tag" = "Recomandat";
-"contactNone" = "Încă nu ai nici un contact";
+"onboardingAccountExists" = "Restaurează cont";
+"recoveryPasswordExplanation" = "Introdu fraza de recuperare care ți-a fost oferită în momentul în care ți-ai creeat contul pentru a îți recupera contul.";
+"recoveryPasswordEnter" = "Scrie fraza de recuperare";
+"onboardingAccountExists" = "Atașează un dispozitiv";
+"qrScan" = "Scanează cod QR";
+"displayNamePick" = "Alege-ți un nickname";
+"displayNameDescription" = "Acesta va fi numele tău cand folosești Session. Acesta poate fi numele tău real, un alias, sau orice iți vine în minte.";
+"displayNameEnter" = "Introdu un nickname";
+"displayNameErrorDescription" = "Alege un nume care va fi afișat";
+"displayNameErrorDescriptionShorter" = "Alege un nume care va fi afișat mai scurt";
+"recommended" = "Recomandat";
+"conversationsNone" = "Încă nu ai nici un contact";
 "vc_home_empty_state_button_title" = "Pornește o Sessiune";
-"vc_seed_title" = "Fraza de recuperare";
+"sessionRecoveryPassword" = "Fraza de recuperare";
 "vc_seed_title_2" = "Aceasta este fraza ta de recuperare";
 "vc_seed_explanation" = "Fraza ta de recuperare este cheia absoluta a ID-ului tău Session - o poți folosi ca să îți restaurezi ID-ul Session dacă pierzi accesul la dispozitivul tău. Pune fraza de recuperare la loc sigur și nu o împărtăși cu nimeni.";
 "vc_seed_reveal_button_title" = "Ține apăsat pentru a răzui";
 "view_seed_reminder_subtitle_1" = "Securizează-ți contul salvând fraza ta de recuperare";
 "view_seed_reminder_subtitle_2" = "Apasă și menține apăsat pe cuvinte pentru a descoperi fraza de recuperare, apoi pune-o la loc sigur pentru a îți securiza ID-ul Session.";
 "view_seed_reminder_subtitle_3" = "Asigură-te că pui la loc sigur fraza ta de recuperare";
-"vc_path_title" = "Cale";
-"vc_path_explanation" = "Session îți ascunde IP-ul prin rutarea mesajelor tale prin mai multe noduri de serviciu ale session. Acestea sunt țările prin care trec mesajele tale:";
-"vc_path_device_row_title" = "Tu";
-"vc_path_guard_node_row_title" = "Nod de intrare";
-"vc_path_service_node_row_title" = "Nod de serviciu";
-"vc_path_destination_row_title" = "Destinatie";
-"vc_path_learn_more_button_title" = "Află mai mult";
-"vc_create_private_chat_title" = "Mesaj nou";
-"vc_create_private_chat_enter_session_id_tab_title" = "Introdu id session";
-"vc_create_private_chat_scan_qr_code_tab_title" = "Scanează cod QR";
+"onionRoutingPath" = "Cale";
+"onionRoutingPathDescription" = "Session îți ascunde IP-ul prin rutarea mesajelor tale prin mai multe noduri de serviciu ale session. Acestea sunt țările prin care trec mesajele tale:";
+"onionRoutingPathYou" = "Tu";
+"onionRoutingPathEntryNode" = "Nod de intrare";
+"onionRoutingPathServiceNode" = "Nod de serviciu";
+"onionRoutingPathDestination" = "Destinatie";
+"learnMore" = "Află mai mult";
+"messageNew" = "Mesaj nou";
+"accountIdEnter" = "Introdu id session";
+"qrScan" = "Scanează cod QR";
 "vc_enter_public_key_explanation" = "Începe o conversație nouă introducând ID-ul sesiunii cuiva sau partajează-ți ID-ul sesiunii cu el.";
-"vc_scan_qr_code_camera_access_explanation" = "Session are nevoie de permisiunea de acces la camera pentru a scana coduri QR";
-"vc_create_closed_group_title" = "Creează grup";
-"vc_create_closed_group_text_field_hint" = "Introduceți un nume de grup";
-"contactNone" = "Încă nu aveți persoane de contact";
-"vc_create_closed_group_group_name_missing_error" = "Vă rugăm introduceți un nume de grup";
-"vc_create_closed_group_group_name_too_long_error" = "Vă rugăm introduceți un nume de grup mai scurt";
-"vc_create_closed_group_too_many_group_members_error" = "Un grup închis nu poate avea mai mult de 100 de membri";
-"vc_join_public_chat_title" = "Alătură-te comunității";
-"vc_join_public_chat_enter_group_url_tab_title" = "URL-ul comunității";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Scanați codul QR";
-"vc_enter_chat_url_text_field_hint" = "Introduceți URL-ul comunității";
-"vc_settings_title" = "Setări";
+"cameraGrantAccessQr" = "Session are nevoie de permisiunea de acces la camera pentru a scana coduri QR";
+"groupCreate" = "Creează grup";
+"groupNameEnter" = "Introduceți un nume de grup";
+"conversationsNone" = "Încă nu aveți persoane de contact";
+"groupNameEnterPlease" = "Vă rugăm introduceți un nume de grup";
+"groupNameEnterShorter" = "Vă rugăm introduceți un nume de grup mai scurt";
+"groupAddMemberMaximum" = "Un grup închis nu poate avea mai mult de 100 de membri";
+"communityJoin" = "Alătură-te comunității";
+"communityUrl" = "URL-ul comunității";
+"qrScan" = "Scanați codul QR";
+"communityEnterUrl" = "Introduceți URL-ul comunității";
+"sessionSettings" = "Setări";
 "vc_group_settings_title" = "Setarile Grupului";
-"vc_settings_display_name_missing_error" = "Vă rugăm să alegeți un nume";
-"vc_settings_display_name_too_long_error" = "Vă rugăm să alegeți un nume mai scurt";
-"vc_settings_privacy_button_title" = "Confidențialitate";
-"vc_settings_notifications_button_title" = "Notificări";
-"vc_settings_recovery_phrase_button_title" = "Fraza de recuperare";
-"vc_settings_clear_all_data_button_title" = "Ștergeți datele";
-"vc_qr_code_title" = "Cod QR";
-"vc_qr_code_view_my_qr_code_tab_title" = "Vizualizați codul QR";
-"vc_qr_code_view_scan_qr_code_tab_title" = "Scanați codul QR";
+"displayNameErrorDescription" = "Vă rugăm să alegeți un nume";
+"displayNameErrorDescriptionShorter" = "Vă rugăm să alegeți un nume mai scurt";
+"sessionPrivacy" = "Confidențialitate";
+"sessionNotifications" = "Notificări";
+"sessionRecoveryPassword" = "Fraza de recuperare";
+"sessionClearData" = "Ștergeți datele";
+"qrCode" = "Cod QR";
+"view" = "Vizualizați codul QR";
+"qrScan" = "Scanați codul QR";
 "vc_qr_code_view_scan_qr_code_explanation" = "Scanează codul QR al cuiva pentru a începe o conversație cu ei";
-"vc_view_my_qr_code_explanation" = "Acesta este codul tău QR. Ceilalți utilizatori îl pot scana ca să înceapă o Sessiune cu tine.";
+"qrYoursDescription" = "Acesta este codul tău QR. Ceilalți utilizatori îl pot scana ca să înceapă o Sessiune cu tine.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Vei fi notificat în legătură cu noile mesaje imediat prin serverele de încredere Apple pentru notificări.";
 "notificationsFastMode" = "Modul rapid";
-"slow_mode_explanation" = "Session va verifica ocazional în fundal dacă există mesaje noi.";
+"notificationsSlowModeDescription" = "Session va verifica ocazional în fundal dacă există mesaje noi.";
 "notificationsSlowMode" = "Modul încet";
-"vc_pn_mode_title" = "Notificări mesaje";
-"vc_link_device_recovery_phrase_tab_title" = "Fraza de recuperare";
+"notificationsMessage" = "Notificări mesaje";
+"sessionRecoveryPassword" = "Fraza de recuperare";
 "vc_link_device_scan_qr_code_explanation" = "Intră în setări -> Fraza de recuperare pe celălalt dispozitiv pentru a descoperi codul tău QR.";
-"vc_enter_recovery_phrase_title" = "Fraza de recuperare";
+"sessionRecoveryPassword" = "Fraza de recuperare";
 "vc_enter_recovery_phrase_explanation" = "Pentru a adăuga noul tău dispozitiv, folosește fraza de recuperare care ți-a fost dată când ți-ai creat contul.";
-"accountIdOrOnsEnter" = "Introdul ID-ul Session sau numele ONS";
-"admin_group_leave_warning" = "Pentru că tu ești creatorul grupului, acesta va fi șters pentru toată lumea. Această acțiune este ireversibilă.";
-"vc_join_open_group_suggestions_title" = "Sau alătura-te unuia dintre acestea...";
-"vc_settings_invite_a_friend_button_title" = "Invită un prieten";
+"accountIdEnterYourFriends" = "Introdul ID-ul Session sau numele ONS";
+"groupOnlyAdmin" = "Pentru că tu ești creatorul grupului, acesta va fi șters pentru toată lumea. Această acțiune este ireversibilă.";
+"communityJoinOfficial" = "Sau alătura-te unuia dintre acestea...";
+"sessionInviteAFriend" = "Invită un prieten";
 "copied" = "Copiat";
-"vc_conversation_settings_copy_session_id_button_title" = "Copiază ID Session";
-"vc_conversation_input_prompt" = "Mesaj";
+"accountIDCopy" = "Copiază ID Session";
+"message" = "Mesaj";
 "vc_conversation_voice_message_cancel_message" = "Glisează pentru a renunța";
-"modal_download_attachment_title" = "Ai incredere în %@?";
-"modal_download_attachment_explanation" = "Esti sigur ca vrei să descarci fișierul media trimis de %@?";
-"modal_download_button_title" = "Descarcă";
-"modal_open_url_title" = "Deschizi URl?";
-"modal_open_url_explanation" = "Esti sigur că vrei să deschizi %@?";
-"modal_open_url_button_title" = "Deschide";
-"modal_copy_url_button_title" = "Copiază link";
-"modal_blocked_title" = "Deblochezi %@?";
-"modal_blocked_explanation" = "Esti sigur ca vrei sa deblochezi %@?";
-"modal_blocked_button_title" = "Deblochează";
-"modal_link_previews_title" = "Pornești previzualizare?";
-"modal_link_previews_explanation" = "Permițând previzualizare linkurilor va arăta previzualizări ale URL-urilor Pe care le trimiți și primești. Acestea pot fi folositoare, dar Session Va trebui să contacteze siturile pentru afișa previzualizările. Poți oricând să dezactivezi previzualizare linkurilor în setările session.";
-"modal_link_previews_button_title" = "Pornește";
-"vc_share_title" = "Partajează cu Session";
-"vc_share_sending_message" = "Trimitere...";
-"vc_share_link_previews_unsecure" = "Previzualizarea nu a fost încărcată pentru linkul nesigur";
-"vc_share_link_previews_error" = "Nu a fost posibilă încărcarea pre vizualizări";
+"attachmentsAutoDownloadModalTitle" = "Ai incredere în %@?";
+"attachmentsAutoDownloadModalDescription" = "Esti sigur ca vrei să descarci fișierul media trimis de %@?";
+"download" = "Descarcă";
+"urlOpen" = "Deschizi URl?";
+"urlOpenDescription" = "Esti sigur că vrei să deschizi %@?";
+"open" = "Deschide";
+"urlCopy" = "Copiază link";
+"blockUnblock" = "Deblochezi %@?";
+"blockUnblockDescription" = "Esti sigur ca vrei sa deblochezi %@?";
+"blockUnblock" = "Deblochează";
+"linkPreviewsEnable" = "Pornești previzualizare?";
+"linkPreviewsFirstDescription" = "Permițând previzualizare linkurilor va arăta previzualizări ale URL-urilor Pe care le trimiți și primești. Acestea pot fi folositoare, dar Session Va trebui să contacteze siturile pentru afișa previzualizările. Poți oricând să dezactivezi previzualizare linkurilor în setările session.";
+"enable" = "Pornește";
+"shareToSession" = "Partajează cu Session";
+"sending" = "Trimitere...";
+"linkPreviewsErrorUnsecure" = "Previzualizarea nu a fost încărcată pentru linkul nesigur";
+"linkPreviewsErrorLoad" = "Nu a fost posibilă încărcarea pre vizualizări";
 "vc_share_link_previews_disabled_title" = "Previzualizare linkurilor dezactivată";
 "vc_share_link_previews_disabled_explanation" = "Activarea previzualizărilor linkurilor va afișa previzualizări pentru adresele pe care le partajați. Acest lucru poate fi util, dar Session va trebui să contacteze site-urile conectate pentru a genera previzualizări.\n\nPuteți activa linkul de previzualizări din setările sesiunii.";
-"view_open_group_invitation_description" = "Invitație la grup deschis";
+"communityInvitation" = "Invitație la grup deschis";
 "vc_conversation_settings_invite_button_title" = "Adaugă membrii";
-"modal_send_seed_title" = "Atenţie";
-"modal_send_seed_explanation" = "Aceasta este fraza ta de recuperare. Orice persoană în posesia acestei fraze are access total la contul tău.";
-"modal_send_seed_send_button_title" = "Trimite";
+"warning" = "Atenţie";
+"recoveryPasswordWarningSendDescription" = "Aceasta este fraza ta de recuperare. Orice persoană în posesia acestei fraze are access total la contul tău.";
+"send" = "Trimite";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Notifică doar pentru Menționări";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "Când este activată, vei fi notificat doar pentru mesajele care te menționează.";
-"view_conversation_title_notify_for_mentions_only" = "Notificare doar pentru Menționări";
-"message_deleted" = "Acest mesaj a fost șters";
-"delete_message_for_me" = "Șterge doar pentru mine";
-"delete_message_for_everyone" = "Șterge pentru toată lumea";
-"delete_message_for_me_and_recipient" = "Șterge pentru mine și %@";
-"context_menu_reply" = "Răspunde";
-"context_menu_save" = "Salvează";
-"context_menu_ban_user" = "Banează Utilizator";
+"notificationsMentionsOnly" = "Notificare doar pentru Menționări";
+"deleteMessageDeleted" = "Acest mesaj a fost șters";
+"clearMessagesForMe" = "Șterge doar pentru mine";
+"clearMessagesForEveryone" = "Șterge pentru toată lumea";
+"clearMessagesForEveryone" = "Șterge pentru mine și %@";
+"reply" = "Răspunde";
+"save" = "Salvează";
+"banUser" = "Banează Utilizator";
 "context_menu_ban_and_delete_all" = "Banează și Șterge Tot";
 "context_menu_ban_user_error_alert_message" = "Imposibil de banat utilizatorul";
 "accessibility_expanding_attachments_button" = "Adaugă fișiere";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "Document";
 "accessibility_main_button_collapse" = "Restrânge opțiunile de atașare";
-"invalid_recovery_phrase" = "Frază de recuperare nevalidă";
-"DISMISS_BUTTON_TEXT" = "Respinge";
+"recoveryPasswordErrorTitle" = "Frază de recuperare nevalidă";
+"dismiss" = "Respinge";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Setări";
-"call_outgoing" = "Ai sunat pe %@";
-"call_incoming" = "%@ v-a apelat";
-"call_missed" = "Apel pierdut de la %@";
-"APN_Message" = "Ai primit un mesaj nou.";
-"APN_Collapsed_Messages" = "Ai %@ mesaje noi.";
-"PIN_BUTTON_TEXT" = "Fixați";
-"UNPIN_BUTTON_TEXT" = "Anulați fixarea";
-"modal_call_missed_tips_title" = "Apel pierdut";
-"modal_call_missed_tips_explanation" = "Apel pierdut de la „%@" deoarece trebuie să oferi permisiunea pentru „Apeluri vocale și video" din setările de confidențialitate.";
-"media_saved" = "Conținut media salvat de %@.";
-"screenshot_taken" = "%@ a făcut o captură de ecran.";
-"SEARCH_SECTION_CONTACTS" = "Contacte & Grupuri";
-"SEARCH_SECTION_MESSAGES" = "Mesaje";
-"MESSAGE_REQUESTS_TITLE" = "Cereri de mesaj";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "Nici o cerere de mesaje în așteptare";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Șterge Toate";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Sunteţi sigur că doriţi să ştergeţi toate solicitările de mesaje?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Sterge";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Sunteţi sigur că doriţi să ştergeţi această solicitare de mesaj?";
+"sessionSettings" = "Setări";
+"callsYouCalled" = "Ai sunat pe %@";
+"callsCalledYou" = "%@ v-a apelat";
+"callsMissedCallFrom" = "Apel pierdut de la %@";
+"messageNewYouveGotA" = "Ai primit un mesaj nou.";
+"messageNewYouveGotMany" = "Ai %@ mesaje noi.";
+"pin" = "Fixați";
+"pinUnpin" = "Anulați fixarea";
+"callsMissed" = "Apel pierdut";
+"callsYouMissedCallPermissions" = "Apel pierdut de la „%@" deoarece trebuie să oferi permisiunea pentru „Apeluri vocale și video" din setările de confidențialitate.";
+"attachmentsMediaSaved" = "Conținut media salvat de %@.";
+"screenshotTaken" = "%@ a făcut o captură de ecran.";
+"sessionConversations" = "Contacte & Grupuri";
+"messages" = "Mesaje";
+"sessionMessageRequests" = "Cereri de mesaj";
+"messageRequestsNonePending" = "Nici o cerere de mesaje în așteptare";
+"clearAll" = "Șterge Toate";
+"messageRequestsClearAllExplanation" = "Sunteţi sigur că doriţi să ştergeţi toate solicitările de mesaje?";
+"clear" = "Sterge";
+"messageRequestsDelete" = "Sunteţi sigur că doriţi să ştergeţi această solicitare de mesaj?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Ești sigur că vrei să blochezi acest contact?";
-"MESSAGE_REQUESTS_INFO" = "Trimiterea unui mesaj către acest utilizator va accepta automat solicitarea de mesaje și va dezvălui ID-ul tău.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Solicitarea ta de mesaj a fost acceptată.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "Aveți o cerere de mesaj noua";
-"TXT_HIDE_TITLE" = "Ascunde";
-"TXT_DELETE_ACCEPT" = "Acceptă";
+"messageRequestsAcceptDescription" = "Trimiterea unui mesaj către acest utilizator va accepta automat solicitarea de mesaje și va dezvălui ID-ul tău.";
+"messageRequestsAccepted" = "Solicitarea ta de mesaj a fost acceptată.";
+"messageRequestsNew" = "Aveți o cerere de mesaj noua";
+"hide" = "Ascunde";
+"accept" = "Acceptă";
 "TXT_BLOCK_USER_TITLE" = "Blochează utilizator";
 "error" = "Eroare";
-"modal_call_permission_request_title" = "Permisiuni de apel necesare";
-"modal_call_permission_request_explanation" = "Puteți activa permisiunea „Apeluri vocale și video" în Setările de confidențialitate.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Ups, a apărut o eroare";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Vă rugăm să încercați din nou mai târziu";
+"callsPermissionsRequired" = "Permisiuni de apel necesare";
+"callsPermissionsRequiredDescription" = "Puteți activa permisiunea „Apeluri vocale și video" în Setările de confidențialitate.";
+"communityError" = "Ups, a apărut o eroare";
+"communityErrorDescription" = "Vă rugăm să încercați din nou mai târziu";
 "LOADING_CONVERSATIONS" = "Se încarcă conversațiile...";
 "DATABASE_MIGRATION_FAILED" = "A aparut o eroare la optimizarea bazei de date\n\nPoti exporta jurnalele aplicatiei pentru a putea imparti pentru depanare sau poti restaura dispozitivul\n\nAvertisment: Restaurarea aparatului va duce la pierderea datelor mai vechi de două saptamani";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Ceva nu a funcționat. Verificați fraza de recuperare și încercați din nou.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Se pare că nu aţi introdus suficiente cuvinte. Vă rugăm să verificaţi fraza de recuperare şi încercaţi din nou.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "Se pare că lipsește ultimul cuvânt din fraza de recuperare. Te rugăm să verifici ce ai introdus și să încerci din nou.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "Se pare că există un cuvânt nevalid în fraza de recuperare. Vă rugăm să verificaţi ce aţi introdus şi să încercaţi din nou.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Fraza de recuperare nu a putut fi verificată. Vă rugăm să verificaţi ce aţi introdus şi să încercaţi din nou.";
+"recoveryPasswordErrorMessageGeneric" = "Ceva nu a funcționat. Verificați fraza de recuperare și încercați din nou.";
+"recoveryPasswordErrorMessageShort" = "Se pare că nu aţi introdus suficiente cuvinte. Vă rugăm să verificaţi fraza de recuperare şi încercaţi din nou.";
+"recoveryPasswordErrorMessageShort" = "Se pare că lipsește ultimul cuvânt din fraza de recuperare. Te rugăm să verifici ce ai introdus și să încerci din nou.";
+"recoveryPasswordErrorMessageIncorrect" = "Se pare că există un cuvânt nevalid în fraza de recuperare. Vă rugăm să verificaţi ce aţi introdus şi să încercaţi din nou.";
+"recoveryPasswordErrorMessageGeneric" = "Fraza de recuperare nu a putut fi verificată. Vă rugăm să verificaţi ce aţi introdus şi să încercaţi din nou.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Autentificarea nu a putut fi accesată.";
+"authenticateNotAccessed" = "Autentificarea nu a putut fi accesată.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Autentificare esuata.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Autentificare esuata.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Prea multe încercări de autentificare eșuate. Vă rugăm să încercați din nou mai târziu.";
+"authenticateFailedTooManyAttempts" = "Prea multe încercări de autentificare eșuate. Vă rugăm să încercați din nou mai târziu.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Trebuie să activați un cod de acces în setările iOS pentru a putea utiliza blocarea ecranului.";
+"lockAppEnablePasscode" = "Trebuie să activați un cod de acces în setările iOS pentru a putea utiliza blocarea ecranului.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Trebuie să activați un cod de acces în setările iOS pentru a putea utiliza blocarea ecranului.";
+"lockAppEnablePasscode" = "Trebuie să activați un cod de acces în setările iOS pentru a putea utiliza blocarea ecranului.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Trebuie să activați un cod de acces în setările iOS pentru a putea utiliza blocarea ecranului.";
+"lockAppEnablePasscode" = "Trebuie să activați un cod de acces în setările iOS pentru a putea utiliza blocarea ecranului.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Trimite";
+"send" = "Trimite";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Reîncercați";
+"retry" = "Reîncercați";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Mesajul tău nu a putut fi trimis.";
+"messageErrorDelivery" = "Mesajul tău nu a putut fi trimis.";
 "INVALID_SESSION_ID_MESSAGE" = "Vă rugăm să verificați ID-ul Session și să încercați din nou.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Vă rugăm să verificați fraza de recuperare și încercați din nou.";
+"recoveryPasswordErrorMessageGeneric" = "Vă rugăm să verificați fraza de recuperare și încercați din nou.";
 "media" = "Media";
 "DOCUMENT_TAB_TITLE" = "Documente";
 "attachmentsFilesEmpty" = "Nu ai niciun document în această conversație.";
@@ -507,16 +513,16 @@
 "helpWedLoveYourFeedback" = "Ne-ar plăcea feedback-ul tău";
 "helpFAQ" = "FAQ";
 "helpSupport" = "Asistență";
-"modal_clear_all_data_title" = "Șterge toate datele";
-"modal_clear_all_data_explanation" = "Acest lucru va şterge definitiv mesajele şi contactele dumneavoastră. Doriţi să ştergeţi doar acest dispozitiv sau să ştergeţi şi datele din reţea?";
+"clearDataAll" = "Șterge toate datele";
+"clearDataAllDescription" = "Acest lucru va şterge definitiv mesajele şi contactele dumneavoastră. Doriţi să ştergeţi doar acest dispozitiv sau să ştergeţi şi datele din reţea?";
 "clearDeviceAndNetworkConfirm" = "Sigur doriți să ștergeți datele dvs. din rețea? Dacă continuați, nu veți putea să vă restaurați mesajele sau contactele.";
-"modal_clear_all_data_device_only_button_title" = "Curăță doar dispozitivul";
-"modal_clear_all_data_entire_account_button_title" = "Curăță dispozitivul și rețeaua";
-"dialog_clear_all_data_deletion_failed_1" = "Datele nu au fost șterse de un modul de serviciu. Nodul de servicii: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Datele nu au fost șterse de %@ Noduri de serviciu. ID-uri de serviciu: %@.";
+"clearDeviceOnly" = "Curăță doar dispozitivul";
+"clearDeviceAndNetwork" = "Curăță dispozitivul și rețeaua";
+"clearDataErrorDescription1" = "Datele nu au fost șterse de un modul de serviciu. Nodul de servicii: %@.";
+"clearDataErrorDescription2" = "Datele nu au fost șterse de %@ Noduri de serviciu. ID-uri de serviciu: %@.";
 "modal_clear_all_data_confirm" = "Ștergeți";
-"modal_seed_title" = "Fraza ta de recuperare";
-"modal_seed_explanation" = "Puteți folosi fraza de recuperare pentru a vă restaura contul sau pentru a lega un dispozitiv.";
+"sessionRecoveryPassword" = "Fraza ta de recuperare";
+"recoveryPasswordDescription" = "Puteți folosi fraza de recuperare pentru a vă restaura contul sau pentru a lega un dispozitiv.";
 "modal_permission_explanation" = "Sesiunea are nevoie de acces %@ pentru a continua. Puteți activa accesul în setările iOS.";
 "modal_permission_settings_title" = "Setări";
 "modal_permission_camera" = "cameră";
@@ -691,10 +697,10 @@
 "groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"conversationsDelete" = "Delete Conversation";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"conversationsDeleteDescription" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Hide Note to Self";

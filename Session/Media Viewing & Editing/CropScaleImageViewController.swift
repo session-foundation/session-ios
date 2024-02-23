@@ -155,7 +155,7 @@ import SessionUtilitiesKit
         
         let titleLabel: UILabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
-        titleLabel.text = "CROP_SCALE_IMAGE_VIEW_TITLE".localized()
+        titleLabel.text = "attachmentsMoveAndScale".localized()
         titleLabel.themeTextColor = .textPrimary
         titleLabel.textAlignment = .center
         contentView.addSubview(titleLabel)

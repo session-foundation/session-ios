@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Вкладення";
+"attachment" = "Вкладення";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Тип файлу: %@";
+"attachmentsFileType" = "Тип файлу: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Розмір: %@";
+"attachmentsFileSize" = "Розмір: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Досягнуто ліміту повідомлення";
+"messageErrorLimit" = "Досягнуто ліміту повідомлення";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Надіслати";
+"send" = "Надіслати";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Вкладення";
+"attachment" = "Вкладення";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Помилка надсилання вкладення";
+"attachmentsErrorSending" = "Помилка надсилання вкладення";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Не вдалося конвертувати зображення.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Не вдалося проаналізувати зображення.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Не вдалося вилучити метадані %d знімків";
+"attachmentsImageErrorMetadata" = "Не вдалося вилучити метадані %d знімків";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Неможливо змінити розмір зображення.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Вкладення завелике";
+"attachmentsErrorSize" = "Вкладення завелике";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Вкладення містить неприпустимий вміст.";
+"attachmentsErrorNotSupported" = "Вкладення містить неприпустимий вміст.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Вкладення має невірний формат файлу.";
+"attachmentsErrorNotSupported" = "Вкладення має невірний формат файлу.";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "Вкладення порожнє";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Невдала спроба вибору документу.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Будь ласка, створіть архів цього файлу або директорії та спробуйте надіслати саме його.";
+"attachmentsErrorSize" = "Будь ласка, створіть архів цього файлу або директорії та спробуйте надіслати саме його.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Файл не підтримується";
+"attachmentsErrorNotSupported" = "Файл не підтримується";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Голосове повідомлення";
+"messageVoice" = "Голосове повідомлення";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Заблокувати";
+"block" = "Заблокувати";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Заблокувати %@?";
+"block" = "Заблокувати %@?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Розблокувати %@?";
+"blockUnblock" = "Розблокувати %@?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Розблокувати";
+"blockUnblock" = "Розблокувати";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Заблоковані користувачі не зможуть телефонувати тобі або надсилати повідомлення.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Готово";
+"done" = "Готово";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Обрати";
+"select" = "Обрати";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Поиск...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "Збігів не знайдено";
+"searchMatchesNoneSpecific" = "Збігів не знайдено";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 збіг";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d з %d збігів";
+"searchMatches" = "%d з %d збігів";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Заблокувати користувача";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "Пошук в бесідах";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Переміщати і масштабувати";
+"attachmentsMoveAndScale" = "Переміщати і масштабувати";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Це може зайняти кілька хвилин.";
+"waitFewMinutes" = "Це може зайняти кілька хвилин.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Оптимізація бази даних";
+"databaseOptimizing" = "Оптимізація бази даних";
 /* The present; the current time. */
 "DATE_NOW" = "Зараз";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "Редагувати групу";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "У вашій розмові немає жодного медіа.";
+"attachmentsMediaEmpty" = "У вашій розмові немає жодного медіа.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Завантаження новішої медіа…";
+"attachmentsLoadingNewer" = "Завантаження новішої медіа…";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Завантаження старих медіа…";
+"attachmentsLoadingOlder" = "Завантаження старих медіа…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Не вдалося отримати запит на GIF. Будь ласка, перевірте, що ви онлайн.";
+"errorUnknown" = "Не вдалося отримати запит на GIF. Будь ласка, перевірте, що ви онлайн.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "Невідома помилка";
+"errorUnknown" = "Невідома помилка";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Не вдалося вибрати GIF";
+"errorUnknown" = "Не вдалося вибрати GIF";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Будь ласка, введіть текст для пошуку";
+"searchEnter" = "Будь ласка, введіть текст для пошуку";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Помилка. Натисніть для повтор.";
+"searchMatchesNone" = "Помилка. Натисніть для повтор.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "Нічого не знайдено";
+"searchMatchesNone" = "Нічого не знайдено";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Група створена.";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ приєдналися до групи. ";
+"groupMemberNew" = "%@ приєдналися до групи. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ покинули групу. ";
+"groupMemberLeft" = "%@ покинули групу. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ було вилучено із групи. ";
+"groupRemoved" = "%@ було вилучено із групи. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ були вилучені із групи. ";
+"groupRemovedMore" = "%@ були вилучені із групи. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "Заголовок%@'. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Групу оновлено.";
+"groupUpdated" = "Групу оновлено.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "Ви покинули групу";
+"groupMemberYouLeft" = "Ви покинули групу";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " Вас вилучили з групи. ";
+"groupRemovedYou" = " Вас вилучили з групи. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Ви не можете надсилати більше, ніж %@ файлів.";
+"attachmentsErrorNumber" = "Ви не можете надсилати більше, ніж %@ файлів.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Не вдалося обрати вкладення.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Недійсний формат аудіо";
+"audioUnableToPlay" = "Недійсний формат аудіо";
 /* Confirmation button within contextual alert */
 "leave" = "Покинути";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Вийти з групи";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Всі медіа";
+"conversationsSettingsAllMedia" = "Всі медіа";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Видалити %d повідомлень";
+"deleteMessages" = "Видалити %d повідомлень";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Видалити повідомлення";
+"deleteMessage" = "Видалити повідомлення";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ в %@";
+"attachmentsMedia" = "%@ в %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "ти";
+"onionRoutingPathYou" = "ти";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Цього місяця";
+"attachmentsThisMonth" = "Цього місяця";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Помилка надсилання";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "Прочитано";
+"read" = "Прочитано";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "Надсилання…";
+"sending" = "Надсилання…";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "Надіслано";
+"disappearingMessagesSent" = "Надіслано";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "завантаження…";
+"uploading" = "завантаження…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ в %@";
+"notificationsIosGroup" = "%@ в %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Нотатка для себе";
+"noteToSelf" = "Нотатка для себе";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Можливо, під час перезавантаження вашого %@ ви отримали повідомлення.";
+"notificationsIosRestart" = "Можливо, під час перезавантаження вашого %@ ви отримали повідомлення.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "Ок";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ вимкнув зникаючі повідомлення.";
+"disappearingMessagesTurnedOff" = "%@ вимкнув зникаючі повідомлення.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ встановив/ла таймер зникаючих повіомлень на %@";
+"disappearingMessagesSet" = "%@ встановив/ла таймер зникаючих повіомлень на %@";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Не вдається зробити знімок.";
+"cameraErrorUnavailable" = "Не вдається зробити знімок.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Не вдається зробити знімок.";
+"cameraErrorUnavailable" = "Не вдається зробити знімок.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Не вдалося налаштувати камеру.";
+"cameraErrorUnavailable" = "Не вдалося налаштувати камеру.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Альбом без імені";
+"attachmentsAlbumUnnamed" = "Альбом без імені";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Позначити прочитаним";
+"messageMarkRead" = "Позначити прочитаним";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Відповісти";
+"reply" = "Відповісти";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Автентифікуйтесь для відкриття Session.";
+"authenticateToOpen" = "Автентифікуйтесь для відкриття Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Помилка автентифікації";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Помилка автентифікації";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (за замовчуванням)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@т";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Скасувати";
+"cancel" = "Скасувати";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Видалити";
+"delete" = "Видалити";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Торкніться та утримуйте, щоб записати голосове повідомлення.";
+"messageVoiceErrorShort" = "Торкніться та утримуйте, щоб записати голосове повідомлення.";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Ви вимкнули зникаючі повідомлення.";
+"disappearingMessagesTurnedOffYou" = "Ви вимкнули зникаючі повідомлення.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Ви встановили таймер зникаючих повідомлень на %@";
+"disappearingMessagesSetYou" = "Ви встановили таймер зникаючих повідомлень на %@";
 // MARK: - Session
-"continue_2" = "Продовжити";
+"continue" = "Продовжити";
 "copy" = "Скопіювати";
-"invalid_url" = "Недійсне URL-посилання";
+"communityEnterUrlErrorInvalid" = "Недійсне URL-посилання";
 "next" = "Далі";
 "share" = "Поділитися";
 "invalid_session_id" = "Невірний Session ID";
 "cancel" = "Скасувати";
-"your_session_id" = "Ваш Session ID";
-"vc_landing_title_2" = "Ваша сесія починається тут...";
-"vc_landing_register_button_title" = "Створити Session ID";
-"vc_landing_restore_button_title" = "Увійти в акаунт";
-"vc_landing_link_button_title" = "Прив'язати пристрій";
+"accountIdYours" = "Ваш Session ID";
+"onboardingBubblePrivacyInYourPocket" = "Ваша сесія починається тут...";
+"onboardingAccountCreate" = "Створити Session ID";
+"onboardingAccountExists" = "Увійти в акаунт";
+"onboardingAccountExists" = "Прив'язати пристрій";
 "view_fake_chat_bubble_1" = "Що таке Session?";
 "view_fake_chat_bubble_2" = "Це децентралізований, шифрований месенджер";
 "view_fake_chat_bubble_3" = "Тобто він не збирає мою особисту інформацію чи метадані моєї розмови? Як це працює?";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "Друзі не дозволять друзям користуватися месенджерами з сумнівною безпекою. Ласкаво прошу.";
 "vc_register_title" = "Привітайтесь з вашим Session ID";
 "vc_register_explanation" = "Ваш Session ID є унікальною адресою, використовуючи яку люди зможуть зв’язатися з вами в Session. Зважаючи на те, що зв'язок з вашою реальною особистістю відсутній, Session ID задуманий та реалізований абсолютно анонімним та приватним.";
-"vc_restore_title" = "Відновити обліковий запис";
-"vc_restore_explanation" = "Введіть фразу відновлення, яку вам було надано під час реєстрації, для відновлення облікового запису.";
-"vc_restore_seed_text_field_hint" = "Введіть свою фразу відновлення";
-"vc_link_device_title" = "Прив'язати пристрій";
-"vc_link_device_scan_qr_code_tab_title" = "Сканувати QR-код";
-"vc_display_name_title_2" = "Виберіть ваш псевдонім для показу";
-"vc_display_name_explanation" = "Це буде ваше ім’я під час використання Session. Це може бути ваше справжнє ім’я, псевдонім або будь-що інше, що вам подобається.";
-"vc_display_name_text_field_hint" = "Введіть ім'я для показу";
-"vc_display_name_display_name_missing_error" = "Будь ласка, виберіть псевдонім для показу";
-"vc_display_name_display_name_too_long_error" = "Будь ласка, виберіть коротший псевдонім для показу";
-"vc_pn_mode_recommended_option_tag" = "Рекомендовано";
-"contactNone" = "У вас ще немає жодних контактів";
+"onboardingAccountExists" = "Відновити обліковий запис";
+"recoveryPasswordExplanation" = "Введіть фразу відновлення, яку вам було надано під час реєстрації, для відновлення облікового запису.";
+"recoveryPasswordEnter" = "Введіть свою фразу відновлення";
+"onboardingAccountExists" = "Прив'язати пристрій";
+"qrScan" = "Сканувати QR-код";
+"displayNamePick" = "Виберіть ваш псевдонім для показу";
+"displayNameDescription" = "Це буде ваше ім’я під час використання Session. Це може бути ваше справжнє ім’я, псевдонім або будь-що інше, що вам подобається.";
+"displayNameEnter" = "Введіть ім'я для показу";
+"displayNameErrorDescription" = "Будь ласка, виберіть псевдонім для показу";
+"displayNameErrorDescriptionShorter" = "Будь ласка, виберіть коротший псевдонім для показу";
+"recommended" = "Рекомендовано";
+"conversationsNone" = "У вас ще немає жодних контактів";
 "vc_home_empty_state_button_title" = "Почати розмову";
-"vc_seed_title" = "Ваша фраза відновлення";
+"sessionRecoveryPassword" = "Ваша фраза відновлення";
 "vc_seed_title_2" = "Знайомтесь з вашою фразою відновлення";
 "vc_seed_explanation" = "Ваша фраза відновлення — це головний ключ до вашого Session ID. Ви можете використовувати її для відновлення вашого Session ID якщо ви втратите доступ до пристрою. Зберігайте вашу фразу відновлення у безпечному місці та не надавайте її нікому.";
 "vc_seed_reveal_button_title" = "Натисніть, щоб відкрити";
 "view_seed_reminder_subtitle_1" = "Захистіть свій обліковий запис, зберігши відновлювальну фразу";
 "view_seed_reminder_subtitle_2" = "Натисніть і утримуйте приховані слова, щоб відкрити фразу для відновлення, а потім збережіть її в безпечному місці, щоб захистити свій Session ID.";
 "view_seed_reminder_subtitle_3" = "Переконайтеся, що ви зберегли свою фразу відновлення в безпечному місці";
-"vc_path_title" = "Шлях";
-"vc_path_explanation" = "Session приховує вашу IP-адресу, перенаправляючи ваші повідомлення через декілька сервісних вузлів в децентралізованій мережі Session. Це країни, через які зараз перенаправляється ваше з'єднання:";
-"vc_path_device_row_title" = "Ви";
-"vc_path_guard_node_row_title" = "Вхідний вузол";
-"vc_path_service_node_row_title" = "Сервісний вузол";
-"vc_path_destination_row_title" = "Місце призначення";
-"vc_path_learn_more_button_title" = "Дізнатися більше";
-"vc_create_private_chat_title" = "Нове повідомлення";
-"vc_create_private_chat_enter_session_id_tab_title" = "Введіть Session ID";
-"vc_create_private_chat_scan_qr_code_tab_title" = "Сканувати QR-код";
+"onionRoutingPath" = "Шлях";
+"onionRoutingPathDescription" = "Session приховує вашу IP-адресу, перенаправляючи ваші повідомлення через декілька сервісних вузлів в децентралізованій мережі Session. Це країни, через які зараз перенаправляється ваше з'єднання:";
+"onionRoutingPathYou" = "Ви";
+"onionRoutingPathEntryNode" = "Вхідний вузол";
+"onionRoutingPathServiceNode" = "Сервісний вузол";
+"onionRoutingPathDestination" = "Місце призначення";
+"learnMore" = "Дізнатися більше";
+"messageNew" = "Нове повідомлення";
+"accountIdEnter" = "Введіть Session ID";
+"qrScan" = "Сканувати QR-код";
 "vc_enter_public_key_explanation" = "Почніть нову розмову, ввівши чийсь Session ID або поділіться з ним своїм Session ID.";
-"vc_scan_qr_code_camera_access_explanation" = "Session потрібен дозвіл до камери, щоб сканувати QR-код";
-"vc_create_closed_group_title" = "Створити групу";
-"vc_create_closed_group_text_field_hint" = "Введіть назву групи";
-"contactNone" = "У вас ще немає жодних контактів";
-"vc_create_closed_group_group_name_missing_error" = "Будь ласка, введіть назву групи";
-"vc_create_closed_group_group_name_too_long_error" = "Будь ласка, введіть коротшу назву групи";
-"vc_create_closed_group_too_many_group_members_error" = "Закрита група не може мати більше 100 учасників";
-"vc_join_public_chat_title" = "Приєднатися до спільноти";
-"vc_join_public_chat_enter_group_url_tab_title" = "URL-адреса спільноти";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Сканувати QR-код";
-"vc_enter_chat_url_text_field_hint" = "Введіть URL-адресу спільноти";
-"vc_settings_title" = "Налаштування";
+"cameraGrantAccessQr" = "Session потрібен дозвіл до камери, щоб сканувати QR-код";
+"groupCreate" = "Створити групу";
+"groupNameEnter" = "Введіть назву групи";
+"conversationsNone" = "У вас ще немає жодних контактів";
+"groupNameEnterPlease" = "Будь ласка, введіть назву групи";
+"groupNameEnterShorter" = "Будь ласка, введіть коротшу назву групи";
+"groupAddMemberMaximum" = "Закрита група не може мати більше 100 учасників";
+"communityJoin" = "Приєднатися до спільноти";
+"communityUrl" = "URL-адреса спільноти";
+"qrScan" = "Сканувати QR-код";
+"communityEnterUrl" = "Введіть URL-адресу спільноти";
+"sessionSettings" = "Налаштування";
 "vc_group_settings_title" = "Налаштування групи";
-"vc_settings_display_name_missing_error" = "Будь ласка, виберіть псевдонім для показу";
-"vc_settings_display_name_too_long_error" = "Будь ласка, виберіть коротший псевдонім для показу";
-"vc_settings_privacy_button_title" = "Конфіденційність";
-"vc_settings_notifications_button_title" = "Сповіщення";
-"vc_settings_recovery_phrase_button_title" = "Фраза відновлення";
-"vc_settings_clear_all_data_button_title" = "Очистити дані";
-"vc_qr_code_title" = "QR-код";
-"vc_qr_code_view_my_qr_code_tab_title" = "Переглянути мій QR-код";
-"vc_qr_code_view_scan_qr_code_tab_title" = "Сканувати QR-код";
+"displayNameErrorDescription" = "Будь ласка, виберіть псевдонім для показу";
+"displayNameErrorDescriptionShorter" = "Будь ласка, виберіть коротший псевдонім для показу";
+"sessionPrivacy" = "Конфіденційність";
+"sessionNotifications" = "Сповіщення";
+"sessionRecoveryPassword" = "Фраза відновлення";
+"sessionClearData" = "Очистити дані";
+"qrCode" = "QR-код";
+"view" = "Переглянути мій QR-код";
+"qrScan" = "Сканувати QR-код";
 "vc_qr_code_view_scan_qr_code_explanation" = "Проскануйте чийсь QR-код, щоб почати розмову з ними";
-"vc_view_my_qr_code_explanation" = "Це ваш QR-код. Інші користувачі можуть просканувати його, щоб почати розмову з вами.";
+"qrYoursDescription" = "Це ваш QR-код. Інші користувачі можуть просканувати його, щоб почати розмову з вами.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Ви отримуватимете сповіщення про нові повідомлення надійно та одразу за допомогою серверів сповіщень Apple.";
 "notificationsFastMode" = "Швидкий режим";
-"slow_mode_explanation" = "Session буде періодично перевіряти наявність нових повідомлень у фоновому режимі.";
+"notificationsSlowModeDescription" = "Session буде періодично перевіряти наявність нових повідомлень у фоновому режимі.";
 "notificationsSlowMode" = "Повільний режим";
-"vc_pn_mode_title" = "Сповіщення про повідомлення";
-"vc_link_device_recovery_phrase_tab_title" = "Фраза відновлення";
+"notificationsMessage" = "Сповіщення про повідомлення";
+"sessionRecoveryPassword" = "Фраза відновлення";
 "vc_link_device_scan_qr_code_explanation" = "Перейдіть до Налаштувань → Фраза відновлення на вашому іншому пристрої, щоб показати ваш QR-код.";
-"vc_enter_recovery_phrase_title" = "Фраза відновлення";
+"sessionRecoveryPassword" = "Фраза відновлення";
 "vc_enter_recovery_phrase_explanation" = "Для прив'язки пристрою ведіть фразу відновлення, яка була надана вам під час реєстрації.";
-"accountIdOrOnsEnter" = "Введіть Session ID або ім'я ONS";
-"admin_group_leave_warning" = "Оскільки ви створили цю групу, вона буде видалена для всіх. Це не можна буде скасувати.";
-"vc_join_open_group_suggestions_title" = "Або приєднуйтесь до однієї з цих...";
-"vc_settings_invite_a_friend_button_title" = "Запросити друга";
+"accountIdEnterYourFriends" = "Введіть Session ID або ім'я ONS";
+"groupOnlyAdmin" = "Оскільки ви створили цю групу, вона буде видалена для всіх. Це не можна буде скасувати.";
+"communityJoinOfficial" = "Або приєднуйтесь до однієї з цих...";
+"sessionInviteAFriend" = "Запросити друга";
 "copied" = "Скопійовано";
-"vc_conversation_settings_copy_session_id_button_title" = "Скопіювати Session ID";
-"vc_conversation_input_prompt" = "Написати";
+"accountIDCopy" = "Скопіювати Session ID";
+"message" = "Написати";
 "vc_conversation_voice_message_cancel_message" = "Проведіть, щоб скасувати";
-"modal_download_attachment_title" = "Довіряти %@?";
-"modal_download_attachment_explanation" = "Чи дійсно ви хочете звантажити медіафайл, відправлений %@?";
-"modal_download_button_title" = "Завантажити";
-"modal_open_url_title" = "Відкрити URL-адресу?";
-"modal_open_url_explanation" = "Ви впевнені, що хочете відкрити %@?";
-"modal_open_url_button_title" = "Відкрити";
-"modal_copy_url_button_title" = "Копіювати посилання";
-"modal_blocked_title" = "Розблокувати %@?";
-"modal_blocked_explanation" = "Ви впевнені, що бажаєте розблокувати %@?";
-"modal_blocked_button_title" = "Розблокувати";
-"modal_link_previews_title" = "Генерувати попередній перегляд посилань?";
-"modal_link_previews_explanation" = "Увімкнення попереднього перегляду посилань призведе до показу попереднього перегляду тих посилань, які ви надсилаєте та отримуєте. Це може бути корисним, але Session потрібно буде зв'язуватися з веб-сайтами для створення попереднього перегляду. Ви завжди зможете вимкнути попередній перегляд посилань в налаштуваннях Session.";
-"modal_link_previews_button_title" = "Увімкнути";
-"vc_share_title" = "Поділитися в Session";
-"vc_share_sending_message" = "Надсилання...";
-"vc_share_link_previews_unsecure" = "Попередній перегляд не завантажений для незахищеного посилання";
-"vc_share_link_previews_error" = "Неможливо завантажити попередній перегляд";
+"attachmentsAutoDownloadModalTitle" = "Довіряти %@?";
+"attachmentsAutoDownloadModalDescription" = "Чи дійсно ви хочете звантажити медіафайл, відправлений %@?";
+"download" = "Завантажити";
+"urlOpen" = "Відкрити URL-адресу?";
+"urlOpenDescription" = "Ви впевнені, що хочете відкрити %@?";
+"open" = "Відкрити";
+"urlCopy" = "Копіювати посилання";
+"blockUnblock" = "Розблокувати %@?";
+"blockUnblockDescription" = "Ви впевнені, що бажаєте розблокувати %@?";
+"blockUnblock" = "Розблокувати";
+"linkPreviewsEnable" = "Генерувати попередній перегляд посилань?";
+"linkPreviewsFirstDescription" = "Увімкнення попереднього перегляду посилань призведе до показу попереднього перегляду тих посилань, які ви надсилаєте та отримуєте. Це може бути корисним, але Session потрібно буде зв'язуватися з веб-сайтами для створення попереднього перегляду. Ви завжди зможете вимкнути попередній перегляд посилань в налаштуваннях Session.";
+"enable" = "Увімкнути";
+"shareToSession" = "Поділитися в Session";
+"sending" = "Надсилання...";
+"linkPreviewsErrorUnsecure" = "Попередній перегляд не завантажений для незахищеного посилання";
+"linkPreviewsErrorLoad" = "Неможливо завантажити попередній перегляд";
 "vc_share_link_previews_disabled_title" = "Попередній перегляд посилань вимкнено";
 "vc_share_link_previews_disabled_explanation" = "Увімкнення попереднього перегляду посилань призведе до показу попереднього перегляду тих посилань, якими ви ділитесь. Це може бути корисним, але Session потрібно буде зв'язуватися з веб-сайтами для створення попереднього перегляду.\n\nВи зможете ввімкнути попередній перегляд посилань в налаштуваннях Session.";
-"view_open_group_invitation_description" = "Запрошення до відкритої групи";
+"communityInvitation" = "Запрошення до відкритої групи";
 "vc_conversation_settings_invite_button_title" = "Додати учасників";
-"modal_send_seed_title" = "Попередження";
-"modal_send_seed_explanation" = "Це ваша фраза відновлення. Якщо ви надішлете її комусь, він матиме повний доступ до вашого облікового запису.";
-"modal_send_seed_send_button_title" = "Надіслати";
+"warning" = "Попередження";
+"recoveryPasswordWarningSendDescription" = "Це ваша фраза відновлення. Якщо ви надішлете її комусь, він матиме повний доступ до вашого облікового запису.";
+"send" = "Надіслати";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Сповіщати лише про згадки";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "Коли увімкнено, ви будете отримувати сповіщення лише про повідомлення, в яких згадують вас.";
-"view_conversation_title_notify_for_mentions_only" = "Сповіщення лише про згадки";
-"message_deleted" = "Це повідомлення було видалено";
-"delete_message_for_me" = "Видалити лише для мене";
-"delete_message_for_everyone" = "Видалити для всіх";
-"delete_message_for_me_and_recipient" = "Видалити для мене та %@";
-"context_menu_reply" = "Відповісти";
-"context_menu_save" = "Зберегти";
-"context_menu_ban_user" = "Додати користувача до чорного списку";
+"notificationsMentionsOnly" = "Сповіщення лише про згадки";
+"deleteMessageDeleted" = "Це повідомлення було видалено";
+"clearMessagesForMe" = "Видалити лише для мене";
+"clearMessagesForEveryone" = "Видалити для всіх";
+"clearMessagesForEveryone" = "Видалити для мене та %@";
+"reply" = "Відповісти";
+"save" = "Зберегти";
+"banUser" = "Додати користувача до чорного списку";
 "context_menu_ban_and_delete_all" = "Додати до чорного списку та видалити всіх";
 "context_menu_ban_user_error_alert_message" = "Неможливо заблокувати користувача";
 "accessibility_expanding_attachments_button" = "Додати вкладення";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "Документ";
 "accessibility_main_button_collapse" = "Згорнути параметри вкладень";
-"invalid_recovery_phrase" = "Невірна фраза відновлення";
-"DISMISS_BUTTON_TEXT" = "Відхилити";
+"recoveryPasswordErrorTitle" = "Невірна фраза відновлення";
+"dismiss" = "Відхилити";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Налаштування";
-"call_outgoing" = "Ви дзвонили %@";
-"call_incoming" = "%@ дзвонив вам";
-"call_missed" = "Пропущений дзвінок від %@";
-"APN_Message" = "Ви отримали нове повідомлення.";
-"APN_Collapsed_Messages" = "Ви отримали %@ нових повідомлень.";
-"PIN_BUTTON_TEXT" = "Закріпити";
-"UNPIN_BUTTON_TEXT" = "Відкріпити";
-"modal_call_missed_tips_title" = "Дзвінок пропущено";
-"modal_call_missed_tips_explanation" = "Ви пропустили дзвінок від %@, оскільки вам потрібно ввімкнути дозвіл «Голосові та відеодзвінки» в налаштуваннях конфіденційності.";
-"media_saved" = "%@ зберіг медіафайл.";
-"screenshot_taken" = "%@ зробив знімок екрану.";
-"SEARCH_SECTION_CONTACTS" = "Контакти та Групи";
-"SEARCH_SECTION_MESSAGES" = "Повідомлення";
-"MESSAGE_REQUESTS_TITLE" = "Запити на повідомлення";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "Немає незавершених запитів на повідомлення";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Очистити всі";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Ви впевнені, що бажаєте очистити всі запити на повідомлення?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Очистити";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Ви дійсно бажаєте видалити цей запит?";
+"sessionSettings" = "Налаштування";
+"callsYouCalled" = "Ви дзвонили %@";
+"callsCalledYou" = "%@ дзвонив вам";
+"callsMissedCallFrom" = "Пропущений дзвінок від %@";
+"messageNewYouveGotA" = "Ви отримали нове повідомлення.";
+"messageNewYouveGotMany" = "Ви отримали %@ нових повідомлень.";
+"pin" = "Закріпити";
+"pinUnpin" = "Відкріпити";
+"callsMissed" = "Дзвінок пропущено";
+"callsYouMissedCallPermissions" = "Ви пропустили дзвінок від %@, оскільки вам потрібно ввімкнути дозвіл «Голосові та відеодзвінки» в налаштуваннях конфіденційності.";
+"attachmentsMediaSaved" = "%@ зберіг медіафайл.";
+"screenshotTaken" = "%@ зробив знімок екрану.";
+"sessionConversations" = "Контакти та Групи";
+"messages" = "Повідомлення";
+"sessionMessageRequests" = "Запити на повідомлення";
+"messageRequestsNonePending" = "Немає незавершених запитів на повідомлення";
+"clearAll" = "Очистити всі";
+"messageRequestsClearAllExplanation" = "Ви впевнені, що бажаєте очистити всі запити на повідомлення?";
+"clear" = "Очистити";
+"messageRequestsDelete" = "Ви дійсно бажаєте видалити цей запит?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Ви дійсно хочете заблокувати цей контакт?";
-"MESSAGE_REQUESTS_INFO" = "Надсилання повідомлення цьому користувачеві автоматично прийме його запит на повідомлення та розкриє ваш Session ID.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Ваш запит на повідомлення прийнято.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "У вас є новий запит на повідомлення";
-"TXT_HIDE_TITLE" = "Приховати";
-"TXT_DELETE_ACCEPT" = "Прийняти";
+"messageRequestsAcceptDescription" = "Надсилання повідомлення цьому користувачеві автоматично прийме його запит на повідомлення та розкриє ваш Session ID.";
+"messageRequestsAccepted" = "Ваш запит на повідомлення прийнято.";
+"messageRequestsNew" = "У вас є новий запит на повідомлення";
+"hide" = "Приховати";
+"accept" = "Прийняти";
 "TXT_BLOCK_USER_TITLE" = "Заблокувати користувача";
 "error" = "Помилка";
-"modal_call_permission_request_title" = "Необхідний дозвіл";
-"modal_call_permission_request_explanation" = "Ви можете увімкнути дозвіл «Голосові та відеодзвінки» в налаштуваннях конфіденційності.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Йой, сталася помилка";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Будь ласка, спробуйте ще раз пізніше";
+"callsPermissionsRequired" = "Необхідний дозвіл";
+"callsPermissionsRequiredDescription" = "Ви можете увімкнути дозвіл «Голосові та відеодзвінки» в налаштуваннях конфіденційності.";
+"communityError" = "Йой, сталася помилка";
+"communityErrorDescription" = "Будь ласка, спробуйте ще раз пізніше";
 "LOADING_CONVERSATIONS" = "Завантаження бесід...";
 "DATABASE_MIGRATION_FAILED" = "Сталася помилка під час оптимізації бази даних\n\nВи можете експортувати журнали програми, щоб мати можливість поділитися ними для усунення несправностей, або ви можете відновити свій пристрій\n\nПопередження: відновлення вашого пристрою призведе до втрати будь-яких даних, старіших за два тижні";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Щось пішло не так. Будь ласка, перевірте вашу фразу відновлення і повторіть спробу.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Схоже, ви не ввели достатню кількість слів. Будь ласка, перевірте вашу фразу відновлення і повторіть спробу.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "Здається, у вас немає останнього слова вашої фрази відновлення. Будь ласка, перевірте те, що ви ввели та повторіть спробу.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "Схоже, що у вашій фразі відновлення є неправильне слово. Будь ласка, перевірте введене вами слово і спробуйте ще раз.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Не вдалося перевірити вашу фразу відновлення. Будь ласка, перевірте, що ви ввели і повторіть спробу.";
+"recoveryPasswordErrorMessageGeneric" = "Щось пішло не так. Будь ласка, перевірте вашу фразу відновлення і повторіть спробу.";
+"recoveryPasswordErrorMessageShort" = "Схоже, ви не ввели достатню кількість слів. Будь ласка, перевірте вашу фразу відновлення і повторіть спробу.";
+"recoveryPasswordErrorMessageShort" = "Здається, у вас немає останнього слова вашої фрази відновлення. Будь ласка, перевірте те, що ви ввели та повторіть спробу.";
+"recoveryPasswordErrorMessageIncorrect" = "Схоже, що у вашій фразі відновлення є неправильне слово. Будь ласка, перевірте введене вами слово і спробуйте ще раз.";
+"recoveryPasswordErrorMessageGeneric" = "Не вдалося перевірити вашу фразу відновлення. Будь ласка, перевірте, що ви ввели і повторіть спробу.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Немає доступу до автентифікації.";
+"authenticateNotAccessed" = "Немає доступу до автентифікації.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Помилка автентифікації.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Помилка автентифікації.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Занадто багато невдалих спроб автентифікації. Будь ласка, спробуйте ще раз пізніше.";
+"authenticateFailedTooManyAttempts" = "Занадто багато невдалих спроб автентифікації. Будь ласка, спробуйте ще раз пізніше.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Ви повинні увімкнути пароль в налаштуваннях iOS, щоб використовувати блокування екрана.";
+"lockAppEnablePasscode" = "Ви повинні увімкнути пароль в налаштуваннях iOS, щоб використовувати блокування екрана.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Ви повинні увімкнути пароль в налаштуваннях iOS, щоб використовувати блокування екрана.";
+"lockAppEnablePasscode" = "Ви повинні увімкнути пароль в налаштуваннях iOS, щоб використовувати блокування екрана.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Ви повинні увімкнути пароль в налаштуваннях iOS, щоб використовувати блокування екрана.";
+"lockAppEnablePasscode" = "Ви повинні увімкнути пароль в налаштуваннях iOS, щоб використовувати блокування екрана.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Надіслати";
+"send" = "Надіслати";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Спробувати знову";
+"retry" = "Спробувати знову";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Не вдалося відправити ваше повідомлення.";
+"messageErrorDelivery" = "Не вдалося відправити ваше повідомлення.";
 "INVALID_SESSION_ID_MESSAGE" = "Будь ласка, перевірте Session ID або та спробуйте ще раз.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Будь ласка, перевірте фразу відновлення і повторіть спробу.";
+"recoveryPasswordErrorMessageGeneric" = "Будь ласка, перевірте фразу відновлення і повторіть спробу.";
 "media" = "Медіафайли";
 "DOCUMENT_TAB_TITLE" = "Документи";
 "attachmentsFilesEmpty" = "У вас немає жодного документа в цій розмові.";
@@ -507,16 +513,16 @@
 "helpWedLoveYourFeedback" = "Будемо раді, якщо залишите нам відгук";
 "helpFAQ" = "Часті питання";
 "helpSupport" = "Служба підтримки";
-"modal_clear_all_data_title" = "Очистити всі дані";
-"modal_clear_all_data_explanation" = "Це остаточно видалить ваші повідомлення та контакти. Ви хочете очистити лише цей пристрій, або також видалити свої дані з мережі?";
+"clearDataAll" = "Очистити всі дані";
+"clearDataAllDescription" = "Це остаточно видалить ваші повідомлення та контакти. Ви хочете очистити лише цей пристрій, або також видалити свої дані з мережі?";
 "clearDeviceAndNetworkConfirm" = "Ви впевнені, що хочете видалити дані з мережі? Якщо ви продовжите, то не зможете відновити ваші повідомлення або контакти.";
-"modal_clear_all_data_device_only_button_title" = "Очистити лише пристрій";
-"modal_clear_all_data_entire_account_button_title" = "Очистити пристрій та мережу";
-"dialog_clear_all_data_deletion_failed_1" = "Дані не видалено одним сервісним вузлом. Ідентифікатор сервісного вузла: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Дані не видалено %@ сервісними вузлами. Ідентифікатори сервісних вузлів: %@.";
+"clearDeviceOnly" = "Очистити лише пристрій";
+"clearDeviceAndNetwork" = "Очистити пристрій та мережу";
+"clearDataErrorDescription1" = "Дані не видалено одним сервісним вузлом. Ідентифікатор сервісного вузла: %@.";
+"clearDataErrorDescription2" = "Дані не видалено %@ сервісними вузлами. Ідентифікатори сервісних вузлів: %@.";
 "modal_clear_all_data_confirm" = "Очистити";
-"modal_seed_title" = "Ваша фраза відновлення";
-"modal_seed_explanation" = "Ви можете використовувати вашу фразу відновлення для відновлення облікового запису або пов’язування з пристроєм.";
+"sessionRecoveryPassword" = "Ваша фраза відновлення";
+"recoveryPasswordDescription" = "Ви можете використовувати вашу фразу відновлення для відновлення облікового запису або пов’язування з пристроєм.";
 "modal_permission_explanation" = "Щоб продовжити, Session потребує доступу до %@. Ви можете дозволити доступ в параметрах iOS.";
 "modal_permission_settings_title" = "Налаштування";
 "modal_permission_camera" = "камери";
@@ -691,10 +697,10 @@
 "groupDeleteDescription" = "Ви дійсно хочете видалити «%@»?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Видалити розмову";
+"conversationsDelete" = "Видалити розмову";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Ви дійсно хочете видалити розмову з %@?";
+"conversationsDeleteDescription" = "Ви дійсно хочете видалити розмову з %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Приховати нотатку для себе";

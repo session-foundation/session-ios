@@ -427,9 +427,9 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
                 sectionHeader.configure(
                     title: {
                         switch section.model {
-                            case .emptyGallery: return "GALLERY_TILES_EMPTY_GALLERY".localized()
-                            case .loadOlder: return "GALLERY_TILES_LOADING_OLDER_LABEL".localized()
-                            case .loadNewer: return "GALLERY_TILES_LOADING_MORE_RECENT_LABEL".localized()
+                            case .emptyGallery: return "attachmentsMediaEmpty".localized()
+                            case .loadOlder: return "attachmentsLoadingOlder".localized()
+                            case .loadNewer: return "attachmentsLoadingNewer".localized()
                             case .galleryMonth: return ""   // Impossible case
                         }
                     }()
@@ -681,11 +681,11 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         }
         let confirmationTitle: String = {
             if indexPaths.count == 1 {
-                return "MEDIA_GALLERY_DELETE_SINGLE_MESSAGE".localized()
+                return "deleteMessage".localized()
             }
             
             return String(
-                format: "MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT".localized(),
+                format: "deleteMessages".localized(),
                 indexPaths.count
             )
         }()
@@ -724,7 +724,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
 
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         actionSheet.addAction(deleteAction)
-        actionSheet.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel))
+        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
 
         Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
         self.present(actionSheet, animated: true)

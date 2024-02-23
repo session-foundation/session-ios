@@ -46,7 +46,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
 
     private lazy var groupNameTextField: TextField = {
         let result: TextField = TextField(
-            placeholder: "vc_create_closed_group_text_field_hint".localized(),
+            placeholder: "groupNameEnter".localized(),
             usesDefaultHeight: false
         )
         result.textAlignment = .center
@@ -347,10 +347,10 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         
         guard !updatedName.isEmpty else {
-            return showError(title: "vc_create_closed_group_group_name_missing_error".localized())
+            return showError(title: "groupNameEnterPlease".localized())
         }
         guard updatedName.utf8CString.count < SessionUtil.libSessionMaxGroupNameByteLength else {
-            return showError(title: "vc_create_closed_group_group_name_too_long_error".localized())
+            return showError(title: "groupNameEnterShorter".localized())
         }
         
         self.isEditingGroupName = false
@@ -460,7 +460,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             }
         }
         guard updatedMemberIds.count <= 100 else {
-            return showError(title: "vc_create_closed_group_too_many_group_members_error".localized())
+            return showError(title: "groupAddMemberMaximum".localized())
         }
         
         ModalActivityIndicatorViewController.present(fromViewController: navigationController) { _ in

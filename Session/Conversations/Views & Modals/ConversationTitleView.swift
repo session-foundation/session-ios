@@ -163,7 +163,7 @@ final class ConversationTitleView: UIView {
                 
                 subtitleLabel?.attributedText = NSAttributedString(attachment: imageAttachment)
                     .appending(string: "  ")
-                    .appending(string: "view_conversation_title_notify_for_mentions_only".localized())
+                    .appending(string: "notificationsMentionsOnly".localized())
                 return
             }
             guard let userCount: Int = userCount else { return }

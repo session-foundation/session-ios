@@ -272,7 +272,10 @@ class ScreenLockUI {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: screenBlockingWindow.rootViewController?.view,
             info: ConfirmationModal.Info(
-                title: "SCREEN_LOCK_UNLOCK_FAILED".localized(),
+                title: "authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed".localized(),
                 body: .text(message),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,

@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Bilaga";
+"attachment" = "Bilaga";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Filtyp: %@";
+"attachmentsFileType" = "Filtyp: %@";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Storlek: %@";
+"attachmentsFileSize" = "Storlek: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Meddelandegränsen har uppnåtts";
+"messageErrorLimit" = "Meddelandegränsen har uppnåtts";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Skicka";
+"send" = "Skicka";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Bilaga";
+"attachment" = "Bilaga";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Fel vid sändning av bilaga";
+"attachmentsErrorSending" = "Fel vid sändning av bilaga";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Kunde inte konvertera bilden.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Kunde inte bearbeta bilden.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Kunde inte ta bort bildens metadata.";
+"attachmentsImageErrorMetadata" = "Kunde inte ta bort bildens metadata.";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Kunde inte ändra bildens storlek.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Bilagan är för stor.";
+"attachmentsErrorSize" = "Bilagan är för stor.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "Bilagan innehåller otillåtet material.";
+"attachmentsErrorNotSupported" = "Bilagan innehåller otillåtet material.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "Bilagan har ett otillåtet filformat.";
+"attachmentsErrorNotSupported" = "Bilagan har ett otillåtet filformat.";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "Bilagan är tom.";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Det gick inte att välja dokument.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Skapa ett komprimerat arkiv för denna fil eller katalog och försök att skicka den istället.";
+"attachmentsErrorSize" = "Skapa ett komprimerat arkiv för denna fil eller katalog och försök att skicka den istället.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Filen stöds ej";
+"attachmentsErrorNotSupported" = "Filen stöds ej";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Röstmeddelande";
+"messageVoice" = "Röstmeddelande";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Blockera";
+"block" = "Blockera";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "Blockera %@?";
+"block" = "Blockera %@?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "Avblockera %@?";
+"blockUnblock" = "Avblockera %@?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Avblockera";
+"blockUnblock" = "Avblockera";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "Blockerade användare kommer inte att kunna ringa dig eller skicka meddelanden.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Klart";
+"done" = "Klart";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Välj";
+"select" = "Välj";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Söker...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "Inga träffar";
+"searchMatchesNoneSpecific" = "Inga träffar";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 träff";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d av %d matchningar";
+"searchMatches" = "%d av %d matchningar";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Blockera denna Användare";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "Sök i konversation";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Flytta och skala";
+"attachmentsMoveAndScale" = "Flytta och skala";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Detta kan dröja några minuter.";
+"waitFewMinutes" = "Detta kan dröja några minuter.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Optimerar databas";
+"databaseOptimizing" = "Optimerar databas";
 /* The present; the current time. */
 "DATE_NOW" = "Nu";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "Redigera grupp";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "Du har ingen media i den här konversationen.";
+"attachmentsMediaEmpty" = "Du har ingen media i den här konversationen.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Laddar nyare media…";
+"attachmentsLoadingNewer" = "Laddar nyare media…";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Laddar äldre media…";
+"attachmentsLoadingOlder" = "Laddar äldre media…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Det gick inte att hämta den begärda GIF. Vänligen verifiera att du är online.";
+"errorUnknown" = "Det gick inte att hämta den begärda GIF. Vänligen verifiera att du är online.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "Ett okänt fel har uppstått.";
+"errorUnknown" = "Ett okänt fel har uppstått.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Det gick inte att välja GIF";
+"errorUnknown" = "Det gick inte att välja GIF";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Vänligen ange sökord.";
+"searchEnter" = "Vänligen ange sökord.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Fel. Klicka för att försöka igen.";
+"searchMatchesNone" = "Fel. Klicka för att försöka igen.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "Inga resultat.";
+"searchMatchesNone" = "Inga resultat.";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Grupp skapad";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ har gått med i gruppen. ";
+"groupMemberNew" = "%@ har gått med i gruppen. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ lämnade gruppen. ";
+"groupMemberLeft" = "%@ lämnade gruppen. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ togs bort från gruppen. ";
+"groupRemoved" = "%@ togs bort från gruppen. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ har tagits bort från gruppen. ";
+"groupRemovedMore" = "%@ har tagits bort från gruppen. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "Titeln är nu '%@'. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Grupp uppdaterad.";
+"groupUpdated" = "Grupp uppdaterad.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "Du har lämnat gruppen.";
+"groupMemberYouLeft" = "Du har lämnat gruppen.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " Du togs bort från gruppen. ";
+"groupRemovedYou" = " Du togs bort från gruppen. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Du kan inte dela mer än %@ objekt.";
+"attachmentsErrorNumber" = "Du kan inte dela mer än %@ objekt.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Det gick inte att lägga till bifogad fil.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Ogiltig ljudfil.";
+"audioUnableToPlay" = "Ogiltig ljudfil.";
 /* Confirmation button within contextual alert */
 "leave" = "Lämna";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Lämna grupp";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Alla media";
+"conversationsSettingsAllMedia" = "Alla media";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Radera %d meddelanden";
+"deleteMessages" = "Radera %d meddelanden";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Radera meddelande";
+"deleteMessage" = "Radera meddelande";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ den %@";
+"attachmentsMedia" = "%@ den %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "Du";
+"onionRoutingPathYou" = "Du";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Denna månad";
+"attachmentsThisMonth" = "Denna månad";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Sändningen misslyckades.";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "Läst";
+"read" = "Läst";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "Skickar…";
+"sending" = "Skickar…";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "Skickat";
+"disappearingMessagesSent" = "Skickat";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "Laddar upp…";
+"uploading" = "Laddar upp…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ till %@";
+"notificationsIosGroup" = "%@ till %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Egna Anteckningar";
+"noteToSelf" = "Egna Anteckningar";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Du kan ha fått meddelanden medan din %@ startades om.";
+"notificationsIosRestart" = "Du kan ha fått meddelanden medan din %@ startades om.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "Ok";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ inaktiverade försvinnande meddelanden.";
+"disappearingMessagesTurnedOff" = "%@ inaktiverade försvinnande meddelanden.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ har satt tid för försvunna meddelanden till %@";
+"disappearingMessagesSet" = "%@ har satt tid för försvunna meddelanden till %@";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Det går inte att fånga bild.";
+"cameraErrorUnavailable" = "Det går inte att fånga bild.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Det går inte att fånga bild.";
+"cameraErrorUnavailable" = "Det går inte att fånga bild.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Kunde inte konfigurera kameran.";
+"cameraErrorUnavailable" = "Kunde inte konfigurera kameran.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Namnlöst Album";
+"attachmentsAlbumUnnamed" = "Namnlöst Album";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Markera som läst";
+"messageMarkRead" = "Markera som läst";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Svara";
+"reply" = "Svara";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Autentisera för att öppna Session.";
+"authenticateToOpen" = "Autentisera för att öppna Session.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Autentisering misslyckades";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Autentisering misslyckades";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (standard)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@w";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Avbryt";
+"cancel" = "Avbryt";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Radera";
+"delete" = "Radera";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Tryck och håll ned för att spela in ett röstmeddelande.";
+"messageVoiceErrorShort" = "Tryck och håll ned för att spela in ett röstmeddelande.";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Du inaktiverade försvinnande meddelanden.";
+"disappearingMessagesTurnedOffYou" = "Du inaktiverade försvinnande meddelanden.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Du satte tid för försvunna meddelanden till %@";
+"disappearingMessagesSetYou" = "Du satte tid för försvunna meddelanden till %@";
 // MARK: - Session
-"continue_2" = "Fortsätt";
+"continue" = "Fortsätt";
 "copy" = "Kopiera";
-"invalid_url" = "Ogiltig URL";
+"communityEnterUrlErrorInvalid" = "Ogiltig URL";
 "next" = "Nästa";
 "share" = "Dela";
 "invalid_session_id" = "Ogiltigt Sessions-ID";
 "cancel" = "Avbryt";
-"your_session_id" = "Ditt Session ID";
-"vc_landing_title_2" = "Din session börjar här...";
-"vc_landing_register_button_title" = "Skapa Sessions-ID";
-"vc_landing_restore_button_title" = "Fortsätt din Session";
-"vc_landing_link_button_title" = "Länka ny enhet";
+"accountIdYours" = "Ditt Session ID";
+"onboardingBubblePrivacyInYourPocket" = "Din session börjar här...";
+"onboardingAccountCreate" = "Skapa Sessions-ID";
+"onboardingAccountExists" = "Fortsätt din Session";
+"onboardingAccountExists" = "Länka ny enhet";
 "view_fake_chat_bubble_1" = "Vad är Session?";
 "view_fake_chat_bubble_2" = "Det är en decentraliserad, krypterad meddelandeapp";
 "view_fake_chat_bubble_3" = "Så det samlar inte in mina personuppgifter eller mina konversationers metadata? Hur fungerar det?";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "Vänner låter inte vänner använda komprometterade meddelandeappar. Varsågod.";
 "vc_register_title" = "Säg hej till ditt Sessions-ID";
 "vc_register_explanation" = "Ditt sessions-ID är den unika adress folk kan använda för att kontakta dig på Session. Ditt Sessions-ID är helt anonymt och privat rakt igenom, helt utan koppling till din riktiga identitet.";
-"vc_restore_title" = "Återställ konto";
-"vc_restore_explanation" = "Ange den återställningsfras du fick för att kunna återställa ditt konto.";
-"vc_restore_seed_text_field_hint" = "Ange din hemliga återställningsfras";
-"vc_link_device_title" = "Länka ny enhet";
-"vc_link_device_scan_qr_code_tab_title" = "Skanna QR-kod";
-"vc_display_name_title_2" = "Välj visningsnamn";
-"vc_display_name_explanation" = "Detta blir ditt namn när du använder Session. Det kan vara ditt riktiga namn, ett alias eller något annat du gillar.";
-"vc_display_name_text_field_hint" = "Ange ett visningsnamn";
-"vc_display_name_display_name_missing_error" = "Vänligen välj ett visningsnamn";
-"vc_display_name_display_name_too_long_error" = "Vänligen välj ett kortare visningsnamn";
-"vc_pn_mode_recommended_option_tag" = "Rekommenderat";
-"contactNone" = "Du har inga kontakter";
+"onboardingAccountExists" = "Återställ konto";
+"recoveryPasswordExplanation" = "Ange den återställningsfras du fick för att kunna återställa ditt konto.";
+"recoveryPasswordEnter" = "Ange din hemliga återställningsfras";
+"onboardingAccountExists" = "Länka ny enhet";
+"qrScan" = "Skanna QR-kod";
+"displayNamePick" = "Välj visningsnamn";
+"displayNameDescription" = "Detta blir ditt namn när du använder Session. Det kan vara ditt riktiga namn, ett alias eller något annat du gillar.";
+"displayNameEnter" = "Ange ett visningsnamn";
+"displayNameErrorDescription" = "Vänligen välj ett visningsnamn";
+"displayNameErrorDescriptionShorter" = "Vänligen välj ett kortare visningsnamn";
+"recommended" = "Rekommenderat";
+"conversationsNone" = "Du har inga kontakter";
 "vc_home_empty_state_button_title" = "Starta en Session";
-"vc_seed_title" = "Din Återställningsfras";
+"sessionRecoveryPassword" = "Din Återställningsfras";
 "vc_seed_title_2" = "Möt din återställningsfras";
 "vc_seed_explanation" = "Din återställningsfras är huvudnyckeln till ditt Sessions-ID – du kan använda den för att återställa ditt Sessions-ID om du förlorar åtkomst till enheten. Förvara din återställningsfras på en säker plats, och ge den inte till någon.";
 "vc_seed_reveal_button_title" = "Håll ned för att visa";
 "view_seed_reminder_subtitle_1" = "Säkra ditt konto genom att spara din återställningsfras";
 "view_seed_reminder_subtitle_2" = "Tryck på och håll ned de dolda orden för att avslöja din återställningsfras och lagra dem på ett säkert sätt för att säkra ditt Sessions-ID.";
 "view_seed_reminder_subtitle_3" = "Se till att lagra din återställningsfras på en säker plats";
-"vc_path_title" = "Sökväg";
-"vc_path_explanation" = "Sessionen döljer din IP-adress genom att dirigera dina meddelanden genom flera Tjänstnoder i Sessionens decentraliserade nätverk. Detta är de länder som din anslutning för närvarande går igenom:";
-"vc_path_device_row_title" = "Du";
-"vc_path_guard_node_row_title" = "Entrénod";
-"vc_path_service_node_row_title" = "Tjänstnoden";
-"vc_path_destination_row_title" = "Mål";
-"vc_path_learn_more_button_title" = "Mer info";
-"vc_create_private_chat_title" = "Nytt meddelande";
-"vc_create_private_chat_enter_session_id_tab_title" = "Ange Sessions-ID";
-"vc_create_private_chat_scan_qr_code_tab_title" = "Scanna QR-kod";
+"onionRoutingPath" = "Sökväg";
+"onionRoutingPathDescription" = "Sessionen döljer din IP-adress genom att dirigera dina meddelanden genom flera Tjänstnoder i Sessionens decentraliserade nätverk. Detta är de länder som din anslutning för närvarande går igenom:";
+"onionRoutingPathYou" = "Du";
+"onionRoutingPathEntryNode" = "Entrénod";
+"onionRoutingPathServiceNode" = "Tjänstnoden";
+"onionRoutingPathDestination" = "Mål";
+"learnMore" = "Mer info";
+"messageNew" = "Nytt meddelande";
+"accountIdEnter" = "Ange Sessions-ID";
+"qrScan" = "Scanna QR-kod";
 "vc_enter_public_key_explanation" = "Starta en ny konversation genom att ange någons Sessions-ID eller dela ditt Sessions-ID med dem.";
-"vc_scan_qr_code_camera_access_explanation" = "Sessionen behöver kameraåtkomst för att skanna QR-koder";
-"vc_create_closed_group_title" = "Skapa grupp";
-"vc_create_closed_group_text_field_hint" = "Ange ett gruppnamn";
-"contactNone" = "Du har inga kontakter";
-"vc_create_closed_group_group_name_missing_error" = "Vänligen ange ett gruppnamn";
-"vc_create_closed_group_group_name_too_long_error" = "Vänligen ange ett kortare namn för gruppen";
-"vc_create_closed_group_too_many_group_members_error" = "En sluten grupp kan inte ha fler än 100 medlemmar";
-"vc_join_public_chat_title" = "Gå med i Community";
-"vc_join_public_chat_enter_group_url_tab_title" = "Community URL";
-"vc_join_public_chat_scan_qr_code_tab_title" = "Skanna QR-kod";
-"vc_enter_chat_url_text_field_hint" = "Ange Community URL";
-"vc_settings_title" = "Inställningar";
+"cameraGrantAccessQr" = "Sessionen behöver kameraåtkomst för att skanna QR-koder";
+"groupCreate" = "Skapa grupp";
+"groupNameEnter" = "Ange ett gruppnamn";
+"conversationsNone" = "Du har inga kontakter";
+"groupNameEnterPlease" = "Vänligen ange ett gruppnamn";
+"groupNameEnterShorter" = "Vänligen ange ett kortare namn för gruppen";
+"groupAddMemberMaximum" = "En sluten grupp kan inte ha fler än 100 medlemmar";
+"communityJoin" = "Gå med i Community";
+"communityUrl" = "Community URL";
+"qrScan" = "Skanna QR-kod";
+"communityEnterUrl" = "Ange Community URL";
+"sessionSettings" = "Inställningar";
 "vc_group_settings_title" = "Gruppinställningar";
-"vc_settings_display_name_missing_error" = "Vänligen välj ett visningsnamn";
-"vc_settings_display_name_too_long_error" = "Vänligen välj ett kortare visningsnamn";
-"vc_settings_privacy_button_title" = "Integritet";
-"vc_settings_notifications_button_title" = "Aviseringar";
-"vc_settings_recovery_phrase_button_title" = "Återställningsfras";
-"vc_settings_clear_all_data_button_title" = "Rensa data";
-"vc_qr_code_title" = "QR-kod";
-"vc_qr_code_view_my_qr_code_tab_title" = "Visa min QR-kod";
-"vc_qr_code_view_scan_qr_code_tab_title" = "Skanna QR-kod";
+"displayNameErrorDescription" = "Vänligen välj ett visningsnamn";
+"displayNameErrorDescriptionShorter" = "Vänligen välj ett kortare visningsnamn";
+"sessionPrivacy" = "Integritet";
+"sessionNotifications" = "Aviseringar";
+"sessionRecoveryPassword" = "Återställningsfras";
+"sessionClearData" = "Rensa data";
+"qrCode" = "QR-kod";
+"view" = "Visa min QR-kod";
+"qrScan" = "Skanna QR-kod";
 "vc_qr_code_view_scan_qr_code_explanation" = "Skanna någons QR-kod för att starta en konversation med dem";
-"vc_view_my_qr_code_explanation" = "Detta är din QR-kod. Andra användare kan skanna den för att starta en Session med dig.";
+"qrYoursDescription" = "Detta är din QR-kod. Andra användare kan skanna den för att starta en Session med dig.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Du kommer att meddelas om nya meddelanden på ett tillförlitligt sätt och omedelbart använda Apples meddelandeservrar.";
 "notificationsFastMode" = "Snabbläge";
-"slow_mode_explanation" = "Sessionen kommer då och då att leta efter nya meddelanden i bakgrunden.";
+"notificationsSlowModeDescription" = "Sessionen kommer då och då att leta efter nya meddelanden i bakgrunden.";
 "notificationsSlowMode" = "Långsamt läge";
-"vc_pn_mode_title" = "Meddelandeaviseringar";
-"vc_link_device_recovery_phrase_tab_title" = "Återställningsfras";
+"notificationsMessage" = "Meddelandeaviseringar";
+"sessionRecoveryPassword" = "Återställningsfras";
 "vc_link_device_scan_qr_code_explanation" = "Navigera till Inställningar → Återställningsfras på din andra enhet för att visa din QR-kod.";
-"vc_enter_recovery_phrase_title" = "Återställningsfras";
+"sessionRecoveryPassword" = "Återställningsfras";
 "vc_enter_recovery_phrase_explanation" = "För att länka din enhet, ange den återställningsfrasen du fick när du registrerade dig.";
-"accountIdOrOnsEnter" = "Ange sessions-ID eller ONS-namn";
-"admin_group_leave_warning" = "Eftersom du skapade denna grupp kommer den att raderas för alla. Detta kan inte ångras.";
-"vc_join_open_group_suggestions_title" = "Eller gå med i en av dessa...";
-"vc_settings_invite_a_friend_button_title" = "Bjud in en vän";
+"accountIdEnterYourFriends" = "Ange sessions-ID eller ONS-namn";
+"groupOnlyAdmin" = "Eftersom du skapade denna grupp kommer den att raderas för alla. Detta kan inte ångras.";
+"communityJoinOfficial" = "Eller gå med i en av dessa...";
+"sessionInviteAFriend" = "Bjud in en vän";
 "copied" = "Kopierad!";
-"vc_conversation_settings_copy_session_id_button_title" = "Skapa Sessions-ID";
-"vc_conversation_input_prompt" = "Meddelande";
+"accountIDCopy" = "Skapa Sessions-ID";
+"message" = "Meddelande";
 "vc_conversation_voice_message_cancel_message" = "Svep för att avbryta";
-"modal_download_attachment_title" = "Lita på %@?";
-"modal_download_attachment_explanation" = "Är du säker du vill hämta media skickat av %@?";
-"modal_download_button_title" = "Hämta";
-"modal_open_url_title" = "Öppna URL?";
-"modal_open_url_explanation" = "Är du säker på att du vill öppna %@?";
-"modal_open_url_button_title" = "Öppna";
-"modal_copy_url_button_title" = "Kopiera länk";
-"modal_blocked_title" = "Avblockera %@?";
-"modal_blocked_explanation" = "Är du säker på att du vill avblockera %@?";
-"modal_blocked_button_title" = "Avblockera";
-"modal_link_previews_title" = "Aktivera förhandsgranskningar av länkar?";
-"modal_link_previews_explanation" = "Om du aktiverar länkförhandsvisningar visas förhandsvisningar för URL: er du skickar och tar emot. Detta kan vara användbart, men sessionen måste kontakta länkade webbplatser för att generera förhandsvisningar. Du kan alltid inaktivera länkförhandsvisningar i sessionsinställningarna.";
-"modal_link_previews_button_title" = "Aktivera";
-"vc_share_title" = "Dela i Session";
-"vc_share_sending_message" = "Skickar...";
-"vc_share_link_previews_unsecure" = "Förhandsgranskningen laddas ej för osäkra länkar";
-"vc_share_link_previews_error" = "Kunde inte ladda en förhandsgranskning";
+"attachmentsAutoDownloadModalTitle" = "Lita på %@?";
+"attachmentsAutoDownloadModalDescription" = "Är du säker du vill hämta media skickat av %@?";
+"download" = "Hämta";
+"urlOpen" = "Öppna URL?";
+"urlOpenDescription" = "Är du säker på att du vill öppna %@?";
+"open" = "Öppna";
+"urlCopy" = "Kopiera länk";
+"blockUnblock" = "Avblockera %@?";
+"blockUnblockDescription" = "Är du säker på att du vill avblockera %@?";
+"blockUnblock" = "Avblockera";
+"linkPreviewsEnable" = "Aktivera förhandsgranskningar av länkar?";
+"linkPreviewsFirstDescription" = "Om du aktiverar länkförhandsvisningar visas förhandsvisningar för URL: er du skickar och tar emot. Detta kan vara användbart, men sessionen måste kontakta länkade webbplatser för att generera förhandsvisningar. Du kan alltid inaktivera länkförhandsvisningar i sessionsinställningarna.";
+"enable" = "Aktivera";
+"shareToSession" = "Dela i Session";
+"sending" = "Skickar...";
+"linkPreviewsErrorUnsecure" = "Förhandsgranskningen laddas ej för osäkra länkar";
+"linkPreviewsErrorLoad" = "Kunde inte ladda en förhandsgranskning";
 "vc_share_link_previews_disabled_title" = "Länkförhandsgranskningar är inaktiverade";
 "vc_share_link_previews_disabled_explanation" = "Aktivering av länkförhandsvisningar kommer att visa förhandsvisningar för URL:er du delar. Detta kan vara användbart, men Session måste kontakta länkade webbplatser för att generera förhandsvisningar.\n\nDu kan aktivera länkförhandsvisningar i Sessions inställningar.";
-"view_open_group_invitation_description" = "Öppen gruppinbjudan";
+"communityInvitation" = "Öppen gruppinbjudan";
 "vc_conversation_settings_invite_button_title" = "Lägg till medlemmar";
-"modal_send_seed_title" = "Varning";
-"modal_send_seed_explanation" = "Detta är din återställningsfras. Om du skickar den till någon kommer de att ha full tillgång till ditt konto.";
-"modal_send_seed_send_button_title" = "Skicka";
+"warning" = "Varning";
+"recoveryPasswordWarningSendDescription" = "Detta är din återställningsfras. Om du skickar den till någon kommer de att ha full tillgång till ditt konto.";
+"send" = "Skicka";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Notifiera endast för omnämnanden";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "När detta är aktiverat kommer du bara att meddelas för meddelanden som nämner dig.";
-"view_conversation_title_notify_for_mentions_only" = "Notifierar endast för omnämnanden";
-"message_deleted" = "Detta meddelande har raderats";
-"delete_message_for_me" = "Radera bara för mig";
-"delete_message_for_everyone" = "Radera för alla";
-"delete_message_for_me_and_recipient" = "Radera för mig och %@";
-"context_menu_reply" = "Svara";
-"context_menu_save" = "Spara";
-"context_menu_ban_user" = "Bannlys användare";
+"notificationsMentionsOnly" = "Notifierar endast för omnämnanden";
+"deleteMessageDeleted" = "Detta meddelande har raderats";
+"clearMessagesForMe" = "Radera bara för mig";
+"clearMessagesForEveryone" = "Radera för alla";
+"clearMessagesForEveryone" = "Radera för mig och %@";
+"reply" = "Svara";
+"save" = "Spara";
+"banUser" = "Bannlys användare";
 "context_menu_ban_and_delete_all" = "Bannlys och radera alla";
 "context_menu_ban_user_error_alert_message" = "Kan inte bannlysa användaren";
 "accessibility_expanding_attachments_button" = "Bifoga filer";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "Dokument";
 "accessibility_main_button_collapse" = "Minimera bilagoalternativ";
-"invalid_recovery_phrase" = "Ogiltig återställningsfras";
-"DISMISS_BUTTON_TEXT" = "Avfärda";
+"recoveryPasswordErrorTitle" = "Ogiltig återställningsfras";
+"dismiss" = "Avfärda";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Inställningar";
-"call_outgoing" = "Du ringde %@";
-"call_incoming" = "%@ ringde dig";
-"call_missed" = "Missat samtal från %@";
-"APN_Message" = "Du har ett nytt meddelande.";
-"APN_Collapsed_Messages" = "Du har %@ nya meddelanden.";
-"PIN_BUTTON_TEXT" = "Fäst";
-"UNPIN_BUTTON_TEXT" = "Lossa";
-"modal_call_missed_tips_title" = "Missat samtal";
-"modal_call_missed_tips_explanation" = "Missade ett samtal från \"%@\" eftersom du måste aktivera \"Röst- och videosamtal\" i sekretessinställningarna.";
-"media_saved" = "Media sparat av %@.";
-"screenshot_taken" = "%@ tog en skärmbild.";
-"SEARCH_SECTION_CONTACTS" = "Kontakter & Grupper";
-"SEARCH_SECTION_MESSAGES" = "Meddelanden";
-"MESSAGE_REQUESTS_TITLE" = "Meddelandeförfrågningar";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "Inga väntande meddelandeförfrågningar";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Rensa alla";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Är du säker på att du vill rensa alla meddelandeförfrågningar?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Rensa";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Är du säker på att du vill radera denna meddelandeförfrågan?";
+"sessionSettings" = "Inställningar";
+"callsYouCalled" = "Du ringde %@";
+"callsCalledYou" = "%@ ringde dig";
+"callsMissedCallFrom" = "Missat samtal från %@";
+"messageNewYouveGotA" = "Du har ett nytt meddelande.";
+"messageNewYouveGotMany" = "Du har %@ nya meddelanden.";
+"pin" = "Fäst";
+"pinUnpin" = "Lossa";
+"callsMissed" = "Missat samtal";
+"callsYouMissedCallPermissions" = "Missade ett samtal från \"%@\" eftersom du måste aktivera \"Röst- och videosamtal\" i sekretessinställningarna.";
+"attachmentsMediaSaved" = "Media sparat av %@.";
+"screenshotTaken" = "%@ tog en skärmbild.";
+"sessionConversations" = "Kontakter & Grupper";
+"messages" = "Meddelanden";
+"sessionMessageRequests" = "Meddelandeförfrågningar";
+"messageRequestsNonePending" = "Inga väntande meddelandeförfrågningar";
+"clearAll" = "Rensa alla";
+"messageRequestsClearAllExplanation" = "Är du säker på att du vill rensa alla meddelandeförfrågningar?";
+"clear" = "Rensa";
+"messageRequestsDelete" = "Är du säker på att du vill radera denna meddelandeförfrågan?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Är du säker på att du vill blockera denna kontakt?";
-"MESSAGE_REQUESTS_INFO" = "Att skicka ett meddelande till den här användaren godkänner automatiskt deras meddelandebegäran och avslöjar ditt Session ID.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Din meddelandeförfrågan har accepterats.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "Du har en ny meddelandeförfrågan";
-"TXT_HIDE_TITLE" = "Dölj";
-"TXT_DELETE_ACCEPT" = "Acceptera";
+"messageRequestsAcceptDescription" = "Att skicka ett meddelande till den här användaren godkänner automatiskt deras meddelandebegäran och avslöjar ditt Session ID.";
+"messageRequestsAccepted" = "Din meddelandeförfrågan har accepterats.";
+"messageRequestsNew" = "Du har en ny meddelandeförfrågan";
+"hide" = "Dölj";
+"accept" = "Acceptera";
 "TXT_BLOCK_USER_TITLE" = "Blockera användare";
 "error" = "Fel";
-"modal_call_permission_request_title" = "Samtalsbehörigheter krävs";
-"modal_call_permission_request_explanation" = "Du kan aktivera behörigheten \"Röst- och videosamtal\" i Sekretessinställningarna.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Hoppsan, ett fel inträffade";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Försök igen senare";
+"callsPermissionsRequired" = "Samtalsbehörigheter krävs";
+"callsPermissionsRequiredDescription" = "Du kan aktivera behörigheten \"Röst- och videosamtal\" i Sekretessinställningarna.";
+"communityError" = "Hoppsan, ett fel inträffade";
+"communityErrorDescription" = "Försök igen senare";
 "LOADING_CONVERSATIONS" = "Laddar konversationer...";
 "DATABASE_MIGRATION_FAILED" = "Ett fel uppstod vid optimering av databasen\n\nDu kan exportera dina programloggar för att kunna dela för felsökning eller så kan du återställa din enhet\n\nVarning: Återställning av enheten kommer att leda till förlust av data äldre än två veckor";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Något gick fel. Kontrollera din återställningsfras och försök igen.";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "You seem to be missing the last word of your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "There appears to be an invalid word in your recovery phrase. Please check what you entered and try again.";
-"RECOVERY_PHASE_ERROR_FAILED" = "Your recovery phrase couldn't be verified. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Något gick fel. Kontrollera din återställningsfras och försök igen.";
+"recoveryPasswordErrorMessageShort" = "Looks like you didn't enter enough words. Please check your recovery phrase and try again.";
+"recoveryPasswordErrorMessageShort" = "You seem to be missing the last word of your recovery phrase. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageIncorrect" = "There appears to be an invalid word in your recovery phrase. Please check what you entered and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Your recovery phrase couldn't be verified. Please check what you entered and try again.";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "Authentication could not be accessed.";
+"authenticateNotAccessed" = "Authentication could not be accessed.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Authentication failed.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Authentication failed.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Too many failed authentication attempts. Please try again later.";
+"authenticateFailedTooManyAttempts" = "Too many failed authentication attempts. Please try again later.";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
+"lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Skicka";
+"send" = "Skicka";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Försök igen";
+"retry" = "Försök igen";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
+"messageErrorDelivery" = "Your message failed to send.";
 "INVALID_SESSION_ID_MESSAGE" = "Please check the Session ID and try again.";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Please check the Recovery Phrase and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Please check the Recovery Phrase and try again.";
 "media" = "Media";
 "DOCUMENT_TAB_TITLE" = "Dokument";
 "attachmentsFilesEmpty" = "You don't have any document in this conversation.";
@@ -507,16 +513,16 @@
 "helpWedLoveYourFeedback" = "Vi vill gärna höra din åsikt";
 "helpFAQ" = "FAQ";
 "helpSupport" = "Support";
-"modal_clear_all_data_title" = "Rensa all data";
-"modal_clear_all_data_explanation" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
+"clearDataAll" = "Rensa all data";
+"clearDataAllDescription" = "This will permanently delete your messages and contacts. Would you like to clear this device only, or delete your data from the network as well?";
 "clearDeviceAndNetworkConfirm" = "Are you sure you want to delete your data from the network?   If you continue, you will not be able to restore your messages or contacts.";
-"modal_clear_all_data_device_only_button_title" = "Clear Device Only";
-"modal_clear_all_data_entire_account_button_title" = "Clear Device and Network";
-"dialog_clear_all_data_deletion_failed_1" = "Data raderades inte av 1 tjänstnod. Tjänstnodsid: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Data raderades inte av %@ tjänstnoder. Tjänstnodernas id: %@.";
+"clearDeviceOnly" = "Clear Device Only";
+"clearDeviceAndNetwork" = "Clear Device and Network";
+"clearDataErrorDescription1" = "Data raderades inte av 1 tjänstnod. Tjänstnodsid: %@.";
+"clearDataErrorDescription2" = "Data raderades inte av %@ tjänstnoder. Tjänstnodernas id: %@.";
 "modal_clear_all_data_confirm" = "Rensa";
-"modal_seed_title" = "Din återställningsfras";
-"modal_seed_explanation" = "You can use your recovery phrase to restore your account or link a device.";
+"sessionRecoveryPassword" = "Din återställningsfras";
+"recoveryPasswordDescription" = "You can use your recovery phrase to restore your account or link a device.";
 "modal_permission_explanation" = "Session needs %@ access to continue. You can enable access in the iOS settings.";
 "modal_permission_settings_title" = "Inställningar";
 "modal_permission_camera" = "kamera";
@@ -691,10 +697,10 @@
 "groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"conversationsDelete" = "Delete Conversation";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"conversationsDeleteDescription" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Hide Note to Self";

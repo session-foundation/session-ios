@@ -377,7 +377,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Storage.suspendDatabaseAccess()
         
         content.title = "sessionMessenger".localized()
-        content.body = "APN_Message".localized()
+        content.body = "messageNewYouveGotA".localized()
         let userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
         content.userInfo = userInfo
         contentHandler!(content)

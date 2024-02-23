@@ -190,7 +190,7 @@ extension AllMediaViewController: MediaTileViewControllerDelegate {
         }
         else {
             self.navigationItem.rightBarButtonItem = UIBarButtonItem(
-                title: "BUTTON_SELECT".localized(),
+                title: "select".localized(),
                 style: .plain,
                 target: self,
                 action: #selector(didTapSelect)

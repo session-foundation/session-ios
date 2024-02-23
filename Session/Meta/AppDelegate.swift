@@ -423,7 +423,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
-                alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
+                alert.addAction(UIAlertAction(title: "onboardingAccountExists".localized(), style: .destructive) { _ in
                     if SUKLegacy.hasLegacyDatabaseFile {
                         // Remove the legacy database and any message hashes that have been migrated to the new DB
                         try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
@@ -484,7 +484,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         let notificationContent: UNMutableNotificationContent = UNMutableNotificationContent()
         notificationContent.body = String(
-            format: NSLocalizedString("NOTIFICATION_BODY_PHONE_LOCKED_FORMAT", comment: ""),
+            format: "notificationsIosRestart".localized(),
             UIDevice.current.localizedModel
         )
         let notificationRequest: UNNotificationRequest = UNNotificationRequest(

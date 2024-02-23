@@ -48,7 +48,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
     private lazy var backgroundPollingOptionView: OptionView = {
         let result: OptionView = OptionView(
             title: "notificationsSlowMode".localized(),
-            explanation: "slow_mode_explanation".localized(),
+            explanation: "notificationsSlowModeDescription".localized(),
             delegate: self
         )
         result.accessibilityLabel = "Slow mode option"
@@ -70,7 +70,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         // Set up title label
         let titleLabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: isIPhone5OrSmaller ? Values.largeFontSize : Values.veryLargeFontSize)
-        titleLabel.text = "vc_pn_mode_title".localized()
+        titleLabel.text = "notificationsMessage".localized()
         titleLabel.themeTextColor = .textPrimary
         titleLabel.lineBreakMode = .byWordWrapping
         titleLabel.numberOfLines = 0
@@ -84,7 +84,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
         registerButton.accessibilityLabel = "Continue with settings"
-        registerButton.setTitle("continue_2".localized(), for: .normal)
+        registerButton.setTitle("continue".localized(), for: .normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         
         // Set up register button container

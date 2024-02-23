@@ -117,7 +117,7 @@ public extension UIContextualAction {
                         
                     case .hide:
                         return UIContextualAction(
-                            title: "TXT_HIDE_TITLE".localized(),
+                            title: "hide".localized(),
                             icon: UIImage(systemName: "eye.slash"),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
@@ -151,7 +151,7 @@ public extension UIContextualAction {
                                         info: ConfirmationModal.Info(
                                             title: "noteToSelfHide".localized(),
                                             body: .attributedText(confirmationModalExplanation),
-                                            confirmTitle: "TXT_HIDE_TITLE".localized(),
+                                            confirmTitle: "hide".localized(),
                                             confirmAccessibility: Accessibility(
                                                 identifier: "Hide"
                                             ),
@@ -185,8 +185,8 @@ public extension UIContextualAction {
                     case .pin:
                         return UIContextualAction(
                             title: (threadViewModel.threadPinnedPriority > 0 ?
-                                "UNPIN_BUTTON_TEXT".localized() :
-                                "PIN_BUTTON_TEXT".localized()
+                                "pinUnpin".localized() :
+                                "pin".localized()
                             ),
                             icon: (threadViewModel.threadPinnedPriority > 0 ?
                                 UIImage(systemName: "pin.slash") :
@@ -274,8 +274,8 @@ public extension UIContextualAction {
                     case .block:
                         return UIContextualAction(
                             title: (threadViewModel.threadIsBlocked == true ?
-                                "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
-                                "BLOCK_LIST_BLOCK_BUTTON".localized()
+                                "blockUnblock".localized() :
+                                "block".localized()
                             ),
                             icon: UIImage(named: "table_ic_block"),
                             iconHeight: Values.mediumFontSize,
@@ -340,7 +340,7 @@ public extension UIContextualAction {
                                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                                         info: ConfirmationModal.Info(
                                             title: "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON".localized(),
-                                            confirmTitle: "BLOCK_LIST_BLOCK_BUTTON".localized(),
+                                            confirmTitle: "block".localized(),
                                             confirmAccessibility: Accessibility(
                                                 identifier: "Block"
                                             ),
@@ -383,7 +383,7 @@ public extension UIContextualAction {
                             
                             let confirmationModalExplanation: NSAttributedString = {
                                 if threadViewModel.currentUserIsClosedGroupAdmin == true {
-                                    return NSAttributedString(string: "admin_group_leave_warning".localized())
+                                    return NSAttributedString(string: "groupOnlyAdmin".localized())
                                 }
                                 
                                 let mutableAttributedString = NSMutableAttributedString(
@@ -436,7 +436,7 @@ public extension UIContextualAction {
                         
                     case .delete:
                         return UIContextualAction(
-                            title: "TXT_DELETE_TITLE".localized(),
+                            title: "delete".localized(),
                             icon: UIImage(named: "icon_bin"),
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
@@ -449,25 +449,25 @@ public extension UIContextualAction {
                             let isMessageRequest: Bool = (threadViewModel.threadIsMessageRequest == true)
                             let confirmationModalTitle: String = {
                                 switch (threadViewModel.threadVariant, isMessageRequest) {
-                                    case (_, true): return "TXT_DELETE_TITLE".localized()
+                                    case (_, true): return "delete".localized()
                                     case (.contact, _):
-                                        return "delete_conversation_confirmation_alert_title".localized()
+                                        return "conversationsDelete".localized()
                                         
                                     case (.legacyGroup, _), (.group, _):
                                         return "groupDelete".localized()
                                         
-                                    case (.community, _): return "TXT_DELETE_TITLE".localized()
+                                    case (.community, _): return "delete".localized()
                                 }
                             }()
                             let confirmationModalExplanation: NSAttributedString = {
                                 guard !isMessageRequest else {
                                     return NSAttributedString(
-                                        string: "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON".localized()
+                                        string: "messageRequestsDelete".localized()
                                     )
                                 }
                                 guard threadViewModel.currentUserIsClosedGroupAdmin == false else {
                                     return NSAttributedString(
-                                        string: "admin_group_leave_warning".localized()
+                                        string: "groupOnlyAdmin".localized()
                                     )
                                 }
                                 
@@ -476,7 +476,7 @@ public extension UIContextualAction {
                                         switch threadViewModel.threadVariant {
                                             case .contact:
                                                 return
-                                                    "delete_conversation_confirmation_alert_message".localized()
+                                                    "conversationsDeleteDescription".localized()
                                                 
                                             case .legacyGroup, .group:
                                                 return
@@ -502,7 +502,7 @@ public extension UIContextualAction {
                                 info: ConfirmationModal.Info(
                                     title: confirmationModalTitle,
                                     body: .attributedText(confirmationModalExplanation),
-                                    confirmTitle: "TXT_DELETE_TITLE".localized(),
+                                    confirmTitle: "delete".localized(),
                                     confirmAccessibility: Accessibility(
                                         identifier: "Confirm delete"
                                     ),

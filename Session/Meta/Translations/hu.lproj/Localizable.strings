@@ -1,17 +1,17 @@
 /* No comment provided by engineer. */
-"ATTACHMENT" = "Csatolmány";
+"attachment" = "Csatolmány";
 /* Format string for file extension label in call interstitial view */
-"ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Fájltípus";
+"attachmentsFileType" = "Fájltípus";
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
-"ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Méret: %@";
+"attachmentsFileSize" = "Méret: %@";
 /* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Üzenet méretkorlát elérve";
+"messageErrorLimit" = "Üzenet méretkorlát elérve";
 /* Label for 'send' button in the 'attachment approval' dialog. */
-"ATTACHMENT_APPROVAL_SEND_BUTTON" = "Küldés";
+"send" = "Küldés";
 /* Generic filename for an attachment with no known name */
-"ATTACHMENT_DEFAULT_FILENAME" = "Csatolmány";
+"attachment" = "Csatolmány";
 /* The title of the 'attachment error' alert. */
-"ATTACHMENT_ERROR_ALERT_TITLE" = "Hiba a melléklet küldésekor";
+"attachmentsErrorSending" = "Hiba a melléklet küldésekor";
 /* Attachment error message for image attachments which could not be converted to JPEG */
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Nem lehet a képet konvertálni.";
 /* Attachment error message for video attachments which could not be converted to MP4 */
@@ -19,47 +19,47 @@
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Nem lehet a képet konvertálni.";
 /* Attachment error message for image attachments in which metadata could not be removed */
-"ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Nem sikerült eltávolítani a metaadatokat a képről.";
+"attachmentsImageErrorMetadata" = "Nem sikerült eltávolítani a metaadatokat a képről.";
 /* Attachment error message for image attachments which could not be resized */
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Nem lehet átméretezni a képet.";
 /* Attachment error message for attachments whose data exceed file size limits */
-"ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "A csatolmány túl nagy.";
+"attachmentsErrorSize" = "A csatolmány túl nagy.";
 /* Attachment error message for attachments with invalid data */
-"ATTACHMENT_ERROR_INVALID_DATA" = "A csatolmány érvénytelen tartalommal rendelkezik.";
+"attachmentsErrorNotSupported" = "A csatolmány érvénytelen tartalommal rendelkezik.";
 /* Attachment error message for attachments with an invalid file format */
-"ATTACHMENT_ERROR_INVALID_FILE_FORMAT" = "A csatolmány fájlformátuma érvénytelen.";
+"attachmentsErrorNotSupported" = "A csatolmány fájlformátuma érvénytelen.";
 /* Attachment error message for attachments without any data */
 "ATTACHMENT_ERROR_MISSING_DATA" = "A melléklet üres.";
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Nem sikerült kiválasztani a dokumentumot.";
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Kérjük, hozzon létre egy tömörített archívumot erről a fájlról vagy könyvtárról, és próbálja meg azt elküldeni.";
+"attachmentsErrorSize" = "Kérjük, hozzon létre egy tömörített archívumot erről a fájlról vagy könyvtárról, és próbálja meg azt elküldeni.";
 /* Alert title when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Nem támogatott fájlformátum";
+"attachmentsErrorNotSupported" = "Nem támogatott fájlformátum";
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
-"ATTACHMENT_TYPE_VOICE_MESSAGE" = "Hangüzenet";
+"messageVoice" = "Hangüzenet";
 /* Button label for the 'block' button */
-"BLOCK_LIST_BLOCK_BUTTON" = "Letiltás";
+"block" = "Letiltás";
 /* A format for the 'block user' action sheet title. Embeds {{the blocked user's name or phone number}}. */
-"BLOCK_LIST_BLOCK_USER_TITLE_FORMAT" = "%@ letiltása?";
+"block" = "%@ letiltása?";
 /* A format for the 'unblock user' action sheet title. Embeds {{the unblocked user's name or phone number}}. */
-"BLOCK_LIST_UNBLOCK_TITLE_FORMAT" = "%@ blokkolásának feloldása?";
+"blockUnblock" = "%@ blokkolásának feloldása?";
 /* Button label for the 'unblock' button */
-"BLOCK_LIST_UNBLOCK_BUTTON" = "Feloldás";
+"blockUnblock" = "Feloldás";
 /* An explanation of the consequences of blocking another user. */
 "BLOCK_USER_BEHAVIOR_EXPLANATION" = "A letiltott felhasználók nem tudnak majd hívni vagy üzeneteket küldeni.";
 /* Label for generic done button. */
-"BUTTON_DONE" = "Kész";
+"done" = "Kész";
 /* Button text to enable batch selection mode */
-"BUTTON_SELECT" = "Kiválasztás";
+"select" = "Kiválasztás";
 /* keyboard toolbar label when starting to search with no current results */
 "searchSearching" = "Keresés...";
 /* keyboard toolbar label when no messages match the search string */
-"CONVERSATION_SEARCH_NO_RESULTS" = "Nincs találat";
+"searchMatchesNoneSpecific" = "Nincs találat";
 /* keyboard toolbar label when exactly 1 message matches the search string */
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 találat";
 /* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
-"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d a %d találatból";
+"searchMatches" = "%d a %d találatból";
 /* table cell label in conversation settings */
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Felhasználó tiltása";
 /* label for 'mute thread' cell in conversation settings */
@@ -67,11 +67,11 @@
 /* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
 "searchConversation" = "Keresés a beszélgetésekben";
 /* Title for the 'crop/scale image' dialog. */
-"CROP_SCALE_IMAGE_VIEW_TITLE" = "Mozgatás és méretezés";
+"attachmentsMoveAndScale" = "Mozgatás és méretezés";
 /* Subtitle shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_SUBTITLE" = "Ez néhány percig eltarthat.";
+"waitFewMinutes" = "Ez néhány percig eltarthat.";
 /* Title shown while the app is updating its database. */
-"DATABASE_VIEW_OVERLAY_TITLE" = "Adatbázis optimalizálása";
+"databaseOptimizing" = "Adatbázis optimalizálása";
 /* The present; the current time. */
 "DATE_NOW" = "Most";
 /* table cell label in conversation settings */
@@ -79,103 +79,106 @@
 /* table cell label in conversation settings */
 "groupEdit" = "Csoport szerkesztése";
 /* Label indicating media gallery is empty */
-"GALLERY_TILES_EMPTY_GALLERY" = "A beszélgetésben nem szerepel médiafájl.";
+"attachmentsMediaEmpty" = "A beszélgetésben nem szerepel médiafájl.";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_MORE_RECENT_LABEL" = "Újabb média betöltése…";
+"attachmentsLoadingNewer" = "Újabb média betöltése…";
 /* Label indicating loading is in progress */
-"GALLERY_TILES_LOADING_OLDER_LABEL" = "Régebbi média betöltése…";
+"attachmentsLoadingOlder" = "Régebbi média betöltése…";
 /* Error displayed when there is a failure fetching a GIF from the remote service. */
-"GIF_PICKER_ERROR_FETCH_FAILURE" = "Nem sikerült lekérni a kért GIF-et. Kérjük, ellenőrizze, hogy online van-e.";
+"errorUnknown" = "Nem sikerült lekérni a kért GIF-et. Kérjük, ellenőrizze, hogy online van-e.";
 /* Generic error displayed when picking a GIF */
-"GIF_PICKER_ERROR_GENERIC" = "Ismeretlen hiba történt.";
+"errorUnknown" = "Ismeretlen hiba történt.";
 /* Shown when selected GIF couldn't be fetched */
-"GIF_PICKER_FAILURE_ALERT_TITLE" = "Nem tud GIF-et választani";
+"errorUnknown" = "Nem tud GIF-et választani";
 /* Alert message shown when user tries to search for GIFs without entering any search terms. */
-"GIF_PICKER_VIEW_MISSING_QUERY" = "Kérjük, írja be a keresőbe.";
+"searchEnter" = "Kérjük, írja be a keresőbe.";
 /* Indicates that an error occurred while searching. */
-"GIF_VIEW_SEARCH_ERROR" = "Hiba. Nyomjon az Újrapróbálkozás gombra.";
+"searchMatchesNone" = "Hiba. Nyomjon az Újrapróbálkozás gombra.";
 /* Indicates that the user's search had no results. */
-"GIF_VIEW_SEARCH_NO_RESULTS" = "Nincs találat.";
+"searchMatchesNone" = "Nincs találat.";
 /* No comment provided by engineer. */
 "GROUP_CREATED" = "Csoport létrehozva";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_JOINED" = "%@ belépett a csoportba. ";
+"groupMemberNew" = "%@ belépett a csoportba. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_LEFT" = "%@ kilépett a csoportból. ";
+"groupMemberLeft" = "%@ kilépett a csoportból. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBER_REMOVED" = "%@ el lett távolítva a csoportból. ";
+"groupRemoved" = "%@ el lett távolítva a csoportból. ";
 /* No comment provided by engineer. */
-"GROUP_MEMBERS_REMOVED" = "%@ el lettek távolítva a csoportból. ";
+"groupRemovedMore" = "%@ el lettek távolítva a csoportból. ";
 /* No comment provided by engineer. */
 "GROUP_TITLE_CHANGED" = "A cím mostantól. ";
 /* No comment provided by engineer. */
-"GROUP_UPDATED" = "Csoport frissítve.";
+"groupUpdated" = "Csoport frissítve.";
 /* No comment provided by engineer. */
-"GROUP_YOU_LEFT" = "Kiléptél a csoportból.";
+"groupMemberYouLeft" = "Kiléptél a csoportból.";
 /* No comment provided by engineer. */
-"YOU_WERE_REMOVED" = " Eltávolítottak a csoportból. ";
+"groupRemovedYou" = " Eltávolítottak a csoportból. ";
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Nem oszthatsz meg többet, mint %@ elemet.";
+"attachmentsErrorNumber" = "Nem oszthatsz meg többet, mint %@ elemet.";
 /* alert title */
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Nem sikerült betölteni a mellékletet.";
 /* Message for the alert indicating that an audio file is invalid. */
-"INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Helytelen hangfájl.";
+"audioUnableToPlay" = "Helytelen hangfájl.";
 /* Confirmation button within contextual alert */
 "leave" = "Lecsatlalkozás";
 /* table cell label in conversation settings */
 "LEAVE_GROUP_ACTION" = "Csoport elhagyása";
 /* nav bar button item */
-"MEDIA_DETAIL_VIEW_ALL_MEDIA_BUTTON" = "Az összes médiafájl";
+"conversationsSettingsAllMedia" = "Az összes médiafájl";
 /* Confirmation button text to delete selected media from the gallery, embeds {{number of messages}} */
-"MEDIA_GALLERY_DELETE_MULTIPLE_MESSAGES_FORMAT" = "Üzenetek törlése";
+"deleteMessages" = "Üzenetek törlése";
 /* Confirmation button text to delete selected media message from the gallery */
-"MEDIA_GALLERY_DELETE_SINGLE_MESSAGE" = "Üzenet törlése";
+"deleteMessage" = "Üzenet törlése";
 /* embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29' */
-"MEDIA_GALLERY_LANDSCAPE_TITLE_FORMAT" = "%@ ezen a dátumon: %@";
+"attachmentsMedia" = "%@ ezen a dátumon: %@";
 /* Format for the 'more items' indicator for media galleries. Embeds {{the number of additional items}}. */
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 /* Short sender label for media sent by you */
-"MEDIA_GALLERY_SENDER_NAME_YOU" = "Te";
+"onionRoutingPathYou" = "Te";
 /* Section header in media gallery collection view */
-"MEDIA_GALLERY_THIS_MONTH_HEADER" = "Ebben a hónapban";
+"attachmentsThisMonth" = "Ebben a hónapban";
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "A küldés sikertelen.";
 /* status message for read messages */
-"MESSAGE_STATUS_READ" = "Elolvasva";
+"read" = "Elolvasva";
 /* message status while message is sending. */
-"MESSAGE_STATUS_SENDING" = "Küldés…";
+"sending" = "Küldés…";
 /* status message for sent messages */
-"MESSAGE_STATUS_SENT" = "Elküldve";
+"disappearingMessagesSent" = "Elküldve";
 /* status message while attachment is uploading */
-"MESSAGE_STATUS_UPLOADING" = "Feltöltés…";
+"uploading" = "Feltöltés…";
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ neki %@";
+"notificationsIosGroup" = "%@ neki %@";
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Privát feljegyzés";
+"noteToSelf" = "Privát feljegyzés";
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
-"NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Előfordulhat, hogy üzeneteket kapott, miközben a %@ újraindult.";
+"notificationsIosRestart" = "Előfordulhat, hogy üzeneteket kapott, miközben a %@ újraindult.";
 /* No comment provided by engineer. */
 "BUTTON_OK" = "OK";
 /* Info Message when {{other user}} disables or doesn't support disappearing messages */
-"OTHER_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "%@ letiltotta az eltűnő üzeneteket.";
+"disappearingMessagesTurnedOff" = "%@ letiltotta az eltűnő üzeneteket.";
 /* Info Message when {{other user}} updates message expiration to {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"OTHER_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Beállítottad, hogy az üzenetek ennyi idő után tűnjenek el: %@";
+"disappearingMessagesSet" = "Beállítottad, hogy az üzenetek ennyi idő után tűnjenek el: %@";
 /* alert title, generic error preventing user from capturing a photo */
-"PHOTO_CAPTURE_GENERIC_ERROR" = "Nem lehet a képet konvertálni.";
+"cameraErrorUnavailable" = "Nem lehet a képet konvertálni.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Nem lehet a képet konvertálni.";
+"cameraErrorUnavailable" = "Nem lehet a képet konvertálni.";
 /* alert title */
-"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "A kamera konfigurálása sikertelen.";
+"cameraErrorUnavailable" = "A kamera konfigurálása sikertelen.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Névtelen Album";
+"attachmentsAlbumUnnamed" = "Névtelen Album";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Olvasottnak jelölés";
+"messageMarkRead" = "Olvasottnak jelölés";
 /* Notification action button title */
-"PUSH_MANAGER_REPLY" = "Válasz";
+"reply" = "Válasz";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
-"SCREEN_LOCK_REASON_UNLOCK_SCREEN_LOCK" = "Hitelesítés az alkalmazás megnyitásához.";
+"authenticateToOpen" = "Hitelesítés az alkalmazás megnyitásához.";
 /* Title for alert indicating that screen lock could not be unlocked. */
-"SCREEN_LOCK_UNLOCK_FAILED" = "Hitelesítés sikertelen";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Hitelesítés sikertelen";
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "(Alapértelmezett)";
 /* Label for settings view that allows user to change the notification sound. */
@@ -209,28 +212,28 @@
 /* Label text below navbar button, embeds {{number of weeks}}. Must be very short, like 1 or 2 characters, The space is intentionally omitted between the text and the embedded duration so that we get, e.g. '5w' not '5 w'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_WEEKS_SHORT_FORMAT" = "%@hét";
 /* Label for the cancel button in an alert or action sheet. */
-"TXT_CANCEL_TITLE" = "Mégse";
+"cancel" = "Mégse";
 /* No comment provided by engineer. */
-"TXT_DELETE_TITLE" = "Törlés";
+"delete" = "Törlés";
 /* Message for the alert indicating the 'voice message' needs to be held to be held down to record. */
-"VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE" = "Hangüzenet küldéséhez érintsd meg és tartsd nyomva.";
+"messageVoiceErrorShort" = "Hangüzenet küldéséhez érintsd meg és tartsd nyomva.";
 /* Info Message when you disable disappearing messages */
-"YOU_DISABLED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Kikapcsoltad az eltűnő üzeneteket.";
+"disappearingMessagesTurnedOffYou" = "Kikapcsoltad az eltűnő üzeneteket.";
 /* Info message embedding a {{time amount}}, see the *_TIME_AMOUNT strings for context. */
-"YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "Beállítottad, hogy az üzenetek ennyi idő után tűnjenek el: %@";
+"disappearingMessagesSetYou" = "Beállítottad, hogy az üzenetek ennyi idő után tűnjenek el: %@";
 // MARK: - Session
-"continue_2" = "Folytatás";
+"continue" = "Folytatás";
 "copy" = "Másolás";
-"invalid_url" = "Érvénytelen URL";
+"communityEnterUrlErrorInvalid" = "Érvénytelen URL";
 "next" = "Tovább";
 "share" = "Megosztás";
 "invalid_session_id" = "Érvénytelen Session azonosító";
 "cancel" = "Mégse";
-"your_session_id" = "Az ön Session azonosítója";
-"vc_landing_title_2" = "Az ön Session-ja itt kezdődik...";
-"vc_landing_register_button_title" = "Session azonosító létrehozása";
-"vc_landing_restore_button_title" = "Folytassa a Session azonosítóját";
-"vc_landing_link_button_title" = "Eszköz társítása";
+"accountIdYours" = "Az ön Session azonosítója";
+"onboardingBubblePrivacyInYourPocket" = "Az ön Session-ja itt kezdődik...";
+"onboardingAccountCreate" = "Session azonosító létrehozása";
+"onboardingAccountExists" = "Folytassa a Session azonosítóját";
+"onboardingAccountExists" = "Eszköz társítása";
 "view_fake_chat_bubble_1" = "Mi az a Session?";
 "view_fake_chat_bubble_2" = "Ez egy decentralizált, titkosított üzenetküldő alkalmazás";
 "view_fake_chat_bubble_3" = "Tehát nem gyűjti a személyes adataimat vagy a beszélgetés metaadatait? Hogyan működik?";
@@ -238,181 +241,184 @@
 "view_fake_chat_bubble_5" = "A barátok nem engedik, hogy a barátok kompromittált hírnököket használjanak. Szívesen.";
 "vc_register_title" = "Ismerd meg a Session ID-d";
 "vc_register_explanation" = "Az üles azonosító az az egyedi cím, amelyet az emberek használhatnak, hogy kapcsolatba lépjenek Önnel az Ülés során. Mivel nincs kapcsolat a valódi személyazonosságával, az Ülés azonosító teljesen névtelen, és privát.";
-"vc_restore_title" = "Fiók visszaállítása";
-"vc_restore_explanation" = "Írja be azt a helyreállítási kifejezést, amelyet a fiók visszaállításához regisztrálásakor kapott.";
-"vc_restore_seed_text_field_hint" = "Írd be a helyreállítási szavakat";
-"vc_link_device_title" = "Eszköz társítása";
-"vc_link_device_scan_qr_code_tab_title" = "QR kód beolvasása";
-"vc_display_name_title_2" = "Válassza ki a megjelenítendő nevet";
-"vc_display_name_explanation" = "Ez lesz az ön neve, amikor használja a Session alkalmazást. Ez lehet a valódi neve, álneve, vagy bármi más, ami önnek tetszik.";
-"vc_display_name_text_field_hint" = "Írja be a megjelenítendő nevet";
-"vc_display_name_display_name_missing_error" = "Válasszon megjelenítési nevet";
-"vc_display_name_display_name_too_long_error" = "Válasszon rövidebb megjelenítési nevet";
-"vc_pn_mode_recommended_option_tag" = "Ajánlott";
-"contactNone" = "Még nincsenek névjegyei";
+"onboardingAccountExists" = "Fiók visszaállítása";
+"recoveryPasswordExplanation" = "Írja be azt a helyreállítási kifejezést, amelyet a fiók visszaállításához regisztrálásakor kapott.";
+"recoveryPasswordEnter" = "Írd be a helyreállítási szavakat";
+"onboardingAccountExists" = "Eszköz társítása";
+"qrScan" = "QR kód beolvasása";
+"displayNamePick" = "Válassza ki a megjelenítendő nevet";
+"displayNameDescription" = "Ez lesz az ön neve, amikor használja a Session alkalmazást. Ez lehet a valódi neve, álneve, vagy bármi más, ami önnek tetszik.";
+"displayNameEnter" = "Írja be a megjelenítendő nevet";
+"displayNameErrorDescription" = "Válasszon megjelenítési nevet";
+"displayNameErrorDescriptionShorter" = "Válasszon rövidebb megjelenítési nevet";
+"recommended" = "Ajánlott";
+"conversationsNone" = "Még nincsenek névjegyei";
 "vc_home_empty_state_button_title" = "Munkamenet indítása";
-"vc_seed_title" = "Helyreállítási szavak";
+"sessionRecoveryPassword" = "Helyreállítási szavak";
 "vc_seed_title_2" = "Írja be a helyreállítási kifejezést";
 "vc_seed_explanation" = "A helyreállítási kifejezés a Session azonosító főkulcsa - használhatja a Session azonosító visszaállítására, ha elveszíti a hozzáférését eszközéhez. Tárolja helyreállítási mondatát biztonságos helyen, és ne adja át senkinek.";
 "vc_seed_reveal_button_title" = "Tartsa lenyomva a felfedéshez";
 "view_seed_reminder_subtitle_1" = "Biztosítsa fiókját a helyreállítási szavak elmentésével";
 "view_seed_reminder_subtitle_2" = "Érintse meg és tartsa lenyomva a szerkesztett szavakat, hogy felfedje a helyreállítási kifejezést, majd tárolja biztonságosan Session-azonosítója biztonsága érdekében.";
 "view_seed_reminder_subtitle_3" = "Ügyeljen arra, hogy a helyreállítási szöveget biztonságos helyen tárolja";
-"vc_path_title" = "Elérési útvonal";
-"vc_path_explanation" = "A Session elrejti IP címét azzal, hogy az üzeneteket a Session decentralizált hálózatának több szolgáltatási csomópontján vezeti keresztül. Ezek azok az országok, ahol a kapcsolat jelenleg átmegy:";
-"vc_path_device_row_title" = "Te";
-"vc_path_guard_node_row_title" = "Belépési csomópont";
-"vc_path_service_node_row_title" = "Szolgáltatási csomópont";
-"vc_path_destination_row_title" = "Cél";
-"vc_path_learn_more_button_title" = "Tudj meg többet";
-"vc_create_private_chat_title" = "Új üzenet";
-"vc_create_private_chat_enter_session_id_tab_title" = "Session azonosító megadása";
-"vc_create_private_chat_scan_qr_code_tab_title" = "QR kód beolvasása";
+"onionRoutingPath" = "Elérési útvonal";
+"onionRoutingPathDescription" = "A Session elrejti IP címét azzal, hogy az üzeneteket a Session decentralizált hálózatának több szolgáltatási csomópontján vezeti keresztül. Ezek azok az országok, ahol a kapcsolat jelenleg átmegy:";
+"onionRoutingPathYou" = "Te";
+"onionRoutingPathEntryNode" = "Belépési csomópont";
+"onionRoutingPathServiceNode" = "Szolgáltatási csomópont";
+"onionRoutingPathDestination" = "Cél";
+"learnMore" = "Tudj meg többet";
+"messageNew" = "Új üzenet";
+"accountIdEnter" = "Session azonosító megadása";
+"qrScan" = "QR kód beolvasása";
 "vc_enter_public_key_explanation" = "Beszélgetés kezdeményezéséhez addj meg egy Session ID-t vagy oszd meg a tiédet másokkal.";
-"vc_scan_qr_code_camera_access_explanation" = "Kamera hozzáférésre van szükség a QR kód beolvasásához";
-"vc_create_closed_group_title" = "Csoport létrehozása";
-"vc_create_closed_group_text_field_hint" = "Adja meg a csoport nevét";
-"contactNone" = "Még nincsenek névjegyei";
-"vc_create_closed_group_group_name_missing_error" = "Adja meg a csoport nevét";
-"vc_create_closed_group_group_name_too_long_error" = "Írjon be rövidebb csoportnevet";
-"vc_create_closed_group_too_many_group_members_error" = "Egy zárt csoport nem lehet több 100 tagnál";
-"vc_join_public_chat_title" = "Csatlakozás A Közösséghez";
-"vc_join_public_chat_enter_group_url_tab_title" = "Közösség URL";
-"vc_join_public_chat_scan_qr_code_tab_title" = "QR kód beolvasása";
-"vc_enter_chat_url_text_field_hint" = "Add meg a Közösség URL-jét!";
-"vc_settings_title" = "Beállítások";
+"cameraGrantAccessQr" = "Kamera hozzáférésre van szükség a QR kód beolvasásához";
+"groupCreate" = "Csoport létrehozása";
+"groupNameEnter" = "Adja meg a csoport nevét";
+"conversationsNone" = "Még nincsenek névjegyei";
+"groupNameEnterPlease" = "Adja meg a csoport nevét";
+"groupNameEnterShorter" = "Írjon be rövidebb csoportnevet";
+"groupAddMemberMaximum" = "Egy zárt csoport nem lehet több 100 tagnál";
+"communityJoin" = "Csatlakozás A Közösséghez";
+"communityUrl" = "Közösség URL";
+"qrScan" = "QR kód beolvasása";
+"communityEnterUrl" = "Add meg a Közösség URL-jét!";
+"sessionSettings" = "Beállítások";
 "vc_group_settings_title" = "Csoport Beállítások";
-"vc_settings_display_name_missing_error" = "Kérjük, válassza ki a megjelenítendő nevet";
-"vc_settings_display_name_too_long_error" = "Válasszon rövidebb megjelenítési nevet";
-"vc_settings_privacy_button_title" = "Adatvédelem";
-"vc_settings_notifications_button_title" = "Értesítések";
-"vc_settings_recovery_phrase_button_title" = "Helyreállítási szavak";
-"vc_settings_clear_all_data_button_title" = "Adatok törlése";
-"vc_qr_code_title" = "QR kód";
-"vc_qr_code_view_my_qr_code_tab_title" = "Saját QR kódom";
-"vc_qr_code_view_scan_qr_code_tab_title" = "QR kód beolvasása";
+"displayNameErrorDescription" = "Kérjük, válassza ki a megjelenítendő nevet";
+"displayNameErrorDescriptionShorter" = "Válasszon rövidebb megjelenítési nevet";
+"sessionPrivacy" = "Adatvédelem";
+"sessionNotifications" = "Értesítések";
+"sessionRecoveryPassword" = "Helyreállítási szavak";
+"sessionClearData" = "Adatok törlése";
+"qrCode" = "QR kód";
+"view" = "Saját QR kódom";
+"qrScan" = "QR kód beolvasása";
 "vc_qr_code_view_scan_qr_code_explanation" = "Olvassa be valaki QR kódját, hogy beszélgetést kezdhessen vele";
-"vc_view_my_qr_code_explanation" = "Ez a QR kódod. Más felhasználók beszkennelhetik, hogy egy munkamenetet indítsanak el veled.";
+"qrYoursDescription" = "Ez a QR kódod. Más felhasználók beszkennelhetik, hogy egy munkamenetet indítsanak el veled.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Az új üzenetekről megbízhatóan és azonnal értesítést kap az Apple értesítési szervereinek segítségével.";
 "notificationsFastMode" = "Gyorsított mód";
-"slow_mode_explanation" = "A Session alkalmanként, az új üzeneteket a háttérben fogja ellenőrizni.";
+"notificationsSlowModeDescription" = "A Session alkalmanként, az új üzeneteket a háttérben fogja ellenőrizni.";
 "notificationsSlowMode" = "Lassított mód";
-"vc_pn_mode_title" = "Üzenet értesítések";
-"vc_link_device_recovery_phrase_tab_title" = "Helyreállítási szavak";
+"notificationsMessage" = "Üzenet értesítések";
+"sessionRecoveryPassword" = "Helyreállítási szavak";
 "vc_link_device_scan_qr_code_explanation" = "A QR-kód megjelenítéséhez nyissa meg a Beállítások → Helyreállítási kifejezés elemet másik eszközén.";
-"vc_enter_recovery_phrase_title" = "Helyreállítási szavak";
+"sessionRecoveryPassword" = "Helyreállítási szavak";
 "vc_enter_recovery_phrase_explanation" = "A készülék összekapcsolásához adja meg a regisztrációkor megadott helyreállítási kifejezést.";
-"accountIdOrOnsEnter" = "Írja be Session azonosítóját vagy ONS nevét";
-"admin_group_leave_warning" = "Mivel te vagy a csoport létrehozója, mindenki számára törölve lesz. Ezt nem lehet visszacsinálni.";
-"vc_join_open_group_suggestions_title" = "Vagy csatlakozz az egyikhez az alábbiakból...";
-"vc_settings_invite_a_friend_button_title" = "Barát meghívása";
+"accountIdEnterYourFriends" = "Írja be Session azonosítóját vagy ONS nevét";
+"groupOnlyAdmin" = "Mivel te vagy a csoport létrehozója, mindenki számára törölve lesz. Ezt nem lehet visszacsinálni.";
+"communityJoinOfficial" = "Vagy csatlakozz az egyikhez az alábbiakból...";
+"sessionInviteAFriend" = "Barát meghívása";
 "copied" = "Másolva";
-"vc_conversation_settings_copy_session_id_button_title" = "Session azonosító másolása";
-"vc_conversation_input_prompt" = "Üzenet";
+"accountIDCopy" = "Session azonosító másolása";
+"message" = "Üzenet";
 "vc_conversation_voice_message_cancel_message" = "Megszakításhoz csúsztasd";
-"modal_download_attachment_title" = "%@ megbízható?";
-"modal_download_attachment_explanation" = "Biztosan le szeretné tölteni %@ által küldött tartalmat?";
-"modal_download_button_title" = "Letöltés";
-"modal_open_url_title" = "URL megnyitása?";
-"modal_open_url_explanation" = "Biztosan kilépsz a következőből: %@?";
-"modal_open_url_button_title" = "Megnyitás";
-"modal_copy_url_button_title" = "Link másolása";
-"modal_blocked_title" = "%@ blokkolásának feloldása?";
-"modal_blocked_explanation" = "Biztosan szeretnéd a %@-t blokkolni?";
-"modal_blocked_button_title" = "Letiltás feloldása";
-"modal_link_previews_title" = "Engedélyezi a linkelőnézeteket?";
-"modal_link_previews_explanation" = "A linkelőnézetek engedélyezése megjeleníti az Ön által küldött és kapott linkek előnézetét. Ez hasznos lehet, de a Session így kapcsolatba fog lépni a linkelt webhelyekkel az előnézetek létrehozásához. A link előnézetét bármikor letilthatja a Session beállításaiban.";
-"modal_link_previews_button_title" = "Engedélyezés";
-"vc_share_title" = "Megosztás a Session-hoz";
-"vc_share_sending_message" = "Küldés...";
-"vc_share_link_previews_unsecure" = "Az előnézet nem töltődik be a nem biztonságos linkhez";
-"vc_share_link_previews_error" = "Előnézet betöltése nem lehetséges";
+"attachmentsAutoDownloadModalTitle" = "%@ megbízható?";
+"attachmentsAutoDownloadModalDescription" = "Biztosan le szeretné tölteni %@ által küldött tartalmat?";
+"download" = "Letöltés";
+"urlOpen" = "URL megnyitása?";
+"urlOpenDescription" = "Biztosan kilépsz a következőből: %@?";
+"open" = "Megnyitás";
+"urlCopy" = "Link másolása";
+"blockUnblock" = "%@ blokkolásának feloldása?";
+"blockUnblockDescription" = "Biztosan szeretnéd a %@-t blokkolni?";
+"blockUnblock" = "Letiltás feloldása";
+"linkPreviewsEnable" = "Engedélyezi a linkelőnézeteket?";
+"linkPreviewsFirstDescription" = "A linkelőnézetek engedélyezése megjeleníti az Ön által küldött és kapott linkek előnézetét. Ez hasznos lehet, de a Session így kapcsolatba fog lépni a linkelt webhelyekkel az előnézetek létrehozásához. A link előnézetét bármikor letilthatja a Session beállításaiban.";
+"enable" = "Engedélyezés";
+"shareToSession" = "Megosztás a Session-hoz";
+"sending" = "Küldés...";
+"linkPreviewsErrorUnsecure" = "Az előnézet nem töltődik be a nem biztonságos linkhez";
+"linkPreviewsErrorLoad" = "Előnézet betöltése nem lehetséges";
 "vc_share_link_previews_disabled_title" = "Link előnézet letiltva";
 "vc_share_link_previews_disabled_explanation" = "A linkelőnézetek engedélyezése megjeleníti az Ön által küldött és kapott linkek előnézetét. Ez hasznos lehet, de a Session így kapcsolatba fog lépni a linkelt webhelyekkel az előnézetek létrehozásához. A link előnézetét bármikor letilthatja a Session beállításaiban.";
-"view_open_group_invitation_description" = "Nyilvános csoport meghívó";
+"communityInvitation" = "Nyilvános csoport meghívó";
 "vc_conversation_settings_invite_button_title" = "Tagok hozzáadása";
-"modal_send_seed_title" = "Figyelmeztetés";
-"modal_send_seed_explanation" = "Ez az Ön helyreállítási kulcsa. Ha elküldi valakinek, akkor a címzettnek teljes hozzáférése lesz az Ön fiókjához.";
-"modal_send_seed_send_button_title" = "Küldés";
+"warning" = "Figyelmeztetés";
+"recoveryPasswordWarningSendDescription" = "Ez az Ön helyreállítási kulcsa. Ha elküldi valakinek, akkor a címzettnek teljes hozzáférése lesz az Ön fiókjához.";
+"send" = "Küldés";
 "vc_conversation_settings_notify_for_mentions_only_title" = "Értesítés csak említések esetén";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "Ha engedélyezve van, csak az Önt említő üzenetekről kap értesítést.";
-"view_conversation_title_notify_for_mentions_only" = "Értesítés csak említések esetén";
-"message_deleted" = "Ezt az üzenetet törölték";
-"delete_message_for_me" = "Törlés csak nálam";
-"delete_message_for_everyone" = "Törlés mindenkinél";
-"delete_message_for_me_and_recipient" = "Törlés nekem és neki: %@";
-"context_menu_reply" = "Válasz";
-"context_menu_save" = "Mentés";
-"context_menu_ban_user" = "Felhasználó letiltása";
+"notificationsMentionsOnly" = "Értesítés csak említések esetén";
+"deleteMessageDeleted" = "Ezt az üzenetet törölték";
+"clearMessagesForMe" = "Törlés csak nálam";
+"clearMessagesForEveryone" = "Törlés mindenkinél";
+"clearMessagesForEveryone" = "Törlés nekem és neki: %@";
+"reply" = "Válasz";
+"save" = "Mentés";
+"banUser" = "Felhasználó letiltása";
 "context_menu_ban_and_delete_all" = "Tiltás és minden törlése";
 "context_menu_ban_user_error_alert_message" = "Felhasználó tiltása sikertelen";
 "accessibility_expanding_attachments_button" = "Melléklet csatolása";
-"accessibility_gif_button" = "Gif";
+"gif" = "Gif";
 "accessibility_document_button" = "Dokumentum";
 "accessibility_main_button_collapse" = "Csatolási lehetőségek összecsukása";
-"invalid_recovery_phrase" = "Helyreállító kódmondat felfedése";
-"DISMISS_BUTTON_TEXT" = "Elvetés";
+"recoveryPasswordErrorTitle" = "Helyreállító kódmondat felfedése";
+"dismiss" = "Elvetés";
 /* Button text which opens the settings app */
-"OPEN_SETTINGS_BUTTON" = "Beállítások";
-"call_outgoing" = "Felhívtad %@";
-"call_incoming" = "%@ hívott téged";
-"call_missed" = "Nem fogadott hívás tőle: %@";
-"APN_Message" = "Új üzeneted érkezett.";
-"APN_Collapsed_Messages" = "Új üzeneted érkezett.";
-"PIN_BUTTON_TEXT" = "Kitűzés";
-"UNPIN_BUTTON_TEXT" = "Kitűzés eltávolítása";
-"modal_call_missed_tips_title" = "Nem fogadott hívás";
-"modal_call_missed_tips_explanation" = "Nem fogadott hívás '%@' -től, mert előbb engedélyezned kell a 'Hang és videó hívásokat' a Biztonsági beállításokban.";
-"media_saved" = "%@ lementett egy médiaelemet.";
-"screenshot_taken" = "%@ készített egy képernyőképet.";
-"SEARCH_SECTION_CONTACTS" = "Névjegyek és csoportok";
-"SEARCH_SECTION_MESSAGES" = "Üzenetek";
-"MESSAGE_REQUESTS_TITLE" = "Üzenet kérések";
-"MESSAGE_REQUESTS_EMPTY_TEXT" = "Nincsenek függőben lévő üzenetkérelmek";
-"MESSAGE_REQUESTS_CLEAR_ALL" = "Mindent töröl";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Biztos, hogy törölni akarja az összes üzenetkérést?";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Törlés";
-"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Biztosan törölni akarod ezt az üzenetet?";
+"sessionSettings" = "Beállítások";
+"callsYouCalled" = "Felhívtad %@";
+"callsCalledYou" = "%@ hívott téged";
+"callsMissedCallFrom" = "Nem fogadott hívás tőle: %@";
+"messageNewYouveGotA" = "Új üzeneted érkezett.";
+"messageNewYouveGotMany" = "Új üzeneted érkezett.";
+"pin" = "Kitűzés";
+"pinUnpin" = "Kitűzés eltávolítása";
+"callsMissed" = "Nem fogadott hívás";
+"callsYouMissedCallPermissions" = "Nem fogadott hívás '%@' -től, mert előbb engedélyezned kell a 'Hang és videó hívásokat' a Biztonsági beállításokban.";
+"attachmentsMediaSaved" = "%@ lementett egy médiaelemet.";
+"screenshotTaken" = "%@ készített egy képernyőképet.";
+"sessionConversations" = "Névjegyek és csoportok";
+"messages" = "Üzenetek";
+"sessionMessageRequests" = "Üzenet kérések";
+"messageRequestsNonePending" = "Nincsenek függőben lévő üzenetkérelmek";
+"clearAll" = "Mindent töröl";
+"messageRequestsClearAllExplanation" = "Biztos, hogy törölni akarja az összes üzenetkérést?";
+"clear" = "Törlés";
+"messageRequestsDelete" = "Biztosan törölni akarod ezt az üzenetet?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Biztosan le szeretnéd tiltani?";
-"MESSAGE_REQUESTS_INFO" = "Üzenet küldésével a felhasználó üzenet kérése automatikusan elfogadásra kerül és a Session ID-d látható lesz számára.";
-"MESSAGE_REQUESTS_ACCEPTED" = "Üzenetkérelmét elfogadtuk.";
-"MESSAGE_REQUESTS_NOTIFICATION" = "Új üzenete érkezett";
-"TXT_HIDE_TITLE" = "Elrejtés";
-"TXT_DELETE_ACCEPT" = "Elfogadás";
+"messageRequestsAcceptDescription" = "Üzenet küldésével a felhasználó üzenet kérése automatikusan elfogadásra kerül és a Session ID-d látható lesz számára.";
+"messageRequestsAccepted" = "Üzenetkérelmét elfogadtuk.";
+"messageRequestsNew" = "Új üzenete érkezett";
+"hide" = "Elrejtés";
+"accept" = "Elfogadás";
 "TXT_BLOCK_USER_TITLE" = "Felhasználó letiltása";
 "error" = "Hiba";
-"modal_call_permission_request_title" = "Hívási engedélyek szükségesek";
-"modal_call_permission_request_explanation" = "Engedélyezni tudod a 'Hang és videó hívásokat' a Biztonsági beállításokban.";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_TITLE" = "Ááá! Hiba történt";
-"DEFAULT_OPEN_GROUP_LOAD_ERROR_SUBTITLE" = "Próbáld újra később";
+"callsPermissionsRequired" = "Hívási engedélyek szükségesek";
+"callsPermissionsRequiredDescription" = "Engedélyezni tudod a 'Hang és videó hívásokat' a Biztonsági beállításokban.";
+"communityError" = "Ááá! Hiba történt";
+"communityErrorDescription" = "Próbáld újra később";
 "LOADING_CONVERSATIONS" = "Beszélgetések betöltése...";
 "DATABASE_MIGRATION_FAILED" = "Hiba történt az adatbázis optimalizálása közben\n\nExportálhatod az alkalmazás naplóüzeneteit, hogy megoszthasd hibafelderítésre vagy visszaállíthatod a készüléked\n\nFigyelem: Az eszköz visszaállítása minden 2 hétnél régebbi adat elvesztését eredményezi!";
-"RECOVERY_PHASE_ERROR_GENERIC" = "Hiba történt. Ellenőrizd a helyreállítási kifejezésedet és próbáld újra!";
-"RECOVERY_PHASE_ERROR_LENGTH" = "Úgy tűnik nem adtál meg elég szót. Ellenőrizd a helyreállítási kifejezésedet és próbáld újra!";
-"RECOVERY_PHASE_ERROR_LAST_WORD" = "Úgy tűnik nem adtad meg az utolsó szavát a helyreállítási kifejezésednek. Ellenőrizd amit megadtál és próbáld újra!";
-"RECOVERY_PHASE_ERROR_INVALID_WORD" = "Úgy tűnik van egy érvénytelen szó a helyreállítási kifejezésedben. Ellenőrizd amit megadtál és próbáld újra!";
-"RECOVERY_PHASE_ERROR_FAILED" = "A helyreállítási kifejezésed nem hitelesíthető. Ellenőrizd amit megadtál és próbáld újra!";
+"recoveryPasswordErrorMessageGeneric" = "Hiba történt. Ellenőrizd a helyreállítási kifejezésedet és próbáld újra!";
+"recoveryPasswordErrorMessageShort" = "Úgy tűnik nem adtál meg elég szót. Ellenőrizd a helyreállítási kifejezésedet és próbáld újra!";
+"recoveryPasswordErrorMessageShort" = "Úgy tűnik nem adtad meg az utolsó szavát a helyreállítási kifejezésednek. Ellenőrizd amit megadtál és próbáld újra!";
+"recoveryPasswordErrorMessageIncorrect" = "Úgy tűnik van egy érvénytelen szó a helyreállítási kifejezésedben. Ellenőrizd amit megadtál és próbáld újra!";
+"recoveryPasswordErrorMessageGeneric" = "A helyreállítási kifejezésed nem hitelesíthető. Ellenőrizd amit megadtál és próbáld újra!";
 /* Indicates that an unknown error occurred while using Touch ID/Face ID/Phone Passcode. */
-"SCREEN_LOCK_ENABLE_UNKNOWN_ERROR" = "A hitelesítés nem elérhető.";
+"authenticateNotAccessed" = "A hitelesítés nem elérhető.";
 /* Indicates that Touch ID/Face ID/Phone Passcode authentication failed. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_FAILED" = "Hitelesítés sikertelen.";
+"authenticateFailed
+authenticateFailed
+authenticateFailed
+authenticateFailed" = "Hitelesítés sikertelen.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is 'locked out' on this device due to authentication failures. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_LOCKOUT" = "Túl sok sikertelen próbálkozás. Kérlek, próbáld újra később!";
+"authenticateFailedTooManyAttempts" = "Túl sok sikertelen próbálkozás. Kérlek, próbáld újra később!";
 /* Indicates that Touch ID/Face ID/Phone Passcode are not available on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_AVAILABLE" = "Be kell állítania jelszót az iOS Beállításokban, hogy használni tudja a Képernyő Zárolása funkciót.";
+"lockAppEnablePasscode" = "Be kell állítania jelszót az iOS Beállításokban, hogy használni tudja a Képernyő Zárolása funkciót.";
 /* Indicates that Touch ID/Face ID/Phone Passcode is not configured on this device. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_NOT_ENROLLED" = "Be kell állítania jelszót az iOS Beállításokban, hogy használni tudja a Képernyő Zárolása funkciót.";
+"lockAppEnablePasscode" = "Be kell állítania jelszót az iOS Beállításokban, hogy használni tudja a Képernyő Zárolása funkciót.";
 /* Indicates that Touch ID/Face ID/Phone Passcode passcode is not set. */
-"SCREEN_LOCK_ERROR_LOCAL_AUTHENTICATION_PASSCODE_NOT_SET" = "Be kell állítania jelszót az iOS Beállításokban, hogy használni tudja a Képernyő Zárolása funkciót.";
+"lockAppEnablePasscode" = "Be kell állítania jelszót az iOS Beállításokban, hogy használni tudja a Képernyő Zárolása funkciót.";
 /* Label for the button to send a message */
-"SEND_BUTTON_TITLE" = "Küldés";
+"send" = "Küldés";
 /* Generic text for button that retries whatever the last action was. */
-"RETRY_BUTTON_TEXT" = "Újra";
+"retry" = "Újra";
 /* notification body */
-"SEND_FAILED_NOTIFICATION_BODY" = "Üzenet küldése sikertelen.";
+"messageErrorDelivery" = "Üzenet küldése sikertelen.";
 "INVALID_SESSION_ID_MESSAGE" = "Ellenőrizd a Session azonosítót és próbáld újra!";
-"INVALID_RECOVERY_PHRASE_MESSAGE" = "Ellenőrizd a visszaállítási kifejezést és próbáld újra!";
+"recoveryPasswordErrorMessageGeneric" = "Ellenőrizd a visszaállítási kifejezést és próbáld újra!";
 "media" = "Média";
 "DOCUMENT_TAB_TITLE" = "Dokumentumok";
 "attachmentsFilesEmpty" = "A beszélgetésben nincs dokumentum.";
@@ -507,16 +513,16 @@
 "helpWedLoveYourFeedback" = "Szeretnénk visszajelzésedet";
 "helpFAQ" = "GYIK";
 "helpSupport" = "Támogatás";
-"modal_clear_all_data_title" = "Az összes adat törlése";
-"modal_clear_all_data_explanation" = "Ezáltal az összes üzenete és kontaktja törölve lesz. Csak erről az eszközről, vagy az internetről is törölni kívánja adatait?";
+"clearDataAll" = "Az összes adat törlése";
+"clearDataAllDescription" = "Ezáltal az összes üzenete és kontaktja törölve lesz. Csak erről az eszközről, vagy az internetről is törölni kívánja adatait?";
 "clearDeviceAndNetworkConfirm" = "Biztosan törölni akarod a fiókod a hálózatról? Ha folytatod nem tudod majd újra visszaállítani az üzeneteket és névjegyeket.";
-"modal_clear_all_data_device_only_button_title" = "Törlés csak az eszközről";
-"modal_clear_all_data_entire_account_button_title" = "Törlés az eszközről és a hálózatról";
-"dialog_clear_all_data_deletion_failed_1" = "Az adatokat a következő szolgáltatási csomópontok nem törölték: %@.";
-"dialog_clear_all_data_deletion_failed_2" = "Az adatokat a következő szolgáltatási csomópontok nem törölték: %@.";
+"clearDeviceOnly" = "Törlés csak az eszközről";
+"clearDeviceAndNetwork" = "Törlés az eszközről és a hálózatról";
+"clearDataErrorDescription1" = "Az adatokat a következő szolgáltatási csomópontok nem törölték: %@.";
+"clearDataErrorDescription2" = "Az adatokat a következő szolgáltatási csomópontok nem törölték: %@.";
 "modal_clear_all_data_confirm" = "Törlés";
-"modal_seed_title" = "Helyreállítási szavak";
-"modal_seed_explanation" = "Helyreállítási kódmondat segítségével visszaállíthatod a fiókod vagy új eszközt kapcsolhatsz hozzá.";
+"sessionRecoveryPassword" = "Helyreállítási szavak";
+"recoveryPasswordDescription" = "Helyreállítási kódmondat segítségével visszaállíthatod a fiókod vagy új eszközt kapcsolhatsz hozzá.";
 "modal_permission_explanation" = "A Session-nek szüksége van a %@ engedélyre a folytatáshoz. Ezt a hozzáférést engedélyezheti az iOS Beállításokban.";
 "modal_permission_settings_title" = "Beállítások";
 "modal_permission_camera" = "kamera";
@@ -691,10 +697,10 @@
 "groupDeleteDescription" = "Are you sure you want to delete %@?";
 
 /* Title in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_title" = "Delete Conversation";
+"conversationsDelete" = "Delete Conversation";
 
 /* Message in the confirmation modal when the user tries to delete a one-to-one conversation */
-"delete_conversation_confirmation_alert_message" = "Are you sure you want to delete your conversation with %@?";
+"conversationsDeleteDescription" = "Are you sure you want to delete your conversation with %@?";
 
 /* Title in the confirmation modal when the user tries to hide the 'Note to Self' conversation */
 "noteToSelfHide" = "Hide Note to Self";

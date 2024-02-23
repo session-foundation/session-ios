@@ -47,26 +47,26 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
             switch self {
                 case .sending:
                     guard hasAttachments else {
-                        return "MESSAGE_STATUS_SENDING".localized()
+                        return "sending".localized()
                     }
                     
-                    return "MESSAGE_STATUS_UPLOADING".localized()
+                    return "uploading".localized()
                 
                 case .failed: return "MESSAGE_STATUS_FAILED".localized()
                     
                 case .sent:
                     guard hasAtLeastOneReadReceipt else {
-                        return "MESSAGE_STATUS_SENT".localized()
+                        return "disappearingMessagesSent".localized()
                     }
                     
-                    return "MESSAGE_STATUS_READ".localized()
+                    return "read".localized()
                 
                 case .failedToSync: return "messageStatusFailedToSync".localized()
                 case .syncing: return "messageStatusSyncing".localized()
                     
                 default:
                     owsFailDebug("Message has unexpected status: \(self).")
-                    return "MESSAGE_STATUS_SENT".localized()
+                    return "disappearingMessagesSent".localized()
             }
         }
         

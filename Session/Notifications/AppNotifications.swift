@@ -161,7 +161,7 @@ public class NotificationPresenter: NotificationsProtocol {
         // If it's a message request then overwrite the body to be something generic (only show a notification
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
-            notificationBody = "MESSAGE_REQUESTS_NOTIFICATION".localized()
+            notificationBody = "messageRequestsNew".localized()
         }
 
         guard notificationBody != nil || notificationTitle != nil else {
@@ -262,12 +262,12 @@ public class NotificationPresenter: NotificationsProtocol {
             switch messageInfo.state {
                 case .permissionDenied:
                     return String(
-                        format: "modal_call_missed_tips_explanation".localized(),
+                        format: "callsYouMissedCallPermissions".localized(),
                         senderName
                     )
                 case .missed:
                     return String(
-                        format: "call_missed".localized(),
+                        format: "callsMissedCallFrom".localized(),
                         senderName
                     )
                 default:

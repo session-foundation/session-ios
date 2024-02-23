@@ -18,11 +18,11 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
     
     private lazy var tabBar: TabBar = {
         let tabs = [
-            TabBar.Tab(title: "vc_link_device_recovery_phrase_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "sessionRecoveryPassword".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[0] ], direction: .forward, animated: false, completion: nil)
             },
-            TabBar.Tab(title: "vc_link_device_scan_qr_code_tab_title".localized()) { [weak self] in
+            TabBar.Tab(title: "qrScan".localized()) { [weak self] in
                 guard let self = self else { return }
                 self.pageVC.setViewControllers([ self.pages[1] ], direction: .forward, animated: false, completion: nil)
             }
@@ -54,7 +54,7 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setNavBarTitle("vc_link_device_title".localized())
+        setNavBarTitle("onboardingAccountExists".localized())
         
         // Page VC
         let hasCameraAccess = (AVCaptureDevice.authorizationStatus(for: .video) == .authorized)
@@ -139,8 +139,8 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
         if (seed.count != 16) {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "invalid_recovery_phrase".localized(),
-                    body: .text("INVALID_RECOVERY_PHRASE_MESSAGE".localized()),
+                    title: "recoveryPasswordErrorTitle".localized(),
+                    body: .text("recoveryPasswordErrorMessageGeneric".localized()),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text,
                     afterClosed: onError
@@ -172,7 +172,7 @@ private final class RecoveryPhraseVC: UIViewController {
     private var bottomConstraint: NSLayoutConstraint!
     
     private lazy var mnemonicTextView: TextView = {
-        let result = TextView(placeholder: "vc_restore_seed_text_field_hint".localized())
+        let result = TextView(placeholder: "recoveryPasswordEnter".localized())
         result.themeBorderColor = .textPrimary
         result.accessibilityLabel = "Enter your recovery phrase"
         
@@ -187,7 +187,7 @@ private final class RecoveryPhraseVC: UIViewController {
         // Title label
         let titleLabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: isIPhone5OrSmaller ? Values.largeFontSize : Values.veryLargeFontSize)
-        titleLabel.text = "vc_enter_recovery_phrase_title".localized()
+        titleLabel.text = "sessionRecoveryPassword".localized()
         titleLabel.themeTextColor = .textPrimary
         titleLabel.lineBreakMode = .byWordWrapping
         titleLabel.numberOfLines = 0
@@ -213,7 +213,7 @@ private final class RecoveryPhraseVC: UIViewController {
         // Continue button
         let continueButton = SessionButton(style: .filled, size: .large)
         continueButton.accessibilityLabel = "Link device"
-        continueButton.setTitle("continue_2".localized(), for: UIControl.State.normal)
+        continueButton.setTitle("continue".localized(), for: UIControl.State.normal)
         continueButton.addTarget(self, action: #selector(handleContinueButtonTapped), for: UIControl.Event.touchUpInside)
         
         // Continue button container
@@ -332,7 +332,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_scan_qr_code_camera_access_explanation".localized()
+        explanationLabel.text = "cameraGrantAccessQr".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -341,7 +341,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Set up call to action button
         let callToActionButton = UIButton()
         callToActionButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        callToActionButton.setTitle("continue_2".localized(), for: .normal)
+        callToActionButton.setTitle("continue".localized(), for: .normal)
         callToActionButton.setThemeTitleColor(.primary, for: .normal)
         callToActionButton.addTarget(self, action: #selector(requestCameraAccess), for: .touchUpInside)
         

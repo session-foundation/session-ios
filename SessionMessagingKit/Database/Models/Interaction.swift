@@ -979,17 +979,17 @@ public extension Interaction {
                 
             case .infoMediaSavedNotification:
                 // TODO: Use referencedAttachmentTimestamp to tell the user * which * media was saved
-                return String(format: "media_saved".localized(), authorDisplayName)
+                return String(format: "attachmentsMediaSaved".localized(), authorDisplayName)
                 
             case .infoScreenshotNotification:
-                return String(format: "screenshot_taken".localized(), authorDisplayName)
+                return String(format: "screenshotTaken".localized(), authorDisplayName)
                 
             case .infoClosedGroupCreated: return "GROUP_CREATED".localized()
-            case .infoClosedGroupCurrentUserLeft: return "GROUP_YOU_LEFT".localized()
+            case .infoClosedGroupCurrentUserLeft: return "groupMemberYouLeft".localized()
             case .infoClosedGroupCurrentUserLeaving: return "group_you_leaving".localized()
             case .infoClosedGroupCurrentUserErrorLeaving: return "group_unable_to_leave".localized()
-            case .infoClosedGroupUpdated: return (body ?? "GROUP_UPDATED".localized())
-            case .infoMessageRequestAccepted: return (body ?? "MESSAGE_REQUESTS_ACCEPTED".localized())
+            case .infoClosedGroupUpdated: return (body ?? "groupUpdated".localized())
+            case .infoMessageRequestAccepted: return (body ?? "messageRequestsAccepted".localized())
             
             case .infoDisappearingMessagesUpdate:
                 guard

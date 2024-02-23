@@ -61,9 +61,9 @@ extension ConversationVC:
         guard Storage.shared[.areCallsEnabled] else {
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "modal_call_permission_request_title".localized(),
-                    body: .text("modal_call_permission_request_explanation".localized()),
-                    confirmTitle: "vc_settings_title".localized(),
+                    title: "callsPermissionsRequired".localized(),
+                    body: .text("callsPermissionsRequiredDescription".localized()),
+                    confirmTitle: "sessionSettings".localized(),
                     confirmAccessibility: Accessibility(identifier: "Settings"),
                     dismissOnConfirm: false // Custom dismissal logic
                 ) { [weak self] _ in
@@ -116,13 +116,13 @@ extension ConversationVC:
         else { return false }
         
         let message = String(
-            format: "modal_blocked_explanation".localized(),
+            format: "blockUnblockDescription".localized(),
             self.viewModel.threadData.displayName
         )
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: String(
-                    format: "modal_blocked_title".localized(),
+                    format: "blockUnblock".localized(),
                     self.viewModel.threadData.displayName
                 ),
                 body: .attributedText(
@@ -132,7 +132,7 @@ extension ConversationVC:
                             range: (message as NSString).range(of: self.viewModel.threadData.displayName)
                         )
                 ),
-                confirmTitle: "modal_blocked_button_title".localized(),
+                confirmTitle: "blockUnblock".localized(),
                 confirmAccessibility: Accessibility(identifier: "Confirm block"),
                 cancelAccessibility: Accessibility(identifier: "Cancel block"),
                 dismissOnConfirm: false // Custom dismissal logic
@@ -226,7 +226,7 @@ extension ConversationVC:
                 info: ConfirmationModal.Info(
                     title: "GIPHY_PERMISSION_TITLE".localized(),
                     body: .text("GIPHY_PERMISSION_MESSAGE".localized()),
-                    confirmTitle: "continue_2".localized()
+                    confirmTitle: "continue".localized()
                 ) { [weak self] _ in
                     Storage.shared.writeAsync(
                         updates: { db in
@@ -336,8 +336,8 @@ extension ConversationVC:
                 let modal: ConfirmationModal = ConfirmationModal(
                     targetView: self?.view,
                     info: ConfirmationModal.Info(
-                        title: "ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE".localized(),
-                        body: .text("ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY".localized()),
+                        title: "attachmentsErrorNotSupported".localized(),
+                        body: .text("attachmentsErrorSize".localized()),
                         cancelTitle: "BUTTON_OK".localized(),
                         cancelStyle: .alert_text
                     )
@@ -347,7 +347,7 @@ extension ConversationVC:
             return
         }
         
-        let fileName = urlResourceValues.name ?? NSLocalizedString("ATTACHMENT_DEFAULT_FILENAME", comment: "")
+        let fileName = urlResourceValues.name ?? NSLocalizedString("attachment", comment: "")
         guard let dataSource = DataSourcePath.dataSource(with: url, shouldDeleteOnDeallocation: false) else {
             DispatchQueue.main.async { [weak self] in
                 let modal: ConfirmationModal = ConfirmationModal(
@@ -451,9 +451,9 @@ extension ConversationVC:
             // Warn the user if they're about to send their seed to someone
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "modal_send_seed_title".localized(),
-                    body: .text("modal_send_seed_explanation".localized()),
-                    confirmTitle: "modal_send_seed_send_button_title".localized(),
+                    title: "warning".localized(),
+                    body: .text("recoveryPasswordWarningSendDescription".localized()),
+                    confirmTitle: "send".localized(),
                     confirmStyle: .danger,
                     cancelStyle: .alert_text,
                     onConfirm: { [weak self] _ in
@@ -625,9 +625,9 @@ extension ConversationVC:
     func showLinkPreviewSuggestionModal() {
         let linkPreviewModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "modal_link_previews_title".localized(),
-                body: .text("modal_link_previews_explanation".localized()),
-                confirmTitle: "modal_link_previews_button_title".localized()
+                title: "linkPreviewsEnable".localized(),
+                body: .text("linkPreviewsFirstDescription".localized()),
+                confirmTitle: "enable".localized()
             ) { [weak self] _ in
                 Storage.shared.writeAsync { db in
                     db[.areLinkPreviewsEnabled] = true
@@ -867,13 +867,13 @@ extension ConversationVC:
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
             let message: String = String(
-                format: "modal_download_attachment_explanation".localized(),
+                format: "attachmentsAutoDownloadModalDescription".localized(),
                 cellViewModel.authorName
             )
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: String(
-                        format: "modal_download_attachment_title".localized(),
+                        format: "attachmentsAutoDownloadModalTitle".localized(),
                         cellViewModel.authorName
                     ),
                     body: .attributedText(
@@ -883,7 +883,7 @@ extension ConversationVC:
                                 range: (message as NSString).range(of: cellViewModel.authorName)
                             )
                     ),
-                    confirmTitle: "modal_download_button_title".localized(),
+                    confirmTitle: "download".localized(),
                     confirmAccessibility: Accessibility(identifier: "Download media"),
                     cancelAccessibility: Accessibility(identifier: "Don't download media"),
                     dismissOnConfirm: false // Custom dismissal logic
@@ -1121,15 +1121,15 @@ extension ConversationVC:
         
         // URLs can be unsafe, so always ask the user whether they want to open one
         let actionSheet: UIAlertController = UIAlertController(
-            title: "modal_open_url_title".localized(),
-            message: String(format: "modal_open_url_explanation".localized(), url.absoluteString),
+            title: "urlOpen".localized(),
+            message: String(format: "urlOpenDescription".localized(), url.absoluteString),
             preferredStyle: .actionSheet
         )
-        actionSheet.addAction(UIAlertAction(title: "modal_open_url_button_title".localized(), style: .default) { [weak self] _ in
+        actionSheet.addAction(UIAlertAction(title: "open".localized(), style: .default) { [weak self] _ in
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
             self?.showInputAccessoryView()
         })
-        actionSheet.addAction(UIAlertAction(title: "modal_copy_url_button_title".localized(), style: .default) { [weak self] _ in
+        actionSheet.addAction(UIAlertAction(title: "urlCopy".localized(), style: .default) { [weak self] _ in
             UIPasteboard.general.string = url.absoluteString
             self?.showInputAccessoryView()
         })
@@ -1594,10 +1594,10 @@ extension ConversationVC:
             message: cellViewModel.mostRecentFailureText,
             preferredStyle: .actionSheet
         )
-        sheet.addAction(UIAlertAction(title: "TXT_CANCEL_TITLE".localized(), style: .cancel, handler: nil))
+        sheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel, handler: nil))
         
         if cellViewModel.state != .failedToSync {
-            sheet.addAction(UIAlertAction(title: "TXT_DELETE_TITLE".localized(), style: .destructive, handler: { _ in
+            sheet.addAction(UIAlertAction(title: "delete".localized(), style: .destructive, handler: { _ in
                 Storage.shared.writeAsync { db in
                     try Interaction
                         .filter(id: cellViewModel.id)
@@ -2074,7 +2074,7 @@ extension ConversationVC:
                 
                 let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
                 actionSheet.addAction(UIAlertAction(
-                    title: "delete_message_for_me".localized(),
+                    title: "clearMessagesForMe".localized(),
                     accessibilityIdentifier: "Delete for me",
                     style: .destructive
                 ) { [weak self] _ in
@@ -2099,11 +2099,11 @@ extension ConversationVC:
                 actionSheet.addAction(UIAlertAction(
                     title: {
                         switch cellViewModel.threadVariant {
-                            case .legacyGroup, .group: return "delete_message_for_everyone".localized()
+                            case .legacyGroup, .group: return "clearMessagesForEveryone".localized()
                             default:
                                 return (cellViewModel.threadId == userPublicKey ?
                                     "delete_message_for_me_and_my_devices".localized() :
-                                    String(format: "delete_message_for_me_and_recipient".localized(), threadName)
+                                    String(format: "clearMessagesForEveryone".localized(), threadName)
                                 )
                         }
                     }(),
@@ -2143,7 +2143,7 @@ extension ConversationVC:
                     ) { completeServerDeletion() }
                 })
 
-                actionSheet.addAction(UIAlertAction.init(title: "TXT_CANCEL_TITLE".localized(), style: .cancel) { [weak self] _ in
+                actionSheet.addAction(UIAlertAction.init(title: "cancel".localized(), style: .cancel) { [weak self] _ in
                     self?.showInputAccessoryView()
                 })
 
@@ -2414,8 +2414,8 @@ extension ConversationVC:
             let modal: ConfirmationModal = ConfirmationModal(
                 targetView: self.view,
                 info: ConfirmationModal.Info(
-                    title: "ATTACHMENT_TYPE_VOICE_MESSAGE".localized(),
-                    body: .text("VOICE_MESSAGE_TOO_SHORT_ALERT_MESSAGE".localized()),
+                    title: "messageVoice".localized(),
+                    body: .text("messageVoiceErrorShort".localized()),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text
                 )
@@ -2431,7 +2431,7 @@ extension ConversationVC:
         guard let dataSource = dataSourceOrNil else { return SNLog("Couldn't load recorded data.") }
         
         // Create attachment
-        let fileName = ("ATTACHMENT_TYPE_VOICE_MESSAGE".localized() as NSString).appendingPathExtension("m4a")
+        let fileName = ("messageVoice".localized() as NSString).appendingPathExtension("m4a")
         dataSource.sourceFilename = fileName
         
         let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4Audio as String)
@@ -2491,7 +2491,7 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "ATTACHMENT_ERROR_ALERT_TITLE".localized(),
+                title: "attachmentsErrorSending".localized(),
                 body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text

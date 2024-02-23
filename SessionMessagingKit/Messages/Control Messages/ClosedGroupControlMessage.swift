@@ -377,7 +377,7 @@ public extension ClosedGroupControlMessage.Kind {
                     }
                 
                 return String(
-                    format: "GROUP_MEMBER_JOINED".localized(),
+                    format: "groupMemberNew".localized(),
                     addedMemberNames.joined(separator: ", ")
                 )
                 
@@ -399,8 +399,8 @@ public extension ClosedGroupControlMessage.Kind {
                             Profile.truncated(id: $0, threadVariant: .legacyGroup)
                         }
                     let format: String = (removedMemberNames.count > 1 ?
-                        "GROUP_MEMBERS_REMOVED".localized() :
-                        "GROUP_MEMBER_REMOVED".localized()
+                        "groupRemovedMore".localized() :
+                        "groupRemoved".localized()
                     )
 
                     infoMessage = infoMessage.appending(
@@ -409,7 +409,7 @@ public extension ClosedGroupControlMessage.Kind {
                 }
                 
                 if memberIds.contains(userPublicKey) {
-                    infoMessage = infoMessage.appending("YOU_WERE_REMOVED".localized())
+                    infoMessage = infoMessage.appending("groupRemovedYou".localized())
                 }
                 
                 return infoMessage
@@ -417,13 +417,13 @@ public extension ClosedGroupControlMessage.Kind {
             case .memberLeft:
                 let userPublicKey: String = getUserHexEncodedPublicKey(db)
                 
-                guard sender != userPublicKey else { return "GROUP_YOU_LEFT".localized() }
+                guard sender != userPublicKey else { return "groupMemberYouLeft".localized() }
                 
                 if let displayName: String = Profile.displayNameNoFallback(db, id: sender) {
-                    return String(format: "GROUP_MEMBER_LEFT".localized(), displayName)
+                    return String(format: "groupMemberLeft".localized(), displayName)
                 }
                 
-                return "GROUP_UPDATED".localized()
+                return "groupUpdated".localized()
                 
             default: return nil
         }

@@ -186,7 +186,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     var title: String {
         switch threadVariant {
-            case .contact: return "vc_settings_title".localized()
+            case .contact: return "sessionSettings".localized()
             case .legacyGroup, .group, .community: return "vc_group_settings_title".localized()
         }
     }
@@ -342,7 +342,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 ),
                                 title: (threadViewModel.threadVariant == .community ?
                                     "communityUrlCopy".localized() :
-                                    "vc_conversation_settings_copy_session_id_button_title".localized()
+                                    "accountIDCopy".localized()
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
@@ -519,7 +519,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     title: "groupLeave".localized(),
                                     body: .attributedText({
                                         if currentUserIsClosedGroupAdmin {
-                                            return NSAttributedString(string: "admin_group_leave_warning".localized())
+                                            return NSAttributedString(string: "groupOnlyAdmin".localized())
                                         }
                                         
                                         let mutableAttributedString = NSMutableAttributedString(
@@ -687,13 +687,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     title: {
                                         guard threadViewModel.threadIsBlocked == true else {
                                             return String(
-                                                format: "BLOCK_LIST_BLOCK_USER_TITLE_FORMAT".localized(),
+                                                format: "block".localized(),
                                                 threadViewModel.displayName
                                             )
                                         }
                                         
                                         return String(
-                                            format: "BLOCK_LIST_UNBLOCK_TITLE_FORMAT".localized(),
+                                            format: "blockUnblock".localized(),
                                             threadViewModel.displayName
                                         )
                                     }(),
@@ -701,8 +701,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         .text("BLOCK_USER_BEHAVIOR_EXPLANATION".localized())
                                     ),
                                     confirmTitle: (threadViewModel.threadIsBlocked == true ?
-                                        "BLOCK_LIST_UNBLOCK_BUTTON".localized() :
-                                        "BLOCK_LIST_BLOCK_BUTTON".localized()
+                                        "blockUnblock".localized() :
+                                        "block".localized()
                                     ),
                                     confirmAccessibility: Accessibility(identifier: "Confirm block"),
                                     confirmStyle: .danger,

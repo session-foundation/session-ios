@@ -291,7 +291,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.font = UIFont.systemFont(ofSize: 12)
         result.text = (self.viewModel.threadData.threadRequiresApproval == false ?
-            "MESSAGE_REQUESTS_INFO".localized() :
+            "messageRequestsAcceptDescription".localized() :
             "messageRequestPendingDescription".localized()
         )
         result.themeTextColor = .textSecondary
@@ -317,7 +317,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.accessibilityLabel = "Accept message request"
         result.isAccessibilityElement = true
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.setTitle("TXT_DELETE_ACCEPT".localized(), for: .normal)
+        result.setTitle("accept".localized(), for: .normal)
         result.addTarget(self, action: #selector(acceptMessageRequest), for: .touchUpInside)
 
         return result
@@ -779,7 +779,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             )
             
             messageRequestDescriptionLabel.text = (updatedThreadData.threadRequiresApproval == false ?
-                "MESSAGE_REQUESTS_INFO".localized() :
+                "messageRequestsAcceptDescription".localized() :
                 "messageRequestPendingDescription".localized()
             )
             
@@ -1530,7 +1530,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
                                         title: CommonStrings.errorAlertTitle,
-                                        body: .text("INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE".localized()),
+                                        body: .text("audioUnableToPlay".localized()),
                                         cancelTitle: "BUTTON_OK".localized(),
                                         cancelStyle: .alert_text
                                     )

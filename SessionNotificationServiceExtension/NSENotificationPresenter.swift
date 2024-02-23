@@ -43,7 +43,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         let snippet: String = (interaction.previewText(db)
             .filterForDisplay?
             .replacingMentions(for: thread.id))
-            .defaulting(to: "APN_Message".localized())
+            .defaulting(to: "messageNewYouveGotA".localized())
         
         let userInfo: [String: Any] = [
             NotificationServiceExtension.isFromRemoteKey: true,
@@ -82,7 +82,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
             notificationContent.title = "sessionMessenger".localized()
-            notificationContent.body = "MESSAGE_REQUESTS_NOTIFICATION".localized()
+            notificationContent.body = "messageRequestsNew".localized()
         }
         
         // Add request (try to group notifications for interactions from open groups)
@@ -168,7 +168,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         if messageInfo.state == .permissionDenied {
             notificationContent.body = String(
-                format: "modal_call_missed_tips_explanation".localized(),
+                format: "callsYouMissedCallPermissions".localized(),
                 senderName
             )
         }

@@ -64,7 +64,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         
         var title: String? {
             switch self {
-                case .sessionId: return "your_session_id".localized()
+                case .sessionId: return "accountIdYours".localized()
                 default: return nil
             }
         }
@@ -179,7 +179,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "vc_settings_display_name_missing_error".localized(),
+                                                title: "displayNameErrorDescription".localized(),
                                                 cancelTitle: "BUTTON_OK".localized(),
                                                 cancelStyle: .alert_text
                                             )
@@ -192,7 +192,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "vc_settings_display_name_too_long_error".localized(),
+                                                title: "displayNameErrorDescriptionShorter".localized(),
                                                 cancelTitle: "BUTTON_OK".localized(),
                                                 cancelStyle: .alert_text
                                             )
@@ -216,7 +216,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     // MARK: - Content
     
-    let title: String = "vc_settings_title".localized()
+    let title: String = "sessionSettings".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { [weak self, dependencies] db -> Profile in
@@ -332,7 +332,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 
                                 return result
                             },
-                            title: "vc_path_title".localized(),
+                            title: "onionRoutingPath".localized(),
                             onTap: { self?.transitionToScreen(PathVC()) }
                         ),
                         SessionCell.Info(
@@ -341,7 +341,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_privacy")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_settings_privacy_button_title".localized(),
+                            title: "sessionPrivacy".localized(),
                             onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: PrivacySettingsViewModel())
@@ -354,7 +354,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_speaker")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_settings_notifications_button_title".localized(),
+                            title: "sessionNotifications".localized(),
                             onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: NotificationSettingsViewModel())
@@ -380,7 +380,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_msg_req")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "MESSAGE_REQUESTS_TITLE".localized(),
+                            title: "sessionMessageRequests".localized(),
                             onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: MessageRequestsViewModel())
@@ -404,7 +404,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_invite")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_settings_invite_a_friend_button_title".localized(),
+                            title: "sessionInviteAFriend".localized(),
                             onTap: {
                                 let invitation: String = "Hey, I've been using Session to chat with complete privacy and security. Come join me! Download it at https://getsession.org/. My Session ID is \(profile.id) !"
                                 
@@ -423,7 +423,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_recovery")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_settings_recovery_phrase_button_title".localized(),
+                            title: "sessionRecoveryPassword".localized(),
                             onTap: {
                                 let targetViewController: UIViewController = {
                                     if let modal: SeedModal = try? SeedModal() {
@@ -462,7 +462,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_bin")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_settings_clear_all_data_button_title".localized(),
+                            title: "sessionClearData".localized(),
                             styling: SessionCell.StyleInfo(tintColor: .danger),
                             onTap: {
                                 self?.transitionToScreen(NukeDataModal(), transitionType: .present)

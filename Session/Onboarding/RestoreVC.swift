@@ -15,7 +15,7 @@ final class RestoreVC: BaseVC {
     // MARK: - Components
     
     private lazy var mnemonicTextView: TextView = {
-        let result = TextView(placeholder: "vc_restore_seed_text_field_hint".localized())
+        let result = TextView(placeholder: "recoveryPasswordEnter".localized())
         result.autocapitalizationType = .none
         result.themeBorderColor = .textPrimary
         result.accessibilityLabel = "Recovery phrase text view"
@@ -55,7 +55,7 @@ final class RestoreVC: BaseVC {
         // Set up title label
         let titleLabel = UILabel()
         titleLabel.font = .boldSystemFont(ofSize: isIPhone5OrSmaller ? Values.largeFontSize : Values.veryLargeFontSize)
-        titleLabel.text = "vc_restore_title".localized()
+        titleLabel.text = "onboardingAccountExists".localized()
         titleLabel.themeTextColor = .textPrimary
         titleLabel.lineBreakMode = .byWordWrapping
         titleLabel.numberOfLines = 0
@@ -63,7 +63,7 @@ final class RestoreVC: BaseVC {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_restore_explanation".localized()
+        explanationLabel.text = "recoveryPasswordExplanation".localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.lineBreakMode = .byWordWrapping
         explanationLabel.numberOfLines = 0
@@ -87,7 +87,7 @@ final class RestoreVC: BaseVC {
         
         // Set up restore button
         let restoreButton = SessionButton(style: .filled, size: .large)
-        restoreButton.setTitle("continue_2".localized(), for: UIControl.State.normal)
+        restoreButton.setTitle("continue".localized(), for: UIControl.State.normal)
         restoreButton.addTarget(self, action: #selector(restore), for: UIControl.Event.touchUpInside)
         
         // Set up restore button container

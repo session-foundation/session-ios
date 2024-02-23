@@ -25,7 +25,7 @@ final class MainAppContext: AppContext {
     var statusBarHeight: CGFloat { UIApplication.shared.statusBarFrame.size.height }
     var openSystemSettingsAction: UIAlertAction? {
         let result = UIAlertAction(
-            title: "OPEN_SETTINGS_BUTTON".localized(),
+            title: "sessionSettings".localized(),
             style: .default
         ) { _ in UIApplication.shared.openSystemSettings() }
         result.accessibilityIdentifier = "\(type(of: self)).system_settings"
