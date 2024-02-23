@@ -262,7 +262,8 @@ public final class JobRunner: JobRunnerType {
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [
                     jobVariants.remove(.expirationUpdate),
-                    jobVariants.remove(.getExpiration)
+                    jobVariants.remove(.getExpiration),
+                    jobVariants.remove(.disappearingMessages)
                 ].compactMap { $0 }
             ),
             
