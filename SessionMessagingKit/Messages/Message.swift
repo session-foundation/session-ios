@@ -39,7 +39,6 @@ public class Message: Codable {
         receivedTimestamp: UInt64? = nil,
         recipient: String? = nil,
         sender: String? = nil,
-        groupPublicKey: String? = nil,
         openGroupServerMessageId: UInt64? = nil,
         serverHash: String? = nil,
         expiresInSeconds: TimeInterval? = nil,

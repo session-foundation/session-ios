@@ -47,7 +47,6 @@ public final class VisibleMessage: Message {
         sender: String? = nil,
         sentTimestamp: UInt64? = nil,
         recipient: String? = nil,
-        groupPublicKey: String? = nil,
         syncTarget: String? = nil,
         text: String?,
         attachmentIds: [String] = [],
@@ -69,8 +68,7 @@ public final class VisibleMessage: Message {
         super.init(
             sentTimestamp: sentTimestamp,
             recipient: recipient,
-            sender: sender,
-            groupPublicKey: groupPublicKey
+            sender: sender
         )
     }
     
@@ -229,14 +227,6 @@ public extension VisibleMessage {
             sender: interaction.authorId,
             sentTimestamp: UInt64(interaction.timestampMs),
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
-            groupPublicKey: try? interaction.thread
-                .filter(
-                    SessionThread.Columns.variant == SessionThread.Variant.legacyGroup ||
-                    SessionThread.Columns.variant == SessionThread.Variant.group
-                )
-                .select(.id)
-                .asRequest(of: String.self)
-                .fetchOne(db),
             syncTarget: nil,
             text: interaction.body,
             attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
