@@ -88,7 +88,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     let title: String = "DISAPPEARING_MESSAGES".localized()
     lazy var subtitle: String? = {
         guard Features.useNewDisappearingMessagesConfig else {
-            return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized())
+            return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_LEGACY".localized())
         }
         
         if threadVariant == .contact && !isNoteToSelf {
