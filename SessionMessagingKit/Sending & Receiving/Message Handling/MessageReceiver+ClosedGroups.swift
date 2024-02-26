@@ -185,16 +185,17 @@ extension MessageReceiver {
         }
         
         // Update the DisappearingMessages config
-        let isEnabled: Bool = (expirationTimer > 0)
-        let disappearingConfig: DisappearingMessagesConfiguration = try thread.disappearingMessagesConfiguration
-            .fetchOne(db)
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
-            .with(
-                isEnabled: isEnabled,
-                durationSeconds: TimeInterval(expirationTimer),
-                type: isEnabled ? .disappearAfterSend : .unknown
-            )
-            .saved(db)
+        var disappearingConfig = DisappearingMessagesConfiguration.defaultWith(thread.id)
+        if (try? thread.disappearingMessagesConfiguration.fetchOne(db)) == nil {
+            let isEnabled: Bool = (expirationTimer > 0)
+            disappearingConfig = try disappearingConfig
+                .with(
+                    isEnabled: isEnabled,
+                    durationSeconds: TimeInterval(expirationTimer),
+                    type: isEnabled ? .disappearAfterSend : .unknown
+                )
+                .saved(db)
+        }
         
         // Store the key pair if it doesn't already exist
         let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
