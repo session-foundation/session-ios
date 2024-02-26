@@ -348,7 +348,16 @@ public final class MessageSender {
         let snodeMessage = SnodeMessage(
             recipient: message.recipient!,
             data: base64EncodedData,
-            ttl: Message.getSpecifiedTTL(message: message, isSyncMessage: isSyncMessage),
+            ttl: Message.getSpecifiedTTL(
+                message: message,
+                isGroupMessage: {
+                    switch destination {
+                        case .closedGroup: return true
+                        default: return false
+                    }
+                }(),
+                isSyncMessage: isSyncMessage
+            ),
             timestampMs: UInt64(messageSendTimestamp)
         )
         

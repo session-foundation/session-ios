@@ -658,6 +658,7 @@ public extension Message {
     
     internal static func getSpecifiedTTL(
         message: Message,
+        isGroupMessage: Bool,
         isSyncMessage: Bool
     ) -> UInt64 {
         guard Features.useNewDisappearingMessagesConfig else { return message.ttl }
@@ -677,6 +678,8 @@ public extension Message {
         switch message {
             case is ClosedGroupControlMessage, is UnsendRequest:
                 return message.ttl
+            case is ExpirationTimerUpdate:
+                return isGroupMessage ? message.ttl : UInt64(expiresInSeconds * 1000)
             default:
                 return UInt64(expiresInSeconds * 1000)
         }
