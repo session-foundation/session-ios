@@ -315,7 +315,10 @@ public enum PushRegistrationError: Error {
                 variant: .infoCall,
                 body: messageInfoString,
                 timestampMs: timestampMs
-            ).inserted(db)
+            )
+            .withDisappearingMessagesConfiguration(db)
+            .inserted(db)
+            
             call.callInteractionId = interaction.id
             
             return call

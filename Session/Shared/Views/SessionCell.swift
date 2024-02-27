@@ -122,6 +122,7 @@ public class SessionCell: UITableViewCell {
         let result: SRCopyableLabel = SRCopyableLabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isUserInteractionEnabled = false
+        result.font = .systemFont(ofSize: 12)
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
         result.isHidden = true

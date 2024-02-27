@@ -14,6 +14,12 @@ final class ConversationTitleView: UIView {
     override var intrinsicContentSize: CGSize {
         return UIView.layoutFittingExpandedSize
     }
+    
+    private lazy var labelCarouselViewWidth = labelCarouselView.set(.width, to: 185)
+    
+    public var currentLabelType: SessionLabelCarouselView.LabelType? {
+        return self.labelCarouselView.currentLabelType
+    }
 
     // MARK: - UI Components
     
@@ -22,7 +28,8 @@ final class ConversationTitleView: UIView {
     
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.accessibilityIdentifier = "Username"
+        result.accessibilityIdentifier = "Conversation header name"
+        result.accessibilityLabel = "Conversation header name"
         result.isAccessibilityElement = true
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
@@ -30,18 +37,14 @@ final class ConversationTitleView: UIView {
         
         return result
     }()
-
-    private lazy var subtitleLabel: UILabel = {
-        let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: 13)
-        result.themeTextColor = .textPrimary
-        result.lineBreakMode = .byTruncatingTail
-        
+    
+    private lazy var labelCarouselView: SessionLabelCarouselView = {
+        let result = SessionLabelCarouselView()
         return result
     }()
     
     private lazy var stackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [ titleLabel, subtitleLabel ])
+        let result = UIStackView(arrangedSubviews: [ titleLabel, labelCarouselView ])
         result.axis = .vertical
         result.alignment = .center
         
@@ -81,7 +84,8 @@ final class ConversationTitleView: UIView {
             threadVariant: threadVariant,
             mutedUntilTimestamp: nil,
             onlyNotifyForMentions: false,
-            userCount: (threadVariant != .contact ? 0 : nil)
+            userCount: (threadVariant != .contact ? 0 : nil),
+            disappearingMessagesConfig: nil
         )
     }
     
@@ -106,7 +110,8 @@ final class ConversationTitleView: UIView {
         threadVariant: SessionThread.Variant,
         mutedUntilTimestamp: TimeInterval?,
         onlyNotifyForMentions: Bool,
-        userCount: Int?
+        userCount: Int?,
+        disappearingMessagesConfig: DisappearingMessagesConfiguration?
     ) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
@@ -116,7 +121,8 @@ final class ConversationTitleView: UIView {
                     threadVariant: threadVariant,
                     mutedUntilTimestamp: mutedUntilTimestamp,
                     onlyNotifyForMentions: onlyNotifyForMentions,
-                    userCount: userCount
+                    userCount: userCount,
+                    disappearingMessagesConfig: disappearingMessagesConfig
                 )
             }
             return
@@ -125,62 +131,146 @@ final class ConversationTitleView: UIView {
         let shouldHaveSubtitle: Bool = (
             Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) ||
             onlyNotifyForMentions ||
-            userCount != nil
+            userCount != nil ||
+            disappearingMessagesConfig?.isEnabled == true
         )
         
         self.titleLabel.text = name
         self.titleLabel.accessibilityLabel = name
         self.titleLabel.font = .boldSystemFont(
             ofSize: (shouldHaveSubtitle ?
-                Values.mediumFontSize :
+                Values.largeFontSize :
                 Values.veryLargeFontSize
             )
         )
         
-        ThemeManager.onThemeChange(observer: self.subtitleLabel) { [weak subtitleLabel] theme, _ in
+        ThemeManager.onThemeChange(observer: self.labelCarouselView) { [weak self] theme, _ in
             guard let textPrimary: UIColor = theme.color(for: .textPrimary) else { return }
             
-            guard Date().timeIntervalSince1970 > (mutedUntilTimestamp ?? 0) else {
-                subtitleLabel?.attributedText = NSAttributedString(
+            var labelInfos: [SessionLabelCarouselView.LabelInfo] = []
+            
+            if Date().timeIntervalSince1970 <= (mutedUntilTimestamp ?? 0) {
+                let notificationSettingsLabelString = NSAttributedString(
                     string: FullConversationCell.mutePrefix,
                     attributes: [
-                        .font: UIFont(name: "ElegantIcons", size: 10) as Any,
+                        .font: UIFont(name: "ElegantIcons", size: 8) as Any,
                         .foregroundColor: textPrimary
                     ]
                 )
                 .appending(string: "Muted")
-                return
+                
+                labelInfos.append(
+                    SessionLabelCarouselView.LabelInfo(
+                        attributedText: notificationSettingsLabelString,
+                        accessibility: nil, // TODO: Add accessibility
+                        type: .notificationSettings
+                    )
+                )
             }
-            guard !onlyNotifyForMentions else {
+            else if onlyNotifyForMentions {
                 let imageAttachment = NSTextAttachment()
                 imageAttachment.image = UIImage(named: "NotifyMentions.png")?.withTint(textPrimary)
                 imageAttachment.bounds = CGRect(
                     x: 0,
                     y: -2,
-                    width: Values.smallFontSize,
-                    height: Values.smallFontSize
+                    width: Values.miniFontSize,
+                    height: Values.miniFontSize
                 )
                 
-                subtitleLabel?.attributedText = NSAttributedString(attachment: imageAttachment)
+                let notificationSettingsLabelString = NSAttributedString(attachment: imageAttachment)
                     .appending(string: "  ")
                     .appending(string: "view_conversation_title_notify_for_mentions_only".localized())
-                return
+                
+                labelInfos.append(
+                    SessionLabelCarouselView.LabelInfo(
+                        attributedText: notificationSettingsLabelString,
+                        accessibility: nil, // TODO: Add accessibility
+                        type: .notificationSettings
+                    )
+                )
             }
-            guard let userCount: Int = userCount else { return }
             
-            switch threadVariant {
-                case .contact: break
-                    
-                case .legacyGroup, .group:
-                    subtitleLabel?.attributedText = NSAttributedString(
-                        string: "\(userCount) member\(userCount == 1 ? "" : "s")"
-                    )
-                    
-                case .community:
-                    subtitleLabel?.attributedText = NSAttributedString(
-                        string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
-                    )
+            if let userCount: Int = userCount {
+                switch threadVariant {
+                    case .contact: break
+                        
+                    case .legacyGroup, .group:
+                        labelInfos.append(
+                            SessionLabelCarouselView.LabelInfo(
+                                attributedText: NSAttributedString(
+                                    string: "\(userCount) member\(userCount == 1 ? "" : "s")"
+                                ),
+                                accessibility: nil, // TODO: Add accessibility
+                                type: .userCount
+                            )
+                        )
+                        
+                    case .community:
+                        labelInfos.append(
+                            SessionLabelCarouselView.LabelInfo(
+                                attributedText: NSAttributedString(
+                                    string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
+                                ),
+                                accessibility: nil, // TODO: Add accessibility
+                                type: .userCount
+                            )
+                        )
+                }
             }
+            
+            if let config = disappearingMessagesConfig, config.isEnabled == true {
+                let imageAttachment = NSTextAttachment()
+                imageAttachment.image = UIImage(systemName: "timer")?.withTint(textPrimary)
+                imageAttachment.bounds = CGRect(
+                    x: 0,
+                    y: -2,
+                    width: Values.miniFontSize,
+                    height: Values.miniFontSize
+                )
+                
+                let disappearingMessageSettingLabelString: NSAttributedString = {
+                    guard Features.useNewDisappearingMessagesConfig else {
+                        return NSAttributedString(attachment: imageAttachment)
+                            .appending(string: " ")
+                            .appending(string: String(
+                                format: "DISAPPERING_MESSAGES_SUMMARY_LEGACY".localized(),
+                                floor(config.durationSeconds).formatted(format: .short)
+                            ))
+                    }
+                    
+                    return NSAttributedString(attachment: imageAttachment)
+                        .appending(string: " ")
+                        .appending(string: String(
+                            format: (config.type == .disappearAfterRead ?
+                                "DISAPPERING_MESSAGES_SUMMARY_READ".localized() :
+                                "DISAPPERING_MESSAGES_SUMMARY_SEND".localized()
+                            ),
+                            floor(config.durationSeconds).formatted(format: .short)
+                        ))
+                }()
+                
+                labelInfos.append(
+                    SessionLabelCarouselView.LabelInfo(
+                        attributedText: disappearingMessageSettingLabelString,
+                        accessibility: Accessibility(
+                            identifier: "Disappearing messages type and time",
+                            label: "Disappearing messages type and time"
+                        ),
+                        type: .disappearingMessageSetting
+                    )
+                )
+            }
+            
+            self?.labelCarouselView.update(
+                with: labelInfos,
+                labelSize: CGSize(
+                    width: self?.labelCarouselViewWidth.constant ?? 0,
+                    height: 12
+                ),
+                shouldAutoScroll: false
+            )
+            
+            self?.labelCarouselView.isHidden = (labelInfos.count == 0)
         }
         
         // Contact threads also have the call button to compensate for
@@ -194,5 +284,14 @@ final class ConversationTitleView: UIView {
             ConversationTitleView.leftInset
         )
         self.stackViewTrailingConstraint.constant = 0
+    }
+    
+    // MARK: - Interaction
+    
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if self.stackView.frame.contains(point) {
+            return self.labelCarouselView.scrollView
+        }
+        return super.hitTest(point, with: event)
     }
 }

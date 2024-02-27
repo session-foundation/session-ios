@@ -31,6 +31,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     
     // MARK: - Components
     
+    private lazy var titleView: SessionTableViewTitleView = SessionTableViewTitleView()
+    
     private lazy var tableView: UITableView = {
         let result: UITableView = UITableView()
         result.translatesAutoresizingMaskIntoConstraints = false
@@ -41,6 +43,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         result.register(view: SessionCell.self)
         result.register(view: FullConversationCell.self)
         result.registerHeaderFooterView(view: SessionHeaderView.self)
+        result.registerHeaderFooterView(view: SessionFooterView.self)
         result.dataSource = self
         result.delegate = self
         
@@ -125,11 +128,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        ViewControllerUtilities.setUpDefaultSessionStyle(
-            for: self,
-            title: viewModel.title,
-            hasCustomBackButton: false
-        )
+        navigationItem.titleView = titleView
+        titleView.update(title: self.viewModel.title, subtitle: self.viewModel.subtitle)
         
         view.themeBackgroundColor = .backgroundPrimary
         view.addSubview(tableView)
@@ -394,6 +394,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     self?.footerButton.setTitle(buttonInfo.title, for: .normal)
                     self?.footerButton.setStyle(buttonInfo.style)
                     self?.footerButton.isEnabled = buttonInfo.isEnabled
+                    self?.footerButton.set(.width, greaterThanOrEqualTo: buttonInfo.minWidth)
                     self?.footerButton.accessibilityIdentifier = buttonInfo.accessibility?.identifier
                     self?.footerButton.accessibilityLabel = buttonInfo.accessibility?.label
                 }
@@ -478,10 +479,29 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         return result
     }
     
+    func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+        let section: SectionModel = viewModel.tableData[section]
+        
+        if let footerString = section.model.footer {
+            let result: SessionFooterView = tableView.dequeueHeaderFooterView(type: SessionFooterView.self)
+            result.update(title: footerString)
+            
+            return result
+        }
+        
+        return UIView()
+    }
+    
     // MARK: - UITableViewDelegate
     
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
         return viewModel.tableData[section].model.style.height
+    }
+    
+    func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+        let section: SectionModel = viewModel.tableData[section]
+        
+        return (section.model.footer == nil ? 0 : UITableView.automaticDimension)
     }
     
     func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {

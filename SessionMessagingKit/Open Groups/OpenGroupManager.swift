@@ -365,11 +365,6 @@ public final class OpenGroupManager {
                 .updateAllAndConfig(db, OpenGroup.Columns.isActive.set(to: false))
         }
         
-        // Remove the thread and associated data
-        _ = try? SessionThread
-            .filter(id: openGroupId)
-            .deleteAll(db)
-        
         if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
             try? SessionUtil.remove(db, server: server, roomToken: roomToken)
         }

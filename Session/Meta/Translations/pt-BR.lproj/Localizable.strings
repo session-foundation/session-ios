@@ -393,7 +393,7 @@
 "MESSAGE_REQUESTS_TITLE" = "Solicitações de Mensagem";
 "MESSAGE_REQUESTS_EMPTY_TEXT" = "Nenhuma solicitação de mensagem pendente";
 "MESSAGE_REQUESTS_CLEAR_ALL" = "Limpar tudo";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Você tem certeza que deseja excluir todas as solicitações de mensagem?";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Tem certeza de que deseja limpar todos os pedidos de mensagens e convites de grupo?";
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Limpar";
 "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Você tem certeza que deseja excluir esta solicitação de mensagem?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Tem certeza de que deseja bloquear esse contato?";
@@ -548,7 +548,6 @@
 "modal_permission_library" = "biblioteca";
 "DISAPPEARING_MESSAGES_OFF" = "Desligado";
 "DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Desligado";
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Desaparecer após: %@";
 "COPY_GROUP_URL" = "Copiar URL do grupo";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Contatos";
 "GROUP_ERROR_NO_MEMBER_SELECTION" = "Por favor, escolha pelo menos 1 membro para o grupo";
@@ -574,9 +573,10 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Aplicar";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "Essa configuração se aplica a todos nesta conversa.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Esta configuração aplica-se a todos nesta conversa. Apenas os administradores de grupos podem alterar essa configuração.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Desaparecer Após %@ - %@";
+/* Informational message shown when a conversation participant enables disappearing messages. The first '%@' will be the participants name, the second '%@' will be the duration and the third '%@' will indicate whether the countdown should start after the messages are sent or after they are read. */
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ definiu mensagens para desaparecer %@ depois de terem sido %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ alterou as mensagens para desaparecer %@ depois de ter sido %@";
+/* Informational message shown when a conversation participant enables disappearing messages. The '%@' will be the participants name. */
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ desativou o desaparecimento de mensagens";
 
 /* context_menu_info */
@@ -607,7 +607,7 @@
 "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Solicitações de mensagem da comunidade";
 
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION */
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
+"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Permitir pedidos de mensagens de conversas da Comunidade.";
 
 /* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
 "MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "Você poderá enviar mensagens de voz e anexos quando o destinatário aprovar esta solicitação de mensagem";
@@ -727,7 +727,7 @@
 "hide_note_to_self_confirmation_alert_message" = "Tem certeza de que deseja esconder %@?";
 
 /* Title in the modal for updating the users profile display picture */
-"update_profile_modal_title" = "Set Display Picture";
+"update_profile_modal_title" = "Definir imagem de exibição";
 
 /* Save action in the modal for updating the users profile display picture */
 "update_profile_modal_save" = "Salvar";
@@ -842,13 +842,13 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_PICTURE_UPDATED" = "Imagem do grupo atualizada.";
 
 /* An informational message displayed when a single member joined the group, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ was invited to join the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED" = "%@ foi convidado(a) a juntar-se ao grupo.";
 
 /* An informational message displayed when two members joined the group, the '%@' will be the names of both members. */
-"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ and %@ were invited to join the group.";
+"GROUP_MESSAGE_INFO_TWO_MEMBERS_ADDED" = "%@ e %@ foram convidados a juntarem-se ao grupo.";
 
 /* An informational message displayed when multiple members joined the group, the first '%@' will be the first members name and the second '%@' will be the number of additional members added. */
-"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ and %@ others were invited to join the group.";
+"GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED" = "%@ e %@ outros foram convidados a juntar-se ao grupo.";
 
 /* An informational message displayed when a single member was removed from the group, the '%@' will be the members. */
 "GROUP_MESSAGE_INFO_MEMBER_REMOVED" = "%@ foi removido(a) do grupo.";
@@ -1007,10 +1007,10 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_INVITED_FALLBACK" = "Você foi convidado a juntar-se a %@.";
 
 /* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ were invited to join the group.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU" = "%@ foi convidado a juntar-se ao grupo.";
 
 /* An informational message displayed when a single member joined the group with access to chat history, the '%@' will be the members name. */
-"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ was invited to join the group. Chat history was shared.";
+"GROUP_MESSAGE_INFO_MEMBER_ADDED_WITH_HISTORY" = "%@ foi convidado a se juntar-se ao grupo. O histórico de conversas será compartilhado.";
 
 /* An informational message displayed when the current user joined the group, the '%@' will be replaced with 'You'. */
 "GROUP_MESSAGE_INFO_MEMBER_ADDED_YOU_WITH_HISTORY" = "%@ were invited to join the group. Chat history was shared.";
@@ -1034,4 +1034,22 @@ The point that a message will disappear in a disappearing message update message
 "GROUP_MESSAGE_INFO_MULTIPLE_MEMBERS_ADDED_YOU_WITH_HISTORY" = "%@ and %@ others were invited to join the group. Chat history was shared.";
 
 /* Message for the error modal shown when a voice message fails to start recording. */
-"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "An error occurred when trying to start recording for the voice message.";
+"VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "Ocorreu um erro ao tentar iniciar a gravação para a mensagem de voz.";
+
+/* Shortcut to copy the disappearing messages setting from another conversation participant. */
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages on. The first '%@' will be the duration messages will remain and the second '%@' will be whether the countdown starts after the messages are sent or after they are read. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Defina suas mensagens para desaparecer %@ depois que forem %@?";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages off. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "As mensagens que você enviar não irão mais desaparecer. Tem certeza de que deseja desativar desaparecer mensagens?";
+
+/* Title for button on a modal which confirms a change. */
+"CONFIRM_BUTTON_TITLE" = "Confirmar";
+
+/* The subtitle of delete action in long press menu screen indicating the time that a message will disappear */
+"DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN" = "Auto-deletes in %@";
+
+/* A message indicating how the disappearing messages setting applies in a one-to-one conversation for legacy mode */
+"DISAPPERING_MESSAGES_SUBTITLE_LEGACY" = "This setting applies to everyone in this conversation.";
