@@ -50,9 +50,6 @@ public enum DisappearingMessagesJob: JobExecutor {
 
 public extension DisappearingMessagesJob {
     @discardableResult static func updateNextRunIfNeeded(_ db: Database) -> Job? {
-        // Don't run when inactive or not in main app
-        guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else { return nil }
-        
         // If there is another expiring message then update the job to run 1 second after it's meant to expire
         let nextExpirationTimestampMs: Double? = try? Interaction
             .filter(Interaction.Columns.expiresStartedAtMs != nil)
