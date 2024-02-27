@@ -93,7 +93,9 @@ internal extension SessionUtil {
             ((existingGroup?.groupDescription == groupDesc) ? nil :
                 ClosedGroup.Columns.groupDescription.set(to: groupDesc)
             ),
-            ((existingGroup?.formationTimestamp == formationTimestamp || formationTimestamp == 0) ? nil :
+            // Only update the 'formationTimestamp' if we don't have one (don't want to override the 'joinedAt'
+            // timestamp with the groups creation timestamp
+            (formationTimestamp < (existingGroup?.formationTimestamp ?? 0) ? nil :
                 ClosedGroup.Columns.formationTimestamp.set(to: formationTimestamp)
             ),
             // If we are removing the display picture do so here
