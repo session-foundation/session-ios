@@ -30,7 +30,7 @@ enum Onboarding {
         _ requestId: UUID,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<String?, Error> {
-        let userPublicKey: String = getUserHexEncodedPublicKey()
+        let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
         return SnodeAPI.getSwarm(for: userPublicKey)
             .tryFlatMapWithRandomSnode { snode -> AnyPublisher<Void, Error> in

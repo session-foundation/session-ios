@@ -47,7 +47,6 @@ public final class VisibleMessage: Message {
         sender: String? = nil,
         sentTimestamp: UInt64? = nil,
         recipient: String? = nil,
-        groupPublicKey: String? = nil,
         syncTarget: String? = nil,
         text: String?,
         attachmentIds: [String] = [],
@@ -69,8 +68,7 @@ public final class VisibleMessage: Message {
         super.init(
             sentTimestamp: sentTimestamp,
             recipient: recipient,
-            sender: sender,
-            groupPublicKey: groupPublicKey
+            sender: sender
         )
     }
     
@@ -123,7 +121,7 @@ public final class VisibleMessage: Message {
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let proto = SNProtoContent.builder()
         var attachmentIds = self.attachmentIds
         let dataMessage: SNProtoDataMessage.SNProtoDataMessageBuilder
@@ -184,6 +182,9 @@ public final class VisibleMessage: Message {
             dataMessage.setReaction(reactionProto)
         }
         
+        // DisappearingMessagesConfiguration
+        setDisappearingMessagesConfigurationIfNeeded(on: proto)
+        
         // Sync target
         if let syncTarget = syncTarget {
             dataMessage.setSyncTarget(syncTarget)
@@ -222,18 +223,10 @@ public extension VisibleMessage {
     static func from(_ db: Database, interaction: Interaction) -> VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
         
-        return VisibleMessage(
+        let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
             sentTimestamp: UInt64(interaction.timestampMs),
             recipient: (try? interaction.recipientStates.fetchOne(db))?.recipientId,
-            groupPublicKey: try? interaction.thread
-                .filter(
-                    SessionThread.Columns.variant == SessionThread.Variant.legacyGroup ||
-                    SessionThread.Columns.variant == SessionThread.Variant.group
-                )
-                .select(.id)
-                .asRequest(of: String.self)
-                .fetchOne(db),
             syncTarget: nil,
             text: interaction.body,
             attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
@@ -257,5 +250,14 @@ public extension VisibleMessage {
             },
             reaction: nil   // Reactions are custom messages sent separately
         )
+        .with(
+            expiresInSeconds: interaction.expiresInSeconds,
+            expiresStartedAtMs: interaction.expiresStartedAtMs
+        )
+        
+        visibleMessage.expiresInSeconds = interaction.expiresInSeconds
+        visibleMessage.expiresStartedAtMs = interaction.expiresStartedAtMs
+        
+        return visibleMessage
     }
 }

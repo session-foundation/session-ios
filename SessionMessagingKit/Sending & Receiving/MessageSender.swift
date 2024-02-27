@@ -244,7 +244,9 @@ public final class MessageSender {
         handleMessageWillSend(db, message: message, interactionId: interactionId, isSyncMessage: isSyncMessage)
         
         // Convert it to protobuf
-        guard let proto = message.toProto(db) else {
+        let threadId: String = Message.threadId(forMessage: message, destination: destination)
+        
+        guard let proto = message.toProto(db, threadId: threadId) else {
             throw MessageSender.handleFailedMessageSend(
                 db,
                 message: message,
@@ -346,7 +348,16 @@ public final class MessageSender {
         let snodeMessage = SnodeMessage(
             recipient: message.recipient!,
             data: base64EncodedData,
-            ttl: message.ttl,
+            ttl: Message.getSpecifiedTTL(
+                message: message,
+                isGroupMessage: {
+                    switch destination {
+                        case .closedGroup: return true
+                        default: return false
+                    }
+                }(),
+                isSyncMessage: isSyncMessage
+            ),
             timestampMs: UInt64(messageSendTimestamp)
         )
         
@@ -454,7 +465,7 @@ public final class MessageSender {
         handleMessageWillSend(db, message: message, interactionId: interactionId)
         
         // Convert it to protobuf
-        guard let proto = message.toProto(db) else {
+        guard let proto = message.toProto(db, threadId: threadId) else {
             throw MessageSender.handleFailedMessageSend(
                 db,
                 message: message,
@@ -525,7 +536,7 @@ public final class MessageSender {
         handleMessageWillSend(db, message: message, interactionId: interactionId)
         
         // Convert it to protobuf
-        guard let proto = message.toProto(db) else {
+        guard let proto = message.toProto(db, threadId: recipientBlindedPublicKey) else {
             throw MessageSender.handleFailedMessageSend(
                 db,
                 message: message,
@@ -945,37 +956,65 @@ public final class MessageSender {
             
             // Get the visible message if possible
             if let interaction: Interaction = interaction {
-                // When the sync message is successfully sent, the hash value of this TSOutgoingMessage
-                // will be replaced by the hash value of the sync message. Since the hash value of the
-                // real message has no use when we delete a message. It is OK to let it be.
-                try interaction.with(
-                    serverHash: message.serverHash,
-                    // Track the open group server message ID and update server timestamp (use server
-                    // timestamp for open group messages otherwise the quote messages may not be able
-                    // to be found by the timestamp on other devices
-                    timestampMs: (message.openGroupServerMessageId == nil ?
-                        nil :
-                        serverTimestampMs.map { Int64($0) }
-                    ),
-                    openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
-                ).update(db)
+                // Only store the server hash of a sync message if the message is self send valid
+                if (message.isSelfSendValid && isSyncMessage || !isSyncMessage) {
+                    try interaction.with(
+                        serverHash: message.serverHash,
+                        // Track the open group server message ID and update server timestamp (use server
+                        // timestamp for open group messages otherwise the quote messages may not be able
+                        // to be found by the timestamp on other devices
+                        timestampMs: (message.openGroupServerMessageId == nil ?
+                            nil :
+                            serverTimestampMs.map { Int64($0) }
+                        ),
+                        openGroupServerMessageId: message.openGroupServerMessageId.map { Int64($0) }
+                    ).update(db)
+                    
+                    if interaction.isExpiringMessage {
+                        // Start disappearing messages job after a message is successfully sent.
+                        // For DAR and DAS outgoing messages, the expiration start time are the
+                        // same as message sentTimestamp. So do this once, DAR and DAS messages
+                        // should all be covered.
+                        dependencies.jobRunner.upsert(
+                            db,
+                            job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                                db,
+                                interaction: interaction,
+                                startedAtMs: Double(interaction.timestampMs)
+                            ),
+                            canStartJob: true,
+                            using: dependencies
+                        )
+                        
+                        if
+                            isSyncMessage,
+                            let startedAtMs: Double = interaction.expiresStartedAtMs,
+                            let expiresInSeconds: TimeInterval = interaction.expiresInSeconds,
+                            let serverHash: String = message.serverHash
+                        {
+                            let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
+                            dependencies.jobRunner.add(
+                                db,
+                                job: Job(
+                                    variant: .expirationUpdate,
+                                    behaviour: .runOnce,
+                                    threadId: interaction.threadId,
+                                    details: ExpirationUpdateJob.Details(
+                                        serverHashes: [serverHash],
+                                        expirationTimestampMs: expirationTimestampMs
+                                    )
+                                ),
+                                canStartJob: true,
+                                using: dependencies
+                            )
+                        }
+                    }
+                }
                 
                 // Mark the message as sent
                 try interaction.recipientStates
                     .filter(RecipientState.Columns.state != RecipientState.State.sent)
                     .updateAll(db, RecipientState.Columns.state.set(to: RecipientState.State.sent))
-                
-                // Start the disappearing messages timer if needed
-                dependencies.jobRunner.upsert(
-                    db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
-                        db,
-                        interaction: interaction,
-                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
-                    ),
-                    canStartJob: true,
-                    using: dependencies
-                )
             }
         }
         

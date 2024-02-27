@@ -361,7 +361,6 @@ public enum SessionUtil {
         let needsPush: Bool = try groupedMessages
             .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
             .reduce(false) { prevNeedsPush, next -> Bool in
-                let latestConfigSentTimestampMs: Int64 = Int64(next.value.compactMap { $0.sentTimestamp }.max() ?? 0)
                 let needsPush: Bool = try SessionUtil
                     .config(for: next.key, publicKey: publicKey)
                     .mutate { conf in
@@ -373,9 +372,40 @@ public enum SessionUtil {
                             .map { message -> [UInt8] in message.data.bytes }
                             .unsafeCopy()
                         var mergeSize: [Int] = next.value.map { $0.data.count }
-                        config_merge(conf, &mergeHashes, &mergeData, &mergeSize, next.value.count)
+                        var mergedHashesPtr: UnsafeMutablePointer<config_string_list>?
+                        try CExceptionHelper.performSafely {
+                            mergedHashesPtr = config_merge(
+                                conf,
+                                &mergeHashes,
+                                &mergeData,
+                                &mergeSize,
+                                next.value.count
+                            )
+                        }
                         mergeHashes.forEach { $0?.deallocate() }
                         mergeData.forEach { $0?.deallocate() }
+                        
+                        // Get the list of hashes from the config (to determine which were successful)
+                        let mergedHashes: [String] = mergedHashesPtr
+                            .map { ptr in
+                                [String](
+                                    pointer: ptr.pointee.value,
+                                    count: ptr.pointee.len,
+                                    defaultValue: []
+                                )
+                            }
+                            .defaulting(to: [])
+                        let maybeLatestConfigSentTimestampMs: Int64? = next.value
+                            .filter { mergedHashes.contains($0.serverHash ?? "") }
+                            .compactMap { $0.sentTimestamp.map { Int64($0) } }
+                            .sorted()
+                            .last
+                        mergedHashesPtr?.deallocate()
+                        
+                        // If no messages were merged then no need to do anything
+                        guard let latestConfigSentTimestampMs: Int64 = maybeLatestConfigSentTimestampMs else {
+                            return config_needs_push(conf)
+                        }
                         
                         // Apply the updated states to the database
                         do {

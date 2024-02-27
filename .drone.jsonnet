@@ -20,6 +20,15 @@ local clone_submodules = {
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
 
+// Output some information about the built tools in case specific combinations break the build
+local machine_info = {
+  name: 'Machine info',
+  commands: [
+    'xcodebuild -version',
+    'LANG=en_US.UTF-8 pod --version'
+  ]
+};
+
 // Cocoapods
 // 
 // Unfortunately Cocoapods has a dumb restriction which requires you to use UTF-8 for the

@@ -59,7 +59,7 @@ public final class MessageRequestResponse: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let messageRequestResponseProto: SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder
         
         // Profile

@@ -393,7 +393,7 @@
 "MESSAGE_REQUESTS_TITLE" = "Meddelandeförfrågningar";
 "MESSAGE_REQUESTS_EMPTY_TEXT" = "Inga väntande meddelandeförfrågningar";
 "MESSAGE_REQUESTS_CLEAR_ALL" = "Rensa alla";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Är du säker på att du vill rensa alla meddelandeförfrågningar?";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Are you sure you want to clear all message requests and group invites?";
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Rensa";
 "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Är du säker på att du vill radera denna meddelandeförfrågan?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Är du säker på att du vill blockera denna kontakt?";
@@ -548,7 +548,6 @@
 "modal_permission_library" = "library";
 "DISAPPEARING_MESSAGES_OFF" = "Off";
 "DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Off";
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Disappear After: %@";
 "COPY_GROUP_URL" = "Kopiera gruppens URL";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Kontakter";
 "GROUP_ERROR_NO_MEMBER_SELECTION" = "Välj minst 1 gruppmedlem";
@@ -574,10 +573,11 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Set";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "This setting applies to everyone in this conversation.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "This setting applies to everyone in this conversation.\nOnly group admins can change this setting.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Disappear After %@ - %@";
-"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set messages to disappear %@ after they have been %@";
+/* Informational message shown when a conversation participant enables disappearing messages. The first '%@' will be the participants name, the second '%@' will be the duration and the third '%@' will indicate whether the countdown should start after the messages are sent or after they are read. */
+"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set their messages to disappear %@ after they have been %@.";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ has changed messages to disappear %@ after they have been %@";
-"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages";
+/* Informational message shown when a conversation participant enables disappearing messages. The '%@' will be the participants name. */
+"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages. Messages they send will no longer disappear.";
 
 /* context_menu_info */
 "context_menu_info" = "Info";
@@ -781,19 +781,19 @@
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
 
 /* A message indicating how the disappearing messages setting applies in a one-to-one conversation */
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to messages you send in this conversation.";
 
 /* A message indicating how the disappearing messages setting applies in a group conversation */
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You set your messages to disappear %@ after they have been %@.";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
 "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You turned off disappearing messages. Messages you send will no longer disappear.";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
@@ -1035,3 +1035,21 @@ The point that a message will disappear in a disappearing message update message
 
 /* Message for the error modal shown when a voice message fails to start recording. */
 "VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "An error occurred when trying to start recording for the voice message.";
+
+/* Shortcut to copy the disappearing messages setting from another conversation participant. */
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages on. The first '%@' will be the duration messages will remain and the second '%@' will be whether the countdown starts after the messages are sent or after they are read. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages off. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+
+/* Title for button on a modal which confirms a change. */
+"CONFIRM_BUTTON_TITLE" = "Confirm";
+
+/* The subtitle of delete action in long press menu screen indicating the time that a message will disappear */
+"DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN" = "Auto-deletes in %@";
+
+/* A message indicating how the disappearing messages setting applies in a one-to-one conversation for legacy mode */
+"DISAPPERING_MESSAGES_SUBTITLE_LEGACY" = "This setting applies to everyone in this conversation.";
