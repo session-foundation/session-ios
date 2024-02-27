@@ -213,15 +213,58 @@ public extension DisappearingMessagesConfiguration {
 // MARK: - Control Message
 
 public extension DisappearingMessagesConfiguration {
-    static func insertControlMessage(
+    func clearUnrelatedControlMessages(
         _ db: Database,
-        threadId: String,
+        threadVariant: SessionThread.Variant,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        guard threadVariant == .contact else {
+            try Interaction
+                .filter(Interaction.Columns.threadId == self.threadId)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .filter(Interaction.Columns.expiresInSeconds != self.durationSeconds)
+                .deleteAll(db)
+            return
+        }
+        
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        guard self.isEnabled else {
+            try Interaction
+                .filter(Interaction.Columns.threadId == self.threadId)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .filter(Interaction.Columns.authorId == userPublicKey)
+                .filter(Interaction.Columns.expiresInSeconds != 0)
+                .deleteAll(db)
+            return
+        }
+        
+        switch self.type {
+            case .disappearAfterRead:
+                try Interaction
+                    .filter(Interaction.Columns.threadId == self.threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == userPublicKey)
+                    .filter(!(Interaction.Columns.expiresInSeconds == self.durationSeconds && Interaction.Columns.expiresStartedAtMs != Interaction.Columns.timestampMs))
+                    .deleteAll(db)
+            case .disappearAfterSend:
+                try Interaction
+                    .filter(Interaction.Columns.threadId == self.threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == userPublicKey)
+                    .filter(!(Interaction.Columns.expiresInSeconds == self.durationSeconds && Interaction.Columns.expiresStartedAtMs == Interaction.Columns.timestampMs))
+                    .deleteAll(db)
+            default:
+                break
+        }
+    }
+    
+    func insertControlMessage(
+        _ db: Database,
         threadVariant: SessionThread.Variant,
         authorId: String,
         timestampMs: Int64,
         serverHash: String?,
         serverExpirationTimestamp: TimeInterval?,
-        updatedConfiguration: DisappearingMessagesConfiguration,
         using dependencies: Dependencies = Dependencies()
     ) throws -> Int64? {
         if Features.useNewDisappearingMessagesConfig {
@@ -256,21 +299,21 @@ public extension DisappearingMessagesConfiguration {
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
             wasRead: wasRead, 
             serverExpirationTimestamp: serverExpirationTimestamp,
-            expiresInSeconds: updatedConfiguration.durationSeconds,
-            expiresStartedAtMs: (updatedConfiguration.type == .disappearAfterSend) ? Double(timestampMs) : nil
+            expiresInSeconds: self.durationSeconds,
+            expiresStartedAtMs: (self.type == .disappearAfterSend) ? Double(timestampMs) : nil
         )
         let interaction = try Interaction(
             serverHash: serverHash,
             threadId: threadId,
             authorId: authorId,
             variant: .infoDisappearingMessagesUpdate,
-            body: updatedConfiguration.messageInfoString(
+            body: self.messageInfoString(
                 threadVariant: threadVariant,
                 senderName: (authorId != getUserHexEncodedPublicKey(db) ? Profile.displayName(db, id: authorId) : nil)
             ),
             timestampMs: timestampMs,
             wasRead: wasRead,
-            expiresInSeconds: (threadVariant == .legacyGroup ? nil : updatedConfiguration.durationSeconds), // Do not expire this control message in legacy groups
+            expiresInSeconds: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresInSeconds), // Do not expire this control message in legacy groups
             expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresStartedAtMs)
         ).inserted(db)
         

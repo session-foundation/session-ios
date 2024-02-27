@@ -278,12 +278,12 @@ internal extension SessionUtil {
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(group.id))
                 
                 if let updatedConfig = group.disappearingConfig, localConfig != updatedConfig {
-                    _ = try updatedConfig.save(db)
-                    
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == group.id)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .deleteAll(db)
+                    try updatedConfig
+                        .saved(db)
+                        .clearUnrelatedControlMessages(
+                            db,
+                            threadVariant: .legacyGroup
+                        )
                 }
                 
                 // Update the members

@@ -133,11 +133,12 @@ internal extension SessionUtil {
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userPublicKey))
         
         if targetConfig != localConfig {
-            _ = try targetConfig.save(db)
-            _ = try Interaction
-                .filter(Interaction.Columns.threadId == userPublicKey)
-                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                .deleteAll(db)
+            try targetConfig
+                .saved(db)
+                .clearUnrelatedControlMessages(
+                    db,
+                    threadVariant: .contact
+                )
         }
 
         // Update settings if needed

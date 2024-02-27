@@ -191,15 +191,13 @@ extension MessageReceiver {
                 if threadId == getUserHexEncodedPublicKey(db) && updatedConfig != localConfig {
                     return
                 }
-                _ = try DisappearingMessagesConfiguration.insertControlMessage(
+                _ = try updatedConfig.insertControlMessage(
                     db,
-                    threadId: threadId,
                     threadVariant: threadVariant,
                     authorId: sender,
                     timestampMs: Int64(timestampMs),
                     serverHash: message.serverHash, 
-                    serverExpirationTimestamp: serverExpirationTimestamp,
-                    updatedConfiguration: updatedConfig
+                    serverExpirationTimestamp: serverExpirationTimestamp
                 )
             default:
                  return

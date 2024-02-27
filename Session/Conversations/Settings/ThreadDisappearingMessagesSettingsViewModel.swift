@@ -474,21 +474,19 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         guard self.config != updatedConfig else { return }
 
         dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
-            _ = try updatedConfig.saved(db)
-            
             let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
             let currentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
             
-            let interactionId = try DisappearingMessagesConfiguration.insertControlMessage(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                authorId: userPublicKey,
-                timestampMs: currentTimestampMs,
-                serverHash: nil,
-                serverExpirationTimestamp: nil,
-                updatedConfiguration: updatedConfig
-            )
+            let interactionId = try updatedConfig
+                .saved(db)
+                .insertControlMessage(
+                    db,
+                    threadVariant: threadVariant,
+                    authorId: userPublicKey,
+                    timestampMs: currentTimestampMs,
+                    serverHash: nil,
+                    serverExpirationTimestamp: nil
+                )
 
             let duration: UInt32? = {
                 guard !Features.useNewDisappearingMessagesConfig else { return nil }

@@ -182,12 +182,12 @@ internal extension SessionUtil {
                 let isValid: Bool = Features.useNewDisappearingMessagesConfig ? data.config.isValidV2Config() : true
                 
                 if isValid && data.config != localConfig {
-                    _ = try data.config.save(db)
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == sessionId)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .filter(Interaction.Columns.authorId == getUserHexEncodedPublicKey(db))
-                        .deleteAll(db)
+                    try data.config
+                        .saved(db)
+                        .clearUnrelatedControlMessages(
+                            db,
+                            threadVariant: .contact
+                        )
                 }
             }
         
