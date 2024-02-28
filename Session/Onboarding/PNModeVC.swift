@@ -141,16 +141,13 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
             self.present(modal, animated: true)
             return
         }
-        UserDefaults.standard[.isUsingFullAPNs] = (selectedOptionView == apnsOptionView)
+        
+        let useAPNS: Bool = (selectedOptionView == apnsOptionView)
+        UserDefaults.standard[.isUsingFullAPNs] = useAPNS
         
         // If we are registering then we can just continue on
         guard flow != .register else {
-            self.flow.completeRegistration()
-            
-            // Go to the home screen
-            let homeVC: HomeVC = HomeVC()
-            self.navigationController?.setViewControllers([ homeVC ], animated: true)
-            return
+            return self.completeRegistration(useAPNS: useAPNS)
         }
         
         // Check if we already have a profile name (ie. profile retrieval completed while waiting on
@@ -166,12 +163,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         
         guard existingProfileName?.isEmpty != false else {
             // If we have one then we can go straight to the home screen
-            self.flow.completeRegistration()
-            
-            // Go to the home screen
-            let homeVC: HomeVC = HomeVC()
-            self.navigationController?.setViewControllers([ homeVC ], animated: true)
-            return
+            return self.completeRegistration(useAPNS: useAPNS)
         }
         
         // If we don't have one then show a loading indicator and try to retrieve the existing name
@@ -199,13 +191,21 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
                         }
                         
                         // Otherwise we are done and can go to the home screen
-                        self?.flow.completeRegistration()
-                        
-                        // Go to the home screen
-                        let homeVC: HomeVC = HomeVC()
-                        self?.navigationController?.setViewControllers([ homeVC ], animated: true)
+                        self?.completeRegistration(useAPNS: useAPNS)
                     }
                 )
         }
+    }
+    
+    private func completeRegistration(useAPNS: Bool) {
+        self.flow.completeRegistration()
+        
+        // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
+        // before requesting the permission from the user
+        if useAPNS { SyncPushTokensJob.run(uploadOnlyIfStale: false) }
+        
+        // Go to the home screen
+        let homeVC: HomeVC = HomeVC()
+        self.navigationController?.setViewControllers([ homeVC ], animated: true)
     }
 }

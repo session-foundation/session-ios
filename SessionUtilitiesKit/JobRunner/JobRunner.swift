@@ -191,8 +191,8 @@ public final class JobRunner: JobRunnerType {
         
         self.allowToExecuteJobs = (
             isTestingJobRunner || (
-                HasAppContext() &&
-                CurrentAppContext().isMainApp &&
+                Singleton.hasAppContext &&
+                Singleton.appContext.isMainApp &&
                 !SNUtilitiesKit.isRunningTests
             )
         )
@@ -262,7 +262,8 @@ public final class JobRunner: JobRunnerType {
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [
                     jobVariants.remove(.expirationUpdate),
-                    jobVariants.remove(.getExpiration)
+                    jobVariants.remove(.getExpiration),
+                    jobVariants.remove(.disappearingMessages)
                 ].compactMap { $0 }
             ),
             
@@ -1168,6 +1169,9 @@ public final class JobQueue: Hashable {
                 self?.runNextJob(using: dependencies)
             }
             return
+        }
+        guard executionType == .concurrent || currentlyRunningJobIds.wrappedValue.isEmpty else {
+            return SNLog("[JobRunner] \(queueContext) Ignoring 'runNextJob' due to currently running job in serial queue")
         }
         guard let (nextJob, numJobsRemaining): (Job, Int) = pendingJobsQueue.mutate({ queue in queue.popFirst().map { ($0, queue.count) } }) else {
             // If it's a serial queue, or there are no more jobs running then update the 'isRunning' flag

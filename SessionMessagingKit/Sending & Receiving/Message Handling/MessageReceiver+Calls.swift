@@ -53,7 +53,8 @@ extension MessageReceiver {
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance
         guard
-            CurrentAppContext().isMainApp,
+            Singleton.hasAppContext,
+            Singleton.appContext.isMainApp,
             let sender: String = message.sender,
             (try? Contact
                 .filter(id: sender)
@@ -228,7 +229,9 @@ extension MessageReceiver {
                 timestampMs: (messageSentTimestamp * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
                 openGroup: nil
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
         .inserted(db)
         
@@ -241,6 +244,10 @@ extension MessageReceiver {
                         kind: .endCall,
                         sdps: [],
                         sentTimestampMs: nil // Explicitly nil as it's a separate message from above
+                    )
+                    .with(try? thread.disappearingMessagesConfiguration
+                        .fetchOne(db)?
+                        .forcedWithDisappearAfterReadIfNeeded()
                     ),
                     to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
                     namespace: try Message.Destination
@@ -304,6 +311,7 @@ extension MessageReceiver {
             ),
             expiresInSeconds: message.expiresInSeconds,
             expiresStartedAtMs: message.expiresStartedAtMs
-        ).inserted(db)
+        )
+        .inserted(db)
     }
 }

@@ -16,7 +16,10 @@ import SignalCoreKit
     }
 
     internal func findFrontmostViewController(ignoringAlerts: Bool) -> UIViewController? {
-        guard let window: UIWindow = CurrentAppContext().mainWindow else { return nil }
+        guard
+            Singleton.hasAppContext,
+            let window: UIWindow = Singleton.appContext.mainWindow
+        else { return nil }
         
         guard let viewController: UIViewController = window.rootViewController else {
             owsFailDebug("Missing root view controller.")

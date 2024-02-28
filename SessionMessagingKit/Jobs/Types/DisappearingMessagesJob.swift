@@ -46,13 +46,28 @@ public enum DisappearingMessagesJob: JobExecutor {
     }
 }
 
+// MARK: - Clean expired messages on app launch
+
+public extension DisappearingMessagesJob {
+    static func cleanExpiredMessagesOnLaunch() {
+        let timestampNowMs: TimeInterval = TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+        var numDeleted: Int = -1
+        
+        Storage.shared.write { db in
+            numDeleted = try Interaction
+                .filter(Interaction.Columns.expiresStartedAtMs != nil)
+                .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
+                .deleteAll(db)
+        }
+        
+        SNLog("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages on app launch.")
+    }
+}
+
 // MARK: - Convenience
 
 public extension DisappearingMessagesJob {
     @discardableResult static func updateNextRunIfNeeded(_ db: Database) -> Job? {
-        // Don't run when inactive or not in main app
-        guard (UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else { return nil }
-        
         // If there is another expiring message then update the job to run 1 second after it's meant to expire
         let nextExpirationTimestampMs: Double? = try? Interaction
             .filter(Interaction.Columns.expiresStartedAtMs != nil)

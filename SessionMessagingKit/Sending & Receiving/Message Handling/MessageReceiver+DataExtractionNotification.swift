@@ -10,7 +10,8 @@ extension MessageReceiver {
         _ db: Database,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        message: DataExtractionNotification
+        message: DataExtractionNotification,
+        serverExpirationTimestamp: TimeInterval?
     ) throws {
         guard
             threadVariant == .contact,
@@ -21,6 +22,20 @@ extension MessageReceiver {
         let timestampMs: Int64 = (
             message.sentTimestamp.map { Int64($0) } ??
             SnodeAPI.currentOffsetTimestampMs()
+        )
+        
+        let wasRead: Bool = SessionUtil.timestampAlreadyRead(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            timestampMs: (timestampMs * 1000),
+            userPublicKey: getUserHexEncodedPublicKey(db),
+            openGroup: nil
+        )
+        let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+            wasRead: wasRead,
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
         _ = try Interaction(
             serverHash: message.serverHash,
@@ -33,15 +48,20 @@ extension MessageReceiver {
                 }
             }(),
             timestampMs: timestampMs,
-            wasRead: SessionUtil.timestampAlreadyRead(
+            wasRead: wasRead,
+            expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+            expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs
+        )
+        .inserted(db)
+        
+        if messageExpirationInfo.shouldUpdateExpiry {
+            Message.updateExpiryForDisappearAfterReadMessages(
+                db,
                 threadId: threadId,
-                threadVariant: threadVariant,
-                timestampMs: (timestampMs * 1000),
-                userPublicKey: getUserHexEncodedPublicKey(db),
-                openGroup: nil
-            ),
-            expiresInSeconds: message.expiresInSeconds,
-            expiresStartedAtMs: message.expiresStartedAtMs
-        ).inserted(db)
+                serverHash: message.serverHash,
+                expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+                expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs
+            )
+        }
     }
 }

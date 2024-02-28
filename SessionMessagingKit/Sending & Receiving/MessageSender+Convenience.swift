@@ -192,24 +192,4 @@ extension MessageSender {
             }
             .eraseToAnyPublisher()
     }
-    
-    // MARK: - Convenience
-    
-    internal static func getSpecifiedTTL(
-        _ db: Database,
-        threadId: String,
-        message: Message,
-        isSyncMessage: Bool
-    ) -> UInt64? {
-        guard
-            let disappearingMessagesConfiguration = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId),
-            disappearingMessagesConfiguration.isEnabled,
-            (
-                disappearingMessagesConfiguration.type == .disappearAfterSend ||
-                isSyncMessage
-            )
-        else { return nil }
-        
-        return UInt64(disappearingMessagesConfiguration.durationSeconds * 1000)
-    }
 }

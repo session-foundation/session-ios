@@ -44,7 +44,7 @@ import SessionUtilitiesKit
 
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(didBecomeActive),
-                                               name: NSNotification.Name.OWSApplicationDidBecomeActive,
+                                               name: .sessionDidBecomeActive,
                                                object: nil)
     }
 

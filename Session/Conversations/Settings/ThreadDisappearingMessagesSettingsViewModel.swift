@@ -88,7 +88,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     let title: String = "DISAPPEARING_MESSAGES".localized()
     lazy var subtitle: String? = {
         guard Features.useNewDisappearingMessagesConfig else {
-            return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized())
+            return (isNoteToSelf ? nil : "DISAPPERING_MESSAGES_SUBTITLE_LEGACY".localized())
         }
         
         if threadVariant == .contact && !isNoteToSelf {
@@ -143,8 +143,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                             .with(
                                                 isEnabled: false,
-                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                                lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                             )
                                         self?.shouldShowConfirmButton.send(updatedConfig != config)
                                         self?.currentSelection.send(updatedConfig)
@@ -170,8 +169,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                     .with(
                                                         isEnabled: true,
                                                         durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
-                                                        type: .disappearAfterRead, // Default for 1-1
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                        type: .disappearAfterRead // Default for 1-1
                                                     )
                                             }()
                                             self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -210,8 +208,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 .with(
                                                     isEnabled: true,
                                                     durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterRead.seconds,
-                                                    type: .disappearAfterRead,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                    type: .disappearAfterRead
                                                 )
                                         }()
                                         self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -249,8 +246,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 .with(
                                                     isEnabled: true,
                                                     durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds,
-                                                    type: .disappearAfterSend,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                    type: .disappearAfterSend
                                                 )
                                         }()
                                         self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -291,8 +287,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             onTap: {
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                     .with(
-                                                        durationSeconds: duration,
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                        durationSeconds: duration
                                                     )
                                                 self?.shouldShowConfirmButton.send(updatedConfig != config)
                                                 self?.currentSelection.send(updatedConfig)
@@ -327,8 +322,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                 .with(
                                                     isEnabled: false,
-                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                                    lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                    durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                                 )
                                             self?.shouldShowConfirmButton.send(updatedConfig != config)
                                             self?.currentSelection.send(updatedConfig)
@@ -357,8 +351,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                     .with(
                                                         isEnabled: true,
                                                         durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.legacy.seconds,
-                                                        type: .disappearAfterSend, // Default for closed group & note to self
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                        type: .disappearAfterSend // Default for closed group & note to self
                                                     )
                                             }()
                                             self?.shouldShowConfirmButton.send(updatedConfig != config)
@@ -398,7 +391,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                             ),
                                             isEnabled: (
                                                 isNoteToSelf ||
-                                                currentUserIsClosedGroupMember == true
+                                                currentUserIsClosedGroupAdmin == true
                                             ),
                                             accessibility: Accessibility(
                                                 identifier: "Disable disappearing messages (Off option)",
@@ -408,8 +401,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 let updatedConfig: DisappearingMessagesConfiguration = currentSelection
                                                     .with(
                                                         isEnabled: false,
-                                                        durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds,
-                                                        lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                        durationSeconds: DisappearingMessagesConfiguration.DefaultDuration.off.seconds
                                                     )
                                                 self?.shouldShowConfirmButton.send(updatedConfig != config)
                                                 self?.currentSelection.send(updatedConfig)
@@ -435,7 +427,8 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 ),
                                                 isEnabled: (
                                                     isNoteToSelf ||
-                                                    currentUserIsClosedGroupMember == true
+                                                    (currentUserIsClosedGroupMember == true && !Features.useNewDisappearingMessagesConfig) ||
+                                                    currentUserIsClosedGroupAdmin == true
                                                 ),
                                                 accessibility: Accessibility(
                                                     identifier: "Time option",
@@ -456,8 +449,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                             type: (Features.useNewDisappearingMessagesConfig ?
                                                                 .disappearAfterSend :
                                                                nil
-                                                            ),
-                                                            lastChangeTimestampMs: SnodeAPI.currentOffsetTimestampMs()
+                                                            )
                                                         )
                                                     self?.shouldShowConfirmButton.send(updatedConfig != config)
                                                     self?.currentSelection.send(updatedConfig)
@@ -482,38 +474,36 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         guard self.config != updatedConfig else { return }
 
         dependencies.storage.writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
-            _ = try updatedConfig.saved(db)
+            let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+            let currentTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
             
-            _ = try Interaction
-                .filter(Interaction.Columns.threadId == threadId)
-                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                .deleteAll(db)
-            
-            let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
-            
-            let interaction: Interaction = try Interaction(
-                threadId: threadId,
-                authorId: getUserHexEncodedPublicKey(db, using: dependencies),
-                variant: .infoDisappearingMessagesUpdate,
-                body: updatedConfig.messageInfoString(with: nil, isPreviousOff: !self.config.isEnabled),
-                timestampMs: currentOffsetTimestampMs,
-                expiresInSeconds: (updatedConfig.isEnabled ? nil : self.config.durationSeconds),
-                expiresStartedAtMs: (!updatedConfig.isEnabled && self.config.type == .disappearAfterSend ? Double(currentOffsetTimestampMs) : nil)
-            )
-            .inserted(db)
-            
+            let interactionId = try updatedConfig
+                .saved(db)
+                .insertControlMessage(
+                    db,
+                    threadVariant: threadVariant,
+                    authorId: userPublicKey,
+                    timestampMs: currentTimestampMs,
+                    serverHash: nil,
+                    serverExpirationTimestamp: nil
+                )
+
             let duration: UInt32? = {
                 guard !Features.useNewDisappearingMessagesConfig else { return nil }
                 return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
             }()
+            
+            let expirationTimerUpdateMessage: ExpirationTimerUpdate = ExpirationTimerUpdate(
+                syncTarget: nil,
+                duration: duration
+            )
+            .with(sentTimestamp: UInt64(currentTimestampMs))
+            .with(updatedConfig)
 
             try MessageSender.send(
                 db,
-                message: ExpirationTimerUpdate(
-                    syncTarget: nil,
-                    duration: duration
-                ),
-                interactionId: interaction.id,
+                message: expirationTimerUpdateMessage,
+                interactionId: interactionId,
                 threadId: threadId,
                 threadVariant: threadVariant,
                 using: dependencies

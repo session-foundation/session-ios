@@ -273,7 +273,7 @@ public enum PushRegistrationError: Error {
     // NOTE: This function MUST report an incoming call.
     public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
         SNLog("[Calls] Receive new voip notification.")
-        owsAssertDebug(CurrentAppContext().isMainApp)
+        owsAssertDebug(Singleton.hasAppContext && Singleton.appContext.isMainApp)
         owsAssertDebug(type == .voIP)
         let payload = payload.dictionaryPayload
         
@@ -315,7 +315,10 @@ public enum PushRegistrationError: Error {
                 variant: .infoCall,
                 body: messageInfoString,
                 timestampMs: timestampMs
-            ).inserted(db)
+            )
+            .withDisappearingMessagesConfiguration(db)
+            .inserted(db)
+            
             call.callInteractionId = interaction.id
             
             return call

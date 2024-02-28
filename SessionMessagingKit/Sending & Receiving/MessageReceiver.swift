@@ -208,16 +208,14 @@ public enum MessageReceiver {
             using: dependencies
         )
         
-        // Update any disappearing messages configuration if needed.
-        // We need to update this before processing the messages, because
-        // the message with the disappearing message config update should
-        // follow the new config.
-        try MessageReceiver.updateDisappearingMessagesConfigurationIfNeeded(
+        MessageReceiver.updateContactDisappearingMessagesVersionIfNeeded(
             db,
-            threadId: threadId,
-            threadVariant: threadVariant,
-            message: message,
-            proto: proto
+            messageVariant: .init(from: message),
+            contactId: message.sender,
+            version: ((!proto.hasExpirationType && !proto.hasExpirationTimer) ?
+                .legacyDisappearingMessages :
+                .newDisappearingMessages
+            )
         )
         
         switch message {
@@ -250,7 +248,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp
                 )
                 
             case let message as ExpirationTimerUpdate:
@@ -259,6 +258,15 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message
+                )
+            
+                try MessageReceiver.handleExpirationTimerUpdate(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
+                    proto: proto
                 )
                 
             case let message as UnsendRequest:
@@ -289,7 +297,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message,
+                    message: message, 
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     associatedWithProto: proto
                 )
                 

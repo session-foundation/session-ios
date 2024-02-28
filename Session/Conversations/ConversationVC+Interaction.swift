@@ -879,7 +879,8 @@ extension ConversationVC:
 
     func handleItemTapped(
         _ cellViewModel: MessageViewModel,
-        gestureRecognizer: UITapGestureRecognizer,
+        cell: UITableViewCell,
+        cellLocation: CGPoint,
         using dependencies: Dependencies = Dependencies()
     ) {
         guard cellViewModel.variant != .standardOutgoing || (cellViewModel.state != .failed && cellViewModel.state != .failedToSync) else {
@@ -892,6 +893,63 @@ extension ConversationVC:
         guard cellViewModel.variant != .infoCall else {
             let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
             present(callMissedTipsModal, animated: true, completion: nil)
+            return
+        }
+        
+        // For disappearing messages config update, show the following settings modal
+        guard cellViewModel.variant != .infoDisappearingMessagesUpdate else {
+            let messageDisappearingConfig = cellViewModel.messageDisappearingConfiguration()
+            let expirationTimerString: String = floor(messageDisappearingConfig.durationSeconds).formatted(format: .long)
+            let expirationTypeString: String = (messageDisappearingConfig.type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+            let modalBodyString: String = (
+                messageDisappearingConfig.isEnabled ?
+                String(
+                    format: "FOLLOW_SETTING_EXPLAINATION_TURNING_ON".localized(),
+                    expirationTimerString,
+                    expirationTypeString
+                ) :
+                "FOLLOW_SETTING_EXPLAINATION_TURNING_OFF".localized()
+            )
+            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "DISAPPERING_MESSAGES_SAVE_TITLE".localized() : "CONFIRM_BUTTON_TITLE".localized()
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "FOLLOW_SETTING_TITLE".localized(),
+                    body: .attributedText(
+                        NSAttributedString(string: modalBodyString)
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (modalBodyString as NSString).range(of: expirationTypeString)
+                            )
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (modalBodyString as NSString).range(of: expirationTimerString)
+                            )
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (modalBodyString as NSString).range(of: "DISAPPEARING_MESSAGES_OFF".localized().lowercased())
+                            )
+                    ),
+                    accessibility: Accessibility(identifier: "Follow setting dialog"),
+                    confirmTitle: modalConfirmTitle,
+                    confirmAccessibility: Accessibility(identifier: "Set button"),
+                    confirmStyle: .danger,
+                    cancelStyle: .textPrimary,
+                    dismissOnConfirm: false // Custom dismissal logic
+                ) { [weak self] _ in
+                    dependencies.storage.writeAsync { db in
+                        try messageDisappearingConfig.save(db)
+                        try SessionUtil
+                            .update(
+                                db,
+                                sessionId: cellViewModel.threadId,
+                                disappearingMessagesConfig: messageDisappearingConfig
+                            )
+                    }
+                    self?.dismiss(animated: true, completion: nil)
+                }
+            )
+            
+            present(confirmationModal, animated: true, completion: nil)
             return
         }
         
@@ -928,24 +986,33 @@ extension ConversationVC:
             return
         }
         
+        /// Takes the `cell` and a `targetView` and returns `true` if the user tapped a link in the cell body text instead
+        /// of the `targetView`
+        func handleLinkTapIfNeeded(cell: UITableViewCell, targetView: UIView?) -> Bool {
+            let locationInTargetView: CGPoint = cell.convert(cellLocation, to: targetView)
+            
+            guard
+                let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell,
+                targetView?.bounds.contains(locationInTargetView) != true,
+                visibleCell.bodyTappableLabel?.containsLinks == true
+            else { return false }
+            
+            let tappableLabelPoint: CGPoint = cell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
+            visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+            return true
+        }
+        
         switch cellViewModel.cellType {
             case .voiceMessage: viewModel.playOrPauseAudio(for: cellViewModel)
             
             case .mediaMessage:
                 guard
-                    let sectionIndex: Int = self.viewModel.interactionData
-                        .firstIndex(where: { $0.model == .messages }),
-                    let messageIndex: Int = self.viewModel.interactionData[sectionIndex]
-                        .elements
-                        .firstIndex(where: { $0.id == cellViewModel.id }),
-                    let cell = tableView.cellForRow(at: IndexPath(row: messageIndex, section: sectionIndex)) as? VisibleMessageCell,
-                    let albumView: MediaAlbumView = cell.albumView
+                    let albumView: MediaAlbumView = (cell as? VisibleMessageCell)?.albumView,
+                    !handleLinkTapIfNeeded(cell: cell, targetView: albumView)
                 else { return }
                 
-                let locationInCell: CGPoint = gestureRecognizer.location(in: cell)
-                
                 // Figure out which of the media views was tapped
-                let locationInAlbumView: CGPoint = cell.convert(locationInCell, to: albumView)
+                let locationInAlbumView: CGPoint = cell.convert(cellLocation, to: albumView)
                 guard let mediaView = albumView.mediaView(forLocation: locationInAlbumView) else { return }
                 
                 switch mediaView.attachment.state {
@@ -1023,6 +1090,7 @@ extension ConversationVC:
                 
             case .audio:
                 guard
+                    !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
                     let originalFilePath: String = attachment.originalFilePath
                 else { return }
@@ -1034,6 +1102,7 @@ extension ConversationVC:
                 
             case .genericAttachment:
                 guard
+                    !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
                     let attachment: Attachment = cellViewModel.attachments?.first,
                     let originalFilePath: String = attachment.originalFilePath
                 else { return }
@@ -1066,26 +1135,55 @@ extension ConversationVC:
                 navigationController?.present(shareVC, animated: true, completion: nil)
                 
             case .textOnlyMessage:
-                if let quote: Quote = cellViewModel.quote {
-                    // Scroll to the original quoted message
-                    let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Storage.shared.read { db in
-                        try quote.originalInteraction
-                            .select(.id, .timestampMs)
-                            .asRequest(of: Interaction.TimestampInfo.self)
-                            .fetchOne(db)
-                    }
+                guard let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell else { return }
+                
+                let quotePoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.quoteView)
+                let linkPreviewPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.linkPreviewView?.previewView)
+                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
+                let containsLinks: Bool = (
+                    // If there is only a single link and it matches the LinkPreview then consider this _just_ a
+                    // LinkPreview
+                    visibleCell.bodyTappableLabel?.containsLinks == true && (
+                        (visibleCell.bodyTappableLabel?.links.count ?? 0) > 1 ||
+                        visibleCell.bodyTappableLabel?.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                    )
+                )
+                let quoteViewContainsTouch: Bool = (visibleCell.quoteView?.bounds.contains(quotePoint) == true)
+                let linkPreviewViewContainsTouch: Bool = (visibleCell.linkPreviewView?.previewView.bounds.contains(linkPreviewPoint) == true)
+                
+                switch (containsLinks, quoteViewContainsTouch, linkPreviewViewContainsTouch, cellViewModel.quote, cellViewModel.linkPreview) {
+                    // If the message contains both links and a quote, and the user tapped on the quote; OR the
+                    // message only contained a quote, then scroll to the quote
+                    case (true, true, _, .some(let quote), _), (false, _, _, .some(let quote), _):
+                        let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = Storage.shared.read { db in
+                            try quote.originalInteraction
+                                .select(.id, .timestampMs)
+                                .asRequest(of: Interaction.TimestampInfo.self)
+                                .fetchOne(db)
+                        }
+                        
+                        guard let interactionInfo: Interaction.TimestampInfo = maybeOriginalInteractionInfo else {
+                            return
+                        }
+                        
+                        self.scrollToInteractionIfNeeded(
+                            with: interactionInfo,
+                            focusBehaviour: .highlight,
+                            originalIndexPath: self.tableView.indexPath(for: cell)
+                        )
                     
-                    guard let interactionInfo: Interaction.TimestampInfo = maybeOriginalInteractionInfo else {
-                        return
-                    }
+                    // If the message contains both links and a LinkPreview, and the user tapped on
+                    // the LinkPreview; OR the message only contained a LinkPreview, then open the link
+                    case (true, _, true, _, .some(let linkPreview)), (false, _, _, _, .some(let linkPreview)):
+                        switch linkPreview.variant {
+                            case .standard: openUrl(linkPreview.url)
+                            case .openGroupInvitation: joinOpenGroup(name: linkPreview.title, url: linkPreview.url)
+                        }
                     
-                    self.scrollToInteractionIfNeeded(with: interactionInfo, focusBehaviour: .highlight)
-                }
-                else if let linkPreview: LinkPreview = cellViewModel.linkPreview {
-                    switch linkPreview.variant {
-                        case .standard: openUrl(linkPreview.url)
-                        case .openGroupInvitation: joinOpenGroup(name: linkPreview.title, url: linkPreview.url)
-                    }
+                    // If the message contained links then interact with them directly
+                    case (true, _, _, _, _): visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+                        
+                    default: break
                 }
                 
             default: break
@@ -2038,6 +2136,10 @@ extension ConversationVC:
                         cellViewModel.authorId
                     )
                 )
+                .with(
+                    expiresInSeconds: cellViewModel.expiresInSeconds,
+                    expiresStartedAtMs: cellViewModel.expiresStartedAtMs
+                )
                 
                 // For incoming interactions or interactions with no serverHash just delete them locally
                 guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
@@ -2319,13 +2421,12 @@ extension ConversationVC:
         self.viewModel.stopAudio()
         
         // Create URL
-        let directory: String = OWSTemporaryDirectory()
+        let directory: String = Singleton.appContext.temporaryDirectory
         let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a"
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
-        let isConfigured = (Environment.shared?.audioSession.startAudioActivity(recordVoiceMessageActivity) == true)
-        guard isConfigured else {
+        guard Environment.shared?.audioSession.startAudioActivity(recordVoiceMessageActivity) == true else {
             return cancelVoiceMessageRecording()
         }
         
@@ -2355,15 +2456,28 @@ extension ConversationVC:
             self?.endVoiceMessageRecording(using: dependencies)
         })
         
-        // Prepare audio recorder
-        guard audioRecorder.prepareToRecord() else {
-            SNLog("Couldn't prepare audio recorder.")
-            return cancelVoiceMessageRecording()
-        }
+        // Prepare audio recorder and start recording
+        let successfullyPrepared: Bool = audioRecorder.prepareToRecord()
+        let startedRecording: Bool = (successfullyPrepared && audioRecorder.record())
         
-        // Start recording
-        guard audioRecorder.record() else {
-            SNLog("Couldn't record audio.")
+        
+        guard successfullyPrepared && startedRecording else {
+            SNLog(successfullyPrepared ? "Couldn't record audio." : "Couldn't prepare audio recorder.")
+            
+            // Dispatch to the next run loop to avoid
+            DispatchQueue.main.async {
+                let modal: ConfirmationModal = ConfirmationModal(
+                    targetView: self.view,
+                    info: ConfirmationModal.Info(
+                        title: "ALERT_ERROR_TITLE".localized(),
+                        body: .text("VOICE_MESSAGE_FAILED_TO_START_MESSAGE".localized()),
+                        cancelTitle: "BUTTON_OK".localized(),
+                        cancelStyle: .alert_text
+                    )
+                )
+                self.present(modal, animated: true)
+            }
+            
             return cancelVoiceMessageRecording()
         }
     }
@@ -2455,6 +2569,10 @@ extension ConversationVC:
                 message: DataExtractionNotification(
                     kind: kind,
                     sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
+                )
+                .with(DisappearingMessagesConfiguration
+                    .fetchOne(db, id: threadId)?
+                    .forcedWithDisappearAfterReadIfNeeded()
                 ),
                 interactionId: nil,
                 threadId: threadId,

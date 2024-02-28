@@ -17,7 +17,6 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         case isEnabled
         case durationSeconds
         case type
-        case lastChangeTimestampMs
     }
     
     public enum DefaultDuration {
@@ -81,7 +80,6 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
     public let isEnabled: Bool
     public let durationSeconds: TimeInterval
     public var type: DisappearingMessageType?
-    public let lastChangeTimestampMs: Int64?
     
     // MARK: - Relationships
     
@@ -98,24 +96,29 @@ public extension DisappearingMessagesConfiguration {
             threadId: threadId,
             isEnabled: false,
             durationSeconds: 0,
-            type: .unknown,
-            lastChangeTimestampMs: 0
+            type: .unknown
         )
     }
     
     func with(
         isEnabled: Bool? = nil,
         durationSeconds: TimeInterval? = nil,
-        type: DisappearingMessageType? = nil,
-        lastChangeTimestampMs: Int64? = nil
+        type: DisappearingMessageType? = nil
     ) -> DisappearingMessagesConfiguration {
         return DisappearingMessagesConfiguration(
             threadId: threadId,
             isEnabled: (isEnabled ?? self.isEnabled),
             durationSeconds: (durationSeconds ?? self.durationSeconds),
-            type: (isEnabled == false) ? .unknown : (type ?? self.type),
-            lastChangeTimestampMs: (lastChangeTimestampMs ?? self.lastChangeTimestampMs)
+            type: (isEnabled == false) ? .unknown : (type ?? self.type)
         )
+    }
+    
+    func forcedWithDisappearAfterReadIfNeeded() -> DisappearingMessagesConfiguration {
+        if self.isEnabled {
+            return self.with(type: .disappearAfterRead)
+        }
+        
+        return self
     }
 }
 
@@ -123,27 +126,18 @@ public extension DisappearingMessagesConfiguration {
 
 public extension DisappearingMessagesConfiguration {
     struct MessageInfo: Codable {
+        public let threadVariant: SessionThread.Variant?
         public let senderName: String?
         public let isEnabled: Bool
         public let durationSeconds: TimeInterval
         public let type: DisappearingMessageType?
-        public let isPreviousOff: Bool?
         
         var previewText: String {
-            guard Features.useNewDisappearingMessagesConfig else { return legacyPreviewText }
+            guard Features.useNewDisappearingMessagesConfig && self.threadVariant != nil else { return legacyPreviewText }
             
             guard let senderName: String = senderName else {
-                // Changed by this device or via synced transcript
                 guard isEnabled, durationSeconds > 0 else {
                     return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized()
-                }
-                
-                guard isPreviousOff == true else {
-                    return String(
-                        format: "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE".localized(),
-                        floor(durationSeconds).formatted(format: .long),
-                        (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                    )
                 }
                 
                 return String(
@@ -155,15 +149,6 @@ public extension DisappearingMessagesConfiguration {
             
             guard isEnabled, durationSeconds > 0 else {
                 return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(), senderName)
-            }
-            
-            guard isPreviousOff == true else {
-                return String(
-                    format: "DISAPPERING_MESSAGES_INFO_UPDATE".localized(),
-                    senderName,
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
-                )
             }
             
             return String(
@@ -201,18 +186,148 @@ public extension DisappearingMessagesConfiguration {
         floor(durationSeconds).formatted(format: .long)
     }
     
-    func messageInfoString(with senderName: String?, isPreviousOff: Bool) -> String? {
+    func messageInfoString(
+        threadVariant: SessionThread.Variant?,
+        senderName: String?
+    ) -> String? {
         let messageInfo: MessageInfo = DisappearingMessagesConfiguration.MessageInfo(
+            threadVariant: threadVariant,
             senderName: senderName,
             isEnabled: isEnabled,
             durationSeconds: durationSeconds,
-            type: type,
-            isPreviousOff: isPreviousOff
+            type: type
         )
         
         guard let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) else { return nil }
         
         return String(data: messageInfoData, encoding: .utf8)
+    }
+    
+    func isValidV2Config() -> Bool {
+        guard self.type != nil else { return (self.durationSeconds == 0) }
+        
+        return !(self.durationSeconds > 0 && self.type == .unknown)
+    }
+}
+
+// MARK: - Control Message
+
+public extension DisappearingMessagesConfiguration {
+    func clearUnrelatedControlMessages(
+        _ db: Database,
+        threadVariant: SessionThread.Variant,
+        using dependencies: Dependencies = Dependencies()
+    ) throws {
+        guard threadVariant == .contact else {
+            try Interaction
+                .filter(Interaction.Columns.threadId == self.threadId)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .filter(Interaction.Columns.expiresInSeconds != self.durationSeconds)
+                .deleteAll(db)
+            return
+        }
+        
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        guard self.isEnabled else {
+            try Interaction
+                .filter(Interaction.Columns.threadId == self.threadId)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .filter(Interaction.Columns.authorId == userPublicKey)
+                .filter(Interaction.Columns.expiresInSeconds != 0)
+                .deleteAll(db)
+            return
+        }
+        
+        switch self.type {
+            case .disappearAfterRead:
+                try Interaction
+                    .filter(Interaction.Columns.threadId == self.threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == userPublicKey)
+                    .filter(!(Interaction.Columns.expiresInSeconds == self.durationSeconds && Interaction.Columns.expiresStartedAtMs != Interaction.Columns.timestampMs))
+                    .deleteAll(db)
+            case .disappearAfterSend:
+                try Interaction
+                    .filter(Interaction.Columns.threadId == self.threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == userPublicKey)
+                    .filter(!(Interaction.Columns.expiresInSeconds == self.durationSeconds && Interaction.Columns.expiresStartedAtMs == Interaction.Columns.timestampMs))
+                    .deleteAll(db)
+            default:
+                break
+        }
+    }
+    
+    func insertControlMessage(
+        _ db: Database,
+        threadVariant: SessionThread.Variant,
+        authorId: String,
+        timestampMs: Int64,
+        serverHash: String?,
+        serverExpirationTimestamp: TimeInterval?,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> Int64? {
+        if Features.useNewDisappearingMessagesConfig {
+            switch threadVariant {
+                case .contact:
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                        .filter(Interaction.Columns.authorId == authorId)
+                        .deleteAll(db)
+                case .legacyGroup:
+                    _ = try Interaction
+                        .filter(Interaction.Columns.threadId == threadId)
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                        .deleteAll(db)
+                default:
+                    break
+            }
+        }
+        
+        let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
+        let wasRead: Bool = (
+            authorId == currentUserPublicKey ||
+            SessionUtil.timestampAlreadyRead(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                timestampMs: timestampMs,
+                userPublicKey: getUserHexEncodedPublicKey(db),
+                openGroup: nil
+            )
+        )
+        let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+            wasRead: wasRead, 
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            expiresInSeconds: self.durationSeconds,
+            expiresStartedAtMs: (self.type == .disappearAfterSend) ? Double(timestampMs) : nil
+        )
+        let interaction = try Interaction(
+            serverHash: serverHash,
+            threadId: threadId,
+            authorId: authorId,
+            variant: .infoDisappearingMessagesUpdate,
+            body: self.messageInfoString(
+                threadVariant: threadVariant,
+                senderName: (authorId != getUserHexEncodedPublicKey(db) ? Profile.displayName(db, id: authorId) : nil)
+            ),
+            timestampMs: timestampMs,
+            wasRead: wasRead,
+            expiresInSeconds: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresInSeconds), // Do not expire this control message in legacy groups
+            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresStartedAtMs)
+        ).inserted(db)
+        
+        if messageExpirationInfo.shouldUpdateExpiry {
+            Message.updateExpiryForDisappearAfterReadMessages(
+                db,
+                threadId: threadId,
+                serverHash: serverHash,
+                expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+                expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs
+            )
+        }
+        
+        return interaction.id
     }
 }
 

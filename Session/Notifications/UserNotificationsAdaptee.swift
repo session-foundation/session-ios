@@ -275,7 +275,7 @@ public class UserNotificationActionHandler: NSObject {
 
     func handleNotificationResponse( _ response: UNNotificationResponse) -> AnyPublisher<Void, Error> {
         AssertIsOnMainThread()
-        assert(AppReadiness.isAppReady())
+        assert(Singleton.appReadiness.isAppReady)
 
         let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
         let applicationState: UIApplication.State = UIApplication.shared.applicationState

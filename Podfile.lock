@@ -45,7 +45,6 @@ PODS:
     - SQLCipher/common
   - SwiftProtobuf (1.5.0)
   - WebRTC-lib (114.0.0)
-  - xcbeautify (0.17.0)
   - YYImage/Core (1.0.4)
   - YYImage/libwebp (1.0.4):
     - libwebp
@@ -66,27 +65,24 @@ DEPENDENCIES:
   - SQLCipher (~> 4.5.3)
   - SwiftProtobuf (~> 1.5.0)
   - WebRTC-lib
-  - xcbeautify
   - YYImage/libwebp (from `https://github.com/signalapp/YYImage`)
 
 SPEC REPOS:
-  https://github.com/CocoaPods/Specs.git:
+  trunk:
     - CocoaLumberjack
     - DifferenceKit
     - GRDB.swift
+    - libwebp
+    - Nimble
     - NVActivityIndicatorView
     - OpenSSL-Universal
     - PureLayout
+    - Quick
     - Reachability
     - SAMKeychain
     - SQLCipher
     - SwiftProtobuf
     - WebRTC-lib
-  trunk:
-    - libwebp
-    - Nimble
-    - Quick
-    - xcbeautify
 
 EXTERNAL SOURCES:
   Curve25519Kit:
@@ -133,9 +129,8 @@ SPEC CHECKSUMS:
   SQLCipher: 57fa9f863fa4a3ed9dd3c90ace52315db8c0fdca
   SwiftProtobuf: 241400280f912735c1e1b9fe675fdd2c6c4d42e2
   WebRTC-lib: d83df8976fa608b980f1d85796b3de66d60a1953
-  xcbeautify: 6e2f57af5c3a86d490376d5758030a8dcc201c1b
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
 
-PODFILE CHECKSUM: a5e8cbfd90e94ce2afb8c687b96bceb93f658e2e
+PODFILE CHECKSUM: 4e88e94d595188c412f739792fb78e0e92a8be12
 
-COCOAPODS: 1.12.1
+COCOAPODS: 1.14.3

@@ -126,24 +126,19 @@ internal extension SessionUtil {
             threadId: userPublicKey,
             isEnabled: targetIsEnable,
             durationSeconds: TimeInterval(targetExpiry),
-            type: targetIsEnable ? .disappearAfterSend : .unknown,
-            lastChangeTimestampMs: latestConfigSentTimestampMs
+            type: targetIsEnable ? .disappearAfterSend : .unknown
         )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: userPublicKey)
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userPublicKey))
         
-        if
-            let remoteLastChangeTimestampMs = targetConfig.lastChangeTimestampMs,
-            let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-            remoteLastChangeTimestampMs > localLastChangeTimestampMs
-        {
-            _ = try localConfig.with(
-                isEnabled: targetConfig.isEnabled,
-                durationSeconds: targetConfig.durationSeconds,
-                type: targetConfig.type,
-                lastChangeTimestampMs: targetConfig.lastChangeTimestampMs
-            ).save(db)
+        if targetConfig != localConfig {
+            try targetConfig
+                .saved(db)
+                .clearUnrelatedControlMessages(
+                    db,
+                    threadVariant: .contact
+                )
         }
 
         // Update settings if needed

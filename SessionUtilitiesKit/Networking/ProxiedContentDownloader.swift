@@ -631,7 +631,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
             removeAssetRequestFromQueue(assetRequest: assetRequest)
             return
         }
-        guard CurrentAppContext().isMainAppAndActive || CurrentAppContext().isShareExtension else {
+        guard Singleton.hasAppContext && (Singleton.appContext.isMainAppAndActive || Singleton.appContext.isShareExtension) else {
             // If app is not active, fail the asset request.
             assetRequest.state = .failed
             assetRequestDidFail(assetRequest: assetRequest)
@@ -900,7 +900,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         // We write assets to the temporary directory so that iOS can clean them up.
         // We try to eagerly clean up these assets when they are no longer in use.
 
-        let tempDirPath = OWSTemporaryDirectory()
+        let tempDirPath = Singleton.appContext.temporaryDirectory
         let dirPath = (tempDirPath as NSString).appendingPathComponent(downloadFolderName)
         do {
             let fileManager = FileManager.default

@@ -90,8 +90,6 @@ public final class TypingIndicator: ControlMessage {
         let contentProto = SNProtoContent.builder()
         do {
             contentProto.setTypingMessage(try typingIndicatorProto.build())
-            // DisappearingMessagesConfiguration
-            setDisappearingMessagesConfigurationIfNeeded(db, on: contentProto, threadId: threadId)
             return try contentProto.build()
         } catch {
             SNLog("Couldn't construct typing indicator proto from: \(self).")

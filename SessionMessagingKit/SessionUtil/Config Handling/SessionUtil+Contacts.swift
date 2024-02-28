@@ -179,23 +179,15 @@ internal extension SessionUtil {
                     .fetchOne(db, id: sessionId)
                     .defaulting(to: DisappearingMessagesConfiguration.defaultWith(sessionId))
                 
-                if
-                    let remoteLastChangeTimestampMs = data.config.lastChangeTimestampMs,
-                    let localLastChangeTimestampMs = localConfig.lastChangeTimestampMs,
-                    remoteLastChangeTimestampMs > localLastChangeTimestampMs
-                {
-                    _ = try localConfig.with(
-                        isEnabled: data.config.isEnabled,
-                        durationSeconds: data.config.durationSeconds,
-                        type: data.config.type,
-                        lastChangeTimestampMs: data.config.lastChangeTimestampMs
-                    ).save(db)
-                    
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == sessionId)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .filter(Interaction.Columns.timestampMs <= (remoteLastChangeTimestampMs - Int64(data.config.durationSeconds * 1000)))
-                        .deleteAll(db)
+                let isValid: Bool = Features.useNewDisappearingMessagesConfig ? data.config.isValidV2Config() : true
+                
+                if isValid && data.config != localConfig {
+                    try data.config
+                        .saved(db)
+                        .clearUnrelatedControlMessages(
+                            db,
+                            threadVariant: .contact
+                        )
                 }
             }
         
@@ -704,8 +696,7 @@ private extension SessionUtil {
                 threadId: contactId,
                 isEnabled: contact.exp_seconds > 0,
                 durationSeconds: TimeInterval(contact.exp_seconds),
-                type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode),
-                lastChangeTimestampMs: latestConfigSentTimestampMs
+                type: DisappearingMessagesConfiguration.DisappearingMessageType(sessionUtilType: contact.exp_mode)
             )
             
             result[contactId] = ContactData(

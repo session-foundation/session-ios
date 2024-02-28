@@ -18,7 +18,10 @@ public enum Permissions {
                 return true
             
             case .denied, .restricted:
-                guard let presentingViewController: UIViewController = (presentingViewController ?? CurrentAppContext().frontmostViewController()) else { return false }
+                guard
+                    Singleton.hasAppContext,
+                    let presentingViewController: UIViewController = (presentingViewController ?? Singleton.appContext.frontmostViewController)
+                else { return false }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
@@ -57,7 +60,10 @@ public enum Permissions {
         switch AVAudioSession.sharedInstance().recordPermission {
             case .granted: break
             case .denied:
-                guard let presentingViewController: UIViewController = (presentingViewController ?? CurrentAppContext().frontmostViewController()) else { return }
+                guard
+                    Singleton.hasAppContext,
+                    let presentingViewController: UIViewController = (presentingViewController ?? Singleton.appContext.frontmostViewController)
+                else { return }
                 onNotGranted?()
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -129,7 +135,10 @@ public enum Permissions {
         switch authorizationStatus {
             case .authorized, .limited: onAuthorized()
             case .denied, .restricted:
-                guard let presentingViewController: UIViewController = (presentingViewController ?? CurrentAppContext().frontmostViewController()) else { return }
+                guard
+                    Singleton.hasAppContext,
+                    let presentingViewController: UIViewController = (presentingViewController ?? Singleton.appContext.frontmostViewController)
+                else { return }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(

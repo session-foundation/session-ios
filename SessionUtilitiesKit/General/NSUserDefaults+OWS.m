@@ -3,7 +3,7 @@
 //
 
 #import "NSUserDefaults+OWS.h"
-#import "AppContext.h"
+#import <SessionUtilitiesKit/SessionUtilitiesKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -11,7 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSUserDefaults *)appUserDefaults
 {
-    return CurrentAppContext().appUserDefaults;
+    return [OWSCurrentAppContext appUserDefaults];
 }
 
 + (void)migrateToSharedUserDefaults

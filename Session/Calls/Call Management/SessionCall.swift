@@ -221,19 +221,24 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         
         let webRTCSession: WebRTCSession = self.webRTCSession
         let timestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs()
+        let disappearingMessagesConfiguration = try? thread.disappearingMessagesConfiguration.fetchOne(db)?.forcedWithDisappearAfterReadIfNeeded()
         let message: CallMessage = CallMessage(
             uuid: self.uuid,
             kind: .preOffer,
             sdps: [],
             sentTimestampMs: UInt64(timestampMs)
         )
+        .with(disappearingMessagesConfiguration)
+        
         let interaction: Interaction? = try? Interaction(
             messageUuid: self.uuid,
             threadId: sessionId,
             authorId: getUserHexEncodedPublicKey(db),
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
-            timestampMs: timestampMs
+            timestampMs: timestampMs,
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
         .inserted(db)
         
@@ -394,7 +399,8 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         self.hasEnded = true
         DispatchQueue.main.async {
             if let currentBanner = IncomingCallBanner.current { currentBanner.dismiss() }
-            if let callVC = CurrentAppContext().frontmostViewController() as? CallVC { callVC.handleEndCallMessage() }
+            guard Singleton.hasAppContext else { return }
+            if let callVC = Singleton.appContext.frontmostViewController as? CallVC { callVC.handleEndCallMessage() }
             if let miniCallView = MiniCallView.current { miniCallView.dismiss() }
             AppEnvironment.shared.callManager.reportCurrentCallEnded(reason: .remoteEnded)
         }
