@@ -132,11 +132,15 @@ final class InfoMessageCell: MessageCell {
                 )
                 .adding(
                     attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: floor(cellViewModel.threadExpirationTimer ?? 0).formatted(format: .long))
+                    range: (body as NSString).range(of: floor(cellViewModel.expiresInSeconds ?? 0).formatted(format: .long))
                 )
                 .adding(
                     attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: (cellViewModel.threadExpirationType == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized()))
+                    range: (body as NSString).range(of: "DISAPPEARING_MESSAGE_STATE_READ".localized())
+                )
+                .adding(
+                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
+                    range: (body as NSString).range(of: "DISAPPEARING_MESSAGE_STATE_SENT".localized())
                 )
                 .adding(
                     attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
