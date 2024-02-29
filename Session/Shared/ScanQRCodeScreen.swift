@@ -2,6 +2,7 @@
 
 import SwiftUI
 import SessionUIKit
+import AVFoundation
 
 struct ScanQRCodeScreen: View {
     @Binding var result: String

@@ -154,6 +154,7 @@ public enum MessageReceiver {
         message.sentTimestamp = envelope.timestamp
         message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs())
         message.openGroupServerMessageId = openGroupMessageServerId.map { UInt64($0) }
+        message.attachDisappearingMessagesConfiguration(from: proto)
         
         // Validate
         var isValid: Bool = message.isValid
@@ -207,6 +208,16 @@ public enum MessageReceiver {
             using: dependencies
         )
         
+        MessageReceiver.updateContactDisappearingMessagesVersionIfNeeded(
+            db,
+            messageVariant: .init(from: message),
+            contactId: message.sender,
+            version: ((!proto.hasExpirationType && !proto.hasExpirationTimer) ?
+                .legacyDisappearingMessages :
+                .newDisappearingMessages
+            )
+        )
+        
         switch message {
             case let message as ReadReceipt:
                 try MessageReceiver.handleReadReceipt(
@@ -237,7 +248,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message
+                    message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp
                 )
                 
             case let message as ExpirationTimerUpdate:
@@ -246,6 +258,15 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message
+                )
+            
+                try MessageReceiver.handleExpirationTimerUpdate(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
+                    proto: proto
                 )
                 
             case let message as UnsendRequest:
@@ -276,7 +297,8 @@ public enum MessageReceiver {
                     db,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    message: message,
+                    message: message, 
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     associatedWithProto: proto
                 )
                 
@@ -323,6 +345,13 @@ public enum MessageReceiver {
                     .fetchOne(db)
                     .defaulting(to: false)
                 
+                // Start the disappearing messages timer if needed
+                // For disappear after send, this is necessary so the message will disappear even if it is not read
+                JobRunner.upsert(
+                    db,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+                )
+
                 guard !isCurrentlyVisible else { return }
                 
                 try SessionThread

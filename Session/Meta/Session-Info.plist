@@ -63,8 +63,12 @@
 		<dict>
 			<key>seed1.getsession.org</key>
 			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
 				<key>NSExceptionRequiresForwardSecrecy</key>
 				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
 			</dict>
 			<key>seed2.getsession.org</key>
 			<dict>

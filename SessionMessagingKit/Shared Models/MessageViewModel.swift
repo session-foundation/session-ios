@@ -19,7 +19,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case threadId
         case threadVariant
         case threadIsTrusted
-        case threadHasDisappearingMessagesEnabled
+        case threadExpirationType
+        case threadExpirationTimer
         case threadOpenGroupServer
         case threadOpenGroupPublicKey
         case threadContactNameInternal
@@ -101,7 +102,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let threadId: String
     public let threadVariant: SessionThread.Variant
     public let threadIsTrusted: Bool
-    public let threadHasDisappearingMessagesEnabled: Bool
+    public let threadExpirationType: DisappearingMessagesConfiguration.DisappearingMessageType?
+    public let threadExpirationTimer: TimeInterval?
     public let threadOpenGroupServer: String?
     public let threadOpenGroupPublicKey: String?
     private let threadContactNameInternal: String?
@@ -210,7 +212,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             threadId: self.threadId,
             threadVariant: self.threadVariant,
             threadIsTrusted: self.threadIsTrusted,
-            threadHasDisappearingMessagesEnabled: self.threadHasDisappearingMessagesEnabled,
+            threadExpirationType: self.threadExpirationType,
+            threadExpirationTimer: self.threadExpirationTimer,
             threadOpenGroupServer: self.threadOpenGroupServer,
             threadOpenGroupPublicKey: self.threadOpenGroupPublicKey,
             threadContactNameInternal: self.threadContactNameInternal,
@@ -378,7 +381,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             threadId: self.threadId,
             threadVariant: self.threadVariant,
             threadIsTrusted: self.threadIsTrusted,
-            threadHasDisappearingMessagesEnabled: self.threadHasDisappearingMessagesEnabled,
+            threadExpirationType: self.threadExpirationType,
+            threadExpirationTimer: self.threadExpirationTimer,
             threadOpenGroupServer: self.threadOpenGroupServer,
             threadOpenGroupPublicKey: self.threadOpenGroupPublicKey,
             threadContactNameInternal: self.threadContactNameInternal,
@@ -452,7 +456,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             canHaveProfile: (
                 // Only group threads and incoming messages
                 isGroupThread &&
-                self.variant == .standardIncoming
+                (self.variant == .standardIncoming || self.variant == .standardIncomingDeleted)
             ),
             shouldShowProfile: (
                 // Only group threads
@@ -483,6 +487,36 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             currentUserBlinded25PublicKey: currentUserBlinded25PublicKey,
             optimisticMessageId: self.optimisticMessageId
         )
+    }
+}
+
+// MARK: - DisappeaingMessagesUpdateControlMessage
+
+public extension MessageViewModel {
+    func messageDisappearingConfiguration() -> DisappearingMessagesConfiguration {
+        return DisappearingMessagesConfiguration
+            .defaultWith(self.threadId)
+            .with(
+                isEnabled: (self.expiresInSeconds ?? 0) > 0,
+                durationSeconds: self.expiresInSeconds,
+                type: (Int64(self.expiresStartedAtMs ?? 0) == self.timestampMs ? .disappearAfterSend : .disappearAfterRead )
+            )
+    }
+    
+    func threadDisappearingConfiguration() -> DisappearingMessagesConfiguration {
+        return DisappearingMessagesConfiguration
+            .defaultWith(self.threadId)
+            .with(
+                isEnabled: (self.threadExpirationTimer ?? 0) > 0,
+                durationSeconds: self.threadExpirationTimer,
+                type: self.threadExpirationType
+            )
+    }
+    
+    func canDoFollowingSetting() -> Bool {
+        guard self.authorId != self.currentUserPublicKey else { return false }
+        guard self.threadVariant == .contact else { return false }
+        return self.messageDisappearingConfiguration() != self.threadDisappearingConfiguration()
     }
 }
 
@@ -587,7 +621,8 @@ public extension MessageViewModel {
         self.threadId = "INVALID_THREAD_ID"
         self.threadVariant = .contact
         self.threadIsTrusted = false
-        self.threadHasDisappearingMessagesEnabled = false
+        self.threadExpirationType = nil
+        self.threadExpirationTimer = nil
         self.threadOpenGroupServer = nil
         self.threadOpenGroupPublicKey = nil
         self.threadContactNameInternal = nil
@@ -652,7 +687,8 @@ public extension MessageViewModel {
         optimisticMessageId: UUID,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        threadHasDisappearingMessagesEnabled: Bool,
+        threadExpirationType: DisappearingMessagesConfiguration.DisappearingMessageType?,
+        threadExpirationTimer: TimeInterval?,
         threadOpenGroupServer: String?,
         threadOpenGroupPublicKey: String?,
         threadContactNameInternal: String,
@@ -675,7 +711,8 @@ public extension MessageViewModel {
         self.threadId = threadId
         self.threadVariant = threadVariant
         self.threadIsTrusted = false
-        self.threadHasDisappearingMessagesEnabled = threadHasDisappearingMessagesEnabled
+        self.threadExpirationType = threadExpirationType
+        self.threadExpirationTimer = threadExpirationTimer
         self.threadOpenGroupServer = threadOpenGroupServer
         self.threadOpenGroupPublicKey = threadOpenGroupPublicKey
         self.threadContactNameInternal = threadContactNameInternal
@@ -819,7 +856,7 @@ public extension MessageViewModel {
             let linkPreviewAttachment: TypedTableAlias<Attachment> = TypedTableAlias(ViewModel.self, column: .linkPreviewAttachment)
             let readReceipt: TypedTableAlias<RecipientState> = TypedTableAlias(name: "readReceipt")
             
-            let numColumnsBeforeLinkedRecords: Int = 22
+            let numColumnsBeforeLinkedRecords: Int = 23
             let finalGroupSQL: SQL = (groupSQL ?? "")
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -827,8 +864,8 @@ public extension MessageViewModel {
                     \(thread[.variant]) AS \(ViewModel.Columns.threadVariant),
                     -- Default to 'true' for non-contact threads
                     IFNULL(\(contact[.isTrusted]), true) AS \(ViewModel.Columns.threadIsTrusted),
-                    -- Default to 'false' when no contact exists
-                    IFNULL(\(disappearingMessagesConfig[.isEnabled]), false) AS \(ViewModel.Columns.threadHasDisappearingMessagesEnabled),
+                    \(disappearingMessagesConfig[.type]) AS \(ViewModel.Columns.threadExpirationType),
+                    \(disappearingMessagesConfig[.durationSeconds]) AS \(ViewModel.Columns.threadExpirationTimer),
                     \(openGroup[.server]) AS \(ViewModel.Columns.threadOpenGroupServer),
                     \(openGroup[.publicKey]) AS \(ViewModel.Columns.threadOpenGroupPublicKey),
                     IFNULL(\(threadProfile[.nickname]), \(threadProfile[.name])) AS \(ViewModel.Columns.threadContactNameInternal),

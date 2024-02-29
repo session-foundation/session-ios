@@ -14,11 +14,14 @@ public class Message: Codable {
     public var sender: String?
     public var openGroupServerMessageId: UInt64?
     public var serverHash: String?
-
     public var ttl: UInt64 { 14 * 24 * 60 * 60 * 1000 }
     public var isSelfSendValid: Bool { false }
     
     public var shouldBeRetryable: Bool { false }
+    
+    // MARK: - Disappearing Messages
+    public var expiresInSeconds: TimeInterval?
+    public var expiresStartedAtMs: Double?
 
     // MARK: - Validation
     
@@ -36,9 +39,10 @@ public class Message: Codable {
         receivedTimestamp: UInt64? = nil,
         recipient: String? = nil,
         sender: String? = nil,
-        groupPublicKey: String? = nil,
         openGroupServerMessageId: UInt64? = nil,
-        serverHash: String? = nil
+        serverHash: String? = nil,
+        expiresInSeconds: TimeInterval? = nil,
+        expiresStartedAtMs: Double? = nil
     ) {
         self.id = id
         self.sentTimestamp = sentTimestamp
@@ -47,6 +51,8 @@ public class Message: Codable {
         self.sender = sender
         self.openGroupServerMessageId = openGroupServerMessageId
         self.serverHash = serverHash
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
     }
 
     // MARK: - Proto Conversion
@@ -55,8 +61,37 @@ public class Message: Codable {
         preconditionFailure("fromProto(_:sender:) is abstract and must be overridden.")
     }
 
-    public func toProto(_ db: Database) -> SNProtoContent? {
+    public func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         preconditionFailure("toProto(_:) is abstract and must be overridden.")
+    }
+    
+    public func setDisappearingMessagesConfigurationIfNeeded(on proto: SNProtoContent.SNProtoContentBuilder) {
+        if let expiresInSeconds = self.expiresInSeconds {
+            proto.setExpirationTimer(UInt32(expiresInSeconds))
+        } else {
+            proto.setExpirationTimer(0)
+            proto.setExpirationType(.unknown)
+            return
+        }
+        
+        if let expiresStartedAtMs = self.expiresStartedAtMs, UInt64(expiresStartedAtMs) == self.sentTimestamp {
+            proto.setExpirationType(.deleteAfterSend)
+        } else {
+            proto.setExpirationType(.deleteAfterRead)
+        }
+    }
+    
+    public func attachDisappearingMessagesConfiguration(from proto: SNProtoContent) {
+        let expiresInSeconds: TimeInterval? = proto.hasExpirationTimer ? TimeInterval(proto.expirationTimer) : nil
+        let expiresStartedAtMs: Double? = {
+            if proto.expirationType == .deleteAfterSend, let timestamp = self.sentTimestamp {
+                return Double(timestamp)
+            }
+            return nil
+        }()
+        
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
     }
 }
 
@@ -618,13 +653,61 @@ public extension Message {
             )
         )
     }
+    
+    // MARK: - TTL for disappearing messages
+    
+    internal static func getSpecifiedTTL(
+        message: Message,
+        isGroupMessage: Bool,
+        isSyncMessage: Bool
+    ) -> UInt64 {
+        guard Features.useNewDisappearingMessagesConfig else { return message.ttl }
+        // Not disappearing messages
+        guard let expiresInSeconds = message.expiresInSeconds else { return message.ttl }
+        
+        // Sync message should be read already, it is the same for disappear after read and disappear after sent
+        guard !isSyncMessage else { return UInt64(expiresInSeconds * 1000) }
+        
+        // Disappear after read messages that have not be read
+        guard let expiresStartedAtMs = message.expiresStartedAtMs else { return message.ttl }
+        
+        // Disappear after read messages that have already be read
+        guard message.sentTimestamp == UInt64(expiresStartedAtMs) else { return message.ttl }
+        
+        // Disappear after sent messages with exceptions
+        switch message {
+            case is ClosedGroupControlMessage, is UnsendRequest:
+                return message.ttl
+            case is ExpirationTimerUpdate:
+                return isGroupMessage ? message.ttl : UInt64(expiresInSeconds * 1000)
+            default:
+                return UInt64(expiresInSeconds * 1000)
+        }
+    }
 }
 
 // MARK: - Mutation
 
-internal extension Message {
-    func with(sentTimestamp: UInt64) -> Message {
+public extension Message {
+    func with(sentTimestamp: UInt64) -> Self {
         self.sentTimestamp = sentTimestamp
+        return self
+    }
+    
+    func with(_ disappearingMessagesConfiguration: DisappearingMessagesConfiguration?) -> Self {
+        self.expiresInSeconds = disappearingMessagesConfiguration?.durationSeconds
+        if disappearingMessagesConfiguration?.type == .disappearAfterSend, let sentTimestamp = self.sentTimestamp {
+            self.expiresStartedAtMs =  Double(sentTimestamp)
+        }
+        return self
+    }
+    
+    func with(
+        expiresInSeconds: TimeInterval?,
+        expiresStartedAtMs: Double? = nil
+    ) -> Self {
+        self.expiresInSeconds = expiresInSeconds
+        self.expiresStartedAtMs = expiresStartedAtMs
         return self
     }
 }

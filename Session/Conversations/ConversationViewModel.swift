@@ -326,6 +326,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         return SQL("LEFT JOIN \(RecipientState.self) ON \(recipientState[.interactionId]) = \(interaction[.id])")
                     }()
                 ),
+                PagedData.ObservedChanges(
+                    table: DisappearingMessagesConfiguration.self,
+                    columns: [ .isEnabled, .type, .durationSeconds ],
+                    joinToPagedType: {
+                        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+                        let disappearingMessagesConfiguration: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
+                        
+                        return SQL("LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfiguration[.threadId]) = \(interaction[.threadId])")
+                    }()
+                ),
             ],
             filterSQL: MessageViewModel.filterSQL(threadId: threadId),
             groupSQL: MessageViewModel.groupSQL,
@@ -528,12 +538,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 ].compactMap { $0 },
                 body: text
             ),
-            expiresInSeconds: threadData.disappearingMessagesConfiguration
-                .map { disappearingConfig in
-                    guard disappearingConfig.isEnabled else { return nil }
-
-                    return disappearingConfig.durationSeconds
-                },
+            expiresInSeconds: threadData.disappearingMessagesConfiguration?.durationSeconds,
+            expiresStartedAtMs: (threadData.disappearingMessagesConfiguration?.type == .disappearAfterSend ? Double(sentTimestampMs) : nil),
             linkPreviewUrl: linkPreviewDraft?.urlString
         )
         let optimisticAttachments: Attachment.PreparedData? = attachments
@@ -550,7 +556,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             optimisticMessageId: optimisticMessageId,
             threadId: threadData.threadId,
             threadVariant: threadData.threadVariant,
-            threadHasDisappearingMessagesEnabled: (threadData.disappearingMessagesConfiguration?.isEnabled ?? false),
+            threadExpirationType: threadData.disappearingMessagesConfiguration?.type,
+            threadExpirationTimer: threadData.disappearingMessagesConfiguration?.durationSeconds,
             threadOpenGroupServer: threadData.openGroupServer,
             threadOpenGroupPublicKey: threadData.openGroupPublicKey,
             threadContactNameInternal: threadData.threadContactName(),

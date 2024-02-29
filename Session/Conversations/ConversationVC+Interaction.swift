@@ -25,16 +25,49 @@ extension ConversationVC:
     AttachmentApprovalViewControllerDelegate,
     GifPickerViewControllerDelegate
 {
+    // MARK: - Open Settings
+    
     @objc func handleTitleViewTapped() {
         // Don't take the user to settings for unapproved threads
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
-        openSettings()
+        openSettingsFromTitleView()
+    }
+    
+    @objc func  openSettingsFromTitleView() {
+        switch self.titleView.currentLabelType {
+            case .userCount:
+                if self.viewModel.threadData.threadVariant == .group || self.viewModel.threadData.threadVariant == .legacyGroup {
+                    let viewController = EditClosedGroupVC(
+                        threadId: self.viewModel.threadData.threadId,
+                        threadVariant: self.viewModel.threadData.threadVariant
+                    )
+                    navigationController?.pushViewController(viewController, animated: true)
+                } else {
+                    openSettings()
+                }
+                break
+            case .none, .notificationSettings:
+                openSettings()
+                break
+            
+            case .disappearingMessageSetting:
+                let viewController = SessionTableViewController(
+                    viewModel: ThreadDisappearingMessagesSettingsViewModel(
+                        threadId: self.viewModel.threadData.threadId,
+                        threadVariant: self.viewModel.threadData.threadVariant,
+                        currentUserIsClosedGroupMember: self.viewModel.threadData.currentUserIsClosedGroupMember,
+                        currentUserIsClosedGroupAdmin: self.viewModel.threadData.currentUserIsClosedGroupAdmin,
+                        config: self.viewModel.threadData.disappearingMessagesConfiguration!
+                    )
+                )
+                navigationController?.pushViewController(viewController, animated: true)
+                break
+        }
     }
 
     @objc func openSettings() {
-        let viewController: SessionTableViewController = SessionTableViewController(
-            viewModel: ThreadSettingsViewModel(
+        let viewController = SessionTableViewController(viewModel: ThreadSettingsViewModel(
                 threadId: self.viewModel.threadData.threadId,
                 threadVariant: self.viewModel.threadData.threadVariant,
                 didTriggerSearch: { [weak self] in
@@ -50,7 +83,6 @@ extension ConversationVC:
                 }
             )
         )
-        
         navigationController?.pushViewController(viewController, animated: true)
     }
     
@@ -863,6 +895,63 @@ extension ConversationVC:
         guard cellViewModel.variant != .infoCall else {
             let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(caller: cellViewModel.authorName)
             present(callMissedTipsModal, animated: true, completion: nil)
+            return
+        }
+        
+        // For disappearing messages config update, show the following settings modal
+        guard cellViewModel.variant != .infoDisappearingMessagesUpdate else {
+            let messageDisappearingConfig = cellViewModel.messageDisappearingConfiguration()
+            let expirationTimerString: String = floor(messageDisappearingConfig.durationSeconds).formatted(format: .long)
+            let expirationTypeString: String = (messageDisappearingConfig.type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+            let modalBodyString: String = (
+                messageDisappearingConfig.isEnabled ?
+                String(
+                    format: "FOLLOW_SETTING_EXPLAINATION_TURNING_ON".localized(),
+                    expirationTimerString,
+                    expirationTypeString
+                ) :
+                "FOLLOW_SETTING_EXPLAINATION_TURNING_OFF".localized()
+            )
+            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "DISAPPERING_MESSAGES_SAVE_TITLE".localized() : "CONFIRM_BUTTON_TITLE".localized()
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "FOLLOW_SETTING_TITLE".localized(),
+                    body: .attributedText(
+                        NSAttributedString(string: modalBodyString)
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (modalBodyString as NSString).range(of: expirationTypeString)
+                            )
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (modalBodyString as NSString).range(of: expirationTimerString)
+                            )
+                            .adding(
+                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
+                                range: (modalBodyString as NSString).range(of: "DISAPPEARING_MESSAGES_OFF".localized().lowercased())
+                            )
+                    ),
+                    accessibility: Accessibility(identifier: "Follow setting dialog"),
+                    confirmTitle: modalConfirmTitle,
+                    confirmAccessibility: Accessibility(identifier: "Set button"),
+                    confirmStyle: .danger,
+                    cancelStyle: .textPrimary,
+                    dismissOnConfirm: false // Custom dismissal logic
+                ) { [weak self] _ in
+                    dependencies.storage.writeAsync { db in
+                        try messageDisappearingConfig.save(db)
+                        try SessionUtil
+                            .update(
+                                db,
+                                sessionId: cellViewModel.threadId,
+                                disappearingMessagesConfig: messageDisappearingConfig
+                            )
+                    }
+                    self?.dismiss(animated: true, completion: nil)
+                }
+            )
+            
+            present(confirmationModal, animated: true, completion: nil)
             return
         }
         
@@ -2063,6 +2152,10 @@ extension ConversationVC:
                         cellViewModel.authorId
                     )
                 )
+                .with(
+                    expiresInSeconds: cellViewModel.expiresInSeconds,
+                    expiresStartedAtMs: cellViewModel.expiresStartedAtMs
+                )
                 
                 // For incoming interactions or interactions with no serverHash just delete them locally
                 guard cellViewModel.variant == .standardOutgoing, let serverHash: String = serverHash else {
@@ -2493,6 +2586,10 @@ extension ConversationVC:
                 message: DataExtractionNotification(
                     kind: kind,
                     sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
+                )
+                .with(DisappearingMessagesConfiguration
+                    .fetchOne(db, id: threadId)?
+                    .forcedWithDisappearAfterReadIfNeeded()
                 ),
                 interactionId: nil,
                 threadId: threadId,

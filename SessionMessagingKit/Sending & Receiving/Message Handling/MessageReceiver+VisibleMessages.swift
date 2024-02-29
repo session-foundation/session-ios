@@ -12,6 +12,7 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: VisibleMessage,
+        serverExpirationTimestamp: TimeInterval?,
         associatedWithProto proto: SNProtoContent,
         using dependencies: Dependencies = Dependencies()
     ) throws -> Int64 {
@@ -133,19 +134,29 @@ extension MessageReceiver {
         ) {
             return interactionId
         }
-        
-        // Retrieve the disappearing messages config to set the 'expiresInSeconds' value
-        // accoring to the config
-        let disappearingMessagesConfiguration: DisappearingMessagesConfiguration = (try? thread.disappearingMessagesConfiguration.fetchOne(db))
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
-        
         // Try to insert the interaction
         //
         // Note: There are now a number of unique constraints on the database which
         // prevent the ability to insert duplicate interactions at a database level
         // so we don't need to check for the existance of a message beforehand anymore
         let interaction: Interaction
-        
+        // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
+        let wasRead: Bool = (
+            variant == .standardOutgoing ||
+            SessionUtil.timestampAlreadyRead(
+                threadId: thread.id,
+                threadVariant: thread.variant,
+                timestampMs: Int64(messageSentTimestamp * 1000),
+                userPublicKey: currentUserPublicKey,
+                openGroup: maybeOpenGroup
+            )
+        )
+        let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+            wasRead: wasRead,
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
+        )
         do {
             interaction = try Interaction(
                 serverHash: message.serverHash, // Keep track of server hash
@@ -154,17 +165,7 @@ extension MessageReceiver {
                 variant: variant,
                 body: message.text,
                 timestampMs: Int64(messageSentTimestamp * 1000),
-                wasRead: (
-                    // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
-                    variant == .standardOutgoing ||
-                    SessionUtil.timestampAlreadyRead(
-                        threadId: thread.id,
-                        threadVariant: thread.variant,
-                        timestampMs: Int64(messageSentTimestamp * 1000),
-                        userPublicKey: currentUserPublicKey,
-                        openGroup: maybeOpenGroup
-                    )
-                ),
+                wasRead: wasRead,
                 hasMention: Interaction.isUserMentioned(
                     db,
                     threadId: thread.id,
@@ -172,12 +173,8 @@ extension MessageReceiver {
                     quoteAuthorId: dataMessage.quote?.author,
                     using: dependencies
                 ),
-                // Note: Ensure we don't ever expire open group messages
-                expiresInSeconds: (disappearingMessagesConfiguration.isEnabled && message.openGroupServerMessageId == nil ?
-                    disappearingMessagesConfiguration.durationSeconds :
-                    nil
-                ),
-                expiresStartedAtMs: nil,
+                expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+                expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
                 // OpenGroupInvitations are stored as LinkPreview's in the database
                 linkPreviewUrl: (message.linkPreview?.url ?? message.openGroupInvitation?.url),
                 // Keep track of the open group server message ID ↔ message ID relationship
@@ -208,7 +205,7 @@ extension MessageReceiver {
                     else { break }
                     
                     // If we receive an outgoing message that already exists in the database
-                    // then we still need up update the recipient and read states for the
+                    // then we still need to update the recipient and read states for the
                     // message (even if we don't need to do anything else)
                     try updateRecipientAndReadStatesForOutgoingInteraction(
                         db,
@@ -217,6 +214,14 @@ extension MessageReceiver {
                         messageSentTimestamp: messageSentTimestamp,
                         variant: variant,
                         syncTarget: message.syncTarget
+                    )
+                    
+                    Message.getExpirationForOutgoingDisappearingMessages(
+                        db,
+                        threadId: threadId,
+                        variant: variant,
+                        serverHash: message.serverHash,
+                        expireInSeconds: message.expiresInSeconds
                     )
                     
                 default: break
@@ -235,6 +240,24 @@ extension MessageReceiver {
             messageSentTimestamp: messageSentTimestamp,
             variant: variant,
             syncTarget: message.syncTarget
+        )
+        
+        if messageExpirationInfo.shouldUpdateExpiry {
+            Message.updateExpiryForDisappearAfterReadMessages(
+                db,
+                threadId: threadId,
+                serverHash: message.serverHash,
+                expiresInSeconds: message.expiresInSeconds,
+                expiresStartedAtMs: message.expiresStartedAtMs
+            )
+        }
+        
+        Message.getExpirationForOutgoingDisappearingMessages(
+            db,
+            threadId: threadId,
+            variant: variant,
+            serverHash: message.serverHash,
+            expireInSeconds: message.expiresInSeconds
         )
         
         // Parse & persist attachments

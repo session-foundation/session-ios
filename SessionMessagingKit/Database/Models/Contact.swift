@@ -18,6 +18,7 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         case isTrusted
         case isApproved
         case isBlocked
+        case lastKnownClientVersion
         case didApproveMe
         case hasBeenBlocked
     }
@@ -34,6 +35,9 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
     /// This flag is used to determine whether message requests from this contact are blocked
     public let isBlocked: Bool
     
+    /// The last known client version represented by pre defined enum values
+    public let lastKnownClientVersion: FeatureVersion?
+    
     /// This flag is used to determine whether this contact has approved the current users message request
     public let didApproveMe: Bool
     
@@ -49,10 +53,12 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
     // MARK: - Initialization
     
     public init(
+        _ db: Database? = nil,
         id: String,
         isTrusted: Bool = false,
         isApproved: Bool = false,
         isBlocked: Bool = false,
+        lastKnownClientVersion: FeatureVersion? = nil,
         didApproveMe: Bool = false,
         hasBeenBlocked: Bool = false,
         using dependencies: Dependencies = Dependencies()
@@ -60,10 +66,11 @@ public struct Contact: Codable, Identifiable, Equatable, FetchableRecord, Persis
         self.id = id
         self.isTrusted = (
             isTrusted ||
-            id == getUserHexEncodedPublicKey(using: dependencies)  // Always trust ourselves
+            id == getUserHexEncodedPublicKey(db, using: dependencies)  // Always trust ourselves
         )
         self.isApproved = isApproved
         self.isBlocked = isBlocked
+        self.lastKnownClientVersion = lastKnownClientVersion
         self.didApproveMe = didApproveMe
         self.hasBeenBlocked = (isBlocked || hasBeenBlocked)
     }
@@ -77,6 +84,6 @@ public extension Contact {
     /// **Note:** This method intentionally does **not** save the newly created Contact,
     /// it will need to be explicitly saved after calling
     static func fetchOrCreate(_ db: Database, id: ID) -> Contact {
-        return ((try? fetchOne(db, id: id)) ?? Contact(id: id))
+        return ((try? fetchOne(db, id: id)) ?? Contact(db, id: id))
     }
 }

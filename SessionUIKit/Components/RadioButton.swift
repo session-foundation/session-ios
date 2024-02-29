@@ -86,6 +86,10 @@ public class RadioButton: UIView {
         
         super.init(frame: .zero)
         
+        self.isAccessibilityElement = true
+        self.accessibilityLabel = "RadioButton"
+        self.accessibilityIdentifier = "RadioButton"
+        
         setupViewHierarchy(size: size)
     }
     
@@ -145,6 +149,14 @@ public class RadioButton: UIView {
             .radioButton_selectedBackground :
             .radioButton_unselectedBackground
         )
+        
+        if self.isSelected {
+            self.accessibilityTraits.insert(.selected)
+            self.accessibilityValue = "selected"
+        } else {
+            self.accessibilityTraits.remove(.selected)
+            self.accessibilityValue = nil
+        }
     }
     
     @objc func itemSelected() {
