@@ -318,6 +318,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
                 
@@ -335,6 +336,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     proto: proto,
                     using: dependencies
                 )
@@ -370,6 +372,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     associatedWithProto: proto,
                     using: dependencies
                 )

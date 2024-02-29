@@ -141,23 +141,25 @@ internal extension SessionUtil {
 
         // Update the disappearing messages configuration
         let targetExpiry: Int32 = groups_info_get_expiry_timer(conf)
-        let targetIsEnable: Bool = (targetExpiry > 0)
-        let targetConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
-            threadId: groupSessionId.hexString,
-            isEnabled: targetIsEnable,
-            durationSeconds: TimeInterval(targetExpiry),
-            type: (targetIsEnable ? .disappearAfterSend : .unknown)
-        )
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: groupSessionId.hexString)
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(groupSessionId.hexString))
-
-        if targetConfig != localConfig {
-            _ = try targetConfig.upsert(db)
-            _ = try Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                .deleteAll(db)
+        let updatedConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
+            .defaultWith(groupSessionId.hexString)
+            .with(
+                isEnabled: (targetExpiry > 0),
+                durationSeconds: TimeInterval(targetExpiry),
+                type: .disappearAfterSend
+            )
+        
+        if localConfig != updatedConfig {
+            try updatedConfig
+                .saved(db)
+                .clearUnrelatedControlMessages(
+                    db,
+                    threadVariant: .group,
+                    using: dependencies
+                )
         }
         
         // Check if the user is an admin in the group

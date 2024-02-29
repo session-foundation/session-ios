@@ -134,11 +134,13 @@ internal extension SessionUtil {
             .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userSessionId.hexString))
         
         if targetConfig != localConfig {
-            _ = try targetConfig.upsert(db)
-            _ = try Interaction
-                .filter(Interaction.Columns.threadId == userSessionId.hexString)
-                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                .deleteAll(db)
+            try targetConfig
+                .saved(db)
+                .clearUnrelatedControlMessages(
+                    db,
+                    threadVariant: .contact,
+                    using: dependencies
+                )
         }
 
         // Update settings if needed

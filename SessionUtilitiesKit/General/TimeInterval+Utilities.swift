@@ -8,6 +8,7 @@ public extension TimeInterval {
         case long
         case hoursMinutesSeconds
         case videoDuration
+        case twoUnits
     }
     
     func formatted(format: DurationFormat) -> String {

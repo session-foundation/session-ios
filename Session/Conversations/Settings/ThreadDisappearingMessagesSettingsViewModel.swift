@@ -548,16 +548,17 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             try updatedConfig.upserted(db)
             
             let currentOffsetTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
-            let interactionId = try DisappearingMessagesConfiguration.insertControlMessage(
-                db,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                authorId: getUserSessionId(db, using: dependencies).hexString,
-                timestampMs: currentOffsetTimestampMs,
-                serverHash: nil,
-                updatedConfiguration: updatedConfig,
-                using: dependencies
-            )
+            let interactionId = try updatedConfig
+                .saved(db)
+                .insertControlMessage(
+                    db,
+                    threadVariant: threadVariant,
+                    authorId: getUserSessionId(db, using: dependencies).hexString,
+                    timestampMs: currentOffsetTimestampMs,
+                    serverHash: nil,
+                    serverExpirationTimestamp: nil,
+                    using: dependencies
+                )
             
             // Send a control message that the disappearing messages setting changed
             switch threadVariant {
@@ -586,6 +587,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         guard !dependencies[feature: .updatedDisappearingMessages] else { return nil }
                         return UInt32(floor(updatedConfig.isEnabled ? updatedConfig.durationSeconds : 0))
                     }()
+
 
                     try MessageSender.send(
                         db,

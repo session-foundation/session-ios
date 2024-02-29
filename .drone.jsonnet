@@ -1,3 +1,6 @@
+// This build configuration requires the following to be installed:
+// Git, Xcode, XCode Command-line Tools, Cocoapods, Xcodebuild, Xcresultparser, pip
+
 // Log a bunch of version information to make it easier for debugging
 local version_info = {
   name: 'Version Information',
@@ -11,11 +14,20 @@ local version_info = {
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
 local clone_submodules = {
   name: 'Clone Submodules',
-  commands: ['git fetch --tags', 'git submodule update --init --recursive --depth=2']
+  commands: ['git fetch --tags', 'git submodule update --init --recursive --depth=2 --jobs=4']
 };
 
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
+
+// Output some information about the built tools in case specific combinations break the build
+local machine_info = {
+  name: 'Machine info',
+  commands: [
+    'xcodebuild -version',
+    'LANG=en_US.UTF-8 pod --version'
+  ]
+};
 
 // Cocoapods
 // 
@@ -86,72 +98,106 @@ local update_cocoapods_cache(depends_on) = {
   depends_on: depends_on,
 };
 
-// Run specified unit tests
-local run_tests(testName, testBuildStepName) = {
-  name: 'Run ' + testName,
-  commands: [
-    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test-without-building -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -destination "platform=iOS Simulator,name=iPhone 14" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -only-testing ' + testName + ' -collect-test-diagnostics never 2>&1 | ./Pods/xcbeautify/xcbeautify --is-ci',
-  ],
-  depends_on: [
-    testBuildStepName
-  ],
-};
-
-
 [
-  // Unit tests
+  // Unit tests (PRs only)
   {
     kind: 'pipeline',
     type: 'exec',
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
+    trigger: { event: { exclude: [ 'push' ] } },
     steps: [
       version_info,
       clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
       {
-        name: 'Reset Simulators',
+        name: 'Pre-Boot Test Simulator',
         commands: [
-          'xcrun simctl shutdown all',
-          'xcrun simctl erase all'
-        ],
-        depends_on: [
-          'Install CocoaPods'
+          'mkdir -p build/artifacts',
+          'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
+          'xcrun simctl create "$(cat ./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
+          'echo $(xcrun simctl list devices | grep -m 1 $(cat ./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
+          'xcrun simctl boot $(cat ./build/artifacts/sim_uuid)',
+          'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(cat ./build/artifacts/sim_uuid).*")[0m"',
         ]
       },
       {
-        name: 'Build For Testing',
+        name: 'Build and Run Tests',
         commands: [
-          'mkdir build',
-          'xcodebuild build-for-testing -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -destination "platform=iOS Simulator,name=iPhone 14" | ./Pods/xcbeautify/xcbeautify --is-ci',
+          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(cat ./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
         ],
         depends_on: [
+          'Pre-Boot Test Simulator',
           'Install CocoaPods'
         ],
       },
-      run_tests('SessionTests', 'Build For Testing'),
-      run_tests('SessionMessagingKitTests', 'Build For Testing'),
-      run_tests('SessionSnodeKitTests', 'Build For Testing'),
-      run_tests('SessionUtilitiesKitTests', 'Build For Testing'),
       {
-        name: 'Shutdown Simulators',
-        commands: [ 'xcrun simctl shutdown all' ],
+        name: 'Unit Test Summary',
+        commands: [
+          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult',
+        ],
+        depends_on: ['Build and Run Tests'],
+        when: {
+          status: ['failure', 'success']
+        }
+      },
+      {
+        name: 'Delete Test Simulator',
+        commands: [
+          'xcrun simctl delete $(cat ./build/artifacts/sim_uuid)'
+        ],
         depends_on: [
-          'Build For Testing',
-          'Run SessionTests',
-          'Run SessionMessagingKitTests',
-          'Run SessionSnodeKitTests',
-          'Run SessionUtilitiesKitTests'
+          'Build and Run Tests',
         ],
         when: {
           status: ['failure', 'success']
         }
       },
-      update_cocoapods_cache(['Build For Testing'])
+      update_cocoapods_cache(['Build and Run Tests']),
+      {
+        name: 'Install Codecov CLI',
+        commands: [
+          'pip3 install codecov-cli',
+          '~/Library/Python/3.9/bin/codecovcli --version'
+        ],
+      },
+      {
+        name: 'Convert xcresult to xml',
+        commands: [
+          'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
+        ],
+        depends_on: ['Build and Run Tests']
+      },
+      {
+        name: 'Upload coverage to Codecov',
+        commands: [
+          '~/Library/Python/3.9/bin/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+        ],
+        depends_on: [
+          'Convert xcresult to xml',
+          'Install Codecov CLI'
+        ]
+      },
     ],
   },
-  // Simulator build
+  // Validate build artifact was created by the direct branch push (PRs only)
+  {
+    kind: 'pipeline',
+    type: 'exec',
+    name: 'Check Build Artifact Existence',
+    platform: { os: 'darwin', arch: 'amd64' },
+    trigger: { event: { exclude: [ 'push' ] } },
+    steps: [
+      {
+        name: 'Poll for build artifact existence',
+        commands: [
+          './Scripts/drone-upload-exists.sh'
+        ]
+      }
+    ]
+  },
+  // Simulator build (non-PRs only)
   {
     kind: 'pipeline',
     type: 'exec',
@@ -167,42 +213,7 @@ local run_tests(testName, testBuildStepName) = {
         name: 'Build',
         commands: [
           'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | ./Pods/xcbeautify/xcbeautify --is-ci',
-        ],
-        depends_on: [
-          'Install CocoaPods'
-        ],
-      },
-      update_cocoapods_cache(['Build']),
-      {
-        name: 'Upload artifacts',
-        environment: { SSH_KEY: { from_secret: 'SSH_KEY' } },
-        commands: [
-          './Scripts/drone-static-upload.sh'
-        ],
-        depends_on: [
-          'Build'
-        ]
-      },
-    ],
-  },
-  // AppStore build (generate an archive to be signed later)
-  {
-    kind: 'pipeline',
-    type: 'exec',
-    name: 'AppStore Build',
-    platform: { os: 'darwin', arch: 'amd64' },
-    trigger: { event: { exclude: [ 'pull_request' ] } },
-    steps: [
-      version_info,
-      clone_submodules,
-      load_cocoapods_cache,
-      install_cocoapods,
-      {
-        name: 'Build',
-        commands: [
-          'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App_Store_Release" -sdk iphoneos -archivePath ./build/Session.xcarchive -destination "generic/platform=iOS" -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO | ./Pods/xcbeautify/xcbeautify --is-ci',
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App Store Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci'
         ],
         depends_on: [
           'Install CocoaPods'

@@ -233,14 +233,58 @@ public extension DisappearingMessagesConfiguration {
 // MARK: - Control Message
 
 public extension DisappearingMessagesConfiguration {
-    static func insertControlMessage(
+    func clearUnrelatedControlMessages(
         _ db: Database,
-        threadId: String,
+        threadVariant: SessionThread.Variant,
+        using dependencies: Dependencies
+    ) throws {
+        guard threadVariant == .contact else {
+            try Interaction
+                .filter(Interaction.Columns.threadId == self.threadId)
+                .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                .filter(Interaction.Columns.expiresInSeconds != self.durationSeconds)
+                .deleteAll(db)
+            return
+        }
+        
+        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        
+        switch (self.isEnabled, self.type) {
+            case (false, _):
+                try Interaction
+                    .filter(Interaction.Columns.threadId == self.threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == userSessionId.hexString)
+                    .filter(Interaction.Columns.expiresInSeconds != 0)
+                    .deleteAll(db)
+                
+            case (true, .disappearAfterRead):
+                try Interaction
+                    .filter(Interaction.Columns.threadId == self.threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == userSessionId.hexString)
+                    .filter(!(Interaction.Columns.expiresInSeconds == self.durationSeconds && Interaction.Columns.expiresStartedAtMs != Interaction.Columns.timestampMs))
+                    .deleteAll(db)
+            
+            case (true, .disappearAfterSend):
+                try Interaction
+                    .filter(Interaction.Columns.threadId == self.threadId)
+                    .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
+                    .filter(Interaction.Columns.authorId == userSessionId.hexString)
+                    .filter(!(Interaction.Columns.expiresInSeconds == self.durationSeconds && Interaction.Columns.expiresStartedAtMs == Interaction.Columns.timestampMs))
+                    .deleteAll(db)
+                
+            default: break
+        }
+    }
+    
+    func insertControlMessage(
+        _ db: Database,
         threadVariant: SessionThread.Variant,
         authorId: String,
         timestampMs: Int64,
         serverHash: String?,
-        updatedConfiguration: DisappearingMessagesConfiguration,
+        serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> Int64? {
         if dependencies[feature: .updatedDisappearingMessages] {
@@ -264,37 +308,49 @@ public extension DisappearingMessagesConfiguration {
         }
         
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        let expiresStartedAtMs: Double? = {
-            if updatedConfiguration.type == .disappearAfterSend ||
-                SessionUtil.timestampAlreadyRead(
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    timestampMs: timestampMs,
-                    userSessionId: userSessionId,
-                    openGroup: nil,
-                    using: dependencies
-                )
-            {
-                return Double(timestampMs)
-            }
-            
-            return nil
-        }()
-        
+        let wasRead: Bool = (
+            authorId == userSessionId.hexString ||
+            SessionUtil.timestampAlreadyRead(
+                threadId: threadId,
+                threadVariant: threadVariant,
+                timestampMs: timestampMs,
+                userSessionId: getUserSessionId(db, using: dependencies),
+                openGroup: nil,
+                using: dependencies
+            )
+        )
+        let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
+            wasRead: wasRead, 
+            serverExpirationTimestamp: serverExpirationTimestamp,
+            expiresInSeconds: self.durationSeconds,
+            expiresStartedAtMs: (self.type == .disappearAfterSend) ? Double(timestampMs) : nil
+        )
         let interaction = try Interaction(
             serverHash: serverHash,
             threadId: threadId,
             authorId: authorId,
             variant: .infoDisappearingMessagesUpdate,
-            body: updatedConfiguration.messageInfoString(
+            body: self.messageInfoString(
                 threadVariant: threadVariant,
                 senderName: (authorId != userSessionId.hexString ? Profile.displayName(db, id: authorId) : nil),
                 using: dependencies
             ),
             timestampMs: timestampMs,
-            expiresInSeconds: (threadVariant == .legacyGroup ? nil : updatedConfiguration.durationSeconds), // Do not expire this control message in legacy groups
-            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : expiresStartedAtMs)
+            wasRead: wasRead,
+            expiresInSeconds: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresInSeconds), // Do not expire this control message in legacy groups
+            expiresStartedAtMs: (threadVariant == .legacyGroup ? nil : messageExpirationInfo.expiresStartedAtMs)
         ).inserted(db)
+        
+        if messageExpirationInfo.shouldUpdateExpiry {
+            Message.updateExpiryForDisappearAfterReadMessages(
+                db,
+                threadId: threadId,
+                serverHash: serverHash,
+                expiresInSeconds: messageExpirationInfo.expiresInSeconds,
+                expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
+                using: dependencies
+            )
+        }
         
         return interaction.id
     }

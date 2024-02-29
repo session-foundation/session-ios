@@ -337,6 +337,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Configuration.performMainSetup(using: dependencies)
         dependencies[singleton: .jobRunner].setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
         
+        /// We need to do a clean up for disappear after send messages that are received by push notifications before
+        /// the app set up the main screen and load initial data to prevent a case when the PagedDatabaseObserver
+        /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
+        DisappearingMessagesJob.cleanExpiredMessagesOnLaunch(using: dependencies)
+        
         // Setup the UI if needed, then trigger any post-UI setup actions
         self.ensureRootViewController(calledFrom: lifecycleMethod, using: dependencies) { [weak self] success in
             // If we didn't successfully ensure the rootViewController then don't continue as

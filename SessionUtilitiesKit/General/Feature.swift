@@ -17,7 +17,7 @@ public extension FeatureStorage {
         identifier: "updatedDisappearingMessages",
         automaticChangeBehaviour: Feature<Bool>.ChangeBehaviour(
             value: true,
-            condition: .after(timestamp: Date.distantFuture.timeIntervalSince1970)   // TODO: Set this date
+            condition: .after(timestamp: 1710284400)
         )
     )
     

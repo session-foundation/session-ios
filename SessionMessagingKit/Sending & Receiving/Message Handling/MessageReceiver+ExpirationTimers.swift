@@ -159,15 +159,12 @@ extension MessageReceiver {
         
         guard dependencies[feature: .updatedDisappearingMessages] else { return }
         
-        if contactId == getUserSessionId(db).hexString {
+        if contactId == getUserSessionId(db, using: dependencies).hexString {
             switch version {
-                case .legacyDisappearingMessages:
-                    TopBannerController.show(warning: .outdatedUserConfig)
-                case .newDisappearingMessages:
-                    TopBannerController.hide()
+                case .legacyDisappearingMessages: TopBannerController.show(warning: .outdatedUserConfig)
+                case .newDisappearingMessages: TopBannerController.hide()
             }
         }
-        
     }
     
     internal static func handleExpirationTimerUpdate(
@@ -175,6 +172,7 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
+        serverExpirationTimestamp: TimeInterval?,
         proto: SNProtoContent,
         using dependencies: Dependencies
     ) throws {
@@ -211,7 +209,7 @@ extension MessageReceiver {
                     threadId != getUserSessionId(db, using: dependencies).hexString &&
                     updatedConfig != localConfig
                 else { return }
-                
+
                 try SessionUtil
                     .update(
                         db,
@@ -220,14 +218,13 @@ extension MessageReceiver {
                         using: dependencies
                     )
                 
-                _ = try DisappearingMessagesConfiguration.insertControlMessage(
+                _ = try updatedConfig.insertControlMessage(
                     db,
-                    threadId: threadId,
                     threadVariant: threadVariant,
                     authorId: sender,
                     timestampMs: Int64(timestampMs),
                     serverHash: message.serverHash,
-                    updatedConfiguration: updatedConfig,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
             
@@ -251,14 +248,13 @@ extension MessageReceiver {
                         using: dependencies
                     )
                 
-                _ = try DisappearingMessagesConfiguration.insertControlMessage(
+                _ = try updatedConfig.insertControlMessage(
                     db,
-                    threadId: threadId,
                     threadVariant: threadVariant,
                     authorId: sender,
                     timestampMs: Int64(timestampMs),
                     serverHash: message.serverHash,
-                    updatedConfiguration: updatedConfig,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
             

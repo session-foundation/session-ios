@@ -40,7 +40,6 @@ public class Message: Codable {
         receivedTimestamp: UInt64? = nil,
         recipient: String? = nil,
         sender: String? = nil,
-        groupPublicKey: String? = nil,
         openGroupServerMessageId: UInt64? = nil,
         serverHash: String? = nil,
         expiresInSeconds: TimeInterval? = nil,
@@ -688,6 +687,7 @@ public extension Message {
     
     internal static func getSpecifiedTTL(
         message: Message,
+        isGroupMessage: Bool,
         isSyncMessage: Bool,
         using dependencies: Dependencies
     ) -> UInt64 {
@@ -708,6 +708,8 @@ public extension Message {
         switch message {
             case is ClosedGroupControlMessage, is UnsendRequest:
                 return message.ttl
+            case is ExpirationTimerUpdate:
+                return isGroupMessage ? message.ttl : UInt64(expiresInSeconds * 1000)
             default:
                 return UInt64(expiresInSeconds * 1000)
         }

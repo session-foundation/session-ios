@@ -1007,7 +1007,7 @@ public extension SessionThreadViewModel {
         /// the `disappearingMessageSConfiguration` entry below otherwise the query will fail to parse and might throw
         ///
         /// Explicitly set default values for the fields ignored for search results
-        let numColumnsBeforeProfiles: Int = 16
+        let numColumnsBeforeProfiles: Int = 17
         let request: SQLRequest<ViewModel> = """
             SELECT
                 \(thread[.rowId]) AS \(ViewModel.Columns.rowId),

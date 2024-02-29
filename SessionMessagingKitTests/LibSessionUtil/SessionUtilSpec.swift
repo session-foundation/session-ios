@@ -874,10 +874,17 @@ class SessionUtilSpec: QuickSpec {
                     expect(latestGroup?.groupDescription).to(equal("UpdatedDesc"))
                 }
                 
-                // MARK: ---- updates the formation timestamp if it changed
-                it("updates the formation timestamp if it changed") {
+                // MARK: ---- updates the formation timestamp if it is later than the current value
+                it("updates the formation timestamp if it is later than the current value") {
+                    // Note: the 'formationTimestamp' stores the "joinedAt" date so we on'y update it if it's later
+                    // than the current value (as we don't want to replace the record of when the current user joined
+                    // the group with when the group was originally created)
+                    mockStorage.write { db in try ClosedGroup.updateAll(db, ClosedGroup.Columns.formationTimestamp.set(to: 50000)) }
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_created($0, 54321) }
                     dependencies.setMockableValue(key: "needsDump", true)
+                    let originalGroup: ClosedGroup? = mockStorage.read(using: dependencies) { db in
+                        try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
+                    }
                     
                     mockStorage.write(using: dependencies) { db in
                         try SessionUtil.handleGroupInfoUpdate(
@@ -892,7 +899,7 @@ class SessionUtilSpec: QuickSpec {
                     latestGroup = mockStorage.read(using: dependencies) { db in
                         try ClosedGroup.fetchOne(db, id: createGroupOutput.group.threadId)
                     }
-                    expect(createGroupOutput.group.formationTimestamp).to(equal(1234567890))
+                    expect(originalGroup?.formationTimestamp).to(equal(50000))
                     expect(latestGroup?.formationTimestamp).to(equal(54321))
                 }
                 

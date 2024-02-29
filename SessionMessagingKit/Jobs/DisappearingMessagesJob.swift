@@ -46,6 +46,24 @@ public enum DisappearingMessagesJob: JobExecutor {
     }
 }
 
+// MARK: - Clean expired messages on app launch
+
+public extension DisappearingMessagesJob {
+    static func cleanExpiredMessagesOnLaunch(using dependencies: Dependencies) {
+        let timestampNowMs: TimeInterval = TimeInterval(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+        var numDeleted: Int = -1
+        
+        dependencies[singleton: .storage].write { db in
+            numDeleted = try Interaction
+                .filter(Interaction.Columns.expiresStartedAtMs != nil)
+                .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
+                .deleteAll(db)
+        }
+        
+        SNLog("[DisappearingMessagesJob] Deleted \(numDeleted) expired messages on app launch.")
+    }
+}
+
 // MARK: - Convenience
 
 public extension DisappearingMessagesJob {
@@ -53,9 +71,6 @@ public extension DisappearingMessagesJob {
         _ db: Database,
         using dependencies: Dependencies = Dependencies()
     ) -> Job? {
-        // Don't run when inactive or not in main app
-        guard dependencies[defaults: .appGroup, key: .isMainAppActive] else { return nil }
-        
         // If there is another expiring message then update the job to run 1 second after it's meant to expire
         let nextExpirationTimestampMs: Double? = try? Interaction
             .filter(Interaction.Columns.expiresStartedAtMs != nil)

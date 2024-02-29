@@ -6,6 +6,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 final class SessionTableViewTitleView: UIView {
+    private static let maxWidth: CGFloat = UIScreen.main.bounds.width - 44 * 2 - 16 * 2
     private var oldSize: CGSize = .zero
     
     override var frame: CGRect {
@@ -37,7 +38,10 @@ final class SessionTableViewTitleView: UIView {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.miniFontSize)
         result.themeTextColor = .textPrimary
-        result.lineBreakMode = .byTruncatingTail
+        result.lineBreakMode = .byWordWrapping
+        result.numberOfLines = 0
+        result.textAlignment = .center
+        result.set(.width, lessThanOrEqualTo: Self.maxWidth)
         
         return result
     }()
@@ -49,6 +53,8 @@ final class SessionTableViewTitleView: UIView {
         
         return result
     }()
+    
+    private lazy var subtitleLabelHeightConstraint: NSLayoutConstraint = subtitleLabel.set(.height, to: 0)
 
     // MARK: - Initialization
     
@@ -87,6 +93,12 @@ final class SessionTableViewTitleView: UIView {
             )
         )
         
-        self.subtitleLabel.text = subtitle
+        if let subtitle: String = subtitle {
+            subtitleLabelHeightConstraint.constant = subtitle.heightWithConstrainedWidth(width: Self.maxWidth, font: self.subtitleLabel.font)
+            self.subtitleLabel.text = subtitle
+            self.subtitleLabel.isHidden = false
+        } else {
+            self.subtitleLabel.isHidden = true
+        }
     }
 }

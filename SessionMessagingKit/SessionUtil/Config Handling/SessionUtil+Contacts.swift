@@ -184,12 +184,13 @@ internal extension SessionUtil {
                 )
                 
                 if isValid && data.config != localConfig {
-                    _ = try data.config.upsert(db)
-                    _ = try Interaction
-                        .filter(Interaction.Columns.threadId == sessionId)
-                        .filter(Interaction.Columns.variant == Interaction.Variant.infoDisappearingMessagesUpdate)
-                        .filter(Interaction.Columns.authorId == getUserSessionId(db, using: dependencies).hexString)
-                        .deleteAll(db)
+                    try data.config
+                        .saved(db)
+                        .clearUnrelatedControlMessages(
+                            db,
+                            threadVariant: .contact,
+                            using: dependencies
+                        )
                 }
             }
         
