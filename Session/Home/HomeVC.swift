@@ -863,8 +863,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         if let presentedVC = self.presentedViewController {
             presentedVC.dismiss(animated: false, completion: nil)
         }
-//        let searchController = GlobalSearchViewController()
-        let searchController = SessionHostingViewController(rootView: GlobalSearchScreen(), shouldHideNavigationBar: true)
+        let searchController = GlobalSearchViewController()
         self.navigationController?.setViewControllers([ self, searchController ], animated: true)
     }
     
