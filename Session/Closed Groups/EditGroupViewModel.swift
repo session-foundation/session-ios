@@ -349,19 +349,17 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             trailingAccessory: {
                                 switch (memberInfo.value.role, memberInfo.value.roleStatus) {
                                     case (.admin, _), (.moderator, _): return nil
-                                    case (.standard, .failed), (.standard, .sending):
-                                        return .highlightingBackgroundLabel(
+                                    case (.standard, .failed), (.standard, .sending), (.standard, .pending):
+                                        return .highlightingBackgroundLabelAndRadio(
                                             title: "context_menu_resend".localized(),
-                                            accessibility: Accessibility(
+                                            isSelected: selectedIdsSubject.value.contains(memberInfo.profileId),
+                                            labelAccessibility: Accessibility(
                                                 identifier: "Resend invite",
                                                 label: "Resend invite"
                                             )
                                         )
-                                    
-                                    // Intentionally including the 'pending' state in here as we want admins to
-                                    // be able to remove pending members - to resend the admin will have to remove
-                                    // and re-add the member
-                                    case (.standard, .pending), (.standard, .accepted), (.zombie, _):
+                                        
+                                    case (.standard, .accepted), (.zombie, _):
                                         return .radio(
                                             isSelected: selectedIdsSubject.value.contains(memberInfo.profileId)
                                         )
@@ -376,19 +374,22 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 ),
                                 backgroundStyle: .noBackgroundEdgeToEdge
                             ),
-                            onTap: { [weak self, selectedIdsSubject] in
-                                switch (memberInfo.value.role, memberInfo.value.roleStatus) {
-                                    case (.moderator, _): return
-                                    case (.admin, _):
+                            onTapView: { [weak self, selectedIdsSubject] targetView in
+                                let didTapResend: Bool = (targetView is SessionHighlightingBackgroundLabel)
+                                // TODO: updated group control messages are busted???
+                                switch (memberInfo.value.role, memberInfo.value.roleStatus, didTapResend) {
+                                    case (.moderator, _, _): return
+                                    case (.admin, _, _):
                                         self?.showToast(
                                             text: "EDIT_GROUP_MEMBERS_ERROR_REMOVE_ADMIN".localized(),
                                             backgroundColor: .backgroundSecondary
                                         )
                                         
-                                    case (.standard, .failed), (.standard, .sending):
+                                    case (.standard, .failed, true), (.standard, .sending, true), (.standard, .pending, true):
                                         self?.resendInvitation(memberId: memberInfo.profileId)
 
-                                    case (.standard, .pending), (.standard, .accepted), (.zombie, _):
+                                    case (.standard, .failed, _), (.standard, .sending, _), (.standard, .pending, _),
+                                        (.standard, .accepted, _), (.zombie, _, _):
                                         if !selectedIdsSubject.value.contains(memberInfo.profileId) {
                                             selectedIdsSubject.send(selectedIdsSubject.value.inserting(memberInfo.profileId))
                                         }

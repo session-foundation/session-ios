@@ -564,23 +564,56 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                 return nil
             }
             
+            // Retrieve the last touch location from the cell
+            let touchLocation: UITouch? = cell.lastTouchLocation
+            cell.lastTouchLocation = nil
+            
             switch (info.leadingAccessory, info.trailingAccessory) {
                 case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabel):
                     return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell)
                     
                 case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabel, _):
                     return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell)
+                    
+                case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio):
+                    guard let touchLocation: UITouch = touchLocation else { return cell }
+                    
+                    let localPoint: CGPoint = touchLocation.location(in: cell.trailingAccessoryView.highlightingBackgroundLabel)
+                    
+                    guard
+                        !cell.trailingAccessoryView.isHidden &&
+                        cell.trailingAccessoryView.highlightingBackgroundLabel.bounds.contains(localPoint)
+                    else { return (!cell.trailingAccessoryView.isHidden ? cell.trailingAccessoryView : cell) }
+                    
+                    return cell.trailingAccessoryView.highlightingBackgroundLabel
+                    
+                case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
+                    guard let touchLocation: UITouch = touchLocation else { return cell }
+                    
+                    let localPoint: CGPoint = touchLocation.location(in: cell.trailingAccessoryView.highlightingBackgroundLabel)
+                    
+                    guard
+                        !cell.leadingAccessoryView.isHidden &&
+                        cell.leadingAccessoryView.highlightingBackgroundLabel.bounds.contains(localPoint)
+                    else { return (!cell.leadingAccessoryView.isHidden ? cell.leadingAccessoryView : cell) }
+                    
+                    return cell.leadingAccessoryView.highlightingBackgroundLabel
                 
                 default:
                     return cell
             }
         }()
+        
         let maybeOldSelection: (Int, SessionCell.Info<TableItem>)? = section.elements
             .enumerated()
             .first(where: { index, info in
                 switch (info.leadingAccessory, info.trailingAccessory) {
                     case (_, let accessory as SessionCell.AccessoryConfig.Radio): return accessory.liveIsSelected()
                     case (let accessory as SessionCell.AccessoryConfig.Radio, _): return accessory.liveIsSelected()
+                    case (_, let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio):
+                        return accessory.liveIsSelected()
+                    case (let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
+                        return accessory.liveIsSelected()
                     default: return false
                 }
             })

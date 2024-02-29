@@ -110,6 +110,26 @@ public extension SessionCell.Accessory {
         )
     }
     
+    static func highlightingBackgroundLabelAndRadio(
+        title: String,
+        radioSize: SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio.Size = .medium,
+        isSelected: Bool? = nil,
+        liveIsSelected: (() -> Bool)? = nil,
+        wasSavedSelection: Bool = false,
+        accessibility: Accessibility? = nil,
+        labelAccessibility: Accessibility? = nil
+    ) -> SessionCell.Accessory {
+        return SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio(
+            title: title,
+            radioSize: radioSize,
+            initialIsSelected: ((isSelected ?? liveIsSelected?()) ?? false),
+            liveIsSelected: (liveIsSelected ?? { (isSelected ?? false) }),
+            wasSavedSelection: wasSavedSelection,
+            accessibility: accessibility,
+            labelAccessibility: labelAccessibility
+        )
+    }
+    
     static func profile(
         id: String,
         size: ProfilePictureView.Size = .list,
@@ -433,6 +453,81 @@ public extension SessionCell.AccessoryConfig {
             return (
                 title == rhs.title &&
                 accessibility == rhs.accessibility
+            )
+        }
+    }
+    
+    // MARK: - HighlightingBackgroundLabelAndRadio
+    
+    class HighlightingBackgroundLabelAndRadio: SessionCell.Accessory {
+        public enum Size: Hashable, Equatable {
+            case small
+            case medium
+            
+            var borderSize: CGFloat {
+                switch self {
+                    case .small: return 20
+                    case .medium: return 26
+                }
+            }
+            
+            var selectionSize: CGFloat {
+                switch self {
+                    case .small: return 15
+                    case .medium: return 20
+                }
+            }
+        }
+        
+        public let title: String
+        public let size: Size
+        public let initialIsSelected: Bool
+        public let liveIsSelected: () -> Bool
+        public let wasSavedSelection: Bool
+        public let labelAccessibility: Accessibility?
+        
+        override public var currentBoolValue: Bool { liveIsSelected() }
+        
+        fileprivate init(
+            title: String,
+            radioSize: Size,
+            initialIsSelected: Bool,
+            liveIsSelected: @escaping () -> Bool,
+            wasSavedSelection: Bool,
+            accessibility: Accessibility?,
+            labelAccessibility: Accessibility?
+        ) {
+            self.title = title
+            self.size = radioSize
+            self.initialIsSelected = initialIsSelected
+            self.liveIsSelected = liveIsSelected
+            self.wasSavedSelection = wasSavedSelection
+            self.labelAccessibility = labelAccessibility
+            
+            super.init(accessibility: accessibility)
+        }
+        
+        // MARK: - Conformance
+        
+        override public func hash(into hasher: inout Hasher) {
+            title.hash(into: &hasher)
+            size.hash(into: &hasher)
+            initialIsSelected.hash(into: &hasher)
+            wasSavedSelection.hash(into: &hasher)
+            accessibility.hash(into: &hasher)
+            labelAccessibility.hash(into: &hasher)
+        }
+        
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            guard let rhs: HighlightingBackgroundLabelAndRadio = other as? HighlightingBackgroundLabelAndRadio else { return false }
+            
+            return (
+                title == rhs.title &&
+                size == rhs.size &&
+                initialIsSelected == rhs.initialIsSelected &&
+                wasSavedSelection == rhs.wasSavedSelection &&
+                accessibility == rhs.accessibility &&
+                labelAccessibility == rhs.labelAccessibility
             )
         }
     }

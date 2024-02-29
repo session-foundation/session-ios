@@ -12,6 +12,7 @@ public class SessionCell: UITableViewCell {
     
     private var isEditingTitle = false
     public private(set) var interactionMode: SessionCell.TextInfo.Interaction = .none
+    public var lastTouchLocation: UITouch?
     private var shouldHighlightTitle: Bool = true
     private var originalInputValue: String?
     private var titleExtraView: UIView?
@@ -609,6 +610,12 @@ public class SessionCell: UITableViewCell {
 
         leadingAccessoryView.setSelected(selected, animated: animated)
         trailingAccessoryView.setSelected(selected, animated: animated)
+    }
+    
+    public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesEnded(touches, with: event)
+        
+        lastTouchLocation = touches.first
     }
 }
 

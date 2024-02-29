@@ -46,7 +46,8 @@ extension SessionCell {
         private lazy var radioBorderViewHeightConstraint: NSLayoutConstraint = radioBorderView.set(.height, to: 0)
         private lazy var radioBorderViewConstraints: [NSLayoutConstraint] = [
             radioBorderView.pin(.top, to: .top, of: self),
-            radioBorderView.center(.horizontal, in: self),
+            radioBorderView.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing),
+            radioBorderView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing),
             radioBorderView.pin(.bottom, to: .bottom, of: self)
         ]
         private lazy var highlightingBackgroundLabelConstraints: [NSLayoutConstraint] = [
@@ -54,6 +55,14 @@ extension SessionCell {
             highlightingBackgroundLabel.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing),
             highlightingBackgroundLabel.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing),
             highlightingBackgroundLabel.pin(.bottom, to: .bottom, of: self)
+        ]
+        private lazy var highlightingBackgroundLabelAndRadioConstraints: [NSLayoutConstraint] = [
+            highlightingBackgroundLabel.pin(.top, to: .top, of: self),
+            highlightingBackgroundLabel.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing),
+            highlightingBackgroundLabel.pin(.trailing, to: .leading, of: radioBorderView, withInset: -Values.smallSpacing),
+            highlightingBackgroundLabel.pin(.bottom, to: .bottom, of: self),
+            radioBorderView.center(.vertical, in: self),
+            radioBorderView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing),
         ]
         private lazy var profilePictureViewConstraints: [NSLayoutConstraint] = [
             profilePictureView.pin(.top, to: .top, of: self),
@@ -269,6 +278,7 @@ extension SessionCell {
             radioBorderViewHeightConstraint.isActive = false
             radioBorderViewConstraints.forEach { $0.isActive = false }
             highlightingBackgroundLabelConstraints.forEach { $0.isActive = false }
+            highlightingBackgroundLabelAndRadioConstraints.forEach { $0.isActive = false }
             profilePictureViewConstraints.forEach { $0.isActive = false }
             searchBarConstraints.forEach { $0.isActive = false }
             buttonConstraints.forEach { $0.isActive = false }
@@ -431,7 +441,6 @@ extension SessionCell {
                     radioBorderViewWidthConstraint.constant = accessory.size.borderSize
                     radioBorderViewHeightConstraint.constant = accessory.size.borderSize
                     
-                    fixedWidthConstraint.isActive = true
                     radioViewWidthConstraint.isActive = true
                     radioViewHeightConstraint.isActive = true
                     radioBorderViewWidthConstraint.isActive = true
@@ -446,6 +455,68 @@ extension SessionCell {
                     highlightingBackgroundLabel.themeTextColor = tintColor
                     highlightingBackgroundLabel.isHidden = false
                     highlightingBackgroundLabelConstraints.forEach { $0.isActive = true }
+                    minWidthConstraint.isActive = true
+                    
+                // MARK: -- HighlightingBackgroundLabelAndRadio
+                case let accessory as SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio:
+                    let isSelected: Bool = accessory.liveIsSelected()
+                    let wasOldSelection: Bool = (!isSelected && accessory.wasSavedSelection)
+                    highlightingBackgroundLabel.accessibilityIdentifier = accessory.labelAccessibility?.identifier
+                    highlightingBackgroundLabel.accessibilityLabel = accessory.labelAccessibility?.label
+                    radioView.isAccessibilityElement = true
+                
+                    if isSelected || wasOldSelection {
+                        radioView.accessibilityTraits.insert(.selected)
+                        radioView.accessibilityValue = "selected"
+                    } else {
+                        radioView.accessibilityTraits.remove(.selected)
+                        radioView.accessibilityValue = nil
+                    }
+                    
+                    highlightingBackgroundLabel.text = accessory.title
+                    highlightingBackgroundLabel.themeTextColor = tintColor
+                    highlightingBackgroundLabel.isHidden = false
+                    radioBorderView.isHidden = false
+                    radioBorderView.themeBorderColor = {
+                        guard isEnabled else { return .radioButton_disabledBorder }
+                        
+                        return (isSelected ?
+                            .radioButton_selectedBorder :
+                            .radioButton_unselectedBorder
+                        )
+                    }()
+                    
+                    radioBorderView.layer.cornerRadius = (accessory.size.borderSize / 2)
+                    
+                    radioView.accessibilityIdentifier = accessory.accessibility?.identifier
+                    radioView.accessibilityLabel = accessory.accessibility?.label
+                    radioView.alpha = (wasOldSelection ? 0.3 : 1)
+                    radioView.isHidden = (!isSelected && !accessory.wasSavedSelection)
+                    radioView.themeBackgroundColor = {
+                        guard isEnabled else {
+                            return (isSelected || wasOldSelection ?
+                                .radioButton_disabledSelectedBackground :
+                                .radioButton_disabledUnselectedBackground
+                            )
+                        }
+                        
+                        return (isSelected || wasOldSelection ?
+                            .radioButton_selectedBackground :
+                            .radioButton_unselectedBackground
+                        )
+                    }()
+                    radioView.layer.cornerRadius = (accessory.size.selectionSize / 2)
+                    
+                    radioViewWidthConstraint.constant = accessory.size.selectionSize
+                    radioViewHeightConstraint.constant = accessory.size.selectionSize
+                    radioBorderViewWidthConstraint.constant = accessory.size.borderSize
+                    radioBorderViewHeightConstraint.constant = accessory.size.borderSize
+                    
+                    radioViewWidthConstraint.isActive = true
+                    radioViewHeightConstraint.isActive = true
+                    radioBorderViewWidthConstraint.isActive = true
+                    radioBorderViewHeightConstraint.isActive = true
+                    highlightingBackgroundLabelAndRadioConstraints.forEach { $0.isActive = true }
                     minWidthConstraint.isActive = true
                     
                 // MARK: -- DisplayPicture
