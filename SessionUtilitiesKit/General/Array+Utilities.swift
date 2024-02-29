@@ -56,6 +56,12 @@ public extension Array {
     func grouped<Key: Hashable>(by keyForValue: (Element) throws -> Key) -> [Key: [Element]] {
         return ((try? Dictionary(grouping: self, by: keyForValue)) ?? [:])
     }
+    
+    func nullIfEmpty() -> [Element]? {
+        guard !isEmpty else { return nil }
+        
+        return self
+    }
 }
 
 public extension Array where Element: Hashable {

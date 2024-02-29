@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
+import SessionSnodeKit
 
 extension ContextMenuVC {
     final class ActionView: UIView {
@@ -12,26 +13,48 @@ extension ContextMenuVC {
         private let action: Action
         private let dismiss: () -> Void
         private var didTouchDownInside: Bool = false
+        private var timer: Timer?
         
         // MARK: - UI
         
-        private let iconImageView: UIImageView = {
+        private lazy var iconImageView: UIImageView = {
             let result: UIImageView = UIImageView()
             result.contentMode = .center
-            result.themeTintColor = .textPrimary
+            result.themeTintColor = action.themeColor
             result.set(.width, to: ActionView.iconImageViewSize)
             result.set(.height, to: ActionView.iconImageViewSize)
             
             return result
         }()
         
-        private let titleLabel: UILabel = {
+        private lazy var titleLabel: UILabel = {
             let result: UILabel = UILabel()
             result.font = .systemFont(ofSize: Values.mediumFontSize)
-            result.themeTextColor = .textPrimary
+            result.themeTextColor = action.themeColor
             
             return result
         }()
+        
+        private lazy var subtitleLabel: UILabel = {
+            let result: UILabel = UILabel()
+            result.font = .systemFont(ofSize: Values.miniFontSize)
+            result.themeTextColor = action.themeColor
+            
+            return result
+        }()
+        
+        private lazy var labelContainer: UIView = {
+            let result: UIView = UIView()
+            result.addSubview(titleLabel)
+            result.addSubview(subtitleLabel)
+            titleLabel.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top ], to: result)
+            subtitleLabel.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.bottom ], to: result)
+            titleLabel.pin(.bottom, to: .top, of: subtitleLabel)
+            
+            return result
+        }()
+        
+        private lazy var subtitleWidthConstraint = labelContainer.set(.width, greaterThanOrEqualTo: 115)
 
         // MARK: - Lifecycle
         
@@ -59,9 +82,10 @@ extension ContextMenuVC {
                 .resizedImage(to: CGSize(width: ActionView.iconSize, height: ActionView.iconSize))?
                 .withRenderingMode(.alwaysTemplate)
             titleLabel.text = action.title
+            setUpSubtitle()
             
             // Stack view
-            let stackView: UIStackView = UIStackView(arrangedSubviews: [ iconImageView, titleLabel ])
+            let stackView: UIStackView = UIStackView(arrangedSubviews: [ iconImageView, labelContainer ])
             stackView.axis = .horizontal
             stackView.spacing = Values.smallSpacing
             stackView.alignment = .center
@@ -82,11 +106,47 @@ extension ContextMenuVC {
             addGestureRecognizer(tapGestureRecognizer)
         }
         
+        private func setUpSubtitle() {
+            guard 
+                let expiresInSeconds = self.action.expirationInfo?.expiresInSeconds,
+                let expiresStartedAtMs = self.action.expirationInfo?.expiresStartedAtMs
+            else {
+                subtitleLabel.isHidden = true
+                subtitleWidthConstraint.isActive = false
+                return
+            }
+            
+            subtitleLabel.isHidden = false
+            subtitleWidthConstraint.isActive = true
+            // To prevent a negative timer
+            let timeToExpireInSeconds: TimeInterval =  max(0, (expiresStartedAtMs + expiresInSeconds * 1000 - Double(SnodeAPI.currentOffsetTimestampMs())) / 1000)
+            subtitleLabel.text = String(format: "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN".localized(), timeToExpireInSeconds.formatted(format: .twoUnits))
+            
+            timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 1, repeats: true, block: { [weak self] _ in
+                let timeToExpireInSeconds: TimeInterval =  (expiresStartedAtMs + expiresInSeconds * 1000 - Double(SnodeAPI.currentOffsetTimestampMs())) / 1000
+                if timeToExpireInSeconds <= 0 {
+                    self?.dismissWithTimerInvalidationIfNeeded()
+                } else {
+                    self?.subtitleLabel.text = String(format: "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN".localized(), timeToExpireInSeconds.formatted(format: .twoUnits))
+                }
+            })
+        }
+        
+        override func removeFromSuperview() {
+            self.timer?.invalidate()
+            super.removeFromSuperview()
+        }
+        
         // MARK: - Interaction
+        
+        private func dismissWithTimerInvalidationIfNeeded() {
+            self.timer?.invalidate()
+            dismiss()
+        }
         
         @objc private func handleTap() {
             action.work()
-            dismiss()
+            dismissWithTimerInvalidationIfNeeded()
         }
         
         override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

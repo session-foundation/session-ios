@@ -130,12 +130,16 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
             switch self {
                 case .standardIncoming: return true
                 case .infoCall: return true
+
+                case .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification:
+                    /// These won't be counted as unread messages but need to be able to be in an unread state so that they can disappear
+                    /// after being read (if we don't do this their expiration timer will start immediately when received)
+                    return true
                 
                 case .standardOutgoing, .standardIncomingDeleted: return false
                 
                 case .infoClosedGroupCreated, .infoClosedGroupUpdated,
                     .infoClosedGroupCurrentUserLeft, .infoClosedGroupCurrentUserLeaving, .infoClosedGroupCurrentUserErrorLeaving,
-                    .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
                     .infoMessageRequestAccepted:
                     return false
             }
@@ -192,6 +196,10 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     /// A flag indicating whether the interaction has been read (this is a flag rather than a timestamp because
     /// we couldn’t know if a read timestamp is accurate)
     ///
+    /// This flag is used:
+    ///  - In conjunction with `Interaction.variantsToIncrementUnreadCount` to determine the unread count for a thread
+    ///  - In order to determine whether the "Disappear After Read" expiration type should be started
+    ///
     /// **Note:** This flag is not applicable to standardOutgoing or standardIncomingDeleted interactions
     public private(set) var wasRead: Bool
     
@@ -199,12 +207,12 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     public let hasMention: Bool
     
     /// The number of seconds until this message should expire
-    public let expiresInSeconds: TimeInterval?
+    public private(set) var expiresInSeconds: TimeInterval?
     
     /// The timestamp in milliseconds since 1970 at which this messages expiration timer started counting
     /// down (this is stored in order to allow the `expiresInSeconds` value to be updated before a
     /// message has expired)
-    public let expiresStartedAtMs: Double?
+    public private(set) var expiresStartedAtMs: Double?
     
     /// This value is the url for the link preview for this interaction
     ///
@@ -419,6 +427,14 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
                 
             default: break
         }
+        
+        // Start the disappearing messages timer if needed
+        if self.expiresStartedAtMs != nil {
+            JobRunner.upsert(
+                db,
+                job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+            )
+        }
     }
     
     public mutating func didInsert(_ inserted: InsertionSuccess) {
@@ -458,6 +474,31 @@ public extension Interaction {
             openGroupServerMessageId: (openGroupServerMessageId ?? self.openGroupServerMessageId),
             openGroupWhisperMods: self.openGroupWhisperMods,
             openGroupWhisperTo: self.openGroupWhisperTo
+        )
+    }
+    
+    func withDisappearAfterReadIfNeeded(_ db: Database) -> Interaction {
+        if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
+            return self.withDisappearingMessagesConfiguration(
+                config: config.with(type: .disappearAfterRead)
+            )
+        }
+        
+        return self
+    }
+    
+    func withDisappearingMessagesConfiguration(_ db: Database) -> Interaction {
+        if let config = try? DisappearingMessagesConfiguration.fetchOne(db, id: self.threadId) {
+            return self.withDisappearingMessagesConfiguration(config: config)
+        }
+        
+        return self
+    }
+    
+    func withDisappearingMessagesConfiguration(config: DisappearingMessagesConfiguration?) -> Interaction {
+        return self.with(
+            expiresInSeconds: config?.durationSeconds,
+            expiresStartedAtMs: (config?.type == .disappearAfterSend ? Double(self.timestampMs) : nil)
         )
     }
 }
@@ -690,18 +731,26 @@ public extension Interaction {
                 threadVariant: threadVariant,
                 lastReadTimestampMs: lastReadTimestampMs
             )
-        }
-        
-        // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
-        // messages `expiresStartedAtMs` values
-        JobRunner.upsert(
-            db,
-            job: DisappearingMessagesJob.updateNextRunIfNeeded(
+            
+            // Add the 'DisappearingMessagesJob' if needed - this will update any expiring
+            // messages `expiresStartedAtMs` values
+            JobRunner.upsert(
                 db,
-                interactionIds: interactionInfo.map { $0.id },
-                startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                    db,
+                    interactionIds: interactionInfo.map { $0.id },
+                    startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs()),
+                    threadId: threadId
+                )
             )
-        )
+        } else {
+            // Update old disappearing after read messages to start
+            DisappearingMessagesJob.updateNextRunIfNeeded(
+                db,
+                lastReadTimestampMs: lastReadTimestampMs,
+                threadId: threadId
+            )
+        }
         
         // Clear out any notifications for the interactions we mark as read
         Environment.shared?.notificationsManager.wrappedValue?.cancelNotifications(
@@ -794,8 +843,6 @@ public extension Interaction {
     // MARK: - Variables
     
     var isExpiringMessage: Bool {
-        guard variant == .standardIncoming || variant == .standardOutgoing else { return false }
-        
         return (expiresInSeconds ?? 0 > 0)
     }
     

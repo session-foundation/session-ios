@@ -69,7 +69,7 @@ public final class ConfigurationMessage: ControlMessage {
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? { return nil }
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? { return nil }
 
     // MARK: - Description
     

@@ -61,7 +61,7 @@ public final class UnsendRequest: ControlMessage {
         return UnsendRequest(timestamp: timestamp, author: author)
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         guard let timestamp = timestamp, let author = author else {
             SNLog("Couldn't construct unsend request proto from: \(self).")
             return nil
@@ -70,6 +70,8 @@ public final class UnsendRequest: ControlMessage {
         let contentProto = SNProtoContent.builder()
         do {
             contentProto.setUnsendRequest(try unsendRequestProto.build())
+            // DisappearingMessagesConfiguration
+            setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
             return try contentProto.build()
         } catch {
             SNLog("Couldn't construct unsend request proto from: \(self).")

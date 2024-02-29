@@ -21,7 +21,7 @@ final class UnreadMarkerCell: MessageCell {
     
     private lazy var titleLabel: UILabel = {
         let result = UILabel()
-        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.font = .boldSystemFont(ofSize: Values.verySmallFontSize)
         result.text = "UNREAD_MESSAGES".localized()
         result.themeTextColor = .unreadMarker
         result.textAlignment = .center

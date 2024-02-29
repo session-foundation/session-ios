@@ -1,3 +1,6 @@
+// This build configuration requires the following to be installed:
+// Git, Xcode, XCode Command-line Tools, Cocoapods, Xcodebuild, Xcresultparser, pip
+
 // Log a bunch of version information to make it easier for debugging
 local version_info = {
   name: 'Version Information',
@@ -16,6 +19,15 @@ local clone_submodules = {
 
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
+
+// Output some information about the built tools in case specific combinations break the build
+local machine_info = {
+  name: 'Machine info',
+  commands: [
+    'xcodebuild -version',
+    'LANG=en_US.UTF-8 pod --version'
+  ]
+};
 
 // Cocoapods
 // 
@@ -86,18 +98,6 @@ local update_cocoapods_cache(depends_on) = {
   depends_on: depends_on,
 };
 
-// Run specified unit tests
-local run_tests(testName, testBuildStepName) = {
-  name: 'Run ' + testName,
-  commands: [
-    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test-without-building -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -destination "platform=iOS Simulator,name=iPhone 14" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -only-testing ' + testName + ' -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
-  ],
-  depends_on: [
-    testBuildStepName
-  ],
-};
-
-
 [
   // Unit tests (PRs only)
   {
@@ -112,42 +112,73 @@ local run_tests(testName, testBuildStepName) = {
       load_cocoapods_cache,
       install_cocoapods,
       {
-        name: 'Reset Simulators',
+        name: 'Pre-Boot Test Simulator',
         commands: [
-          'xcrun simctl shutdown all',
-          'xcrun simctl erase all'
-        ],
-        depends_on: [
-          'Install CocoaPods'
+          'mkdir -p build/artifacts',
+          'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
+          'xcrun simctl create "$(cat ./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
+          'echo $(xcrun simctl list devices | grep -m 1 $(cat ./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
+          'xcrun simctl boot $(cat ./build/artifacts/sim_uuid)',
+          'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(cat ./build/artifacts/sim_uuid).*")[0m"',
         ]
       },
       {
-        name: 'Build For Testing',
+        name: 'Build and Run Tests',
         commands: [
-          'mkdir build',
-          'xcodebuild build-for-testing -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -destination "platform=iOS Simulator,name=iPhone 14" | xcbeautify --is-ci',
+          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(cat ./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
         ],
         depends_on: [
+          'Pre-Boot Test Simulator',
           'Install CocoaPods'
         ],
       },
-      run_tests('SessionTests', 'Build For Testing'),
-      run_tests('SessionMessagingKitTests', 'Build For Testing'),
-      run_tests('SessionUtilitiesKitTests', 'Build For Testing'),
       {
-        name: 'Shutdown Simulators',
-        commands: [ 'xcrun simctl shutdown all' ],
+        name: 'Unit Test Summary',
+        commands: [
+          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult',
+        ],
+        depends_on: ['Build and Run Tests'],
+        when: {
+          status: ['failure', 'success']
+        }
+      },
+      {
+        name: 'Delete Test Simulator',
+        commands: [
+          'xcrun simctl delete $(cat ./build/artifacts/sim_uuid)'
+        ],
         depends_on: [
-          'Build For Testing',
-          'Run SessionTests',
-          'Run SessionMessagingKitTests',
-          'Run SessionUtilitiesKitTests'
+          'Build and Run Tests',
         ],
         when: {
           status: ['failure', 'success']
         }
       },
-      update_cocoapods_cache(['Build For Testing'])
+      update_cocoapods_cache(['Build and Run Tests']),
+      {
+        name: 'Install Codecov CLI',
+        commands: [
+          'pip3 install codecov-cli',
+          '~/Library/Python/3.9/bin/codecovcli --version'
+        ],
+      },
+      {
+        name: 'Convert xcresult to xml',
+        commands: [
+          'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
+        ],
+        depends_on: ['Build and Run Tests']
+      },
+      {
+        name: 'Upload coverage to Codecov',
+        commands: [
+          '~/Library/Python/3.9/bin/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+        ],
+        depends_on: [
+          'Convert xcresult to xml',
+          'Install Codecov CLI'
+        ]
+      },
     ],
   },
   // Validate build artifact was created by the direct branch push (PRs only)
@@ -200,5 +231,5 @@ local run_tests(testName, testBuildStepName) = {
         ]
       },
     ],
-  }
+  },
 ]

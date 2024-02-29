@@ -175,9 +175,9 @@
 /* alert title */
 "PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Nu am putut configura camera.";
 /* label for system photo collections which have no name. */
-"PHOTO_PICKER_UNNAMED_COLLECTION" = "Album fara nume";
+"PHOTO_PICKER_UNNAMED_COLLECTION" = "Album fără Nume";
 /* Notification action button title */
-"PUSH_MANAGER_MARKREAD" = "Marchează ca și citit";
+"PUSH_MANAGER_MARKREAD" = "Marchează ca Citit";
 /* Notification action button title */
 "PUSH_MANAGER_REPLY" = "Răspunde";
 /* Description of how and why Session iOS uses Touch ID/Face ID/Phone Passcode to unlock 'screen lock'. */
@@ -311,7 +311,7 @@
 "vc_qr_code_view_my_qr_code_tab_title" = "Vizualizați codul QR";
 "vc_qr_code_view_scan_qr_code_tab_title" = "Scanați codul QR";
 "vc_qr_code_view_scan_qr_code_explanation" = "Scanează codul QR al cuiva pentru a începe o conversație cu ei";
-"vc_view_my_qr_code_explanation" = "Acesta este codul tău QR. Ceilalți utilizatori îl pot scana ca să înceapă o Sessiune cu tine.";
+"vc_view_my_qr_code_explanation" = "Acesta este codul tău QR. Ceilalți utilizatori îl pot scana ca să înceapă o sesiune cu tine.";
 // MARK: - Not Yet Translated
 "fast_mode_explanation" = "Vei fi notificat în legătură cu noile mesaje imediat prin serverele de încredere Apple pentru notificări.";
 "fast_mode" = "Modul rapid";
@@ -393,7 +393,7 @@
 "MESSAGE_REQUESTS_TITLE" = "Cereri de mesaj";
 "MESSAGE_REQUESTS_EMPTY_TEXT" = "Nici o cerere de mesaje în așteptare";
 "MESSAGE_REQUESTS_CLEAR_ALL" = "Șterge Toate";
-"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Sunteţi sigur că doriţi să ştergeţi toate solicitările de mesaje?";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "Ești sigur că vrei să ștergi toate cererile de mesaje și invitațiile de grup?";
 "MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "Sterge";
 "MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "Sunteţi sigur că doriţi să ştergeţi această solicitare de mesaj?";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Ești sigur că vrei să blochezi acest contact?";
@@ -548,7 +548,6 @@
 "modal_permission_library" = "bibliotecă";
 "DISAPPEARING_MESSAGES_OFF" = "Dezactivat";
 "DISAPPEARING_MESSAGES_SUBTITLE_OFF" = "Dezactivat";
-"DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "Dispar după: %@";
 "COPY_GROUP_URL" = "Copiază URL-ul grupului";
 "NEW_CONVERSATION_CONTACTS_SECTION_TITLE" = "Contacte";
 "GROUP_ERROR_NO_MEMBER_SELECTION" = "Te rugăm să alegi cel puțin un membru al grupului";
@@ -574,9 +573,10 @@
 "DISAPPERING_MESSAGES_SAVE_TITLE" = "Setează";
 "DISAPPERING_MESSAGES_GROUP_WARNING" = "Această setare se aplică tuturor celor din această conversație.";
 "DISAPPERING_MESSAGES_GROUP_WARNING_ADMIN_ONLY" = "Această setare se aplică tuturor celor din această conversație. Numai administratorii de grup pot schimba această setare.";
-"DISAPPERING_MESSAGES_SUMMARY" = "Dispare după %@ - %@";
+/* Informational message shown when a conversation participant enables disappearing messages. The first '%@' will be the participants name, the second '%@' will be the duration and the third '%@' will indicate whether the countdown should start after the messages are sent or after they are read. */
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ a setat mesaje pentru a dispărea %@ după ce au fost %@";
 "DISAPPERING_MESSAGES_INFO_UPDATE" = "%@ a schimbat mesajele pentru a dispărea %@ după ce au fost %@";
+/* Informational message shown when a conversation participant enables disappearing messages. The '%@' will be the participants name. */
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ a dezactivat mesajele care dispar";
 
 /* context_menu_info */
@@ -595,13 +595,13 @@
 "DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
 
 /* Text displayed in place of a quoted message when the original message is not on the device */
-"QUOTED_MESSAGE_NOT_FOUND" = "Original message not found.";
+"QUOTED_MESSAGE_NOT_FOUND" = "Mesajul original nu a fost găsit.";
 
 /* EMOJI_REACTS_SHOW_LESS */
-"EMOJI_REACTS_SHOW_LESS" = "Show less";
+"EMOJI_REACTS_SHOW_LESS" = "Arată mai puțin";
 
 /* PRIVACY_SECTION_MESSAGE_REQUESTS */
-"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Message Requests";
+"PRIVACY_SECTION_MESSAGE_REQUESTS" = "Cereri de Mesaje";
 
 /* PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE */
 "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
@@ -610,25 +610,25 @@
 "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
 
 /* Information displayed above the input when sending a message to a new user for the first time explaining limitations around the types of messages which can be sent before being approved */
-"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "You will be able to send voice messages and attachments once the recipient has approved this message request";
+"MESSAGE_REQUEST_PENDING_APPROVAL_INFO" = "Veți putea trimite mesaje vocale și atașamente după ce destinatarul a aprobat cererea de mesaj";
 
 /* State of a message while it's still in the process of being sent */
-"MESSAGE_DELIVERY_STATUS_SENDING" = "Sending";
+"MESSAGE_DELIVERY_STATUS_SENDING" = "Se trimite";
 
 /* State of a message once it has been sent */
-"MESSAGE_DELIVERY_STATUS_SENT" = "Sent";
+"MESSAGE_DELIVERY_STATUS_SENT" = "Trimis";
 
 /* State of a message after the recipient has read the message */
-"MESSAGE_DELIVERY_STATUS_READ" = "Read";
+"MESSAGE_DELIVERY_STATUS_READ" = "Citit";
 
 /* State of a message if it failed to be sent */
-"MESSAGE_DELIVERY_STATUS_FAILED" = "Failed to send";
+"MESSAGE_DELIVERY_STATUS_FAILED" = "Trimitere eșuată";
 
 /* Title of the message information screen describing the date/time a message was sent */
-"MESSAGE_INFO_SENT" = "Sent";
+"MESSAGE_INFO_SENT" = "Trimis";
 
 /* Title of the message information screen describing the date/time a message was received on a specific device */
-"MESSAGE_INFO_RECEIVED" = "Received";
+"MESSAGE_INFO_RECEIVED" = "Primit";
 
 /* Title of the message information screen describing the sender of the message */
 "MESSAGE_INFO_FROM" = "From";
@@ -661,22 +661,22 @@
 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
 
 /* Action for the modal shown when asking the user whether they want to delete from all of their devices */
-"delete_message_for_me_and_my_devices" = "Delete from all of my devices";
+"delete_message_for_me_and_my_devices" = "Șterge de pe toate dispozitivele mele";
 
 /* Action in the long-press menu to trigger a message to be sent again after it has failed */
-"context_menu_resend" = "Resend";
+"context_menu_resend" = "Retrimite";
 
 /* Action in the long-press menu to trigger a message to be synced again after it has failed */
-"context_menu_resync" = "Resync";
+"context_menu_resync" = "Resincronizează";
 
 /* Title of a modal show the first time a user tries to search for GIFs */
-"GIPHY_PERMISSION_TITLE" = "Search GIFs?";
+"GIPHY_PERMISSION_TITLE" = "Caută GIF-uri?";
 
 /* Message of a modal show the first time a user tries to search for GIFs */
-"GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
+"GIPHY_PERMISSION_MESSAGE" = "Session se va conecta la Giphy pentru a obține rezultate la căutare. Dvs. nu veți avea acces la protecția completă a metadatelor când trimiteți GIF-uri.";
 
 /* Action in the long-press menu to view more information about a specific message */
-"message_info_title" = "Message Info";
+"message_info_title" = "Despre Mesaj";
 
 /* Action to mute a conversation in the swipe menu */
 "mute_button_text" = "Mute";
@@ -685,25 +685,25 @@
 "unmute_button_text" = "Unmute";
 
 /* Action in the swipe menu to mark a conversation as read */
-"MARK_AS_READ" = "Mark read";
+"MARK_AS_READ" = "Marchează ca citit";
 
 /* Action in the swipe menu to mark a conversation as unread */
-"MARK_AS_UNREAD" = "Mark unread";
+"MARK_AS_UNREAD" = "Marchează ca necitit";
 
 /* Title of the confirmation modal show when attempting to leave a group conversation */
-"leave_group_confirmation_alert_title" = "Leave Group";
+"leave_group_confirmation_alert_title" = "Părăsește Grupul";
 
 /* Title of the confirmation modal show when attempting to leave a community conversation */
-"leave_community_confirmation_alert_title" = "Leave Community";
+"leave_community_confirmation_alert_title" = "Părăsește Comunitatea";
 
 /* Message in the confirmation modal when leaving a community conversation */
-"leave_community_confirmation_alert_message" = "Are you sure you want to leave %@?";
+"leave_community_confirmation_alert_message" = "Ești sigur ca vrei sa părăsești %@?";
 
 /* Conversation subtitle while the user in the process of leaving */
 "group_you_leaving" = "Leaving...";
 
 /* Conversation subtitle if the user in the failed to leave */
-"group_leave_error" = "Failed to leave Group!";
+"group_leave_error" = "Părăsire a Grupului eșuată!";
 
 /* Message within a conversation indicating the device was unable to leave a group conversation */
 "group_unable_to_leave" = "Unable to leave the Group, please try again";
@@ -781,19 +781,19 @@
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
 
 /* A message indicating how the disappearing messages setting applies in a one-to-one conversation */
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to messages you send in this conversation.";
 
 /* A message indicating how the disappearing messages setting applies in a group conversation */
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
 
 /* A record that appears within the message history to indicate that the current user turned on disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You have set messages to disappear %@ after they have been %@";
+"YOU_DISAPPEARING_MESSAGES_INFO_ENABLE" = "You set your messages to disappear %@ after they have been %@.";
 
 /* A record that appears within the message history to indicate that the current user update the disappearing messages setting */
 "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You have turned off disappearing messages";
+"YOU_DISAPPEARING_MESSAGES_INFO_DISABLE" = "You turned off disappearing messages. Messages you send will no longer disappear.";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
@@ -1035,3 +1035,21 @@ The point that a message will disappear in a disappearing message update message
 
 /* Message for the error modal shown when a voice message fails to start recording. */
 "VOICE_MESSAGE_FAILED_TO_START_MESSAGE" = "An error occurred when trying to start recording for the voice message.";
+
+/* Shortcut to copy the disappearing messages setting from another conversation participant. */
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages on. The first '%@' will be the duration messages will remain and the second '%@' will be whether the countdown starts after the messages are sent or after they are read. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages off. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+
+/* Title for button on a modal which confirms a change. */
+"CONFIRM_BUTTON_TITLE" = "Confirm";
+
+/* The subtitle of delete action in long press menu screen indicating the time that a message will disappear */
+"DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN" = "Auto-deletes in %@";
+
+/* A message indicating how the disappearing messages setting applies in a one-to-one conversation for legacy mode */
+"DISAPPERING_MESSAGES_SUBTITLE_LEGACY" = "This setting applies to everyone in this conversation.";

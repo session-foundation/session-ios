@@ -101,7 +101,7 @@ public enum AppSetup {
                 switch requirement {
                     case .sessionUtilStateLoaded:
                         guard Identity.userExists(db) else { return }
-
+                        
                         // After the migrations have run but before the migration completion we load the
                         // SessionUtil state
                         SessionUtil.loadState(
