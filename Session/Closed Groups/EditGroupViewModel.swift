@@ -12,6 +12,15 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
+    private static let minVersionBannerInfo: InfoBanner.Info = InfoBanner.Info(
+        font: .systemFont(ofSize: Values.verySmallFontSize),
+        message: "GROUP_MEMBERS_MIN_VERSION".localized(),
+        icon: .none,
+        tintColor: .black,
+        backgroundColor: .warning,
+        accessibility: Accessibility(identifier: "Version warning banner")
+    )
+    
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let editableState: EditableState<TableItem> = EditableState()
@@ -93,6 +102,8 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
     }
     
     let title: String = "EDIT_GROUP_ACTION".localized()
+    
+    var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> { Just(EditGroupViewModel.minVersionBannerInfo).eraseToAnyPublisher() }
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { [dependencies, threadId, userSessionId] db -> State in
@@ -343,7 +354,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 memberInfo.value.statusDescription,
                                 font: .subtitle,
                                 accessibility: Accessibility(
-                                    identifier: "Status"
+                                    identifier: "Contact status"
                                 )
                             )),
                             trailingAccessory: {
@@ -354,8 +365,12 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                             title: "context_menu_resend".localized(),
                                             isSelected: selectedIdsSubject.value.contains(memberInfo.profileId),
                                             labelAccessibility: Accessibility(
-                                                identifier: "Resend invite",
-                                                label: "Resend invite"
+                                                identifier: "Resend invite button",
+                                                label: "Resend invite button"
+                                            ),
+                                            radioAccessibility: Accessibility(
+                                                identifier: "Select contact",
+                                                label: "Select contact"
                                             )
                                         )
                                         
@@ -738,6 +753,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             SessionTableViewController(
                 viewModel: UserListViewModel<Contact>(
                     title: "GROUP_ACTION_INVITE_CONTACTS".localized(),
+                    infoBanner: EditGroupViewModel.minVersionBannerInfo,
                     emptyState: "GROUP_ACTION_INVITE_EMPTY_STATE".localized(),
                     showProfileIcons: true,
                     request: SQLRequest("""

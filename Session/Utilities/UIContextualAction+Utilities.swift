@@ -95,6 +95,7 @@ public extension UIContextualAction {
                             ),
                             themeTintColor: .white,
                             themeBackgroundColor: .conversationButton_swipeRead,    // Always Custom
+                            accessibility: Accessibility(identifier: (isUnread ? "Mark Read button" : "Mark Unread button")),
                             side: side,
                             actionIndex: targetIndex,
                             indexPath: indexPath,
@@ -123,6 +124,7 @@ public extension UIContextualAction {
                             icon: UIImage(systemName: "eye.slash"),
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
+                            accessibility: Accessibility(identifier: "Hide button"),
                             side: side,
                             actionIndex: targetIndex,
                             indexPath: indexPath,
@@ -198,6 +200,9 @@ public extension UIContextualAction {
                             ),
                             themeTintColor: .white,
                             themeBackgroundColor: .conversationButton_swipeTertiary,    // Always Tertiary
+                            accessibility: Accessibility(
+                                identifier: (threadViewModel.threadPinnedPriority > 0 ? "Pin button" : "Unpin button")
+                            ),
                             side: side,
                             actionIndex: targetIndex,
                             indexPath: indexPath,
@@ -239,6 +244,9 @@ public extension UIContextualAction {
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
+                            accessibility: Accessibility(
+                                identifier: (threadViewModel.threadMutedUntilTimestamp == nil ? "Mute button" : "Unmute button")
+                            ),
                             side: side,
                             actionIndex: targetIndex,
                             indexPath: indexPath,
@@ -286,6 +294,7 @@ public extension UIContextualAction {
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
+                            accessibility: Accessibility(identifier: "Block button"),
                             side: side,
                             actionIndex: targetIndex,
                             indexPath: indexPath,
@@ -403,7 +412,7 @@ public extension UIContextualAction {
                                             body: .text(bodyText),
                                             confirmTitle: "BLOCK_LIST_BLOCK_BUTTON".localized(),
                                             confirmAccessibility: Accessibility(
-                                                identifier: "Block"
+                                                identifier: "Confirm block"
                                             ),
                                             confirmStyle: .danger,
                                             cancelStyle: .alert_text,
@@ -428,6 +437,7 @@ public extension UIContextualAction {
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
+                            accessibility: Accessibility(identifier: "Leave button"),
                             side: side,
                             actionIndex: targetIndex,
                             indexPath: indexPath,
@@ -502,6 +512,7 @@ public extension UIContextualAction {
                             iconHeight: Values.mediumFontSize,
                             themeTintColor: .white,
                             themeBackgroundColor: themeBackgroundColor,
+                            accessibility: Accessibility(identifier: "Delete button"),
                             side: side,
                             actionIndex: targetIndex,
                             indexPath: indexPath,
@@ -573,7 +584,7 @@ public extension UIContextualAction {
                                     body: .attributedText(confirmationModalExplanation),
                                     confirmTitle: "TXT_DELETE_TITLE".localized(),
                                     confirmAccessibility: Accessibility(
-                                        identifier: "Delete"
+                                        identifier: "Confirm delete"
                                     ),
                                     confirmStyle: .danger,
                                     cancelStyle: .alert_text,

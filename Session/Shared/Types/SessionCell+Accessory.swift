@@ -116,8 +116,8 @@ public extension SessionCell.Accessory {
         isSelected: Bool? = nil,
         liveIsSelected: (() -> Bool)? = nil,
         wasSavedSelection: Bool = false,
-        accessibility: Accessibility? = nil,
-        labelAccessibility: Accessibility? = nil
+        labelAccessibility: Accessibility? = nil,
+        radioAccessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio(
             title: title,
@@ -125,8 +125,8 @@ public extension SessionCell.Accessory {
             initialIsSelected: ((isSelected ?? liveIsSelected?()) ?? false),
             liveIsSelected: (liveIsSelected ?? { (isSelected ?? false) }),
             wasSavedSelection: wasSavedSelection,
-            accessibility: accessibility,
-            labelAccessibility: labelAccessibility
+            labelAccessibility: labelAccessibility,
+            radioAccessibility: radioAccessibility
         )
     }
     
@@ -494,8 +494,8 @@ public extension SessionCell.AccessoryConfig {
             initialIsSelected: Bool,
             liveIsSelected: @escaping () -> Bool,
             wasSavedSelection: Bool,
-            accessibility: Accessibility?,
-            labelAccessibility: Accessibility?
+            labelAccessibility: Accessibility?,
+            radioAccessibility: Accessibility?
         ) {
             self.title = title
             self.size = radioSize
@@ -504,7 +504,7 @@ public extension SessionCell.AccessoryConfig {
             self.wasSavedSelection = wasSavedSelection
             self.labelAccessibility = labelAccessibility
             
-            super.init(accessibility: accessibility)
+            super.init(accessibility: radioAccessibility)
         }
         
         // MARK: - Conformance

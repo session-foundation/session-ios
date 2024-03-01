@@ -33,6 +33,25 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     
     private lazy var titleView: SessionTableViewTitleView = SessionTableViewTitleView()
     
+    private lazy var contentStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            infoBanner,
+            tableView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        result.distribution = .fill
+        
+        return result
+    }()
+    
+    private lazy var infoBanner: InfoBanner = {
+        let result: InfoBanner = InfoBanner(info: .empty)
+        result.isHidden = true
+        
+        return result
+    }()
+    
     private lazy var tableView: UITableView = {
         let result: UITableView = UITableView()
         result.translatesAutoresizingMaskIntoConstraints = false
@@ -132,7 +151,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         titleView.update(title: self.viewModel.title, subtitle: self.viewModel.subtitle)
         
         view.themeBackgroundColor = .backgroundPrimary
-        view.addSubview(tableView)
+        view.addSubview(contentStackView)
         view.addSubview(initialLoadLabel)
         view.addSubview(emptyStateLabel)
         view.addSubview(fadeView)
@@ -186,7 +205,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
     }
     
     private func setupLayout() {
-        tableView.pin(to: view)
+        contentStackView.pin(to: view)
         
         initialLoadLabel.pin(.top, to: .top, of: self.view, withInset: Values.massiveSpacing)
         initialLoadLabel.pin(.leading, to: .leading, of: self.view, withInset: Values.mediumSpacing)
@@ -369,6 +388,19 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     
                     tableView?.beginUpdates()
                     tableView?.endUpdates()
+                }
+            }
+            .store(in: &disposables)
+        
+        viewModel.bannerInfo
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] info in
+                switch info {
+                    case .some(let info):
+                        self?.infoBanner.update(with: info)
+                        self?.infoBanner.isHidden = false
+                        
+                    case .none: self?.infoBanner.isHidden = true
                 }
             }
             .store(in: &disposables)

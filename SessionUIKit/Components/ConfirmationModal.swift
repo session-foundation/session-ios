@@ -457,7 +457,7 @@ public extension ConfirmationModal {
             confirmEnabled: Bool = true,
             cancelTitle: String = "TXT_CANCEL_TITLE".localized(),
             cancelAccessibility: Accessibility? = Accessibility(
-                identifier: "Cancel"
+                identifier: "Cancel button"
             ),
             cancelStyle: ThemeValue = .danger,
             cancelEnabled: Bool = true,

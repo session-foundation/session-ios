@@ -35,6 +35,30 @@ final class InfoBanner: UIView {
         let height: CGFloat?
         let onTap: (() -> Void)?
         
+        static var empty: Info = Info(font: .systemFont(ofSize: Values.smallFontSize), message: "")
+        
+        public init(
+            font: UIFont,
+            message: String,
+            icon: Icon = .none,
+            tintColor: ThemeValue = .black,
+            backgroundColor: ThemeValue = .primary,
+            accessibility: Accessibility? = nil,
+            labelAccessibility: Accessibility? = nil,
+            height: CGFloat? = nil,
+            onTap: (() -> Void)? = nil
+        ) {
+            self.font = font
+            self.message = message
+            self.icon = icon
+            self.tintColor = tintColor
+            self.backgroundColor = backgroundColor
+            self.accessibility = accessibility
+            self.labelAccessibility = labelAccessibility
+            self.height = height
+            self.onTap = onTap
+        }
+        
         func with(
             font: UIFont? = nil,
             message: String? = nil,
@@ -94,8 +118,8 @@ final class InfoBanner: UIView {
         return result
     }()
     
-    private lazy var leftIconImageView: UIImageView = {
-        let result: UIImageView = UIImageView()
+    private lazy var leftIconPadding: UIView = {
+        let result: UIView = UIView()
         result.set(.width, to: 18)
         result.set(.height, to: 18)
         result.isHidden = true
@@ -134,7 +158,7 @@ final class InfoBanner: UIView {
         
         addSubview(stackView)
         
-        stackView.addArrangedSubview(leftIconImageView)
+        stackView.addArrangedSubview(leftIconPadding)
         stackView.addArrangedSubview(label)
         stackView.addArrangedSubview(rightIconImageView)
         
@@ -143,12 +167,7 @@ final class InfoBanner: UIView {
         stackView.pin(.leading, to: .leading, of: self, withInset: Values.mediumSpacing)
         stackView.pin(.trailing, to: .trailing, of: self, withInset: -Values.mediumSpacing)
         
-        switch info.height {
-            case .some(let fixedHeight): self.heightConstraint = self.set(.height, to: fixedHeight)
-            case .none: self.heightConstraint?.isActive = false
-        }
-        
-        self.update(info)
+        self.update(with: info)
         
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(bannerTapped))
         self.addGestureRecognizer(tapGestureRecognizer)
@@ -170,26 +189,6 @@ final class InfoBanner: UIView {
     
     // MARK: - Update
     
-    private func update(_ info: InfoBanner.Info) {
-        self.info = info
-        
-        themeBackgroundColor = info.backgroundColor
-        isAccessibilityElement = (info.accessibility != nil)
-        accessibilityIdentifier = info.accessibility?.identifier
-        accessibilityLabel = info.accessibility?.label
-        
-        label.font = info.font
-        label.text = info.message
-        label.themeTextColor = info.tintColor
-        label.accessibilityIdentifier = info.labelAccessibility?.identifier
-        label.accessibilityLabel = info.labelAccessibility?.label
-        leftIconImageView.image = info.icon.image
-        leftIconImageView.isHidden = (info.icon != .none)
-        leftIconImageView.themeTintColor = info.tintColor
-        rightIconImageView.isHidden = (info.icon != .none)
-        rightIconImageView.themeTintColor = info.tintColor
-    }
-    
     public func update(
         font: UIFont? = nil,
         message: String? = nil,
@@ -204,7 +203,7 @@ final class InfoBanner: UIView {
         guard let currentInfo: Info = self.info else { return }
         
         self.update(
-            currentInfo.with(
+            with: currentInfo.with(
                 font: font,
                 message: message,
                 icon: icon,
@@ -216,5 +215,29 @@ final class InfoBanner: UIView {
                 onTap: onTap
             )
         )
+    }
+    
+    public func update(with info: InfoBanner.Info) {
+        self.info = info
+        self.heightConstraint?.isActive = false // Calling 'set' below will enable it
+        
+        switch info.height {
+            case .some(let fixedHeight): self.heightConstraint = self.set(.height, to: fixedHeight)
+            case .none: break
+        }
+        
+        themeBackgroundColor = info.backgroundColor
+        isAccessibilityElement = (info.accessibility != nil)
+        accessibilityIdentifier = info.accessibility?.identifier
+        accessibilityLabel = info.accessibility?.label
+        
+        label.font = info.font
+        label.text = info.message
+        label.themeTextColor = info.tintColor
+        label.accessibilityIdentifier = info.labelAccessibility?.identifier
+        label.accessibilityLabel = info.labelAccessibility?.label
+        rightIconImageView.image = info.icon.image
+        rightIconImageView.isHidden = (info.icon == .none)
+        rightIconImageView.themeTintColor = info.tintColor
     }
 }

@@ -289,7 +289,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         let text: String = viewModel.threadData.emptyStateText
         let result: UILabel = UILabel()
         result.isAccessibilityElement = true
-        result.accessibilityIdentifier = "Empty conversation"
+        result.accessibilityIdentifier = "Control message"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
         result.attributedText = NSAttributedString(string: text)
@@ -420,6 +420,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     
     private lazy var messageRequestBlockButton: UIButton = {
         let result: UIButton = UIButton()
+        result.accessibilityIdentifier = "Block"
         result.accessibilityLabel = "Block message request"
         result.translatesAutoresizingMaskIntoConstraints = false
         result.clipsToBounds = true

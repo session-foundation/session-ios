@@ -18,6 +18,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     private let selectedUsersSubject: CurrentValueSubject<Set<WithProfile<T>>, Never> = CurrentValueSubject([])
     
     public let title: String
+    public let infoBanner: InfoBanner.Info?
     public let emptyState: String?
     private let showProfileIcons: Bool
     private let request: (any FetchRequest<T>)
@@ -29,6 +30,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     
     init(
         title: String,
+        infoBanner: InfoBanner.Info? = nil,
         emptyState: String? = nil,
         showProfileIcons: Bool,
         request: (any FetchRequest<T>),
@@ -39,6 +41,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     ) {
         self.dependencies = dependencies
         self.title = title
+        self.infoBanner = infoBanner
         self.emptyState = emptyState
         self.showProfileIcons = showProfileIcons
         self.request = request
@@ -79,6 +82,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
         }
     }
     
+    var bannerInfo: AnyPublisher<InfoBanner.Info?, Never> { Just(infoBanner).eraseToAnyPublisher() }
     var emptyStateTextPublisher: AnyPublisher<String?, Never> { Just(emptyState).eraseToAnyPublisher() }
     
     lazy var observation: TargetObservation = ObservationBuilder
