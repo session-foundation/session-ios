@@ -43,7 +43,7 @@ struct RecoveryPasswordScreen: View {
                                 alignment: .center,
                                 spacing: Values.smallSpacing
                             ) {
-                                Text("recovery_password_title".localized())
+                                Text("sessionRecoveryPassword".localized())
                                     .bold()
                                     .font(.system(size: Values.mediumFontSize))
                                     .foregroundColor(themeColor: .textPrimary)
@@ -84,7 +84,7 @@ struct RecoveryPasswordScreen: View {
                                     Button {
                                         self.showQRCode.toggle()
                                     } label: {
-                                        Text("view_mnemonic_button_title".localized())
+                                        Text("recoveryPasswordView".localized())
                                             .bold()
                                             .font(.system(size: Values.verySmallFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
@@ -152,7 +152,7 @@ struct RecoveryPasswordScreen: View {
                                     Button {
                                         self.showQRCode.toggle()
                                     } label: {
-                                        Text("view_qr_code_button_title".localized())
+                                        Text("qrView".localized())
                                             .bold()
                                             .font(.system(size: Values.verySmallFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
@@ -185,12 +185,12 @@ struct RecoveryPasswordScreen: View {
                                 alignment: .leading,
                                 spacing: 0
                             ) {
-                                Text("hide_recovery_password_title".localized())
+                                Text("recoveryPasswordHideRecoveryPassword".localized())
                                     .bold()
                                     .font(.system(size: Values.mediumFontSize))
                                     .foregroundColor(themeColor: .textPrimary)
                                 
-                                Text("hide_recovery_password_explanation".localized())
+                                Text("recoveryPasswordHideRecoveryPasswordDescription".localized())
                                     .font(.system(size: Values.smallFontSize))
                                     .foregroundColor(themeColor: .textPrimary)
                             }
@@ -202,7 +202,7 @@ struct RecoveryPasswordScreen: View {
                             Button {
                                 hideRecoveryPassword()
                             } label: {
-                                Text("hide_button_title".localized())
+                                Text("hide".localized())
                                     .bold()
                                     .font(.system(size: Values.verySmallFontSize))
                                     .foregroundColor(themeColor: .danger)
@@ -237,7 +237,7 @@ struct RecoveryPasswordScreen: View {
     private func hideRecoveryPassword() {
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "hide_recovery_password_modal_title".localized(),
+                title: "recoveryPasswordHidePermanently".localized(),
                 body: .text(
                     "hide_recovery_password_modal_warning_1".localized() +
                     "\n\n" +
@@ -253,11 +253,11 @@ struct RecoveryPasswordScreen: View {
                     
                     let continueModal: ConfirmationModal = ConfirmationModal(
                         info: ConfirmationModal.Info(
-                            title: "hide_recovery_password_modal_title".localized(),
-                            body: .text("hide_recovery_password_modal_confirmation".localized()),
+                            title: "recoveryPasswordHidePermanently".localized(),
+                            body: .text("recoveryPasswordHidePermanentlyDescription2".localized()),
                             confirmTitle: "TXT_CANCEL_TITLE".localized(),
                             confirmStyle: .textPrimary,
-                            cancelTitle: "yes_button_title".localized(),
+                            cancelTitle: "yes".localized(),
                             cancelStyle: .danger,
                             onCancel: { modal in
                                 modal.dismiss(animated: true) {

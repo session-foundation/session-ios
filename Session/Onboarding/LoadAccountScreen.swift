@@ -27,7 +27,7 @@ struct LoadAccountScreen: View {
                 CustomTopTabBar(
                     tabIndex: $tabIndex,
                     tabTitles: [
-                        "onboarding_recovery_password_tab_title".localized(),
+                        "sessionRecoveryPassword".localized(),
                         "vc_qr_code_view_scan_qr_code_tab_title".localized()
                     ]
                 ).frame(maxWidth: .infinity)
@@ -52,7 +52,7 @@ struct LoadAccountScreen: View {
     
     private func continueWithSeed(seed: Data, onError: (() -> ())?) {
         if (seed.count != 16) {
-            errorString = "recovery_password_error_generic".localized()
+            errorString = "recoveryPasswordErrorMessageGeneric".localized()
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 onError?()
             }
@@ -87,14 +87,14 @@ struct LoadAccountScreen: View {
             if let decodingError = error as? Mnemonic.DecodingError {
                 switch decodingError {
                     case .inputTooShort:
-                        errorString = "recovery_password_error_length".localized()
+                        errorString = "recoveryPasswordErrorMessageShort".localized()
                     case .invalidWord:
-                        errorString = "recovery_password_error_invalid".localized()
+                        errorString = "recoveryPasswordErrorMessageIncorrect".localized()
                     default:
-                        errorString = "recovery_password_error_generic".localized()
+                        errorString = "recoveryPasswordErrorMessageGeneric".localized()
                 }
             } else {
-                errorString = "recovery_password_error_generic".localized()
+                errorString = "recoveryPasswordErrorMessageGeneric".localized()
             }
             return
         }
@@ -131,7 +131,7 @@ struct EnterRecoveryPasswordScreen: View{
                     alignment: .bottom,
                     spacing: Values.smallSpacing
                 ) {
-                    Text("onboarding_recovery_password_tab_title".localized())
+                    Text("sessionRecoveryPassword".localized())
                         .bold()
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
@@ -161,7 +161,7 @@ struct EnterRecoveryPasswordScreen: View{
                 
                 SessionTextField(
                     $recoveryPassword,
-                    placeholder: "onboarding_recovery_password_hint".localized(),
+                    placeholder: "recoveryPasswordEnter".localized(),
                     error: $error
                 ) {}
                 

@@ -31,7 +31,7 @@ struct DisplayNameScreen: View {
             ) {
                 Spacer(minLength: 0)
                 
-                let title: String = (self.flow == .register) ? "vc_display_name_title_2".localized() : "onboarding_display_name_title_new".localized()
+                let title: String = (self.flow == .register) ? "vc_display_name_title_2".localized() : "displayNameNew".localized()
                 Text(title)
                     .bold()
                     .font(.system(size: Values.veryLargeFontSize))
@@ -40,7 +40,7 @@ struct DisplayNameScreen: View {
                 Spacer(minLength: 0)
                     .frame(maxHeight: 2 * Values.mediumSpacing)
                 
-                let explanation: String = (self.flow == .register) ? "onboarding_display_name_explanation".localized() : "onboarding_display_name_explanation_new".localized()
+                let explanation: String = (self.flow == .register) ? "displayNameDescription".localized() : "displayNameErrorNew".localized()
                 Text(explanation)
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .textPrimary)
@@ -51,7 +51,7 @@ struct DisplayNameScreen: View {
                 
                 SessionTextField(
                     $displayName,
-                    placeholder: "onboarding_display_name_hint".localized(),
+                    placeholder: "displayNameEnter".localized(),
                     error: $error
                 ) {}
                 

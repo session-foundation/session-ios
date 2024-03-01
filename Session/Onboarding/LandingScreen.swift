@@ -23,7 +23,7 @@ struct LandingScreen: View {
             ) {
                 Spacer(minLength: 0)
                 
-                Text("onboarding_landing_title".localized())
+                Text("onboardingBubblePrivacyInYourPocket".localized())
                     .bold()
                     .font(.system(size: Values.veryLargeFontSize))
                     .foregroundColor(themeColor: .textPrimary)
@@ -50,7 +50,7 @@ struct LandingScreen: View {
                 Button {
                     register()
                 } label: {
-                    Text("onboarding_landing_register_button_title".localized())
+                    Text("onboardingAccountCreate".localized())
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .sessionButton_primaryFilledText)
@@ -67,7 +67,7 @@ struct LandingScreen: View {
                 Button {
                     restore()
                 } label: {
-                    Text("onboarding_landing_restore_button_title".localized())
+                    Text("onboardingAccountExists".localized())
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .sessionButton_text)
@@ -87,7 +87,7 @@ struct LandingScreen: View {
                     openLegalUrl()
                 } label: {
                     let attributedText: NSAttributedString = {
-                        let text = String(format: "onboarding_T&C".localized(), "terms_of_service".localized(), "privacy_policy".localized())
+                        let text = String(format: "onboardingTosPrivacy".localized(), "terms_of_service".localized(), "privacy_policy".localized())
                         let result = NSMutableAttributedString(
                             string: text,
                             attributes: [ .font : UIFont.systemFont(ofSize: Values.verySmallFontSize)]
@@ -131,8 +131,8 @@ struct LandingScreen: View {
     private func openLegalUrl() {
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "modal_open_url_title_2".localized(),
-                body: .text("modal_open_url_explanation_2".localized()),
+                title: "urlOpen".localized(),
+                body: .text("urlOpenBrowswer".localized()),
                 confirmTitle: "terms_of_service".localized(),
                 confirmStyle: .textPrimary,
                 cancelTitle: "privacy_policy".localized(),
@@ -176,10 +176,10 @@ struct FakeChat: View {
     @State var numberOfBubblesShown: Int = 0
     
     let chatBubbles: [ChatBubble] = [
-        ChatBubble(text: "onboarding_chat_bubble_1".localized(), outgoing: false),
-        ChatBubble(text: "onboarding_chat_bubble_2".localized(), outgoing: true),
-        ChatBubble(text: "onboarding_chat_bubble_3".localized(), outgoing: false),
-        ChatBubble(text: "onboarding_chat_bubble_4".localized(), outgoing: true),
+        ChatBubble(text: "onboardingBubbleWelcomeToSession".localized() + " 👋", outgoing: false),
+        ChatBubble(text: "onboardingBubbleSessionIsEngineered".localized(), outgoing: true),
+        ChatBubble(text: "onboardingBubbleNoPhoneNumber".localized(), outgoing: false),
+        ChatBubble(text: "onboardingBubbleCreatingAnAccountIsEasy".localized() + " 👇", outgoing: true),
     ]
     
     var body: some View {

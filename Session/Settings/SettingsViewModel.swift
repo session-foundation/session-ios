@@ -434,11 +434,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "SessionShield")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "recovery_password_title".localized(),
+                            title: "sessionRecoveryPassword".localized(),
                             onTap: {
                                 if let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
                                     let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
-                                    viewController.setNavBarTitle("recovery_password_title".localized())
+                                    viewController.setNavBarTitle("sessionRecoveryPassword".localized())
                                     self?.transitionToScreen(viewController)
                                 } else {
                                     let targetViewController: UIViewController = ConfirmationModal(

@@ -21,7 +21,7 @@ struct QRCodeScreen: View {
                 CustomTopTabBar(
                     tabIndex: $tabIndex,
                     tabTitles: [
-                        "settings_view_qr_code_tab_title".localized(),
+                        "view".localized(),
                         "settings_scan_qr_code_tab_title".localized()
                     ]
                 ).frame(maxWidth: .infinity)
@@ -43,7 +43,7 @@ struct QRCodeScreen: View {
     
     fileprivate func startNewPrivateChatIfPossible(with hexEncodedPublicKey: String, onError: (() -> ())?) {
         if !KeyPair.isValidHexEncodedPublicKey(candidate: hexEncodedPublicKey) {
-            errorString = "invalid_account_id_from_qr_code_message".localized()
+            errorString = "qrNotAccountId".localized()
         }
         else {
             SessionApp.presentConversationCreatingIfNeeded(

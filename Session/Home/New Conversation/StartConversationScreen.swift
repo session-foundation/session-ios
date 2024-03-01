@@ -69,11 +69,11 @@ struct StartConversationScreen: View {
                     }
                     .padding(.bottom, Values.mediumSpacing)
                     
-                    Text("your_account_id".localized())
+                    Text("accountIdYours".localized())
                         .font(.system(size: Values.mediumLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
                     
-                    Text("account_id_qr_code_explanation".localized())
+                    Text("qrYoursDescription".localized())
                         .font(.system(size: Values.verySmallFontSize))
                         .foregroundColor(themeColor: .textSecondary)
                     

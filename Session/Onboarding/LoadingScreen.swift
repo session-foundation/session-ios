@@ -41,12 +41,12 @@ struct LoadingScreen: View {
                         observeProfileRetrieving()
                     }
                 
-                Text("onboarding_load_account_waiting".localized())
+                Text("waitOneMoment".localized())
                     .bold()
                     .font(.system(size: Values.mediumLargeFontSize))
                     .foregroundColor(themeColor: .textPrimary)
                 
-                Text("onboarding_loading_account".localized())
+                Text("loadAccountProgressMessage".localized())
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .textPrimary)
                 

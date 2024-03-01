@@ -57,7 +57,7 @@ struct PNModeScreen: View {
                     .font(.system(size: Values.veryLargeFontSize))
                     .foregroundColor(themeColor: .textPrimary)
                 
-                Text("onboarding_notification_mode_explanation".localized())
+                Text("onboardingMessageNotificationExplaination".localized())
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .textPrimary)
                     .padding(.vertical, Values.mediumSpacing)

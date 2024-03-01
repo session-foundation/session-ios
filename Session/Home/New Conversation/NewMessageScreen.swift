@@ -26,7 +26,7 @@ struct NewMessageScreen: View {
                 CustomTopTabBar(
                     tabIndex: $tabIndex,
                     tabTitles: [
-                        "new_message_screen_enter_account_id_tab_title".localized(),
+                        "accountIdEnter".localized(),
                         "vc_create_private_chat_scan_qr_code_tab_title".localized()
                     ]
                 ).frame(maxWidth: .infinity)
@@ -52,7 +52,7 @@ struct NewMessageScreen: View {
     
     fileprivate func startNewPrivateChatIfPossible(with sessionId: String, onError: (() -> ())?) {
         if !KeyPair.isValidHexEncodedPublicKey(candidate: sessionId) {
-            errorString = "invalid_account_id_from_qr_code_message".localized()
+            errorString = "qrNotAccountId".localized()
         }
         else {
             startNewDM(with: sessionId)
@@ -76,7 +76,7 @@ struct NewMessageScreen: View {
                     startNewDM(with: onsNameOrPublicKey)
                     
                 case .blinded15, .blinded25:
-                    errorString = "new_message_screen_error_msg_invalid_account_id".localized()
+                    errorString = "accountIdErrorInvalid".localized()
                     
                 default:
                     break
@@ -103,7 +103,7 @@ struct NewMessageScreen: View {
                                             case .decryptionFailed, .hashingFailed, .validationFailed:
                                                 messageOrNil = error.errorDescription
                                             case .generic:
-                                                messageOrNil = "new_message_screen_error_msg_network_issue".localized()
+                                                messageOrNil = "onsErrorUnableToSearch".localized()
                                             default: break
                                         }
                                     }
@@ -113,7 +113,7 @@ struct NewMessageScreen: View {
                                         }
                                         
                                         return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
-                                            "new_message_screen_error_msg_invalid_account_id".localized() :
+                                            "accountIdErrorInvalid".localized() :
                                             "new_message_screen_error_msg_unrecognized_ons".localized()
                                         )
                                     }()
@@ -154,7 +154,7 @@ struct EnterAccountIdScreen: View {
         ) {
             SessionTextField(
                 $accountIdOrONS,
-                placeholder: "new_message_screen_enter_account_id_hint".localized(),
+                placeholder: "accountIdOrOnsEnter".localized(),
                 error: $error
             ) {
                 ZStack {

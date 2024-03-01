@@ -213,25 +213,25 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         
         let accountCreatedLabel = UILabel()
         accountCreatedLabel.font = .boldSystemFont(ofSize: Values.veryLargeFontSize)
-        accountCreatedLabel.text = "home_empty_state_account_created".localized()
+        accountCreatedLabel.text = "onboardingAccountCreated".localized()
         accountCreatedLabel.themeTextColor = .textPrimary
         accountCreatedLabel.textAlignment = .center
         
         let welcomeLabel = UILabel()
         welcomeLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        welcomeLabel.text = "home_empty_state_welcome".localized()
+        welcomeLabel.text = "onboardingBubbleWelcomeToSession".localized()
         welcomeLabel.themeTextColor = .primary
         welcomeLabel.textAlignment = .center
         
         let emptyConvoLabel = UILabel()
         emptyConvoLabel.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        emptyConvoLabel.text = "home_empty_state_no_conversation".localized()
+        emptyConvoLabel.text = "conversationsNone".localized()
         emptyConvoLabel.themeTextColor = .textPrimary
         emptyConvoLabel.textAlignment = .center
         
         let instructionLabel = UILabel()
         instructionLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
-        instructionLabel.text = "home_empty_state_instruction".localized()
+        instructionLabel.text = "onboardingHitThePlusButton".localized()
         instructionLabel.themeTextColor = .textPrimary
         instructionLabel.textAlignment = .center
         instructionLabel.lineBreakMode = .byWordWrapping
@@ -810,7 +810,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     func handleContinueButtonTapped(from seedReminderView: SeedReminderView) {
         if let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
-            viewController.setNavBarTitle("recovery_password_title".localized())
+            viewController.setNavBarTitle("sessionRecoveryPassword".localized())
             self.navigationController?.pushViewController(viewController, animated: true)
         } else {
             let targetViewController: UIViewController = ConfirmationModal(

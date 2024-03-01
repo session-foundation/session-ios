@@ -1056,68 +1056,68 @@ The point that a message will disappear in a disappearing message update message
 "DISAPPERING_MESSAGES_SUBTITLE_LEGACY" = "This setting applies to everyone in this conversation.";
 
 //Onboarding
-"onboarding_chat_bubble_1" = "Welcome to Session 👋";
-"onboarding_chat_bubble_2" = "Session is engineered to protect your privacy.";
-"onboarding_chat_bubble_3" = "You don’t even need a phone number to sign up.";
-"onboarding_chat_bubble_4" = "Creating an account is instant, free, and anonymous 👇";
-"onboarding_landing_title" = "Privacy in your pocket.";
-"onboarding_landing_register_button_title" = "Create account";
-"onboarding_landing_restore_button_title" = "I have an account";
-"onboarding_T&C" = "By using this service, you agree to our %@ and %@";
+"onboardingBubbleWelcomeToSession" = "Welcome to Session";
+"onboardingBubbleSessionIsEngineered" = "Session is engineered to protect your privacy.";
+"onboardingBubbleNoPhoneNumber" = "You don't even need a phone number to sign up.";
+"onboardingBubbleCreatingAnAccountIsEasy" = "Creating an account is instant, free, and anonymous";
+"onboardingBubblePrivacyInYourPocket" = "Privacy in your pocket.";
+"onboardingAccountCreate" = "Create account";
+"onboardingAccountExists" = "I have an account";
+"onboardingTosPrivacy" = "By using this service, you agree to our %@ and %@";
 "terms_of_service" = "Terms of Service";
 "privacy_policy" = "Privacy Policy";
-"onboarding_display_name_explanation" = "It can be your real name, an alias, or anything else you like — and you can change it any time.";
-"onboarding_display_name_hint" = "Enter your display name";
-"onboarding_display_name_title_new" = "Pick a new display name";
-"onboarding_display_name_explanation_new" = "We were unable to load your display name. Please enter a new display name to continue.";
+"displayNameDescription" = "It can be your real name, an alias, or anything else you like — and you can change it any time.";
+"displayNameEnter" = "Enter a display name";
+"displayNameNew" = "Pick a new display name";
+"displayNameErrorNew" = "We were unable to load your display name. Please enter a new display name to continue.";
 "onboarding_recovery_password_title" = "Save your recovery password";
 "onboarding_recovery_password_subtitle" = "Save your recovery password to make sure you don't lose access to your account.";
 "onboarding_recovery_password_explanation" = "Use your password to load your account on new devices. Make sure it is stored in a safe place — and don't share it with anyone.";
-"tap_to_copy" = "Tap to copy";
-"home_empty_state_account_created" = "Account Created";
-"home_empty_state_welcome" = "Welcome to Session";
-"home_empty_state_no_conversation" = "You don't have any conversations yet";
-"home_empty_state_instruction" = "Hit the plus button to start a chat, create a group, or join an official communitiy!";
-"onboarding_recovery_password_tab_title" = "Recovery Password";
+
+"onboardingAccountCreated" = "Account Created";
+
+"conversationsNone" = "You don't have any conversations yet";
+"onboardingHitThePlusButton" = "Hit the plus button to start a chat, create a group, or join an official community!";
+
 "onboarding_recovery_password_tab_explanation" = "Enter your recovery password to load your account. If you haven't saved it, you can find it in your app settings.";
-"onboarding_recovery_password_hint" = "Enter your recovery password";
+"recoveryPasswordEnter" = "Enter your recovery password";
 "onboarding_load_account_title" = "Load Account";
-"onboarding_load_account_waiting" = "One moment please..";
-"onboarding_loading_account" = "Loading your account";
-"recovery_password_error_length" = "The Recovery Password you entered is not long enough. Please check and try again.";
-"recovery_password_error_invalid" = "Some of the words in your Recovery Password are incorrect. Please check and try again.";
-"recovery_password_error_generic" = "Please check your Recovery Password and try again.";
-"modal_open_url_title_2" = "Open URL";
-"modal_open_url_explanation_2" = "This will open in your browser.";
-"onboarding_notification_mode_explanation" = "There are two ways Session can notify you of new messages.";
-"recovery_password_title" = "Recovery Password";
+"waitOneMoment" = "One moment please..";
+"loadAccountProgressMessage" = "Loading your account";
+"recoveryPasswordErrorMessageShort" = "The Recovery Password you entered is not long enough. Please check and try again.";
+"recoveryPasswordErrorMessageIncorrect" = "Some of the words in your Recovery Password are incorrect. Please check and try again.";
+"recoveryPasswordErrorMessageGeneric" = "Please check your Recovery Password and try again.";
+"urlOpen" = "Open URL";
+"urlOpenBrowswer" = "This will open in your browser.";
+"onboardingMessageNotificationExplaination" = "There are two ways Session can notify you of new messages.";
+
 "recovery_password_explanation_1" = "Use your recovery password to load your account on new devices.";
 "recovery_password_explanation_2" = "Your account cannot be recovered without your recovery password. Make sure it's stored somewhere safe and secure — and don't share it with anyone.";
-"hide_recovery_password_title" = "Hide Recovery Password";
-"hide_recovery_password_explanation" = "Permanently hide your recovery password on this device.";
-"hide_button_title" = "Hide";
-"hide_recovery_password_modal_title" = "Hide Recovery Password Permanently";
+"recoveryPasswordHideRecoveryPassword" = "Hide Recovery Password";
+"recoveryPasswordHideRecoveryPasswordDescription" = "Permanently hide your recovery password on this device.";
+"hide" = "Hide";
+"recoveryPasswordHidePermanently" = "Hide Recovery Password Permanently";
 "hide_recovery_password_modal_warning_1" = "Without your recovery password, you cannot load your account on new devices.";
 "hide_recovery_password_modal_warning_2" = "We strongly recommend you save your recovery password in a safe and secure place before continuing.";
-"hide_recovery_password_modal_confirmation" = "Are you sure you want to permanently hide your recovery password on this device? This cannot be undone.";
-"view_qr_code_button_title" = "View QR";
-"view_mnemonic_button_title" = "View Password";
-"yes_button_title" = "Yes";
+"recoveryPasswordHidePermanentlyDescription2" = "Are you sure you want to permanently hide your recovery password on this device? This cannot be undone.";
+"qrView" = "View QR";
+"recoveryPasswordView" = "View Password";
+"yes" = "Yes";
 
 //Settings
-"settings_view_qr_code_tab_title" = "View";
+"view" = "View";
 "settings_scan_qr_code_tab_title" = "Scan";
 "settings_view_my_qr_code_explanation" = "This is your Account ID. Other users can scan it to start a conversation with you.";
-"invalid_account_id_from_qr_code_message" = "This QR code does not contain an Account ID.";
+"qrNotAccountId" = "This QR code does not contain an Account ID.";
 
 //Start Conversation
-"your_account_id" = "Your Account ID";
-"account_id_qr_code_explanation" = "Friends can message you by scanning your QR code.";
+"accountIdYours" = "Your Account ID";
+"qrYoursDescription" = "Friends can message you by scanning your QR code.";
 "start_conversation_screen_title" = "Start Conversation";
 "invite_a_friend_explanation" = "Invite your friend to chat with you on Session by sharing your Account ID with them";
-"new_message_screen_enter_account_id_tab_title" = "Enter Account ID";
-"new_message_screen_enter_account_id_hint" = "Enter Account ID or ONS";
+"accountIdEnter" = "Enter Account ID";
+"accountIdOrOnsEnter" = "Enter Account ID or ONS";
 "new_message_screen_enter_account_id_explanation" = "Start a new conversation by entering your friend's Account ID, ONS or scanning their QR code.";
-"new_message_screen_error_msg_invalid_account_id" = "This Account ID is invalid. Please check and try again.";
+"accountIdErrorInvalid" = "This Account ID is invalid. Please check and try again.";
 "new_message_screen_error_msg_unrecognized_ons" = "We couldn’t recognize this ONS. Please check and try again.";
-"new_message_screen_error_msg_network_issue" = "We were unable to search for this ONS. Please try again later.";
+"onsErrorUnableToSearch" = "We were unable to search for this ONS. Please try again later.";
