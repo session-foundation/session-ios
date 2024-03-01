@@ -17,7 +17,8 @@ public final class CallMessage: ControlMessage {
     
     /// See https://developer.mozilla.org/en-US/docs/Glossary/SDP for more information.
     public var sdps: [String]
-        
+    
+    public override var ttl: UInt64 { 5 * 60 * 1000 } // 5 minutes
     public override var isSelfSendValid: Bool {
         switch kind {
             case .answer, .endCall: return true
@@ -165,7 +166,7 @@ public final class CallMessage: ControlMessage {
         )
     }
     
-    public override func toProto(_ db: Database) -> SNProtoContent? {
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let type: SNProtoCallMessage.SNProtoCallMessageType
         
         switch kind {
@@ -188,6 +189,10 @@ public final class CallMessage: ControlMessage {
         }
         
         let contentProto = SNProtoContent.builder()
+        
+        // DisappearingMessagesConfiguration
+        setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
+        
         do {
             contentProto.setCallMessage(try callMessageProto.build())
             

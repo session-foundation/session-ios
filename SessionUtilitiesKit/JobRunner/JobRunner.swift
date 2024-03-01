@@ -191,8 +191,8 @@ public final class JobRunner: JobRunnerType {
         
         self.allowToExecuteJobs = (
             isTestingJobRunner || (
-                HasAppContext() &&
-                CurrentAppContext().isMainApp &&
+                Singleton.hasAppContext &&
+                Singleton.appContext.isMainApp &&
                 !SNUtilitiesKit.isRunningTests
             )
         )
@@ -250,6 +250,20 @@ public final class JobRunner: JobRunnerType {
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [
                     jobVariants.remove(.attachmentDownload)
+                ].compactMap { $0 }
+            ),
+            
+            // MARK: -- Expiration Update Queue
+            
+            JobQueue(
+                type: .expirationUpdate,
+                executionType: .concurrent, // Allow as many jobs to run at once as supported by the device
+                qos: .default,
+                isTestingJobRunner: isTestingJobRunner,
+                jobVariants: [
+                    jobVariants.remove(.expirationUpdate),
+                    jobVariants.remove(.getExpiration),
+                    jobVariants.remove(.disappearingMessages)
                 ].compactMap { $0 }
             ),
             
@@ -717,6 +731,7 @@ public final class JobQueue: Hashable {
         case messageSend
         case messageReceive
         case attachmentDownload
+        case expirationUpdate
         
         var name: String {
             switch self {
@@ -725,6 +740,7 @@ public final class JobQueue: Hashable {
                 case .messageSend: return "MessageSend"
                 case .messageReceive: return "MessageReceive"
                 case .attachmentDownload: return "AttachmentDownload"
+                case .expirationUpdate: return "ExpirationUpdate"
             }
         }
     }
@@ -1153,6 +1169,9 @@ public final class JobQueue: Hashable {
                 self?.runNextJob(using: dependencies)
             }
             return
+        }
+        guard executionType == .concurrent || currentlyRunningJobIds.wrappedValue.isEmpty else {
+            return SNLog("[JobRunner] \(queueContext) Ignoring 'runNextJob' due to currently running job in serial queue")
         }
         guard let (nextJob, numJobsRemaining): (Job, Int) = pendingJobsQueue.mutate({ queue in queue.popFirst().map { ($0, queue.count) } }) else {
             // If it's a serial queue, or there are no more jobs running then update the 'isRunning' flag

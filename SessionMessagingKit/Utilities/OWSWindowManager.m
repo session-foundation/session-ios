@@ -102,7 +102,7 @@ const UIWindowLevel UIWindowLevel_ScreenBlocking(void)
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(applicationWillResignActive:)
-                                                 name:OWSApplicationWillResignActiveNotification
+                                                 name:NSNotification.sessionWillResignActive
                                                object:nil];
 
     [self ensureWindowState];

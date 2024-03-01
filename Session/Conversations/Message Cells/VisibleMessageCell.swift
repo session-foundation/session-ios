@@ -12,6 +12,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private var previousX: CGFloat = 0
     
     var albumView: MediaAlbumView?
+    var quoteView: QuoteView?
+    var linkPreviewView: LinkPreviewView?
+    var documentView: DocumentView?
     var bodyTappableLabel: TappableLabel?
     var voiceMessageView: VoiceMessageView?
     var audioStateChanged: ((TimeInterval, Bool) -> ())?
@@ -36,8 +39,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private lazy var underBubbleStackViewOutgoingTrailingConstraint: NSLayoutConstraint = underBubbleStackView.pin(.trailing, to: .trailing, of: snContentView)
     private lazy var underBubbleStackViewNoHeightConstraint: NSLayoutConstraint = underBubbleStackView.set(.height, to: 0)
     
-    private lazy var timerViewOutgoingMessageConstraint = timerView.pin(.leading, to: .leading, of: self, withInset: VisibleMessageCell.contactThreadHSpacing)
-    private lazy var timerViewIncomingMessageConstraint = timerView.pin(.trailing, to: .trailing, of: self, withInset: -VisibleMessageCell.contactThreadHSpacing)
+    private lazy var timerViewOutgoingMessageConstraint = timerView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
+    private lazy var timerViewIncomingMessageConstraint = timerView.pin(.leading, to: .leading, of: messageStatusContainerView)
+    private lazy var messageStatusLabelOutgoingMessageConstraint = messageStatusLabel.pin(.trailing, to: .leading, of: timerView, withInset: -2)
+    private lazy var messageStatusLabelIncomingMessageConstraint = messageStatusLabel.pin(.leading, to: .trailing, of: timerView, withInset: 2)
 
     private lazy var panGestureRecognizer: UIPanGestureRecognizer = {
         let result = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
@@ -111,14 +116,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // Flip horizontally for RTL languages
         result.transform = CGAffineTransform.identity
             .scaledBy(
-                x: (CurrentAppContext().isRTL ? -1 : 1),
+                x: (Singleton.hasAppContext && Singleton.appContext.isRTL ? -1 : 1),
                 y: 1
             )
         
         return result
     }()
 
-    private lazy var timerView: OWSMessageTimerView = OWSMessageTimerView()
+    private lazy var timerView: DisappearingMessageTimerView = DisappearingMessageTimerView()
     
     lazy var underBubbleStackView: UIStackView = {
         let result = UIStackView(arrangedSubviews: [])
@@ -215,11 +220,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         bubbleBackgroundView.addSubview(bubbleView)
         bubbleView.pin(to: bubbleBackgroundView)
         
-        // Timer view
-        addSubview(timerView)
-        timerView.center(.vertical, in: snContentView)
-        timerViewOutgoingMessageConstraint.isActive = true
-        
         // Reply button
         addSubview(replyButton)
         replyButton.addSubview(replyIconImageView)
@@ -242,6 +242,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         messageStatusContainerView.addSubview(messageStatusLabel)
         messageStatusContainerView.addSubview(messageStatusImageView)
+        messageStatusContainerView.addSubview(timerView)
         
         reactionContainerView.widthAnchor
             .constraint(lessThanOrEqualTo: underBubbleStackView.widthAnchor)
@@ -251,9 +252,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusImageView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
         messageStatusImageView.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
         messageStatusImageView.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
+        timerView.pin(.top, to: .top, of: messageStatusContainerView)
+        timerView.pin(.bottom, to: .bottom, of: messageStatusContainerView)
+        timerView.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
+        timerView.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
         messageStatusLabel.center(.vertical, in: messageStatusContainerView)
-        messageStatusLabel.pin(.leading, to: .leading, of: messageStatusContainerView)
-        messageStatusLabel.pin(.trailing, to: .leading, of: messageStatusImageView, withInset: -2)
         messageStatusLabelPaddingView.pin(.leading, to: .leading, of: messageStatusContainerView)
         messageStatusLabelPaddingView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
     }
@@ -345,7 +348,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             lastSearchText: lastSearchText
         )
         
-        bubbleView.accessibilityIdentifier = "Message Body"
+        bubbleView.accessibilityIdentifier = "Message body"
         bubbleView.accessibilityLabel = bodyTappableLabel?.attributedText?.string
         bubbleView.isAccessibilityElement = true
         
@@ -359,31 +362,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let authorLabelAvailableSpace = CGSize(width: authorLabelAvailableWidth, height: .greatestFiniteMagnitude)
         let authorLabelSize = authorLabel.sizeThatFits(authorLabelAvailableSpace)
         authorLabelHeightConstraint.constant = (cellViewModel.senderName != nil ? authorLabelSize.height : 0)
-        
-        // Timer
-        if
-            let expiresStartedAtMs: Double = cellViewModel.expiresStartedAtMs,
-            let expiresInSeconds: TimeInterval = cellViewModel.expiresInSeconds
-        {
-            let expirationTimestampMs: Double = (expiresStartedAtMs + (expiresInSeconds * 1000))
-            
-            timerView.configure(
-                withExpirationTimestamp: UInt64(floor(expirationTimestampMs)),
-                initialDurationSeconds: UInt32(floor(expiresInSeconds))
-            )
-            timerView.themeTintColor = .textPrimary
-            timerView.isHidden = false
-        }
-        else {
-            timerView.isHidden = true
-        }
-        
-        timerViewOutgoingMessageConstraint.isActive = (cellViewModel.variant == .standardOutgoing)
-        timerViewIncomingMessageConstraint.isActive = (
-            cellViewModel.variant == .standardIncoming ||
-            cellViewModel.variant == .standardIncomingDeleted
-        )
-        
+
         // Swipe to reply
         if ContextMenuVC.viewModelCanReply(cellViewModel) {
             addGestureRecognizer(panGestureRecognizer)
@@ -424,16 +403,49 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusLabel.accessibilityIdentifier = "Message sent status: \(statusText ?? "invalid")"
         messageStatusImageView.themeTintColor = tintColor
         messageStatusContainerView.isHidden = (
-            cellViewModel.variant != .standardOutgoing ||
-            cellViewModel.variant == .infoCall ||
-            (
-                cellViewModel.state == .sent &&
-                !cellViewModel.isLastOutgoing
+            (cellViewModel.expiresInSeconds ?? 0) == 0 && (
+                cellViewModel.variant != .standardOutgoing ||
+                cellViewModel.variant == .infoCall ||
+                (
+                    cellViewModel.state == .sent &&
+                    !cellViewModel.isLastOutgoing
+                )
             )
         )
         messageStatusLabelPaddingView.isHidden = (
             messageStatusContainerView.isHidden ||
             cellViewModel.isLast
+        )
+        
+        // Timer
+        if
+            let expiresStartedAtMs: Double = cellViewModel.expiresStartedAtMs,
+            let expiresInSeconds: TimeInterval = cellViewModel.expiresInSeconds
+        {
+            let expirationTimestampMs: Double = (expiresStartedAtMs + (expiresInSeconds * 1000))
+            
+            timerView.configure(
+                expirationTimestampMs: expirationTimestampMs,
+                initialDurationSeconds: expiresInSeconds
+            )
+            timerView.themeTintColor = tintColor
+            timerView.isHidden = false
+            messageStatusImageView.isHidden = true
+        }
+        else {
+            timerView.isHidden = true
+            messageStatusImageView.isHidden = false
+        }
+        
+        timerViewOutgoingMessageConstraint.isActive = (cellViewModel.variant == .standardOutgoing)
+        timerViewIncomingMessageConstraint.isActive = (
+            cellViewModel.variant == .standardIncoming ||
+            cellViewModel.variant == .standardIncomingDeleted
+        )
+        messageStatusLabelOutgoingMessageConstraint.isActive = (cellViewModel.variant == .standardOutgoing)
+        messageStatusLabelIncomingMessageConstraint.isActive = (
+            cellViewModel.variant == .standardIncoming ||
+            cellViewModel.variant == .standardIncomingDeleted
         )
         
         // Set the height of the underBubbleStackView to 0 if it has no content (need to do this
@@ -467,6 +479,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             subview.removeFromSuperview()
         }
         albumView = nil
+        quoteView = nil
+        linkPreviewView = nil
+        documentView = nil
         bodyTappableLabel = nil
         
         // Handle the deleted state first (it's much simpler than the others)
@@ -509,6 +524,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                 bodyLabelTextColor: bodyLabelTextColor,
                                 lastSearchText: lastSearchText
                             )
+                            self.linkPreviewView = linkPreviewView
                             bubbleView.addSubview(linkPreviewView)
                             linkPreviewView.pin(to: bubbleView, withInset: 0)
                             snContentView.addArrangedSubview(bubbleBackgroundView)
@@ -521,6 +537,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                                 textColor: bodyLabelTextColor,
                                 isOutgoing: (cellViewModel.variant == .standardOutgoing)
                             )
+                            openGroupInvitationView.isAccessibilityElement = true
+                            openGroupInvitationView.accessibilityIdentifier = "Community invitation"
+                            openGroupInvitationView.accessibilityLabel = cellViewModel.linkPreview?.title
                             bubbleView.addSubview(openGroupInvitationView)
                             bubbleView.pin(to: openGroupInvitationView)
                             snContentView.addArrangedSubview(bubbleBackgroundView)
@@ -549,6 +568,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             ),
                             attachment: cellViewModel.quoteAttachment
                         )
+                        self.quoteView = quoteView
                         let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
                         stackView.addArrangedSubview(quoteViewContainer)
                     }
@@ -641,6 +661,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 
                 // Document view
                 let documentView = DocumentView(attachment: attachment, textColor: bodyLabelTextColor)
+                self.documentView = documentView
                 stackView.addArrangedSubview(documentView)
             
                 // Body text view
@@ -766,22 +787,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     }
 
     // MARK: - Interaction
-    
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        // We are currently using Appium to do automated UI testing, unfortunately it seems to run into
-        // issues when trying to long-press an element which has custom interaction logic - the TappableLabel
-        // only needs to custom handle touches for interacting with links so we check to see if it contains
-        // links before forwarding touches to it
-        if let bodyTappableLabel: TappableLabel = bodyTappableLabel, bodyTappableLabel.containsLinks {
-            let bodyTappableLabelLocalTapCoordinate: CGPoint = convert(point, to: bodyTappableLabel)
-            
-            if bodyTappableLabel.bounds.contains(bodyTappableLabelLocalTapCoordinate) {
-                return bodyTappableLabel
-            }
-        }
-        
-        return super.hitTest(point, with: event)
-    }
 
     override func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true // Needed for the pan gesture recognizer to work with the table view's pan gesture recognizer
@@ -793,8 +798,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             // Only allow swipes to the left; allowing swipes to the right gets in the way of
             // the default iOS swipe to go back gesture
             guard
-                (CurrentAppContext().isRTL && v.x > 0) ||
-                (!CurrentAppContext().isRTL && v.x < 0)
+                (Singleton.hasAppContext && Singleton.appContext.isRTL && v.x > 0) ||
+                (!Singleton.hasAppContext || !Singleton.appContext.isRTL && v.x < 0)
             else { return false }
             
             return abs(v.x) > abs(v.y) // It has to be more horizontal than vertical
@@ -916,7 +921,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             }
         }
         else if snContentView.bounds.contains(snContentView.convert(location, from: self)) {
-            delegate?.handleItemTapped(cellViewModel, gestureRecognizer: gestureRecognizer, using: dependencies)
+            delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location, using: dependencies)
         }
     }
 
@@ -933,8 +938,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             .translation(in: self)
             .x
             .clamp(
-                (CurrentAppContext().isRTL ? 0 : -CGFloat.greatestFiniteMagnitude),
-                (CurrentAppContext().isRTL ? CGFloat.greatestFiniteMagnitude : 0)
+                (Singleton.hasAppContext && Singleton.appContext.isRTL ? 0 : -CGFloat.greatestFiniteMagnitude),
+                (Singleton.hasAppContext && Singleton.appContext.isRTL ? CGFloat.greatestFiniteMagnitude : 0)
             )
         
         switch gestureRecognizer.state {
@@ -943,7 +948,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case .changed:
                 // The idea here is to asymptotically approach a maximum drag distance
                 let damping: CGFloat = 20
-                let sign: CGFloat = (CurrentAppContext().isRTL ? 1 : -1)
+                let sign: CGFloat = (Singleton.hasAppContext && Singleton.appContext.isRTL ? 1 : -1)
                 let x = (damping * (sqrt(abs(translationX)) / sqrt(damping))) * sign
                 viewsToMoveForReply.forEach { $0.transform = CGAffineTransform(translationX: x, y: 0) }
                 
@@ -1197,7 +1202,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     // we only highlight those cases)
                     normalizedBody
                         .ranges(
-                            of: (CurrentAppContext().isRTL ?
+                            of: (Singleton.appContext.isRTL ?
                                  "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
                                  "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
                             ),

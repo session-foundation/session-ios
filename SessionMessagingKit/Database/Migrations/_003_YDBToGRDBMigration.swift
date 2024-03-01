@@ -824,9 +824,11 @@ enum _003_YDBToGRDBMigration: Migration {
                                                 let updateMessage: SMKLegacy._DisappearingConfigurationUpdateInfoMessage = infoMessage as? SMKLegacy._DisappearingConfigurationUpdateInfoMessage,
                                                 let infoMessageData: Data = try? JSONEncoder().encode(
                                                     DisappearingMessagesConfiguration.MessageInfo(
+                                                        threadVariant: nil, 
                                                         senderName: updateMessage.createdByRemoteName,
                                                         isEnabled: updateMessage.configurationIsEnabled,
-                                                        durationSeconds: TimeInterval(updateMessage.configurationDurationSeconds)
+                                                        durationSeconds: TimeInterval(updateMessage.configurationDurationSeconds),
+                                                        type: nil
                                                     )
                                                 ),
                                                 let infoMessageString: String = String(data: infoMessageData, encoding: .utf8)
@@ -1477,14 +1479,14 @@ enum _003_YDBToGRDBMigration: Migration {
         )
         db[.areLinkPreviewsEnabled] = (legacyPreferences[SMKLegacy.preferencesKeyAreLinkPreviewsEnabled] as? Bool == true)
         db[.areCallsEnabled] = (legacyPreferences[SMKLegacy.preferencesKeyAreCallsEnabled] as? Bool == true)
-        db[.hasHiddenMessageRequests] = CurrentAppContext().appUserDefaults()
+        db[.hasHiddenMessageRequests] = Singleton.appContext.appUserDefaults
             .bool(forKey: SMKLegacy.userDefaultsHasHiddenMessageRequests)
         
         // Note: The 'hasViewedSeed' was originally stored on standard user defaults
         db[.hasViewedSeed] = UserDefaults.standard.bool(forKey: SMKLegacy.userDefaultsHasViewedSeedKey)
         db[.hasSavedThread] = (legacyPreferences[SMKLegacy.preferencesKeyHasSavedThreadKey] as? Bool == true)
         db[.hasSentAMessage] = (legacyPreferences[SMKLegacy.preferencesKeyHasSentAMessageKey] as? Bool == true)
-        db[.isReadyForAppExtensions] = CurrentAppContext().appUserDefaults().bool(forKey: SMKLegacy.preferencesKeyIsReadyForAppExtensions)
+        db[.isReadyForAppExtensions] = Singleton.appContext.appUserDefaults.bool(forKey: SMKLegacy.preferencesKeyIsReadyForAppExtensions)
         
         // We want this setting to be on by default
         db[.trimOpenGroupMessagesOlderThanSixMonths] = true

@@ -916,6 +916,25 @@ public enum OpenGroupAPI {
             )
     }
     
+    /// Remove all message requests from inbox, this methrod will return the number of messages deleted
+    public static func preparedClearInbox(
+        _ db: Database,
+        on server: String,
+        using dependencies: Dependencies = Dependencies()
+    ) throws -> PreparedSendData<DeleteInboxResponse> {
+        return try OpenGroupAPI
+            .prepareSendData(
+                db,
+                request: Request<NoBody, Endpoint>(
+                    method: .delete,
+                    server: server,
+                    endpoint: .inbox
+                ),
+                responseType: DeleteInboxResponse.self,
+                using: dependencies
+            )
+    }
+    
     /// Delivers a direct message to a user via their blinded Session ID
     ///
     /// The body of this request is a JSON object containing a message key with a value of the encrypted-then-base64-encoded message to deliver

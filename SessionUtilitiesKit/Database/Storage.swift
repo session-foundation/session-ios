@@ -310,13 +310,13 @@ open class Storage {
     public func willStartMigration(_ db: Database, _ migration: Migration.Type) {
         let unprocessedRequirements: Set<MigrationRequirement> = migration.requirements.asSet()
             .intersection(unprocessedMigrationRequirements.wrappedValue.asSet())
-
+        
         // No need to do anything if there are no unprocessed requirements
         guard !unprocessedRequirements.isEmpty else { return }
-
+        
         // Process all of the requirements for this migration
         unprocessedRequirements.forEach { migrationRequirementProcesser?.wrappedValue(db, $0) }
-
+        
         // Remove any processed requirements from the list (don't want to process them multiple times)
         unprocessedMigrationRequirements.mutate {
             $0 = Array($0.asSet().subtracting(migration.requirements.asSet()))
@@ -381,9 +381,9 @@ open class Storage {
                     // after device restart until device is unlocked for the first time. If the app receives a push
                     // notification, we won't be able to access the keychain to process that notification, so we should
                     // just terminate by throwing an uncaught exception
-                    if CurrentAppContext().isMainApp || CurrentAppContext().isInBackground() {
-                        let appState: UIApplication.State = CurrentAppContext().reportedApplicationState
-                        SNLog("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(NSStringForUIApplicationState(appState))")
+                    if Singleton.hasAppContext && (Singleton.appContext.isMainApp || Singleton.appContext.isInBackground) {
+                        let appState: UIApplication.State = Singleton.appContext.reportedApplicationState
+                        SNLog("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
                         
                         // In this case we should have already detected the situation earlier and exited
                         // gracefully (in the app delegate) using isDatabasePasswordAccessible, but we

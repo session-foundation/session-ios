@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import AVFAudio
 import CallKit
 import SessionUtilitiesKit
 import SignalCoreKit
@@ -27,7 +28,7 @@ extension SessionCallManager: CXProviderDelegate {
         
         guard let call: SessionCall = (self.currentCall as? SessionCall) else { return action.fail() }
         
-        if CurrentAppContext().isMainAppAndActive {
+        if Singleton.hasAppContext && Singleton.appContext.isMainAppAndActive {
             if answerCallAction() {
                 action.fulfill()
             }

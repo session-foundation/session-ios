@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
+// TODO: Refactor this when disappearing messages V2 is up and running
 public final class ExpirationTimerUpdate: ControlMessage {
     private enum CodingKeys: String, CodingKey {
         case syncTarget
@@ -20,7 +21,7 @@ public final class ExpirationTimerUpdate: ControlMessage {
 
     // MARK: - Initialization
     
-    public init(syncTarget: String?, duration: UInt32) {
+    public init(syncTarget: String?, duration: UInt32?) {
         super.init()
         
         self.syncTarget = syncTarget
@@ -31,7 +32,8 @@ public final class ExpirationTimerUpdate: ControlMessage {
     
     public override var isValid: Bool {
         guard super.isValid else { return false }
-        return duration != nil
+        
+        return (duration != nil || Features.useNewDisappearingMessagesConfig)
     }
     
     // MARK: - Codable
@@ -64,20 +66,20 @@ public final class ExpirationTimerUpdate: ControlMessage {
         
         return ExpirationTimerUpdate(
             syncTarget: dataMessageProto.syncTarget,
-            duration: dataMessageProto.expireTimer
+            duration: proto.hasExpirationTimer ? proto.expirationTimer : dataMessageProto.expireTimer
         )
     }
 
-    public override func toProto(_ db: Database) -> SNProtoContent? {
-        guard let duration = duration else {
-            SNLog("Couldn't construct expiration timer update proto from: \(self).")
-            return nil
-        }
+    public override func toProto(_ db: Database, threadId: String) -> SNProtoContent? {
         let dataMessageProto = SNProtoDataMessage.builder()
         dataMessageProto.setFlags(UInt32(SNProtoDataMessage.SNProtoDataMessageFlags.expirationTimerUpdate.rawValue))
-        dataMessageProto.setExpireTimer(duration)
+        if let duration = duration { dataMessageProto.setExpireTimer(duration) }
         if let syncTarget = syncTarget { dataMessageProto.setSyncTarget(syncTarget) }
         let contentProto = SNProtoContent.builder()
+        
+        // DisappearingMessagesConfiguration
+        setDisappearingMessagesConfigurationIfNeeded(on: contentProto)
+        
         do {
             contentProto.setDataMessage(try dataMessageProto.build())
             return try contentProto.build()

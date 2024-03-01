@@ -299,7 +299,7 @@ struct MessageInfoView: View {
                                     0...(actions.count - 1),
                                     id: \.self
                                 ) { index in
-                                    let tintColor: ThemeValue = actions[index].isDestructive ? .danger : .textPrimary
+                                    let tintColor: ThemeValue = actions[index].themeColor
                                     Button(
                                         action: {
                                             actions[index].work()
@@ -537,7 +537,8 @@ struct MessageInfoView_Previews: PreviewProvider {
             optimisticMessageId: UUID(),
             threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
             threadVariant: .contact,
-            threadHasDisappearingMessagesEnabled: false,
+            threadExpirationType: nil,
+            threadExpirationTimer: nil,
             threadOpenGroupServer: nil,
             threadOpenGroupPublicKey: nil,
             threadContactNameInternal: "Test",

@@ -185,17 +185,17 @@ extension MessageReceiver {
         }
         
         // Update the DisappearingMessages config
-        let disappearingConfig: DisappearingMessagesConfiguration = try thread.disappearingMessagesConfiguration
-            .fetchOne(db)
-            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(thread.id))
-            .with(
-                isEnabled: (expirationTimer > 0),
-                durationSeconds: TimeInterval(expirationTimer > 0 ?
-                    expirationTimer :
-                    (24 * 60 * 60)
+        var disappearingConfig = DisappearingMessagesConfiguration.defaultWith(thread.id)
+        if (try? thread.disappearingMessagesConfiguration.fetchOne(db)) == nil {
+            let isEnabled: Bool = (expirationTimer > 0)
+            disappearingConfig = try disappearingConfig
+                .with(
+                    isEnabled: isEnabled,
+                    durationSeconds: TimeInterval(expirationTimer),
+                    type: isEnabled ? .disappearAfterSend : .unknown
                 )
-            )
-            .saved(db)
+                .saved(db)
+        }
         
         // Store the key pair if it doesn't already exist
         let receivedTimestamp: TimeInterval = (TimeInterval(SnodeAPI.currentOffsetTimestampMs()) / 1000)
@@ -670,6 +670,7 @@ extension MessageReceiver {
         guard ClosedGroup.filter(id: threadId).isNotEmpty(db) else { return }
         
         // Insert the info message for this group control message
+        // Note: Control messages for legacy groups are not affected by disappearing messages setting
         _ = try Interaction(
             serverHash: message.serverHash,
             threadId: threadId,

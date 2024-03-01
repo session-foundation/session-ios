@@ -153,13 +153,18 @@ final class MiniCallView: UIView, RTCVideoViewDelegate {
     
     @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         dismiss()
-        guard let presentingVC = CurrentAppContext().frontmostViewController() else { preconditionFailure() } // FIXME: Handle more gracefully
+        guard
+            Singleton.hasAppContext,
+            let presentingVC = Singleton.appContext.frontmostViewController else { preconditionFailure() } // FIXME: Handle more gracefully
         presentingVC.present(callVC, animated: true, completion: nil)
     }
     
     public func show() {
         self.alpha = 0.0
-        guard let window: UIWindow = CurrentAppContext().mainWindow else { return }
+        guard
+            Singleton.hasAppContext,
+            let window: UIWindow = Singleton.appContext.mainWindow
+        else { return }
         
         window.addSubview(self)
         left = self.autoPinEdge(toSuperviewEdge: .left)

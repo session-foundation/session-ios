@@ -32,7 +32,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         startTime = CACurrentMediaTime()
         
         // These should be the first things we do (the startup process can fail without them)
-        SetCurrentAppContext(MainAppContext())
+        Singleton.setup(appContext: MainAppContext())
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
         Cryptography.seedRandom()
@@ -97,7 +97,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard !SNUtilitiesKit.isRunningTests else { return true }
 
         self.window = mainWindow
-        CurrentAppContext().mainWindow = mainWindow
+        Singleton.appContext.setMainWindow(mainWindow)
         
         // Show LoadingViewController until the async database view registrations are complete.
         mainWindow.rootViewController = self.loadingViewController
@@ -147,7 +147,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             SNLog("Checking for pending migrations")
             let initialLaunchFailed: Bool = self.initialLaunchFailed
             
-            AppReadiness.invalidate()
+            Singleton.appReadiness.invalidate()
             
             // If the user went to the background too quickly then the database can be suspended before
             // properly starting up, in this case an alert will be shown but we can recover from it so
@@ -220,7 +220,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         ensureRootViewController(calledFrom: .didBecomeActive)
 
-        AppReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady { [weak self] in
             self?.handleActivation()
             
             /// Clear all notifications whenever we become active once the app is ready
@@ -235,7 +235,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         // On every activation, clear old temp directories.
-        ClearOldTemporaryDirectories()
+        guard Singleton.hasAppContext else { return }
+        
+        Singleton.appContext.clearOldTemporaryDirectories()
     }
     
     func applicationWillResignActive(_ application: UIApplication) {
@@ -275,7 +277,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             BackgroundPoller.isValid = false
             
-            if CurrentAppContext().isInBackground() {
+            if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 Storage.suspendDatabaseAccess()
             }
             
@@ -289,19 +291,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // incorrectly set this 'isValid' flag to true after it should have timed out)
         BackgroundPoller.isValid = true
         
-        AppReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
             // If the 'AppReadiness' process takes too long then it's possible for the user to open
             // the app after this closure is registered but before it's actually triggered - this can
             // result in the `BackgroundPoller` incorrectly getting called in the foreground, this check
             // is here to prevent that
-            guard CurrentAppContext().isInBackground() else { return }
+            guard Singleton.hasAppContext && Singleton.appContext.isInBackground else { return }
             
             BackgroundPoller.poll { result in
                 guard BackgroundPoller.isValid else { return }
                 
                 BackgroundPoller.isValid = false
                 
-                if CurrentAppContext().isInBackground() {
+                if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                     Storage.suspendDatabaseAccess()
                 }
                 
@@ -317,6 +319,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         SNLog("Migrations completed, performing setup and ensuring rootViewController")
         Configuration.performMainSetup()
         JobRunner.setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
+        
+        /// We need to do a clean up for disappear after send messages that are received by push notifications before
+        /// the app set up the main screen and load initial data to prevent a case when the PagedDatabaseObserver
+        /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
+        DisappearingMessagesJob.cleanExpiredMessagesOnLaunch()
         
         // Setup the UI if needed, then trigger any post-UI setup actions
         self.ensureRootViewController(calledFrom: lifecycleMethod) { [weak self] success in
@@ -343,7 +350,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             /// **Note:** This this does much more than set a flag - it will also run all deferred blocks (including the JobRunner
             /// `appDidBecomeActive` method hence why it **must** also come after calling
             /// `JobRunner.appDidFinishLaunching()`)
-            AppReadiness.setAppIsReady()
+            Singleton.appReadiness.setAppReady()
             
             /// Remove the sleep blocking once the startup is done (needs to run on the main thread and sleeping while
             /// doing the startup could suspend the database causing errors/crashes
@@ -504,7 +511,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     private func enableBackgroundRefreshIfNecessary() {
-        AppReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
             UIApplication.shared.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
         }
     }
@@ -523,7 +530,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         startPollersIfNeeded()
         
-        if CurrentAppContext().isMainApp {
+        if Singleton.hasAppContext && Singleton.appContext.isMainApp {
             handleAppActivatedWithOngoingCallIfNeeded()
         }
     }
@@ -538,7 +545,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard
             Storage.shared.isValid &&
             (
-                AppReadiness.isAppReady() ||
+                Singleton.appReadiness.isAppReady ||
                 lifecycleMethod == .finishLaunching ||
                 lifecycleMethod == .enterForeground(initialLaunchFailed: true)
             ) &&
@@ -654,10 +661,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     private func clearAllNotificationsAndRestoreBadgeCount() {
-        AppReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
             AppEnvironment.shared.notificationPresenter.clearAllNotifications()
             
-            guard CurrentAppContext().isMainApp else { return }
+            guard Singleton.hasAppContext && Singleton.appContext.isMainApp else { return }
             
             /// On application startup the `Storage.read` can be slightly slow while GRDB spins up it's database
             /// read pools (up to a few seconds), since this read is blocking we want to dispatch it to run async to ensure
@@ -675,7 +682,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
-        AppReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
             guard Identity.userCompletedRequiredOnboarding() else { return }
             
             SessionApp.homeViewController.wrappedValue?.createNewConversation()
@@ -694,7 +701,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
         
-        AppReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
             // We need to respect the in-app notification sound preference. This method, which is called
             // for modern UNUserNotification users, could be a place to do that, but since we'd still
             // need to handle this behavior for legacy UINotification users anyway, we "allow" all
@@ -708,7 +715,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// the notification or choosing a UNNotificationAction. The delegate must be set before the application returns from
     /// application:didFinishLaunchingWithOptions:.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        AppReadiness.runNowOrWhenAppDidBecomeReady {
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
             AppEnvironment.shared.userNotificationActionHandler.handleNotificationResponse(response, completionHandler: completionHandler)
         }
     }
@@ -737,7 +744,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard let callerId: String = notification.userInfo?[Notification.Key.senderId.rawValue] as? String else {
             return
         }
-        guard let presentingVC = CurrentAppContext().frontmostViewController() else { preconditionFailure() }
+        guard
+            Singleton.hasAppContext,
+            let presentingVC = Singleton.appContext.frontmostViewController
+        else { preconditionFailure() }
         
         let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
             caller: Profile.displayName(id: callerId)
@@ -821,15 +831,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func handleAppActivatedWithOngoingCallIfNeeded() {
         guard
             let call: SessionCall = (AppEnvironment.shared.callManager.currentCall as? SessionCall),
-            MiniCallView.current == nil
+            MiniCallView.current == nil,
+            Singleton.hasAppContext
         else { return }
         
-        if let callVC = CurrentAppContext().frontmostViewController() as? CallVC, callVC.call.uuid == call.uuid {
+        if let callVC = Singleton.appContext.frontmostViewController as? CallVC, callVC.call.uuid == call.uuid {
             return
         }
         
         // FIXME: Handle more gracefully
-        guard let presentingVC = CurrentAppContext().frontmostViewController() else { preconditionFailure() }
+        guard let presentingVC = Singleton.appContext.frontmostViewController else { preconditionFailure() }
         
         let callVC: CallVC = CallVC(for: call)
         
