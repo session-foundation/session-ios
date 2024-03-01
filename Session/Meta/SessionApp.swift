@@ -86,7 +86,7 @@ public struct SessionApp {
                         id: threadId,
                         variant: variant,
                         shouldBeVisible: nil,
-                        calledFromConfigHandling: false,
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }

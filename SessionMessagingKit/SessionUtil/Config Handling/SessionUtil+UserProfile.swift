@@ -55,7 +55,7 @@ internal extension SessionUtil {
                 )
             }(),
             sentTimestamp: TimeInterval(Double(serverTimestampMs) / 1000),
-            calledFromConfigHandling: true,
+            calledFromConfig: .userProfile,
             using: dependencies
         )
         
@@ -81,9 +81,11 @@ internal extension SessionUtil {
             if !threadChanges.isEmpty {
                 try SessionThread
                     .filter(id: userSessionId.hexString)
-                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    .updateAllAndConfig(
                         db,
-                        threadChanges
+                        threadChanges,
+                        calledFromConfig: .userProfile,
+                        using: dependencies
                     )
             }
         }
@@ -94,14 +96,16 @@ internal extension SessionUtil {
                     id: userSessionId.hexString,
                     variant: .contact,
                     shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority),
-                    calledFromConfigHandling: true
+                    calledFromConfig: .userProfile
                 )
             
             try SessionThread
                 .filter(id: userSessionId.hexString)
-                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                .updateAllAndConfig(
                     db,
-                    SessionThread.Columns.pinnedPriority.set(to: targetPriority)
+                    SessionThread.Columns.pinnedPriority.set(to: targetPriority),
+                    calledFromConfig: .userProfile,
+                    using: dependencies
                 )
             
             // If the 'Note to Self' conversation is hidden then we should trigger the proper
@@ -114,7 +118,7 @@ internal extension SessionUtil {
                         threadId: userSessionId.hexString,
                         threadVariant: .contact,
                         groupLeaveType: .silent,
-                        calledFromConfigHandling: true,
+                        calledFromConfig: .userProfile,
                         using: dependencies
                     )
             }
@@ -162,11 +166,13 @@ internal extension SessionUtil {
             try userContact.upsert(db)
             try Contact
                 .filter(id: userSessionId.hexString)
-                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                .updateAllAndConfig(
                     db,
                     Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
                     Contact.Columns.isApproved.set(to: true),
-                    Contact.Columns.didApproveMe.set(to: true)
+                    Contact.Columns.didApproveMe.set(to: true),
+                    calledFromConfig: .userProfile,
+                    using: dependencies
                 )
         }
     }

@@ -76,7 +76,7 @@ public extension BlindedIdLookup {
         openGroupServer: String,
         openGroupPublicKey: String,
         isCheckingForOutbox: Bool,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> BlindedIdLookup {
         var lookup: BlindedIdLookup = (try? BlindedIdLookup
             .fetchOne(db, id: blindedId))
@@ -138,7 +138,12 @@ public extension BlindedIdLookup {
             if isCheckingForOutbox && !contact.isApproved {
                 try Contact
                     .filter(id: contact.id)
-                    .updateAllAndConfig(db, Contact.Columns.isApproved.set(to: true), using: dependencies)
+                    .updateAllAndConfig(
+                        db,
+                        Contact.Columns.isApproved.set(to: true),
+                        calledFromConfig: nil,
+                        using: dependencies
+                    )
             }
             
             break

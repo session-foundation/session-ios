@@ -612,7 +612,7 @@ public extension Interaction {
                 ],
                 lastReadTimestampMs: timestampMs,
                 trySendReadReceipt: trySendReadReceipt,
-                calledFromConfigHandling: false,
+                calledFromConfig: nil,
                 using: dependencies
             )
             return
@@ -638,7 +638,7 @@ public extension Interaction {
                 interactionInfo: [interactionInfo],
                 lastReadTimestampMs: interactionInfo.timestampMs,
                 trySendReadReceipt: trySendReadReceipt,
-                calledFromConfigHandling: false,
+                calledFromConfig: nil,
                 using: dependencies
             )
             return
@@ -655,7 +655,7 @@ public extension Interaction {
             interactionInfo: interactionInfoToMarkAsRead,
             lastReadTimestampMs: interactionInfo.timestampMs,
             trySendReadReceipt: trySendReadReceipt,
-            calledFromConfigHandling: false,
+            calledFromConfig: nil,
             using: dependencies
         )
     }
@@ -731,13 +731,13 @@ public extension Interaction {
         interactionInfo: [Interaction.ReadInfo],
         lastReadTimestampMs: Int64,
         trySendReadReceipt: Bool,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws {
         guard !interactionInfo.isEmpty else { return }
         
         // Update the last read timestamp if needed
-        if !calledFromConfigHandling {
+        if configTriggeringChange != .convoInfoVolatile {
             try SessionUtil.syncThreadLastReadIfNeeded(
                 db,
                 threadId: threadId,

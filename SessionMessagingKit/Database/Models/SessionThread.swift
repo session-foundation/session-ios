@@ -163,7 +163,7 @@ public extension SessionThread {
         id: ID,
         variant: Variant,
         shouldBeVisible: Bool?,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies = Dependencies()
     ) throws -> SessionThread {
         guard let existingThread: SessionThread = try? fetchOne(db, id: id) else {
@@ -187,7 +187,7 @@ public extension SessionThread {
             .updateAllAndConfig(
                 db,
                 SessionThread.Columns.shouldBeVisible.set(to: shouldBeVisible),
-                calledFromConfigHandling: calledFromConfigHandling,
+                calledFromConfig: configTriggeringChange,
                 using: dependencies
             )
         
@@ -290,7 +290,7 @@ public extension SessionThread {
         threadId: String,
         threadVariant: Variant,
         groupLeaveType: ClosedGroup.LeaveType,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies = Dependencies()
     ) throws {
         try deleteOrLeave(
@@ -298,7 +298,7 @@ public extension SessionThread {
             threadIds: [threadId],
             threadVariant: threadVariant,
             groupLeaveType: groupLeaveType,
-            calledFromConfigHandling: calledFromConfigHandling,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
     }
@@ -308,7 +308,7 @@ public extension SessionThread {
         threadIds: [String],
         threadVariant: Variant,
         groupLeaveType: ClosedGroup.LeaveType,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies = Dependencies()
     ) throws {
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
@@ -330,7 +330,7 @@ public extension SessionThread {
                             db,
                             SessionThread.Columns.pinnedPriority.set(to: 0),
                             SessionThread.Columns.shouldBeVisible.set(to: false),
-                            calledFromConfigHandling: calledFromConfigHandling,
+                            calledFromConfig: configTriggeringChange,
                             using: dependencies
                         )
                 }
@@ -343,13 +343,13 @@ public extension SessionThread {
                         db,
                         SessionThread.Columns.pinnedPriority.set(to: SessionUtil.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false),
-                        calledFromConfigHandling: calledFromConfigHandling,
+                        calledFromConfig: configTriggeringChange,
                         using: dependencies
                     )
                 
             case (.contact, .forced):
                 // If this wasn't called from config handling then we need to hide the conversation
-                if !calledFromConfigHandling {
+                if configTriggeringChange != .contacts {
                     try SessionUtil
                         .hide(db, contactIds: threadIds, using: dependencies)
                 }
@@ -368,7 +368,7 @@ public extension SessionThread {
                     db,
                     threadIds: threadIds,
                     dataToRemove: .allData,
-                    calledFromConfigHandling: calledFromConfigHandling,
+                    calledFromConfig: configTriggeringChange,
                     using: dependencies
                 )
                 
@@ -377,7 +377,7 @@ public extension SessionThread {
                     OpenGroupManager.shared.delete(
                         db,
                         openGroupId: threadId,
-                        calledFromConfigHandling: calledFromConfigHandling,
+                        calledFromConfig: configTriggeringChange,
                         using: dependencies
                     )
                 }

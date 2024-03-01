@@ -119,7 +119,9 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         Profile.Columns.profilePictureUrl.set(to: url),
                                         Profile.Columns.profileEncryptionKey.set(to: encryptionKey),
                                         Profile.Columns.profilePictureFileName.set(to: fileName),
-                                        Profile.Columns.lastProfilePictureUpdate.set(to: details.timestamp)
+                                        Profile.Columns.lastProfilePictureUpdate.set(to: details.timestamp),
+                                        calledFromConfig: nil,
+                                        using: dependencies
                                     )
                                 
                             case .group(let id, let url, let encryptionKey):
@@ -130,7 +132,9 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         ClosedGroup.Columns.displayPictureUrl.set(to: url),
                                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
                                         ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
-                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: details.timestamp)
+                                        ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: details.timestamp),
+                                        calledFromConfig: nil,
+                                        using: dependencies
                                     )
                                 
                             case .community(_, let roomToken, let server):
@@ -139,7 +143,9 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                     .updateAllAndConfig(
                                         db,
                                         OpenGroup.Columns.displayPictureFilename.set(to: fileName),
-                                        OpenGroup.Columns.lastDisplayPictureUpdate.set(to: details.timestamp)
+                                        OpenGroup.Columns.lastDisplayPictureUpdate.set(to: details.timestamp),
+                                        calledFromConfig: nil,
+                                        using: dependencies
                                     )
                         }
                     }

@@ -90,6 +90,8 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
             try request.fetchAllWithProfiles(db)
         }
         .map { [weak self, dependencies, showProfileIcons, onTapAction, selectedUsersSubject] (users: [WithProfile<T>]) -> [SectionModel] in
+            let userSessionId: SessionId = getUserSessionId(using: dependencies)
+            
             return [
                 SectionModel(
                     model: .users,
@@ -122,10 +124,14 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                             
                             let finalAction: OnTapAction = finalAction(for: onTapAction)
                             let trailingAccessory: SessionCell.Accessory? = generateAccessory(finalAction)
-                            let title: String = (
-                                userInfo.profile?.displayName() ??
-                                Profile.truncated(id: userInfo.profileId, truncating: .middle)
-                            )
+                            let title: String = {
+                                guard userInfo.profileId != userSessionId.hexString else { return "CURRENT_USER".localized() }
+                                
+                                return (
+                                    userInfo.profile?.displayName() ??
+                                    Profile.truncated(id: userInfo.profileId, truncating: .middle)
+                                )
+                            }()
                             
                             return SessionCell.Info(
                                 id: .user(userInfo.profileId),

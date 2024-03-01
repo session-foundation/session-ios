@@ -45,6 +45,7 @@ extension MessageReceiver {
                     )
                 }(),
                 sentTimestamp: messageSentTimestamp,
+                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -55,7 +56,7 @@ extension MessageReceiver {
             id: senderId,
             variant: .contact,
             shouldBeVisible: nil,
-            calledFromConfigHandling: false,
+            calledFromConfig: nil,
             using: dependencies
         )
         
@@ -114,7 +115,7 @@ extension MessageReceiver {
                     threadId: blindedIdLookup.blindedId,
                     threadVariant: .contact,
                     groupLeaveType: .forced,
-                    calledFromConfigHandling: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
         }
@@ -187,7 +188,12 @@ extension MessageReceiver {
             try? contact.upsert(db)
             _ = try? Contact
                 .filter(id: threadId)
-                .updateAllAndConfig(db, Contact.Columns.isApproved.set(to: true))
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isApproved.set(to: true),
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
         }
         else {
             // The message was sent to the current user so flag their 'didApproveMe' as true (can't send a message to
@@ -199,7 +205,12 @@ extension MessageReceiver {
             try? contact.upsert(db)
             _ = try? Contact
                 .filter(id: senderSessionId)
-                .updateAllAndConfig(db, Contact.Columns.didApproveMe.set(to: true))
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.didApproveMe.set(to: true),
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
         }
     }
 }

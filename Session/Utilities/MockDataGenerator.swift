@@ -55,7 +55,7 @@ enum MockDataGenerator {
             id: "MockDatabaseThread",
             variant: .contact,
             shouldBeVisible: false,
-            calledFromConfigHandling: false
+            calledFromConfig: nil
         )
         
         // MARK: - -- DM Thread
@@ -86,7 +86,7 @@ enum MockDataGenerator {
                         id: randomSessionId,
                         variant: .contact,
                         shouldBeVisible: true,
-                        calledFromConfigHandling: false
+                        calledFromConfig: nil
                     )
                 
                 // Generate the contact
@@ -198,7 +198,7 @@ enum MockDataGenerator {
                         id: randomLegacyGroupPublicKey,
                         variant: .legacyGroup,
                         shouldBeVisible: true,
-                        calledFromConfigHandling: false
+                        calledFromConfig: nil
                     )
                 try! ClosedGroup(
                     threadId: randomLegacyGroupPublicKey,
@@ -332,7 +332,7 @@ enum MockDataGenerator {
                         id: randomGroupPublicKey,
                         variant: .community,
                         shouldBeVisible: true,
-                        calledFromConfigHandling: false
+                        calledFromConfig: nil
                     )
                 try! OpenGroup(
                     server: serverName,

@@ -59,6 +59,7 @@ public extension Profile {
                         name: profileName,
                         displayPictureUpdate: displayPictureUpdate,
                         sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                     
@@ -78,6 +79,7 @@ public extension Profile {
                                 name: profileName,
                                 displayPictureUpdate: .updateTo(url: downloadUrl, key: newProfileKey, fileName: fileName),
                                 sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             
@@ -99,7 +101,7 @@ public extension Profile {
         blocksCommunityMessageRequests: Bool? = nil,
         displayPictureUpdate: DisplayPictureManager.Update,
         sentTimestamp: TimeInterval,
-        calledFromConfigHandling: Bool = false,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == getUserSessionId(db, using: dependencies).hexString)
@@ -108,7 +110,7 @@ public extension Profile {
         
         // Name
         if let name: String = name, !name.isEmpty, name != profile.name {
-            if sentTimestamp > (profile.lastNameUpdate ?? 0) || (isCurrentUser && calledFromConfigHandling) {
+            if sentTimestamp > (profile.lastNameUpdate ?? 0) || (isCurrentUser && configTriggeringChange == .userProfile) {
                 profileChanges.append(Profile.Columns.name.set(to: name))
                 profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
             }
@@ -121,7 +123,7 @@ public extension Profile {
         }
         
         // Profile picture & profile key
-        if sentTimestamp > (profile.lastProfilePictureUpdate ?? 0) || (isCurrentUser && calledFromConfigHandling) {
+        if sentTimestamp > (profile.lastProfilePictureUpdate ?? 0) || (isCurrentUser && configTriggeringChange == .userProfile) {
             switch displayPictureUpdate {
                 case .none: break
                 case .uploadImageData: preconditionFailure("Invalid options for this function")
@@ -171,7 +173,7 @@ public extension Profile {
                 .updateAllAndConfig(
                     db,
                     profileChanges,
-                    calledFromConfigHandling: calledFromConfigHandling,
+                    calledFromConfig: configTriggeringChange,
                     using: dependencies
                 )
         }

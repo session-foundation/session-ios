@@ -172,6 +172,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
             ]
         }
         
+        let userSessionId: SessionId = getUserSessionId(using: dependencies)
         let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: threadId)) ?? .group) == .group)
         let editIcon: UIImage? = UIImage(systemName: "pencil")
         let sortedMembers: [WithProfile<GroupMember>] = {
@@ -341,10 +342,14 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                                 profileIcon: memberInfo.value.profileIcon
                             ),
                             title: SessionCell.TextInfo(
-                                (
-                                    memberInfo.profile?.displayName() ??
-                                    Profile.truncated(id: memberInfo.profileId, truncating: .middle)
-                                ),
+                                {
+                                    guard memberInfo.profileId != userSessionId.hexString else { return "CURRENT_USER".localized() }
+                                    
+                                    return (
+                                        memberInfo.profile?.displayName() ??
+                                        Profile.truncated(id: memberInfo.profileId, truncating: .middle)
+                                    )
+                                }(),
                                 font: .title,
                                 accessibility: Accessibility(
                                     identifier: "Contact"
@@ -391,7 +396,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             ),
                             onTapView: { [weak self, selectedIdsSubject] targetView in
                                 let didTapResend: Bool = (targetView is SessionHighlightingBackgroundLabel)
-                                // TODO: updated group control messages are busted???
+                                
                                 switch (memberInfo.value.role, memberInfo.value.roleStatus, didTapResend) {
                                     case (.moderator, _, _): return
                                     case (.admin, _, _):

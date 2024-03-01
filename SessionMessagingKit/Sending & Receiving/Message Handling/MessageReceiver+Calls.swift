@@ -76,7 +76,7 @@ extension MessageReceiver {
                     id: sender,
                     variant: .contact,
                     shouldBeVisible: nil,
-                    calledFromConfigHandling: false
+                    calledFromConfig: nil
                 )
                 
                 if !interaction.wasRead {
@@ -98,7 +98,7 @@ extension MessageReceiver {
                     id: sender,
                     variant: .contact,
                     shouldBeVisible: nil,
-                    calledFromConfigHandling: false
+                    calledFromConfig: nil
                 )
                 
                 if !interaction.wasRead {

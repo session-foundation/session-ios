@@ -676,10 +676,11 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             !SessionUtil.conversationInConfig(
                 threadId: threadId,
                 threadVariant: viewModel.threadData.threadVariant,
-                visibleOnly: false
+                visibleOnly: false,
+                using: viewModel.dependencies
             )
         {
-            Dependencies()[singleton: .storage].writeAsync { db in
+            viewModel.dependencies[singleton: .storage].writeAsync { db in
                 _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
                     .filter(id: threadId)
                     .deleteAll(db)

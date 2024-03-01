@@ -125,7 +125,7 @@ public enum GroupLeavingJob: JobExecutor {
                 /// group revoked which would leave the user in a state where they can't leave the group)
                 switch (error as? MessageSenderError, error as? SnodeAPIError) {
                     case (.invalidClosedGroupUpdate, _), (.noKeyPair, _), (.encryptionFailed, _),
-                        (_, .unauthorised):
+                        (_, .unauthorised), (_, .invalidAuthentication):
                         return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
                     
                     default: throw error
@@ -165,7 +165,7 @@ public enum GroupLeavingJob: JobExecutor {
                                     db,
                                     threadIds: [threadId],
                                     dataToRemove: .allData,
-                                    calledFromConfigHandling: false,
+                                    calledFromConfig: nil,
                                     using: dependencies
                                 )
                             }

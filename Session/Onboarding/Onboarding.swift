@@ -154,6 +154,7 @@ enum Onboarding {
                         Contact.Columns.isTrusted.set(to: true),    // Always trust the current user
                         Contact.Columns.isApproved.set(to: true),
                         Contact.Columns.didApproveMe.set(to: true),
+                        calledFromConfig: nil,
                         using: dependencies
                     )
 
@@ -166,7 +167,7 @@ enum Onboarding {
                     id: sessionId.hexString,
                     variant: .contact,
                     shouldBeVisible: false,
-                    calledFromConfigHandling: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
                 
@@ -175,6 +176,7 @@ enum Onboarding {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.shouldBeVisible.set(to: false),
+                        calledFromConfig: nil,
                         using: dependencies
                     )
             }
@@ -209,6 +211,7 @@ enum Onboarding {
                     .updateAllAndConfig(
                         db,
                         Profile.Columns.lastNameUpdate.set(to: dependencies.dateNow.timeIntervalSince1970),
+                        calledFromConfig: nil,
                         using: dependencies
                     )
             }

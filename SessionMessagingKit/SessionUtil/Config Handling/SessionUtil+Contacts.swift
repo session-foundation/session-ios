@@ -79,7 +79,7 @@ internal extension SessionUtil {
                     try profile.upsert(db)
                     try Profile
                         .filter(id: sessionId)
-                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        .updateAllAndConfig(
                             db,
                             [
                                 (!profileNameShouldBeUpdated ? nil :
@@ -100,7 +100,9 @@ internal extension SessionUtil {
                                 (!profilePictureShouldBeUpdated ? nil :
                                     Profile.Columns.lastProfilePictureUpdate.set(to: data.profile.lastProfilePictureUpdate)
                                 )
-                            ].compactMap { $0 }
+                            ].compactMap { $0 },
+                            calledFromConfig: .contacts,
+                            using: dependencies
                         )
                 }
                 
@@ -115,7 +117,7 @@ internal extension SessionUtil {
                     try contact.upsert(db)
                     try Contact
                         .filter(id: sessionId)
-                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        .updateAllAndConfig(
                             db,
                             [
                                 (!data.contact.isApproved || contact.isApproved == data.contact.isApproved ? nil :
@@ -127,7 +129,9 @@ internal extension SessionUtil {
                                 (!data.contact.didApproveMe || contact.didApproveMe == data.contact.didApproveMe ? nil :
                                     Contact.Columns.didApproveMe.set(to: true)
                                 )
-                            ].compactMap { $0 }
+                            ].compactMap { $0 },
+                            calledFromConfig: .contacts,
+                            using: dependencies
                         )
                 }
                 
@@ -168,9 +172,11 @@ internal extension SessionUtil {
                     
                     try SessionThread
                         .filter(id: sessionId)
-                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        .updateAllAndConfig(
                             db,
-                            changes
+                            changes,
+                            calledFromConfig: .contacts,
+                            using: dependencies
                         )
                 }
                 
@@ -244,9 +250,11 @@ internal extension SessionUtil {
             // Also need to remove any 'nickname' values since they are associated to contact data
             try Profile
                 .filter(ids: combinedIds)
-                .updateAll(
+                .updateAllAndConfig(
                     db,
-                    Profile.Columns.nickname.set(to: nil)
+                    Profile.Columns.nickname.set(to: nil),
+                    calledFromConfig: .contacts,
+                    using: dependencies
                 )
             
             // Delete the one-to-one conversations associated to the contact
@@ -256,7 +264,7 @@ internal extension SessionUtil {
                     threadIds: combinedIds,
                     threadVariant: .contact,
                     groupLeaveType: .forced,
-                    calledFromConfigHandling: true,
+                    calledFromConfig: .contacts,
                     using: dependencies
                 )
             

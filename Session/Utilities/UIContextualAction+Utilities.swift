@@ -107,10 +107,11 @@ public extension UIContextualAction {
                                     case true: threadViewModel.markAsRead(
                                         target: .threadAndInteractions(
                                             interactionsBeforeInclusive: threadViewModel.interactionId
-                                        )
+                                        ),
+                                        using: dependencies
                                     )
                                         
-                                    case false: threadViewModel.markAsUnread()
+                                    case false: threadViewModel.markAsUnread(using: dependencies)
                                 }
                             }
                             completionHandler(true)
@@ -171,7 +172,7 @@ public extension UIContextualAction {
                                                         threadId: threadViewModel.threadId,
                                                         threadVariant: threadViewModel.threadVariant,
                                                         groupLeaveType: .silent,
-                                                        calledFromConfigHandling: false
+                                                        calledFromConfig: nil
                                                     )
                                                 }
                                                 viewController?.dismiss(animated: true, completion: nil)
@@ -223,6 +224,7 @@ public extension UIContextualAction {
                                             db,
                                             SessionThread.Columns.pinnedPriority
                                                 .set(to: (threadViewModel.threadPinnedPriority == 0 ? 1 : 0)),
+                                            calledFromConfig: nil,
                                             using: dependencies
                                         )
                                 }
@@ -357,7 +359,12 @@ public extension UIContextualAction {
                                                         .upsert(db)
                                                     try Contact
                                                         .filter(id: threadViewModel.threadId)
-                                                        .updateAllAndConfig(db, contactChanges, using: dependencies)
+                                                        .updateAllAndConfig(
+                                                            db,
+                                                            contactChanges,
+                                                            calledFromConfig: nil,
+                                                            using: dependencies
+                                                        )
                                                     
                                                 case (.group, .some(let contactId)):
                                                     try Contact
@@ -365,7 +372,12 @@ public extension UIContextualAction {
                                                         .upsert(db)
                                                     try Contact
                                                         .filter(id: contactId)
-                                                        .updateAllAndConfig(db, contactChanges, using: dependencies)
+                                                        .updateAllAndConfig(
+                                                            db,
+                                                            contactChanges,
+                                                            calledFromConfig: nil,
+                                                            using: dependencies
+                                                        )
                                                     
                                                 default: break
                                             }
@@ -377,7 +389,7 @@ public extension UIContextualAction {
                                                     threadId: threadViewModel.threadId,
                                                     threadVariant: threadViewModel.threadVariant,
                                                     groupLeaveType: .silent,
-                                                    calledFromConfigHandling: false
+                                                    calledFromConfig: nil
                                                 )
                                             }
                                         }
@@ -489,7 +501,7 @@ public extension UIContextualAction {
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
                                                 groupLeaveType: .standard,
-                                                calledFromConfigHandling: false
+                                                calledFromConfig: nil
                                             )
                                         }
                                         viewController?.dismiss(animated: true, completion: nil)
@@ -596,7 +608,7 @@ public extension UIContextualAction {
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
                                                 groupLeaveType: (isMessageRequest ? .silent : .forced),
-                                                calledFromConfigHandling: false
+                                                calledFromConfig: nil
                                             )
                                         }
                                         viewController?.dismiss(animated: true, completion: nil)

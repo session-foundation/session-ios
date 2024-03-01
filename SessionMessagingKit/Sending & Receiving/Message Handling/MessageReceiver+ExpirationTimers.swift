@@ -154,7 +154,9 @@ extension MessageReceiver {
             .filter(id: contactId)
             .updateAllAndConfig(
                 db,
-                Contact.Columns.lastKnownClientVersion.set(to: version)
+                Contact.Columns.lastKnownClientVersion.set(to: version),
+                calledFromConfig: nil,
+                using: dependencies
             )
         
         guard dependencies[feature: .updatedDisappearingMessages] else { return }

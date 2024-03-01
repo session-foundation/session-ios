@@ -127,6 +127,7 @@ extension MessageReceiver {
                     )
                 }(),
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -152,7 +153,7 @@ extension MessageReceiver {
             authData: message.memberAuthData,
             joinedAt: TimeInterval(Double(sentTimestampMs) / 1000),
             invited: !inviteSenderIsApproved,
-            calledFromConfigHandling: false,
+            calledFromConfig: nil,
             using: dependencies
         )
         
@@ -230,7 +231,7 @@ extension MessageReceiver {
                         id: message.groupSessionId.hexString,
                         variant: .group,
                         shouldBeVisible: nil,
-                        calledFromConfigHandling: false,
+                        calledFromConfig: nil,
                         using: dependencies
                     ),
                     applicationState: (isMainAppActive ? .active : .background),
@@ -247,7 +248,7 @@ extension MessageReceiver {
         authData: Data?,
         joinedAt: TimeInterval,
         invited: Bool,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws -> Job? {
         // Create the group
@@ -256,7 +257,7 @@ extension MessageReceiver {
             id: groupSessionId,
             variant: .group,
             shouldBeVisible: true,
-            calledFromConfigHandling: calledFromConfigHandling,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
         let groupAlreadyApproved: Bool = ((try? ClosedGroup.fetchOne(db, id: groupSessionId))?.invited == false)
@@ -271,7 +272,7 @@ extension MessageReceiver {
             invited: groupInvitedState
         ).upserted(db)
         
-        if !calledFromConfigHandling {
+        if configTriggeringChange != .userGroups {
             // Update libSession
             try? SessionUtil.add(
                 db,
@@ -291,7 +292,7 @@ extension MessageReceiver {
         return try ClosedGroup.approveGroup(
             db,
             group: closedGroup,
-            calledFromConfigHandling: calledFromConfigHandling,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
     }
@@ -326,6 +327,7 @@ extension MessageReceiver {
                 db,
                 ClosedGroup.Columns.groupIdentityPrivateKey.set(to: Data(groupIdentityKeyPair.secretKey)),
                 ClosedGroup.Columns.authData.set(to: nil),
+                calledFromConfig: nil,
                 using: dependencies
             )
         
@@ -343,6 +345,7 @@ extension MessageReceiver {
                         db,
                         GroupMember.Columns.role.set(to: GroupMember.Role.admin),
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                 
@@ -353,6 +356,7 @@ extension MessageReceiver {
                     .updateAllAndConfig(
                         db,
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                 
@@ -611,6 +615,7 @@ extension MessageReceiver {
                     )
                 }(),
                 sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -769,7 +774,7 @@ extension MessageReceiver {
                     .encryptionKeys, .authDetails, .libSessionState
                 ]
             }(),
-            calledFromConfigHandling: false,
+            calledFromConfig: nil,
             using: dependencies
         )
     }
@@ -821,7 +826,7 @@ extension MessageReceiver {
                     .updateAllAndConfig(
                         db,
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.accepted),
-                        calledFromConfigHandling: false,
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                 

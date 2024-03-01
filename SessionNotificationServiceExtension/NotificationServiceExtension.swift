@@ -166,7 +166,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                                 id: sender,
                                                 variant: .contact,
                                                 shouldBeVisible: nil,
-                                                calledFromConfigHandling: false,
+                                                calledFromConfig: nil,
                                                 using: dependencies
                                             )
 

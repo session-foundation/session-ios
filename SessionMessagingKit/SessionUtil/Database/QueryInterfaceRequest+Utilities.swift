@@ -53,13 +53,13 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAllAndConfig(
         _ db: Database,
         _ assignments: ConfigColumnAssignment...,
-        calledFromConfigHandling: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        using dependencies: Dependencies
     ) throws -> Int {
         return try updateAllAndConfig(
             db,
             assignments,
-            calledFromConfigHandling: calledFromConfigHandling,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
     }
@@ -68,20 +68,21 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAllAndConfig(
         _ db: Database,
         _ assignments: [ConfigColumnAssignment],
-        calledFromConfigHandling: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        using dependencies: Dependencies
     ) throws -> Int {
         let targetAssignments: [ColumnAssignment] = assignments.map { $0.assignment }
         
         // Before we do anything custom make sure the changes actually do need to be synced
-        guard SessionUtil.assignmentsRequireConfigUpdate(assignments) else {
-            return try self.updateAll(db, targetAssignments)
-        }
+        guard
+            configTriggeringChange == nil &&
+            SessionUtil.assignmentsRequireConfigUpdate(assignments)
+        else { return try self.updateAll(db, targetAssignments) }
         
         return try self.updateAndFetchAllAndUpdateConfig(
             db,
             assignments,
-            calledFromConfigHandling: calledFromConfigHandling,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         ).count
     }
@@ -92,13 +93,13 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
         _ assignments: ConfigColumnAssignment...,
-        calledFromConfigHandling: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        using dependencies: Dependencies
     ) throws -> [RowDecoder] {
         return try updateAndFetchAllAndUpdateConfig(
             db,
             assignments,
-            calledFromConfigHandling: calledFromConfigHandling,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
     }
@@ -107,15 +108,15 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
     func updateAndFetchAllAndUpdateConfig(
         _ db: Database,
         _ assignments: [ConfigColumnAssignment],
-        calledFromConfigHandling: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        using dependencies: Dependencies
     ) throws -> [RowDecoder] {
         // First perform the actual updates
         let updatedData: [RowDecoder] = try self.updateAndFetchAll(db, assignments.map { $0.assignment })
         
         // Then check if any of the changes could affect the config
         guard
-            !calledFromConfigHandling &&
+            configTriggeringChange == nil &&
             SessionUtil.assignmentsRequireConfigUpdate(assignments)
         else { return updatedData }
         

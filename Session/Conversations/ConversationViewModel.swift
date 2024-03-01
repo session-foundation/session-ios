@@ -809,18 +809,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             markAsReadPublisher = markAsReadTrigger
                 .throttle(for: .milliseconds(100), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
                 .handleEvents(
-                    receiveOutput: { [weak self] target, timestampMs in
+                    receiveOutput: { [weak self, dependencies] target, timestampMs in
                         let threadData: SessionThreadViewModel? = self?._threadData.wrappedValue
                         
                         switch target {
-                            case .thread: threadData?.markAsRead(target: target)
+                            case .thread: threadData?.markAsRead(target: target, using: dependencies)
                             case .threadAndInteractions(let interactionId):
                                 guard
                                     timestampMs == nil ||
                                     (self?.lastInteractionTimestampMsMarkedAsRead ?? 0) < (timestampMs ?? 0) ||
                                     (self?.lastInteractionIdMarkedAsRead ?? 0) < (interactionId ?? 0)
                                 else {
-                                    threadData?.markAsRead(target: .thread)
+                                    threadData?.markAsRead(target: .thread, using: dependencies)
                                     return
                                 }
                                 
@@ -831,7 +831,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                 }
                                 
                                 self?.lastInteractionIdMarkedAsRead = (interactionId ?? threadData?.interactionId)
-                                threadData?.markAsRead(target: target)
+                                threadData?.markAsRead(target: target, using: dependencies)
                         }
                     }
                 )
@@ -900,7 +900,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         dependencies[singleton: .storage].writeAsync { [threadId] db in
             try Contact
                 .filter(id: threadId)
-                .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false), using: dependencies)
+                .updateAllAndConfig(
+                    db,
+                    Contact.Columns.isBlocked.set(to: false),
+                    calledFromConfig: nil,
+                    using: dependencies
+                )
         }
     }
     

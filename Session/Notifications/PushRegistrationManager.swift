@@ -306,7 +306,7 @@ public enum PushRegistrationError: Error {
                 id: caller,
                 variant: .contact,
                 shouldBeVisible: nil,
-                calledFromConfigHandling: false
+                calledFromConfig: nil
             )
             
             let interaction: Interaction = try Interaction(

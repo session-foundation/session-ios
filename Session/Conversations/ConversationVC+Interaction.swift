@@ -58,7 +58,7 @@ extension ConversationVC:
                                     id: memberInfo.profileId,
                                     variant: .contact,
                                     shouldBeVisible: nil,
-                                    calledFromConfigHandling: false,
+                                    calledFromConfig: nil,
                                     using: dependencies
                                 )
                             }
@@ -587,6 +587,7 @@ extension ConversationVC:
                             .updateAllAndConfig(
                                 db,
                                 SessionThread.Columns.shouldBeVisible.set(to: true),
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                     }
@@ -1281,7 +1282,7 @@ extension ConversationVC:
                     id: sessionId,
                     variant: .contact,
                     shouldBeVisible: nil,
-                    calledFromConfigHandling: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
             }
@@ -1309,7 +1310,8 @@ extension ConversationVC:
                     blindedId: sessionId,
                     openGroupServer: openGroupServer,
                     openGroupPublicKey: openGroupPublicKey,
-                    isCheckingForOutbox: false
+                    isCheckingForOutbox: false,
+                    using: dependencies
                 )
             
             return try SessionThread
@@ -1318,7 +1320,7 @@ extension ConversationVC:
                     id: (lookup.sessionId ?? lookup.blindedId),
                     variant: .contact,
                     shouldBeVisible: nil,
-                    calledFromConfigHandling: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
                 .id
@@ -1535,6 +1537,7 @@ extension ConversationVC:
                         .updateAllAndConfig(
                             db,
                             SessionThread.Columns.shouldBeVisible.set(to: true),
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                 }
@@ -1769,7 +1772,7 @@ extension ConversationVC:
                         )
                 ),
                 confirmTitle: "JOIN_COMMUNITY_BUTTON_TITLE".localized(),
-                onConfirm: { modal in
+                onConfirm: { [dependencies = viewModel.dependencies] modal in
                     guard let presentingViewController: UIViewController = modal.presentingViewController else {
                         return
                     }
@@ -1786,14 +1789,15 @@ extension ConversationVC:
                         return presentingViewController.present(errorModal, animated: true, completion: nil)
                     }
                     
-                    Dependencies()[singleton: .storage]
+                    dependencies[singleton: .storage]
                         .writePublisher { db in
                             OpenGroupManager.shared.add(
                                 db,
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
-                                calledFromConfigHandling: false
+                                calledFromConfig: nil,
+                                using: dependencies
                             )
                         }
                         .flatMap { successfullyAddedGroup in
@@ -1802,7 +1806,8 @@ extension ConversationVC:
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
-                                calledFromConfigHandling: false
+                                calledFromConfig: nil,
+                                using: dependencies
                             )
                         }
                         .subscribe(on: DispatchQueue.global(qos: .userInitiated))
@@ -1815,11 +1820,12 @@ extension ConversationVC:
                                         // If there was a failure then the group will be in invalid state until
                                         // the next launch so remove it (the user will be left on the previous
                                         // screen so can re-trigger the join)
-                                        Dependencies()[singleton: .storage].writeAsync { db in
+                                        dependencies[singleton: .storage].writeAsync { db in
                                             OpenGroupManager.shared.delete(
                                                 db,
                                                 openGroupId: OpenGroup.idFor(roomToken: room, server: server),
-                                                calledFromConfigHandling: false
+                                                calledFromConfig: nil,
+                                                using: dependencies
                                             )
                                         }
                                         
@@ -2530,6 +2536,7 @@ extension ConversationVC {
                                 Contact.Columns.isApproved.set(to: true),
                                 Contact.Columns.didApproveMe
                                     .set(to: contact.didApproveMe || !isNewThread),
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                     }
@@ -2594,7 +2601,7 @@ extension ConversationVC {
                         try ClosedGroup.approveGroup(
                             db,
                             group: group,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                     }

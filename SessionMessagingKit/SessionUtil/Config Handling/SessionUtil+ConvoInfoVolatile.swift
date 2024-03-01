@@ -53,9 +53,11 @@ internal extension SessionUtil {
                 {
                     try SessionThread
                         .filter(id: threadId)
-                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        .updateAllAndConfig(
                             db,
-                            SessionThread.Columns.markedAsUnread.set(to: markedAsUnread)
+                            SessionThread.Columns.markedAsUnread.set(to: markedAsUnread),
+                            calledFromConfig: .convoInfoVolatile,
+                            using: dependencies
                         )
                 }
                 
@@ -86,9 +88,11 @@ internal extension SessionUtil {
                     .asRequest(of: Interaction.ReadInfo.self)
                     .fetchAll(db)
                 try interactionQuery
-                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    .updateAllAndConfig(
                         db,
-                        Interaction.Columns.wasRead.set(to: true)
+                        Interaction.Columns.wasRead.set(to: true),
+                        calledFromConfig: .convoInfoVolatile,
+                        using: dependencies
                     )
                 try Interaction.scheduleReadJobs(
                     db,
@@ -97,7 +101,7 @@ internal extension SessionUtil {
                     interactionInfo: interactionInfoToMarkAsRead,
                     lastReadTimestampMs: lastReadTimestampMs,
                     trySendReadReceipt: false,  // Interactions already read, no need to send
-                    calledFromConfigHandling: true,
+                    calledFromConfig: .convoInfoVolatile,
                     using: dependencies
                 )
                 return nil

@@ -247,7 +247,7 @@ enum _013_SessionUtilChanges: Migration {
                     id: userSessionId.hexString,
                     variant: .contact,
                     shouldBeVisible: false,
-                    calledFromConfigHandling: false
+                    calledFromConfig: nil
                 )
             }
         }

@@ -466,6 +466,7 @@ public enum MessageReceiver {
                 db,
                 SessionThread.Columns.shouldBeVisible.set(to: true),
                 SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority),
+                calledFromConfig: nil,
                 using: dependencies
             )
     }
@@ -528,10 +529,19 @@ public enum MessageReceiver {
             }(),
             changeTimestampMs: (message.sentTimestamp.map { Int64($0) } ?? SnodeAPI.currentOffsetTimestampMs())
         )
+        let conversationIsDestroyed: Bool = {
+            guard threadVariant == .group else { return false }
+            
+            return SessionUtil.groupIsDestroyed(
+                groupSessionId: SessionId(.group, hex: threadId),
+                using: dependencies
+            )
+        }()
         
-        // If the thread is visible or the message was sent more recently than the last config message (minus
-        // buffer period) then we should process the message, if not then throw as the message is outdated
-        guard !conversationVisibleInConfig && !canPerformChange else { return }
+        // If the thread is not destroyed, visible or the message was sent more recently than the last config
+        // message (minus buffer period) then we should process the message, if not then throw as the message
+        // is outdated
+        guard conversationIsDestroyed || (!conversationVisibleInConfig && !canPerformChange) else { return }
         
         throw MessageReceiverError.outdatedMessage
     }

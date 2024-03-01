@@ -45,6 +45,7 @@ extension MessageReceiver {
                     )
                 }(),
                 sentTimestamp: messageSentTimestamp,
+                calledFromConfig: nil,
                 using: dependencies
             )
         }
@@ -72,7 +73,7 @@ extension MessageReceiver {
             id: threadId,
             variant: threadVariant,
             shouldBeVisible: nil,
-            calledFromConfigHandling: false
+            calledFromConfig: nil
         )
         let maybeOpenGroup: OpenGroup? = {
             guard threadVariant == .community else { return nil }

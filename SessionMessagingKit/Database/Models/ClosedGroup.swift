@@ -184,7 +184,7 @@ public extension ClosedGroup {
     @discardableResult static func approveGroup(
         _ db: Database,
         group: ClosedGroup,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws -> Job? {
         guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
@@ -199,7 +199,7 @@ public extension ClosedGroup {
                     db,
                     ClosedGroup.Columns.invited.set(to: false),
                     ClosedGroup.Columns.shouldPoll.set(to: true),
-                    calledFromConfigHandling: calledFromConfigHandling,
+                    calledFromConfig: configTriggeringChange,
                     using: dependencies
                 )
         }
@@ -214,7 +214,7 @@ public extension ClosedGroup {
         )
         
         /// Update the `USER_GROUPS` config
-        if !calledFromConfigHandling {
+        if configTriggeringChange != .userGroups {
             try? SessionUtil.update(
                 db,
                 groupSessionId: group.id,
@@ -260,7 +260,7 @@ public extension ClosedGroup {
         _ db: Database,
         threadIds: [String],
         dataToRemove: [RemovableGroupData],
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws {
         guard !threadIds.isEmpty && !dataToRemove.isEmpty else { return }
@@ -275,8 +275,8 @@ public extension ClosedGroup {
         let threadVariants: [ThreadIdVariant] = try {
             guard
                 dataToRemove.contains(.pushNotifications) ||
-                (dataToRemove.contains(.userGroup) && !calledFromConfigHandling) ||
-                (dataToRemove.contains(.libSessionState) && !calledFromConfigHandling)
+                (dataToRemove.contains(.userGroup) && configTriggeringChange != nil) ||
+                (dataToRemove.contains(.libSessionState) && configTriggeringChange != nil)
             else { return [] }
             
             return try SessionThread
@@ -325,7 +325,9 @@ public extension ClosedGroup {
                 }
                 
                 // Ignore if called from the config handling
-                if dataToRemove.contains(.libSessionState) && !calledFromConfigHandling {
+                let configsToIgnore: [ConfigDump.Variant?] = [.groupInfo, .groupMembers, .groupKeys]
+                
+                if dataToRemove.contains(.libSessionState) && !configsToIgnore.contains(configTriggeringChange) {
                     threadVariants
                         .filter { $0.variant == .group }
                         .forEach { threadIdVariant in
@@ -358,7 +360,7 @@ public extension ClosedGroup {
                     ClosedGroup.Columns.authData.set(to: nil)
                 )
             
-            if !calledFromConfigHandling {
+            if configTriggeringChange != .userGroups {
                 try SessionUtil.markAsKicked(
                     db,
                     groupSessionIds: threadIds,
@@ -425,7 +427,7 @@ public extension ClosedGroup {
         }
         
         // Ignore if called from the config handling
-        if dataToRemove.contains(.userGroup) && !calledFromConfigHandling {
+        if dataToRemove.contains(.userGroup) && configTriggeringChange != .userGroups {
             try SessionUtil.remove(
                 db,
                 legacyGroupIds: threadVariants

@@ -183,7 +183,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        calledFromConfigHandling: false,
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }
@@ -193,7 +193,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
-                        calledFromConfigHandling: false,
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }
@@ -210,7 +210,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                     OpenGroupManager.shared.delete(
                                         db,
                                         openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
-                                        calledFromConfigHandling: false
+                                        calledFromConfig: nil,
+                                        using: dependencies
                                     )
                                 }
                                 

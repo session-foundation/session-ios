@@ -52,7 +52,7 @@ internal extension SessionUtil {
                     .poller, .pushNotifications, .messages, .members,
                     .encryptionKeys, .authDetails, .libSessionState
                 ],
-                calledFromConfigHandling: true,
+                calledFromConfig: .groupInfo,
                 using: dependencies
             )
             return
@@ -116,9 +116,11 @@ internal extension SessionUtil {
         if !groupChanges.isEmpty {
             try ClosedGroup
                 .filter(id: groupSessionId.hexString)
-                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                .updateAllAndConfig(
                     db,
-                    groupChanges
+                    groupChanges,
+                    calledFromConfig: .groupInfo,
+                    using: dependencies
                 )
         }
 
@@ -432,5 +434,20 @@ public extension SessionUtil {
             
             groups_info_destroy_group(conf)
         }
+    }
+    
+    static func groupIsDestroyed(
+        groupSessionId: SessionId,
+        using dependencies: Dependencies
+    ) -> Bool {
+        return dependencies[cache: .sessionUtil]
+            .config(for: .groupInfo, sessionId: groupSessionId)
+            .wrappedValue
+            .map { config in
+                guard case .object(let conf) = config else { return false }
+                
+                return groups_info_is_destroyed(conf)
+            }
+            .defaulting(to: false)
     }
 }

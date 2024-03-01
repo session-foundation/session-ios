@@ -384,7 +384,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 id: groupId.hexString,
                                 variant: .group,
                                 shouldBeVisible: nil,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             try ClosedGroup(
@@ -823,7 +823,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 id: groupId.hexString,
                                 variant: .group,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             

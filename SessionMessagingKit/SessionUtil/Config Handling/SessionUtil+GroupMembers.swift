@@ -109,6 +109,7 @@ internal extension SessionUtil {
                     )
                 }(),
                 sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
+                calledFromConfig: .groupMembers,
                 using: dependencies
             )
         }

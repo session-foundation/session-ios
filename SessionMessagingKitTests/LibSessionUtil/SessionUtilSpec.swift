@@ -750,7 +750,7 @@ class SessionUtilSpec: QuickSpec {
                             id: createGroupOutput.group.threadId,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                         try createGroupOutput.group.insert(db)
@@ -1025,7 +1025,7 @@ class SessionUtilSpec: QuickSpec {
                                 id: createGroupOutput.group.threadId,
                                 variant: .contact,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             _ = try Interaction(
@@ -1064,7 +1064,7 @@ class SessionUtilSpec: QuickSpec {
                                 id: createGroupOutput.group.threadId,
                                 variant: .contact,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             _ = try Interaction(
@@ -1115,7 +1115,7 @@ class SessionUtilSpec: QuickSpec {
                                 id: createGroupOutput.group.threadId,
                                 variant: .contact,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             let interaction: Interaction = try Interaction(
@@ -1167,7 +1167,7 @@ class SessionUtilSpec: QuickSpec {
                                 id: createGroupOutput.group.threadId,
                                 variant: .contact,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             let interaction: Interaction = try Interaction(
@@ -1233,7 +1233,7 @@ class SessionUtilSpec: QuickSpec {
                                 id: createGroupOutput.group.threadId,
                                 variant: .contact,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             let interaction1: Interaction = try Interaction(
@@ -1303,7 +1303,7 @@ class SessionUtilSpec: QuickSpec {
                                 id: createGroupOutput.group.threadId,
                                 variant: .contact,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                             let interaction1: Interaction = try Interaction(
@@ -1363,7 +1363,7 @@ class SessionUtilSpec: QuickSpec {
                             id: createGroupOutput.group.threadId,
                             variant: .contact,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                         _ = try Interaction(
@@ -1420,7 +1420,7 @@ class SessionUtilSpec: QuickSpec {
                             id: createGroupOutput.group.threadId,
                             variant: .contact,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                         _ = try Interaction(

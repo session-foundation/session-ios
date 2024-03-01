@@ -164,12 +164,12 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfigHandling: Bool,
-        using dependencies: Dependencies = Dependencies()
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        using dependencies: Dependencies
     ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
         if hasExistingOpenGroup(db, roomToken: roomToken, server: server, publicKey: publicKey, using: dependencies) {
-            SNLog("Ignoring join open group attempt (already joined), user initiated: \(!calledFromConfigHandling)")
+            SNLog("Ignoring join open group attempt (already joined), user initiated: \(configTriggeringChange == nil)")
             return false
         }
         
@@ -195,8 +195,8 @@ public final class OpenGroupManager {
                 ///
                 /// **Note:** We **MUST** provide a `nil` value if this method was called from the config handling as updating
                 /// the `shouldVeVisible` state can trigger a config update which could result in an infinite loop in the future
-                shouldBeVisible: (calledFromConfigHandling ? nil : true),
-                calledFromConfigHandling: calledFromConfigHandling,
+                shouldBeVisible: (configTriggeringChange != nil ? nil : true),
+                calledFromConfig: configTriggeringChange,
                 using: dependencies
             )
         
@@ -208,26 +208,15 @@ public final class OpenGroupManager {
         
         // Set the group to active and reset the sequenceNumber (handle groups which have
         // been deactivated)
-        if calledFromConfigHandling {
-            _ = try? OpenGroup
-                .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
-                .updateAll( // Handling a config update so don't use `updateAllAndConfig`
-                    db,
-                    OpenGroup.Columns.isActive.set(to: true),
-                    OpenGroup.Columns.sequenceNumber.set(to: 0)
-                )
-        }
-        else {
-            _ = try? OpenGroup
-                .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
-                .updateAllAndConfig(
-                    db,
-                    OpenGroup.Columns.isActive.set(to: true),
-                    OpenGroup.Columns.sequenceNumber.set(to: 0),
-                    calledFromConfigHandling: calledFromConfigHandling,
-                    using: dependencies
-                )
-        }
+        _ = try? OpenGroup
+            .filter(id: OpenGroup.idFor(roomToken: roomToken, server: targetServer))
+            .updateAllAndConfig(
+                db,
+                OpenGroup.Columns.isActive.set(to: true),
+                OpenGroup.Columns.sequenceNumber.set(to: 0),
+                calledFromConfig: configTriggeringChange,
+                using: dependencies
+            )
         
         return true
     }
@@ -237,8 +226,8 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
-        calledFromConfigHandling: Bool,
-        using dependencies: Dependencies = Dependencies()
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         guard successfullyAddedGroup else {
             return Just(())
@@ -270,7 +259,7 @@ public final class OpenGroupManager {
                 Future<Void, Error> { resolver in
                     dependencies[singleton: .storage].write { db in
                         // Add the new open group to libSession
-                        if !calledFromConfigHandling {
+                        if configTriggeringChange != .userGroups {
                             try SessionUtil.add(
                                 db,
                                 server: server,
@@ -315,8 +304,8 @@ public final class OpenGroupManager {
     public func delete(
         _ db: Database,
         openGroupId: String,
-        calledFromConfigHandling: Bool,
-        using dependencies: Dependencies = Dependencies()
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
+        using dependencies: Dependencies
     ) {
         let server: String? = try? OpenGroup
             .select(.server)
@@ -370,12 +359,12 @@ public final class OpenGroupManager {
                 .updateAllAndConfig(
                     db,
                     OpenGroup.Columns.isActive.set(to: false),
-                    calledFromConfigHandling: calledFromConfigHandling,
+                    calledFromConfig: configTriggeringChange,
                     using: dependencies
                 )
         }
         
-        if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
+        if configTriggeringChange != .userGroups, let server: String = server, let roomToken: String = roomToken {
             try? SessionUtil.remove(db, server: server, roomToken: roomToken, using: dependencies)
         }
     }
@@ -399,7 +388,7 @@ public final class OpenGroupManager {
                 variant: capability,
                 isMissing: false
             )
-            .upserted(db)
+            .upsert(db)
         }
         capabilities.missing?.forEach { capability in
             try? Capability(
@@ -407,7 +396,7 @@ public final class OpenGroupManager {
                 variant: capability,
                 isMissing: true
             )
-            .upserted(db)
+            .upsert(db)
         }
     }
     
@@ -454,7 +443,7 @@ public final class OpenGroupManager {
         
         try OpenGroup
             .filter(id: openGroup.id)
-            .updateAllAndConfig(db, changes, using: dependencies)
+            .updateAllAndConfig(db, changes, calledFromConfig: nil, using: dependencies)
         
         // Update the admin/moderator group members
         if let roomDetails: OpenGroupAPI.Room = pollInfo.details {

@@ -231,7 +231,12 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 dependencies[singleton: .storage].write { db in
                     _ = try Contact
                         .filter(ids: contactIds)
-                        .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false), using: dependencies)
+                        .updateAllAndConfig(
+                            db,
+                            Contact.Columns.isBlocked.set(to: false),
+                            calledFromConfig: nil,
+                            using: dependencies
+                        )
                 }
                 
                 self?.selectedIdsSubject.send([])

@@ -522,7 +522,7 @@ public extension SessionUtil {
         threadId: String,
         threadVariant: SessionThread.Variant,
         visibleOnly: Bool,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Bool {
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let configVariant: ConfigDump.Variant = {

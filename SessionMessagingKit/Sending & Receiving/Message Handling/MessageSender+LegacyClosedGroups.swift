@@ -41,7 +41,7 @@ extension MessageSender {
                     id: legacyGroupSessionId,
                     variant: .legacyGroup,
                     shouldBeVisible: true,
-                    calledFromConfigHandling: false,
+                    calledFromConfig: nil,
                     using: dependencies
                 )
                 try ClosedGroup(
@@ -467,7 +467,7 @@ extension MessageSender {
                 id: member,
                 variant: .contact,
                 shouldBeVisible: nil,
-                calledFromConfigHandling: false,
+                calledFromConfig: nil,
                 using: dependencies
             )
             
@@ -641,7 +641,7 @@ extension MessageSender {
                 id: publicKey,
                 variant: .contact,
                 shouldBeVisible: nil,
-                calledFromConfigHandling: false,
+                calledFromConfig: nil,
                 using: dependencies
             )
             let ciphertext = try MessageSender.encryptWithSessionProtocol(

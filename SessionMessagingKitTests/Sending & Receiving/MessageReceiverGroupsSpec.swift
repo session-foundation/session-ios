@@ -830,7 +830,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                     }
@@ -867,7 +867,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                         
@@ -1119,7 +1119,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                     }
@@ -1290,7 +1290,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                     }
@@ -1705,7 +1705,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                     }
@@ -1959,7 +1959,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                     }
@@ -2154,7 +2154,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                         
@@ -2786,7 +2786,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                         
@@ -3236,7 +3236,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             id: groupId.hexString,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                         

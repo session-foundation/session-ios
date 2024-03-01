@@ -122,7 +122,7 @@ extension MessageReceiver {
             admins: adminsAsData.map { $0.toHexString() },
             expirationTimer: expirationTimer,
             formationTimestamp: TimeInterval(Double(sentTimestamp) / 1000),
-            calledFromConfigHandling: false,
+            calledFromConfig: nil,
             using: dependencies
         )
     }
@@ -136,7 +136,7 @@ extension MessageReceiver {
         admins: [String],
         expirationTimer: UInt32,
         formationTimestamp: TimeInterval,
-        calledFromConfigHandling: Bool,
+        calledFromConfig configTriggeringChange: ConfigDump.Variant?,
         using dependencies: Dependencies
     ) throws {
         // With new closed groups we only want to create them if the admin creating the closed group is an
@@ -154,7 +154,7 @@ extension MessageReceiver {
         // If the group came from the updated config handling then it doesn't matter if we
         // have an approved admin - we should add it regardless (as it's been synced from
         // antoher device)
-        guard hasApprovedAdmin || calledFromConfigHandling else { return }
+        guard hasApprovedAdmin || configTriggeringChange != nil else { return }
         
         // Create the group
         let thread: SessionThread = try SessionThread.fetchOrCreate(
@@ -162,7 +162,7 @@ extension MessageReceiver {
             id: legacyGroupSessionId,
             variant: .legacyGroup,
             shouldBeVisible: true,
-            calledFromConfigHandling: calledFromConfigHandling,
+            calledFromConfig: configTriggeringChange,
             using: dependencies
         )
         let closedGroup: ClosedGroup = try ClosedGroup(
@@ -228,7 +228,7 @@ extension MessageReceiver {
             try newKeyPair.insert(db)
         }
         
-        if !calledFromConfigHandling {
+        if configTriggeringChange != .userGroups {
             // Update libSession
             try? SessionUtil.add(
                 db,
@@ -561,7 +561,7 @@ extension MessageReceiver {
                         db,
                         threadIds: [threadId],
                         dataToRemove: .allData,
-                        calledFromConfigHandling: false,
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }
@@ -634,7 +634,7 @@ extension MessageReceiver {
                         db,
                         threadIds: [threadId],
                         dataToRemove: (sender == userSessionId.hexString ? .allData : .noData),
-                        calledFromConfigHandling: false,
+                        calledFromConfig: nil,
                         using: dependencies
                     )
                 }

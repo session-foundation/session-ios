@@ -160,6 +160,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         db,
                                         Profile.Columns.nickname
                                             .set(to: (updatedNickname.isEmpty ? nil : editedDisplayName)),
+                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                             }
@@ -592,7 +593,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         threadId: threadViewModel.threadId,
                                         threadVariant: threadViewModel.threadVariant,
                                         groupLeaveType: .standard,
-                                        calledFromConfigHandling: false,
+                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                 }
@@ -808,7 +809,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         id: userInfo.profileId,
                                         variant: .contact,
                                         shouldBeVisible: nil,
-                                        calledFromConfigHandling: false,
+                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                     
@@ -881,7 +882,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 id: memberInfo.profileId,
                                 variant: .contact,
                                 shouldBeVisible: nil,
-                                calledFromConfigHandling: false,
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                         }
@@ -993,6 +994,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     .updateAllAndConfig(
                         db,
                         Contact.Columns.isBlocked.set(to: isBlocked),
+                        calledFromConfig: nil,
                         using: dependencies
                     )
             },

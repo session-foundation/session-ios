@@ -190,7 +190,8 @@ internal extension SessionUtil {
                     roomToken: community.data.roomToken,
                     server: community.data.server,
                     publicKey: community.data.publicKey,
-                    calledFromConfigHandling: true
+                    calledFromConfig: .userGroups,
+                    using: dependencies
                 )
             
             if successfullyAddedGroup {
@@ -200,7 +201,8 @@ internal extension SessionUtil {
                         roomToken: community.data.roomToken,
                         server: community.data.server,
                         publicKey: community.data.publicKey,
-                        calledFromConfigHandling: false
+                        calledFromConfig: nil,   // Happens after the transaction so don't provide
+                        using: dependencies
                     )
                     .subscribe(on: OpenGroupAPI.workQueue)
                     .sinkUntilComplete()
@@ -212,9 +214,11 @@ internal extension SessionUtil {
             if existingThreadInfo[community.data.threadId]?.pinnedPriority != community.priority {
                 _ = try? SessionThread
                     .filter(id: community.data.threadId)
-                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.pinnedPriority.set(to: community.priority)
+                        SessionThread.Columns.pinnedPriority.set(to: community.priority),
+                        calledFromConfig: .userGroups,
+                        using: dependencies
                     )
             }
         }
@@ -234,7 +238,7 @@ internal extension SessionUtil {
                     threadIds: Array(communityIdsToRemove),
                     threadVariant: .community,
                     groupLeaveType: .forced,
-                    calledFromConfigHandling: true,
+                    calledFromConfig: .userGroups,
                     using: dependencies
                 )
         }
@@ -280,7 +284,7 @@ internal extension SessionUtil {
                     admins: updatedAdmins.map { $0.profileId },
                     expirationTimer: UInt32(group.disappearingConfig?.durationSeconds ?? 0),
                     formationTimestamp: TimeInterval((group.joinedAt ?? (Double(serverTimestampMs) / 1000))),
-                    calledFromConfigHandling: true,
+                    calledFromConfig: .userGroups,
                     using: dependencies
                 )
             }
@@ -299,9 +303,11 @@ internal extension SessionUtil {
                 if !groupChanges.isEmpty {
                     _ = try? ClosedGroup
                         .filter(id: group.id)
-                        .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                        .updateAllAndConfig(
                             db,
-                            groupChanges
+                            groupChanges,
+                            calledFromConfig: .userGroups,
+                            using: dependencies
                         )
                 }
                 
@@ -393,9 +399,11 @@ internal extension SessionUtil {
             if existingThreadInfo[group.id]?.pinnedPriority != group.priority {
                 _ = try? SessionThread
                     .filter(id: group.id)
-                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.pinnedPriority.set(to: group.priority)
+                        SessionThread.Columns.pinnedPriority.set(to: group.priority),
+                        calledFromConfig: .userGroups,
+                        using: dependencies
                     )
             }
         }
@@ -413,7 +421,7 @@ internal extension SessionUtil {
                     threadIds: Array(legacyGroupIdsToRemove),
                     threadVariant: .legacyGroup,
                     groupLeaveType: .forced,
-                    calledFromConfigHandling: true,
+                    calledFromConfig: .userGroups,
                     using: dependencies
                 )
         }
@@ -441,7 +449,7 @@ internal extension SessionUtil {
                         authData: group.authData,
                         joinedAt: TimeInterval(group.joinedAt ?? (Double(serverTimestampMs) / 1000)),
                         invited: (group.invited == true),
-                        calledFromConfigHandling: true,
+                        calledFromConfig: .userGroups,
                         using: dependencies
                     )
                     
@@ -496,9 +504,11 @@ internal extension SessionUtil {
                     if !groupChanges.isEmpty {
                         _ = try? ClosedGroup
                             .filter(id: group.groupSessionId)
-                            .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                            .updateAllAndConfig(
                                 db,
-                                groupChanges
+                                groupChanges,
+                                calledFromConfig: .userGroups,
+                                using: dependencies
                             )
                     }
             }
@@ -507,9 +517,11 @@ internal extension SessionUtil {
             if existingThreadInfo[group.groupSessionId]?.pinnedPriority != group.priority {
                 _ = try? SessionThread
                     .filter(id: group.groupSessionId)
-                    .updateAll( // Handling a config update so don't use `updateAllAndConfig`
+                    .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.pinnedPriority.set(to: group.priority)
+                        SessionThread.Columns.pinnedPriority.set(to: group.priority),
+                        calledFromConfig: .userGroups,
+                        using: dependencies
                     )
             }
         }
@@ -527,7 +539,7 @@ internal extension SessionUtil {
                     threadIds: Array(groupSessionIdsToRemove),
                     threadVariant: .group,
                     groupLeaveType: .forced,
-                    calledFromConfigHandling: true
+                    calledFromConfig: .userGroups
                 )
             
             groupSessionIdsToRemove.forEach { groupSessionId in

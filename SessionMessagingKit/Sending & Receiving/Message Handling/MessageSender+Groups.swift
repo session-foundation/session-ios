@@ -68,7 +68,7 @@ extension MessageSender {
                             id: createdInfo.group.id,
                             variant: .group,
                             shouldBeVisible: true,
-                            calledFromConfigHandling: false,
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                     try createdInfo.group.insert(db)
@@ -239,6 +239,7 @@ extension MessageSender {
                             db,
                             ClosedGroup.Columns.name.set(to: name),
                             ClosedGroup.Columns.groupDescription.set(to: groupDescription),
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                 }
@@ -302,7 +303,9 @@ extension MessageSender {
                                 ClosedGroup.Columns.displayPictureUrl.set(to: nil),
                                 ClosedGroup.Columns.displayPictureEncryptionKey.set(to: nil),
                                 ClosedGroup.Columns.displayPictureFilename.set(to: nil),
-                                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow)
+                                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
+                                calledFromConfig: nil,
+                                using: dependencies
                             )
                         
                     case .updateTo(let url, let key, let fileName):
@@ -313,7 +316,9 @@ extension MessageSender {
                                 ClosedGroup.Columns.displayPictureUrl.set(to: url),
                                 ClosedGroup.Columns.displayPictureEncryptionKey.set(to: key),
                                 ClosedGroup.Columns.displayPictureFilename.set(to: fileName),
-                                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow)
+                                ClosedGroup.Columns.lastDisplayPictureUpdate.set(to: dependencies.dateNow),
+                                calledFromConfig: nil,
+                                using: dependencies
                             )
                         
                     default: throw MessageSenderError.invalidClosedGroupUpdate
@@ -597,6 +602,7 @@ extension MessageSender {
                         .updateAllAndConfig(
                             db,
                             GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                            calledFromConfig: nil,
                             using: dependencies
                         )
                     
@@ -760,6 +766,7 @@ extension MessageSender {
                                 db,
                                 GroupMember.Columns.role.set(to: GroupMember.Role.admin),
                                 GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                         
@@ -770,6 +777,7 @@ extension MessageSender {
                             .updateAllAndConfig(
                                 db,
                                 GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
+                                calledFromConfig: nil,
                                 using: dependencies
                             )
                         

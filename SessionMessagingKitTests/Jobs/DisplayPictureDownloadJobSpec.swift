@@ -907,7 +907,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                 id: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
                                 variant: .group,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false
+                                calledFromConfig: nil
                             ).upsert(db)
                             try group.insert(db)
                         }
@@ -1120,7 +1120,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                                 id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
                                 variant: .community,
                                 shouldBeVisible: true,
-                                calledFromConfigHandling: false
+                                calledFromConfig: nil
                             ).upsert(db)
                             try community.insert(db)
                         }

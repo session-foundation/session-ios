@@ -227,7 +227,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             .map { id, _ in id },
                                         threadVariant: .contact,
                                         groupLeaveType: .silent,
-                                        calledFromConfigHandling: false,
+                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                     
@@ -239,7 +239,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             .map { id, _ in id },
                                         threadVariant: .group,
                                         groupLeaveType: .silent,
-                                        calledFromConfigHandling: false,
+                                        calledFromConfig: nil,
                                         using: dependencies
                                     )
                                 }
