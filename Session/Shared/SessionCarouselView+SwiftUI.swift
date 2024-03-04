@@ -184,7 +184,7 @@ struct PageControl: View {
                 ForEach(0...maxIndex, id: \.self) { index in
                     Circle()
                         .fill(index == ((self.index - 1) % (self.maxIndex + 1)) ? Color.white : Color.gray)
-                        .frame(width: 6.62, height: 6.62)
+                        .frame(width: 7, height: 7)
                 }
             }
             .padding(6)
