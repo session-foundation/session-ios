@@ -28,6 +28,12 @@ struct StartConversationScreen: View {
                             viewController.setUpDismissingButton(on: .right)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
+                        .accessibility(
+                            Accessibility(
+                                identifier: "New direct message",
+                                label: "New direct message"
+                            )
+                        )
                         
                         Line(color: .borderSeparator)
                             .padding(.leading, 38 + Values.smallSpacing)
@@ -40,6 +46,12 @@ struct StartConversationScreen: View {
                             let viewController = NewClosedGroupVC()
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
+                        .accessibility(
+                            Accessibility(
+                                identifier: "Create group",
+                                label: "Create group"
+                            )
+                        )
                         
                         Line(color: .borderSeparator)
                             .padding(.leading, 38 + Values.smallSpacing)
@@ -52,6 +64,12 @@ struct StartConversationScreen: View {
                             let viewController = JoinOpenGroupVC()
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
+                        .accessibility(
+                            Accessibility(
+                                identifier: "Join community",
+                                label: "Join community"
+                            )
+                        )
                         
                         Line(color: .borderSeparator)
                             .padding(.leading, 38 + Values.smallSpacing)
@@ -66,6 +84,12 @@ struct StartConversationScreen: View {
                             viewController.setUpDismissingButton(on: .right)
                             self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
                         }
+                        .accessibility(
+                            Accessibility(
+                                identifier: "Invite friend button",
+                                label: "Invite friend button"
+                            )
+                        )
                     }
                     .padding(.bottom, Values.mediumSpacing)
                     

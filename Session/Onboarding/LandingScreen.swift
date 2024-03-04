@@ -62,6 +62,12 @@ struct LandingScreen: View {
                         .backgroundColor(themeColor: .sessionButton_primaryFilledBackground)
                         .cornerRadius(Values.largeButtonHeight / 2)
                 }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Create account button",
+                        label: "Create account button"
+                    )
+                )
                 .padding(.horizontal, Values.massiveSpacing)
                 
                 Button {
@@ -81,6 +87,12 @@ struct LandingScreen: View {
                                 .stroke(themeColor: .sessionButton_border)
                         )
                 }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Restore your session button",
+                        label: "Restore your session button"
+                    )
+                )
                 .padding(.horizontal, Values.massiveSpacing)
                 
                 Button {
@@ -134,8 +146,16 @@ struct LandingScreen: View {
                 title: "urlOpen".localized(),
                 body: .text("urlOpenBrowswer".localized()),
                 confirmTitle: "terms_of_service".localized(),
+                confirmAccessibility: Accessibility(
+                    identifier: "Terms of service button",
+                    label: "Terms of service button"
+                ),
                 confirmStyle: .textPrimary,
                 cancelTitle: "privacy_policy".localized(),
+                cancelAccessibility: Accessibility(
+                    identifier: "Privacy policy button",
+                    label: "Privacy policy button"
+                ),
                 cancelStyle: .textPrimary,
                 onConfirm: { _ in
                     if let url: URL = URL(string: "https://getsession.org/terms-of-service") {

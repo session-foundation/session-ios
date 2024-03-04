@@ -162,8 +162,12 @@ struct EnterRecoveryPasswordScreen: View{
                 SessionTextField(
                     $recoveryPassword,
                     placeholder: "recoveryPasswordEnter".localized(),
-                    error: $error
-                ) {}
+                    error: $error, 
+                    accessibility: Accessibility(
+                        identifier: "Recovery password input",
+                        label: "Recovery password input"
+                    )
+                )
                 
                 Spacer(minLength: 0)
                     .frame(maxHeight: Values.massiveSpacing)
@@ -193,6 +197,12 @@ struct EnterRecoveryPasswordScreen: View{
                                 .stroke(themeColor: .sessionButton_border)
                         )
                 }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Continue",
+                        label: "Continue"
+                    )
+                )
                 .padding(.horizontal, Values.massiveSpacing)
             }
             .padding(.vertical, Values.mediumSpacing)

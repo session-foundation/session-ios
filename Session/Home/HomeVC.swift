@@ -184,24 +184,28 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     }()
     
     private lazy var emptyStateView: UIView = {
-        let explanationLabel = UILabel()
-        explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "vc_home_empty_state_message".localized()
-        explanationLabel.themeTextColor = .textPrimary
-        explanationLabel.textAlignment = .center
-        explanationLabel.lineBreakMode = .byWordWrapping
-        explanationLabel.numberOfLines = 0
+        let emptyConvoLabel = UILabel()
+        emptyConvoLabel.font = .boldSystemFont(ofSize: Values.mediumFontSize)
+        emptyConvoLabel.text = "conversationsNone".localized()
+        emptyConvoLabel.themeTextColor = .textPrimary
+        emptyConvoLabel.textAlignment = .center
         
-        let createNewPrivateChatButton = SessionButton(style: .bordered, size: .large)
-        createNewPrivateChatButton.setTitle("vc_home_empty_state_button_title".localized(), for: .normal)
-        createNewPrivateChatButton.addTarget(self, action: #selector(createNewConversation), for: .touchUpInside)
-        createNewPrivateChatButton.set(.width, to: Values.iPadButtonWidth)
+        let instructionLabel = UILabel()
+        instructionLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
+        instructionLabel.text = "onboardingHitThePlusButton".localized()
+        instructionLabel.themeTextColor = .textPrimary
+        instructionLabel.textAlignment = .center
+        instructionLabel.lineBreakMode = .byWordWrapping
+        instructionLabel.numberOfLines = 0
         
-        let result = UIStackView(arrangedSubviews: [ explanationLabel, createNewPrivateChatButton ])
+        let result = UIStackView(arrangedSubviews: [ 
+            emptyConvoLabel,
+            UIView.vSpacer(Values.smallSpacing),
+            instructionLabel
+        ])
         result.axis = .vertical
-        result.spacing = Values.mediumSpacing
+        result.spacing = Values.verySmallSpacing
         result.alignment = .center
-        result.isHidden = true
         
         return result
     }()
@@ -222,21 +226,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         welcomeLabel.text = "onboardingBubbleWelcomeToSession".localized()
         welcomeLabel.themeTextColor = .primary
         welcomeLabel.textAlignment = .center
-        
-        let emptyConvoLabel = UILabel()
-        emptyConvoLabel.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        emptyConvoLabel.text = "conversationsNone".localized()
-        emptyConvoLabel.themeTextColor = .textPrimary
-        emptyConvoLabel.textAlignment = .center
-        
-        let instructionLabel = UILabel()
-        instructionLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
-        instructionLabel.text = "onboardingHitThePlusButton".localized()
-        instructionLabel.themeTextColor = .textPrimary
-        instructionLabel.textAlignment = .center
-        instructionLabel.lineBreakMode = .byWordWrapping
-        instructionLabel.numberOfLines = 0
-        
+
         let result = UIStackView(arrangedSubviews: [
             image,
             accountCreatedLabel,
@@ -244,9 +234,20 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
             UIView.vSpacer(Values.smallSpacing),
             UIView.line(),
             UIView.vSpacer(Values.smallSpacing),
-            emptyConvoLabel,
-            UIView.vSpacer(Values.smallSpacing),
-            instructionLabel
+            
+        ])
+        result.axis = .vertical
+        result.spacing = Values.verySmallSpacing
+        result.alignment = .fill
+        result.isHidden = true
+        
+        return result
+    }()
+    
+    private lazy var emptyStateStackView: UIStackView = {
+        let result = UIStackView(arrangedSubviews: [
+            accountCreatedView,
+            emptyStateView
         ])
         result.axis = .vertical
         result.spacing = Values.verySmallSpacing
@@ -298,16 +299,11 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         tableView.pin(.bottom, to: .bottom, of: view)
         
         // Empty state view
-        view.addSubview(emptyStateView)
-        emptyStateView.center(.horizontal, in: view)
-        let verticalCenteringConstraint = emptyStateView.center(.vertical, in: view)
-        verticalCenteringConstraint.constant = -16 // Makes things appear centered visually
-        
-        view.addSubview(accountCreatedView)
-        accountCreatedView.pin(.leading, to: .leading, of: view, withInset: Values.accountCreatedViewHorizontalOffset)
-        accountCreatedView.pin(.trailing, to: .trailing, of: view, withInset: -Values.accountCreatedViewHorizontalOffset)
-        accountCreatedView.center(.horizontal, in: view)
-        let verticalCenteringConstraint2 = accountCreatedView.center(.vertical, in: view)
+        view.addSubview(emptyStateStackView)
+        emptyStateStackView.pin(.leading, to: .leading, of: view, withInset: Values.accountCreatedViewHorizontalOffset)
+        emptyStateStackView.pin(.trailing, to: .trailing, of: view, withInset: -Values.accountCreatedViewHorizontalOffset)
+        emptyStateStackView.center(.horizontal, in: view)
+        let verticalCenteringConstraint2 = emptyStateStackView.center(.vertical, in: view)
         verticalCenteringConstraint2.constant = -Values.massiveSpacing // Makes things appear centered visually
         
         // New conversation button
@@ -454,17 +450,11 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 self?.loadingConversationsLabel.isHidden = true
                 
                 // Show the empty state if there is no data
-                if self?.flow == .register {
-                    self?.accountCreatedView.isHidden = (
-                        !updatedData.isEmpty &&
-                        updatedData.contains(where: { !$0.elements.isEmpty })
-                    )
-                } else {
-                    self?.emptyStateView.isHidden = (
-                        !updatedData.isEmpty &&
-                        updatedData.contains(where: { !$0.elements.isEmpty })
-                    )
-                }
+                self?.accountCreatedView.isHidden = (self?.flow != .register)
+                self?.emptyStateStackView.isHidden = (
+                    !updatedData.isEmpty &&
+                    updatedData.contains(where: { !$0.elements.isEmpty })
+                )
                 
                 self?.viewModel.updateThreadData(updatedData)
                 self?.tableView.reloadData()

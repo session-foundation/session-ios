@@ -215,6 +215,12 @@ struct RecoveryPasswordScreen: View {
                                             .stroke(themeColor: .danger)
                                     )
                             }
+                            .accessibility(
+                                Accessibility(
+                                    identifier: "Hide recovery password button",
+                                    label: "Hide recovery password button"
+                                )
+                            )
                         }
                         .padding(.all, Values.mediumSpacing)
                     }
@@ -244,7 +250,15 @@ struct RecoveryPasswordScreen: View {
                     "hide_recovery_password_modal_warning_2".localized()
                 ),
                 confirmTitle: "continue_2".localized(),
+                confirmAccessibility: Accessibility(
+                    identifier: "Continue",
+                    label: "Continue"
+                ),
                 confirmStyle: .danger,
+                cancelAccessibility: Accessibility(
+                    identifier: "Cancel",
+                    label: "Cancel"
+                ),
                 cancelStyle: .textPrimary,
                 onConfirm: { modal in
                     guard let presentingViewController: UIViewController = modal.presentingViewController else {
@@ -256,8 +270,16 @@ struct RecoveryPasswordScreen: View {
                             title: "recoveryPasswordHidePermanently".localized(),
                             body: .text("recoveryPasswordHidePermanentlyDescription2".localized()),
                             confirmTitle: "TXT_CANCEL_TITLE".localized(),
+                            confirmAccessibility: Accessibility(
+                                identifier: "Cancel",
+                                label: "Cancel"
+                            ),
                             confirmStyle: .textPrimary,
                             cancelTitle: "yes".localized(),
+                            cancelAccessibility: Accessibility(
+                                identifier: "Confirm button",
+                                label: "Confirm button"
+                            ),
                             cancelStyle: .danger,
                             onCancel: { modal in
                                 modal.dismiss(animated: true) {

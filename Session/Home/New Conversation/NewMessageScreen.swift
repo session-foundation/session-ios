@@ -155,7 +155,11 @@ struct EnterAccountIdScreen: View {
             SessionTextField(
                 $accountIdOrONS,
                 placeholder: "accountIdOrOnsEnter".localized(),
-                error: $error
+                error: $error, 
+                accessibility: Accessibility(
+                    identifier: "Session ID input box",
+                    label: "Session ID input box"
+                )
             ) {
                 ZStack {
                     if #available(iOS 14.0, *) {
@@ -170,6 +174,12 @@ struct EnterAccountIdScreen: View {
                             .multilineTextAlignment(.center)
                     }
                 }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Help desk link",
+                        label: "Help desk link"
+                    )
+                )
                 .padding(.horizontal, Values.smallSpacing)
                 .padding(.top, Values.smallSpacing)
                 .onTapGesture {
@@ -199,6 +209,12 @@ struct EnterAccountIdScreen: View {
                                 .stroke(themeColor: .sessionButton_border)
                         )
                 }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Next",
+                        label: "Next"
+                    )
+                )
                 .padding(.horizontal, Values.massiveSpacing)
             }
         }

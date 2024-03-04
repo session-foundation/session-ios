@@ -28,13 +28,21 @@ struct PNModeScreen: View {
             mode: .fast,
             title: "fast_mode".localized(),
             explanation: "fast_mode_explanation".localized(),
-            isRecommended: true
+            isRecommended: true,
+            accessibility: Accessibility(
+                identifier: "Fast mode notifications button",
+                label: "Fast mode notifications button"
+            )
         ),
         PNOptionView.Info(
             mode: .slow,
             title: "slow_mode".localized(),
             explanation: "slow_mode_explanation".localized(),
-            isRecommended: false
+            isRecommended: false,
+            accessibility: Accessibility(
+                identifier: "Slow mode notifications button",
+                label: "Slow mode notifications button"
+            )
         )
     ]
     
@@ -74,6 +82,7 @@ struct PNModeScreen: View {
                             currentSelection: $currentSelection,
                             info: options[index]
                         )
+                        .accessibility(options[index].accessibility)
                     }
                 }
                 
@@ -102,6 +111,12 @@ struct PNModeScreen: View {
                                 .stroke(themeColor: .sessionButton_border)
                         )
                 }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Continue",
+                        label: "Continue"
+                    )
+                )
                 .padding(.horizontal, Values.massiveSpacing)
             }
             .padding(.vertical, Values.mediumSpacing)
@@ -160,6 +175,7 @@ struct PNOptionView: View {
         let title: String
         let explanation: String
         let isRecommended: Bool
+        let accessibility: Accessibility
     }
     
     @Binding var currentSelection: PNMode

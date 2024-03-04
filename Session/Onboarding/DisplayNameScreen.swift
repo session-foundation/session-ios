@@ -52,8 +52,12 @@ struct DisplayNameScreen: View {
                 SessionTextField(
                     $displayName,
                     placeholder: "displayNameEnter".localized(),
-                    error: $error
-                ) {}
+                    error: $error, 
+                    accessibility: Accessibility(
+                        identifier: "Enter display name",
+                        label: "Enter display name"
+                    )
+                )
                 
                 Spacer(minLength: 0)
                     .frame(maxHeight: Values.massiveSpacing)
@@ -83,6 +87,12 @@ struct DisplayNameScreen: View {
                                 .stroke(themeColor: .sessionButton_border)
                         )
                 }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Continue",
+                        label: "Continue"
+                    )
+                )
                 .padding(.horizontal, Values.massiveSpacing)
             }
             .padding(.vertical, Values.mediumSpacing)

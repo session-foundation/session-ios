@@ -435,6 +435,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "sessionRecoveryPassword".localized(),
+                            accessibility: Accessibility(
+                                identifier: "Recovery password menu item",
+                                label: "Recovery password menu item"
+                            ),
                             onTap: {
                                 if let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
                                     let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)

@@ -34,6 +34,12 @@ struct LoadingScreen: View {
                 Spacer()
                 
                 CircularProgressView($percentage)
+                    .accessibility(
+                        Accessibility(
+                            identifier: "Loading animation",
+                            label: "Loading animation"
+                        )
+                    )
                     .padding(.horizontal, Values.massiveSpacing)
                     .padding(.bottom, Values.mediumSpacing)
                     .onAppear {

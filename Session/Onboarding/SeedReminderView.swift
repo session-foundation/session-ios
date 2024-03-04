@@ -96,7 +96,8 @@ final class SeedReminderView: UIView {
         // Set up button
         let button = SessionButton(style: .bordered, size: .small)
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
-        button.accessibilityLabel = "Continue"
+        button.accessibilityIdentifier = "Reveal recovery phrase button"
+        button.accessibilityLabel = "Reveal recovery phrase button"
         button.isAccessibilityElement = true
         button.setTitle("continue_2".localized(), for: UIControl.State.normal)
         button.set(.width, greaterThanOrEqualTo: 80)

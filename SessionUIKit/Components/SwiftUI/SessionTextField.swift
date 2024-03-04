@@ -11,6 +11,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
     
     let explanationView: () -> ExplanationView
     let placeholder: String
+    let accessibility: Accessibility
     var textThemeColor: ThemeValue {
         (error?.isEmpty == false) ? .danger : .textPrimary
     }
@@ -23,9 +24,18 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
     let height: CGFloat = isIPhone5OrSmaller ? CGFloat(48) : CGFloat(80)
     let cornerRadius: CGFloat = 13
     
-    public init(_ text: Binding<String>, placeholder: String, error: Binding<String?>, @ViewBuilder explanationView: @escaping () -> ExplanationView) {
+    public init(
+        _ text: Binding<String>,
+        placeholder: String,
+        error: Binding<String?>,
+        accessibility: Accessibility = Accessibility(),
+        @ViewBuilder explanationView: @escaping () -> ExplanationView = {
+            EmptyView()
+        }
+    ) {
         self._text = text
         self.placeholder = placeholder
+        self.accessibility = accessibility
         self._error = error
         self.explanationView = explanationView
         UITextView.appearance().backgroundColor = .clear
@@ -56,6 +66,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     )
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: textThemeColor)
+                    .accessibility(self.accessibility)
                 } else if #available(iOS 14.0, *) {
                     ZStack {
                         TextEditor(
@@ -69,6 +80,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: textThemeColor)
                         .textViewTransparentScrolling()
+                        .accessibility(self.accessibility)
                         .frame(maxHeight: self.height)
                         .padding(.all, -4)
                         
@@ -95,6 +107,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                     )
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: textThemeColor)
+                    .accessibility(self.accessibility)
                 }
             }
             .padding(.horizontal, Values.largeSpacing)
@@ -109,22 +122,27 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                 )
                 .stroke(themeColor: isErrorMode ? .danger : .borderSeparator)
             )
-            
-            if isErrorMode {
-                ZStack {
+            ZStack {
+                if isErrorMode {
                     Text(error ?? previousError)
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .danger)
                         .multilineTextAlignment(.center)
+                        .accessibility(
+                            Accessibility(
+                                identifier: "Error message",
+                                label: "Error message"
+                            )
+                        )
+                } else {
+                    explanationView()
                 }
-                .frame(
-                    height: 50,
-                    alignment: .top
-                )
-            } else {
-                explanationView()
             }
+            .frame(
+                height: 50,
+                alignment: .top
+            )
         }
     }
 }

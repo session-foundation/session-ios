@@ -23,6 +23,12 @@ struct InviteAFriendScreen: View {
                     .font(.system(size: Values.smallFontSize))
                     .multilineTextAlignment(.center)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(
+                        Accessibility(
+                            identifier: "Your account ID",
+                            label: "Your account ID"
+                        )
+                    )
                     .frame(
                         maxWidth: .infinity,
                         maxHeight: .infinity
@@ -66,6 +72,12 @@ struct InviteAFriendScreen: View {
                                     .stroke(themeColor: .textPrimary)
                             )
                     }
+                    .accessibility(
+                        Accessibility(
+                            identifier: "Share button",
+                            label: "Share button"
+                        )
+                    )
                     .frame(maxWidth: .infinity)
                     
                     Spacer(minLength: Values.mediumSpacing)
@@ -88,6 +100,12 @@ struct InviteAFriendScreen: View {
                                     .stroke(themeColor: .textPrimary)
                             )
                     }
+                    .accessibility(
+                        Accessibility(
+                            identifier: "Copy button",
+                            label: "Copy button"
+                        )
+                    )
                     .frame(maxWidth: .infinity)
                 }
                 

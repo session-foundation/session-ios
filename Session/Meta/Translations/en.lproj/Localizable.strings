@@ -1072,12 +1072,9 @@ The point that a message will disappear in a disappearing message update message
 "onboarding_recovery_password_title" = "Save your recovery password";
 "onboarding_recovery_password_subtitle" = "Save your recovery password to make sure you don't lose access to your account.";
 "onboarding_recovery_password_explanation" = "Use your password to load your account on new devices. Make sure it is stored in a safe place — and don't share it with anyone.";
-
 "onboardingAccountCreated" = "Account Created";
-
 "conversationsNone" = "You don't have any conversations yet";
 "onboardingHitThePlusButton" = "Hit the plus button to start a chat, create a group, or join an official community!";
-
 "onboarding_recovery_password_tab_explanation" = "Enter your recovery password to load your account. If you haven't saved it, you can find it in your app settings.";
 "recoveryPasswordEnter" = "Enter your recovery password";
 "onboarding_load_account_title" = "Load Account";
@@ -1089,7 +1086,7 @@ The point that a message will disappear in a disappearing message update message
 "urlOpen" = "Open URL";
 "urlOpenBrowswer" = "This will open in your browser.";
 "onboardingMessageNotificationExplaination" = "There are two ways Session can notify you of new messages.";
-
+"sessionRecoveryPassword" = "Recovery Password";
 "recovery_password_explanation_1" = "Use your recovery password to load your account on new devices.";
 "recovery_password_explanation_2" = "Your account cannot be recovered without your recovery password. Make sure it's stored somewhere safe and secure — and don't share it with anyone.";
 "recoveryPasswordHideRecoveryPassword" = "Hide Recovery Password";
