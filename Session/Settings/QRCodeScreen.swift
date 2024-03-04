@@ -72,6 +72,12 @@ struct MyQRCodeScreen: View {
                 logo: "SessionWhite40",
                 themeStyle: ThemeManager.currentTheme.interfaceStyle
             )
+            .accessibility(
+                Accessibility(
+                    identifier: "QR code",
+                    label: "QR code"
+                )
+            )
             .aspectRatio(1, contentMode: .fit)
             
             Text("settings_view_my_qr_code_explanation".localized())

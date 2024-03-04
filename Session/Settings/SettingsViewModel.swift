@@ -158,7 +158,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             image: UIImage(named: "QRCode")?
                                 .withRenderingMode(.alwaysTemplate),
                             style: .plain,
-                            accessibilityIdentifier: "Show QR code button",
+                            accessibilityIdentifier: "View QR code",
                             action: { [weak self] in
                                 let viewController: SessionHostingViewController = SessionHostingViewController(rootView: QRCodeScreen())
                                 viewController.setNavBarTitle("vc_qr_code_title".localized())
@@ -249,6 +249,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 backgroundStyle: .noBackground
                             ),
                             accessibility: Accessibility(
+                                identifier: "User settings",
                                 label: "Profile picture"
                             ),
                             onTap: {
@@ -300,16 +301,24 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             id: .idActions,
                             leftAccessory: .button(
                                 style: .bordered,
-                                title: "copy".localized(),
-                                run: { button in
-                                    self?.copySessionId(state.profile.id, button: button)
+                                title: "share".localized(),
+                                accessibility: Accessibility(
+                                    identifier: "Share button",
+                                    label: "Share button"
+                                ),
+                                run: { _ in
+                                    self?.shareSessionId(state.profile.id)
                                 }
                             ),
                             rightAccessory: .button(
                                 style: .bordered,
-                                title: "share".localized(),
-                                run: { _ in
-                                    self?.shareSessionId(state.profile.id)
+                                title: "copy".localized(),
+                                accessibility: Accessibility(
+                                    identifier: "Copy button",
+                                    label: "Copy button"
+                                ),
+                                run: { button in
+                                    self?.copySessionId(state.profile.id, button: button)
                                 }
                             ),
                             styling: SessionCell.StyleInfo(
