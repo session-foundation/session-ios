@@ -67,32 +67,34 @@ struct DocumentView_SwiftUI: View {
     }
 }
 
-#Preview {
-    VStack {
-        DocumentView_SwiftUI(
-            attachment: Attachment(
-                variant: .standard,
-                contentType: "audio/mp4",
-                byteCount: 100
-            ),
-            textColor: .messageBubble_outgoingText
-        )
-        .frame(
-            width: 200,
-            height: 58
-        )
-        
-        DocumentView_SwiftUI(
-            attachment: Attachment(
-                variant: .standard,
-                contentType: "txt",
-                byteCount: 1000
-            ),
-            textColor: .messageBubble_outgoingText
-        )
-        .frame(
-            width: 200,
-            height: 58
-        )
+struct DocumentView_SwiftUI_Previews: PreviewProvider {
+    static var previews: some View {
+        VStack {
+            DocumentView_SwiftUI(
+                attachment: Attachment(
+                    variant: .standard,
+                    contentType: "audio/mp4",
+                    byteCount: 100
+                ),
+                textColor: .messageBubble_outgoingText
+            )
+            .frame(
+                width: 200,
+                height: 58
+            )
+            
+            DocumentView_SwiftUI(
+                attachment: Attachment(
+                    variant: .standard,
+                    contentType: "txt",
+                    byteCount: 1000
+                ),
+                textColor: .messageBubble_outgoingText
+            )
+            .frame(
+                width: 200,
+                height: 58
+            )
+        }
     }
 }

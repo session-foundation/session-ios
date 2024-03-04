@@ -83,11 +83,13 @@ struct OpenGroupInvitationView_SwiftUI: View {
     }
 }
 
-#Preview {
-    OpenGroupInvitationView_SwiftUI(
-        name: "Session",
-        url: "http://open.getsession.org/session?public_key=a03c383cf63c3c4efe67acc52112a6dd734b3a946b9545f488aaa93da7991238",
-        textColor: .messageBubble_outgoingText,
-        isOutgoing: true
-    )
+struct OpenGroupInvitationView_SwiftUI_Previews: PreviewProvider {
+    static var previews: some View {
+        OpenGroupInvitationView_SwiftUI(
+            name: "Session",
+            url: "http://open.getsession.org/session?public_key=a03c383cf63c3c4efe67acc52112a6dd734b3a946b9545f488aaa93da7991238",
+            textColor: .messageBubble_outgoingText,
+            isOutgoing: true
+        )
+    }
 }

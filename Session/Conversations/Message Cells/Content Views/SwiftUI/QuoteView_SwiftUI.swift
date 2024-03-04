@@ -206,22 +206,24 @@ struct QuoteView_SwiftUI: View {
     }
 }
 
-#Preview {
-    ZStack {
-        if #available(iOS 14.0, *) {
-            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-        } else {
-            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-        }
-        
-        QuoteView_SwiftUI(
-            info: QuoteView_SwiftUI.Info(
-                mode: .draft,
-                authorId: "",
-                threadVariant: .contact,
-                direction: .outgoing
+struct QuoteView_SwiftUI_Previews: PreviewProvider {
+    static var previews: some View {
+        ZStack {
+            if #available(iOS 14.0, *) {
+                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            } else {
+                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
+            }
+            
+            QuoteView_SwiftUI(
+                info: QuoteView_SwiftUI.Info(
+                    mode: .draft,
+                    authorId: "",
+                    threadVariant: .contact,
+                    direction: .outgoing
+                )
             )
-        )
-        .frame(height: 40)
+            .frame(height: 40)
+        }
     }
 }

@@ -72,12 +72,12 @@ public struct ActivityIndicator: View {
     }
 }
 
-#Preview {
-    ActivityIndicator(themeColor: .textPrimary, width: 2)
-        .frame(
-            width: 40,
-            height: 40
-        )
+struct ActivityIndicator_Previews: PreviewProvider {
+    static var previews: some View {
+        ActivityIndicator(themeColor: .textPrimary, width: 2)
+            .frame(
+                width: 40,
+                height: 40
+            )
+    }
 }
-
-
