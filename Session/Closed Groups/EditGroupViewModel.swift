@@ -435,6 +435,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                 style: .destructive,
                 title: "GROUP_ACTION_REMOVE".localized(),
                 isEnabled: !selectedIds.isEmpty,
+                accessibility: Accessibility(
+                    identifier: "Remove contact button"
+                ),
                 onTap: { [weak self] in self?.removeMembers(memberIds: selectedIds) }
             )
         }
