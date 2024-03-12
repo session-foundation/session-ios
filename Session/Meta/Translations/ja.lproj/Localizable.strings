@@ -357,6 +357,7 @@ authenticateFailed" = "認証失敗";
 "recoveryPasswordErrorTitle" = "無効な復元フレーズ";
 "dismiss" = "中止";
 /* Button text which opens the settings app */
+<<<<<<< HEAD
 "sessionSettings" = "設定";
 "callsYouCalled" = "%@ に発信";
 "callsCalledYou" = "%@から着信";
@@ -377,6 +378,28 @@ authenticateFailed" = "認証失敗";
 "messageRequestsClearAllExplanation" = "本当に全てのリクエストを消去しますか？";
 "clear" = "消去";
 "messageRequestsDelete" = "本当にこのリクエストを削除しますか？";
+=======
+"OPEN_SETTINGS_BUTTON" = "設定";
+"call_outgoing" = "%@ に発信";
+"call_incoming" = "%@から着信";
+"call_missed" = "%@からの不在着信";
+"APN_Message" = "新しいメッセージがあります。";
+"APN_Collapsed_Messages" = "%@ 件の新規メッセージがあります。";
+"PIN_BUTTON_TEXT" = "ピン留め";
+"UNPIN_BUTTON_TEXT" = "ピン留めを外す";
+"modal_call_missed_tips_title" = "通話できません";
+"modal_call_missed_tips_explanation" = "プライバシー設定で「音声通話とビデオ通話」を許可していないため、%@から着信できませんでした。";
+"media_saved" = "メディアは%@によって保存されました。";
+"screenshot_taken" = "%@はスクリーンショットを撮りました。";
+"SEARCH_SECTION_CONTACTS" = "連絡先とグループ";
+"SEARCH_SECTION_MESSAGES" = "メッセージ";
+"MESSAGE_REQUESTS_TITLE" = "メッセージリクエスト";
+"MESSAGE_REQUESTS_EMPTY_TEXT" = "保留しているリクエストはありません";
+"MESSAGE_REQUESTS_CLEAR_ALL" = "すべて消去";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_TITLE" = "本当に全てのメッセージリクエストを消去しますか？";
+"MESSAGE_REQUESTS_CLEAR_ALL_CONFIRMATION_ACTON" = "消去";
+"MESSAGE_REQUESTS_DELETE_CONFIRMATION_ACTON" = "本当にこのリクエストを削除しますか？";
+>>>>>>> dev
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "この連絡先をブロックしてもよろしいですか？";
 "messageRequestsAcceptDescription" = "このユーザーにメッセージを送信すると、自動的にメッセージのリクエストが受け付けられ、あなたのセッションIDが公開されます。";
 "messageRequestsAccepted" = "リクエストが承認されました";
@@ -527,7 +550,6 @@ authenticateFailed" = "認証に失敗しました。";
 "modal_permission_camera" = "カメラ";
 "permissionsMicrophoneAccessRequired" = "マイクロフォン";
 "modal_permission_library" = "ライブラリ";
-"off" = "オフ";
 "off" = "オフ";
 "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER" = "- %@ の後に消えます";
 "communityUrlCopy" = "グループのURLをコピー";
@@ -762,7 +784,7 @@ authenticateFailed" = "認証に失敗しました。";
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
 
 /* A message indicating how the disappearing messages setting applies in a one-to-one conversation */
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to everyone in this conversation.";
+"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to messages you send in this conversation.";
 
 /* A message indicating how the disappearing messages setting applies in a group conversation */
 "DISAPPERING_MESSAGES_SUBTITLE_GROUPS" = "Messages disappear after they have been sent.";
@@ -774,7 +796,7 @@ authenticateFailed" = "認証に失敗しました。";
 "YOU_DISAPPEARING_MESSAGES_INFO_UPDATE" = "You have changed messages to disappear %@ after they have been %@";
 
 /* A record that appears within the message history to indicate that the current user has disabled disappearing messages */
-"disappearingMessagesTurnedOffYou" = "You have turned off disappearing messages";
+"disappearingMessagesTurnedOffYou" = "You turned off disappearing messages. Messages you send will no longer disappear.";
 
 /* The title for the legacy type of disappearing messages on the disappearing messages configuration screen */
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy";
@@ -1016,3 +1038,21 @@ The point that a message will disappear in a disappearing message update message
 
 /* Message for the error modal shown when a voice message fails to start recording. */
 "audioUnableToRecord" = "An error occurred when trying to start recording for the voice message.";
+
+/* Shortcut to copy the disappearing messages setting from another conversation participant. */
+"FOLLOW_SETTING_TITLE" = "Follow Setting";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages on. The first '%@' will be the duration messages will remain and the second '%@' will be whether the countdown starts after the messages are sent or after they are read. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
+
+/* Explanation when following the disappearing messages setting from another conversation participant will turn disappearing messages off. */
+"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
+
+/* Title for button on a modal which confirms a change. */
+"CONFIRM_BUTTON_TITLE" = "Confirm";
+
+/* The subtitle of delete action in long press menu screen indicating the time that a message will disappear */
+"DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN" = "Auto-deletes in %@";
+
+/* A message indicating how the disappearing messages setting applies in a one-to-one conversation for legacy mode */
+"DISAPPERING_MESSAGES_SUBTITLE_LEGACY" = "This setting applies to everyone in this conversation.";

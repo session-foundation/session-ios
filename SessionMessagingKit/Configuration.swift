@@ -34,7 +34,8 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
                     _014_GenerateInitialUserConfigDumps.self,
                     _015_BlockCommunityMessageRequests.self,
                     _016_MakeBrokenProfileTimestampsNullable.self,
-                    _017_RebuildFTSIfNeeded_2_4_5.self
+                    _017_RebuildFTSIfNeeded_2_4_5.self,
+                    _018_DisappearingMessagesConfiguration.self
                 ]
             ]
         )
@@ -57,5 +58,7 @@ public enum SNMessagingKit: MigratableTarget { // Just to make the external API 
         JobRunner.setExecutor(AttachmentDownloadJob.self, for: .attachmentDownload)
         JobRunner.setExecutor(ConfigurationSyncJob.self, for: .configurationSync)
         JobRunner.setExecutor(ConfigMessageReceiveJob.self, for: .configMessageReceive)
+        JobRunner.setExecutor(ExpirationUpdateJob.self, for: .expirationUpdate)
+        JobRunner.setExecutor(GetExpirationJob.self, for: .getExpiration)
     }
 }

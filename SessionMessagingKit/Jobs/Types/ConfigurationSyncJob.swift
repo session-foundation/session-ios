@@ -11,6 +11,7 @@ public enum ConfigurationSyncJob: JobExecutor {
     public static let requiresThreadId: Bool = true
     public static let requiresInteractionId: Bool = false
     private static let maxRunFrequency: TimeInterval = 3
+    private static let waitTimeForExpirationUpdate: TimeInterval = 1
     
     public static func run(
         _ job: Job,
@@ -53,8 +54,8 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let publicKey: String = job.threadId,
-            let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = Storage.shared
-                .read({ db in try SessionUtil.pendingChanges(db, publicKey: publicKey) })
+            let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = dependencies.storage
+                .read(using: dependencies, { db in try SessionUtil.pendingChanges(db, publicKey: publicKey) })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
             return failure(job, StorageError.generic, false, dependencies)

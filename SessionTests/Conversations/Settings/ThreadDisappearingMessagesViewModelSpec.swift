@@ -36,6 +36,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
         @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel! = ThreadDisappearingMessagesSettingsViewModel(
             threadId: "TestId",
             threadVariant: .contact,
+            currentUserIsClosedGroupMember: nil,
+            currentUserIsClosedGroupAdmin: nil,
             config: DisappearingMessagesConfiguration.defaultWith("TestId"),
             using: dependencies
         )
@@ -58,12 +60,27 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             
             // MARK: -- has the correct number of items
             it("has the correct number of items") {
+                // The default disappearing messages configure is Off
+                // Should only show one section of Disappearing Messages Type
                 expect(viewModel.tableData.count).to(equal(1))
-                expect(viewModel.tableData.first?.elements.count).to(equal(12))
+                
+                if Features.useNewDisappearingMessagesConfig {
+                    // Off
+                    // Disappear After Read
+                    // Disappear After Send
+                    expect(viewModel.tableData.first?.elements.count).to(equal(3))
+                } else {
+                    // Off
+                    // Legacy
+                    // Disappear After Read
+                    // Disappear After Send
+                    expect(viewModel.tableData.first?.elements.count).to(equal(4))
+                }
             }
             
             // MARK: -- has the correct default state
             it("has the correct default state") {
+                // First option is always Off
                 expect(viewModel.tableData.first?.elements.first)
                     .to(
                         equal(
@@ -73,23 +90,30 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: "off".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { true }
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Disable disappearing messages (Off option)",
+                                    label: "Disable disappearing messages (Off option)"
                                 )
                             )
                         )
                     )
-                
-                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds.last?
-                    .formatted(format: .long))
-                    .defaulting(to: "")
+                // Last option is always Disappear After Send
                 expect(viewModel.tableData.first?.elements.last)
                     .to(
                         equal(
                             SessionCell.Info(
-                                id: title,
+                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
                                 position: .bottom,
-                                title: title,
+                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
+                                ),
+                                isEnabled: Features.useNewDisappearingMessagesConfig,
+                                accessibility: Accessibility(
+                                    identifier: "Disappear after send option",
+                                    label: "Disappear after send option"
                                 )
                             )
                         )
@@ -98,11 +122,13 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
             
             // MARK: -- starts with the correct item active if not default
             it("starts with the correct item active if not default") {
+                // Test config: Disappear After Send - 2 weeks
                 let config: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
                     .defaultWith("TestId")
                     .with(
                         isEnabled: true,
-                        durationSeconds: DisappearingMessagesConfiguration.validDurationsSeconds.last
+                        durationSeconds: DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last,
+                        type: .disappearAfterSend
                     )
                 mockStorage.write { db in
                     _ = try config.saved(db)
@@ -110,6 +136,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                 viewModel = ThreadDisappearingMessagesSettingsViewModel(
                     threadId: "TestId",
                     threadVariant: .contact,
+                    currentUserIsClosedGroupMember: nil,
+                    currentUserIsClosedGroupAdmin: nil,
                     config: config,
                     using: dependencies
                 )
@@ -122,6 +150,10 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         )
                 )
                 
+                // Should have 2 sections now: Disappearing Messages Type & Timer
+                expect(viewModel.tableData.count)
+                    .to(equal(2))
+                
                 expect(viewModel.tableData.first?.elements.first)
                     .to(
                         equal(
@@ -131,15 +163,38 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: "off".localized(),
                                 rightAccessory: .radio(
                                     isSelected: { false }
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Disable disappearing messages (Off option)",
+                                    label: "Disable disappearing messages (Off option)"
                                 )
                             )
                         )
                     )
                 
-                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds.last?
+                expect(viewModel.tableData.first?.elements.last)
+                    .to(
+                        equal(
+                            SessionCell.Info(
+                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                position: .bottom,
+                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                rightAccessory: .radio(
+                                    isSelected: { true }
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Disappear after send option",
+                                    label: "Disappear after send option"
+                                )
+                            )
+                        )
+                    )
+                
+                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last?
                     .formatted(format: .long))
                     .defaulting(to: "")
-                expect(viewModel.tableData.first?.elements.last)
+                expect(viewModel.tableData.last?.elements.last)
                     .to(
                         equal(
                             SessionCell.Info(
@@ -148,57 +203,158 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 title: title,
                                 rightAccessory: .radio(
                                     isSelected: { true }
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Time option",
+                                    label: "Time option"
                                 )
                             )
                         )
                     )
             }
             
-            // MARK: -- has no right bar button
-            it("has no right bar button") {
-                var items: [SessionNavItem<ThreadDisappearingMessagesSettingsViewModel.NavItem>]!
+            // MARK: -- has no footer button
+            it("has no footer button") {
+                var footerButtonInfo: SessionButton.Info?
                 
                 cancellables.append(
-                    viewModel.rightNavItems
+                    viewModel.footerButtonInfo
                         .receive(on: ImmediateScheduler.shared)
                         .sink(
                             receiveCompletion: { _ in },
-                            receiveValue: { navItems in items = navItems }
+                            receiveValue: { info in footerButtonInfo = info }
                         )
                 )
                 
-                expect(items).to(equal([]))
+                expect(footerButtonInfo).to(beNil())
+            }
+            
+            // MARK: -- can change to another setting and change back
+            it("can change to another setting and change back") {
+                // Test config: Disappear After Send - 2 weeks
+                let config: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration
+                    .defaultWith("TestId")
+                    .with(
+                        isEnabled: true,
+                        durationSeconds: DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last,
+                        type: .disappearAfterSend
+                    )
+                mockStorage.write { db in
+                    _ = try config.saved(db)
+                }
+                viewModel = ThreadDisappearingMessagesSettingsViewModel(
+                    threadId: "TestId",
+                    threadVariant: .contact,
+                    currentUserIsClosedGroupMember: nil,
+                    currentUserIsClosedGroupAdmin: nil,
+                    config: config,
+                    using: dependencies
+                )
+                cancellables.append(
+                    viewModel.tableDataPublisher
+                        .receive(on: ImmediateScheduler.shared)
+                        .sink(
+                            receiveCompletion: { _ in },
+                            receiveValue: { viewModel.updateTableData($0.0) }
+                        )
+                )
+                
+                // Change to another setting
+                viewModel.tableData.first?.elements.first?.onTap?()
+                // Change back
+                viewModel.tableData.first?.elements.last?.onTap?()
+                
+                expect(viewModel.tableData.first?.elements.last)
+                    .to(
+                        equal(
+                            SessionCell.Info(
+                                id: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                position: .bottom,
+                                title: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_TITLE".localized(),
+                                subtitle: "DISAPPERING_MESSAGES_TYPE_AFTER_SEND_DESCRIPTION".localized(),
+                                rightAccessory: .radio(
+                                    isSelected: { true }
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Disappear after send option",
+                                    label: "Disappear after send option"
+                                )
+                            )
+                        )
+                    )
+                
+                let title: String = (DisappearingMessagesConfiguration.validDurationsSeconds(.disappearAfterSend).last?
+                    .formatted(format: .long))
+                    .defaulting(to: "")
+                expect(viewModel.tableData.last?.elements.last)
+                    .to(
+                        equal(
+                            SessionCell.Info(
+                                id: title,
+                                position: .bottom,
+                                title: title,
+                                rightAccessory: .radio(
+                                    isSelected: { true }
+                                ),
+                                accessibility: Accessibility(
+                                    identifier: "Time option",
+                                    label: "Time option"
+                                )
+                            )
+                        )
+                    )
+                
+                var footerButtonInfo: SessionButton.Info?
+                
+                cancellables.append(
+                    viewModel.footerButtonInfo
+                        .receive(on: ImmediateScheduler.shared)
+                        .sink(
+                            receiveCompletion: { _ in },
+                            receiveValue: { info in footerButtonInfo = info }
+                        )
+                )
+                
+                expect(footerButtonInfo).to(beNil())
             }
             
             // MARK: -- when changed from the previous setting
             context("when changed from the previous setting") {
-                @TestState var items: [SessionNavItem<ThreadDisappearingMessagesSettingsViewModel.NavItem>]!
+                @TestState var footerButtonInfo: SessionButton.Info?
                 
                 beforeEach {
                     cancellables.append(
-                        viewModel.rightNavItems
+                        viewModel.footerButtonInfo
                             .receive(on: ImmediateScheduler.shared)
                             .sink(
                                 receiveCompletion: { _ in },
-                                receiveValue: { navItems in items = navItems }
+                                receiveValue: { info in footerButtonInfo = info }
                             )
                     )
                     
                     viewModel.tableData.first?.elements.last?.onTap?()
                 }
                 
-                // MARK: ---- shows the save button
-                it("shows the save button") {
-                    expect(items)
-                        .to(equal([
-                            SessionNavItem<ThreadDisappearingMessagesSettingsViewModel.NavItem>(
-                                id: .save,
-                                systemItem: .save,
-                                accessibilityIdentifier: "Save button"
+                // MARK: ---- shows the set button
+                it("shows the set button") {
+                    expect(footerButtonInfo)
+                        .to(
+                            equal(
+                                SessionButton.Info(
+                                    style: .bordered,
+                                    title: "DISAPPERING_MESSAGES_SAVE_TITLE".localized(),
+                                    isEnabled: true,
+                                    accessibility: Accessibility(
+                                        identifier: "Set button",
+                                        label: "Set button"
+                                    ),
+                                    minWidth: 110,
+                                    onTap: {}
+                                )
                             )
-                        ]))
+                        )
                 }
-                
+
                 // MARK: ---- and saving
                 context("and saving") {
                     // MARK: ------ dismisses the screen
@@ -214,14 +370,14 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                                 )
                         )
                         
-                        items.first?.action?()
+                        footerButtonInfo?.onTap()
                         
                         expect(didDismissScreen).to(beTrue())
                     }
                     
                     // MARK: ------ saves the updated config
                     it("saves the updated config") {
-                        items.first?.action?()
+                        footerButtonInfo?.onTap()
                         
                         let updatedConfig: DisappearingMessagesConfiguration? = mockStorage.read { db in
                             try DisappearingMessagesConfiguration.fetchOne(db, id: "TestId")
@@ -229,7 +385,8 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                         
                         expect(updatedConfig?.isEnabled).to(beTrue())
                         expect(updatedConfig?.durationSeconds)
-                            .to(equal(DisappearingMessagesConfiguration.validDurationsSeconds.last ?? -1))
+                            .to(equal(DisappearingMessagesConfiguration.DefaultDuration.disappearAfterSend.seconds))
+                        expect(updatedConfig?.type).to(equal(.disappearAfterSend))
                     }
                 }
             }

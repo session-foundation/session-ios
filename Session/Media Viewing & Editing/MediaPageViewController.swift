@@ -558,6 +558,10 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                             timestamp: UInt64(currentViewController.galleryItem.interactionTimestampMs)
                         ),
                         sentTimestamp: UInt64(SnodeAPI.currentOffsetTimestampMs())
+                    )
+                    .with(DisappearingMessagesConfiguration
+                        .fetchOne(db, id: threadId)?
+                        .forcedWithDisappearAfterReadIfNeeded()
                     ),
                     interactionId: nil, // Show no interaction for the current user
                     threadId: threadId,

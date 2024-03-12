@@ -71,7 +71,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                 image: UIImage(named: "X")?
                     .withRenderingMode(.alwaysTemplate),
                 style: .plain,
-                accessibilityIdentifier: "Close Button"
+                accessibilityIdentifier: "Close button"
             ) { [weak self] in self?.dismissScreen() }
         ]
     )

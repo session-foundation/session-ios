@@ -357,12 +357,67 @@ struct SessionProtos_Content {
   /// Clears the value of `sharedConfigMessage`. Subsequent reads from it will return its default value.
   mutating func clearSharedConfigMessage() {_uniqueStorage()._sharedConfigMessage = nil}
 
+  var expirationType: SessionProtos_Content.ExpirationType {
+    get {return _storage._expirationType ?? .unknown}
+    set {_uniqueStorage()._expirationType = newValue}
+  }
+  /// Returns true if `expirationType` has been explicitly set.
+  var hasExpirationType: Bool {return _storage._expirationType != nil}
+  /// Clears the value of `expirationType`. Subsequent reads from it will return its default value.
+  mutating func clearExpirationType() {_uniqueStorage()._expirationType = nil}
+
+  var expirationTimer: UInt32 {
+    get {return _storage._expirationTimer ?? 0}
+    set {_uniqueStorage()._expirationTimer = newValue}
+  }
+  /// Returns true if `expirationTimer` has been explicitly set.
+  var hasExpirationTimer: Bool {return _storage._expirationTimer != nil}
+  /// Clears the value of `expirationTimer`. Subsequent reads from it will return its default value.
+  mutating func clearExpirationTimer() {_uniqueStorage()._expirationTimer = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum ExpirationType: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+    case unknown // = 0
+    case deleteAfterRead // = 1
+    case deleteAfterSend // = 2
+
+    init() {
+      self = .unknown
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .unknown
+      case 1: self = .deleteAfterRead
+      case 2: self = .deleteAfterSend
+      default: return nil
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .unknown: return 0
+      case .deleteAfterRead: return 1
+      case .deleteAfterSend: return 2
+      }
+    }
+
+  }
 
   init() {}
 
   fileprivate var _storage = _StorageClass.defaultInstance
 }
+
+#if swift(>=4.2)
+
+extension SessionProtos_Content.ExpirationType: CaseIterable {
+  // Support synthesized by the compiler.
+}
+
+#endif  // swift(>=4.2)
 
 struct SessionProtos_CallMessage {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -1682,6 +1737,7 @@ extension SessionProtos_TypingMessage.Action: @unchecked Sendable {}
 extension SessionProtos_UnsendRequest: @unchecked Sendable {}
 extension SessionProtos_MessageRequestResponse: @unchecked Sendable {}
 extension SessionProtos_Content: @unchecked Sendable {}
+extension SessionProtos_Content.ExpirationType: @unchecked Sendable {}
 extension SessionProtos_CallMessage: @unchecked Sendable {}
 extension SessionProtos_CallMessage.TypeEnum: @unchecked Sendable {}
 extension SessionProtos_KeyPair: @unchecked Sendable {}
@@ -1962,6 +2018,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     9: .same(proto: "unsendRequest"),
     10: .same(proto: "messageRequestResponse"),
     11: .same(proto: "sharedConfigMessage"),
+    12: .same(proto: "expirationType"),
+    13: .same(proto: "expirationTimer"),
   ]
 
   fileprivate class _StorageClass {
@@ -1974,6 +2032,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     var _unsendRequest: SessionProtos_UnsendRequest? = nil
     var _messageRequestResponse: SessionProtos_MessageRequestResponse? = nil
     var _sharedConfigMessage: SessionProtos_SharedConfigMessage? = nil
+    var _expirationType: SessionProtos_Content.ExpirationType? = nil
+    var _expirationTimer: UInt32? = nil
 
     static let defaultInstance = _StorageClass()
 
@@ -1989,6 +2049,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       _unsendRequest = source._unsendRequest
       _messageRequestResponse = source._messageRequestResponse
       _sharedConfigMessage = source._sharedConfigMessage
+      _expirationType = source._expirationType
+      _expirationTimer = source._expirationTimer
     }
   }
 
@@ -2031,6 +2093,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         case 9: try { try decoder.decodeSingularMessageField(value: &_storage._unsendRequest) }()
         case 10: try { try decoder.decodeSingularMessageField(value: &_storage._messageRequestResponse) }()
         case 11: try { try decoder.decodeSingularMessageField(value: &_storage._sharedConfigMessage) }()
+        case 12: try { try decoder.decodeSingularEnumField(value: &_storage._expirationType) }()
+        case 13: try { try decoder.decodeSingularUInt32Field(value: &_storage._expirationTimer) }()
         default: break
         }
       }
@@ -2070,6 +2134,12 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       try { if let v = _storage._sharedConfigMessage {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
       } }()
+      try { if let v = _storage._expirationType {
+        try visitor.visitSingularEnumField(value: v, fieldNumber: 12)
+      } }()
+      try { if let v = _storage._expirationTimer {
+        try visitor.visitSingularUInt32Field(value: v, fieldNumber: 13)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2088,6 +2158,8 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
         if _storage._unsendRequest != rhs_storage._unsendRequest {return false}
         if _storage._messageRequestResponse != rhs_storage._messageRequestResponse {return false}
         if _storage._sharedConfigMessage != rhs_storage._sharedConfigMessage {return false}
+        if _storage._expirationType != rhs_storage._expirationType {return false}
+        if _storage._expirationTimer != rhs_storage._expirationTimer {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -2095,6 +2167,14 @@ extension SessionProtos_Content: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
+}
+
+extension SessionProtos_Content.ExpirationType: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "UNKNOWN"),
+    1: .same(proto: "DELETE_AFTER_READ"),
+    2: .same(proto: "DELETE_AFTER_SEND"),
+  ]
 }
 
 extension SessionProtos_CallMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {

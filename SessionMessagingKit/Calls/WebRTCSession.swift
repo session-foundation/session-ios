@@ -184,6 +184,10 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                         kind: .offer,
                                         sdps: [ sdp.sdp ],
                                         sentTimestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs())
+                                    )
+                                    .with(try? thread.disappearingMessagesConfiguration
+                                        .fetchOne(db)?
+                                        .forcedWithDisappearAfterReadIfNeeded()
                                     ),
                                     to: try Message.Destination
                                         .from(db, threadId: thread.id, threadVariant: thread.variant),
@@ -254,6 +258,10 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                             uuid: uuid,
                                             kind: .answer,
                                             sdps: [ sdp.sdp ]
+                                        )
+                                        .with(try? thread.disappearingMessagesConfiguration
+                                            .fetchOne(db)?
+                                            .forcedWithDisappearAfterReadIfNeeded()
                                         ),
                                         to: try Message.Destination
                                             .from(db, threadId: thread.id, threadVariant: thread.variant),
@@ -316,6 +324,10 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                                 sdpMids: candidates.map { $0.sdpMid! }
                             ),
                             sdps: candidates.map { $0.sdp }
+                        )
+                        .with(try? thread.disappearingMessagesConfiguration
+                            .fetchOne(db)?
+                            .forcedWithDisappearAfterReadIfNeeded()
                         ),
                         to: try Message.Destination
                             .from(db, threadId: thread.id, threadVariant: thread.variant),
@@ -347,6 +359,10 @@ public final class WebRTCSession : NSObject, RTCPeerConnectionDelegate {
                     uuid: self.uuid,
                     kind: .endCall,
                     sdps: []
+                )
+                .with(try? thread.disappearingMessagesConfiguration
+                    .fetchOne(db)?
+                    .forcedWithDisappearAfterReadIfNeeded()
                 ),
                 to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
                 namespace: try Message.Destination

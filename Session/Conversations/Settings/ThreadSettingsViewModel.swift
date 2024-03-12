@@ -444,27 +444,32 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             SessionCell.Info(
                                 id: .disappearingMessages,
                                 leftAccessory: .icon(
-                                    UIImage(
-                                        named: (current.disappearingMessagesConfig.isEnabled ?
-                                            "ic_timer" :
-                                            "ic_timer_disabled"
-                                        )
-                                    )?.withRenderingMode(.alwaysTemplate),
-                                    accessibility: Accessibility(
-                                        label: "Timer icon"
-                                    )
+                                    UIImage(systemName: "timer")?
+                                        .withRenderingMode(.alwaysTemplate)
                                 ),
                                 title: "DISAPPEARING_MESSAGES".localized(),
-                                subtitle: (current.disappearingMessagesConfig.isEnabled ?
-                                    String(
-                                        format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER".localized(),
-                                        arguments: [current.disappearingMessagesConfig.durationString]
-                                    ) :
-                                    "off".localized()
-                                ),
+                                subtitle: {
+                                    guard current.disappearingMessagesConfig.isEnabled else {
+                                        return "off".localized()
+                                    }
+                                    guard Features.useNewDisappearingMessagesConfig else {
+                                        return String(
+                                            format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY".localized(),
+                                            current.disappearingMessagesConfig.durationString
+                                        )
+                                    }
+                                    
+                                    return String(
+                                        format: (current.disappearingMessagesConfig.type == .disappearAfterRead ?
+                                            "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ".localized() :
+                                            "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND".localized()
+                                        ),
+                                        current.disappearingMessagesConfig.durationString
+                                    )
+                                }(),
                                 accessibility: Accessibility(
-                                    identifier: "\(ThreadSettingsViewModel.self).disappearing_messages",
-                                    label: "Disappearing messages"
+                                    identifier: "Disappearing messages",
+                                    label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                                 ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
@@ -472,6 +477,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                             viewModel: ThreadDisappearingMessagesSettingsViewModel(
                                                 threadId: threadViewModel.threadId,
                                                 threadVariant: threadViewModel.threadVariant,
+                                                currentUserIsClosedGroupMember: threadViewModel.currentUserIsClosedGroupMember,
+                                                currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
                                                 config: current.disappearingMessagesConfig
                                             )
                                         )
@@ -799,6 +806,18 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     interaction: interaction,
                     threadId: thread.id,
                     threadVariant: thread.variant,
+                    using: dependencies
+                )
+                
+                // Trigger disappear after read
+                dependencies.jobRunner.upsert(
+                    db,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(
+                        db,
+                        interaction: interaction,
+                        startedAtMs: TimeInterval(SnodeAPI.currentOffsetTimestampMs())
+                    ),
+                    canStartJob: true,
                     using: dependencies
                 )
             }

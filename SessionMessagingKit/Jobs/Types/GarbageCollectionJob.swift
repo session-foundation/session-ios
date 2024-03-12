@@ -15,6 +15,7 @@ public enum GarbageCollectionJob: JobExecutor {
     public static var requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
     public static let approxSixMonthsInSeconds: TimeInterval = (6 * 30 * 24 * 60 * 60)
+    public static let fourteenDaysInSeconds: TimeInterval = (14 * 24 * 60 * 60)
     private static let minInteractionsToTrim: Int = 2000
     
     public static func run(
@@ -292,6 +293,15 @@ public enum GarbageCollectionJob: JobExecutor {
                     """)
                 }
                 
+                /// Remove interactions which should be disappearing after read but never be read within 14 days
+                if finalTypesToCollect.contains(.expiredUnreadDisappearingMessages) {
+                    _ = try Interaction
+                        .filter(Interaction.Columns.expiresInSeconds != 0)
+                        .filter(Interaction.Columns.expiresStartedAtMs == nil)
+                        .filter(Interaction.Columns.timestampMs < (timestampNow - fourteenDaysInSeconds) * 1000)
+                        .deleteAll(db)
+                }
+
                 if finalTypesToCollect.contains(.expiredPendingReadReceipts) {
                     _ = try PendingReadReceipt
                         .filter(PendingReadReceipt.Columns.serverExpirationTimestamp <= timestampNow)
@@ -478,6 +488,7 @@ extension GarbageCollectionJob {
         case orphanedAttachments
         case orphanedAttachmentFiles
         case orphanedProfileAvatars
+        case expiredUnreadDisappearingMessages // unread disappearing messages after 14 days
         case expiredPendingReadReceipts
         case shadowThreads
     }

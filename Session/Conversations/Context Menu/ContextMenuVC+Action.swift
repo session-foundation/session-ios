@@ -3,11 +3,19 @@
 import UIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SessionUIKit
 
 extension ContextMenuVC {
+    struct ExpirationInfo {
+        let expiresStartedAtMs: Double?
+        let expiresInSeconds: TimeInterval?
+    }
+    
     struct Action {
         let icon: UIImage?
         let title: String
+        let expirationInfo: ExpirationInfo?
+        let themeColor: ThemeValue
         let isEmojiAction: Bool
         let isEmojiPlus: Bool
         let isDismissAction: Bool
@@ -19,6 +27,8 @@ extension ContextMenuVC {
         init(
             icon: UIImage? = nil,
             title: String = "",
+            expirationInfo: ExpirationInfo? = nil,
+            themeColor: ThemeValue = .textPrimary,
             isEmojiAction: Bool = false,
             isEmojiPlus: Bool = false,
             isDismissAction: Bool = false,
@@ -27,6 +37,8 @@ extension ContextMenuVC {
         ) {
             self.icon = icon
             self.title = title
+            self.expirationInfo = expirationInfo
+            self.themeColor = themeColor
             self.isEmojiAction = isEmojiAction
             self.isEmojiPlus = isEmojiPlus
             self.isDismissAction = isDismissAction
@@ -84,6 +96,11 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_trash"),
                 title: "delete".localized(),
+                expirationInfo: ExpirationInfo(
+                    expiresStartedAtMs: cellViewModel.expiresStartedAtMs,
+                    expiresInSeconds: cellViewModel.expiresInSeconds
+                ),
+                themeColor: .danger,
                 accessibilityLabel: "Delete message"
             ) { delegate?.delete(cellViewModel, using: dependencies) }
         }
@@ -100,6 +117,7 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_block"),
                 title: "banUser".localized(),
+                themeColor: .danger,
                 accessibilityLabel: "Ban user"
             ) { delegate?.ban(cellViewModel, using: dependencies) }
         }
@@ -108,6 +126,7 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(named: "ic_block"),
                 title: "context_menu_ban_and_delete_all".localized(),
+                themeColor: .danger,
                 accessibilityLabel: "Ban user and delete"
             ) { delegate?.banAndDeleteAllMessages(cellViewModel, using: dependencies) }
         }

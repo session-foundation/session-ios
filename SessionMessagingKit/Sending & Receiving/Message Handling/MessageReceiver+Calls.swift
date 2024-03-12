@@ -229,7 +229,9 @@ extension MessageReceiver {
                 timestampMs: (messageSentTimestamp * 1000),
                 userPublicKey: getUserHexEncodedPublicKey(db),
                 openGroup: nil
-            )
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
         )
         .inserted(db)
         
@@ -242,6 +244,10 @@ extension MessageReceiver {
                         kind: .endCall,
                         sdps: [],
                         sentTimestampMs: nil // Explicitly nil as it's a separate message from above
+                    )
+                    .with(try? thread.disappearingMessagesConfiguration
+                        .fetchOne(db)?
+                        .forcedWithDisappearAfterReadIfNeeded()
                     ),
                     to: try Message.Destination.from(db, threadId: thread.id, threadVariant: thread.variant),
                     namespace: try Message.Destination
@@ -302,7 +308,10 @@ extension MessageReceiver {
                 timestampMs: (timestampMs * 1000),
                 userPublicKey: currentUserPublicKey,
                 openGroup: nil
-            )
-        ).inserted(db)
+            ),
+            expiresInSeconds: message.expiresInSeconds,
+            expiresStartedAtMs: message.expiresStartedAtMs
+        )
+        .inserted(db)
     }
 }

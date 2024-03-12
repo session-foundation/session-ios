@@ -253,6 +253,20 @@ public final class JobRunner: JobRunnerType {
                 ].compactMap { $0 }
             ),
             
+            // MARK: -- Expiration Update Queue
+            
+            JobQueue(
+                type: .expirationUpdate,
+                executionType: .concurrent, // Allow as many jobs to run at once as supported by the device
+                qos: .default,
+                isTestingJobRunner: isTestingJobRunner,
+                jobVariants: [
+                    jobVariants.remove(.expirationUpdate),
+                    jobVariants.remove(.getExpiration),
+                    jobVariants.remove(.disappearingMessages)
+                ].compactMap { $0 }
+            ),
+            
             // MARK: -- General Queue
             
             JobQueue(
@@ -717,6 +731,7 @@ public final class JobQueue: Hashable {
         case messageSend
         case messageReceive
         case attachmentDownload
+        case expirationUpdate
         
         var name: String {
             switch self {
@@ -725,6 +740,7 @@ public final class JobQueue: Hashable {
                 case .messageSend: return "MessageSend"
                 case .messageReceive: return "MessageReceive"
                 case .attachmentDownload: return "AttachmentDownload"
+                case .expirationUpdate: return "ExpirationUpdate"
             }
         }
     }

@@ -119,6 +119,28 @@ internal extension SessionUtil {
             }
         }
         
+        // Update the 'Note to Self' disappearing messages configuration
+        let targetExpiry: Int32 = user_profile_get_nts_expiry(conf)
+        let targetIsEnable: Bool = targetExpiry > 0
+        let targetConfig: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
+            threadId: userPublicKey,
+            isEnabled: targetIsEnable,
+            durationSeconds: TimeInterval(targetExpiry),
+            type: targetIsEnable ? .disappearAfterSend : .unknown
+        )
+        let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
+            .fetchOne(db, id: userPublicKey)
+            .defaulting(to: DisappearingMessagesConfiguration.defaultWith(userPublicKey))
+        
+        if targetConfig != localConfig {
+            try targetConfig
+                .saved(db)
+                .clearUnrelatedControlMessages(
+                    db,
+                    threadVariant: .contact
+                )
+        }
+
         // Update settings if needed
         let updatedAllowBlindedMessageRequests: Int32 = user_profile_get_blinded_msgreqs(conf)
         let updatedAllowBlindedMessageRequestsBoolValue: Bool = (updatedAllowBlindedMessageRequests >= 1)
@@ -167,12 +189,19 @@ internal extension SessionUtil {
     }
     
     static func updateNoteToSelf(
-        priority: Int32,
+        priority: Int32? = nil,
+        disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         in conf: UnsafeMutablePointer<config_object>?
     ) throws {
         guard conf != nil else { throw SessionUtilError.nilConfigObject }
         
-        user_profile_set_nts_priority(conf, priority)
+        if let priority: Int32 = priority {
+            user_profile_set_nts_priority(conf, priority)
+        }
+        
+        if let config: DisappearingMessagesConfiguration = disappearingMessagesConfig {
+            user_profile_set_nts_expiry(conf, Int32(config.durationSeconds))
+        }
     }
     
     static func updateSettings(
