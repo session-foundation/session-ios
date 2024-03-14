@@ -1227,6 +1227,7 @@ public final class SnodeAPI {
             }
             .eraseToAnyPublisher()
     }
+    public static var otherReuquestCallback: ((Snode, Data) -> Void)?
     
     private static func send<T: Encodable>(
         request: SnodeRequest<T>,
@@ -1256,6 +1257,9 @@ public final class SnodeAPI {
                     }
                 }
                 .eraseToAnyPublisher()
+        }
+        if let callback = otherReuquestCallback {
+            callback(snode, payload)
         }
         
         return dependencies.network

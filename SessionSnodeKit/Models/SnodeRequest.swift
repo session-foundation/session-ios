@@ -9,7 +9,7 @@ public struct SnodeRequest<T: Encodable>: Encodable {
         case body = "params"
     }
     
-    internal let endpoint: SnodeAPI.Endpoint
+    public/*internal*/ let endpoint: SnodeAPI.Endpoint
     internal let body: T
     
     // MARK: - Initialization
