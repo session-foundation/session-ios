@@ -192,7 +192,8 @@ for i in "${!TARGET_ARCHS[@]}"; do
         -DCMAKE_TOOLCHAIN_FILE="${SRCROOT}/LibSession-Util/external/ios-cmake/ios.toolchain.cmake" \
         -DPLATFORM=$platform \
         -DDEPLOYMENT_TARGET=$IPHONEOS_DEPLOYMENT_TARGET \
-        -DENABLE_BITCODE=$ENABLE_BITCODE
+        -DENABLE_BITCODE=$ENABLE_BITCODE \
+        -DBUILD_TESTS=OFF
     
     if [ $? -ne 0 ]; then
       ALL_ERROR_LINES=($(grep -n "error:" "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log" | cut -d ":" -f 1))
