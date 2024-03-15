@@ -532,3 +532,49 @@ public extension SessionUtil {
         return String(cString: cFullUrl)
     }
 }
+
+
+public extension SessionUtil {
+    static func sendRequest(
+        ed25519SecretKey: [UInt8]?,
+        targetPubkey: String,
+        targetIp: String,
+        targetPort: UInt16,
+        endpoint: String,
+        payload: Data,
+        callback: @escaping (Bool, Int16, Data?) -> Void
+    ) {
+        class CWrapper {
+            let callback: (Bool, Int16, Data?) -> Void
+            
+            public init(_ callback: @escaping (Bool, Int16, Data?) -> Void) {
+                self.callback = callback
+            }
+        }
+        
+        let callbackWrapper: CWrapper = CWrapper(callback)
+        let cWrapperPtr: UnsafeMutableRawPointer = Unmanaged.passRetained(callbackWrapper).toOpaque()
+        let cEd25519SecretKey: [UInt8] = ed25519SecretKey!
+        let cRemoteAddress: remote_address = remote_address(
+            pubkey: targetPubkey.toLibSession(),
+            ip: targetIp.toLibSession(),
+            port: targetPort
+        )
+        let cEndpoint: [CChar] = endpoint.cArray
+        let cPayload: [UInt8] = payload.cArray
+        
+        network_send_request(
+            cEd25519SecretKey,
+            cRemoteAddress,
+            cEndpoint,
+            cEndpoint.count,
+            cPayload,
+            cPayload.count,
+            { success, statusCode, dataPtr, dataLen, ctx in
+                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                Unmanaged<CWrapper>.fromOpaque(ctx!).takeRetainedValue().callback(success, statusCode, data)
+            },
+            cWrapperPtr
+        )
+    }
+}
