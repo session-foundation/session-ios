@@ -128,7 +128,7 @@ final class InfoMessageCell: MessageCell {
                 )
                 .adding(
                     attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: "vc_path_device_row_title".localized())
+                    range: (body as NSString).range(of: "onionRoutingPathYou".localized())
                 )
                 .adding(
                     attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
@@ -136,15 +136,15 @@ final class InfoMessageCell: MessageCell {
                 )
                 .adding(
                     attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: "DISAPPEARING_MESSAGE_STATE_READ".localized())
+                    range: (body as NSString).range(of: "read".localized().lowercased())
                 )
                 .adding(
                     attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                    range: (body as NSString).range(of: "disappearingMessagesSent".localized().lowercased())
                 )
                 .adding(
                     attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: "DISAPPEARING_MESSAGES_OFF".localized().lowercased())
+                    range: (body as NSString).range(of: "off".localized().lowercased())
                 )
             
             if cellViewModel.canDoFollowingSetting() {

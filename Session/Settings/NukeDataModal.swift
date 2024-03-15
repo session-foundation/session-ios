@@ -74,7 +74,7 @@ final class NukeDataModal: Modal {
     
     private lazy var clearDataButton: UIButton = {
         let result: UIButton = Modal.createButton(
-            title: "modal_clear_all_data_confirm".localized(),
+            title: "clear".localized(),
             titleColor: .danger
         )
         result.addTarget(self, action: #selector(clearAllData), for: UIControl.Event.touchUpInside)
@@ -139,7 +139,7 @@ final class NukeDataModal: Modal {
             info: ConfirmationModal.Info(
                 title: "clearDataAll".localized(),
                 body: .text("clearDeviceAndNetworkConfirm".localized()),
-                confirmTitle: "modal_clear_all_data_confirm".localized(),
+                confirmTitle: "clear".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
                 dismissOnConfirm: false

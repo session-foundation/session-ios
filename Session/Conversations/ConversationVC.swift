@@ -748,7 +748,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                             "conversationsEmpty".localized()
                         )
                        
-                    default: return "CONVERSATION_EMPTY_STATE".localized()
+                    default: return "groupNoMessages".localized()
                 }
             }(),
             threadData.displayName

@@ -32,7 +32,7 @@ public enum Permissions {
                                 "modal_permission_camera".localized()
                             )
                         ),
-                        confirmTitle: "modal_permission_settings_title".localized(),
+                        confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false
                     ) { [weak presentingViewController] _ in
                         presentingViewController?.dismiss(animated: true, completion: {
@@ -75,7 +75,7 @@ public enum Permissions {
                                 "permissionsMicrophoneAccessRequired".localized()
                             )
                         ),
-                        confirmTitle: "modal_permission_settings_title".localized(),
+                        confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false,
                         onConfirm: { [weak presentingViewController] _ in
                             presentingViewController?.dismiss(animated: true, completion: {
@@ -149,7 +149,7 @@ public enum Permissions {
                                 "modal_permission_library".localized()
                             )
                         ),
-                        confirmTitle: "modal_permission_settings_title".localized(),
+                        confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false
                     ) { [weak presentingViewController] _ in
                         presentingViewController?.dismiss(animated: true, completion: {

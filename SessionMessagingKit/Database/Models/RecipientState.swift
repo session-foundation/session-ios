@@ -71,27 +71,27 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
         }
         
         public func statusIconInfo(variant: Interaction.Variant, hasAtLeastOneReadReceipt: Bool) -> (image: UIImage?, text: String?, themeTintColor: ThemeValue) {
-            guard variant == .standardOutgoing else { return (nil, "MESSAGE_DELIVERY_STATUS_READ".localized(), .messageBubble_deliveryStatus) }
+            guard variant == .standardOutgoing else { return (nil, "read".localized(), .messageBubble_deliveryStatus) }
 
             switch (self, hasAtLeastOneReadReceipt) {
                 case (.sending, _):
                     return (
                         UIImage(systemName: "ellipsis.circle"),
-                        "MESSAGE_DELIVERY_STATUS_SENDING".localized(),
+                        "sending".localized(),
                         .messageBubble_deliveryStatus
                     )
 
                 case (.sent, false), (.skipped, _):
                     return (
                         UIImage(systemName: "checkmark.circle"),
-                        "MESSAGE_DELIVERY_STATUS_SENT".localized(),
+                        "disappearingMessagesSent".localized(),
                         .messageBubble_deliveryStatus
                     )
 
                 case (.sent, true):
                     return (
                         UIImage(systemName: "eye.fill"),
-                        "MESSAGE_DELIVERY_STATUS_READ".localized(),
+                        "read".localized(),
                         .messageBubble_deliveryStatus
                     )
                     

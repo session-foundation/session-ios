@@ -900,7 +900,7 @@ extension ConversationVC:
         guard cellViewModel.variant != .infoDisappearingMessagesUpdate else {
             let messageDisappearingConfig = cellViewModel.messageDisappearingConfiguration()
             let expirationTimerString: String = floor(messageDisappearingConfig.durationSeconds).formatted(format: .long)
-            let expirationTypeString: String = (messageDisappearingConfig.type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+            let expirationTypeString: String = (messageDisappearingConfig.type == .disappearAfterRead ? "read".localized().lowercased() : "disappearingMessagesSent".localized().lowercased())
             let modalBodyString: String = (
                 messageDisappearingConfig.isEnabled ?
                 String(
@@ -910,7 +910,7 @@ extension ConversationVC:
                 ) :
                 "FOLLOW_SETTING_EXPLAINATION_TURNING_OFF".localized()
             )
-            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "DISAPPERING_MESSAGES_SAVE_TITLE".localized() : "CONFIRM_BUTTON_TITLE".localized()
+            let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "set".localized() : "CONFIRM_BUTTON_TITLE".localized()
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "FOLLOW_SETTING_TITLE".localized(),
@@ -926,7 +926,7 @@ extension ConversationVC:
                             )
                             .adding(
                                 attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                                range: (modalBodyString as NSString).range(of: "DISAPPEARING_MESSAGES_OFF".localized().lowercased())
+                                range: (modalBodyString as NSString).range(of: "off".localized().lowercased())
                             )
                     ),
                     accessibility: Accessibility(identifier: "Follow setting dialog"),

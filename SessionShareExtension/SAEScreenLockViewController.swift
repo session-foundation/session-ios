@@ -162,10 +162,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "authenticateFailed
-authenticateFailed
-authenticateFailed
-authenticateFailed".localized(),
+                title: "authenticateFailed".localized(),
                 body: .text(message),
                 cancelTitle: "BUTTON_OK".localized(),
                 cancelStyle: .alert_text,

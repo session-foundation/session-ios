@@ -103,7 +103,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
         .map { selectedContactIds in
             SessionButton.Info(
                 style: .destructive,
-                title: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK".localized(),
+                title: "blockUnblock".localized(),
                 isEnabled: !selectedContactIds.isEmpty,
                 onTap: { [weak self] in self?.unblockTapped() }
             )
@@ -182,7 +182,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
             guard contactNames.count > 1 else {
                 // Show a single users name
                 return String(
-                    format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_SINGLE".localized(),
+                    format: "blockUnblockDescription".localized(),
                     (
                         contactNames.first ??
                         "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK".localized()
@@ -196,7 +196,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 
                 return [
                     String(
-                        format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1".localized(),
+                        format: "blockUnblockDescription".localized(),
                         initialNames.joined(separator: ", ")
                     ),
                     String(
@@ -215,7 +215,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
             
             return [
                 String(
-                    format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_1".localized(),
+                    format: "blockUnblockDescription".localized(),
                     initialNames.joined(separator: ", ")
                 ),
                 String(
@@ -229,7 +229,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: confirmationTitle,
-                confirmTitle: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_ACTON".localized(),
+                confirmTitle: "blockUnblock".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text
             ) { [weak self] _ in

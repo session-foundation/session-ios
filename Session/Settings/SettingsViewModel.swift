@@ -367,7 +367,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 UIImage(named: "icon_msg")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "CONVERSATION_SETTINGS_TITLE".localized(),
+                            title: "sessionConversations".localized(),
                             onTap: {
                                 self?.transitionToScreen(
                                     SessionTableViewController(viewModel: ConversationSettingsViewModel())
@@ -482,7 +482,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let existingImageData: Data? = ProfileManager
             .profileAvatar(id: self.userSessionId)
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
-            title: "profileSetDisplayPicturel".localized(),
+            title: "profileSetDisplayPicture".localized(),
             body: .image(
                 placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
                 valueData: existingImageData,
@@ -494,7 +494,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 ),
                 onClick: { [weak self] in self?.showPhotoLibraryForAvatar() }
             ),
-            confirmTitle: "update_profile_modal_save".localized(),
+            confirmTitle: "save".localized(),
             confirmEnabled: false,
             cancelTitle: "remove".localized(),
             cancelEnabled: (existingImageData != nil),

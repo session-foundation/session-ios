@@ -172,10 +172,7 @@ public class ScreenLock {
             switch laError.code {
                 case .authenticationFailed:
                     Logger.error("local authentication error: authenticationFailed.")
-                    return .failure(error: "authenticateFailed
-authenticateFailed
-authenticateFailed
-authenticateFailed".localized())
+                    return .failure(error: "authenticateFailed".localized())
                     
                 case .userCancel, .userFallback, .systemCancel, .appCancel:
                     Logger.info("local authentication cancelled.")

@@ -59,7 +59,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         let previewType: Preferences.NotificationPreviewType
     }
     
-    let title: String = "NOTIFICATIONS_TITLE".localized()
+    let title: String = "sessionNotifications".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { db -> State in
@@ -88,7 +88,7 @@ class NotificationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                         SessionCell.Info(
                             id: .strategyUseFastMode,
                             title: "useFastMode".localized(),
-                            subtitle: "NOTIFICATIONS_STRATEGY_FAST_MODE_DESCRIPTION".localized(),
+                            subtitle: "notificationsFastModeDescriptionIos".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     current.isUsingFullAPNs,

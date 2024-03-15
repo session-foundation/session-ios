@@ -36,7 +36,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
     private lazy var apnsOptionView: OptionView = {
         let result: OptionView = OptionView(
             title: "notificationsFastMode".localized(),
-            explanation: "fast_mode_explanation".localized(),
+            explanation: "notificationsFastModeDescriptionIos".localized(),
             delegate: self,
             isRecommended: true
         )

@@ -137,13 +137,13 @@ public extension DisappearingMessagesConfiguration {
             
             guard let senderName: String = senderName else {
                 guard isEnabled, durationSeconds > 0 else {
-                    return "YOU_DISAPPEARING_MESSAGES_INFO_DISABLE".localized()
+                    return "disappearingMessagesTurnedOffYou".localized()
                 }
                 
                 return String(
-                    format: "YOU_DISAPPEARING_MESSAGES_INFO_ENABLE".localized(),
+                    format: "disappearingMessagesSetYou".localized(),
                     floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                    (type == .disappearAfterRead ? "read".localized().lowercased() : "disappearingMessagesSent".localized().lowercased())
                 )
             }
             
@@ -152,13 +152,14 @@ public extension DisappearingMessagesConfiguration {
             }
             
             return String(
-                format: "DISAPPERING_MESSAGES_INFO_ENABLE".localized(),
+                format: "disappearingMessagesSet".localized(),
                 senderName,
                 floor(durationSeconds).formatted(format: .long),
-                (type == .disappearAfterRead ? "DISAPPEARING_MESSAGE_STATE_READ".localized() : "DISAPPEARING_MESSAGE_STATE_SENT".localized())
+                (type == .disappearAfterRead ? "read".localized().lowercased() : "disappearingMessagesSent".localized().lowercased())
             )
         }
         
+        // TODO: Remove me
         private var legacyPreviewText: String {
             guard let senderName: String = senderName else {
                 // Changed by this device or via synced transcript

@@ -84,7 +84,7 @@ public extension UIContextualAction {
                         
                         return UIContextualAction(
                             title: (isUnread ?
-                                "MARK_AS_READ".localized() :
+                                "messageMarkRead".localized() :
                                 "messageMarkUnread".localized()
                             ),
                             icon: (isUnread ?

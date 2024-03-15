@@ -233,7 +233,8 @@ final class ConversationTitleView: UIView {
                         return NSAttributedString(attachment: imageAttachment)
                             .appending(string: " ")
                             .appending(string: String(
-                                format: "DISAPPERING_MESSAGES_SUMMARY_LEGACY".localized(),
+                                format: "disappearingMessagesDisappear".localized(),
+                                "",
                                 floor(config.durationSeconds).formatted(format: .short)
                             ))
                     }
@@ -241,10 +242,8 @@ final class ConversationTitleView: UIView {
                     return NSAttributedString(attachment: imageAttachment)
                         .appending(string: " ")
                         .appending(string: String(
-                            format: (config.type == .disappearAfterRead ?
-                                "DISAPPERING_MESSAGES_SUMMARY_READ".localized() :
-                                "DISAPPERING_MESSAGES_SUMMARY_SEND".localized()
-                            ),
+                            format: "disappearingMessagesDisappear".localized(),
+                            (config.type == .disappearAfterRead ? "read".localized() : "disappearingMessagesSent".localized()),
                             floor(config.durationSeconds).formatted(format: .short)
                         ))
                 }()

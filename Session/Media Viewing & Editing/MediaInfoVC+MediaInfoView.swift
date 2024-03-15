@@ -89,7 +89,7 @@ extension MediaInfoVC {
             let fileIdTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-                result.text = "attachmentsFileId".localized() + ":"
+                result.text = "attachmentsFileId".localized()
                 result.themeTextColor = .textPrimary
                 
                 return result
@@ -104,7 +104,7 @@ extension MediaInfoVC {
             let fileTypeTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-                result.text = "ATTACHMENT_INFO_FILE_TYPE".localized() + ":"
+                result.text = "attachmentsFileType".localized()
                 result.themeTextColor = .textPrimary
                 
                 return result
@@ -120,7 +120,7 @@ extension MediaInfoVC {
             let fileSizeTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-                result.text = "ATTACHMENT_INFO_FILE_SIZE".localized() + ":"
+                result.text = "attachmentsFileSize".localized()
                 result.themeTextColor = .textPrimary
                 
                 return result
@@ -137,7 +137,7 @@ extension MediaInfoVC {
             let resolutionTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-                result.text = "attachmentsResolution".localized() + ":"
+                result.text = "attachmentsResolution".localized()
                 result.themeTextColor = .textPrimary
                 
                 return result
@@ -153,7 +153,7 @@ extension MediaInfoVC {
             let durationTitleLabel: UILabel = {
                 let result = UILabel()
                 result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-                result.text = "attachmentsDuration".localized() + ":"
+                result.text = "attachmentsDuration".localized()
                 result.themeTextColor = .textPrimary
                 
                 return result

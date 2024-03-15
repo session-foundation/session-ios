@@ -41,7 +41,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         var title: String? {
             switch self {
                 case .screenSecurity: return "screenSecurity".localized()
-                case .messageRequests: return "PRIVACY_SECTION_MESSAGE_REQUESTS".localized()
+                case .messageRequests: return "sessionMessageRequests".localized()
                 case .readReceipts: return "readReceipts".localized()
                 case .typingIndicators: return "typingIndicators".localized()
                 case .linkPreviews: return "linkPreviews".localized()
@@ -87,7 +87,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         let areCallsEnabled: Bool
     }
     
-    let title: String = "PRIVACY_TITLE".localized()
+    let title: String = "sessionPrivacy".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { [weak self] db -> State in

@@ -51,7 +51,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         let shouldAutoPlayConsecutiveAudioMessages: Bool
     }
     
-    let title: String = "CONVERSATION_SETTINGS_TITLE".localized()
+    let title: String = "sessionConversations".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
         .databaseObservation(self) { [weak self] db -> State in

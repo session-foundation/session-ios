@@ -65,7 +65,7 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
         result.font = .systemFont(ofSize: Values.mediumFontSize)
         result.text = (newConversationViewModel.sectionData.isEmpty ?
             "conversationsNone".localized() :
-            "NEW_CONVERSATION_CONTACTS_SECTION_TITLE".localized()
+            "contactContacts".localized()
         )
         result.themeTextColor = (newConversationViewModel.sectionData.isEmpty ?
             .textSecondary :

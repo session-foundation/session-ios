@@ -447,22 +447,24 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     UIImage(systemName: "timer")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: "DISAPPEARING_MESSAGES".localized(),
+                                title: "disappearingMessages".localized(),
                                 subtitle: {
                                     guard current.disappearingMessagesConfig.isEnabled else {
                                         return "off".localized()
                                     }
                                     guard Features.useNewDisappearingMessagesConfig else {
                                         return String(
-                                            format: "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_LEGACY".localized(),
+                                            format: "disappearingMessagesDisappear".localized(),
+                                            "",
                                             current.disappearingMessagesConfig.durationString
                                         )
                                     }
                                     
                                     return String(
-                                        format: (current.disappearingMessagesConfig.type == .disappearAfterRead ?
-                                            "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_READ".localized() :
-                                            "DISAPPEARING_MESSAGES_SUBTITLE_DISAPPEAR_AFTER_SEND".localized()
+                                        format: "disappearingMessagesDisappear".localized(),
+                                        (current.disappearingMessagesConfig.type == .disappearAfterRead ?
+                                            "read".localized() :
+                                            "disappearingMessagesSent".localized()
                                         ),
                                         current.disappearingMessagesConfig.durationString
                                     )
@@ -517,7 +519,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     UIImage(named: "table_ic_group_leave")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: "LEAVE_GROUP_ACTION".localized(),
+                                title: "groupLeave".localized(),
                                 accessibility: Accessibility(
                                     identifier: "Leave group",
                                     label: "Leave group"
