@@ -379,7 +379,7 @@ extension ConversationVC:
             return
         }
         
-        let fileName = urlResourceValues.name ?? NSLocalizedString("attachment", comment: "")
+        let fileName = urlResourceValues.name ?? "attachment".localized()
         guard let dataSource = DataSourcePath.dataSource(with: url, shouldDeleteOnDeallocation: false) else {
             DispatchQueue.main.async { [weak self] in
                 let modal: ConfirmationModal = ConfirmationModal(
@@ -2328,7 +2328,7 @@ extension ConversationVC:
                                         let modal: ConfirmationModal = ConfirmationModal(
                                             targetView: self?.view,
                                             info: ConfirmationModal.Info(
-                                                title: CommonStrings.errorAlertTitle,
+                                                title: "error".localized(),
                                                 body: .text("context_menu_ban_user_error_alert_message".localized()),
                                                 cancelTitle: "BUTTON_OK".localized(),
                                                 cancelStyle: .alert_text
@@ -2384,7 +2384,7 @@ extension ConversationVC:
                                         let modal: ConfirmationModal = ConfirmationModal(
                                             targetView: self?.view,
                                             info: ConfirmationModal.Info(
-                                                title: CommonStrings.errorAlertTitle,
+                                                title: "error".localized(),
                                                 body: .text("context_menu_ban_user_error_alert_message".localized()),
                                                 cancelTitle: "BUTTON_OK".localized(),
                                                 cancelStyle: .alert_text

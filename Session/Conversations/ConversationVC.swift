@@ -1634,7 +1634,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
-                                        title: CommonStrings.errorAlertTitle,
+                                        title: "error".localized(),
                                         body: .text("audioUnableToPlay".localized()),
                                         cancelTitle: "BUTTON_OK".localized(),
                                         cancelStyle: .alert_text

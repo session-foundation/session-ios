@@ -21,14 +21,7 @@ enum PhotoCaptureError: Error {
 
 extension PhotoCaptureError: LocalizedError {
     var localizedDescription: String {
-        switch self {
-        case .initializationFailed:
-            return NSLocalizedString("cameraErrorUnavailable", comment: "alert title")
-        case .captureFailed:
-            return NSLocalizedString("cameraErrorUnavailable", comment: "alert title")
-        case .assertionError:
-            return NSLocalizedString("cameraErrorUnavailable", comment: "alert title, generic error preventing user from capturing a photo")
-        }
+        return "cameraErrorUnavailable".localized()
     }
 }
 
@@ -333,9 +326,9 @@ class PhotoCaptureViewController: OWSViewController {
         Logger.error("error: \(error)")
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: CommonStrings.errorAlertTitle,
+                title: "error".localized(),
                 body: .text(error.localizedDescription),
-                cancelTitle: CommonStrings.dismissButton,
+                cancelTitle: "dismiss".localized(),
                 cancelStyle: .alert_text,
                 afterClosed: { [weak self] in self?.dismiss(animated: true) }
             )

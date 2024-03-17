@@ -373,8 +373,8 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                                 info: ConfirmationModal.Info(
                                     title: "errorUnknown".localized(),
                                     body: .text(error.localizedDescription),
-                                    confirmTitle: CommonStrings.retryButton,
-                                    cancelTitle: CommonStrings.dismissButton,
+                                    confirmTitle: "retry".localized(),
+                                    cancelTitle: "dismiss".localized(),
                                     cancelStyle: .alert_text,
                                     onConfirm: { _ in
                                         self?.getFileForCell(cell)
@@ -462,7 +462,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
             let modal: ConfirmationModal = ConfirmationModal(
                 targetView: self.view,
                 info: ConfirmationModal.Info(
-                    title: CommonStrings.errorAlertTitle,
+                    title: "error".localized(),
                     body: .text("searchEnter".localized()),
                     cancelTitle: "BUTTON_OK".localized(),
                     cancelStyle: .alert_text

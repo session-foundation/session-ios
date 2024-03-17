@@ -304,7 +304,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
         if mode != .sharedNavigation {
             // Mimic a UIBarButtonItem of type .cancel, but with a shadow.
-            let cancelButton = OWSButton(title: CommonStrings.cancelButton) { [weak self] in
+            let cancelButton = OWSButton(title: "cancel".localized()) { [weak self] in
                 self?.cancelPressed()
             }
             cancelButton.titleLabel?.font = .systemFont(ofSize: 17.0)

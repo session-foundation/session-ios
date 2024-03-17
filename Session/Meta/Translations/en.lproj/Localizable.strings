@@ -745,3 +745,11 @@
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
 "delete_message_for_me_and_my_devices" = "Delete from all of my devices";
 "context_menu_ban_user_error_alert_message" = "Unable to ban user";
+"EMOJI_CATEGORY_ACTIVITIES_NAME" = "Activities";
+"EMOJI_CATEGORY_ANIMALS_NAME" = "Animals & Nature";
+"EMOJI_CATEGORY_FLAGS_NAME" = "Flags";
+"EMOJI_CATEGORY_FOOD_NAME" = "Food & Drink";
+"EMOJI_CATEGORY_OBJECTS_NAME" = "Objects";
+"EMOJI_CATEGORY_SMILEYSANDPEOPLE_NAME" = "Smileys & People";
+"EMOJI_CATEGORY_SYMBOLS_NAME" = "Symbols";
+"EMOJI_CATEGORY_TRAVEL_NAME" = "Travel & Places";

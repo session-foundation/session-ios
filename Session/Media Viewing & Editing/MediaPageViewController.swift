@@ -903,7 +903,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let formattedDate = dateFormatter.string(from: date)
         portraitHeaderDateLabel.text = formattedDate
 
-        let landscapeHeaderFormat = NSLocalizedString("attachmentsMedia", comment: "embeds {{sender name}} and {{sent datetime}}, e.g. 'Sarah on 10/30/18, 3:29'")
+        let landscapeHeaderFormat = "attachmentsMedia".localized()
         let landscapeHeaderText = String(format: landscapeHeaderFormat, name, formattedDate)
         self.title = landscapeHeaderText
         self.navigationItem.title = landscapeHeaderText

@@ -450,10 +450,10 @@ import SessionUtilitiesKit
         result.distribution = .fillEqually
         result.alignment = .fill
 
-        let cancelButton = createButton(title: CommonStrings.cancelButton, action: #selector(cancelPressed))
+        let cancelButton = createButton(title: "cancel".localized(), action: #selector(cancelPressed))
         result.addArrangedSubview(cancelButton)
 
-        let doneButton = createButton(title: CommonStrings.doneButton, action: #selector(donePressed))
+        let doneButton = createButton(title: "done".localized(), action: #selector(donePressed))
         doneButton.accessibilityLabel = "Done"
         result.addArrangedSubview(doneButton)
         
