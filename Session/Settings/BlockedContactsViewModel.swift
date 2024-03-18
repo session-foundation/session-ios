@@ -181,13 +181,10 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
         let confirmationTitle: String = {
             guard contactNames.count > 1 else {
                 // Show a single users name
-                return String(
-                    format: "blockUnblockDescription".localized(),
-                    (
-                        contactNames.first ??
-                        "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK".localized()
-                    )
-                )
+                let name: String = contactNames.first ?? "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK".localized()
+                return "blockUnblockDescription"
+                    .put(key: "name", value: name)
+                    .localized()
             }
             guard contactNames.count > 3 else {
                 // Show up to three users names
@@ -195,10 +192,9 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                 let lastName: String = contactNames[contactNames.count - 1]
                 
                 return [
-                    String(
-                        format: "blockUnblockDescription".localized(),
-                        initialNames.joined(separator: ", ")
-                    ),
+                    "blockUnblockDescription"
+                        .put(key: "name", value: initialNames.joined(separator: ", "))
+                        .localized(),
                     String(
                         format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE".localized(),
                         lastName
@@ -214,10 +210,9 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
             let initialNames: [String] = Array(contactNames.prefix(upTo: numNamesToShow))
             
             return [
-                String(
-                    format: "blockUnblockDescription".localized(),
-                    initialNames.joined(separator: ", ")
-                ),
+                "blockUnblockDescription"
+                    .put(key: "name", value: initialNames.joined(separator: ", "))
+                    .localized(),
                 String(
                     format: "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3".localized(),
                     (contactNames.count - numNamesToShow)

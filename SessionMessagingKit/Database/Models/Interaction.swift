@@ -1026,10 +1026,14 @@ public extension Interaction {
                 
             case .infoMediaSavedNotification:
                 // TODO: Use referencedAttachmentTimestamp to tell the user * which * media was saved
-                return String(format: "attachmentsMediaSaved".localized(), authorDisplayName)
+                return "attachmentsMediaSaved"
+                    .put(key: "name", value: authorDisplayName)
+                    .localized()
                 
             case .infoScreenshotNotification:
-                return String(format: "screenshotTaken".localized(), authorDisplayName)
+                return "screenshotTaken"
+                    .put(key: "name", value: authorDisplayName)
+                    .localized()
                 
             case .infoClosedGroupCreated: return "GROUP_CREATED".localized()
             case .infoClosedGroupCurrentUserLeft: return "groupMemberYouLeft".localized()

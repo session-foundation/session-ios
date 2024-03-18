@@ -686,7 +686,6 @@
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Unable to convert image.";
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Unable to process video.";
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Unable to resize image.";
-"GROUP_TITLE_CHANGED" = "Title is now '%@'. ";
 "GROUP_CREATED" = "Group created";
 "DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages. Messages they send will no longer disappear.";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set messages to disappear %@ after they have been %@";

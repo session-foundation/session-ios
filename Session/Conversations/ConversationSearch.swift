@@ -332,7 +332,7 @@ public final class SearchResultsBar: UIView {
         switch results.count {
             case 0:
                 // Keyboard toolbar label when no messages match the search string
-                label.text = "searchMatchesNoneSpecific".localized()
+            label.text = "searchMatchesNone".localized()
             
             case 1:
                 // Keyboard toolbar label when exactly 1 message matches the search string
@@ -343,11 +343,12 @@ public final class SearchResultsBar: UIView {
                 //
                 // Embeds {{number/position of the 'currently viewed' result}} and
                 // the {{total number of results}}
-                let format = "searchMatches".localized()
-
                 guard let currentIndex: Int = currentIndex else { return }
                 
-                label.text = String(format: format, currentIndex + 1, results.count)
+                label.text = "searchMatches"
+                    .put(key: "count", value: currentIndex + 1)
+                    .put(key: "totalcount", value: results.count)
+                    .localized()
             }
 
         if let currentIndex: Int = currentIndex {

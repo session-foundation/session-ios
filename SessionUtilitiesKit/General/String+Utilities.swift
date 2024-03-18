@@ -37,14 +37,6 @@ public extension String {
         )
     }
     
-    func localized() -> String {
-        // If the localized string matches the key provided then the localisation failed
-        let localizedString = NSLocalizedString(self, comment: "")
-        owsAssertDebug(localizedString != self, "Key \"\(self)\" is not set in Localizable.strings")
-
-        return localizedString
-    }
-    
     func ranges(of substring: String, options: CompareOptions = [], locale: Locale? = nil) -> [Range<Index>] {
         var ranges: [Range<Index>] = []
         

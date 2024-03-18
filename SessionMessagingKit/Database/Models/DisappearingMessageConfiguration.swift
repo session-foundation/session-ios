@@ -40,6 +40,17 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         case unknown
         case disappearAfterRead
         case disappearAfterSend
+        
+        public var localizedName: String {
+            switch self {
+                case .unknown:
+                    return ""
+                case .disappearAfterRead:
+                    return "read".localized().lowercased()
+                case .disappearAfterSend:
+                    return "disappearingMessagesSent".localized().lowercased()
+            }
+        }
 
         init(protoType: SNProtoContent.SNProtoContentExpirationType) {
             switch protoType {
@@ -140,23 +151,21 @@ public extension DisappearingMessagesConfiguration {
                     return "disappearingMessagesTurnedOffYou".localized()
                 }
                 
-                return String(
-                    format: "disappearingMessagesSetYou".localized(),
-                    floor(durationSeconds).formatted(format: .long),
-                    (type == .disappearAfterRead ? "read".localized().lowercased() : "disappearingMessagesSent".localized().lowercased())
-                )
+                return "disappearingMessagesSetYou"
+                    .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
+                    .put(key: "disappearingmessagestype", value: (type?.localizedName ?? ""))
+                    .localized()
             }
             
             guard isEnabled, durationSeconds > 0 else {
                 return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(), senderName)
             }
             
-            return String(
-                format: "disappearingMessagesSet".localized(),
-                senderName,
-                floor(durationSeconds).formatted(format: .long),
-                (type == .disappearAfterRead ? "read".localized().lowercased() : "disappearingMessagesSent".localized().lowercased())
-            )
+            return "disappearingMessagesSet"
+                .put(key: "name", value: senderName)
+                .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
+                .put(key: "disappearingmessagestype", value: (type?.localizedName ?? ""))
+                .localized()
         }
         
         // TODO: Remove me
@@ -165,14 +174,16 @@ public extension DisappearingMessagesConfiguration {
                 // Changed by this device or via synced transcript
                 guard isEnabled, durationSeconds > 0 else { return "disappearingMessagesTurnedOffYou".localized() }
                 
-                return String(
-                    format: "disappearingMessagesSetYou".localized(),
-                    floor(durationSeconds).formatted(format: .long)
-                )
+                return "disappearingMessagesSetYou"
+                    .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
+                    .put(key: "disappearingmessagestype", value: (type?.localizedName ?? ""))
+                    .localized()
             }
             
             guard isEnabled, durationSeconds > 0 else {
-                return String(format: "disappearingMessagesTurnedOff".localized(), senderName)
+                return "disappearingMessagesTurnedOff"
+                    .put(key: "name", value: senderName)
+                    .localized()
             }
             
             return String(

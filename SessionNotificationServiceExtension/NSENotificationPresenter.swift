@@ -33,11 +33,10 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
                 return
             }
             
-            notificationTitle = String(
-                format: NotificationStrings.incomingGroupMessageTitleFormat,
-                senderName,
-                groupName
-            )
+            notificationTitle = "notificationsIosGroup"
+                .put(key: "name", value: senderName)
+                .put(key: "conversationname", value: groupName)
+                .localized()
         }
         
         let snippet: String = (interaction.previewText(db)
@@ -71,11 +70,11 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
             case .nameNoPreview:
                 notificationContent.title = notificationTitle
-                notificationContent.body = NotificationStrings.incomingMessageBody
+                notificationContent.body = "messageNewYouveGotA".localized()
                 
             case .noNameNoPreview:
                 notificationContent.title = "sessionMessenger".localized()
-                notificationContent.body = NotificationStrings.incomingMessageBody
+                notificationContent.body = "messageNewYouveGotA".localized()
         }
         
         // If it's a message request then overwrite the body to be something generic (only show a notification
@@ -110,10 +109,9 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
                     notificationContent.title :
                     groupName
                 )
-                notificationContent.body = String(
-                    format: NotificationStrings.incomingCollapsedMessagesBody,
-                    "\(numberOfNotifications)"
-                )
+                notificationContent.body = "messageNewYouveGotMany"
+                    .put(key: "count", value: numberOfNotifications)
+                    .localized()
             }
             
             notificationContent.userInfo[NotificationServiceExtension.threadNotificationCounter] = numberOfNotifications
@@ -167,10 +165,9 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
         
         if messageInfo.state == .permissionDenied {
-            notificationContent.body = String(
-                format: "callsYouMissedCallPermissions".localized(),
-                senderName
-            )
+            notificationContent.body = "callsYouMissedCallPermissions"
+                .put(key: "name", value: senderName)
+                .localizedDeformatted()
         }
         
         addNotifcationRequest(
@@ -202,7 +199,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         
         switch previewType {
             case .nameAndPreview: break
-            default: notificationBody = NotificationStrings.incomingMessageBody
+            default: notificationBody = "messageNewYouveGotA".localized()
         }
 
         let userInfo: [String: Any] = [

@@ -381,7 +381,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "actionsheet_camera_roll_black")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: MediaStrings.allMedia,
+                            title: "conversationsSettingsAllMedia".localized(),
                             accessibility: Accessibility(
                                 identifier: "\(ThreadSettingsViewModel.self).all_media",
                                 label: "All media"
@@ -453,21 +453,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         return "off".localized()
                                     }
                                     guard Features.useNewDisappearingMessagesConfig else {
-                                        return String(
-                                            format: "disappearingMessagesDisappear".localized(),
-                                            "",
-                                            current.disappearingMessagesConfig.durationString
-                                        )
+                                        return "disappearingMessagesDisappear"
+                                            .put(key: "disappearingmessagestype", value: "")
+                                            .put(key: "time", value: current.disappearingMessagesConfig.durationString)
+                                            .localized()
                                     }
                                     
-                                    return String(
-                                        format: "disappearingMessagesDisappear".localized(),
-                                        (current.disappearingMessagesConfig.type == .disappearAfterRead ?
-                                            "read".localized() :
-                                            "disappearingMessagesSent".localized()
-                                        ),
-                                        current.disappearingMessagesConfig.durationString
-                                    )
+                                    return "disappearingMessagesDisappear"
+                                        .put(key: "disappearingmessagestype", value: (current.disappearingMessagesConfig.type?.localizedName ?? ""))
+                                        .put(key: "time", value: current.disappearingMessagesConfig.durationString)
+                                        .localized()
                                 }(),
                                 accessibility: Accessibility(
                                     identifier: "Disappearing messages",
@@ -528,21 +523,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     title: "groupLeave".localized(),
                                     body: .attributedText({
                                         if currentUserIsClosedGroupAdmin {
-                                            return NSAttributedString(string: "groupOnlyAdmin".localized())
+                                            return "groupOnlyAdmin"
+                                                .put(key: "groupname", value: threadViewModel.displayName)
+                                                .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                         }
                                         
-                                        let mutableAttributedString = NSMutableAttributedString(
-                                            string: String(
-                                                format: "communityLeaveDescription".localized(),
-                                                threadViewModel.displayName
-                                            )
-                                        )
-                                        mutableAttributedString.addAttribute(
-                                            .font,
-                                            value: UIFont.boldSystemFont(ofSize: Values.smallFontSize),
-                                            range: (mutableAttributedString.string as NSString).range(of: threadViewModel.displayName)
-                                        )
-                                        return mutableAttributedString
+                                        return "communityLeaveDescription"
+                                            .put(key: "communityname", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                     }()),
                                     confirmTitle: "leave".localized(),
                                     confirmStyle: .danger,
@@ -707,7 +695,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         )
                                     }(),
                                     body: (threadViewModel.threadIsBlocked == true ? .none :
-                                        .text("blockDescription".localized())
+                                        .text(
+                                            "blockDescription"
+                                                .put(key: "name", value: threadViewModel.displayName)
+                                                .localized()
+                                        )
                                     ),
                                     confirmTitle: (threadViewModel.threadIsBlocked == true ?
                                         "blockUnblock".localized() :

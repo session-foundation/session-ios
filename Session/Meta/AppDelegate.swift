@@ -488,10 +488,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Logger.info("Exiting because we are in the background and the database password is not accessible.")
         
         let notificationContent: UNMutableNotificationContent = UNMutableNotificationContent()
-        notificationContent.body = String(
-            format: "notificationsIosRestart".localized(),
-            UIDevice.current.localizedModel
-        )
+        notificationContent.body = "notificationsIosRestart"
+            .put(key: "device", value: UIDevice.current.localizedModel)
+            .localized()
         let notificationRequest: UNNotificationRequest = UNNotificationRequest(
             identifier: UUID().uuidString,
             content: notificationContent,

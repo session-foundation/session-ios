@@ -207,15 +207,19 @@ final public class LocalizationHelper: CustomStringConvertible {
     public func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
         return localizedFormatted(baseFont: (view.fontValue ?? .systemFont(ofSize: 14)))
     }
+    
+    public func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
+        return NSAttributedString(stringWithHTMLTags: localized(), font: baseFont)
+    }
+    
+    public func localizedDeformatted() -> String {
+        return NSAttributedString(stringWithHTMLTags: localized(), font: .systemFont(ofSize: 14)).string
+    }
 
     // MARK: - Internal functions
 
     private func tokenize(_ key: String) -> String {
         return "{" + key + "}"
-    }
-
-    private func localizedFormatted(baseFont: UIFont) -> NSAttributedString {
-        return NSAttributedString(stringWithHTMLTags: localized(), font: baseFont)
     }
 
     // MARK: - CustomStringConvertible
@@ -252,11 +256,15 @@ public extension String {
         return LocalizationHelper(template: self).put(key: key, value: value)
     }
 
-//    func localized() -> String {
-//        return LocalizationHelper(template: self).localized()
-//    }
+    func localized() -> String {
+        return LocalizationHelper(template: self).localized()
+    }
     
     func localizedFormatted(in view: FontAccessible) -> NSAttributedString {
         return LocalizationHelper(template: self).localizedFormatted(in: view)
+    }
+    
+    func formatted(in view: FontAccessible) -> NSAttributedString {
+        return NSAttributedString(stringWithHTMLTags: self, font: (view.fontValue ?? .systemFont(ofSize: 14)))
     }
 }

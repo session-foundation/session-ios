@@ -85,7 +85,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         
         ViewControllerUtilities.setUpDefaultSessionStyle(
             for: self,
-            title: MediaStrings.document,
+            title:"DOCUMENT_TAB_TITLE".localized(),
             hasCustomBackButton: false
         )
 

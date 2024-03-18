@@ -145,16 +145,15 @@ public class NotificationPresenter: NotificationsProtocol {
                         notificationTitle = (isMessageRequest ? "sessionMessenger".localized() : senderName)
                         
                     case .legacyGroup, .group, .community:
-                        notificationTitle = String(
-                            format: NotificationStrings.incomingGroupMessageTitleFormat,
-                            senderName,
-                            groupName
-                        )
+                        notificationTitle = "notificationsIosGroup"
+                            .put(key: "name", value: senderName)
+                            .put(key: "conversationname", value: groupName)
+                            .localized()
                 }
         }
         
         switch previewType {
-            case .noNameNoPreview, .nameNoPreview: notificationBody = NotificationStrings.incomingMessageBody
+            case .noNameNoPreview, .nameNoPreview: notificationBody = "messageNewYouveGotA".localized()
             case .nameAndPreview: notificationBody = messageText
         }
         
@@ -261,15 +260,13 @@ public class NotificationPresenter: NotificationsProtocol {
         let notificationBody: String? = {
             switch messageInfo.state {
                 case .permissionDenied:
-                    return String(
-                        format: "callsYouMissedCallPermissions".localized(),
-                        senderName
-                    )
+                    return "callsYouMissedCallPermissions"
+                        .put(key: "name", value: senderName)
+                        .localized()
                 case .missed:
-                    return String(
-                        format: "callsMissedCallFrom".localized(),
-                        senderName
-                    )
+                    return "callsMissedCallFrom"
+                        .put(key: "name", value: senderName)
+                        .localized()
                 default:
                     return nil
             }
@@ -324,7 +321,7 @@ public class NotificationPresenter: NotificationsProtocol {
         
         switch previewType {
             case .nameAndPreview: break
-            default: notificationBody = NotificationStrings.incomingMessageBody
+            default: notificationBody = "messageNewYouveGotA".localized()
         }
         
         let category = AppNotificationCategory.incomingMessage
@@ -390,7 +387,7 @@ public class NotificationPresenter: NotificationsProtocol {
             case .nameNoPreview, .nameAndPreview: notificationTitle = threadName
         }
 
-        let notificationBody = NotificationStrings.failedToSendBody
+        let notificationBody = "messageErrorDelivery".localized()
 
         let userInfo: [AnyHashable: Any] = [
             AppNotificationUserInfoKey.threadId: thread.id,

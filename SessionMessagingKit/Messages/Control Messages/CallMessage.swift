@@ -242,22 +242,19 @@ public extension CallMessage {
         func previewText(threadContactDisplayName: String) -> String {
             switch state {
                 case .incoming:
-                    return String(
-                        format: "callsCalledYou".localized(),
-                        threadContactDisplayName
-                    )
-                    
+                    return "callsCalledYou"
+                        .put(key: "name", value: threadContactDisplayName)
+                        .localized()
+
                 case .outgoing:
-                    return String(
-                        format: "callsYouCalled".localized(),
-                        threadContactDisplayName
-                    )
+                    return "callsYouCalled"
+                        .put(key: "name", value: threadContactDisplayName)
+                        .localized()
                     
                 case .missed, .permissionDenied:
-                    return String(
-                        format: "callsMissedCallFrom".localized(),
-                        threadContactDisplayName
-                    )
+                    return "callsMissedCallFrom"
+                        .put(key: "name", value: threadContactDisplayName)
+                        .localized()
                 
                 // TODO: We should do better here
                 case .unknown: return ""

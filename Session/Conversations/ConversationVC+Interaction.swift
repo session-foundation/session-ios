@@ -147,10 +147,9 @@ extension ConversationVC:
             self.viewModel.threadData.threadIsBlocked == true
         else { return false }
         
-        let message = String(
-            format: "blockUnblockDescription".localized(),
-            self.viewModel.threadData.displayName
-        )
+        let message = "blockUnblockDescription"
+            .put(key: "name", value: self.viewModel.threadData.displayName)
+            .localized()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: String(
@@ -900,7 +899,7 @@ extension ConversationVC:
         guard cellViewModel.variant != .infoDisappearingMessagesUpdate else {
             let messageDisappearingConfig = cellViewModel.messageDisappearingConfiguration()
             let expirationTimerString: String = floor(messageDisappearingConfig.durationSeconds).formatted(format: .long)
-            let expirationTypeString: String = (messageDisappearingConfig.type == .disappearAfterRead ? "read".localized().lowercased() : "disappearingMessagesSent".localized().lowercased())
+            let expirationTypeString: String = (messageDisappearingConfig.type?.localizedName ?? "")
             let modalBodyString: String = (
                 messageDisappearingConfig.isEnabled ?
                 String(
@@ -955,16 +954,12 @@ extension ConversationVC:
         
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
-            let message: String = String(
-                format: "attachmentsAutoDownloadModalDescription".localized(),
-                cellViewModel.authorName
-            )
+            let message: String = "attachmentsAutoDownloadModalDescription"
+                .put(key: "conversationname", value: cellViewModel.authorName)
+                .localized()
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: String(
-                        format: "attachmentsAutoDownloadModalTitle".localized(),
-                        cellViewModel.authorName
-                    ),
+                    title: "attachmentsAutoDownloadModalTitle".localized(),
                     body: .attributedText(
                         NSAttributedString(string: message)
                             .adding(
@@ -1211,7 +1206,9 @@ extension ConversationVC:
         // URLs can be unsafe, so always ask the user whether they want to open one
         let actionSheet: UIAlertController = UIAlertController(
             title: "urlOpen".localized(),
-            message: String(format: "urlOpenDescription".localized(), url.absoluteString),
+            message: "urlOpenDescription"
+                .put(key: "url", value: url.absoluteString)
+                .localized(),
             preferredStyle: .actionSheet
         )
         actionSheet.addAction(UIAlertAction(title: "open".localized(), style: .default) { [weak self] _ in
@@ -2196,7 +2193,7 @@ extension ConversationVC:
                             default:
                                 return (cellViewModel.threadId == userPublicKey ?
                                     "delete_message_for_me_and_my_devices".localized() :
-                                    String(format: "clearMessagesForEveryone".localized(), threadName)
+                                    "clearMessagesForEveryone".localized()
                                 )
                         }
                     }(),

@@ -228,10 +228,15 @@ final class NukeDataModal: Modal {
 
                             let message: String
                             if potentiallyMaliciousSnodes.count == 1 {
-                                message = String(format: "clearDataErrorDescription1".localized(), potentiallyMaliciousSnodes[0])
+                                message = "clearDataErrorDescription1"
+                                    .put(key: "servicenodeid", value: potentiallyMaliciousSnodes[0])
+                                    .localized()
                             }
                             else {
-                                message = String(format: "clearDataErrorDescription2".localized(), String(potentiallyMaliciousSnodes.count), potentiallyMaliciousSnodes.joined(separator: ", "))
+                                message = "clearDataErrorDescription2"
+                                    .put(key: "count", value: potentiallyMaliciousSnodes.count)
+                                    .put(key: "servicenodeid", value: potentiallyMaliciousSnodes.joined(separator: ", "))
+                                    .localized()
                             }
                             
                             let modal: ConfirmationModal = ConfirmationModal(

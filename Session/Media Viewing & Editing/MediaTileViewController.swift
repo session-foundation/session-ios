@@ -133,7 +133,7 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         
         ViewControllerUtilities.setUpDefaultSessionStyle(
             for: self,
-            title: MediaStrings.allMedia,
+            title: "conversationsSettingsAllMedia".localized(),
             hasCustomBackButton: false
         )
 

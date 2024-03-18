@@ -10,7 +10,7 @@ import SignalCoreKit
 class EmptySearchResultCell: UITableViewCell {
     private lazy var messageLabel: UILabel = {
         let result = UILabel()
-        result.text = "searchMatchesNoneSpecific".localized()
+        result.text = "searchMatchesNone".localized()
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.numberOfLines = 3

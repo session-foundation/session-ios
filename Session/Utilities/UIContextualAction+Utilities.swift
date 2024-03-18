@@ -383,21 +383,14 @@ public extension UIContextualAction {
                             
                             let confirmationModalExplanation: NSAttributedString = {
                                 if threadViewModel.currentUserIsClosedGroupAdmin == true {
-                                    return NSAttributedString(string: "groupOnlyAdmin".localized())
+                                    return "groupOnlyAdmin"
+                                        .put(key: "groupname", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
                                 
-                                let mutableAttributedString = NSMutableAttributedString(
-                                    string: String(
-                                        format: "communityLeaveDescription".localized(),
-                                        threadViewModel.displayName
-                                    )
-                                )
-                                mutableAttributedString.addAttribute(
-                                    .font,
-                                    value: UIFont.boldSystemFont(ofSize: Values.smallFontSize),
-                                    range: (mutableAttributedString.string as NSString).range(of: threadViewModel.displayName)
-                                )
-                                return mutableAttributedString
+                                return "communityLeaveDescription"
+                                    .put(key: "communityname", value: threadViewModel.displayName)
+                                    .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                             }()
                             
                             let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -466,36 +459,27 @@ public extension UIContextualAction {
                                     )
                                 }
                                 guard threadViewModel.currentUserIsClosedGroupAdmin == false else {
-                                    return NSAttributedString(
-                                        string: "groupOnlyAdmin".localized()
-                                    )
+                                    return "groupOnlyAdmin"
+                                        .put(key: "groupname", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
                                 
-                                let message = String(
-                                    format: {
-                                        switch threadViewModel.threadVariant {
-                                            case .contact:
-                                                return
-                                                    "conversationsDeleteDescription".localized()
-                                                
-                                            case .legacyGroup, .group:
-                                                return
-                                                    "groupDeleteDescription".localized()
-                                                
-                                            case .community:
-                                                return "communityLeaveDescription".localized()
-                                        }
-                                    }(),
-                                    threadViewModel.displayName
-                                )
-                                
-                                return NSAttributedString(string: message)
-                                    .adding(
-                                        attributes: [
-                                            .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize)
-                                        ],
-                                        range: (message as NSString).range(of: threadViewModel.displayName)
-                                    )
+                                switch threadViewModel.threadVariant {
+                                    case .contact:
+                                        return "conversationsDeleteDescription"
+                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                        
+                                    case .legacyGroup, .group:
+                                        return "groupDeleteDescription"
+                                            .put(key: "groupname", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                        
+                                    case .community:
+                                        return "communityLeaveDescription"
+                                            .put(key: "communityname", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
+                                }
                             }()
                             
                             let confirmationModal: ConfirmationModal = ConfirmationModal(

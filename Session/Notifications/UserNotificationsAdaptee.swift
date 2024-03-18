@@ -33,16 +33,16 @@ class UserNotificationConfig {
             case .markAsRead:
                 return UNNotificationAction(
                     identifier: action.identifier,
-                    title: MessageStrings.markAsReadNotificationAction,
+                    title: "messageMarkRead".localized(),
                     options: []
                 )
                 
             case .reply:
                 return UNTextInputNotificationAction(
                     identifier: action.identifier,
-                    title: MessageStrings.replyNotificationAction,
+                    title: "reply".localized(),
                     options: [],
-                    textInputButtonTitle: MessageStrings.sendButton,
+                    textInputButtonTitle: "send".localized(),
                     textInputPlaceholder: ""
                 )
         }
@@ -153,10 +153,9 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
                         content.title :
                         threadName
                     )
-                    content.body = String(
-                        format: NotificationStrings.incomingCollapsedMessagesBody,
-                        "\(numberOfNotifications)"
-                    )
+                    content.body = "messageNewYouveGotMany"
+                        .put(key: "count", value: numberOfNotifications)
+                        .localized()
                 }
                 
                 content.userInfo[AppNotificationUserInfoKey.threadNotificationCounter] = numberOfNotifications

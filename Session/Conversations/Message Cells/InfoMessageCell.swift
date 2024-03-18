@@ -120,39 +120,11 @@ final class InfoMessageCell: MessageCell {
             iconImageView.themeTintColor = .textSecondary
         }
         
-        if cellViewModel.variant == .infoDisappearingMessagesUpdate, let body: String = cellViewModel.body {
-            self.label.attributedText = NSAttributedString(string: body)
-                .adding(
-                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: cellViewModel.authorName)
-                )
-                .adding(
-                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: "onionRoutingPathYou".localized())
-                )
-                .adding(
-                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: floor(cellViewModel.expiresInSeconds ?? 0).formatted(format: .long))
-                )
-                .adding(
-                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: "read".localized().lowercased())
-                )
-                .adding(
-                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: "disappearingMessagesSent".localized().lowercased())
-                )
-                .adding(
-                    attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize) ],
-                    range: (body as NSString).range(of: "off".localized().lowercased())
-                )
-            
-            if cellViewModel.canDoFollowingSetting() {
-                self.actionLabel.isHidden = false
-                self.actionLabel.text = "FOLLOW_SETTING_TITLE".localized()
-            }
-        } else {
-            self.label.text = cellViewModel.body
+        self.label.attributedText = cellViewModel.body?.formatted(in: self.label)
+        
+        if cellViewModel.canDoFollowingSetting() {
+            self.actionLabel.isHidden = false
+            self.actionLabel.text = "FOLLOW_SETTING_TITLE".localized()
         }
         
         self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textSecondary

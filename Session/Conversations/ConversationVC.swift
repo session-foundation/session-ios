@@ -738,21 +738,24 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }
     
     private func emptyStateText(for threadData: SessionThreadViewModel) -> String {
-        return String(
-            format: {
-                switch (threadData.threadIsNoteToSelf, threadData.canWrite) {
-                    case (true, _): return "noteToSelfEmpty".localized()
-                    case (_, false):
-                        return (threadData.profile?.blocksCommunityMessageRequests == true ?
-                            "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized() :
-                            "conversationsEmpty".localized()
-                        )
-                       
-                    default: return "groupNoMessages".localized()
-                }
-            }(),
-            threadData.displayName
-        )
+        switch (threadData.threadIsNoteToSelf, threadData.canWrite) {
+            case (true, _):
+                return "noteToSelfEmpty".localized()
+            case (_, false):
+                return (threadData.profile?.blocksCommunityMessageRequests == true ?
+                        String(
+                            format: "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized(),
+                            threadData.displayName
+                        ) :
+                            "conversationsEmpty"
+                    .put(key: "conversationname", value: threadData.displayName)
+                    .localized()
+                )
+            default:
+                return "groupNoMessages"
+                    .put(key: "groupname", value: threadData.displayName)
+                    .localized()
+        }
     }
     
     private func handleThreadUpdates(_ updatedThreadData: SessionThreadViewModel, initialLoad: Bool = false) {

@@ -137,7 +137,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         self.navigationItem.titleView = portraitHeaderView
 
         if showAllMediaButton {
-            self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: MediaStrings.allMedia, style: .plain, target: self, action: #selector(didPressAllMediaButton))
+            self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "conversationsSettingsAllMedia".localized(), style: .plain, target: self, action: #selector(didPressAllMediaButton))
         }
 
         // Even though bars are opaque, we want content to be layed out behind them.
@@ -903,8 +903,10 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         let formattedDate = dateFormatter.string(from: date)
         portraitHeaderDateLabel.text = formattedDate
 
-        let landscapeHeaderFormat = "attachmentsMedia".localized()
-        let landscapeHeaderText = String(format: landscapeHeaderFormat, name, formattedDate)
+        let landscapeHeaderText = "attachmentsMedia"
+            .put(key: "name", value: name)
+            .put(key: "datetime", value: formattedDate)
+            .localized()
         self.title = landscapeHeaderText
         self.navigationItem.title = landscapeHeaderText
     }

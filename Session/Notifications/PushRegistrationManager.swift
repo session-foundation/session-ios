@@ -300,7 +300,9 @@ public enum PushRegistrationError: Error {
                 if let messageInfoData: Data = try? JSONEncoder().encode(messageInfo) {
                    return String(data: messageInfoData, encoding: .utf8)
                 } else {
-                    return "Incoming call." // TODO: We can do better here.
+                    return "callsIncoming"
+                        .put(key: "name", value: caller)
+                        .localized()
                 }
             }()
             

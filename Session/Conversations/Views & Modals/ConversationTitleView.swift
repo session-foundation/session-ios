@@ -232,20 +232,22 @@ final class ConversationTitleView: UIView {
                     guard Features.useNewDisappearingMessagesConfig else {
                         return NSAttributedString(attachment: imageAttachment)
                             .appending(string: " ")
-                            .appending(string: String(
-                                format: "disappearingMessagesDisappear".localized(),
-                                "",
-                                floor(config.durationSeconds).formatted(format: .short)
-                            ))
+                            .appending(
+                                string: "disappearingMessagesDisappear"
+                                    .put(key: "disappearingmessagestype", value: "")
+                                    .put(key: "time", value: floor(config.durationSeconds).formatted(format: .short))
+                                    .localized()
+                            )
                     }
                     
                     return NSAttributedString(attachment: imageAttachment)
                         .appending(string: " ")
-                        .appending(string: String(
-                            format: "disappearingMessagesDisappear".localized(),
-                            (config.type == .disappearAfterRead ? "read".localized() : "disappearingMessagesSent".localized()),
-                            floor(config.durationSeconds).formatted(format: .short)
-                        ))
+                        .appending(
+                            string: "disappearingMessagesDisappear"
+                                .put(key: "disappearingmessagestype", value: (config.type?.localizedName ?? ""))
+                                .put(key: "time", value: floor(config.durationSeconds).formatted(format: .short))
+                                .localized()
+                        )
                 }()
                 
                 labelInfos.append(

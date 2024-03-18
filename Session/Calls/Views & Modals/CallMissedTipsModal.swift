@@ -24,7 +24,9 @@ final class CallMissedTipsModal: Modal {
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        result.text = "callsMissed".localized()
+        result.text = "callsMissed"
+            .put(key: "name", value: caller)
+            .localized()
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         
@@ -34,11 +36,13 @@ final class CallMissedTipsModal: Modal {
     private lazy var messageLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.text = String(format: "callsYouMissedCallPermissions".localized(), caller)
         result.themeTextColor = .textPrimary
         result.textAlignment = .natural
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
+        result.attributedText = "callsYouMissedCallPermissions"
+            .put(key: "name", value: caller)
+            .localizedFormatted(in: result)
         
         return result
     }()
