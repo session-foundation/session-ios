@@ -151,7 +151,6 @@ struct QuoteView_SwiftUI: View {
                     Text(author)
                         .bold()
                         .font(.system(size: Values.smallFontSize))
-                        .lineLimit(1)
                         .foregroundColor(themeColor: targetThemeColor)
                 }
                 
