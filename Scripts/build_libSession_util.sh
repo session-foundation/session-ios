@@ -193,7 +193,8 @@ for i in "${!TARGET_ARCHS[@]}"; do
         -DPLATFORM=$platform \
         -DDEPLOYMENT_TARGET=$IPHONEOS_DEPLOYMENT_TARGET \
         -DENABLE_BITCODE=$ENABLE_BITCODE \
-        -DBUILD_TESTS=OFF
+        -DBUILD_TESTS=OFF \
+        -DBUILD_STATIC_DEPS=ON
     
     if [ $? -ne 0 ]; then
       ALL_ERROR_LINES=($(grep -n "error:" "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log" | cut -d ":" -f 1))
