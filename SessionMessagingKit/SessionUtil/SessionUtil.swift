@@ -563,18 +563,26 @@ public extension SessionUtil {
         let cEndpoint: [CChar] = endpoint.cArray
         let cPayload: [UInt8] = payload.cArray
         
-        network_send_request(
-            cEd25519SecretKey,
-            cRemoteAddress,
-            cEndpoint,
-            cEndpoint.count,
-            cPayload,
-            cPayload.count,
-            { success, statusCode, dataPtr, dataLen, ctx in
-                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                Unmanaged<CWrapper>.fromOpaque(ctx!).takeRetainedValue().callback(success, statusCode, data)
-            },
-            cWrapperPtr
-        )
+        do {
+            try CExceptionHelper.performSafely {
+                network_send_request(
+                    cEd25519SecretKey,
+                    cRemoteAddress,
+                    cEndpoint,
+                    cEndpoint.count,
+                    cPayload,
+                    cPayload.count,
+                    { success, statusCode, dataPtr, dataLen, ctx in
+                        let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                        Unmanaged<CWrapper>.fromOpaque(ctx!).takeRetainedValue().callback(success, statusCode, data)
+                    },
+                    cWrapperPtr
+                )
+            }
+        }
+        catch {
+            print("RAWR \(error)")
+            callback(false, -1, nil)
+        }
     }
 }
