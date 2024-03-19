@@ -473,7 +473,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                     
                     switch value {
                         case let data as Data:
-                            let customFileName = "Contact.vcf"
+                            let customFileName = "Contact.vcf" // stringlint:disable
                             
                             let customFileExtension = MIMETypeUtil.fileExtension(forUTIType: srcUtiType)
                             guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: customFileExtension) else {
@@ -504,7 +504,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                                 )
                                 return
                             }
-                            guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: "txt") else {
+                            guard let tempFilePath = OWSFileSystem.writeData(toTemporaryFile: data, fileExtension: "txt") else { // stringlint:disable
                                 resolver(
                                     Result.failure(ShareViewControllerError.assertionError(description: "Error writing item data: \(String(describing: error))"))
                                 )
@@ -574,7 +574,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             
                         case let image as UIImage:
                             if let data = image.pngData() {
-                                let tempFilePath = OWSFileSystem.temporaryFilePath(withFileExtension: "png")
+                                let tempFilePath = OWSFileSystem.temporaryFilePath(withFileExtension: "png") // stringlint:disable
                                 do {
                                     let url = NSURL.fileURL(withPath: tempFilePath)
                                     try data.write(to: url)

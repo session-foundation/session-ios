@@ -730,7 +730,7 @@ extension ConversationVC:
         
         let newText: String = snInputView.text.replacingCharacters(
             in: currentMentionStartIndex...,
-            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) "
+            with: "@\(mentionInfo.profile.displayName(for: self.viewModel.threadData.threadVariant)) " // stringlint:disable
         )
         
         snInputView.text = newText
@@ -789,8 +789,8 @@ extension ConversationVC:
     func replaceMentions(in text: String) -> String {
         var result = text
         for mention in mentions {
-            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue }
-            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)")
+            guard let range = result.range(of: "@\(mention.profile.displayName(for: mention.threadVariant))") else { continue } // stringlint:disable
+            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)") // stringlint:disable
         }
         
         return result
@@ -1702,14 +1702,14 @@ extension ConversationVC:
         ))
         
         // HACK: Extracting this info from the error string is pretty dodgy
-        let prefix: String = "HTTP request failed at destination (Service node "
+        let prefix: String = "HTTP request failed at destination (Service node " // stringlint:disable
         if let mostRecentFailureText: String = cellViewModel.mostRecentFailureText, mostRecentFailureText.hasPrefix(prefix) {
             let rest = mostRecentFailureText.substring(from: prefix.count)
             
-            if let index = rest.firstIndex(of: ")") {
+            if let index = rest.firstIndex(of: ")") { // stringlint:disable
                 let snodeAddress = String(rest[rest.startIndex..<index])
                 
-                sheet.addAction(UIAlertAction(title: "Copy Service Node Info", style: .default) { _ in
+                sheet.addAction(UIAlertAction(title: "Copy Service Node Info", style: .default) { _ in // stringlint:disable
                     UIPasteboard.general.string = snodeAddress
                 })
             }
@@ -1721,11 +1721,13 @@ extension ConversationVC:
     
     func joinOpenGroup(name: String?, url: String) {
         // Open groups can be unsafe, so always ask the user whether they want to join one
-        let finalName: String = (name ?? "Open Group")
-        let message: String = "Are you sure you want to join the \(finalName) open group?";
+        let finalName: String = (name ?? "Community")
+        let message: String = "communityJoinDescription"
+            .put(key: "communityname", value: finalName)
+            .localized()
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "Join \(finalName)?",
+                title: "join".localized() + " \(finalName)?",
                 body: .attributedText(
                     NSMutableAttributedString(string: message)
                         .adding(
@@ -1975,7 +1977,6 @@ extension ConversationVC:
             case .standardOutgoing, .standardIncoming: break
         }
         
-        let threadName: String = self.viewModel.threadData.displayName
         let userPublicKey: String = getUserHexEncodedPublicKey()
         
         // Remote deletion logic
@@ -2419,7 +2420,7 @@ extension ConversationVC:
         
         // Create URL
         let directory: String = Singleton.appContext.temporaryDirectory
-        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a"
+        let fileName: String = "\(SnodeAPI.currentOffsetTimestampMs()).m4a" // stringlint:disable
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session

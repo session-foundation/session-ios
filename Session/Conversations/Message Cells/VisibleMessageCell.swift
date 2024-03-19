@@ -1199,7 +1199,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 
                 SessionThreadViewModel.searchTermParts(searchText)
                     .map { part -> String in
-                        guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part }
+                        guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part } // stringlint:disable
                         
                         let partRange = (part.index(after: part.startIndex)..<part.index(before: part.endIndex))
                         return String(part[partRange])
@@ -1211,8 +1211,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         normalizedBody
                             .ranges(
                                 of: (Singleton.hasAppContext && Singleton.appContext.isRTL ?
-                                     "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
-                                     "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
+                                     "(\(part.lowercased()))(^|[^a-zA-Z0-9])" : // stringlint:disable
+                                     "(^|[^a-zA-Z0-9])(\(part.lowercased()))" // stringlint:disable
                                 ),
                                 options: [.regularExpression]
                             )

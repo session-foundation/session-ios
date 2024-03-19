@@ -341,11 +341,11 @@ class PhotoCaptureViewController: OWSViewController {
         let imageName: String
         switch photoCapture.flashMode {
         case .auto:
-            imageName = "ic_flash_mode_auto"
+            imageName = "ic_flash_mode_auto" // stringlint:disable
         case .on:
-            imageName = "ic_flash_mode_on"
+            imageName = "ic_flash_mode_on" // stringlint:disable
         case .off:
-            imageName = "ic_flash_mode_off"
+            imageName = "ic_flash_mode_off" // stringlint:disable
         default: preconditionFailure()
         }
 
@@ -646,7 +646,7 @@ class RecordingTimerView: UIView {
     private lazy var timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "mm:ss"
-        formatter.timeZone = TimeZone(identifier: "UTC")!
+        formatter.timeZone = TimeZone(identifier: "UTC")! // stringlint:disable
 
         return formatter
     }()

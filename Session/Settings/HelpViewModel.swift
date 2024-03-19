@@ -154,7 +154,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         elements: [
             SessionCell.Info(
                 id: .support,
-                title: "Export Database",
+                title: "Export Database", // stringlint:disable
                 rightAccessory: .icon(
                     UIImage(systemName: "square.and.arrow.up.trianglebadge.exclamationmark")?
                         .withRenderingMode(.alwaysTemplate),
@@ -224,7 +224,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "Export Database",
+                    title: "Export Database", // stringlint:disable
                     body: .input(
                         explanation: NSAttributedString(
                             string: """
@@ -235,12 +235,12 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                             This password will be used to encrypt the database decryption key and will be exported alongside the database
                             """
                         ),
-                        placeholder: "Enter a password",
+                        placeholder: "Enter a password", // stringlint:disable
                         initialValue: generatedPassword,
                         clearButton: true,
                         onChange: { [weak self] value in self?.databaseKeyEncryptionPassword = value }
                     ),
-                    confirmTitle: "Export",
+                    confirmTitle: "Export", // stringlint:disable
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         modal.dismiss(animated: true) {
@@ -248,8 +248,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                                 self?.transitionToScreen(
                                     ConfirmationModal(
                                         info: ConfirmationModal.Info(
-                                            title: "Error",
-                                            body: .text("Password must be at least 6 characters")
+                                            title: "Error", // stringlint:disable
+                                            body: .text("Password must be at least 6 characters") // stringlint:disable
                                         )
                                     ),
                                     transitionType: .present
@@ -275,14 +275,14 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "Password",
+                                                title: "Password", // stringlint:disable
                                                 body: .text("""
                                                 The generated password was:
                                                 \(generatedPassword)
                                                 
                                                 Avoid sending this via the same means as the database
                                                 """),
-                                                confirmTitle: "Share",
+                                                confirmTitle: "Share", // stringlint:disable
                                                 dismissOnConfirm: false,
                                                 onConfirm: { [weak self] modal in
                                                     modal.dismiss(animated: true) {
@@ -319,16 +319,16 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                                 let message: String = {
                                     switch error {
                                         case CryptoKitError.incorrectKeySize:
-                                            return "The password must be between 6 and 32 characters (padded to 32 bytes)"
+                                            return "The password must be between 6 and 32 characters (padded to 32 bytes)" // stringlint:disable
                                         
-                                        default: return "Failed to export database"
+                                        default: return "Failed to export database" // stringlint:disable
                                     }
                                 }()
                                 
                                 self?.transitionToScreen(
                                     ConfirmationModal(
                                         info: ConfirmationModal.Info(
-                                            title: "Error",
+                                            title: "Error", // stringlint:disable
                                             body: .text(message)
                                         )
                                     ),

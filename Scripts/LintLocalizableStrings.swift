@@ -27,7 +27,7 @@ extension ProjectState {
         "_SharedTestUtilities/",    // Exclude shared test directory
         "external/"                 // External dependencies
     ]
-    static let excludedPhrases: Set<String> = [ "", " ", ",", ", ", "null" ]
+    static let excludedPhrases: Set<String> = [ "", " ", "  ", ",", ", ", "null", "\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$" ]
     static let excludedUnlocalisedStringLineMatching: Set<MatchType> = [
         .contains(ProjectState.lintSuppression, caseSensitive: false),
         .prefix("#import", caseSensitive: false),
@@ -46,9 +46,9 @@ extension ProjectState {
         .contains("[UIImage imageNamed:", caseSensitive: false),
         .contains("UIFont(name:", caseSensitive: false),
         .contains(".dateFormat =", caseSensitive: false),
-        .contains(".accessibilityLabel =", caseSensitive: false),
-        .contains(".accessibilityValue =", caseSensitive: false),
-        .contains(".accessibilityIdentifier =", caseSensitive: false),
+        .contains("accessibilityLabel =", caseSensitive: false),
+        .contains("accessibilityValue =", caseSensitive: false),
+        .contains("accessibilityIdentifier =", caseSensitive: false),
         .contains("accessibilityIdentifier:", caseSensitive: false),
         .contains("accessibilityLabel:", caseSensitive: false),
         .contains("Accessibility(identifier:", caseSensitive: false),
@@ -73,6 +73,17 @@ extension ProjectState {
             .previousLine(numEarlier: 2, .contains("Accessibility(", caseSensitive: false))
         ),
         .contains("SQL(", caseSensitive: false),
+        .contains(" == ", caseSensitive: false),
+        .contains("forResource:", caseSensitive: false),
+        .contains("imageName:", caseSensitive: false),
+        .contains(".userInfo[", caseSensitive: false),
+        .contains("payload[", caseSensitive: false),
+        .contains(".infoDictionary?[", caseSensitive: false),
+        .contains("accessibilityId:", caseSensitive: false),
+        .contains("key:", caseSensitive: false),
+        .contains("separator:", caseSensitive: false),
+        .nextLine(.contains(".put(key:", caseSensitive: false)),
+        .nextLine(.contains(".localized()", caseSensitive: false)),
         .regex(".*static var databaseTableName: String"),
         .regex("Logger\\..*\\("),
         .regex("OWSLogger\\..*\\("),
@@ -545,6 +556,7 @@ indirect enum MatchType: Hashable {
     case containsAnd(String, caseSensitive: Bool, MatchType)
     case regex(String)
     case previousLine(numEarlier: Int, MatchType)
+    case nextLine(MatchType)
     
     func matches(_ value: String, _ index: Int, _ lines: [String]) -> Bool {
         switch self {
@@ -578,6 +590,10 @@ indirect enum MatchType: Hashable {
                 
                 let targetIndex: Int = (index - numEarlier)
                 return type.matches(lines[targetIndex], targetIndex, lines)
+            
+            case .nextLine(let type):
+                guard index + 1 < lines.count else { return false }
+                return type.matches(lines[index + 1], index + 1, lines)
         }
     }
 }

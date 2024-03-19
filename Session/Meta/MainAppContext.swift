@@ -165,7 +165,7 @@ final class MainAppContext: AppContext {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {
         if UIApplication.shared.isIdleTimerDisabled != shouldBeBlocking {
             if shouldBeBlocking {
-                var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))"
+                var logString: String = "Blocking sleep because of: \(String(describing: blockingObjects.first))" // stringlint:disable
                 
                 if blockingObjects.count > 1 {
                     logString = "\(logString) (and \(blockingObjects.count - 1) others)"
@@ -209,7 +209,7 @@ final class MainAppContext: AppContext {
                 // b) modified time before app launch time.
                 let filePath: String = URL(fileURLWithPath: dirPath).appendingPathComponent(fileName).path
                 
-                if !fileName.hasPrefix("ows_temp") {
+                if !fileName.hasPrefix("ows_temp") { // stringlint:disable
                     // It's fine if we can't get the attributes (the file may have been deleted since we found it),
                     // also don't delete files which were created in the last N minutes
                     guard

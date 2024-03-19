@@ -176,7 +176,7 @@ public enum PushRegistrationError: Error {
                         // so the user doesn't remain indefinitely hung for no good reason.
                         return Fail(
                             error: PushRegistrationError.pushNotSupported(
-                                description: "Device configuration disallows push notifications"
+                                description: "Device configuration disallows push notifications" // stringlint:disable
                             )
                         ).eraseToAnyPublisher()
                         
@@ -282,7 +282,7 @@ public enum PushRegistrationError: Error {
             let caller: String = payload["caller"] as? String,
             let timestampMs: Int64 = payload["timestamp"] as? Int64
         else {
-            SessionCallManager.reportFakeCall(info: "Missing payload data")
+            SessionCallManager.reportFakeCall(info: "Missing payload data") // stringlint:disable
             return
         }
         
@@ -327,7 +327,7 @@ public enum PushRegistrationError: Error {
         }
         
         guard let call: SessionCall = maybeCall else {
-            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database")
+            SessionCallManager.reportFakeCall(info: "Could not retrieve call from database") // stringlint:disable
             return
         }
         
@@ -345,6 +345,6 @@ public enum PushRegistrationError: Error {
 // We transmit pushToken data as hex encoded string to the server
 fileprivate extension Data {
     var hexEncodedString: String {
-        return map { String(format: "%02hhx", $0) }.joined()
+        return map { String(format: "%02hhx", $0) }.joined() // stringlint:disable
     }
 }

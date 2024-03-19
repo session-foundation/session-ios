@@ -629,7 +629,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
     }
     
     @objc private func updateDuration() {
-        callDurationLabel.text = String(format: "%.2d:%.2d", duration/60, duration%60)
+        callDurationLabel.text = String(format: "%.2d:%.2d", duration/60, duration%60) // stringlint:disable
         duration += 1
     }
     

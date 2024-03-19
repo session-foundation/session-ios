@@ -42,10 +42,10 @@ final class SeedVC: BaseVC {
     
     private lazy var redactedMnemonic: String = {
         if isIPhone5OrSmaller {
-            return "▆▆▆▆ ▆▆▆▆▆▆ ▆▆▆ ▆▆▆▆▆▆▆ ▆▆ ▆▆▆▆ ▆▆▆ ▆▆▆▆▆ ▆▆▆ ▆ ▆▆▆▆ ▆▆ ▆▆▆▆▆▆▆ ▆▆▆▆▆"
+            return "▆▆▆▆ ▆▆▆▆▆▆ ▆▆▆ ▆▆▆▆▆▆▆ ▆▆ ▆▆▆▆ ▆▆▆ ▆▆▆▆▆ ▆▆▆ ▆ ▆▆▆▆ ▆▆ ▆▆▆▆▆▆▆ ▆▆▆▆▆" // stringlint:disable
         }
         
-        return "▆▆▆▆ ▆▆▆▆▆▆ ▆▆▆ ▆▆▆▆▆▆▆ ▆▆ ▆▆▆▆ ▆▆▆ ▆▆▆▆▆ ▆▆▆ ▆ ▆▆▆▆ ▆▆ ▆▆▆▆▆▆▆ ▆▆▆▆▆ ▆▆▆▆▆▆▆▆ ▆▆ ▆▆▆ ▆▆▆▆▆▆▆"
+        return "▆▆▆▆ ▆▆▆▆▆▆ ▆▆▆ ▆▆▆▆▆▆▆ ▆▆ ▆▆▆▆ ▆▆▆ ▆▆▆▆▆ ▆▆▆ ▆ ▆▆▆▆ ▆▆ ▆▆▆▆▆▆▆ ▆▆▆▆▆ ▆▆▆▆▆▆▆▆ ▆▆ ▆▆▆ ▆▆▆▆▆▆▆" // stringlint:disable
     }()
     
     // MARK: - Initialization
@@ -68,12 +68,12 @@ final class SeedVC: BaseVC {
         result.setProgress(0.9, animated: false)
         
         ThemeManager.onThemeChange(observer: result) { [weak result] _, primaryColor in
-            let title = "You're almost finished! 90%"
+            let title = "You're almost finished! 90%" // stringlint:disable
             let attributedTitle = NSMutableAttributedString(string: title)
             attributedTitle.addAttribute(
                 .foregroundColor,
                 value: primaryColor.color,
-                range: (title as NSString).range(of: "90%")
+                range: (title as NSString).range(of: "90%") // stringlint:disable
             )
             result?.title = attributedTitle
         }
@@ -234,12 +234,12 @@ final class SeedVC: BaseVC {
         
         UIView.transition(with: seedReminderView.titleLabel, duration: 0.25, options: .transitionCrossDissolve, animations: {
             ThemeManager.onThemeChange(observer: self.seedReminderView) { [weak self] _, primaryColor in
-                let title = "Account Secured! 100%"
+                let title = "Account Secured! 100%" // stringlint:disable
                 let attributedTitle = NSMutableAttributedString(string: title)
                 attributedTitle.addAttribute(
                     .foregroundColor,
                     value: primaryColor.color,
-                    range: (title as NSString).range(of: "100%")
+                    range: (title as NSString).range(of: "100%") // stringlint:disable
                 )
                 self?.seedReminderView.title = attributedTitle
             }

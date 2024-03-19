@@ -104,7 +104,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         return result
     }()
 
-    lazy var recordVoiceMessageActivity = AudioActivity(audioDescription: "Voice message", behavior: .playAndRecord)
+    lazy var recordVoiceMessageActivity = AudioActivity(audioDescription: "Voice message", behavior: .playAndRecord) // stringlint:disable
 
     lazy var searchController: ConversationSearchController = {
         let result: ConversationSearchController = ConversationSearchController(
@@ -1807,7 +1807,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     func updateUnreadCountView(unreadCount: UInt?) {
         let unreadCount: Int = Int(unreadCount ?? 0)
         let fontSize: CGFloat = (unreadCount < 10000 ? Values.verySmallFontSize : 8)
-        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+")
+        unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:disable
         unreadCountLabel.font = .boldSystemFont(ofSize: fontSize)
         unreadCountView.isHidden = (unreadCount == 0)
     }

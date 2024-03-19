@@ -44,10 +44,10 @@ final class IP2Country {
         let ipAsInt: Int = IPv4.toInt(ip)
         
         guard
-            let ipv4TableIndex = ipv4Table["network"]?.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }),
-            let countryID: Int = ipv4Table["registered_country_geoname_id"]?[ipv4TableIndex],
-            let countryNamesTableIndex = countryNamesTable["geoname_id"]?.firstIndex(of: String(countryID)),
-            let result: String = countryNamesTable["country_name"]?[countryNamesTableIndex]
+            let ipv4TableIndex = ipv4Table["network"]?.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }), // stringlint:disable
+            let countryID: Int = ipv4Table["registered_country_geoname_id"]?[ipv4TableIndex], // stringlint:disable
+            let countryNamesTableIndex = countryNamesTable["geoname_id"]?.firstIndex(of: String(countryID)), // stringlint:disable
+            let result: String = countryNamesTable["country_name"]?[countryNamesTableIndex] // stringlint:disable
         else {
             return "onionRoutingPathUnknownCountry".localized() // Relies on the array being sorted
         }

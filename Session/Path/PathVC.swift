@@ -219,8 +219,8 @@ final class PathVC: BaseVC {
 
     private func getPathRow(snode: Snode, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, isGuardSnode: Bool) -> UIStackView {
         let country: String = (IP2Country.isInitialized ?
-            IP2Country.shared.countryNamesCache.wrappedValue[snode.ip].defaulting(to: "Resolving...") :
-            "Resolving..."
+                               IP2Country.shared.countryNamesCache.wrappedValue[snode.ip].defaulting(to: "resolving".localized()) :
+                                "resolving".localized()
         )
         
         return getPathRow(

@@ -23,8 +23,8 @@ public class NewConversationViewModel {
             
             let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
             let section: String = initialCharacter.capitalized.isSingleAlphabet ?
-            initialCharacter.capitalized :
-                "#"
+                initialCharacter.capitalized :
+                "#" // stringlint:disable
             
             if groupedContacts[section] == nil {
                 groupedContacts[section] = SectionData(

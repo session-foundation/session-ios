@@ -5,7 +5,7 @@ import SessionUIKit
 import SignalUtilitiesKit
 
 class MessageRequestsCell: UITableViewCell {
-    static let reuseIdentifier = "MessageRequestsCell"
+    static let reuseIdentifier = "MessageRequestsCell" // stringlint:disable
     
     // MARK: - Initialization
     

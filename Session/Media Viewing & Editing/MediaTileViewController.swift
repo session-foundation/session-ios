@@ -759,7 +759,7 @@ private class MediaTileViewLayout: UICollectionViewFlowLayout {
 
 private class MediaGallerySectionHeader: UICollectionReusableView {
 
-    static let reuseIdentifier = "MediaGallerySectionHeader"
+    static let reuseIdentifier = "MediaGallerySectionHeader" // stringlint:disable
 
     // HACK: scrollbar incorrectly appears *behind* section headers
     // in collection view on iOS11 =(
@@ -817,7 +817,7 @@ private class MediaGallerySectionHeader: UICollectionReusableView {
 
 private class MediaGalleryStaticHeader: UICollectionViewCell {
 
-    static let reuseIdentifier = "MediaGalleryStaticHeader"
+    static let reuseIdentifier = "MediaGalleryStaticHeader" // stringlint:disable
 
     let label = UILabel()
 

@@ -49,7 +49,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView(hasContinueButton: true)
         result.accessibilityLabel = "Recovery phrase reminder"
-        let title = "You're almost finished! 80%"
+        let title = "You're almost finished! 80%" // stringlint:disable
         result.subtitle = "view_seed_reminder_subtitle_1".localized()
         result.setProgress(0.8, animated: false)
         result.delegate = self
@@ -60,7 +60,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
             attributedTitle.addAttribute(
                 .foregroundColor,
                 value: primaryColor.color,
-                range: (title as NSString).range(of: "80%")
+                range: (title as NSString).range(of: "80%") // stringlint:disable
             )
             result?.title = attributedTitle
         }

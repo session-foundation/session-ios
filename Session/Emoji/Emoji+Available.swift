@@ -1,3 +1,5 @@
+// stringlint:disable
+
 import Foundation
 import SignalCoreKit
 import SessionUtilitiesKit

@@ -297,7 +297,7 @@ extension EmojiPickerCollectionView: UICollectionViewDelegateFlowLayout {
 }
 
 private class EmojiCell: UICollectionViewCell {
-    static let reuseIdentifier = "EmojiCell"
+    static let reuseIdentifier = "EmojiCell" // stringlint:disable
 
     let emojiLabel = UILabel()
 
@@ -327,7 +327,7 @@ private class EmojiCell: UICollectionViewCell {
 }
 
 private class EmojiSectionHeader: UICollectionReusableView {
-    static let reuseIdentifier = "EmojiSectionHeader"
+    static let reuseIdentifier = "EmojiSectionHeader" // stringlint:disable
 
     let label = UILabel()
 

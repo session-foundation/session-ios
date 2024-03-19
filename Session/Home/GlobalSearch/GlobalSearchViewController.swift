@@ -136,7 +136,7 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
         // See more https://developer.apple.com/documentation/uikit/uisearchbar/1624283-showscancelbutton?language=objc
         if UIDevice.current.isIPad {
             let ipadCancelButton = UIButton()
-            ipadCancelButton.setTitle("Cancel", for: .normal)
+            ipadCancelButton.setTitle("cancel".localized(), for: .normal)
             ipadCancelButton.setThemeTitleColor(.textPrimary, for: .normal)
             ipadCancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
             searchBarContainer.addSubview(ipadCancelButton)

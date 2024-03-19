@@ -10,9 +10,9 @@ enum NotificationError: LocalizedError {
     
     public var errorDescription: String? {
         switch self {
-            case .processing(let result): return "Failed to process notification (\(result))"
-            case .messageProcessing: return "Failed to process message"
-            case .messageHandling(let error): return "Failed to handle message (\(error))"
+            case .processing(let result): return "Failed to process notification (\(result))" // stringlint:disable
+            case .messageProcessing: return "Failed to process message" // stringlint:disable
+            case .messageHandling(let error): return "Failed to handle message (\(error))" // stringlint:disable
         }
     }
 }

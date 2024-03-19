@@ -17,10 +17,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var request: UNNotificationRequest?
     private var openGroupPollCancellable: AnyCancellable?
 
-    public static let isFromRemoteKey = "remote"
-    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"
-    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw"
-    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter"
+    public static let isFromRemoteKey = "remote" // stringlint:disable
+    public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId" // stringlint:disable
+    public static let threadVariantRaw = "Signal.AppNotificationsUserInfoKey.threadVariantRaw" // stringlint:disable
+    public static let threadNotificationCounter = "Session.AppNotificationsUserInfoKey.threadNotificationCounter" // stringlint:disable
     private static let callPreOfferLargeNotificationSupressionDuration: TimeInterval = 30
 
     // MARK: Did receive a remote push notification request
@@ -320,9 +320,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             guard let caller: String = callMessage.sender, let timestamp = callMessage.sentTimestamp else { return }
             
             let payload: JSON = [
-                "uuid": callMessage.uuid,
-                "caller": caller,
-                "timestamp": timestamp
+                "uuid": callMessage.uuid, // stringlint:disable
+                "caller": caller, // stringlint:disable
+                "timestamp": timestamp // stringlint:disable
             ]
             
             CXProvider.reportNewIncomingVoIPPushPayload(payload) { error in
@@ -352,7 +352,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         if let sender: String = callMessage.sender {
             let senderDisplayName: String = Profile.displayName(db, id: sender, threadVariant: .contact)
-            notificationContent.body = "\(senderDisplayName) is calling..."
+            notificationContent.body = "callsIncoming"
+                .put(key: "name", value: senderDisplayName)
+                .localized()
         }
         else {
             notificationContent.body = "Incoming call..."

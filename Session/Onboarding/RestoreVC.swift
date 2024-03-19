@@ -26,18 +26,8 @@ final class RestoreVC: BaseVC {
     private lazy var legalLabel: UILabel = {
         let result = UILabel()
         result.font = .systemFont(ofSize: Values.verySmallFontSize)
-        let text = "By using this service, you agree to our Terms of Service, End User License Agreement (EULA) and Privacy Policy"
-        let attributedText = NSMutableAttributedString(
-            string: text,
-            attributes: [
-                .font: UIFont.systemFont(ofSize: Values.verySmallFontSize)
-            ]
-        )
-        attributedText.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "Terms of Service"))
-        attributedText.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "End User License Agreement (EULA)"))
-        attributedText.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "Privacy Policy"))
         result.themeTextColor = .textPrimary
-        result.attributedText = attributedText
+        result.attributedText = "onboardingTosPrivacy".localizedFormatted(in: result)
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
@@ -230,6 +220,7 @@ final class RestoreVC: BaseVC {
         self.navigationController?.pushViewController(pnModeVC, animated: true)
     }
     
+    // TODO: Will be removed by onboarding redesign
     @objc private func handleLegalLabelTapped(_ tapGestureRecognizer: UITapGestureRecognizer) {
         let urlAsString: String?
         let tosRange = (legalLabel.text! as NSString).range(of: "Terms of Service")

@@ -862,9 +862,9 @@ private enum LifecycleMethod: Equatable {
     
     var timingName: String {
         switch self {
-            case .finishLaunching: return "Launch"
-            case .enterForeground: return "EnterForeground"
-            case .didBecomeActive: return "BecomeActive"
+            case .finishLaunching: return "Launch" // stringlint:disable
+            case .enterForeground: return "EnterForeground" // stringlint:disable
+            case .didBecomeActive: return "BecomeActive" // stringlint:disable
         }
     }
     
@@ -888,11 +888,11 @@ private enum StartupError: Error {
     var name: String {
         switch self {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
-                return "Database startup failed"
+                return "Database startup failed" // stringlint:disable
                 
-            case .failedToRestore: return "Failed to restore"
-            case .databaseError: return "Database error"
-            case .startupTimeout: return "Startup timeout"
+            case .failedToRestore: return "Failed to restore" // stringlint:disable
+            case .databaseError: return "Database error" // stringlint:disable
+            case .startupTimeout: return "Startup timeout" // stringlint:disable
         }
     }
     

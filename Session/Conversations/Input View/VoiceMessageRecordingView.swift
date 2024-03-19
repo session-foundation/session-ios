@@ -122,7 +122,7 @@ final class VoiceMessageRecordingView: UIView {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = .textPrimary
-        result.text = "0:00"
+        result.text = "0:00" // stringlint:disable
         
         return result
     }()

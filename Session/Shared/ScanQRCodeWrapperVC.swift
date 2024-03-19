@@ -29,7 +29,7 @@ final class ScanQRCodeWrapperVC: BaseVC {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        title = "Scan QR Code"
+        title = "qrScan".localized()
         
         // Set up navigation bar if needed
         if isPresentedModally {

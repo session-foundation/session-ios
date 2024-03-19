@@ -68,7 +68,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 
             return "blockBlockedDescription".localized()
                 
-            default: return "Thread is blocked. Unblock it?" // Should not happen
+            default: return "Thread is blocked. Unblock it?" // Should not happen // stringlint:disable
         }
     }()
     

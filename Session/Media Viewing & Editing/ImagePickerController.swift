@@ -72,7 +72,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         // quickly toggle between the Capture and the Picker VC's, we use the same custom "X"
         // icon here rather than the system "stop" icon so that the spacing matches exactly.
         // Otherwise there's a noticable shift in the icon placement.
-        let cancelImage = UIImage(imageLiteralResourceName: "X")
+        let cancelImage = #imageLiteral(resourceName: "X")
         let cancelButton = UIBarButtonItem(image: cancelImage, style: .plain, target: self, action: #selector(didPressCancel))
 
         cancelButton.themeTintColor = .textPrimary
