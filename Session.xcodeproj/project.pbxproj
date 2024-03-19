@@ -506,12 +506,10 @@
 		FD16AB5F2A1DD98F0083D849 /* ProfilePictureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2A4255B6D93007E1867 /* ProfilePictureView.swift */; };
 		FD16AB612A1DD9B60083D849 /* ProfilePictureView+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */; };
 		FD17D79927F40AB800122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79827F40AB800122BE0 /* _003_YDBToGRDBMigration.swift */; };
-		FD17D79C27F40B2E00122BE0 /* SMKLegacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79B27F40B2E00122BE0 /* SMKLegacy.swift */; };
 		FD17D7A027F40CC800122BE0 /* _001_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79F27F40CC800122BE0 /* _001_InitialSetupMigration.swift */; };
 		FD17D7A127F40D2500122BE0 /* Storage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD28A4F527EAD44C00FF65E7 /* Storage.swift */; };
 		FD17D7A227F40F0500122BE0 /* _001_InitialSetupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D79527F3E04600122BE0 /* _001_InitialSetupMigration.swift */; };
 		FD17D7A427F40F8100122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7A327F40F8100122BE0 /* _003_YDBToGRDBMigration.swift */; };
-		FD17D7A727F41AF000122BE0 /* SSKLegacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7A627F41AF000122BE0 /* SSKLegacy.swift */; };
 		FD17D7AA27F41BF500122BE0 /* SnodeSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7A927F41BF500122BE0 /* SnodeSet.swift */; };
 		FD17D7AE27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7AD27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift */; };
 		FD17D7B327F51E5B00122BE0 /* SSKSetting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7B227F51E5B00122BE0 /* SSKSetting.swift */; };
@@ -526,7 +524,6 @@
 		FD17D7CD27F546FF00122BE0 /* Setting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7CC27F546FF00122BE0 /* Setting.swift */; };
 		FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E427F6A09900122BE0 /* Identity.swift */; };
 		FD17D7E727F6A16700122BE0 /* _003_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */; };
-		FD17D7EA27F6A1C600122BE0 /* SUKLegacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E927F6A1C600122BE0 /* SUKLegacy.swift */; };
 		FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */; };
 		FD1936412ACA7BD8004BCF0F /* Result+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1936402ACA7BD8004BCF0F /* Result+Utilities.swift */; };
 		FD1A94FB2900D1C2000D73D3 /* PersistableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */; };
@@ -569,7 +566,7 @@
 		FD245C59285065FC00B966DD /* ControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A7702553A41E00C340D1 /* ControlMessage.swift */; };
 		FD245C5A2850660100B966DD /* LinkPreviewDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBA8255A581500E217F9 /* LinkPreviewDraft.swift */; };
 		FD245C5B2850660500B966DD /* ReadReceipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5BC2554B00D00555489 /* ReadReceipt.swift */; };
-		FD245C5C2850660A00B966DD /* ConfigurationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DA9C0625AE7396008F7C7E /* ConfigurationMessage.swift */; };
+		FD245C5C2850660A00B966DD /* LegacyConfigurationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DA9C0625AE7396008F7C7E /* LegacyConfigurationMessage.swift */; };
 		FD245C5D2850660F00B966DD /* OWSAudioPlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2F7255B6DBC007E1867 /* OWSAudioPlayer.m */; };
 		FD245C5F2850662200B966DD /* OWSWindowManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C38EF306255B6DBE007E1867 /* OWSWindowManager.m */; };
 		FD245C632850664600B966DD /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD245C612850664300B966DD /* Configuration.swift */; };
@@ -1613,7 +1610,7 @@
 		C3CA3ABD255CDB0D00F4C6D4 /* portuguese.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = portuguese.txt; sourceTree = "<group>"; };
 		C3CA3AC7255CDB2900F4C6D4 /* spanish.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = spanish.txt; sourceTree = "<group>"; };
 		C3D0972A2510499C00F6E3E4 /* BackgroundPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundPoller.swift; sourceTree = "<group>"; };
-		C3DA9C0625AE7396008F7C7E /* ConfigurationMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationMessage.swift; sourceTree = "<group>"; };
+		C3DA9C0625AE7396008F7C7E /* LegacyConfigurationMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyConfigurationMessage.swift; sourceTree = "<group>"; };
 		C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SRCopyableLabel.swift; sourceTree = "<group>"; };
 		C3DB66AB260ACA42001EFC55 /* OpenGroupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupManager.swift; sourceTree = "<group>"; };
 		C3DB66C2260ACCE6001EFC55 /* OpenGroupPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupPoller.swift; sourceTree = "<group>"; };
@@ -1684,10 +1681,8 @@
 		FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProfilePictureView+Convenience.swift"; sourceTree = "<group>"; };
 		FD17D79527F3E04600122BE0 /* _001_InitialSetupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _001_InitialSetupMigration.swift; sourceTree = "<group>"; };
 		FD17D79827F40AB800122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
-		FD17D79B27F40B2E00122BE0 /* SMKLegacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMKLegacy.swift; sourceTree = "<group>"; };
 		FD17D79F27F40CC800122BE0 /* _001_InitialSetupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _001_InitialSetupMigration.swift; sourceTree = "<group>"; };
 		FD17D7A327F40F8100122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
-		FD17D7A627F41AF000122BE0 /* SSKLegacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSKLegacy.swift; sourceTree = "<group>"; };
 		FD17D7A927F41BF500122BE0 /* SnodeSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeSet.swift; sourceTree = "<group>"; };
 		FD17D7AD27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeReceivedMessageInfo.swift; sourceTree = "<group>"; };
 		FD17D7AF27F4225C00122BE0 /* Set+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Set+Utilities.swift"; sourceTree = "<group>"; };
@@ -1703,7 +1698,6 @@
 		FD17D7CC27F546FF00122BE0 /* Setting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Setting.swift; sourceTree = "<group>"; };
 		FD17D7E427F6A09900122BE0 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		FD17D7E627F6A16700122BE0 /* _003_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
-		FD17D7E927F6A1C600122BE0 /* SUKLegacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SUKLegacy.swift; sourceTree = "<group>"; };
 		FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseSpec.swift; sourceTree = "<group>"; };
 		FD1936402ACA7BD8004BCF0F /* Result+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Result+Utilities.swift"; sourceTree = "<group>"; };
 		FD1A94FA2900D1C2000D73D3 /* PersistableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistableRecord+Utilities.swift"; sourceTree = "<group>"; };
@@ -2627,7 +2621,6 @@
 		B8A582AB258C64E800AFD84C /* Database */ = {
 			isa = PBXGroup;
 			children = (
-				FD17D7E827F6A1B800122BE0 /* LegacyDatabase */,
 				FD17D7C827F546CE00122BE0 /* Migrations */,
 				FD17D7CB27F546F500122BE0 /* Models */,
 				FD17D7B427F51E6700122BE0 /* Types */,
@@ -2844,7 +2837,7 @@
 				B8DE1FB526C22FCB0079C9CE /* CallMessage.swift */,
 				C34A977325A3E34A00852C71 /* ClosedGroupControlMessage.swift */,
 				FD8ECF8A2935DB4B00C0D1BB /* SharedConfigMessage.swift */,
-				C3DA9C0625AE7396008F7C7E /* ConfigurationMessage.swift */,
+				C3DA9C0625AE7396008F7C7E /* LegacyConfigurationMessage.swift */,
 				B8F5F60225EDE16F003BF8D4 /* DataExtractionNotification.swift */,
 				C300A5E62554B07300555489 /* ExpirationTimerUpdate.swift */,
 				7B93D06F27CF194000811CB6 /* MessageRequestResponse.swift */,
@@ -2955,7 +2948,6 @@
 		C32C5BCB256DC818003C73A2 /* Database */ = {
 			isa = PBXGroup;
 			children = (
-				FD17D79A27F40ADA00122BE0 /* LegacyDatabase */,
 				FD17D79427F3E03300122BE0 /* Migrations */,
 				FD09796C27FA6C8B00936362 /* Models */,
 			);
@@ -3728,18 +3720,9 @@
 			path = Migrations;
 			sourceTree = "<group>";
 		};
-		FD17D79A27F40ADA00122BE0 /* LegacyDatabase */ = {
-			isa = PBXGroup;
-			children = (
-				FD17D79B27F40B2E00122BE0 /* SMKLegacy.swift */,
-			);
-			path = LegacyDatabase;
-			sourceTree = "<group>";
-		};
 		FD17D79D27F40CAA00122BE0 /* Database */ = {
 			isa = PBXGroup;
 			children = (
-				FD17D7A527F41ADE00122BE0 /* LegacyDatabase */,
 				FD17D79E27F40CC000122BE0 /* Migrations */,
 				FD17D7A827F41BE300122BE0 /* Models */,
 				FD17D7B127F51E2B00122BE0 /* Types */,
@@ -3757,14 +3740,6 @@
 				FD6DF00A2ACFE40D0084BA4C /* _005_AddSnodeReveivedMessageInfoPrimaryKey.swift */,
 			);
 			path = Migrations;
-			sourceTree = "<group>";
-		};
-		FD17D7A527F41ADE00122BE0 /* LegacyDatabase */ = {
-			isa = PBXGroup;
-			children = (
-				FD17D7A627F41AF000122BE0 /* SSKLegacy.swift */,
-			);
-			path = LegacyDatabase;
 			sourceTree = "<group>";
 		};
 		FD17D7A827F41BE300122BE0 /* Models */ = {
@@ -3837,14 +3812,6 @@
 				FD17D7CC27F546FF00122BE0 /* Setting.swift */,
 			);
 			path = Models;
-			sourceTree = "<group>";
-		};
-		FD17D7E827F6A1B800122BE0 /* LegacyDatabase */ = {
-			isa = PBXGroup;
-			children = (
-				FD17D7E927F6A1C600122BE0 /* SUKLegacy.swift */,
-			);
-			path = LegacyDatabase;
 			sourceTree = "<group>";
 		};
 		FD19363D2ACA66CF004BCF0F /* Database */ = {
@@ -5864,7 +5831,6 @@
 				FDF848ED29405E4F007DCAE5 /* Notification+OnionRequestAPI.swift in Sources */,
 				FDF848CD29405C5B007DCAE5 /* GetNetworkTimestampResponse.swift in Sources */,
 				FDF848DA29405C5B007DCAE5 /* GetMessagesResponse.swift in Sources */,
-				FD17D7A727F41AF000122BE0 /* SSKLegacy.swift in Sources */,
 				FD39353628F7C3390084DADA /* _004_FlagMessageHashAsDeletedOrInvalid.swift in Sources */,
 				FDF8489429405C1B007DCAE5 /* SnodeAPI.swift in Sources */,
 				FDF848C829405C5B007DCAE5 /* ONSResolveRequest.swift in Sources */,
@@ -5897,7 +5863,6 @@
 				C3BBE0A82554D4DE0050F1E3 /* JSON.swift in Sources */,
 				FD17D7C127F5200100122BE0 /* TypedTableDefinition.swift in Sources */,
 				FD23CE1B2A651E6D0000B97C /* NetworkType.swift in Sources */,
-				FD17D7EA27F6A1C600122BE0 /* SUKLegacy.swift in Sources */,
 				FDA8EB10280F8238002B68E5 /* Codable+Utilities.swift in Sources */,
 				FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */,
 				C352A36D2557858E00338F3E /* NSTimer+Proxying.m in Sources */,
@@ -6181,7 +6146,7 @@
 				C3DB66C3260ACCE6001EFC55 /* OpenGroupPoller.swift in Sources */,
 				FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */,
 				FD368A6829DE8F9C000DBF1E /* _012_AddFTSIfNeeded.swift in Sources */,
-				FD245C5C2850660A00B966DD /* ConfigurationMessage.swift in Sources */,
+				FD245C5C2850660A00B966DD /* LegacyConfigurationMessage.swift in Sources */,
 				FD5C7301284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift in Sources */,
 				C3C2A75F2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift in Sources */,
 				FD245C642850664F00B966DD /* Threading.swift in Sources */,
@@ -6207,7 +6172,6 @@
 				FD09798B27FD1CFE00936362 /* Capability.swift in Sources */,
 				C3BBE0C72554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift in Sources */,
 				FD1D732A2A85AA2000E3F410 /* Setting+Utilities.swift in Sources */,
-				FD17D79C27F40B2E00122BE0 /* SMKLegacy.swift in Sources */,
 				FD09798127FCFEE800936362 /* SessionThread.swift in Sources */,
 				FD09C5EA282A1BB2000CE219 /* ThreadTypingIndicator.swift in Sources */,
 				FDF0B75E280AAF35004C14C5 /* Preferences.swift in Sources */,
