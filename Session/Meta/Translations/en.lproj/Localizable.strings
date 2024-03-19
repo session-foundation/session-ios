@@ -612,6 +612,7 @@
 "groupMemberLeftMore" = "<b>{name}</b> and <b>{count} others</b> left the group.";
 "attachmentsDownload" = "Download Attachment";
 "urlOpenBrowser" = "This will open in your browser.";
+"resolving" = "Resolving...";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";
