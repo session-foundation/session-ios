@@ -27,7 +27,7 @@ extension ProjectState {
         "_SharedTestUtilities/",    // Exclude shared test directory
         "external/"                 // External dependencies
     ]
-    static let excludedPhrases: Set<String> = [ "", " ", "  ", ",", ", ", "null", "\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$" ]
+    static let excludedPhrases: Set<String> = [ "", " ", "  ", ",", ", ", "null", "\"", "@[0-9a-fA-F]{66}", "^[0-9A-Fa-f]+$", "/" ]
     static let excludedUnlocalisedStringLineMatching: Set<MatchType> = [
         .contains(ProjectState.lintSuppression, caseSensitive: false),
         .prefix("#import", caseSensitive: false),
@@ -82,6 +82,7 @@ extension ProjectState {
         .contains("accessibilityId:", caseSensitive: false),
         .contains("key:", caseSensitive: false),
         .contains("separator:", caseSensitive: false),
+        .contains("separatedBy:", caseSensitive: false),
         .nextLine(.contains(".put(key:", caseSensitive: false)),
         .nextLine(.contains(".localized()", caseSensitive: false)),
         .regex(".*static var databaseTableName: String"),

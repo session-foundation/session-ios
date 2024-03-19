@@ -35,7 +35,7 @@ public struct Interaction: Codable, Identifiable, Equatable, FetchableRecord, Mu
     ) -> SQL {
         let halfResolution: Double = LinkPreview.timstampResolution
 
-        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)"
+        return "(\(interaction[.timestampMs]) BETWEEN (\(linkPreview[.timestamp]) - \(halfResolution)) * 1000 AND (\(linkPreview[.timestamp]) + \(halfResolution)) * 1000)" // stringlint:disable
     }
     public static let recipientStates = hasMany(RecipientState.self, using: RecipientState.interactionForeignKey)
     
@@ -936,7 +936,7 @@ public extension Interaction {
         return publicKeysToCheck.contains { publicKey in
             (
                 body != nil &&
-                (body ?? "").contains("@\(publicKey)")
+                (body ?? "").contains("@\(publicKey)") // stringlint:disable
             ) || (
                 quoteAuthorId == publicKey
             )

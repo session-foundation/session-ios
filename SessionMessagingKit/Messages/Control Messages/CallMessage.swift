@@ -45,12 +45,12 @@ public final class CallMessage: ControlMessage {
         
         public var description: String {
             switch self {
-                case .preOffer: return "preOffer"
-                case .offer: return "offer"
-                case .answer: return "answer"
-                case .provisionalAnswer: return "provisionalAnswer"
-                case .iceCandidates(_, _): return "iceCandidates"
-                case .endCall: return "endCall"
+                case .preOffer: return "preOffer" // stringlint:disable
+                case .offer: return "offer" // stringlint:disable
+                case .answer: return "answer" // stringlint:disable
+                case .provisionalAnswer: return "provisionalAnswer" // stringlint:disable
+                case .iceCandidates(_, _): return "iceCandidates" // stringlint:disable
+                case .endCall: return "endCall" // stringlint:disable
             }
         }
         

@@ -29,10 +29,10 @@ public final class SharedConfigMessage: ControlMessage {
 
         public var description: String {
             switch self {
-                case .userProfile: return "userProfile"
-                case .contacts: return "contacts"
-                case .convoInfoVolatile: return "convoInfoVolatile"
-                case .userGroups: return "userGroups"
+                case .userProfile: return "userProfile" // stringlint:disable
+                case .contacts: return "contacts" // stringlint:disable
+                case .convoInfoVolatile: return "convoInfoVolatile" // stringlint:disable
+                case .userGroups: return "userGroups" // stringlint:disable
             }
         }
     }

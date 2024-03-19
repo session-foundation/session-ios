@@ -357,7 +357,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 .localized()
         }
         else {
-            notificationContent.body = "Incoming call..."
+            notificationContent.body = "Incoming call..." // FIXME: Localized
         }
         
         let identifier = self.request?.identifier ?? UUID().uuidString

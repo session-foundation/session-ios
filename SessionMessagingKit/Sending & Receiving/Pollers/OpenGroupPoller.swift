@@ -314,7 +314,7 @@ extension OpenGroupAPI {
                 case .httpRequestFailedAtDestination(let statusCode, let data, _) = error,
                 statusCode == 400,
                 let dataString: String = String(data: data, encoding: .utf8),
-                dataString.contains("Invalid authentication: this server requires the use of blinded ids")
+                dataString.contains("Invalid authentication: this server requires the use of blinded ids") // stringlint:disable
             else {
                 return Just(false)
                     .setFailureType(to: Error.self)

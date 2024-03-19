@@ -223,7 +223,7 @@ public class Poller {
         
         let pollerName: String = (
             poller?.pollerName(for: publicKey) ??
-            "poller with public key \(publicKey)"
+            "poller with public key \(publicKey)" // stringlint:disable
         )
         let configHashes: [String] = SessionUtil.configHashes(for: publicKey)
         
@@ -271,7 +271,7 @@ public class Poller {
                 var hadValidHashUpdate: Bool = false
                 var configMessageJobsToRun: [Job] = []
                 var standardMessageJobsToRun: [Job] = []
-                var pollerLogOutput: String = "\(pollerName) failed to process any messages"
+                var pollerLogOutput: String = "\(pollerName) failed to process any messages" // stringlint:disable
                 
                 dependencies.storage.write { db in
                     let allProcessedMessages: [ProcessedMessage] = allMessages

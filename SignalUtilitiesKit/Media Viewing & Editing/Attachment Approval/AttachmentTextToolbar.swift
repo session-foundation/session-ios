@@ -169,7 +169,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     private lazy var placeholderTextView: UITextView = {
         let placeholderTextView = buildTextView()
 
-        placeholderTextView.text = "Message"
+        placeholderTextView.text = "message".localized()
         placeholderTextView.isEditable = false
 
         return placeholderTextView
