@@ -6,9 +6,9 @@ import SessionSnodeKit
 import SessionUtil
 import SessionUtilitiesKit
 
-// MARK: - SessionUtil
+// MARK: - LibSession
 
-public enum SessionUtil {
+public extension LibSession {
     public struct ConfResult {
         let needsPush: Bool
         let needsDump: Bool
@@ -37,7 +37,7 @@ public enum SessionUtil {
         let key: ConfigKey = ConfigKey(variant: variant, publicKey: publicKey)
         
         return (
-            SessionUtil.configStore.wrappedValue[key] ??
+            LibSession.configStore.wrappedValue[key] ??
             Atomic(nil)
         )
     }
@@ -69,7 +69,7 @@ public enum SessionUtil {
     // MARK: - Loading
     
     public static func clearMemoryState() {
-        SessionUtil.configStore.mutate { confStore in
+        LibSession.configStore.mutate { confStore in
             confStore.removeAll()
         }
     }
@@ -83,13 +83,13 @@ public enum SessionUtil {
         // we continue
         guard
             let secretKey: [UInt8] = ed25519SecretKey,
-            SessionUtil.configStore.wrappedValue.isEmpty
-        else { return SNLog("[SessionUtil] Ignoring loadState for '\(userPublicKey)' due to existing state") }
+            LibSession.configStore.wrappedValue.isEmpty
+        else { return SNLog("[LibSession] Ignoring loadState for '\(userPublicKey)' due to existing state") }
         
         // If we weren't given a database instance then get one
         guard let db: Database = db else {
             Storage.shared.read { db in
-                SessionUtil.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey)
+                LibSession.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey)
             }
             return
         }
@@ -104,10 +104,10 @@ public enum SessionUtil {
             .subtracting(existingDumpVariants)
         
         // Create the 'config_object' records for each dump
-        SessionUtil.configStore.mutate { confStore in
+        LibSession.configStore.mutate { confStore in
             existingDumps.forEach { dump in
                 confStore[ConfigKey(variant: dump.variant, publicKey: dump.publicKey)] = Atomic(
-                    try? SessionUtil.loadState(
+                    try? LibSession.loadState(
                         for: dump.variant,
                         secretKey: secretKey,
                         cachedData: dump.data
@@ -117,7 +117,7 @@ public enum SessionUtil {
             
             missingRequiredVariants.forEach { variant in
                 confStore[ConfigKey(variant: variant, publicKey: userPublicKey)] = Atomic(
-                    try? SessionUtil.loadState(
+                    try? LibSession.loadState(
                         for: variant,
                         secretKey: secretKey,
                         cachedData: nil
@@ -126,7 +126,7 @@ public enum SessionUtil {
             }
         }
         
-        SNLog("[SessionUtil] Completed loadState for '\(userPublicKey)'")
+        SNLog("[LibSession] Completed loadState for '\(userPublicKey)'")
     }
     
     private static func loadState(
@@ -165,8 +165,8 @@ public enum SessionUtil {
         }()
         
         guard result == 0 else {
-            SNLog("[SessionUtil Error] Unable to create \(variant.rawValue) config object: \(String(cString: error))")
-            throw SessionUtilError.unableToCreateConfigObject
+            SNLog("[LibSession Error] Unable to create \(variant.rawValue) config object: \(String(cString: error))")
+            throw LibSessionError.unableToCreateConfigObject
         }
         
         return conf
@@ -178,7 +178,7 @@ public enum SessionUtil {
         publicKey: String,
         timestampMs: Int64
     ) throws -> ConfigDump? {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
         
         // If it doesn't need a dump then do nothing
         guard config_needs_dump(conf) else { return nil }
@@ -208,7 +208,7 @@ public enum SessionUtil {
         _ db: Database,
         publicKey: String
     ) throws -> [OutgoingConfResult] {
-        guard Identity.userExists(db) else { throw SessionUtilError.userDoesNotExist }
+        guard Identity.userExists(db) else { throw LibSessionError.userDoesNotExist }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         var existingDumpVariants: Set<ConfigDump.Variant> = try ConfigDump
@@ -227,7 +227,7 @@ public enum SessionUtil {
         // data yet (to deal with first launch cases)
         return try existingDumpVariants
             .compactMap { variant -> OutgoingConfResult? in
-                try SessionUtil
+                try LibSession
                     .config(for: variant, publicKey: publicKey)
                     .wrappedValue
                     .map { conf in
@@ -256,7 +256,7 @@ public enum SessionUtil {
                             }
                         }
                         catch {
-                            SNLog("[SessionUtil] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
+                            SNLog("[LibSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
                             throw error
                         }
                     
@@ -290,7 +290,7 @@ public enum SessionUtil {
         serverHash: String,
         publicKey: String
     ) -> ConfigDump? {
-        return SessionUtil
+        return LibSession
             .config(for: message.kind.configDumpVariant, publicKey: publicKey)
             .mutate { conf in
                 guard conf != nil else { return nil }
@@ -302,7 +302,7 @@ public enum SessionUtil {
                 // Update the result to indicate whether the config needs to be dumped
                 guard config_needs_dump(conf) else { return nil }
                 
-                return try? SessionUtil.createDump(
+                return try? LibSession.createDump(
                     conf: conf,
                     for: message.kind.configDumpVariant,
                     publicKey: publicKey,
@@ -326,7 +326,7 @@ public enum SessionUtil {
             .map { variant -> [String] in
                 /// Extract all existing hashes for any dumps associated with the given `publicKey`
                 guard
-                    let conf = SessionUtil
+                    let conf = LibSession
                         .config(for: variant, publicKey: publicKey)
                         .wrappedValue,
                     let hashList: UnsafeMutablePointer<config_string_list> = config_current_hashes(conf)
@@ -361,7 +361,7 @@ public enum SessionUtil {
         let needsPush: Bool = try groupedMessages
             .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
             .reduce(false) { prevNeedsPush, next -> Bool in
-                let needsPush: Bool = try SessionUtil
+                let needsPush: Bool = try LibSession
                     .config(for: next.key, publicKey: publicKey)
                     .mutate { conf in
                         // Merge the messages
@@ -411,7 +411,7 @@ public enum SessionUtil {
                         do {
                             switch next.key {
                                 case .userProfile:
-                                    try SessionUtil.handleUserProfileUpdate(
+                                    try LibSession.handleUserProfileUpdate(
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),
@@ -419,7 +419,7 @@ public enum SessionUtil {
                                     )
                                     
                                 case .contacts:
-                                    try SessionUtil.handleContactsUpdate(
+                                    try LibSession.handleContactsUpdate(
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),
@@ -427,14 +427,14 @@ public enum SessionUtil {
                                     )
                                     
                                 case .convoInfoVolatile:
-                                    try SessionUtil.handleConvoInfoVolatileUpdate(
+                                    try LibSession.handleConvoInfoVolatileUpdate(
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf)
                                     )
                                     
                                 case .userGroups:
-                                    try SessionUtil.handleGroupsUpdate(
+                                    try LibSession.handleGroupsUpdate(
                                         db,
                                         in: conf,
                                         mergeNeedsDump: config_needs_dump(conf),
@@ -443,7 +443,7 @@ public enum SessionUtil {
                             }
                         }
                         catch {
-                            SNLog("[SessionUtil] Failed to process merge of \(next.key) config data")
+                            SNLog("[LibSession] Failed to process merge of \(next.key) config data")
                             throw error
                         }
                         
@@ -463,7 +463,7 @@ public enum SessionUtil {
                             return config_needs_push(conf)
                         }
                         
-                        try SessionUtil.createDump(
+                        try LibSession.createDump(
                             conf: conf,
                             for: next.key,
                             publicKey: publicKey,
@@ -481,7 +481,7 @@ public enum SessionUtil {
         // push any pending updates and properly update the state)
         guard needsPush else { return }
         
-        db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(publicKey)) { db in
+        db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(publicKey)) { db in
             ConfigurationSyncJob.enqueue(db, publicKey: publicKey)
         }
     }
@@ -489,7 +489,7 @@ public enum SessionUtil {
 
 // MARK: - Internal Convenience
 
-fileprivate extension SessionUtil {
+fileprivate extension LibSession {
     struct ConfigKey: Hashable {
         let variant: ConfigDump.Variant
         let publicKey: String
@@ -498,7 +498,7 @@ fileprivate extension SessionUtil {
 
 // MARK: - Convenience
 
-public extension SessionUtil {
+public extension LibSession {
     static func parseCommunity(url: String) -> (room: String, server: String, publicKey: String)? {
         var cFullUrl: [CChar] = url.cArray.nullTerminated()
         var cBaseUrl: [CChar] = [CChar](repeating: 0, count: COMMUNITY_BASE_URL_MAX_LENGTH)
@@ -534,14 +534,25 @@ public extension SessionUtil {
 }
 
 
-public extension SessionUtil {
+public extension LibSession {
+    static func addNetworkLogger() {
+        network_add_logger({ logPtr, msgLen in
+            guard let log: String = String(pointer: logPtr, length: msgLen, encoding: .utf8) else {
+                print("[quic:info] Null log")
+                return
+            }
+            
+            print(log.trimmingCharacters(in: .whitespacesAndNewlines))
+        })
+    }
+    
     static func sendRequest(
         ed25519SecretKey: [UInt8]?,
         targetPubkey: String,
         targetIp: String,
         targetPort: UInt16,
         endpoint: String,
-        payload: Data,
+        payload: String,
         callback: @escaping (Bool, Int16, Data?) -> Void
     ) {
         class CWrapper {
@@ -561,7 +572,7 @@ public extension SessionUtil {
             port: targetPort
         )
         let cEndpoint: [CChar] = endpoint.cArray
-        let cPayload: [UInt8] = payload.cArray
+        let cPayload: [CChar] = payload.cArray
         
         do {
             try CExceptionHelper.performSafely {

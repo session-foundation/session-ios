@@ -5,7 +5,7 @@ import GRDB
 import DifferenceKit
 import SessionUtilitiesKit
 
-/// This type is duplicate in both the database and within the SessionUtil config so should only ever have it's data changes via the
+/// This type is duplicate in both the database and within the LibSession config so should only ever have it's data changes via the
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
 public struct Profile: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, CustomStringConvertible, Differentiable {
     public static var databaseTableName: String { "profile" }

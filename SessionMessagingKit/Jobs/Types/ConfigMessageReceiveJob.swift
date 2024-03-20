@@ -56,9 +56,9 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             .compactMap { $0.message as? SharedConfigMessage }
         
         dependencies.storage.write { db in
-            // Send any SharedConfigMessages to the SessionUtil to handle it
+            // Send any SharedConfigMessages to the LibSession to handle it
             do {
-                try SessionUtil.handleConfigMessages(
+                try LibSession.handleConfigMessages(
                     db,
                     messages: sharedConfigMessages,
                     publicKey: (job.threadId ?? "")

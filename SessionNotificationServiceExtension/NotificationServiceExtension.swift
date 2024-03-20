@@ -180,7 +180,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             self.handleSuccessForIncomingCall(db, for: callMessage)
                             
                         case let sharedConfigMessage as SharedConfigMessage:
-                            try SessionUtil.handleConfigMessages(
+                            try LibSession.handleConfigMessages(
                                 db,
                                 messages: [sharedConfigMessage],
                                 publicKey: processedMessage.threadId

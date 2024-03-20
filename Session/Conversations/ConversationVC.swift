@@ -9,7 +9,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class ConversationVC: BaseVC, SessionUtilRespondingViewController, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
+final class ConversationVC: BaseVC, LibSessionRespondingViewController, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
     private static let loadingHeaderHeight: CGFloat = 40
     
     internal let viewModel: ConversationViewModel
@@ -619,7 +619,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             ) &&
             viewModel.threadData.threadIsNoteToSelf == false &&
             viewModel.threadData.threadShouldBeVisible == false &&
-            !SessionUtil.conversationInConfig(
+            !LibSession.conversationInConfig(
                 threadId: threadId,
                 threadVariant: viewModel.threadData.threadVariant,
                 visibleOnly: false
@@ -684,7 +684,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                         // nearest conversation list
                         let maybeTargetViewController: UIViewController? = self?.navigationController?
                             .viewControllers
-                            .last(where: { ($0 as? SessionUtilRespondingViewController)?.isConversationList == true })
+                            .last(where: { ($0 as? LibSessionRespondingViewController)?.isConversationList == true })
                         
                         if let targetViewController: UIViewController = maybeTargetViewController {
                             self?.navigationController?.popToViewController(targetViewController, animated: true)
@@ -2169,7 +2169,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         }
     }
     
-    // MARK: - SessionUtilRespondingViewController
+    // MARK: - LibSessionRespondingViewController
     
     func isConversation(in threadIds: [String]) -> Bool {
         return threadIds.contains(self.viewModel.threadData.threadId)

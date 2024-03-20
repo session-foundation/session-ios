@@ -768,7 +768,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "testServer",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                         }
@@ -778,7 +778,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "testServer",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                calledFromConfigHandling: true, // Don't trigger LibSession logic
                                 using: dependencies
                             )
                         }
@@ -806,7 +806,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "testServer",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                         }
@@ -816,7 +816,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "testServer",
                                 publicKey: TestConstants.serverPublicKey,
-                                calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                calledFromConfigHandling: true, // Don't trigger LibSession logic
                                 using: dependencies
                             )
                         }
@@ -850,7 +850,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         publicKey: TestConstants.serverPublicKey
                                             .replacingOccurrences(of: "c3", with: "00")
                                             .replacingOccurrences(of: "b3", with: "00"),
-                                        calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                        calledFromConfigHandling: true, // Don't trigger LibSession logic
                                         using: dependencies
                                     )
                             }
@@ -862,7 +862,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     publicKey: TestConstants.serverPublicKey
                                         .replacingOccurrences(of: "c3", with: "00")
                                         .replacingOccurrences(of: "b3", with: "00"),
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                             }
@@ -915,7 +915,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                         roomToken: "testRoom",
                                         server: "testServer",
                                         publicKey: TestConstants.serverPublicKey,
-                                        calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                        calledFromConfigHandling: true, // Don't trigger LibSession logic
                                         using: dependencies
                                     )
                             }
@@ -925,7 +925,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "testServer",
                                     publicKey: TestConstants.serverPublicKey,
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                             }
@@ -965,7 +965,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                calledFromConfigHandling: true, // Don't trigger LibSession logic
                                 using: dependencies
                             )
                     }
@@ -981,7 +981,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .delete(
                                 db,
                                 openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                calledFromConfigHandling: true, // Don't trigger LibSession logic
                                 using: dependencies
                             )
                     }
@@ -1001,7 +1001,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                         }
@@ -1016,7 +1016,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                         }
@@ -1057,7 +1057,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                         }
@@ -1112,7 +1112,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                         }
@@ -1128,7 +1128,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .delete(
                                     db,
                                     openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer),
-                                    calledFromConfigHandling: true, // Don't trigger SessionUtil logic
+                                    calledFromConfigHandling: true, // Don't trigger LibSession logic
                                     using: dependencies
                                 )
                         }

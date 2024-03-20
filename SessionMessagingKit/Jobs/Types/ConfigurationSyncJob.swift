@@ -54,8 +54,8 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let publicKey: String = job.threadId,
-            let pendingConfigChanges: [SessionUtil.OutgoingConfResult] = dependencies.storage
-                .read(using: dependencies, { db in try SessionUtil.pendingChanges(db, publicKey: publicKey) })
+            let pendingConfigChanges: [LibSession.OutgoingConfResult] = dependencies.storage
+                .read(using: dependencies, { db in try LibSession.pendingChanges(db, publicKey: publicKey) })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
             return failure(job, StorageError.generic, false, dependencies)
@@ -114,7 +114,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
                 zip(response.responses, pendingConfigChanges)
-                    .compactMap { (subResponse: Decodable, change: SessionUtil.OutgoingConfResult) in
+                    .compactMap { (subResponse: Decodable, change: LibSession.OutgoingConfResult) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
@@ -126,7 +126,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         
                         /// Since this change was successful we need to mark it as pushed and generate any config dumps
                         /// which need to be stored
-                        return SessionUtil.markingAsPushed(
+                        return LibSession.markingAsPushed(
                             message: change.message,
                             serverHash: sendMessageResponse.hash,
                             publicKey: publicKey

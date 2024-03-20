@@ -196,7 +196,7 @@ public enum MessageReceiver {
         // the config then the message will be dropped)
         guard
             !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            SessionUtil.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
+            LibSession.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false)
         else { throw MessageReceiverError.requiredThreadNotInConfig }
         
         // Throw if the message is outdated and shouldn't be processed
@@ -359,7 +359,7 @@ public enum MessageReceiver {
                     .updateAllAndConfig(
                         db,
                         SessionThread.Columns.shouldBeVisible.set(to: true),
-                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority)
+                        SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority)
                     )
         }
     }
@@ -404,13 +404,13 @@ public enum MessageReceiver {
         
         // Determine the state of the conversation and the validity of the message
         let currentUserPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
-        let conversationVisibleInConfig: Bool = SessionUtil.conversationInConfig(
+        let conversationVisibleInConfig: Bool = LibSession.conversationInConfig(
             db,
             threadId: threadId,
             threadVariant: threadVariant,
             visibleOnly: true
         )
-        let canPerformChange: Bool = SessionUtil.canPerformChange(
+        let canPerformChange: Bool = LibSession.canPerformChange(
             db,
             threadId: threadId,
             targetConfig: {

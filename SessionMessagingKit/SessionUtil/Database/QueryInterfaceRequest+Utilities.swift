@@ -67,7 +67,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         let targetAssignments: [ColumnAssignment] = assignments.map { $0.assignment }
         
         // Before we do anything custom make sure the changes actually do need to be synced
-        guard SessionUtil.assignmentsRequireConfigUpdate(assignments) else {
+        guard LibSession.assignmentsRequireConfigUpdate(assignments) else {
             return try self.updateAll(db, targetAssignments)
         }
         
@@ -97,7 +97,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         // Then check if any of the changes could affect the config
         guard
             !calledFromConfig &&
-            SessionUtil.assignmentsRequireConfigUpdate(assignments)
+                LibSession.assignmentsRequireConfigUpdate(assignments)
         else { return updatedData }
         
         defer {
@@ -106,7 +106,7 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
             // per transaction - doing it more than once is pointless)
             let userPublicKey: String = getUserHexEncodedPublicKey(db)
             
-            db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userPublicKey)) { db in
+            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userPublicKey)) { db in
                 ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
             }
         }
@@ -114,13 +114,13 @@ public extension QueryInterfaceRequest where RowDecoder: FetchableRecord & Table
         // Update the config dump state where needed
         switch self {
             case is QueryInterfaceRequest<Contact>:
-                return try SessionUtil.updatingContacts(db, updatedData)
+                return try LibSession.updatingContacts(db, updatedData)
                 
             case is QueryInterfaceRequest<Profile>:
-                return try SessionUtil.updatingProfiles(db, updatedData)
+                return try LibSession.updatingProfiles(db, updatedData)
                 
             case is QueryInterfaceRequest<SessionThread>:
-                return try SessionUtil.updatingThreads(db, updatedData)
+                return try LibSession.updatingThreads(db, updatedData)
                 
             default: return updatedData
         }

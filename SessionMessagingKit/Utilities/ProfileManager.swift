@@ -29,11 +29,11 @@ public struct ProfileManager {
     // MARK: - Functions
     
     public static func isToLong(profileName: String) -> Bool {
-        return (profileName.utf8CString.count > SessionUtil.libSessionMaxNameByteLength)
+        return (profileName.utf8CString.count > LibSession.libSessionMaxNameByteLength)
     }
     
     public static func isToLong(profileUrl: String) -> Bool {
-        return (profileUrl.utf8CString.count > SessionUtil.libSessionMaxProfileUrlByteLength)
+        return (profileUrl.utf8CString.count > LibSession.libSessionMaxProfileUrlByteLength)
     }
     
     public static func profileAvatar(_ db: Database? = nil, id: String) -> Data? {

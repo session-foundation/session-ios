@@ -9,7 +9,7 @@ import SessionSnodeKit
 
 // MARK: - Size Restrictions
 
-public extension SessionUtil {
+public extension LibSession {
     static var libSessionMaxGroupNameByteLength: Int { GROUP_NAME_MAX_LENGTH }
     static var libSessionMaxGroupBaseUrlByteLength: Int { COMMUNITY_BASE_URL_MAX_LENGTH }
     static var libSessionMaxGroupFullUrlByteLength: Int { COMMUNITY_FULL_URL_MAX_LENGTH }
@@ -18,7 +18,7 @@ public extension SessionUtil {
 
 // MARK: - UserGroups Handling
 
-internal extension SessionUtil {
+internal extension LibSession {
     static let columnsRelatedToUserGroups: [ColumnExpression] = [
         ClosedGroup.Columns.name
     ]
@@ -33,7 +33,7 @@ internal extension SessionUtil {
         using dependencies: Dependencies = Dependencies()
     ) throws {
         guard mergeNeedsDump else { return }
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
         
         var infiniteLoopGuard: Int = 0
         var communities: [PrioritisedData<OpenGroupUrlInfo>] = []
@@ -43,7 +43,7 @@ internal extension SessionUtil {
         let groupsIterator: OpaquePointer = user_groups_iterator_new(conf)
         
         while !user_groups_iterator_done(groupsIterator) {
-            try SessionUtil.checkLoopLimitReached(&infiniteLoopGuard, for: .userGroups)
+            try LibSession.checkLoopLimitReached(&infiniteLoopGuard, for: .userGroups)
             
             if user_groups_it_is_community(groupsIterator, &community) {
                 let server: String = String(libSessionVal: community.base_url)
@@ -66,7 +66,7 @@ internal extension SessionUtil {
             }
             else if user_groups_it_is_legacy_group(groupsIterator, &legacyGroup) {
                 let groupId: String = String(libSessionVal: legacyGroup.session_id)
-                let members: [String: Bool] = SessionUtil.memberInfo(in: &legacyGroup)
+                let members: [String: Bool] = LibSession.memberInfo(in: &legacyGroup)
                 
                 legacyGroups.append(
                     LegacyGroupInfo(
@@ -185,7 +185,7 @@ internal extension SessionUtil {
             .subtracting(communities.map { $0.data.threadId })
         
         if !communityIdsToRemove.isEmpty {
-            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove))
+            LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove))
             
             try SessionThread
                 .deleteOrLeave(
@@ -361,7 +361,7 @@ internal extension SessionUtil {
             .subtracting(legacyGroups.map { $0.id })
         
         if !legacyGroupIdsToRemove.isEmpty {
-            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove))
+            LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove))
             
             try SessionThread
                 .deleteOrLeave(
@@ -400,7 +400,7 @@ internal extension SessionUtil {
         legacyGroups: [LegacyGroupInfo],
         in conf: UnsafeMutablePointer<config_object>?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
         guard !legacyGroups.isEmpty else { return }
         
         try legacyGroups
@@ -409,8 +409,8 @@ internal extension SessionUtil {
                 guard let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info> = user_groups_get_or_construct_legacy_group(conf, &cGroupId) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert legacy group conversation to SessionUtil: \(SessionUtil.lastError(conf))")
-                    throw SessionUtilError.getOrConstructFailedUnexpectedly
+                    SNLog("Unable to upsert legacy group conversation to LibSession: \(LibSession.lastError(conf))")
+                    throw LibSessionError.getOrConstructFailedUnexpectedly
                 }
                 
                 // Assign all properties to match the updated group (if there is one)
@@ -443,7 +443,7 @@ internal extension SessionUtil {
                 let existingMembers: [String: Bool] = {
                     guard legacyGroup.groupMembers != nil || legacyGroup.groupAdmins != nil else { return [:] }
                     
-                    return SessionUtil.memberInfo(in: userGroup)
+                    return LibSession.memberInfo(in: userGroup)
                 }()
                 
                 if let groupMembers: [GroupMember] = legacyGroup.groupMembers {
@@ -507,7 +507,7 @@ internal extension SessionUtil {
         communities: [CommunityInfo],
         in conf: UnsafeMutablePointer<config_object>?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
         guard !communities.isEmpty else { return }
         
         try communities
@@ -520,8 +520,8 @@ internal extension SessionUtil {
                 guard user_groups_get_or_construct_community(conf, &userCommunity, &cBaseUrl, &cRoom, &cPubkey) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert community conversation to SessionUtil: \(SessionUtil.lastError(conf))")
-                    throw SessionUtilError.getOrConstructFailedUnexpectedly
+                    SNLog("Unable to upsert community conversation to LibSession: \(LibSession.lastError(conf))")
+                    throw LibSessionError.getOrConstructFailedUnexpectedly
                 }
                 
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
@@ -532,7 +532,7 @@ internal extension SessionUtil {
 
 // MARK: - External Outgoing Changes
 
-public extension SessionUtil {
+public extension LibSession {
     
     // MARK: -- Communities
     
@@ -542,12 +542,12 @@ public extension SessionUtil {
         rootToken: String,
         publicKey: String
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            try SessionUtil.upsert(
+            try LibSession.upsert(
                 communities: [
                     CommunityInfo(
                         urlInfo: OpenGroupUrlInfo(
@@ -564,7 +564,7 @@ public extension SessionUtil {
     }
     
     static func remove(_ db: Database, server: String, roomToken: String) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
@@ -577,7 +577,7 @@ public extension SessionUtil {
         }
         
         // Remove the volatile info as well
-        try SessionUtil.remove(
+        try LibSession.remove(
             db,
             volatileCommunityInfo: [
                 OpenGroupUrlInfo(
@@ -603,12 +603,12 @@ public extension SessionUtil {
         members: Set<String>,
         admins: Set<String>
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            guard conf != nil else { throw SessionUtilError.nilConfigObject }
+            guard conf != nil else { throw LibSessionError.nilConfigObject }
             
             var cGroupId: [CChar] = groupPublicKey.cArray.nullTerminated()
             let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
@@ -621,7 +621,7 @@ public extension SessionUtil {
                 return
             }
             
-            try SessionUtil.upsert(
+            try LibSession.upsert(
                 legacyGroups: [
                     LegacyGroupInfo(
                         id: groupPublicKey,
@@ -667,12 +667,12 @@ public extension SessionUtil {
         members: Set<String>? = nil,
         admins: Set<String>? = nil
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            try SessionUtil.upsert(
+            try LibSession.upsert(
                 legacyGroups: [
                     LegacyGroupInfo(
                         id: groupPublicKey,
@@ -708,12 +708,12 @@ public extension SessionUtil {
         _ db: Database,
         disappearingConfigs: [DisappearingMessagesConfiguration]
     ) throws {
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            try SessionUtil.upsert(
+            try LibSession.upsert(
                 legacyGroups: disappearingConfigs.map {
                     LegacyGroupInfo(
                         id: $0.id,
@@ -728,7 +728,7 @@ public extension SessionUtil {
     static func remove(_ db: Database, legacyGroupIds: [String]) throws {
         guard !legacyGroupIds.isEmpty else { return }
         
-        try SessionUtil.performAndPushChange(
+        try LibSession.performAndPushChange(
             db,
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
@@ -742,7 +742,7 @@ public extension SessionUtil {
         }
         
         // Remove the volatile info as well
-        try SessionUtil.remove(db, volatileLegacyGroupIds: legacyGroupIds)
+        try LibSession.remove(db, volatileLegacyGroupIds: legacyGroupIds)
     }
     
     // MARK: -- Group Changes
@@ -755,7 +755,7 @@ public extension SessionUtil {
 
 // MARK: - LegacyGroupInfo
 
-extension SessionUtil {
+extension LibSession {
     struct LegacyGroupInfo: Decodable, FetchableRecord, ColumnExpressible {
         private static let threadIdKey: SQL = SQL(stringLiteral: CodingKeys.threadId.stringValue)
         private static let nameKey: SQL = SQL(stringLiteral: CodingKeys.name.stringValue)
@@ -902,7 +902,7 @@ extension SessionUtil {
     }
     
     fileprivate struct GroupThreadData {
-        let communities: [PrioritisedData<SessionUtil.OpenGroupUrlInfo>]
+        let communities: [PrioritisedData<LibSession.OpenGroupUrlInfo>]
         let legacyGroups: [PrioritisedData<LegacyGroupInfo>]
         let groups: [PrioritisedData<String>]
     }

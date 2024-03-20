@@ -938,7 +938,7 @@ extension ConversationVC:
                 ) { [weak self] _ in
                     dependencies.storage.writeAsync { db in
                         try messageDisappearingConfig.save(db)
-                        try SessionUtil
+                        try LibSession
                             .update(
                                 db,
                                 sessionId: cellViewModel.threadId,
@@ -1742,7 +1742,7 @@ extension ConversationVC:
                         return
                     }
                     
-                    guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: url) else {
+                    guard let (room, server, publicKey) = LibSession.parseCommunity(url: url) else {
                         let errorModal: ConfirmationModal = ConfirmationModal(
                             info: ConfirmationModal.Info(
                                 title: "COMMUNITY_ERROR_GENERIC".localized(),

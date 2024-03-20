@@ -52,7 +52,7 @@ class DatabaseSpec: QuickSpec {
             beforeEach {
                 // FIXME: These should be mocked out instead of set this way
                 dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = "05\(TestConstants.publicKey)" }
-                SessionUtil.clearMemoryState()
+                LibSession.clearMemoryState()
             }
             
             // MARK: -- can be created from an empty state

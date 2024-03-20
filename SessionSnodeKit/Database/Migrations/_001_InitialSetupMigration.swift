@@ -16,27 +16,17 @@ enum _001_InitialSetupMigration: Migration {
     
     static func migrate(_ db: Database) throws {
         try db.create(table: Snode.self) { t in
-            t.column(.address, .text).notNull()
-            t.column(.port, .integer).notNull()
-            t.column(.ed25519PublicKey, .text).notNull()
-            t.column(.x25519PublicKey, .text).notNull()
-            
-            t.primaryKey([.address, .port])
+            t.deprecatedColumn(name: "public_ip", .text)
+            t.deprecatedColumn(name: "storage_port", .integer)
+            t.column(.ed25519PublicKey, .text)
+            t.deprecatedColumn(name: "pubkey_x25519", .text)
         }
         
         try db.create(table: SnodeSet.self) { t in
-            t.column(.key, .text).notNull()
-            t.column(.nodeIndex, .integer).notNull()
-            t.column(.address, .text).notNull()
-            t.column(.port, .integer).notNull()
-            
-            t.foreignKey(
-                [.address, .port],
-                references: Snode.self,
-                columns: [.address, .port],
-                onDelete: .cascade                                    // Delete if Snode deleted
-            )
-            t.primaryKey([.key, .nodeIndex])
+            t.column(.key, .text)
+            t.column(.nodeIndex, .integer)
+            t.deprecatedColumn(name: "address", .text)
+            t.deprecatedColumn(name: "port", .integer)
         }
         
         try db.create(table: SnodeReceivedMessageInfo.self) { t in

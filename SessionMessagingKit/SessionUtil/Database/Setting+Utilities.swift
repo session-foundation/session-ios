@@ -40,7 +40,7 @@ public extension Database {
         updatedSetting: Setting?
     ) throws {
         // Before we do anything custom make sure the setting should trigger a change
-        guard SessionUtil.syncedSettings.contains(key) else { return }
+        guard LibSession.syncedSettings.contains(key) else { return }
         
         defer {
             // If we changed a column that requires a config update then we may as well automatically
@@ -48,11 +48,11 @@ public extension Database {
             // per transaction - doing it more than once is pointless)
             let userPublicKey: String = getUserHexEncodedPublicKey(db)
             
-            db.afterNextTransactionNestedOnce(dedupeId: SessionUtil.syncDedupeId(userPublicKey)) { db in
+            db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(userPublicKey)) { db in
                 ConfigurationSyncJob.enqueue(db, publicKey: userPublicKey)
             }
         }
         
-        try SessionUtil.updatingSetting(db, updatedSetting)
+        try LibSession.updatingSetting(db, updatedSetting)
     }
 }

@@ -5,7 +5,7 @@ import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 
-internal extension SessionUtil {
+internal extension LibSession {
     static let columnsRelatedToUserProfile: [Profile.Columns] = [
         Profile.Columns.name,
         Profile.Columns.profilePictureUrl,
@@ -28,7 +28,7 @@ internal extension SessionUtil {
         typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
         
         guard mergeNeedsDump else { return }
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
         
         // A profile must have a name so if this is null then it's invalid and can be ignored
         guard let profileNamePtr: UnsafePointer<CChar> = user_profile_get_name(conf) else { return }
@@ -71,8 +71,8 @@ internal extension SessionUtil {
         // Create the 'Note to Self' thread if it doesn't exist
         if let threadInfo: PriorityVisibilityInfo = threadInfo {
             let threadChanges: [ConfigColumnAssignment] = [
-                ((threadInfo.shouldBeVisible == SessionUtil.shouldBeVisible(priority: targetPriority)) ? nil :
-                    SessionThread.Columns.shouldBeVisible.set(to: SessionUtil.shouldBeVisible(priority: targetPriority))
+                ((threadInfo.shouldBeVisible == LibSession.shouldBeVisible(priority: targetPriority)) ? nil :
+                    SessionThread.Columns.shouldBeVisible.set(to: LibSession.shouldBeVisible(priority: targetPriority))
                 ),
                 (threadInfo.pinnedPriority == targetPriority ? nil :
                     SessionThread.Columns.pinnedPriority.set(to: targetPriority)
@@ -94,7 +94,7 @@ internal extension SessionUtil {
                     db,
                     id: userPublicKey,
                     variant: .contact,
-                    shouldBeVisible: SessionUtil.shouldBeVisible(priority: targetPriority)
+                    shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority)
                 )
             
             try SessionThread
@@ -107,7 +107,7 @@ internal extension SessionUtil {
             // If the 'Note to Self' conversation is hidden then we should trigger the proper
             // `deleteOrLeave` behaviour (for 'Note to Self' this will leave the conversation
             // but remove the associated interactions)
-            if !SessionUtil.shouldBeVisible(priority: targetPriority) {
+            if !LibSession.shouldBeVisible(priority: targetPriority) {
                 try SessionThread
                     .deleteOrLeave(
                         db,
@@ -175,7 +175,7 @@ internal extension SessionUtil {
         profile: Profile,
         in conf: UnsafeMutablePointer<config_object>?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
         
         // Update the name
         var updatedName: [CChar] = profile.name.cArray.nullTerminated()
@@ -193,7 +193,7 @@ internal extension SessionUtil {
         disappearingMessagesConfig: DisappearingMessagesConfiguration? = nil,
         in conf: UnsafeMutablePointer<config_object>?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
         
         if let priority: Int32 = priority {
             user_profile_set_nts_priority(conf, priority)
@@ -208,7 +208,7 @@ internal extension SessionUtil {
         checkForCommunityMessageRequests: Bool? = nil,
         in conf: UnsafeMutablePointer<config_object>?
     ) throws {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
         
         if let blindedMessageRequests: Bool = checkForCommunityMessageRequests {
             user_profile_set_blinded_msgreqs(conf, (blindedMessageRequests ? 1 : 0))
@@ -218,9 +218,9 @@ internal extension SessionUtil {
 
 // MARK: - Direct Values
 
-extension SessionUtil {
+extension LibSession {
     static func rawBlindedMessageRequestValue(in conf: UnsafeMutablePointer<config_object>?) throws -> Int32 {
-        guard conf != nil else { throw SessionUtilError.nilConfigObject }
+        guard conf != nil else { throw LibSessionError.nilConfigObject }
     
         return user_profile_get_blinded_msgreqs(conf)
     }

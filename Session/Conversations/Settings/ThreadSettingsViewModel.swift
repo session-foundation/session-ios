@@ -360,7 +360,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                                 let publicKey: String = threadViewModel.openGroupPublicKey
                                             else { return }
 
-                                            UIPasteboard.general.string = SessionUtil.communityUrlFor(
+                                            UIPasteboard.general.string = LibSession.communityUrlFor(
                                                 server: server,
                                                 roomToken: roomToken,
                                                 publicKey: publicKey
@@ -768,7 +768,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             let publicKey: String = threadViewModel.openGroupPublicKey
         else { return }
         
-        let communityUrl: String = SessionUtil.communityUrlFor(
+        let communityUrl: String = LibSession.communityUrlFor(
             server: server,
             roomToken: roomToken,
             publicKey: publicKey

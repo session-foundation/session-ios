@@ -225,7 +225,7 @@ public class Poller {
             poller?.pollerName(for: publicKey) ??
             "poller with public key \(publicKey)"
         )
-        let configHashes: [String] = SessionUtil.configHashes(for: publicKey)
+        let configHashes: [String] = LibSession.configHashes(for: publicKey)
         
         // Fetch the messages
         return SnodeAPI

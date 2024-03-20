@@ -10,7 +10,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
     static let identifier: String = "BlockCommunityMessageRequests" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
-    static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
+    static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
         Identity.self, Setting.self
     ]
@@ -28,10 +28,10 @@ enum _015_BlockCommunityMessageRequests: Migration {
             Identity.userExists(db),
             (try Setting.exists(db, id: Setting.BoolKey.checkForCommunityMessageRequests.rawValue)) == false
         {
-            let rawBlindedMessageRequestValue: Int32 = try SessionUtil
+            let rawBlindedMessageRequestValue: Int32 = try LibSession
                 .config(for: .userProfile, publicKey: getUserHexEncodedPublicKey(db))
                 .wrappedValue
-                .map { conf -> Int32 in try SessionUtil.rawBlindedMessageRequestValue(in: conf) }
+                .map { conf -> Int32 in try LibSession.rawBlindedMessageRequestValue(in: conf) }
                 .defaulting(to: -1)
             
             // Use the value in the config if we happen to have one, otherwise use the default

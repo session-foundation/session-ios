@@ -93,8 +93,8 @@ enum Onboarding {
         /// If the user returns to an earlier screen during Onboarding we might need to clear out a partially created
         /// account (eg. returning from the PN setting screen to the seed entry screen when linking a device)
         func unregister(using dependencies: Dependencies = Dependencies()) {
-            // Clear the in-memory state from SessionUtil
-            SessionUtil.clearMemoryState()
+            // Clear the in-memory state from LibSession
+            LibSession.clearMemoryState()
             
             // Clear any data which gets set during Onboarding
             Storage.shared.write { db in
@@ -123,7 +123,7 @@ enum Onboarding {
             
             // Create the initial shared util state (won't have been created on
             // launch due to lack of ed25519 key)
-            SessionUtil.loadState(
+            LibSession.loadState(
                 userPublicKey: x25519PublicKey,
                 ed25519SecretKey: ed25519KeyPair.secretKey
             )
