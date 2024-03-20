@@ -68,7 +68,7 @@ struct VoiceMessageView_SwiftUI: View {
                             height: Self.toggleContainerSize
                         )
                     
-                    Text(time)
+                    Text(attachment.duration.defaulting(to: 0).formatted(format: .hoursMinutesSeconds))
                         .foregroundColor(themeColor: .textPrimary)
                         .font(.system(size: Values.smallFontSize))
                 }
