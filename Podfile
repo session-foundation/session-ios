@@ -13,9 +13,6 @@ abstract_target 'GlobalDependencies' do
   
   # FIXME: Would be nice to migrate from CocoaPods to SwiftPackageManager (should allow us to speed up build time), haven't gone through all of the dependencies but currently unfortunately SQLCipher doesn't support SPM (for more info see: https://github.com/sqlcipher/sqlcipher/issues/371)
   pod 'SQLCipher', '~> 4.5.3'
-
-  # FIXME: We want to remove this once it's been long enough since the migration to GRDB
-  pod 'YapDatabase/SQLCipher', :git => 'https://github.com/oxen-io/session-ios-yap-database.git', branch: 'signal-release'
   pod 'WebRTC-lib'
   
   target 'Session' do
