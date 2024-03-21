@@ -1561,10 +1561,9 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         }
         
         self.outdatedClientBanner.update(
-            message: String(
-                format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(),
-                Profile.displayName(id: outdatedMemberId, threadVariant: self.viewModel.threadData.threadVariant)
-            ),
+            message: "disappearingMessagesLegacy"
+                .put(key: "name", value: Profile.displayName(id: outdatedMemberId, threadVariant: self.viewModel.threadData.threadVariant))
+                .localized(),
             dismiss: self.removeOutdatedClientBanner
         )
 

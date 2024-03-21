@@ -428,25 +428,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
-<<<<<<< HEAD
                 alert.addAction(UIAlertAction(title: "onboardingAccountExists".localized(), style: .destructive) { _ in
-                    if SUKLegacy.hasLegacyDatabaseFile {
-                        // Remove the legacy database and any message hashes that have been migrated to the new DB
-                        try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
-                        
-                        Storage.shared.write { db in
-                            try SnodeReceivedMessageInfo.deleteAll(db)
-                        }
-                    }
-                    else {
-                        // If we don't have a legacy database then reset the current database for a clean migration
-                        Storage.resetForCleanMigration()
-                    }
-=======
-                alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
                     // Reset the current database for a clean migration
                     Storage.resetForCleanMigration()
->>>>>>> dev
                     
                     // Hide the top banner if there was one
                     TopBannerController.hide()
