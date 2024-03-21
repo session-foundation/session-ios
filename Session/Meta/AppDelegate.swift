@@ -428,6 +428,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
+<<<<<<< HEAD
                 alert.addAction(UIAlertAction(title: "onboardingAccountExists".localized(), style: .destructive) { _ in
                     if SUKLegacy.hasLegacyDatabaseFile {
                         // Remove the legacy database and any message hashes that have been migrated to the new DB
@@ -441,6 +442,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         // If we don't have a legacy database then reset the current database for a clean migration
                         Storage.resetForCleanMigration()
                     }
+=======
+                alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
+                    // Reset the current database for a clean migration
+                    Storage.resetForCleanMigration()
+>>>>>>> dev
                     
                     // Hide the top banner if there was one
                     TopBannerController.hide()
@@ -889,7 +895,7 @@ private enum StartupError: Error {
         switch self {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
                 return "Database startup failed" // stringlint:disable
-                
+            case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version" // stringlint:disable
             case .failedToRestore: return "Failed to restore" // stringlint:disable
             case .databaseError: return "Database error" // stringlint:disable
             case .startupTimeout: return "Startup timeout" // stringlint:disable
@@ -900,7 +906,10 @@ private enum StartupError: Error {
         switch self {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
                 return "DATABASE_STARTUP_FAILED".localized()
-                
+
+            case .databaseError(StorageError.migrationNoLongerSupported):
+                return "DATABASE_UNSUPPORTED_MIGRATION".localized()
+            
             case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
             case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
             case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()
