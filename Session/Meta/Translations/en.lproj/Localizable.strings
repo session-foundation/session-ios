@@ -613,6 +613,7 @@
 "attachmentsDownload" = "Download Attachment";
 "urlOpenBrowser" = "This will open in your browser.";
 "resolving" = "Resolving...";
+"disappearingMessagesLegacy" = "{name} is using an outdated client. Disappearing messages may not work as expected.";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";
@@ -651,7 +652,6 @@
 "FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
-"DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER" = "%@ is using an outdated client. Disappearing messages may not work as expected.";
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 match";
 "DM_ERROR_DIRECT_BLINDED_ID" = "You can only send messages to Blinded IDs from within a Community";
 "DM_ERROR_INVALID" = "Please check the Session ID or ONS name and try again";
