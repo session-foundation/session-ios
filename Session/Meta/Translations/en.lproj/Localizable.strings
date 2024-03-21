@@ -614,6 +614,7 @@
 "urlOpenBrowser" = "This will open in your browser.";
 "resolving" = "Resolving...";
 "disappearingMessagesLegacy" = "{name} is using an outdated client. Disappearing messages may not work as expected.";
+"showLess" = "Show Less";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";
@@ -632,7 +633,6 @@
 "GROUP_UPDATE_ERROR_TITLE" = "Couldn't Update Group";
 "vc_conversation_voice_message_cancel_message" = "Slide to Cancel";
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
-"EMOJI_REACTS_SHOW_LESS" = "Show less";
 "FOLLOW_SETTING_TITLE" = "Follow Setting";
 "context_menu_resync" = "Resync";
 "context_menu_ban_and_delete_all" = "Ban and Delete All";

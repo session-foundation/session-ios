@@ -204,7 +204,9 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     
     lazy var outdatedClientBanner: InfoBanner = {
         let info: InfoBanner.Info = InfoBanner.Info(
-            message: String(format: "DISAPPEARING_MESSAGES_OUTDATED_CLIENT_BANNER".localized(), self.viewModel.threadData.displayName),
+            message: "disappearingMessagesLegacy"
+                .put(key: "name", value: self.viewModel.threadData.displayName)
+                .localized(),
             backgroundColor: .primary,
             messageFont: .systemFont(ofSize: Values.verySmallFontSize),
             messageTintColor: .messageBubble_outgoingText,
