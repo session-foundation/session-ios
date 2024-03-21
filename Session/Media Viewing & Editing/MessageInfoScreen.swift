@@ -221,7 +221,7 @@ struct MessageInfoScreen: View {
                             }
                             
                             if isMessageFailed {
-                                let failureText: String = messageViewModel.mostRecentFailureText ?? "Message failed to send"
+                                let failureText: String = messageViewModel.mostRecentFailureText ?? "SEND_FAILED_NOTIFICATION_BODY".localized()
                                 InfoBlock(title: "ALERT_ERROR_TITLE".localized() + ":") {
                                     Text(failureText)
                                         .font(.system(size: Values.mediumFontSize))
@@ -268,7 +268,7 @@ struct MessageInfoScreen: View {
                                                 .foregroundColor(themeColor: .textPrimary)
                                         }
                                         Text(messageViewModel.authorId)
-                                            .font(.spaceMono(size: Values.mediumFontSize))
+                                            .font(.spaceMono(size: Values.smallFontSize))
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                 }
