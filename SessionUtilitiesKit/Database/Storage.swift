@@ -249,7 +249,6 @@ open class Storage {
             self?.migrationsCompleted.mutate { $0 = true }
             self?.migrationProgressUpdater = nil
             self?.migrationRequirementProcesser = nil
-            SUKLegacy.clearLegacyDatabaseInstance()
             
             // Process any remaining migration requirements
             if !remainingMigrationRequirements.isEmpty {
@@ -421,10 +420,6 @@ open class Storage {
     }
     
     public static func resetAllStorage() {
-        // Just in case they haven't been removed for some reason, delete the legacy database & keys
-        SUKLegacy.clearLegacyDatabaseInstance()
-        try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
-        
         Storage.shared.isValid = false
         Storage.internalHasCreatedValidInstance.mutate { $0 = false }
         Storage.shared.migrationsCompleted.mutate { $0 = false }

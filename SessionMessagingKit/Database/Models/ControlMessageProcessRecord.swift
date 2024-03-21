@@ -114,7 +114,7 @@ public struct ControlMessageProcessRecord: Codable, FetchableRecord, Persistable
                 case is ClosedGroupControlMessage: return .closedGroupControlMessage
                 case is DataExtractionNotification: return .dataExtractionNotification
                 case is ExpirationTimerUpdate: return .expirationTimerUpdate
-                case is ConfigurationMessage, is SharedConfigMessage: return .configurationMessage
+                case is LegacyConfigurationMessage, is SharedConfigMessage: return .configurationMessage
                 case is UnsendRequest: return .unsendRequest
                 case is MessageRequestResponse: return .messageRequestResponse
                 case is CallMessage: return .call
