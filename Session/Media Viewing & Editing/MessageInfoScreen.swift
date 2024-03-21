@@ -367,6 +367,8 @@ struct MessageInfoScreen: View {
 }
 
 struct MessageBubble: View {
+    @State private var maxWidth: CGFloat?
+    
     static private let cornerRadius: CGFloat = 18
     static private let inset: CGFloat = 12
     
@@ -462,8 +464,20 @@ struct MessageBubble: View {
                     }
                 case .audio, .genericAttachment:
                     if let attachment: Attachment = messageViewModel.attachments?.first {
-                        VStack(spacing: Values.smallSpacing) {
-                            DocumentView_SwiftUI(attachment: attachment, textColor: bodyLabelTextColor)
+                        VStack(
+                            alignment: .leading,
+                            spacing: Values.smallSpacing
+                        ) {
+                            DocumentView_SwiftUI(
+                                maxWidth: $maxWidth,
+                                attachment: attachment,
+                                textColor: bodyLabelTextColor
+                            )
+                            .modifier(MaxWidthEqualizer.notify)
+                            .frame(
+                                width: maxWidth,
+                                alignment: .leading
+                            )
                             
                             if let bodyText: NSAttributedString = VisibleMessageCell.getBodyAttributedText(
                                 for: messageViewModel,
@@ -474,11 +488,17 @@ struct MessageBubble: View {
                             ) {
                                 ZStack{
                                     AttributedText(bodyText)
+                                        .padding(.horizontal, Self.inset)
+                                        .padding(.bottom, Self.inset)
                                 }
-                                .padding(.horizontal, Self.inset)
-                                .padding(.bottom, Self.inset)
+                                .modifier(MaxWidthEqualizer.notify)
+                                .frame(
+                                    width: maxWidth,
+                                    alignment: .leading
+                                )
                             }
                         }
+                        .modifier(MaxWidthEqualizer(width: $maxWidth))
                     }
                 default: EmptyView()
             }

@@ -5,12 +5,15 @@ import SessionUIKit
 import SessionMessagingKit
 
 struct DocumentView_SwiftUI: View {
+    @Binding private var maxWidth: CGFloat?
+    
     static private let inset: CGFloat = 12
     
     private let attachment: Attachment
     private let textColor: ThemeValue
     
-    public init(attachment: Attachment, textColor: ThemeValue) {
+    public init(maxWidth: Binding<CGFloat?>, attachment: Attachment, textColor: ThemeValue) {
+        self._maxWidth = maxWidth
         self.attachment = attachment
         self.textColor = textColor
     }
@@ -51,6 +54,10 @@ struct DocumentView_SwiftUI: View {
                     .lineLimit(1)
                     .font(.system(size: Values.mediumFontSize))
                     .foregroundColor(themeColor: textColor)
+                    .frame(
+                        maxWidth: maxWidth,
+                        alignment: .leading
+                    )
                 
                 Text(attachment.documentFileInfo)
                     .font(.system(size: Values.verySmallFontSize))
@@ -64,13 +71,17 @@ struct DocumentView_SwiftUI: View {
                 .foregroundColor(themeColor: textColor)
                 .padding(.trailing, Self.inset)
         }
+        .frame(width: maxWidth)
     }
 }
 
 struct DocumentView_SwiftUI_Previews: PreviewProvider {
+    @State static private var maxWidth: CGFloat? = 200
+    
     static var previews: some View {
         VStack {
             DocumentView_SwiftUI(
+                maxWidth: $maxWidth,
                 attachment: Attachment(
                     variant: .standard,
                     contentType: "audio/mp4",
@@ -78,12 +89,10 @@ struct DocumentView_SwiftUI_Previews: PreviewProvider {
                 ),
                 textColor: .messageBubble_outgoingText
             )
-            .frame(
-                width: 200,
-                height: 58
-            )
+            .frame(height: 58)
             
             DocumentView_SwiftUI(
+                maxWidth: $maxWidth,
                 attachment: Attachment(
                     variant: .standard,
                     contentType: "txt",
@@ -91,10 +100,7 @@ struct DocumentView_SwiftUI_Previews: PreviewProvider {
                 ),
                 textColor: .messageBubble_outgoingText
             )
-            .frame(
-                width: 200,
-                height: 58
-            )
+            .frame(height: 58)
         }
     }
 }
