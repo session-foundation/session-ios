@@ -75,11 +75,8 @@ struct NewMessageScreen: View {
                 case .standard:
                     startNewDM(with: onsNameOrPublicKey)
                     
-                case .blinded15, .blinded25, .group, .unblinded:
-                    errorString = "accountIdErrorInvalid".localized()
-                    
                 default:
-                    break
+                    errorString = "accountIdErrorInvalid".localized()
             }
             return
         }
