@@ -13,14 +13,14 @@ public struct SnodeSet: Codable, FetchableRecord, EncodableRecord, PersistableRe
     public enum CodingKeys: String, CodingKey, ColumnExpression {
         case key
         case nodeIndex
-        case address
-        case port
+        case ip
+        case lmqPort
     }
     
     public let key: String
     public let nodeIndex: Int
-    public let address: String
-    public let port: UInt16
+    public let ip: String
+    public let lmqPort: UInt16
     
     public var node: QueryInterfaceRequest<Snode> {
         request(for: SnodeSet.node)

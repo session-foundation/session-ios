@@ -79,10 +79,15 @@ public enum OnionRequestAPI {
     private static func testSnode(_ snode: Snode, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
         let url = "\(snode.address):\(snode.port)/get_stats/v1"
         let timeout: TimeInterval = 3 // Use a shorter timeout for testing
-        
-        return HTTP.execute(.get, url, timeout: timeout)
-            .decoded(as: SnodeAPI.GetStatsResponse.self, using: dependencies)
-            .tryMap { response -> Void in
+
+        return LibSession
+            .sendRequest(
+                ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
+                snode: snode,
+                endpoint: SnodeAPI.Endpoint.getInfo.rawValue
+            )
+            .decoded(as: SnodeAPI.GetInfoResponse.self, using: dependencies)
+            .tryMap { _, response -> Void in
                 guard let version: Version = response.version else { throw OnionRequestAPIError.missingSnodeVersion }
                 guard version >= Version(major: 2, minor: 0, patch: 7) else {
                     SNLog("Unsupported snode version: \(version.stringValue).")
@@ -513,117 +518,28 @@ public enum OnionRequestAPI {
         timeout: TimeInterval = HTTP.defaultTimeout,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        var guardSnode: Snode?
         
-        return buildOnion(around: payload, targetedAt: destination, using: dependencies)
-            .flatMap { intermediate -> AnyPublisher<(ResponseInfoType, Data?), Error> in
-                guardSnode = intermediate.guardSnode
-                let url = "\(guardSnode!.address):\(guardSnode!.port)/onion_req/v2"
-                let finalEncryptionResult = intermediate.finalEncryptionResult
-                let onion = finalEncryptionResult.ciphertext
-                if case OnionRequestAPIDestination.server = destination, Double(onion.count) > 0.75 * Double(maxRequestSize) {
-                    SNLog("Approaching request size limit: ~\(onion.count) bytes.")
-                }
-                let parameters: JSON = [
-                    "ephemeral_key" : finalEncryptionResult.ephemeralPublicKey.toHexString()
-                ]
-                let destinationSymmetricKey = intermediate.destinationSymmetricKey
+        let snodeToExclude: Snode? = {
+            switch destination {
+                case .snode(let snode): return snode
+                default: return nil
+            }
+        }()
+        
+        return getPath(excluding: snodeToExclude, using: dependencies)
+            .tryFlatMap { path -> AnyPublisher<(ResponseInfoType, Data?), Error> in
+                guard let guardSnode: Snode = path.first else { throw OnionRequestAPIError.insufficientSnodes }
                 
-                // TODO: Replace 'json' with a codable typed
-                return encode(ciphertext: onion, json: parameters)
-                    .flatMap { body in HTTP.execute(.post, url, body: body, timeout: timeout) }
-                    .flatMap { responseData in
-                        handleResponse(
-                            responseData: responseData,
-                            destinationSymmetricKey: destinationSymmetricKey,
-                            version: version,
-                            destination: destination
-                        )
-                    }
-                    .eraseToAnyPublisher()
+                return LibSession
+                    .sendOnionRequest(
+                        path: path,
+                        ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
+                        to: destination,
+                        payload: payload//Data()//body
+                    )
             }
             .handleEvents(
                 receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure(let error):
-                            guard let guardSnode: Snode = guardSnode else {
-                                return SNLog("Request failed with no guardSnode.")
-                            }
-                            guard case HTTPError.httpRequestFailed(let statusCode, let data) = error else { return }
-                            
-                            let path = paths.first { $0.contains(guardSnode) }
-                            
-                            func handleUnspecificError() {
-                                guard let path = path else { return }
-                                
-                                var pathFailureCount: UInt = (OnionRequestAPI.pathFailureCount.wrappedValue[path] ?? 0)
-                                pathFailureCount += 1
-                                
-                                if pathFailureCount >= pathFailureThreshold {
-                                    dropGuardSnode(guardSnode)
-                                    path.forEach { snode in
-                                        SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode) // Intentionally don't throw
-                                    }
-                                    
-                                    drop(path)
-                                }
-                                else {
-                                    OnionRequestAPI.pathFailureCount.mutate { $0[path] = pathFailureCount }
-                                }
-                            }
-                            
-                            let prefix = "Next node not found: "
-                            let json: JSON?
-                            
-                            if let data: Data = data, let processedJson = try? JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON {
-                                json = processedJson
-                            }
-                            else if let data: Data = data, let result: String = String(data: data, encoding: .utf8) {
-                                json = [ "result": result ]
-                            }
-                            else {
-                                json = nil
-                            }
-                            
-                            if let message = json?["result"] as? String, message.hasPrefix(prefix) {
-                                let ed25519PublicKey = message[message.index(message.startIndex, offsetBy: prefix.count)..<message.endIndex]
-                                
-                                if let path = path, let snode = path.first(where: { $0.ed25519PublicKey == ed25519PublicKey }) {
-                                    var snodeFailureCount: UInt = (OnionRequestAPI.snodeFailureCount.wrappedValue[snode] ?? 0)
-                                    snodeFailureCount += 1
-                                    
-                                    if snodeFailureCount >= snodeFailureThreshold {
-                                        SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode) // Intentionally don't throw
-                                        do {
-                                            try drop(snode)
-                                        }
-                                        catch {
-                                            handleUnspecificError()
-                                        }
-                                    }
-                                    else {
-                                        OnionRequestAPI.snodeFailureCount
-                                            .mutate { $0[snode] = snodeFailureCount }
-                                    }
-                                } else {
-                                    // Do nothing
-                                }
-                            }
-                            else if let message = json?["result"] as? String, message == "Loki Server error" {
-                                // Do nothing
-                            }
-                            else if case .server(let host, _, _, _, _) = destination, host == "116.203.70.33" && statusCode == 0 {
-                                // FIXME: Temporary thing to kick out nodes that can't talk to the V2 OGS yet
-                                handleUnspecificError()
-                            }
-                            else if statusCode == 0 { // Timeout
-                                // Do nothing
-                            }
-                            else {
-                                handleUnspecificError()
-                            }
-                    }
                 }
             )
             .eraseToAnyPublisher()

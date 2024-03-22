@@ -571,7 +571,7 @@
 		FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C300A5B12554AF9800555489 /* VisibleMessage+Profile.swift */; };
 		FD245C6C2850669200B966DD /* MessageReceiveJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A31225574F5200338F3E /* MessageReceiveJob.swift */; };
 		FD245C6D285066A400B966DD /* NotifyPushServerJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = C352A32E2557549C00338F3E /* NotifyPushServerJob.swift */; };
-		FD29598B2A43BB8100888A17 /* GetStatsResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598A2A43BB8100888A17 /* GetStatsResponse.swift */; };
+		FD29598B2A43BB8100888A17 /* GetInfoResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598A2A43BB8100888A17 /* GetInfoResponse.swift */; };
 		FD29598D2A43BC0B00888A17 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598C2A43BC0B00888A17 /* Version.swift */; };
 		FD2959902A43BE5F00888A17 /* VersionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29598F2A43BE5F00888A17 /* VersionSpec.swift */; };
 		FD2959922A4417A900888A17 /* PreparedSendData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2959912A4417A900888A17 /* PreparedSendData.swift */; };
@@ -717,6 +717,7 @@
 		FD7F74602BAAA4C7006DDFD8 /* libSessionUtil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */; };
 		FD7F74632BAAA4CA006DDFD8 /* libSessionUtil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9BDDF82A5D2294005F1EBC /* libSessionUtil.a */; };
 		FD7F74672BAAAC26006DDFD8 /* GetSwarmResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F74662BAAAC26006DDFD8 /* GetSwarmResponse.swift */; };
+		FD7F746A2BAB8A6D006DDFD8 /* LibSession+Networking.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F74692BAB8A6D006DDFD8 /* LibSession+Networking.swift */; };
 		FD83B9B327CF200A005E1583 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; platformFilter = ios; };
 		FD83B9BB27CF20AF005E1583 /* SessionIdSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BA27CF20AF005E1583 /* SessionIdSpec.swift */; };
 		FD83B9BF27CF2294005E1583 /* TestConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BD27CF2243005E1583 /* TestConstants.swift */; };
@@ -1718,7 +1719,7 @@
 		FD23EA6028ED0B260058676E /* CombineExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombineExtensions.swift; sourceTree = "<group>"; };
 		FD245C612850664300B966DD /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		FD28A4F527EAD44C00FF65E7 /* Storage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Storage.swift; sourceTree = "<group>"; };
-		FD29598A2A43BB8100888A17 /* GetStatsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetStatsResponse.swift; sourceTree = "<group>"; };
+		FD29598A2A43BB8100888A17 /* GetInfoResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetInfoResponse.swift; sourceTree = "<group>"; };
 		FD29598C2A43BC0B00888A17 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
 		FD29598F2A43BE5F00888A17 /* VersionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionSpec.swift; sourceTree = "<group>"; };
 		FD2959912A4417A900888A17 /* PreparedSendData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedSendData.swift; sourceTree = "<group>"; };
@@ -1854,6 +1855,7 @@
 		FD7F745C2BAAA38B006DDFD8 /* LibSessionError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionError.swift; sourceTree = "<group>"; };
 		FD7F745E2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TypeConversion+Utilities.swift"; sourceTree = "<group>"; };
 		FD7F74662BAAAC26006DDFD8 /* GetSwarmResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetSwarmResponse.swift; sourceTree = "<group>"; };
+		FD7F74692BAB8A6D006DDFD8 /* LibSession+Networking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+Networking.swift"; sourceTree = "<group>"; };
 		FD83B9AF27CF200A005E1583 /* SessionUtilitiesKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionUtilitiesKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD83B9BA27CF20AF005E1583 /* SessionIdSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionIdSpec.swift; sourceTree = "<group>"; };
 		FD83B9BD27CF2243005E1583 /* TestConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestConstants.swift; sourceTree = "<group>"; };
@@ -3337,6 +3339,7 @@
 				FDF8488F29405C13007DCAE5 /* Types */,
 				FDF8488C29405C04007DCAE5 /* Jobs */,
 				FDF8489229405C1B007DCAE5 /* Networking */,
+				FD7F74682BAB8A5D006DDFD8 /* SessionUtil */,
 				C3C2A5CD255385F300C340D1 /* Utilities */,
 				C3C2A5B9255385ED00C340D1 /* Configuration.swift */,
 			);
@@ -4105,6 +4108,14 @@
 			path = Utilities;
 			sourceTree = "<group>";
 		};
+		FD7F74682BAB8A5D006DDFD8 /* SessionUtil */ = {
+			isa = PBXGroup;
+			children = (
+				FD7F74692BAB8A6D006DDFD8 /* LibSession+Networking.swift */,
+			);
+			path = SessionUtil;
+			sourceTree = "<group>";
+		};
 		FD83B9B027CF200A005E1583 /* SessionUtilitiesKitTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -4529,7 +4540,7 @@
 				FDF848A629405C5A007DCAE5 /* ONSResolveRequest.swift */,
 				FDF8489E29405C5A007DCAE5 /* ONSResolveResponse.swift */,
 				FDF8489C29405C5A007DCAE5 /* GetServiceNodesRequest.swift */,
-				FD29598A2A43BB8100888A17 /* GetStatsResponse.swift */,
+				FD29598A2A43BB8100888A17 /* GetInfoResponse.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -5783,6 +5794,7 @@
 				FDF848C329405C5A007DCAE5 /* DeleteMessagesRequest.swift in Sources */,
 				FDF8489129405C13007DCAE5 /* SnodeAPINamespace.swift in Sources */,
 				C3C2A5E02553860B00C340D1 /* Threading.swift in Sources */,
+				FD7F746A2BAB8A6D006DDFD8 /* LibSession+Networking.swift in Sources */,
 				FDF848C529405C5B007DCAE5 /* GetSwarmRequest.swift in Sources */,
 				FDF848D729405C5B007DCAE5 /* SnodeBatchRequest.swift in Sources */,
 				C3C2A5C0255385EE00C340D1 /* Snode.swift in Sources */,
@@ -5812,7 +5824,7 @@
 				FDF848CC29405C5B007DCAE5 /* SnodeReceivedMessage.swift in Sources */,
 				FDF848C129405C5A007DCAE5 /* UpdateExpiryRequest.swift in Sources */,
 				FDF848C729405C5B007DCAE5 /* SendMessageResponse.swift in Sources */,
-				FD29598B2A43BB8100888A17 /* GetStatsResponse.swift in Sources */,
+				FD29598B2A43BB8100888A17 /* GetInfoResponse.swift in Sources */,
 				FDF848CA29405C5B007DCAE5 /* DeleteAllBeforeRequest.swift in Sources */,
 				FDF848D229405C5B007DCAE5 /* LegacyGetMessagesRequest.swift in Sources */,
 				FDF848CB29405C5B007DCAE5 /* SnodePoolResponse.swift in Sources */,

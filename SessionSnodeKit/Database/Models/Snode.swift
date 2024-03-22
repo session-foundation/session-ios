@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import GRDB
@@ -8,36 +10,28 @@ public struct Snode: Codable, FetchableRecord, PersistableRecord, TableRecord, C
     public static var databaseTableName: String { "snode" }
     static let snodeSet = hasMany(SnodeSet.self)
     static let snodeSetForeignKey = ForeignKey(
-        [Columns.address, Columns.port],
-        to: [SnodeSet.Columns.address, SnodeSet.Columns.port]
+        [Columns.ip, Columns.lmqPort],
+        to: [SnodeSet.Columns.ip, SnodeSet.Columns.lmqPort]
     )
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
-        case address = "public_ip"
-        case port = "storage_port"
-        case ed25519PublicKey = "pubkey_ed25519"
+        case ip = "public_ip"
+        case lmqPort = "storage_lmq_port"
         case x25519PublicKey = "pubkey_x25519"
+        case ed25519PublicKey = "pubkey_ed25519"
     }
 
-    public let address: String
-    public let port: UInt16
-    public let ed25519PublicKey: String
+    public let ip: String
+    public let lmqPort: UInt16
     public let x25519PublicKey: String
-    
-    public var ip: String {
-        guard let range = address.range(of: "https://"), range.lowerBound == address.startIndex else {
-            return address
-        }
-        
-        return String(address[range.upperBound..<address.endIndex])
-    }
-    
+    public let ed25519PublicKey: String
+
     public var snodeSet: QueryInterfaceRequest<SnodeSet> {
         request(for: Snode.snodeSet)
     }
     
-    public var description: String { return "\(address):\(port)" }
+    public var description: String { return "\(ip):\(lmqPort)" }
 }
 
 // MARK: - Decoder
@@ -47,15 +41,18 @@ extension Snode {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         
         do {
-            let address: String = try container.decode(String.self, forKey: .address)
+            // Strip the scheme from the IP (if included)
+            let ip: String = (try container.decode(String.self, forKey: .ip))
+                .replacingOccurrences(of: "http://", with: "")
+                .replacingOccurrences(of: "https://", with: "")
             
-            guard address != "0.0.0.0" else { throw SnodeAPIError.invalidIP }
+            guard !ip.isEmpty && ip != "0.0.0.0" else { throw SnodeAPIError.invalidIP }
             
             self = Snode(
-                address: (address.starts(with: "https://") ? address : "https://\(address)"),
-                port: try container.decode(UInt16.self, forKey: .port),
-                ed25519PublicKey: try container.decode(String.self, forKey: .ed25519PublicKey),
-                x25519PublicKey: try container.decode(String.self, forKey: .x25519PublicKey)
+                ip: ip,
+                lmqPort: try container.decode(UInt16.self, forKey: .lmqPort),
+                x25519PublicKey: try container.decode(String.self, forKey: .x25519PublicKey),
+                ed25519PublicKey: try container.decode(String.self, forKey: .ed25519PublicKey)
             )
         }
         catch {
@@ -82,8 +79,8 @@ internal extension Snode {
         struct ResultWrapper: Decodable, FetchableRecord {
             let key: String
             let nodeIndex: Int
-            let address: String
-            let port: UInt16
+            let ip: String
+            let lmqPort: UInt16
             let snode: Snode
         }
         
@@ -113,7 +110,7 @@ internal extension Snode {
 
 
 internal extension Collection where Element == Snode {
-    /// This method is used to save Swarms
+    /// This method is used to save Swarms and paths
     func save(_ db: Database, key: String) throws {
         try self.enumerated().forEach { nodeIndex, node in
             try node.save(db)
@@ -121,15 +118,15 @@ internal extension Collection where Element == Snode {
             try SnodeSet(
                 key: key,
                 nodeIndex: nodeIndex,
-                address: node.address,
-                port: node.port
+                ip: node.ip,
+                lmqPort: node.lmqPort
             ).save(db)
         }
     }
 }
 
 internal extension Collection where Element == [Snode] {
-    /// This method is used to save onion reuqest paths
+    /// This method is used to save onion request paths
     func save(_ db: Database) throws {
         try self.enumerated().forEach { pathIndex, path in
             try path.save(db, key: "\(SnodeSet.onionRequestPathPrefix)\(pathIndex)")

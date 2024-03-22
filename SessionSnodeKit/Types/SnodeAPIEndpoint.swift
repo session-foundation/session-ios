@@ -17,7 +17,7 @@ public extension SnodeAPI {
         case sequence = "sequence"
         
         case getInfo = "info"
-        case getSwarm = "get_snodes_for_pubkey"
+        case getSwarm = "get_swarm"
         
         case jsonRPCCall = "json_rpc"
         case oxenDaemonRPCCall = "oxend_request"

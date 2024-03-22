@@ -17,15 +17,15 @@ extension SnodeAPI {
         public struct Fields: Encodable {
             enum CodingKeys: String, CodingKey {
                 case publicIp = "public_ip"
-                case storagePort = "storage_port"
                 case pubkeyEd25519 = "pubkey_ed25519"
                 case pubkeyX25519 = "pubkey_x25519"
+                case storageLmqPort = "storage_lmq_port"
             }
             
             let publicIp: Bool
-            let storagePort: Bool
             let pubkeyEd25519: Bool
             let pubkeyX25519: Bool
+            let storageLmqPort: Bool
         }
     }
 }

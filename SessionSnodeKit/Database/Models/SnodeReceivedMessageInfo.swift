@@ -43,10 +43,10 @@ public struct SnodeReceivedMessageInfo: Codable, FetchableRecord, MutablePersist
 public extension SnodeReceivedMessageInfo {
     private static func key(for snode: Snode, publicKey: String, namespace: SnodeAPI.Namespace) -> String {
         guard namespace != .default else {
-            return "\(snode.address):\(snode.port).\(publicKey)"
+            return "\(snode.ip):\(snode.lmqPort).\(publicKey)"
         }
         
-        return "\(snode.address):\(snode.port).\(publicKey).\(namespace.rawValue)"
+        return "\(snode.ip):\(snode.lmqPort).\(publicKey).\(namespace.rawValue)"
     }
     
     init(

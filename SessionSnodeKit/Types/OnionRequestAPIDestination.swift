@@ -8,7 +8,7 @@ public enum OnionRequestAPIDestination: CustomStringConvertible, Codable {
     
     public var description: String {
         switch self {
-            case .snode(let snode): return "Service node \(snode.ip):\(snode.port)"
+            case .snode(let snode): return "Service node \(snode.ip):\(snode.lmqPort)"
             case .server(let host, _, _, _, _): return host
         }
     }

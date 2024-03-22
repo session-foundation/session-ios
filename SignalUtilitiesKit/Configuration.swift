@@ -13,19 +13,6 @@ public enum Configuration {
         SNMessagingKit.configure()
         SNSnodeKit.configure()
         SNUIKit.configure()
-        let secKey = Identity.fetchUserEd25519KeyPair()?.secretKey
         
-        SnodeAPI.otherReuquestCallback = { snode, payload in
-            SessionUtil.sendRequest(
-                ed25519SecretKey: secKey,
-                targetPubkey: snode.x25519PublicKey,
-                targetIp: snode.ip,
-                targetPort: snode.port,
-                endpoint: "/storage_rpc/v1",
-                payload: payload
-            ) { success, statusCode, data in
-                print("RAWR")
-            }
-        }
     }
 }

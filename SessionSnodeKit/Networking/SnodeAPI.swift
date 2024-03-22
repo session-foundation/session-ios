@@ -47,15 +47,27 @@ public final class SnodeAPI {
     
     private static let maxRetryCount: Int = 8
     private static let minSwarmSnodeCount: Int = 3
-    private static let seedNodePool: Set<String> = {
+    private static let seedNodePool: Set<Snode> = {
         guard !Features.useTestnet else {
-            return [ "http://public.loki.foundation:38157" ]
+            // public.loki.foundation
+            return [
+                Snode(
+                    ip: "144.76.164.202",
+                    lmqPort: 20200,
+                    x25519PublicKey: "",
+                    ed25519PublicKey: "1f000f09a7b07828dcb72af7cd16857050c10c02bd58afb0e38111fb6cda1fef"
+                )
+            ]
         }
         
         return [
-            "https://seed1.getsession.org:4432",
-            "https://seed2.getsession.org:4432",
-            "https://seed3.getsession.org:4432"
+            // seed2.getsession.org
+            Snode(
+                ip: "144.76.164.202",
+                lmqPort: 20203,
+                x25519PublicKey: "",
+                ed25519PublicKey: "1f003f0b6544c1050c9a052deafdb8cd1b4d2fbbf1dfb9d80f47ee2a0c316112"
+            ),
         ]
     }()
     private static let snodeFailureThreshold: Int = 3
@@ -308,9 +320,10 @@ public final class SnodeAPI {
                 .retry(4)
                 .eraseToAnyPublisher()
             }
-            .map { _, responseData in parseSnodes(from: responseData) }
+            .decoded(as: GetSwarmResponse.self, using: dependencies)
+            .map { _, response in response.snodes }
             .handleEvents(
-                receiveOutput: { swarm in setSwarm(to: swarm, for: publicKey) }
+                receiveOutput: { snodes in setSwarm(to: snodes, for: publicKey) }
             )
             .eraseToAnyPublisher()
     }
@@ -1097,37 +1110,28 @@ public final class SnodeAPI {
     private static func getSnodePoolFromSeedNode(
         using dependencies: Dependencies
     ) -> AnyPublisher<Set<Snode>, Error> {
-        let request: SnodeRequest = SnodeRequest(
-            endpoint: .jsonGetNServiceNodes,
-            body: GetServiceNodesRequest(
-                activeOnly: true,
-                limit: 256,
-                fields: GetServiceNodesRequest.Fields(
-                    publicIp: true,
-                    storagePort: true,
-                    pubkeyEd25519: true,
-                    pubkeyX25519: true
-                )
-            )
-        )
-        
-        guard let target: String = seedNodePool.randomElement() else {
+        guard let targetSeedNode: Snode = seedNodePool.randomElement() else {
             return Fail(error: SnodeAPIError.snodePoolUpdatingFailed)
                 .eraseToAnyPublisher()
         }
-        guard let payload: Data = try? JSONEncoder().encode(request) else {
-            return Fail(error: HTTPError.invalidJSON)
-                .eraseToAnyPublisher()
-        }
         
-        SNLog("Populating snode pool using seed node: \(target).")
+        SNLog("Populating snode pool using seed node: \(targetSeedNode).")
         
-        return HTTP
-            .execute(
-                .post,
-                "\(target)/json_rpc",
-                body: payload,
-                useSeedNodeURLSession: true
+        return LibSession
+            .sendRequest(
+                ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
+                snode: targetSeedNode,
+                endpoint: SnodeAPI.Endpoint.jsonGetNServiceNodes.rawValue,
+                payload: GetServiceNodesRequest(
+                    activeOnly: true,
+                    limit: 256,
+                    fields: GetServiceNodesRequest.Fields(
+                        publicIp: true,
+                        pubkeyEd25519: true,
+                        pubkeyX25519: true,
+                        storageLmqPort: true
+                    )
+                )
             )
             .decoded(as: SnodePoolResponse.self, using: dependencies)
             .mapError { error in
@@ -1136,7 +1140,7 @@ public final class SnodeAPI {
                     default: return error
                 }
             }
-            .map { snodePool -> Set<Snode> in
+            .map { _, snodePool -> Set<Snode> in
                 snodePool.result
                     .serviceNodeStates
                     .compactMap { $0.value }
@@ -1146,8 +1150,8 @@ public final class SnodeAPI {
             .handleEvents(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: SNLog("Got snode pool from seed node: \(target).")
-                        case .failure: SNLog("Failed to contact seed node at: \(target).")
+                        case .finished: SNLog("Got snode pool from seed node: \(targetSeedNode).")
+                        case .failure: SNLog("Failed to contact seed node at: \(targetSeedNode).")
                     }
                 }
             )
@@ -1184,9 +1188,9 @@ public final class SnodeAPI {
                                             limit: nil,
                                             fields: GetServiceNodesRequest.Fields(
                                                 publicIp: true,
-                                                storagePort: true,
                                                 pubkeyEd25519: true,
-                                                pubkeyX25519: true
+                                                pubkeyX25519: true,
+                                                storageLmqPort: true
                                             )
                                         )
                                     )
@@ -1227,7 +1231,6 @@ public final class SnodeAPI {
             }
             .eraseToAnyPublisher()
     }
-    public static var otherReuquestCallback: ((Snode, Data) -> Void)?
     
     private static func send<T: Encodable>(
         request: SnodeRequest<T>,
@@ -1241,25 +1244,22 @@ public final class SnodeAPI {
         }
         
         guard Features.useOnionRequests else {
-            return HTTP
-                .execute(
-                    .post,
-                    "\(snode.address):\(snode.port)/storage_rpc/v1",
-                    body: payload
+            return LibSession
+                .sendRequest(
+                    ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
+                    snode: snode,
+                    endpoint: request.endpoint.rawValue,
+                    payload: request.body
                 )
-                .map { response in (HTTP.ResponseInfo(code: -1, headers: [:]), response) }
                 .mapError { error in
                     switch error {
                         case HTTPError.httpRequestFailed(let statusCode, let data):
-                            return (SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode, associatedWith: publicKey) ?? error)
+                            return (SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode, associatedWith: publicKey, using: dependencies) ?? error)
                             
                         default: return error
                     }
                 }
                 .eraseToAnyPublisher()
-        }
-        if let callback = otherReuquestCallback {
-            callback(snode, payload)
         }
         
         return dependencies.network
@@ -1267,7 +1267,7 @@ public final class SnodeAPI {
             .mapError { error in
                 switch error {
                     case HTTPError.httpRequestFailed(let statusCode, let data):
-                        return (SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode, associatedWith: publicKey) ?? error)
+                        return (SnodeAPI.handleError(withStatusCode: statusCode, data: data, forSnode: snode, associatedWith: publicKey, using: dependencies) ?? error)
                         
                     default: return error
                 }
@@ -1342,7 +1342,8 @@ public final class SnodeAPI {
         withStatusCode statusCode: UInt,
         data: Data?,
         forSnode snode: Snode,
-        associatedWith publicKey: String? = nil
+        associatedWith publicKey: String? = nil,
+        using dependencies: Dependencies
     ) -> Error? {
         func handleBadSnode() {
             let oldFailureCount = (SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0)
