@@ -630,7 +630,8 @@ public extension Message {
         message: Message,
         destination: Message.Destination
     ) -> UInt64 {
-        guard Features.useNewDisappearingMessagesConfig else { return message.ttl }
+        // Not disappearing messages
+        guard let expiresInSeconds = message.expiresInSeconds else { return message.ttl }
         
         switch (destination, message) {
             // Disappear after sent messages with exceptions
