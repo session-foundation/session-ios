@@ -624,11 +624,12 @@
 "emojiReactsCoolDown" = "Slow down! You've sent too many emoji reacts. Try again soon.";
 "disappearingMessagesDescription1" = "This setting applies to messages you send in this conversation.";
 "disappearingMessagesFollowSetting" = "Follow Setting";
-"disappearingMessagesFollowSettingOn" = "Set your messages to disappear <b>{time}</b> after they have been <b>{disappearing messages type}</b>?";
+"disappearingMessagesFollowSettingOn" = "Set your messages to disappear <b>{time}</b> after they have been <b>{disappearingmessagestype}</b>?";
 "disappearingMessagesFollowSettingOff" = "Messages you send will no longer disappear. Are you sure you want to turn <b>off</b> disappearing messages?";
 "groupInviteVersion" = "Users must have version {version} or higher to receive invitations";
 "blockBlockedUser" = "Blocked {name}";
 "blockUnblockedUser" = "Unblocked {name}";
+"contentDescriptionCamera" = "Camera";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";

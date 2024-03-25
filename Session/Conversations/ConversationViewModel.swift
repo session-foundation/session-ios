@@ -7,7 +7,7 @@ import DifferenceKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-public class ConversationViewModel: OWSAudioPlayerDelegate {
+public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHolder {
     public typealias SectionModel = ArraySection<Section, MessageViewModel>
     
     // MARK: - FocusBehaviour
@@ -45,6 +45,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     // MARK: - Variables
     
     public static let pageSize: Int = 50
+    
+    public let navigatableState: NavigatableState = NavigatableState()
     
     private var threadId: String
     public let initialThreadVariant: SessionThread.Variant
@@ -851,12 +853,23 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         guard self._threadData.wrappedValue.threadVariant == .contact else { return }
         
         let threadId: String = self.threadId
+        let displayName: String = self._threadData.wrappedValue.displayName
         
-        Storage.shared.writeAsync { db in
-            try Contact
-                .filter(id: threadId)
-                .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
-        }
+        Storage.shared.writeAsync(
+            updates: { db in
+                try Contact
+                    .filter(id: threadId)
+                    .updateAllAndConfig(db, Contact.Columns.isBlocked.set(to: false))
+            },
+            completion: { [weak self] _, _ in
+                self?.showToast(
+                    text: "blockUnblockedUser"
+                        .put(key: "name", value: displayName)
+                        .localized(),
+                    backgroundColor: .backgroundSecondary
+                )
+            }
+        )
     }
     
     public func expandReactions(for interactionId: Int64) {

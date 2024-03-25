@@ -147,9 +147,6 @@ extension ConversationVC:
             self.viewModel.threadData.threadIsBlocked == true
         else { return false }
         
-        let message = "blockUnblockDescription"
-            .put(key: "name", value: self.viewModel.threadData.displayName)
-            .localized()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: String(
@@ -157,11 +154,9 @@ extension ConversationVC:
                     self.viewModel.threadData.displayName
                 ),
                 body: .attributedText(
-                    NSAttributedString(string: message)
-                        .adding(
-                            attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                            range: (message as NSString).range(of: self.viewModel.threadData.displayName)
-                        )
+                    "blockUnblockDescription"
+                        .put(key: "name", value: self.viewModel.threadData.displayName)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                 ),
                 confirmTitle: "blockUnblock".localized(),
                 confirmAccessibility: Accessibility(identifier: "Confirm block"),
@@ -904,7 +899,7 @@ extension ConversationVC:
                 if messageDisappearingConfig.isEnabled {
                     return "disappearingMessagesFollowSettingOn"
                         .put(key: "time", value: expirationTimerString)
-                        .put(key: "disappearing messages type", value: expirationTypeString)
+                        .put(key: "disappearingmessagestype", value: expirationTypeString)
                         .localized()
                 } else {
                     return "disappearingMessagesFollowSettingOff"

@@ -695,10 +695,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         )
                                     }(),
                                     body: (threadViewModel.threadIsBlocked == true ? .none :
-                                        .text(
+                                        .attributedText(
                                             "blockDescription"
                                                 .put(key: "name", value: threadViewModel.displayName)
-                                                .localized()
+                                                .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
                                         )
                                     ),
                                     confirmTitle: (threadViewModel.threadIsBlocked == true ?
@@ -826,13 +826,29 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     ) {
         guard oldBlockedState != isBlocked else { return }
         
-        dependencies.storage.writeAsync{ db in
-            try Contact
-                .filter(id: threadId)
-                .updateAllAndConfig(
-                    db,
-                    Contact.Columns.isBlocked.set(to: isBlocked)
+        dependencies.storage.writeAsync(
+            updates: { db in
+                try Contact
+                    .filter(id: threadId)
+                    .updateAllAndConfig(
+                        db,
+                        Contact.Columns.isBlocked.set(to: isBlocked)
+                    )
+            },
+            completion: { [weak self] _, _ in
+                self?.showToast(
+                    text: (
+                        isBlocked ?
+                        "blockBlockedUser"
+                            .put(key: "name", value: displayName)
+                            .localized() :
+                        "blockUnblockedUser"
+                            .put(key: "name", value: displayName)
+                            .localized()
+                    ),
+                    backgroundColor: .backgroundSecondary
                 )
-        }
+            }
+        )
     }
 }
