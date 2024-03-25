@@ -305,8 +305,8 @@
 "conversationsMessageTrimming" = "Message Trimming";
 "messages" = "Messages";
 "deleteMessagesDeleted" = "Messages deleted";
-"disappearingMessagesDisappearAfterReadDescription" = "Messages disappear after they have been read.";
-"disappearingMessagesDisappearAfterSendDescription" = "Messages disappear after they have been sent.";
+"disappearingMessagesDisappearAfterReadDescription" = "Messages delete after they have been read.";
+"disappearingMessagesDisappearAfterSendDescription" = "Messages delete after they have been sent.";
 "permissionsMicrophone" = "Microphone";
 "permissionsMicrophoneAccessRequired" = "Microphone Access Required";
 "minimize" = "Minimize";
