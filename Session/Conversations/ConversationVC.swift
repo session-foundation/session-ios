@@ -744,15 +744,15 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             case (true, _):
                 return "noteToSelfEmpty".localized()
             case (_, false):
-                return (threadData.profile?.blocksCommunityMessageRequests == true ?
-                        String(
-                            format: "COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE".localized(),
-                            threadData.displayName
-                        ) :
-                            "conversationsEmpty"
-                    .put(key: "conversationname", value: threadData.displayName)
-                    .localized()
-                )
+                if threadData.profile?.blocksCommunityMessageRequests == true {
+                    return "messageRequestsTurnedOff"
+                        .put(key: "name", value: threadData.displayName)
+                        .localized()
+                } else {
+                    return "conversationsEmpty"
+                        .put(key: "conversationname", value: threadData.displayName)
+                        .localized()
+                }
             default:
                 return "groupNoMessages"
                     .put(key: "groupname", value: threadData.displayName)
@@ -803,13 +803,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             
             // Update the empty state
             let text: String = emptyStateText(for: updatedThreadData)
-            emptyStateLabel.attributedText = NSAttributedString(string: text)
-                .adding(
-                    attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
-                    range: text.range(of: updatedThreadData.displayName)
-                        .map { NSRange($0, in: text) }
-                        .defaulting(to: NSRange(location: 0, length: 0))
-                )
+            emptyStateLabel.attributedText = text.formatted(in: emptyStateLabel)
         }
         
         if

@@ -615,6 +615,20 @@
 "resolving" = "Resolving...";
 "disappearingMessagesLegacy" = "{name} is using an outdated client. Disappearing messages may not work as expected.";
 "showLess" = "Show Less";
+"membersActive" = "{count} active members";
+"disappearingMessagesTypeSent" = "sent";
+"disappearingMessagesTypeRead" = "read";
+"messageRequestsTurnedOff" = "<b>{name}</b> has message requests from Community conversations turned off, so you cannot send them a message.";
+"messageRequestsCommunities" = "Community Message Requests";
+"messageReqeuestsCommunitiesDescription" = "Allow message requests from Community conversations.";
+"emojiReactsCoolDown" = "Slow down! You've sent too many emoji reacts. Try again soon.";
+"disappearingMessagesDescription1" = "This setting applies to messages you send in this conversation.";
+"disappearingMessagesFollowSetting" = "Follow Setting";
+"disappearingMessagesFollowSettingOn" = "Set your messages to disappear <b>{time}</b> after they have been <b>{disappearing messages type}</b>?";
+"disappearingMessagesFollowSettingOff" = "Messages you send will no longer disappear. Are you sure you want to turn <b>off</b> disappearing messages?";
+"groupInviteVersion" = "Users must have version {version} or higher to receive invitations";
+"blockBlockedUser" = "Blocked {name}";
+"blockUnblockedUser" = "Unblocked {name}";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";
@@ -633,7 +647,6 @@
 "GROUP_UPDATE_ERROR_TITLE" = "Couldn't Update Group";
 "vc_conversation_voice_message_cancel_message" = "Slide to Cancel";
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
-"FOLLOW_SETTING_TITLE" = "Follow Setting";
 "context_menu_resync" = "Resync";
 "context_menu_ban_and_delete_all" = "Ban and Delete All";
 "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN" = "Auto-deletes in %@";
@@ -647,12 +660,10 @@
 "vc_conversation_settings_notify_for_mentions_only_title" = "Notify for Mentions Only";
 "vc_conversation_settings_notify_for_mentions_only_explanation" = "When enabled, you'll only be notified for messages mentioning you.";
 "CONVERSATION_SETTINGS_BLOCK_THIS_USER" = "Block This User";
-"DISAPPERING_MESSAGES_SUBTITLE_CONTACTS" = "This setting applies to messages you send in this conversation.";
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE" = "Legacy"; // TODO: Delete
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages."; // TODO: Delete
 "FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
 "TXT_BLOCK_USER_TITLE" = "Block User";
-"COMMUNITY_MESSAGE_REQUEST_DISABLED_EMPTY_STATE" = "%@ has message requests from Community conversations turned off, so you cannot send them a message.";
 "CONVERSATION_SEARCH_ONE_RESULT" = "1 match";
 "DM_ERROR_DIRECT_BLINDED_ID" = "You can only send messages to Blinded IDs from within a Community";
 "DM_ERROR_INVALID" = "Please check the Session ID or ONS name and try again";
@@ -708,8 +719,6 @@
 "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "Autoplay Audio Messages";
 "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "Autoplay consecutive audio messages.";
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (default)";
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE" = "Community Message Requests";
-"PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION" = "Allow message requests from Community conversations.";
 "qrCode" = "QR Code";
 "vc_qr_code_view_scan_qr_code_explanation" = "Scan someone's QR code to start a conversation with them"; // TODO: Delete
 "invalid_session_id" = "Invalid Session ID"; // TODO: Delete
@@ -738,10 +747,7 @@
 "GIPHY_PERMISSION_TITLE" = "Search GIFs?";
 "GIPHY_PERMISSION_MESSAGE" = "Session will connect to Giphy to provide search results. You will not have full metadata protection when sending GIFs.";
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Failed to choose document.";
-"FOLLOW_SETTING_EXPLAINATION_TURNING_ON" = "Set your messages to disappear %@ after they have been %@?";
-"FOLLOW_SETTING_EXPLAINATION_TURNING_OFF" = "Messages you send will no longer disappear. Are you sure you want to turn off disappearing messages?";
 "CONFIRM_BUTTON_TITLE" = "Confirm";
-"EMOJI_REACTS_RATE_LIMIT_TOAST" = "Slow down! You've sent too many emoji reacts. Try again soon.";
 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
 "delete_message_for_me_and_my_devices" = "Delete from all of my devices";

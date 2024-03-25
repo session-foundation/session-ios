@@ -145,8 +145,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                     elements: [
                         SessionCell.Info(
                             id: .communityMessageRequests,
-                            title: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_TITLE".localized(),
-                            subtitle: "PRIVACY_SCREEN_MESSAGE_REQUESTS_COMMUNITY_DESCRIPTION".localized(),
+                            title: "messageRequestsCommunities".localized(),
+                            subtitle: "messageReqeuestsCommunitiesDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .checkForCommunityMessageRequests,

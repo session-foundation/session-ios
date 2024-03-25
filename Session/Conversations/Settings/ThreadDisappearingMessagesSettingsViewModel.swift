@@ -92,7 +92,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         }
         
         if threadVariant == .contact && !isNoteToSelf {
-            return "DISAPPERING_MESSAGES_SUBTITLE_CONTACTS".localized()
+            return "disappearingMessagesDescription1".localized()
         }
         
         return "disappearingMessagesDisappearAfterSendDescription".localized()

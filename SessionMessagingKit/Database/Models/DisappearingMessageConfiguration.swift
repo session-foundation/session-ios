@@ -46,9 +46,9 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
                 case .unknown:
                     return ""
                 case .disappearAfterRead:
-                    return "read".localized().lowercased()
+                    return "disappearingMessagesTypeRead".localized()
                 case .disappearAfterSend:
-                    return "disappearingMessagesSent".localized().lowercased()
+                    return "disappearingMessagesTypeSent".localized()
             }
         }
 

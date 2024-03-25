@@ -269,4 +269,8 @@ public extension String {
     func formatted(in view: FontAccessible) -> NSAttributedString {
         return NSAttributedString(stringWithHTMLTags: self, font: (view.fontValue ?? .systemFont(ofSize: 14)))
     }
+    
+    func formatted(baseFont: UIFont) -> NSAttributedString {
+        return NSAttributedString(stringWithHTMLTags: self, font: baseFont)
+    }
 }

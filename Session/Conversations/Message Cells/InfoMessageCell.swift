@@ -124,7 +124,7 @@ final class InfoMessageCell: MessageCell {
         
         if cellViewModel.canDoFollowingSetting() {
             self.actionLabel.isHidden = false
-            self.actionLabel.text = "FOLLOW_SETTING_TITLE".localized()
+            self.actionLabel.text = "disappearingMessagesFollowSetting".localized()
         }
         
         self.label.themeTextColor = (cellViewModel.variant == .infoClosedGroupCurrentUserErrorLeaving) ? .danger : .textSecondary

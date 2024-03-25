@@ -900,34 +900,22 @@ extension ConversationVC:
             let messageDisappearingConfig = cellViewModel.messageDisappearingConfiguration()
             let expirationTimerString: String = floor(messageDisappearingConfig.durationSeconds).formatted(format: .long)
             let expirationTypeString: String = (messageDisappearingConfig.type?.localizedName ?? "")
-            let modalBodyString: String = (
-                messageDisappearingConfig.isEnabled ?
-                String(
-                    format: "FOLLOW_SETTING_EXPLAINATION_TURNING_ON".localized(),
-                    expirationTimerString,
-                    expirationTypeString
-                ) :
-                "FOLLOW_SETTING_EXPLAINATION_TURNING_OFF".localized()
-            )
+            let modalBodyString: String = {
+                if messageDisappearingConfig.isEnabled {
+                    return "disappearingMessagesFollowSettingOn"
+                        .put(key: "time", value: expirationTimerString)
+                        .put(key: "disappearing messages type", value: expirationTypeString)
+                        .localized()
+                } else {
+                    return "disappearingMessagesFollowSettingOff"
+                        .localized()
+                }
+            }()
             let modalConfirmTitle: String = messageDisappearingConfig.isEnabled ? "set".localized() : "CONFIRM_BUTTON_TITLE".localized()
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "FOLLOW_SETTING_TITLE".localized(),
-                    body: .attributedText(
-                        NSAttributedString(string: modalBodyString)
-                            .adding(
-                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                                range: (modalBodyString as NSString).range(of: expirationTypeString)
-                            )
-                            .adding(
-                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                                range: (modalBodyString as NSString).range(of: expirationTimerString)
-                            )
-                            .adding(
-                                attributes: [ .font: UIFont.boldSystemFont(ofSize: Values.smallFontSize) ],
-                                range: (modalBodyString as NSString).range(of: "off".localized().lowercased())
-                            )
-                    ),
+                    title: "disappearingMessagesFollowSetting".localized(),
+                    body: .attributedText(modalBodyString.formatted(baseFont: .systemFont(ofSize: Values.smallFontSize))),
                     accessibility: Accessibility(identifier: "Follow setting dialog"),
                     confirmTitle: modalConfirmTitle,
                     confirmAccessibility: Accessibility(identifier: "Set button"),
@@ -1429,7 +1417,7 @@ extension ConversationVC:
             (sentTimestamp - (recentReactionTimestamps.first ?? sentTimestamp)) > (60 * 1000)
         else {
             let toastController: ToastController = ToastController(
-                text: "EMOJI_REACTS_RATE_LIMIT_TOAST".localized(),
+                text: "emojiReactsCoolDown".localized(),
                 background: .backgroundSecondary
             )
             toastController.presentToastView(
