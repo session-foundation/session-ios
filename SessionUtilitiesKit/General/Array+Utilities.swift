@@ -8,6 +8,11 @@ public extension Array where Element: CustomStringConvertible {
     }
 }
 
+@inlinable public func zip<Sequence1, Sequence2, Sequence3>(_ sequence1: Sequence1, _ sequence2: Sequence2, _ sequence3: Sequence3) -> Array<(Sequence1.Element, Sequence2.Element, Sequence3.Element)> where Sequence1: Sequence, Sequence2: Sequence, Sequence3: Sequence {
+    return zip(zip(sequence1, sequence2), sequence3)
+        .map { firstZip, third -> (Sequence1.Element, Sequence2.Element, Sequence3.Element) in (firstZip.0, firstZip.1, third) }
+}
+
 public extension Array {
     func appending(_ other: Element?) -> [Element] {
         guard let other: Element = other else { return self }

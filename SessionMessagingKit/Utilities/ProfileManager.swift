@@ -219,7 +219,7 @@ public struct ProfileManager {
         let useOldServer: Bool = (profileUrlStringAtStart.contains(FileServerAPI.oldServer))
         
         FileServerAPI
-            .download(fileId, useOldServer: useOldServer)
+            .download(fileId: fileId, useOldServer: useOldServer)
             .subscribe(on: DispatchQueue.global(qos: .background))
             .receive(on: DispatchQueue.global(qos: .background))
             .sinkUntilComplete(

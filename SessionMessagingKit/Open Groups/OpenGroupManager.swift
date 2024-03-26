@@ -261,7 +261,7 @@ public final class OpenGroupManager {
                         using: dependencies
                     )
             }
-            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .flatMap { info, response -> Future<Void, Error> in
                 Future<Void, Error> { resolver in
                     dependencies.storage.write { db in
@@ -990,14 +990,14 @@ public final class OpenGroupManager {
         
         // Try to retrieve the default rooms 8 times
         let publisher: AnyPublisher<[DefaultRoomInfo], Error> = dependencies.storage
-            .readPublisher { db -> OpenGroupAPI.PreparedSendData<OpenGroupAPI.CapabilitiesAndRoomsResponse> in
+            .readPublisher { db -> HTTP.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse> in
                 try OpenGroupAPI.preparedCapabilitiesAndRooms(
                     db,
                     on: OpenGroupAPI.defaultServer,
                     using: dependencies
                 )
             }
-            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: OpenGroupAPI.workQueue, using: dependencies)
             .receive(on: OpenGroupAPI.workQueue, using: dependencies)
             .retry(8, using: dependencies)
@@ -1126,7 +1126,7 @@ public final class OpenGroupManager {
                 DispatchQueue.global(qos: .background).async(using: dependencies) {
                     // Hold on to the publisher until it has completed at least once
                     dependencies.storage
-                        .readPublisher { db -> (Data?, OpenGroupAPI.PreparedSendData<Data>?) in
+                        .readPublisher { db -> (Data?, HTTP.PreparedRequest<Data>?) in
                             if canUseExistingImage {
                                 let maybeExistingData: Data? = try? OpenGroup
                                     .select(.imageData)
@@ -1158,8 +1158,8 @@ public final class OpenGroupManager {
                                         .setFailureType(to: Error.self)
                                         .eraseToAnyPublisher()
                                     
-                                case (_, .some(let sendData)):
-                                    return OpenGroupAPI.send(data: sendData, using: dependencies)
+                                case (_, .some(let preparedRequest)):
+                                    return preparedRequest.send(using: dependencies)
                                         .map { _, imageData in imageData }
                                         .eraseToAnyPublisher()
                                     

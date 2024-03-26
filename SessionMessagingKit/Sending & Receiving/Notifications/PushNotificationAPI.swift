@@ -85,19 +85,22 @@ public enum PushNotificationAPI {
                         .fetchSet(db)
                 )
             }
-            .flatMap { request, currentUserPublicKey, legacyGroupIds -> AnyPublisher<Void, Error> in
+            .tryFlatMap { request, currentUserPublicKey, legacyGroupIds -> AnyPublisher<Void, Error> in
                 Publishers
                     .MergeMany(
                         [
-                            PushNotificationAPI
-                                .send(
-                                    request: PushNotificationAPIRequest(
+                            try PushNotificationAPI
+                                .prepareRequest(
+                                    request: Request(
+                                        method: .post,
                                         endpoint: .subscribe,
-                                        body: request
+                                        body: request,
+                                        using: dependencies
                                     ),
+                                    responseType: SubscribeResponse.self,
                                     using: dependencies
                                 )
-                                .decoded(as: SubscribeResponse.self, using: dependencies)
+                                .send(using: dependencies)
                                 .retry(maxRetryCount, using: dependencies)
                                 .handleEvents(
                                     receiveOutput: { _, response in
@@ -191,16 +194,19 @@ public enum PushNotificationAPI {
                     ed25519SecretKey: userED25519KeyPair.secretKey
                 )
             }
-            .flatMap { request -> AnyPublisher<Void, Error> in
-                PushNotificationAPI
-                    .send(
-                        request: PushNotificationAPIRequest(
+            .tryFlatMap { request -> AnyPublisher<Void, Error> in
+                try PushNotificationAPI
+                    .prepareRequest(
+                        request: Request(
+                            method: .post,
                             endpoint: .unsubscribe,
-                            body: request
+                            body: request,
+                            using: dependencies
                         ),
+                        responseType: UnsubscribeResponse.self,
                         using: dependencies
                     )
-                    .decoded(as: UnsubscribeResponse.self, using: dependencies)
+                    .send(using: dependencies)
                     .retry(maxRetryCount, using: dependencies)
                     .handleEvents(
                         receiveOutput: { _, response in
@@ -232,34 +238,40 @@ public enum PushNotificationAPI {
         maxRetryCount: Int? = nil,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        return PushNotificationAPI
-            .send(
-                request: PushNotificationAPIRequest(
-                    endpoint: .legacyNotify,
-                    body: LegacyNotifyRequest(
-                        data: message,
-                        sendTo: recipient
-                    )
-                ),
-                using: dependencies
-            )
-            .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount ?? PushNotificationAPI.maxRetryCount, using: dependencies)
-            .handleEvents(
-                receiveOutput: { _, response in
-                    guard response.code != 0 else {
-                        return SNLog("Couldn't send push notification due to error: \(response.message ?? "nil").")
+        do {
+            return try PushNotificationAPI
+                .prepareRequest(
+                    request: Request(
+                        method: .post,
+                        endpoint: .legacyNotify,
+                        body: LegacyNotifyRequest(
+                            data: message,
+                            sendTo: recipient
+                        ),
+                        using: dependencies
+                    ),
+                    responseType: LegacyPushServerResponse.self,
+                    using: dependencies
+                )
+                .send(using: dependencies)
+                .retry(maxRetryCount ?? PushNotificationAPI.maxRetryCount, using: dependencies)
+                .handleEvents(
+                    receiveOutput: { _, response in
+                        guard response.code != 0 else {
+                            return SNLog("Couldn't send push notification due to error: \(response.message ?? "nil").")
+                        }
+                    },
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure: SNLog("Couldn't send push notification.")
+                        }
                     }
-                },
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure: SNLog("Couldn't send push notification.")
-                    }
-                }
-            )
-            .map { _ in () }
-            .eraseToAnyPublisher()
+                )
+                .map { _ in () }
+                .eraseToAnyPublisher()
+        }
+        catch { return Fail(error: error).eraseToAnyPublisher() }
     }
     
     // MARK: - Legacy Groups
@@ -284,36 +296,42 @@ public enum PushNotificationAPI {
                 .eraseToAnyPublisher()
         }
         
-        return PushNotificationAPI
-            .send(
-                request: PushNotificationAPIRequest(
-                    endpoint: .legacyGroupsOnlySubscribe,
-                    body: LegacyGroupOnlyRequest(
-                        token: deviceToken,
-                        pubKey: currentUserPublicKey,
-                        device: "ios",
-                        legacyGroupPublicKeys: legacyGroupIds
-                    )
-                ),
-                using: dependencies
-            )
-            .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount, using: dependencies)
-            .handleEvents(
-                receiveOutput: { _, response in
-                    guard response.code != 0 else {
-                        return SNLog("Couldn't subscribe for legacy groups due to error: \(response.message ?? "nil").")
+        do {
+            return try PushNotificationAPI
+                .prepareRequest(
+                    request: Request(
+                        method: .post,
+                        endpoint: .legacyGroupsOnlySubscribe,
+                        body: LegacyGroupOnlyRequest(
+                            token: deviceToken,
+                            pubKey: currentUserPublicKey,
+                            device: "ios",
+                            legacyGroupPublicKeys: legacyGroupIds
+                        ),
+                        using: dependencies
+                    ),
+                    responseType: LegacyPushServerResponse.self,
+                    using: dependencies
+                )
+                .send(using: dependencies)
+                .retry(maxRetryCount, using: dependencies)
+                .handleEvents(
+                    receiveOutput: { _, response in
+                        guard response.code != 0 else {
+                            return SNLog("Couldn't subscribe for legacy groups due to error: \(response.message ?? "nil").")
+                        }
+                    },
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure: SNLog("Couldn't subscribe for legacy groups.")
+                        }
                     }
-                },
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure: SNLog("Couldn't subscribe for legacy groups.")
-                    }
-                }
-            )
-            .map { _ in () }
-            .eraseToAnyPublisher()
+                )
+                .map { _ in () }
+                .eraseToAnyPublisher()
+        }
+        catch { return Fail(error: error).eraseToAnyPublisher() }
     }
     
     // FIXME: Remove this once legacy groups are deprecated
@@ -322,34 +340,40 @@ public enum PushNotificationAPI {
         currentUserPublicKey: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Void, Error> {
-        return PushNotificationAPI
-            .send(
-                request: PushNotificationAPIRequest(
-                    endpoint: .legacyGroupUnsubscribe,
-                    body: LegacyGroupRequest(
-                        pubKey: currentUserPublicKey,
-                        closedGroupPublicKey: legacyGroupId
-                    )
-                ),
-                using: dependencies
-            )
-            .decoded(as: LegacyPushServerResponse.self, using: dependencies)
-            .retry(maxRetryCount, using: dependencies)
-            .handleEvents(
-                receiveOutput: { _, response in
-                    guard response.code != 0 else {
-                        return SNLog("Couldn't unsubscribe for legacy group: \(legacyGroupId) due to error: \(response.message ?? "nil").")
+        do {
+            return try PushNotificationAPI
+                .prepareRequest(
+                    request: Request(
+                        method: .post,
+                        endpoint: .legacyGroupUnsubscribe,
+                        body: LegacyGroupRequest(
+                            pubKey: currentUserPublicKey,
+                            closedGroupPublicKey: legacyGroupId
+                        ),
+                        using: dependencies
+                    ),
+                    responseType: LegacyPushServerResponse.self,
+                    using: dependencies
+                )
+                .send(using: dependencies)
+                .retry(maxRetryCount, using: dependencies)
+                .handleEvents(
+                    receiveOutput: { _, response in
+                        guard response.code != 0 else {
+                            return SNLog("Couldn't unsubscribe for legacy group: \(legacyGroupId) due to error: \(response.message ?? "nil").")
+                        }
+                    },
+                    receiveCompletion: { result in
+                        switch result {
+                            case .finished: break
+                            case .failure: SNLog("Couldn't unsubscribe for legacy group: \(legacyGroupId).")
+                        }
                     }
-                },
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure: SNLog("Couldn't unsubscribe for legacy group: \(legacyGroupId).")
-                    }
-                }
-            )
-            .map { _ in () }
-            .eraseToAnyPublisher()
+                )
+                .map { _ in () }
+                .eraseToAnyPublisher()
+        }
+        catch { return Fail(error: error).eraseToAnyPublisher() }
     }
     
     // MARK: - Notification Handling
@@ -467,45 +491,22 @@ public enum PushNotificationAPI {
             }
         }
     }
-                        
+    
     // MARK: - Convenience
     
-    private static func send<T: Encodable>(
-        request: PushNotificationAPIRequest<T>,
+    private static func prepareRequest<T: Encodable, R: Decodable>(
+        request: Request<T, Endpoint>,
+        responseType: R.Type,
+        retryCount: Int = 0,
+        timeout: TimeInterval = HTTP.defaultTimeout,
         using dependencies: Dependencies
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        guard
-            let url: URL = URL(string: "\(request.endpoint.server)/\(request.endpoint.rawValue)"),
-            let payload: Data = try? JSONEncoder().encode(request.body)
-        else {
-            return Fail(error: HTTPError.invalidJSON)
-                .eraseToAnyPublisher()
-        }
-        
-        guard Features.useOnionRequests else {
-            return HTTP
-                .execute(
-                    .post,
-                    "\(request.endpoint.server)/\(request.endpoint.rawValue)",
-                    body: payload
-                )
-                .map { response in (HTTP.ResponseInfo(code: -1, headers: [:]), response) }
-                .eraseToAnyPublisher()
-        }
-        
-        var urlRequest: URLRequest = URLRequest(url: url)
-        urlRequest.httpMethod = "POST"
-        urlRequest.allHTTPHeaderFields = [ HTTPHeader.contentType: "application/json" ]
-        urlRequest.httpBody = payload
-        
-        return dependencies.network
-            .send(
-                .onionRequest(
-                    urlRequest,
-                    to: request.endpoint.server,
-                    with: request.endpoint.serverPublicKey
-                )
-            )
-            .eraseToAnyPublisher()
+    ) throws -> HTTP.PreparedRequest<R> {
+        return HTTP.PreparedRequest<R>(
+            request: request,
+            urlRequest: try request.generateUrlRequest(using: dependencies),
+            responseType: responseType,
+            retryCount: retryCount,
+            timeout: timeout
+        )
     }
 }

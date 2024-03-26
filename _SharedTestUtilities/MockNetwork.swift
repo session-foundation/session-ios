@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 class MockNetwork: Mock<NetworkType>, NetworkType {
     var requestData: RequestData?
     
-    func send<T>(_ request: Network.RequestType<T>) -> AnyPublisher<(ResponseInfoType, T), Error> {
+    func send<T>(_ request: Network.RequestType<T>, using dependencies: Dependencies) -> AnyPublisher<(ResponseInfoType, T), Error> {
         requestData = request.data
         
         return accept(funcName: "send<T>(\(request.id))", args: request.args) as! AnyPublisher<(ResponseInfoType, T), Error>

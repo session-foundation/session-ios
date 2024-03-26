@@ -669,7 +669,7 @@ public final class MessageSender {
         }
         
         return dependencies.network
-            .send(.message(snodeMessage, in: namespace, using: dependencies))
+            .send(.message(snodeMessage, in: namespace), using: dependencies)
             .flatMap { info, response -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.serverHash = response.hash
@@ -800,7 +800,7 @@ public final class MessageSender {
                         using: dependencies
                     )
             }
-            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let serverTimestampMs: UInt64? = responseData.posted.map { UInt64(floor($0 * 1000)) }
                 let updatedMessage: Message = message
@@ -865,7 +865,7 @@ public final class MessageSender {
                         using: dependencies
                     )
             }
-            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)

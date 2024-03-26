@@ -95,7 +95,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 else { throw AttachmentDownloadError.invalidUrl }
                 
                 return Storage.shared
-                    .readPublisher { db -> OpenGroupAPI.PreparedSendData<Data>? in
+                    .readPublisher { db -> HTTP.PreparedRequest<Data>? in
                         try OpenGroup.fetchOne(db, id: threadId)
                             .map { openGroup in
                                 try OpenGroupAPI
@@ -103,22 +103,23 @@ public enum AttachmentDownloadJob: JobExecutor {
                                         db,
                                         fileId: fileId,
                                         from: openGroup.roomToken,
-                                        on: openGroup.server
+                                        on: openGroup.server,
+                                        using: dependencies
                                     )
                             }
                     }
-                    .flatMap { maybePreparedSendData -> AnyPublisher<Data, Error> in
-                        guard let preparedSendData: OpenGroupAPI.PreparedSendData<Data> = maybePreparedSendData else {
+                    .flatMap { maybePreparedRequest -> AnyPublisher<Data, Error> in
+                        guard let preparedRequest: HTTP.PreparedRequest<Data> = maybePreparedRequest else {
                             return FileServerAPI
                                 .download(
-                                    fileId,
+                                    fileId: fileId,
                                     useOldServer: downloadUrl.contains(FileServerAPI.oldServer)
                                 )
                                 .eraseToAnyPublisher()
                         }
                         
-                        return OpenGroupAPI
-                            .send(data: preparedSendData)
+                        return preparedRequest
+                            .send(using: dependencies)
                             .map { _, data in data }
                             .eraseToAnyPublisher()
                     }

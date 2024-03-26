@@ -113,8 +113,8 @@ public enum ConfigurationSyncJob: JobExecutor {
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
-                zip(response.responses, pendingConfigChanges)
-                    .compactMap { (subResponse: Decodable, change: LibSession.OutgoingConfResult) in
+                zip(response, pendingConfigChanges)
+                    .compactMap { (subResponse: Any, change: LibSession.OutgoingConfResult) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard

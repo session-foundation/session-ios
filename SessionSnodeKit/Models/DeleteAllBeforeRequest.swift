@@ -57,7 +57,7 @@ extension SnodeAPI {
             /// `pubkey`.  Must be base64 encoded (json) or bytes (OMQ).  `namespace` is the stringified
             /// version of the given non-default namespace parameter (i.e. "-42" or "all"), or the empty
             /// string for the default namespace (whether explicitly given or not).
-            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.deleteAllBefore.rawValue.bytes
+            let verificationBytes: [UInt8] = SnodeAPI.Endpoint.deleteAllBefore.path.bytes
                 .appending(
                     contentsOf: (namespace == nil ?
                         "all" :
