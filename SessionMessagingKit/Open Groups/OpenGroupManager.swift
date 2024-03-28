@@ -784,9 +784,6 @@ public final class OpenGroupManager {
                                 case .visibleMessage:
                                     (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
                                     
-                                case .expirationTimerUpdate:
-                                    (messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
-                                    
                                 default: break
                             }
                         }
