@@ -1013,6 +1013,9 @@ extension ConversationVC:
                                 FileManager.default.fileExists(atPath: originalFilePath)
                             else { return SNLog("Missing video file") }
                             
+                            /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
+                            /// doesn't prevent video audio from playing
+                            try? AVAudioSession.sharedInstance().setCategory(.playback)
                             let viewController: AVPlayerViewController = AVPlayerViewController()
                             viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
                             self.navigationController?.present(viewController, animated: true)
@@ -1056,7 +1059,9 @@ extension ConversationVC:
                     let originalFilePath: String = attachment.originalFilePath
                 else { return }
                 
-                // Use the native player to play audio files
+                /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
+                /// doesn't prevent video audio from playing
+                try? AVAudioSession.sharedInstance().setCategory(.playback)
                 let viewController: AVPlayerViewController = AVPlayerViewController()
                 viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
                 self.navigationController?.present(viewController, animated: true)
