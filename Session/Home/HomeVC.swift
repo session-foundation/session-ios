@@ -668,7 +668,8 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: self
+                        viewController: self,
+                        navigatableStateHolder: viewModel
                     )
                 )
             
@@ -689,7 +690,8 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: self
+                        viewController: self,
+                        navigatableStateHolder: viewModel
                     )
                 )
                 
@@ -735,7 +737,8 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: self
+                        viewController: self,
+                        navigatableStateHolder: viewModel
                     )
                 )
                 

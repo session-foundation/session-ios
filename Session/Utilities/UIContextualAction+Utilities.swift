@@ -48,7 +48,8 @@ public extension UIContextualAction {
         indexPath: IndexPath,
         tableView: UITableView,
         threadViewModel: SessionThreadViewModel,
-        viewController: UIViewController?
+        viewController: UIViewController?,
+        navigatableStateHolder: NavigatableStateHolder?
     ) -> [UIContextualAction]? {
         guard !actions.isEmpty else { return nil }
         
@@ -406,13 +407,36 @@ public extension UIContextualAction {
                                     dismissOnConfirm: true,
                                     onConfirm: { _ in
                                         Storage.shared.writeAsync { db in
-                                            try SessionThread.deleteOrLeave(
-                                                db,
-                                                threadId: threadViewModel.threadId,
-                                                threadVariant: threadViewModel.threadVariant,
-                                                groupLeaveType: .standard,
-                                                calledFromConfigHandling: false
-                                            )
+                                            do {
+                                                try SessionThread.deleteOrLeave(
+                                                    db,
+                                                    threadId: threadViewModel.threadId,
+                                                    threadVariant: threadViewModel.threadVariant,
+                                                    groupLeaveType: .standard,
+                                                    calledFromConfigHandling: false
+                                                )
+                                            } catch {
+                                                DispatchQueue.main.async {
+                                                    let toastBody: String = {
+                                                        switch threadViewModel.threadVariant {
+                                                            case .legacyGroup, .group:
+                                                                return "groupLeaveErrorFailed"
+                                                                    .put(key: "groupname", value: threadViewModel.displayName)
+                                                                    .localized()
+                                                                
+                                                            default:
+                                                                return "communityLeaveError"
+                                                                    .put(key: "communityname", value: threadViewModel.displayName)
+                                                                    .localized()
+                                                        }
+                                                    }()
+                                                    navigatableStateHolder?.showToast(
+                                                        text: toastBody,
+                                                        backgroundColor: .backgroundSecondary
+                                                    )
+                                                }
+                                            }
+                                            
                                         }
                                         viewController?.dismiss(animated: true, completion: nil)
                                         
