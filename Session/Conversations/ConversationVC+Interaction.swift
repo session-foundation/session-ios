@@ -342,16 +342,7 @@ extension ConversationVC:
         }
         catch {
             DispatchQueue.main.async { [weak self] in
-                let modal: ConfirmationModal = ConfirmationModal(
-                    targetView: self?.view,
-                    info: ConfirmationModal.Info(
-                        title: "sessionMessenger".localized(),
-                        body: .text("An error occurred."),
-                        cancelTitle: "BUTTON_OK".localized(),
-                        cancelStyle: .alert_text
-                    )
-                )
-                self?.present(modal, animated: true)
+                self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
             }
             return
         }
@@ -376,15 +367,7 @@ extension ConversationVC:
         let fileName = urlResourceValues.name ?? "attachment".localized()
         guard let dataSource = DataSourcePath.dataSource(with: url, shouldDeleteOnDeallocation: false) else {
             DispatchQueue.main.async { [weak self] in
-                let modal: ConfirmationModal = ConfirmationModal(
-                    targetView: self?.view,
-                    info: ConfirmationModal.Info(
-                        title: "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE".localized(),
-                        cancelTitle: "BUTTON_OK".localized(),
-                        cancelStyle: .alert_text
-                    )
-                )
-                self?.present(modal, animated: true)
+                self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
             }
             return
         }

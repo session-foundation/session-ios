@@ -630,6 +630,10 @@
 "blockBlockedUser" = "Blocked {name}";
 "blockUnblockedUser" = "Unblocked {name}";
 "contentDescriptionCamera" = "Camera";
+"contentDescriptionMessageComposition" = "Message composition";
+"communityLeaveError" = "Failed to leave {communityname}";
+"contentDescriptionMediaMessage" = "Media message";
+"attachmentsErrorLoad" = "Error attaching file";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";
