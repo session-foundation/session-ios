@@ -177,7 +177,7 @@ class BatchResponseSpec: QuickSpec {
                         as: [Int.self],
                         requireAllResults: true
                     )
-                }.to(throwError(HTTPError.parsingFailed))
+                }.to(throwError(NetworkError.parsingFailed))
             }
             
             // MARK: -- fails if the data is not JSON
@@ -188,7 +188,7 @@ class BatchResponseSpec: QuickSpec {
                         as: [Int.self],
                         requireAllResults: true
                     )
-                }.to(throwError(HTTPError.parsingFailed))
+                }.to(throwError(NetworkError.parsingFailed))
             }
             
             // MARK: -- fails if the data is not a JSON array
@@ -199,7 +199,7 @@ class BatchResponseSpec: QuickSpec {
                         as: [Int.self],
                         requireAllResults: true
                     )
-                }.to(throwError(HTTPError.parsingFailed))
+                }.to(throwError(NetworkError.parsingFailed))
             }
             
             // MARK: -- and requiring all responses
@@ -216,7 +216,7 @@ class BatchResponseSpec: QuickSpec {
                             ],
                             requireAllResults: true
                         )
-                    }.to(throwError(HTTPError.parsingFailed))
+                    }.to(throwError(NetworkError.parsingFailed))
                 }
                 
                 // MARK: ---- fails if one of the JSON array values fails to decode
@@ -245,7 +245,7 @@ class BatchResponseSpec: QuickSpec {
                             ],
                             requireAllResults: true
                         )
-                    }.to(throwError(HTTPError.parsingFailed))
+                    }.to(throwError(NetworkError.parsingFailed))
                 }
             }
             
@@ -263,7 +263,7 @@ class BatchResponseSpec: QuickSpec {
                             ],
                             requireAllResults: false
                         )
-                    }.toNot(throwError(HTTPError.parsingFailed))
+                    }.toNot(throwError(NetworkError.parsingFailed))
                 }
             }
         }

@@ -3,6 +3,8 @@ import Foundation
 // MARK: - Convenience Types
 
 public struct Empty: Codable {
+    public static let null: Empty? = nil
+    
     public init() {}
 }
 
@@ -11,14 +13,14 @@ public typealias NoResponse = Empty
 
 public protocol EndpointType: Hashable {
     static var name: String { get }
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { get }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { get }
     static var excludedSubRequestHeaders: [HTTPHeader] { get }
     
     var path: String { get }
 }
 
 public extension EndpointType {
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .unsupported }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { .unsupported }
     static var excludedSubRequestHeaders: [HTTPHeader] { [] }
 }
 
@@ -61,7 +63,7 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
             case let bodyString as String:
                 // The only acceptable string body is a base64 encoded one
                 guard let encodedData: Data = Data(base64Encoded: bodyString) else {
-                    throw HTTPError.parsingFailed
+                    throw NetworkError.parsingFailed
                 }
                 
                 return encodedData
@@ -80,7 +82,7 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
     // MARK: - Request Generation
     
     public func generateUrlRequest(using dependencies: Dependencies) throws -> URLRequest {
-        guard let url: URL = target.url else { throw HTTPError.invalidURL }
+        guard let url: URL = target.url else { throw NetworkError.invalidURL }
         
         var urlRequest: URLRequest = URLRequest(url: url)
         urlRequest.httpMethod = method.rawValue

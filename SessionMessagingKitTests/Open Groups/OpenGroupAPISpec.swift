@@ -502,7 +502,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(HTTPError.parsingFailed))
+                        expect(error).to(matchError(NetworkError.parsingFailed))
                         expect(response).to(beNil())
                     }
                     
@@ -528,7 +528,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(HTTPError.parsingFailed))
+                        expect(error).to(matchError(NetworkError.parsingFailed))
                         expect(response).to(beNil())
                     }
                 }
@@ -605,7 +605,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(HTTPError.parsingFailed))
+                        expect(error).to(matchError(NetworkError.parsingFailed))
                         expect(response).to(beNil())
                     }
                     
@@ -630,7 +630,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(HTTPError.parsingFailed))
+                        expect(error).to(matchError(NetworkError.parsingFailed))
                         expect(response).to(beNil())
                     }
                 }
@@ -1593,7 +1593,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    expect(preparationError).to(matchError(HTTPError.generic))
+                    expect(preparationError).to(matchError(NetworkError.generic))
                     expect(preparedRequest).to(beNil())
                 }
             }

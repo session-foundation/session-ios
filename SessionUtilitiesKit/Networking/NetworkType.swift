@@ -8,6 +8,8 @@ public protocol NetworkType {
 }
 
 public class Network: NetworkType {
+    public static let defaultTimeout: TimeInterval = 10
+    
     public struct RequestType<T> {
         public let id: String
         public let url: String?

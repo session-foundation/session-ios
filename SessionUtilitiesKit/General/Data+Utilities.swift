@@ -14,7 +14,7 @@ public extension Data {
             
             return try decoder.decode(type, from: self)
         }
-        catch { throw HTTPError.parsingFailed }
+        catch { throw NetworkError.parsingFailed }
     }
 
     func removingIdPrefixIfNeeded() -> Data {

@@ -7,10 +7,10 @@ import SessionUtilitiesKit
 
 // MARK: - SnodeTarget
 
-internal extension HTTP {
+internal extension Network {
     struct SnodeTarget: RequestTarget, Equatable {
         let snode: Snode
-        let associatedPublicKey: String
+        let swarmPublicKey: String?
         
         var url: URL? { URL(string: "snode:\(snode.x25519PublicKey)") }
         var urlPathAndParamsString: String { return "" }
@@ -19,27 +19,27 @@ internal extension HTTP {
 
 // MARK: - RandomSnodeTarget
 
-internal extension HTTP {
+internal extension Network {
     struct RandomSnodeTarget: RequestTarget, Equatable {
-        let publicKey: String
+        let swarmPublicKey: String
         
-        var url: URL? { URL(string: "snode:\(publicKey)") }
+        var url: URL? { URL(string: "snode:\(swarmPublicKey)") }
         var urlPathAndParamsString: String { return "" }
     }
 }
 
 // MARK: - RandomSnodeLatestNetworkTimeTarget
 
-internal extension HTTP {
+internal extension Network {
     struct RandomSnodeLatestNetworkTimeTarget: RequestTarget, Equatable {
-        let publicKey: String
+        let swarmPublicKey: String
         let urlRequestWithUpdatedTimestampMs: ((UInt64, Dependencies) throws -> URLRequest)
         
-        var url: URL? { URL(string: "snode:\(publicKey)") }
+        var url: URL? { URL(string: "snode:\(swarmPublicKey)") }
         var urlPathAndParamsString: String { return "" }
         
-        static func == (lhs: HTTP.RandomSnodeLatestNetworkTimeTarget, rhs: HTTP.RandomSnodeLatestNetworkTimeTarget) -> Bool {
-            lhs.publicKey == rhs.publicKey
+        static func == (lhs: Network.RandomSnodeLatestNetworkTimeTarget, rhs: Network.RandomSnodeLatestNetworkTimeTarget) -> Bool {
+            lhs.swarmPublicKey == rhs.swarmPublicKey
         }
     }
 }
@@ -53,14 +53,14 @@ public extension Request {
         snode: Snode,
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
-        associatedWith publicKey: String
+        swarmPublicKey: String?
     ) {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.SnodeTarget(
+            target: Network.SnodeTarget(
                 snode: snode,
-                associatedPublicKey: publicKey
+                swarmPublicKey: swarmPublicKey
             ),
             headers: headers,
             body: body
@@ -74,15 +74,15 @@ public extension Request {
     init(
         method: HTTPMethod = .get,
         endpoint: Endpoint,
-        publicKey: String,
+        swarmPublicKey: String,
         headers: [HTTPHeader: String] = [:],
         body: T? = nil
     ) {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.RandomSnodeTarget(
-                publicKey: publicKey
+            target: Network.RandomSnodeTarget(
+                swarmPublicKey: swarmPublicKey
             ),
             headers: headers,
             body: body
@@ -96,7 +96,7 @@ public extension Request {
     init(
         method: HTTPMethod = .get,
         endpoint: Endpoint,
-        publicKey: String,
+        swarmPublicKey: String,
         headers: [HTTPHeader: String] = [:],
         requiresLatestNetworkTime: Bool,
         body: T? = nil
@@ -104,13 +104,13 @@ public extension Request {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.RandomSnodeLatestNetworkTimeTarget(
-                publicKey: publicKey,
+            target: Network.RandomSnodeLatestNetworkTimeTarget(
+                swarmPublicKey: swarmPublicKey,
                 urlRequestWithUpdatedTimestampMs: { timestampMs, dependencies in
                     try Request(
                         method: method,
                         endpoint: endpoint,
-                        publicKey: publicKey,
+                        swarmPublicKey: swarmPublicKey,
                         headers: headers,
                         body: body?.with(timestampMs: timestampMs)
                     ).generateUrlRequest(using: dependencies)

@@ -3,7 +3,7 @@
 import Foundation
 
 extension SnodeAPI {
-    public class DeleteAllMessagesRequest: SnodeAuthenticatedRequestBody {
+    public final class DeleteAllMessagesRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
         enum CodingKeys: String, CodingKey {
             case namespace
         }
@@ -70,6 +70,18 @@ extension SnodeAPI {
             }
             
             return signatureBytes
+        }
+        
+        // MARK: - UpdatableTimestamp
+        
+        public func with(timestampMs: UInt64) -> DeleteAllMessagesRequest {
+            return DeleteAllMessagesRequest(
+                namespace: self.namespace,
+                pubkey: self.pubkey,
+                timestampMs: timestampMs,
+                ed25519PublicKey: self.ed25519PublicKey,
+                ed25519SecretKey: self.ed25519SecretKey
+            )
         }
     }
 }

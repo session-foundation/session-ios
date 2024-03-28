@@ -1352,7 +1352,7 @@ extension ConversationVC:
         guard cellViewModel.threadVariant == .community else { return }
         
         Storage.shared
-            .readPublisher { db -> (HTTP.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
+            .readPublisher { db -> (Network.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
                 guard
                     let openGroup: OpenGroup = try? OpenGroup
                         .fetchOne(db, id: cellViewModel.threadId),
@@ -1363,7 +1363,7 @@ extension ConversationVC:
                         .fetchOne(db)
                 else { throw StorageError.objectNotFound }
                 
-                let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
+                let preparedRequest: Network.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
                     .preparedReactionDeleteAll(
                         db,
                         emoji: emoji,
@@ -1453,7 +1453,7 @@ extension ConversationVC:
         typealias OpenGroupInfo = (
             pendingReaction: Reaction?,
             pendingChange: OpenGroupAPI.PendingChange,
-            preparedRequest: HTTP.PreparedRequest<Int64?>
+            preparedRequest: Network.PreparedRequest<Int64?>
         )
         
         /// Perform the sending logic, we generate the pending reaction first in a deferred future closure to prevent the OpenGroup
@@ -1540,7 +1540,7 @@ extension ConversationVC:
                             OpenGroupManager.doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
                         else { throw MessageSenderError.invalidMessage }
                         
-                        let preparedRequest: HTTP.PreparedRequest<Int64?> = try {
+                        let preparedRequest: Network.PreparedRequest<Int64?> = try {
                             guard !remove else {
                                 return try OpenGroupAPI
                                     .preparedReactionDelete(
@@ -2232,7 +2232,7 @@ extension ConversationVC:
                         from: self,
                         request: SnodeAPI
                             .deleteMessages(
-                                publicKey: targetPublicKey,
+                                swarmPublicKey: targetPublicKey,
                                 serverHashes: [serverHash]
                             )
                             .map { _ in () }
@@ -2308,7 +2308,7 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
-                        .readPublisher { db -> HTTP.PreparedRequest<NoResponse> in
+                        .readPublisher { db -> Network.PreparedRequest<NoResponse> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
                             }

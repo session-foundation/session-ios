@@ -69,7 +69,7 @@ public enum MessageReceiver {
                         case .group:
                             // TODO: Need to decide how we will handle updated group messages
                             SNLog("Ignoring message with invalid sender.")
-                            throw HTTPError.parsingFailed
+                            throw NetworkError.parsingFailed
                     }
                     
                 case .closedGroupMessage:

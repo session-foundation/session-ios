@@ -92,7 +92,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                     )
                 }
             }
-            .flatMap { (changes: [MessageSender.PreparedSendData]) -> AnyPublisher<HTTP.BatchResponse, Error> in
+            .flatMap { (changes: [MessageSender.PreparedSendData]) -> AnyPublisher<Network.BatchResponse, Error> in
                 SnodeAPI
                     .sendConfigMessages(
                         changes.compactMap { change in
@@ -109,7 +109,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             }
             .subscribe(on: queue)
             .receive(on: queue)
-            .map { (response: HTTP.BatchResponse) -> [ConfigDump] in
+            .map { (response: Network.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
@@ -118,7 +118,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
-                            let typedResponse: HTTP.BatchSubResponse<SendMessagesResponse> = (subResponse as? HTTP.BatchSubResponse<SendMessagesResponse>),
+                            let typedResponse: Network.BatchSubResponse<SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<SendMessagesResponse>),
                             200...299 ~= typedResponse.code,
                             !typedResponse.failedToParseBody,
                             let sendMessageResponse: SendMessagesResponse = typedResponse.body
@@ -244,7 +244,7 @@ public extension ConfigurationSyncJob {
                     Job(variant: .configurationSync),
                     queue: .global(qos: .userInitiated),
                     success: { _, _, _ in resolver(Result.success(())) },
-                    failure: { _, error, _, _ in resolver(Result.failure(error ?? HTTPError.generic)) },
+                    failure: { _, error, _, _ in resolver(Result.failure(error ?? NetworkError.unknown)) },
                     deferred: { _, _ in },
                     using: dependencies
                 )

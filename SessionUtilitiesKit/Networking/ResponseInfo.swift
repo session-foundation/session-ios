@@ -7,7 +7,7 @@ public protocol ResponseInfoType: Decodable {
     var headers: [String: String] { get }
 }
 
-public extension HTTP {
+public extension Network {
     struct ResponseInfo: ResponseInfoType {
         public let code: Int
         public let headers: [String: String]

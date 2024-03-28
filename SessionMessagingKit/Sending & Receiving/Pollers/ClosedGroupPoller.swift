@@ -12,7 +12,7 @@ public final class ClosedGroupPoller: Poller {
     // MARK: - Settings
     
     override var namespaces: [SnodeAPI.Namespace] { ClosedGroupPoller.namespaces }
-    override var maxNodePollCount: UInt { 0 }
+    override var pollDrainBehaviour: SwarmDrainBehaviour { .alwaysRandom }
     
     private static let minPollInterval: Double = 3
     private static let maxPollInterval: Double = 30

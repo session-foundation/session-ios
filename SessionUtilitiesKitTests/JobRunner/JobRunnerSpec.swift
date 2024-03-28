@@ -1689,7 +1689,7 @@ fileprivate struct TestDetails: Codable {
 }
 
 fileprivate struct InvalidDetails: Codable {
-    func encode(to encoder: Encoder) throws { throw HTTPError.parsingFailed }
+    func encode(to encoder: Encoder) throws { throw NetworkError.parsingFailed }
 }
 
 fileprivate enum TestJob: JobExecutor {

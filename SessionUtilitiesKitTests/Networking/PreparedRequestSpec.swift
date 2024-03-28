@@ -118,7 +118,7 @@ class PreparedRequestSpec: QuickSpec {
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error).to(matchError(HTTPError.parsingFailed))
+                expect(error).to(matchError(NetworkError.parsingFailed))
             }
             
             // MARK: -- fails if the data is not JSON
@@ -131,7 +131,7 @@ class PreparedRequestSpec: QuickSpec {
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error).to(matchError(HTTPError.parsingFailed))
+                expect(error).to(matchError(NetworkError.parsingFailed))
             }
             
             // MARK: -- fails if the data is not a JSON array
@@ -144,7 +144,7 @@ class PreparedRequestSpec: QuickSpec {
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error).to(matchError(HTTPError.parsingFailed))
+                expect(error).to(matchError(NetworkError.parsingFailed))
             }
         }
     }

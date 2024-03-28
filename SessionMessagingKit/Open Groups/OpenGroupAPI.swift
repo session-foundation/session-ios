@@ -33,7 +33,7 @@ public enum OpenGroupAPI {
         hasPerformedInitialPoll: Bool,
         timeSinceLastPoll: TimeInterval,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<HTTP.BatchResponseMap<Endpoint>> {
+    ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
         let lastInboxMessageId: Int64 = (try? OpenGroup
             .select(.inboxLatestMessageId)
             .filter(OpenGroup.Columns.server == server)
@@ -149,7 +149,7 @@ public enum OpenGroupAPI {
         server: String,
         requests: [any ErasedPreparedRequest],
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<HTTP.BatchResponseMap<Endpoint>> {
+    ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request(
@@ -157,9 +157,9 @@ public enum OpenGroupAPI {
                     method: .post,
                     server: server,
                     endpoint: .batch,
-                    body: HTTP.BatchRequest(requests: requests)
+                    body: Network.BatchRequest(requests: requests)
                 ),
-                responseType: HTTP.BatchResponseMap<Endpoint>.self,
+                responseType: Network.BatchResponseMap<Endpoint>.self,
                 using: dependencies
             )
             .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
@@ -180,7 +180,7 @@ public enum OpenGroupAPI {
         server: String,
         requests: [any ErasedPreparedRequest],
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<HTTP.BatchResponseMap<Endpoint>> {
+    ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request(
@@ -188,9 +188,9 @@ public enum OpenGroupAPI {
                     method: .post,
                     server: server,
                     endpoint: .sequence,
-                    body: HTTP.BatchRequest(requests: requests)
+                    body: Network.BatchRequest(requests: requests)
                 ),
-                responseType: HTTP.BatchResponseMap<Endpoint>.self,
+                responseType: Network.BatchResponseMap<Endpoint>.self,
                 using: dependencies
             )
             .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
@@ -210,7 +210,7 @@ public enum OpenGroupAPI {
         server: String,
         forceBlinded: Bool = false,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Capabilities> {
+    ) throws -> Network.PreparedRequest<Capabilities> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -234,7 +234,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<[Room]> {
+    ) throws -> Network.PreparedRequest<[Room]> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -254,7 +254,7 @@ public enum OpenGroupAPI {
         for roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Room> {
+    ) throws -> Network.PreparedRequest<Room> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -278,7 +278,7 @@ public enum OpenGroupAPI {
         for roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<RoomPollInfo> {
+    ) throws -> Network.PreparedRequest<RoomPollInfo> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -304,7 +304,7 @@ public enum OpenGroupAPI {
         for roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<CapabilitiesAndRoomResponse> {
+    ) throws -> Network.PreparedRequest<CapabilitiesAndRoomResponse> {
         return try OpenGroupAPI
             .preparedSequence(
                 db,
@@ -318,8 +318,8 @@ public enum OpenGroupAPI {
                 using: dependencies
             )
             .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
-            .map { (info: ResponseInfoType, response: HTTP.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomResponse in
-                let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (response[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
+            .map { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomResponse in
+                let maybeCapabilities: Network.BatchSubResponse<Capabilities>? = (response[.capabilities] as? Network.BatchSubResponse<Capabilities>)
                 let maybeRoomResponse: Any? = response.data
                     .first(where: { key, _ in
                         switch key {
@@ -328,14 +328,14 @@ public enum OpenGroupAPI {
                         }
                     })
                     .map { _, value in value }
-                let maybeRoom: HTTP.BatchSubResponse<Room>? = (maybeRoomResponse as? HTTP.BatchSubResponse<Room>)
+                let maybeRoom: Network.BatchSubResponse<Room>? = (maybeRoomResponse as? Network.BatchSubResponse<Room>)
                 
                 guard
                     let capabilitiesInfo: ResponseInfoType = maybeCapabilities,
                     let capabilities: Capabilities = maybeCapabilities?.body,
                     let roomInfo: ResponseInfoType = maybeRoom,
                     let room: Room = maybeRoom?.body
-                else { throw HTTPError.parsingFailed }
+                else { throw NetworkError.parsingFailed }
                 
                 return (
                     capabilities: (info: capabilitiesInfo, data: capabilities),
@@ -355,7 +355,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<CapabilitiesAndRoomsResponse> {
+    ) throws -> Network.PreparedRequest<CapabilitiesAndRoomsResponse> {
         return try OpenGroupAPI
             .preparedSequence(
                 db,
@@ -369,23 +369,23 @@ public enum OpenGroupAPI {
                 using: dependencies
             )
             .signed(db, with: OpenGroupAPI.signRequest, using: dependencies)
-            .map { (info: ResponseInfoType, response: HTTP.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomsResponse in
-                let maybeCapabilities: HTTP.BatchSubResponse<Capabilities>? = (response[.capabilities] as? HTTP.BatchSubResponse<Capabilities>)
-                let maybeRooms: HTTP.BatchSubResponse<[Room]>? = response.data
+            .map { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomsResponse in
+                let maybeCapabilities: Network.BatchSubResponse<Capabilities>? = (response[.capabilities] as? Network.BatchSubResponse<Capabilities>)
+                let maybeRooms: Network.BatchSubResponse<[Room]>? = response.data
                     .first(where: { key, _ in
                         switch key {
                             case .rooms: return true
                             default: return false
                         }
                     })
-                    .map { _, value in value as? HTTP.BatchSubResponse<[Room]> }
+                    .map { _, value in value as? Network.BatchSubResponse<[Room]> }
                 
                 guard
                     let capabilitiesInfo: ResponseInfoType = maybeCapabilities,
                     let capabilities: Capabilities = maybeCapabilities?.body,
                     let roomsInfo: ResponseInfoType = maybeRooms,
                     let rooms: [Room] = maybeRooms?.body
-                else { throw HTTPError.parsingFailed }
+                else { throw NetworkError.parsingFailed }
                 
                 return (
                     capabilities: (info: capabilitiesInfo, data: capabilities),
@@ -406,7 +406,7 @@ public enum OpenGroupAPI {
         whisperMods: Bool,
         fileIds: [String]?,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Message> {
+    ) throws -> Network.PreparedRequest<Message> {
         let signResult: (publicKey: String, signature: [UInt8]) = try sign(
             db,
             messageBytes: plaintext.bytes,
@@ -443,7 +443,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Message> {
+    ) throws -> Network.PreparedRequest<Message> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -468,7 +468,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         let signResult: (publicKey: String, signature: [UInt8]) = try sign(
             db,
             messageBytes: plaintext.bytes,
@@ -503,7 +503,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -528,7 +528,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<[Failable<Message>]> {
+    ) throws -> Network.PreparedRequest<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -558,7 +558,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<[Failable<Message>]> {
+    ) throws -> Network.PreparedRequest<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -588,7 +588,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<[Failable<Message>]> {
+    ) throws -> Network.PreparedRequest<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -625,7 +625,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies = Dependencies()
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -650,7 +650,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies = Dependencies()
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
         guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
@@ -682,7 +682,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<ReactionAddResponse> {
+    ) throws -> Network.PreparedRequest<ReactionAddResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
         guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
@@ -712,7 +712,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<ReactionRemoveResponse> {
+    ) throws -> Network.PreparedRequest<ReactionRemoveResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
         guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
@@ -743,7 +743,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<ReactionRemoveAllResponse> {
+    ) throws -> Network.PreparedRequest<ReactionRemoveAllResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
         guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
@@ -782,7 +782,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies = Dependencies()
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -806,7 +806,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -829,7 +829,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -859,7 +859,7 @@ public enum OpenGroupAPI {
         to roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<FileUploadResponse> {
+    ) throws -> Network.PreparedRequest<FileUploadResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request(
@@ -892,7 +892,7 @@ public enum OpenGroupAPI {
         from roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Data> {
+    ) throws -> Network.PreparedRequest<Data> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -916,7 +916,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<[DirectMessage]?> {
+    ) throws -> Network.PreparedRequest<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -938,7 +938,7 @@ public enum OpenGroupAPI {
         id: Int64,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<[DirectMessage]?> {
+    ) throws -> Network.PreparedRequest<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -957,7 +957,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<DeleteInboxResponse> {
+    ) throws -> Network.PreparedRequest<DeleteInboxResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -981,7 +981,7 @@ public enum OpenGroupAPI {
         toInboxFor blindedSessionId: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<SendDirectMessageResponse> {
+    ) throws -> Network.PreparedRequest<SendDirectMessageResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request(
@@ -1006,7 +1006,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<[DirectMessage]?> {
+    ) throws -> Network.PreparedRequest<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -1028,7 +1028,7 @@ public enum OpenGroupAPI {
         id: Int64,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<[DirectMessage]?> {
+    ) throws -> Network.PreparedRequest<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request<NoBody, Endpoint>(
@@ -1082,7 +1082,7 @@ public enum OpenGroupAPI {
         from roomTokens: [String]? = nil,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request(
@@ -1132,7 +1132,7 @@ public enum OpenGroupAPI {
         from roomTokens: [String]?,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
                 request: Request(
@@ -1211,9 +1211,9 @@ public enum OpenGroupAPI {
         for roomTokens: [String]?,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<NoResponse> {
+    ) throws -> Network.PreparedRequest<NoResponse> {
         guard (moderator != nil && admin == nil) || (moderator == nil && admin != nil) else {
-            throw HTTPError.generic
+            throw NetworkError.invalidPreparedRequest
         }
         
         return try OpenGroupAPI
@@ -1245,7 +1245,7 @@ public enum OpenGroupAPI {
         in roomToken: String,
         on server: String,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<HTTP.BatchResponseMap<Endpoint>> {
+    ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
         return try OpenGroupAPI
             .preparedSequence(
                 db,
@@ -1348,12 +1348,12 @@ public enum OpenGroupAPI {
     /// Sign a request to be sent to SOGS (handles both un-blinded and blinded signing based on the server capabilities)
     private static func signRequest<R>(
         _ db: Database,
-        preparedRequest: HTTP.PreparedRequest<R>,
+        preparedRequest: Network.PreparedRequest<R>,
         using dependencies: Dependencies
     ) throws -> URLRequest {
         guard
             let url: URL = preparedRequest.request.url,
-            let target: HTTP.OpenGroupAPITarget = preparedRequest.target as? HTTP.OpenGroupAPITarget
+            let target: Network.OpenGroupAPITarget<OpenGroupAPI.Endpoint> = preparedRequest.target as? Network.OpenGroupAPITarget<OpenGroupAPI.Endpoint>
         else { throw OpenGroupAPIError.signingFailed }
         
         var updatedRequest: URLRequest = preparedRequest.request
@@ -1420,10 +1420,10 @@ public enum OpenGroupAPI {
     private static func prepareRequest<T: Encodable, R: Decodable>(
         request: Request<T, Endpoint>,
         responseType: R.Type,
-        timeout: TimeInterval = HTTP.defaultTimeout,
+        timeout: TimeInterval = Network.defaultTimeout,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<R> {
-        return HTTP.PreparedRequest(
+    ) throws -> Network.PreparedRequest<R> {
+        return Network.PreparedRequest(
             request: request,
             urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,

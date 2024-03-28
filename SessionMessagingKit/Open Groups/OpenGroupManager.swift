@@ -990,7 +990,7 @@ public final class OpenGroupManager {
         
         // Try to retrieve the default rooms 8 times
         let publisher: AnyPublisher<[DefaultRoomInfo], Error> = dependencies.storage
-            .readPublisher { db -> HTTP.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse> in
+            .readPublisher { db -> Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse> in
                 try OpenGroupAPI.preparedCapabilitiesAndRooms(
                     db,
                     on: OpenGroupAPI.defaultServer,
@@ -1126,7 +1126,7 @@ public final class OpenGroupManager {
                 DispatchQueue.global(qos: .background).async(using: dependencies) {
                     // Hold on to the publisher until it has completed at least once
                     dependencies.storage
-                        .readPublisher { db -> (Data?, HTTP.PreparedRequest<Data>?) in
+                        .readPublisher { db -> (Data?, Network.PreparedRequest<Data>?) in
                             if canUseExistingImage {
                                 let maybeExistingData: Data? = try? OpenGroup
                                     .select(.imageData)
@@ -1164,7 +1164,7 @@ public final class OpenGroupManager {
                                         .eraseToAnyPublisher()
                                     
                                 default:
-                                    return Fail(error: HTTPError.generic)
+                                    return Fail(error: NetworkError.invalidPreparedRequest)
                                         .eraseToAnyPublisher()
                             }
                         }

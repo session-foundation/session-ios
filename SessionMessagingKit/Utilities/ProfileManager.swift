@@ -473,7 +473,7 @@ public struct ProfileManager {
                             case .failure(let error):
                                 SNLog("Updating service with profile failed.")
                                 
-                                let isMaxFileSizeExceeded: Bool = ((error as? HTTPError) == .maxFileSizeExceeded)
+                                let isMaxFileSizeExceeded: Bool = ((error as? NetworkError) == .maxFileSizeExceeded)
                                 failure?(isMaxFileSizeExceeded ?
                                     .avatarUploadMaxFileSizeExceeded :
                                     .avatarUploadFailed

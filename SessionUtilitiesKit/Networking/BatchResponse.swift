@@ -3,8 +3,8 @@
 import Foundation
 import Combine
 
-public extension HTTP {
-    // MARK: - HTTP.BatchResponse
+public extension Network {
+    // MARK: - Network.BatchResponse
 
     struct BatchResponse: Decodable, Collection {
         public let data: [Any]
@@ -64,11 +64,11 @@ public extension HTTP {
         
         public static func from(
             batchEndpoints: [any EndpointType],
-            response: HTTP.BatchResponse
+            response: Network.BatchResponse
         ) throws -> Self {
             let convertedEndpoints: [E] = batchEndpoints.compactMap { $0 as? E }
             
-            guard convertedEndpoints.count == response.data.count else { throw HTTPError.parsingFailed }
+            guard convertedEndpoints.count == response.data.count else { throw NetworkError.parsingFailed }
             
             return BatchResponseMap(
                 data: zip(convertedEndpoints, response.data)
@@ -121,19 +121,19 @@ public extension HTTP {
 public protocol ErasedBatchResponseMap {
     static func from(
         batchEndpoints: [any EndpointType],
-        response: HTTP.BatchResponse
+        response: Network.BatchResponse
     ) throws -> Self
 }
 
 // MARK: - BatchSubResponse<T> Coding
 
-extension HTTP.BatchSubResponse: Encodable where T: Encodable {}
-extension HTTP.BatchSubResponse: Decodable {
+extension Network.BatchSubResponse: Encodable where T: Encodable {}
+extension Network.BatchSubResponse: Decodable {
     public init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
         let body: T? = ((try? (T.self as? Decodable.Type)?.decoded(with: container, forKey: .body)) as? T)
         
-        self = HTTP.BatchSubResponse(
+        self = Network.BatchSubResponse(
             code: try container.decode(Int.self, forKey: .code),
             headers: ((try? container.decode([String: String].self, forKey: .headers)) ?? [:]),
             body: body,
@@ -154,17 +154,17 @@ protocol ErasedBatchSubResponse: ResponseInfoType {
 
 // MARK: - Convenience
 
-internal extension HTTP.BatchResponse {
+internal extension Network.BatchResponse {
     static func decodingResponses(
         from data: Data?,
         as types: [Decodable.Type],
         requireAllResults: Bool,
         using dependencies: Dependencies = Dependencies()
-    ) throws -> HTTP.BatchResponse {
+    ) throws -> Network.BatchResponse {
         // Need to split the data into an array of data so each item can be Decoded correctly
-        guard let data: Data = data else { throw HTTPError.parsingFailed }
+        guard let data: Data = data else { throw NetworkError.parsingFailed }
         guard let jsonObject: Any = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else {
-            throw HTTPError.parsingFailed
+            throw NetworkError.parsingFailed
         }
         
         let dataArray: [Data]
@@ -174,7 +174,7 @@ internal extension HTTP.BatchResponse {
                 dataArray = anyArray.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
                 
                 guard !requireAllResults || dataArray.count == types.count else {
-                    throw HTTPError.parsingFailed
+                    throw NetworkError.parsingFailed
                 }
                 
             case let anyDict as [String: Any]:
@@ -185,14 +185,14 @@ internal extension HTTP.BatchResponse {
                         !requireAllResults ||
                         resultsArray.count == types.count
                     )
-                else { throw HTTPError.parsingFailed }
+                else { throw NetworkError.parsingFailed }
                 
                 dataArray = resultsArray
                 
-            default: throw HTTPError.parsingFailed
+            default: throw NetworkError.parsingFailed
         }
         
-        return HTTP.BatchResponse(
+        return Network.BatchResponse(
             data: try zip(dataArray, types)
                 .map { data, type in try type.decoded(from: data, using: dependencies) }
         )

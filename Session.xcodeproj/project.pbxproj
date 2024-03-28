@@ -394,7 +394,6 @@
 		C3AAFFF225AE99710089E6DD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3AAFFF125AE99710089E6DD /* AppDelegate.swift */; };
 		C3ADC66126426688005F1414 /* ShareNavController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3ADC66026426688005F1414 /* ShareNavController.swift */; };
 		C3BBE0A82554D4DE0050F1E3 /* JSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D92553860B00C340D1 /* JSON.swift */; };
-		C3BBE0A92554D4DE0050F1E3 /* HTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5BC255385EE00C340D1 /* HTTP.swift */; };
 		C3BBE0AA2554D4DE0050F1E3 /* Dictionary+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C2A5D52553860A00C340D1 /* Dictionary+Utilities.swift */; };
 		C3BBE0C72554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BBE0C62554F1570050F1E3 /* FixedWidthInteger+BigEndian.swift */; };
 		C3C2A5A3255385C100C340D1 /* SessionSnodeKit.h in Headers */ = {isa = PBXBuildFile; fileRef = C3C2A5A1255385C100C340D1 /* SessionSnodeKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -792,7 +791,6 @@
 		FDC13D492A16EC20007267C7 /* Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D482A16EC20007267C7 /* Service.swift */; };
 		FDC13D4B2A16ECBA007267C7 /* SubscribeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */; };
 		FDC13D502A16EE50007267C7 /* PushNotificationAPIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D4F2A16EE50007267C7 /* PushNotificationAPIEndpoint.swift */; };
-		FDC13D522A16F22E007267C7 /* PushNotificationAPIRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D512A16F22E007267C7 /* PushNotificationAPIRequest.swift */; };
 		FDC13D542A16FF29007267C7 /* LegacyGroupRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D532A16FF29007267C7 /* LegacyGroupRequest.swift */; };
 		FDC13D562A171FE4007267C7 /* UnsubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */; };
 		FDC13D582A17207D007267C7 /* UnsubscribeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */; };
@@ -853,12 +851,6 @@
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
 		FDD82C3F2A205D0A00425F05 /* ProcessResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */; };
 		FDDC08F229A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */; };
-		FDDCBDA829E776BF00303C38 /* seed2-2023-2y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA229E776BF00303C38 /* seed2-2023-2y.crt */; };
-		FDDCBDA929E776BF00303C38 /* seed1-2023-2y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA329E776BF00303C38 /* seed1-2023-2y.crt */; };
-		FDDCBDAA29E776BF00303C38 /* seed1-2023-2y.der in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA429E776BF00303C38 /* seed1-2023-2y.der */; };
-		FDDCBDAB29E776BF00303C38 /* seed2-2023-2y.der in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA529E776BF00303C38 /* seed2-2023-2y.der */; };
-		FDDCBDAC29E776BF00303C38 /* seed3-2023-2y.crt in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA629E776BF00303C38 /* seed3-2023-2y.crt */; };
-		FDDCBDAD29E776BF00303C38 /* seed3-2023-2y.der in Resources */ = {isa = PBXBuildFile; fileRef = FDDCBDA729E776BF00303C38 /* seed3-2023-2y.der */; };
 		FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */; };
 		FDDF074A29DAB36900E5E8B5 /* JobRunnerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */; };
 		FDE125232A837E4E002DA685 /* MainAppContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE125222A837E4E002DA685 /* MainAppContext.swift */; };
@@ -885,7 +877,7 @@
 		FDF22211281B5E0B000A4995 /* TableRecord+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF22210281B5E0B000A4995 /* TableRecord+Utilities.swift */; };
 		FDF40CDE2897A1BC006A0CC4 /* _004_RemoveLegacyYDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF40CDD2897A1BC006A0CC4 /* _004_RemoveLegacyYDB.swift */; };
 		FDF8487929405906007DCAE5 /* HTTPQueryParam.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8487529405906007DCAE5 /* HTTPQueryParam.swift */; };
-		FDF8487A29405906007DCAE5 /* HTTPError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8487629405906007DCAE5 /* HTTPError.swift */; };
+		FDF8487A29405906007DCAE5 /* NetworkError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8487629405906007DCAE5 /* NetworkError.swift */; };
 		FDF8487B29405906007DCAE5 /* HTTPHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8487729405906007DCAE5 /* HTTPHeader.swift */; };
 		FDF8487C29405906007DCAE5 /* HTTPMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8487829405906007DCAE5 /* HTTPMethod.swift */; };
 		FDF8487F29405994007DCAE5 /* HTTPHeader+OpenGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8487D29405993007DCAE5 /* HTTPHeader+OpenGroup.swift */; };
@@ -931,13 +923,10 @@
 		FDF848DB29405C5B007DCAE5 /* DeleteMessagesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848B929405C5A007DCAE5 /* DeleteMessagesResponse.swift */; };
 		FDF848DC29405C5B007DCAE5 /* RevokeSubkeyRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848BA29405C5A007DCAE5 /* RevokeSubkeyRequest.swift */; };
 		FDF848DD29405C5B007DCAE5 /* LegacySendMessageRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848BB29405C5A007DCAE5 /* LegacySendMessageRequest.swift */; };
-		FDF848E329405D6E007DCAE5 /* OnionRequestAPIVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848DE29405D6E007DCAE5 /* OnionRequestAPIVersion.swift */; };
 		FDF848E429405D6E007DCAE5 /* SnodeAPIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848DF29405D6E007DCAE5 /* SnodeAPIEndpoint.swift */; };
 		FDF848E529405D6E007DCAE5 /* SnodeAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */; };
 		FDF848E629405D6E007DCAE5 /* OnionRequestAPIDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E129405D6E007DCAE5 /* OnionRequestAPIDestination.swift */; };
-		FDF848E729405D6E007DCAE5 /* OnionRequestAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E229405D6E007DCAE5 /* OnionRequestAPIError.swift */; };
 		FDF848EB29405E4F007DCAE5 /* OnionRequestAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */; };
-		FDF848EC29405E4F007DCAE5 /* OnionRequestAPI+Encryption.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E929405E4E007DCAE5 /* OnionRequestAPI+Encryption.swift */; };
 		FDF848ED29405E4F007DCAE5 /* Notification+OnionRequestAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848EA29405E4E007DCAE5 /* Notification+OnionRequestAPI.swift */; };
 		FDF848EF294067E4007DCAE5 /* URLResponse+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848EE294067E4007DCAE5 /* URLResponse+Utilities.swift */; };
 		FDF848F129406A30007DCAE5 /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F029406A30007DCAE5 /* Format.swift */; };
@@ -1594,7 +1583,6 @@
 		C3C2A5A2255385C100C340D1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C3C2A5B7255385EC00C340D1 /* Snode.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Snode.swift; sourceTree = "<group>"; };
 		C3C2A5B9255385ED00C340D1 /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
-		C3C2A5BC255385EE00C340D1 /* HTTP.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTTP.swift; sourceTree = "<group>"; };
 		C3C2A5CE2553860700C340D1 /* Logging.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Logging.swift; sourceTree = "<group>"; };
 		C3C2A5D12553860800C340D1 /* Array+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Array+Utilities.swift"; sourceTree = "<group>"; };
 		C3C2A5D22553860900C340D1 /* String+Trimming.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Trimming.swift"; sourceTree = "<group>"; };
@@ -1980,7 +1968,6 @@
 		FDC13D482A16EC20007267C7 /* Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Service.swift; sourceTree = "<group>"; };
 		FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscribeResponse.swift; sourceTree = "<group>"; };
 		FDC13D4F2A16EE50007267C7 /* PushNotificationAPIEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationAPIEndpoint.swift; sourceTree = "<group>"; };
-		FDC13D512A16F22E007267C7 /* PushNotificationAPIRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationAPIRequest.swift; sourceTree = "<group>"; };
 		FDC13D532A16FF29007267C7 /* LegacyGroupRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyGroupRequest.swift; sourceTree = "<group>"; };
 		FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeRequest.swift; sourceTree = "<group>"; };
 		FDC13D572A17207D007267C7 /* UnsubscribeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsubscribeResponse.swift; sourceTree = "<group>"; };
@@ -2040,12 +2027,6 @@
 		FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryNavigationController.swift; sourceTree = "<group>"; };
 		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
 		FDDC08F129A300E800BF9681 /* LibSessionTypeConversionUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionTypeConversionUtilitiesSpec.swift; sourceTree = "<group>"; };
-		FDDCBDA229E776BF00303C38 /* seed2-2023-2y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed2-2023-2y.crt"; sourceTree = "<group>"; };
-		FDDCBDA329E776BF00303C38 /* seed1-2023-2y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed1-2023-2y.crt"; sourceTree = "<group>"; };
-		FDDCBDA429E776BF00303C38 /* seed1-2023-2y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed1-2023-2y.der"; sourceTree = "<group>"; };
-		FDDCBDA529E776BF00303C38 /* seed2-2023-2y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed2-2023-2y.der"; sourceTree = "<group>"; };
-		FDDCBDA629E776BF00303C38 /* seed3-2023-2y.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "seed3-2023-2y.crt"; sourceTree = "<group>"; };
-		FDDCBDA729E776BF00303C38 /* seed3-2023-2y.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "seed3-2023-2y.der"; sourceTree = "<group>"; };
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobRunnerSpec.swift; sourceTree = "<group>"; };
 		FDE125222A837E4E002DA685 /* MainAppContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainAppContext.swift; sourceTree = "<group>"; };
@@ -2078,7 +2059,7 @@
 		FDF22210281B5E0B000A4995 /* TableRecord+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TableRecord+Utilities.swift"; sourceTree = "<group>"; };
 		FDF40CDD2897A1BC006A0CC4 /* _004_RemoveLegacyYDB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_RemoveLegacyYDB.swift; sourceTree = "<group>"; };
 		FDF8487529405906007DCAE5 /* HTTPQueryParam.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTTPQueryParam.swift; sourceTree = "<group>"; };
-		FDF8487629405906007DCAE5 /* HTTPError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTTPError.swift; sourceTree = "<group>"; };
+		FDF8487629405906007DCAE5 /* NetworkError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NetworkError.swift; sourceTree = "<group>"; };
 		FDF8487729405906007DCAE5 /* HTTPHeader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTTPHeader.swift; sourceTree = "<group>"; };
 		FDF8487829405906007DCAE5 /* HTTPMethod.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTTPMethod.swift; sourceTree = "<group>"; };
 		FDF8487D29405993007DCAE5 /* HTTPHeader+OpenGroup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+OpenGroup.swift"; sourceTree = "<group>"; };
@@ -2121,13 +2102,10 @@
 		FDF848B929405C5A007DCAE5 /* DeleteMessagesResponse.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DeleteMessagesResponse.swift; sourceTree = "<group>"; };
 		FDF848BA29405C5A007DCAE5 /* RevokeSubkeyRequest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RevokeSubkeyRequest.swift; sourceTree = "<group>"; };
 		FDF848BB29405C5A007DCAE5 /* LegacySendMessageRequest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LegacySendMessageRequest.swift; sourceTree = "<group>"; };
-		FDF848DE29405D6E007DCAE5 /* OnionRequestAPIVersion.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnionRequestAPIVersion.swift; sourceTree = "<group>"; };
 		FDF848DF29405D6E007DCAE5 /* SnodeAPIEndpoint.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPIEndpoint.swift; sourceTree = "<group>"; };
 		FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPIError.swift; sourceTree = "<group>"; };
 		FDF848E129405D6E007DCAE5 /* OnionRequestAPIDestination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnionRequestAPIDestination.swift; sourceTree = "<group>"; };
-		FDF848E229405D6E007DCAE5 /* OnionRequestAPIError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnionRequestAPIError.swift; sourceTree = "<group>"; };
 		FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnionRequestAPI.swift; sourceTree = "<group>"; };
-		FDF848E929405E4E007DCAE5 /* OnionRequestAPI+Encryption.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "OnionRequestAPI+Encryption.swift"; sourceTree = "<group>"; };
 		FDF848EA29405E4E007DCAE5 /* Notification+OnionRequestAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Notification+OnionRequestAPI.swift"; sourceTree = "<group>"; };
 		FDF848EE294067E4007DCAE5 /* URLResponse+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "URLResponse+Utilities.swift"; sourceTree = "<group>"; };
 		FDF848F029406A30007DCAE5 /* Format.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Format.swift; path = "SessionUIKit/Style Guide/Format.swift"; sourceTree = SOURCE_ROOT; };
@@ -2562,19 +2540,6 @@
 			path = "Content Views";
 			sourceTree = "<group>";
 		};
-		B81D260326158DF5004D1FE1 /* Certificates */ = {
-			isa = PBXGroup;
-			children = (
-				FDDCBDA329E776BF00303C38 /* seed1-2023-2y.crt */,
-				FDDCBDA429E776BF00303C38 /* seed1-2023-2y.der */,
-				FDDCBDA229E776BF00303C38 /* seed2-2023-2y.crt */,
-				FDDCBDA529E776BF00303C38 /* seed2-2023-2y.der */,
-				FDDCBDA629E776BF00303C38 /* seed3-2023-2y.crt */,
-				FDDCBDA729E776BF00303C38 /* seed3-2023-2y.der */,
-			);
-			path = Certificates;
-			sourceTree = "<group>";
-		};
 		B821493625D4D6A7009C0F2A /* Views & Modals */ = {
 			isa = PBXGroup;
 			children = (
@@ -2664,7 +2629,6 @@
 			isa = PBXGroup;
 			children = (
 				C33FDB68255A580F00E217F9 /* ContentProxy.swift */,
-				FDF8487629405906007DCAE5 /* HTTPError.swift */,
 				FDF8487729405906007DCAE5 /* HTTPHeader.swift */,
 				FDF8487829405906007DCAE5 /* HTTPMethod.swift */,
 				FDF8487529405906007DCAE5 /* HTTPQueryParam.swift */,
@@ -2678,7 +2642,7 @@
 				FDF8488229405A12007DCAE5 /* BatchResponse.swift */,
 				FDC438B227BB15B400C60D73 /* ResponseInfo.swift */,
 				C33FDAF2255A580500E217F9 /* ProxiedContentDownloader.swift */,
-				C3C2A5BC255385EE00C340D1 /* HTTP.swift */,
+				FDF8487629405906007DCAE5 /* NetworkError.swift */,
 				FD23CE1A2A651E6D0000B97C /* NetworkType.swift */,
 				FDF848EE294067E4007DCAE5 /* URLResponse+Utilities.swift */,
 			);
@@ -3526,7 +3490,6 @@
 				C3AAFFF125AE99710089E6DD /* AppDelegate.swift */,
 				34D99CE3217509C1000AFB39 /* AppEnvironment.swift */,
 				7BFD1A952747689000FB91B9 /* TurnServers */,
-				B81D260326158DF5004D1FE1 /* Certificates */,
 				B8FF8E6025C10D8B004D1F22 /* Countries */,
 				34330A581E7875FB00DF2FB9 /* Fonts */,
 				B66DBF4919D5BBC8006EA940 /* Images.xcassets */,
@@ -4338,7 +4301,6 @@
 		FDC4382D27B383A600C60D73 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				FDC13D512A16F22E007267C7 /* PushNotificationAPIRequest.swift */,
 				FDC13D462A16E4CA007267C7 /* SubscribeRequest.swift */,
 				FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */,
 				FDC13D552A171FE4007267C7 /* UnsubscribeRequest.swift */,
@@ -4501,8 +4463,6 @@
 				FDF848DF29405D6E007DCAE5 /* SnodeAPIEndpoint.swift */,
 				FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */,
 				FDF8489029405C13007DCAE5 /* SnodeAPINamespace.swift */,
-				FDF848DE29405D6E007DCAE5 /* OnionRequestAPIVersion.swift */,
-				FDF848E229405D6E007DCAE5 /* OnionRequestAPIError.swift */,
 				FDF848E129405D6E007DCAE5 /* OnionRequestAPIDestination.swift */,
 				FD7F74832BB283DF006DDFD8 /* SwarmDrainBehaviour.swift */,
 				FD7F74812BB283CE006DDFD8 /* UpdatableTimestamp.swift */,
@@ -4519,7 +4479,6 @@
 				FD7F74852BB2868E006DDFD8 /* ResponseInfo+SnodeAPI.swift */,
 				FDF848EA29405E4E007DCAE5 /* Notification+OnionRequestAPI.swift */,
 				FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */,
-				FDF848E929405E4E007DCAE5 /* OnionRequestAPI+Encryption.swift */,
 				FD7F747B2BB28182006DDFD8 /* PreparedRequest+OnionRequest.swift */,
 			);
 			path = Networking;
@@ -5162,7 +5121,6 @@
 				34CF0788203E6B78005C4D61 /* ringback_tone_ansi.caf in Resources */,
 				7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */,
 				34C3C78F2040A4F70000134C /* sonarping.mp3 in Resources */,
-				FDDCBDA929E776BF00303C38 /* seed1-2023-2y.crt in Resources */,
 				34661FB820C1C0D60056EDD6 /* message_sent.aiff in Resources */,
 				45CB2FA81CB7146C00E1B343 /* Launch Screen.storyboard in Resources */,
 				34C3C78D20409F320000134C /* Opening.m4r in Resources */,
@@ -5180,7 +5138,6 @@
 				45B74A812044AAB600CD42F8 /* chord-quiet.aifc in Resources */,
 				45B74A832044AAB600CD42F8 /* circles.aifc in Resources */,
 				45B74A892044AAB600CD42F8 /* circles-quiet.aifc in Resources */,
-				FDDCBDAA29E776BF00303C38 /* seed1-2023-2y.der in Resources */,
 				C34C8F7423A7830B00D82669 /* SpaceMono-Bold.ttf in Resources */,
 				4503F1BF20470A5B00CEE724 /* classic.aifc in Resources */,
 				B8D07405265C683300F77E07 /* ElegantIcons.ttf in Resources */,
@@ -5193,11 +5150,8 @@
 				45B74A7C2044AAB600CD42F8 /* hello-quiet.aifc in Resources */,
 				7B50D64D28AC7CF80086CCEC /* silence.aiff in Resources */,
 				45B74A792044AAB600CD42F8 /* input.aifc in Resources */,
-				FDDCBDAB29E776BF00303C38 /* seed2-2023-2y.der in Resources */,
 				C3CA3ABE255CDB0D00F4C6D4 /* portuguese.txt in Resources */,
 				45B74A8C2044AAB600CD42F8 /* input-quiet.aifc in Resources */,
-				FDDCBDAC29E776BF00303C38 /* seed3-2023-2y.crt in Resources */,
-				FDDCBDA829E776BF00303C38 /* seed2-2023-2y.crt in Resources */,
 				45B74A7A2044AAB600CD42F8 /* keys.aifc in Resources */,
 				45B74A762044AAB600CD42F8 /* keys-quiet.aifc in Resources */,
 				45B74A862044AAB600CD42F8 /* note.aifc in Resources */,
@@ -5207,7 +5161,6 @@
 				45B74A822044AAB600CD42F8 /* pulse.aifc in Resources */,
 				C3CA3AC8255CDB2900F4C6D4 /* spanish.txt in Resources */,
 				B8FF8E6225C10DA5004D1F22 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
-				FDDCBDAD29E776BF00303C38 /* seed3-2023-2y.der in Resources */,
 				45B74A802044AAB600CD42F8 /* pulse-quiet.aifc in Resources */,
 				45B74A8B2044AAB600CD42F8 /* synth.aifc in Resources */,
 				45B74A752044AAB600CD42F8 /* synth-quiet.aifc in Resources */,
@@ -5829,7 +5782,6 @@
 				FDF848DC29405C5B007DCAE5 /* RevokeSubkeyRequest.swift in Sources */,
 				FD4324302999F0BC008A0213 /* ValidatableResponse.swift in Sources */,
 				FD17D7A027F40CC800122BE0 /* _001_InitialSetupMigration.swift in Sources */,
-				FDF848EC29405E4F007DCAE5 /* OnionRequestAPI+Encryption.swift in Sources */,
 				FD17D7AA27F41BF500122BE0 /* SnodeSet.swift in Sources */,
 				FDF848D029405C5B007DCAE5 /* UpdateExpiryResponse.swift in Sources */,
 				FDF848D329405C5B007DCAE5 /* UpdateExpiryAllResponse.swift in Sources */,
@@ -5860,7 +5812,6 @@
 				FDF848C429405C5A007DCAE5 /* RevokeSubkeyResponse.swift in Sources */,
 				FDF848E529405D6E007DCAE5 /* SnodeAPIError.swift in Sources */,
 				FDF848D529405C5B007DCAE5 /* DeleteAllMessagesResponse.swift in Sources */,
-				FDF848E329405D6E007DCAE5 /* OnionRequestAPIVersion.swift in Sources */,
 				FDF848BF29405C5A007DCAE5 /* SnodeResponse.swift in Sources */,
 				FDD20C182A09E7D3003898FB /* GetExpiriesResponse.swift in Sources */,
 				C3C2A5E42553860B00C340D1 /* Data+Utilities.swift in Sources */,
@@ -5880,7 +5831,6 @@
 				FD6A7A6D2818C61500035AC1 /* _002_SetupStandardJobs.swift in Sources */,
 				FD17D7B327F51E5B00122BE0 /* SSKSetting.swift in Sources */,
 				FDF848E429405D6E007DCAE5 /* SnodeAPIEndpoint.swift in Sources */,
-				FDF848E729405D6E007DCAE5 /* OnionRequestAPIError.swift in Sources */,
 				FDF848BE29405C5A007DCAE5 /* GetServiceNodesRequest.swift in Sources */,
 				FDF848EB29405E4F007DCAE5 /* OnionRequestAPI.swift in Sources */,
 				FD17D7AE27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift in Sources */,
@@ -5993,7 +5943,6 @@
 				FD29598D2A43BC0B00888A17 /* Version.swift in Sources */,
 				FDF8487C29405906007DCAE5 /* HTTPMethod.swift in Sources */,
 				FDF8488429405A2B007DCAE5 /* RequestInfo.swift in Sources */,
-				C3BBE0A92554D4DE0050F1E3 /* HTTP.swift in Sources */,
 				FD71160028C8253500B47552 /* UIView+Combine.swift in Sources */,
 				B8856D23256F116B001CE70E /* Weak.swift in Sources */,
 				FD17D7CD27F546FF00122BE0 /* Setting.swift in Sources */,
@@ -6005,7 +5954,7 @@
 				FD17D7BF27F51F8200122BE0 /* ColumnExpressible.swift in Sources */,
 				FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */,
 				FD9004142818AD0B00ABAAF6 /* _002_SetupStandardJobs.swift in Sources */,
-				FDF8487A29405906007DCAE5 /* HTTPError.swift in Sources */,
+				FDF8487A29405906007DCAE5 /* NetworkError.swift in Sources */,
 				FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */,
 				B87EF18126377A1D00124B3C /* Features.swift in Sources */,
 				FD09797727FAB7A600936362 /* Data+Image.swift in Sources */,
@@ -6202,7 +6151,6 @@
 				FD245C682850666300B966DD /* Message+Destination.swift in Sources */,
 				FDF8488029405994007DCAE5 /* HTTPQueryParam+OpenGroup.swift in Sources */,
 				FD09798527FD1A6500936362 /* ClosedGroupKeyPair.swift in Sources */,
-				FDC13D522A16F22E007267C7 /* PushNotificationAPIRequest.swift in Sources */,
 				FD245C632850664600B966DD /* Configuration.swift in Sources */,
 				C32C5DBF256DD743003C73A2 /* ClosedGroupPoller.swift in Sources */,
 				C352A35B2557824E00338F3E /* AttachmentUploadJob.swift in Sources */,

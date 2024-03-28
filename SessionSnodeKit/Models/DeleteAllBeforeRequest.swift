@@ -3,7 +3,7 @@
 import Foundation
 
 extension SnodeAPI {
-    public class DeleteAllBeforeRequest: SnodeAuthenticatedRequestBody {
+    public final class DeleteAllBeforeRequest: SnodeAuthenticatedRequestBody, UpdatableTimestamp {
         enum CodingKeys: String, CodingKey {
             case beforeMs = "before"
             case namespace
@@ -76,6 +76,19 @@ extension SnodeAPI {
             }
             
             return signatureBytes
+        }
+        
+        // MARK: - UpdatableTimestamp
+        
+        public func with(timestampMs: UInt64) -> DeleteAllBeforeRequest {
+            return DeleteAllBeforeRequest(
+                beforeMs: self.beforeMs,
+                namespace: self.namespace,
+                pubkey: self.pubkey,
+                timestampMs: timestampMs,
+                ed25519PublicKey: self.ed25519PublicKey,
+                ed25519SecretKey: self.ed25519SecretKey
+            )
         }
     }
 }

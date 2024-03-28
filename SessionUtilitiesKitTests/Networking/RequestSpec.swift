@@ -91,7 +91,7 @@ class RequestSpec: QuickSpec {
                     expect {
                         try request.generateUrlRequest(using: dependencies)
                     }
-                    .to(throwError(HTTPError.invalidURL))
+                    .to(throwError(NetworkError.invalidURL))
                 }
                 
                 // MARK: ---- with a base64 string body
@@ -124,7 +124,7 @@ class RequestSpec: QuickSpec {
                         expect {
                             try request.generateUrlRequest(using: dependencies)
                         }
-                        .to(throwError(HTTPError.parsingFailed))
+                        .to(throwError(NetworkError.parsingFailed))
                     }
                 }
                 

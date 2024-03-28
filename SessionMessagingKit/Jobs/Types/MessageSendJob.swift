@@ -184,7 +184,7 @@ public enum MessageSendJob: JobExecutor {
             .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
-            .timeout(.milliseconds(Int(HTTP.defaultTimeout * 2 * 1000)), scheduler: queue, customError: {
+            .timeout(.milliseconds(Int(Network.defaultTimeout * 2 * 1000)), scheduler: queue, customError: {
                 MessageSenderError.sendJobTimeout
             })
             .sinkUntilComplete(
@@ -205,7 +205,7 @@ public enum MessageSendJob: JobExecutor {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
                                     failure(job, error, true, dependencies)
                                     
-                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
+                                case SnodeAPIError.rateLimited:
                                     failure(job, error, true, dependencies)
                                     
                                 case SnodeAPIError.clockOutOfSync:

@@ -16,11 +16,11 @@ public final class CurrentUserPoller: Poller {
     
     override var namespaces: [SnodeAPI.Namespace] { CurrentUserPoller.namespaces }
     
-    /// After polling a given snode this many times we always switch to a new one.
+    /// After polling a given snode 6 times we always switch to a new one.
     ///
     /// The reason for doing this is that sometimes a snode will be giving us successful responses while
     /// it isn't actually getting messages from other snodes.
-    override var maxNodePollCount: UInt { 6 }
+    override var pollDrainBehaviour: SwarmDrainBehaviour { .limitedReuse(count: 6) }
     
     private let pollInterval: TimeInterval = 1.5
     private let retryInterval: TimeInterval = 0.25

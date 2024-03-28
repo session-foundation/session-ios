@@ -6,16 +6,18 @@ import SessionUtilitiesKit
 
 // MARK: - OpenGroupAPITarget
 
-internal extension HTTP {
-    struct OpenGroupAPITarget: ServerRequestTarget {
+internal extension Network {
+    struct OpenGroupAPITarget<E: EndpointType>: ServerRequestTarget {
+        typealias Endpoint = E
+        
         public let server: String
-        let path: String
+        public let endpoint: Endpoint
         let queryParameters: [HTTPQueryParam: String]
         public let serverPublicKey: String
         public let forceBlinded: Bool
         
         public var url: URL? { URL(string: "\(server)\(urlPathAndParamsString)") }
-        public var urlPathAndParamsString: String { pathFor(path: path, queryParams: queryParameters) }
+        public var urlPathAndParamsString: String { pathFor(path: endpoint.path, queryParams: queryParameters) }
         public var x25519PublicKey: String { serverPublicKey }
     }
 }
@@ -44,9 +46,9 @@ public extension Request {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.OpenGroupAPITarget(
+            target: Network.OpenGroupAPITarget(
                 server: server,
-                path: endpoint.path,
+                endpoint: endpoint,
                 queryParameters: queryParameters,
                 serverPublicKey: publicKey,
                 forceBlinded: forceBlinded

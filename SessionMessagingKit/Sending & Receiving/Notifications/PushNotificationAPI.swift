@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -498,10 +500,10 @@ public enum PushNotificationAPI {
         request: Request<T, Endpoint>,
         responseType: R.Type,
         retryCount: Int = 0,
-        timeout: TimeInterval = HTTP.defaultTimeout,
+        timeout: TimeInterval = Network.defaultTimeout,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<R> {
-        return HTTP.PreparedRequest<R>(
+    ) throws -> Network.PreparedRequest<R> {
+        return Network.PreparedRequest<R>(
             request: request,
             urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,

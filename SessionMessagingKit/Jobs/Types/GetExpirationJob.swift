@@ -46,11 +46,11 @@ public enum GetExpirationJob: JobExecutor {
         SnodeAPI
             .getSwarm(for: userPublicKey, using: dependencies)
             .tryFlatMap { swarm -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> in
-                guard let snode = swarm.randomElement() else { throw SnodeAPIError.generic }
+                guard let snode = swarm.randomElement() else { throw SnodeAPIError.ranOutOfRandomSnodes }
                 
                 return SnodeAPI.getExpiries(
                     from: snode,
-                    associatedWith: userPublicKey,
+                    swarmPublicKey: userPublicKey,
                     of: expirationInfo.map { $0.key },
                     using: dependencies
                 )

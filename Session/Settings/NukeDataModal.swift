@@ -172,7 +172,7 @@ final class NukeDataModal: Modal {
                 Publishers
                     .MergeMany(
                         Storage.shared
-                            .read { db -> [(String, HTTP.PreparedRequest<OpenGroupAPI.DeleteInboxResponse>)] in
+                            .read { db -> [(String, Network.PreparedRequest<OpenGroupAPI.DeleteInboxResponse>)] in
                                 return try OpenGroup
                                     .filter(OpenGroup.Columns.isActive == true)
                                     .select(.server)

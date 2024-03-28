@@ -90,7 +90,7 @@ public enum FileServerAPI {
                     x25519PublicKey: serverPublicKey
                 ),
                 responseType: VersionResponse.self,
-                timeout: HTTP.defaultTimeout,
+                timeout: Network.defaultTimeout,
                 using: dependencies
             )
             .send(using: dependencies)
@@ -108,8 +108,8 @@ public enum FileServerAPI {
         retryCount: Int = 0,
         timeout: TimeInterval,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<R> {
-        return HTTP.PreparedRequest<R>(
+    ) throws -> Network.PreparedRequest<R> {
+        return Network.PreparedRequest<R>(
             request: request,
             urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,

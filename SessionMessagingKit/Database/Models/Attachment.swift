@@ -1080,7 +1080,7 @@ extension Attachment {
         let attachmentId: String = self.id
         
         return Storage.shared
-            .writePublisher { db -> (HTTP.PreparedRequest<FileUploadResponse>?, String?, Data?, Data?) in
+            .writePublisher { db -> (Network.PreparedRequest<FileUploadResponse>?, String?, Data?, Data?) in
                 // If the attachment is a downloaded attachment, check if it came from
                 // the server and if so just succeed immediately (no use re-uploading
                 // an attachment that is already present on the server) - or if we want
@@ -1118,7 +1118,7 @@ extension Attachment {
                 
                 // Check the file size
                 SNLog("File size: \(data.count) bytes.")
-                if data.count > FileServerAPI.maxFileSize { throw HTTPError.maxFileSizeExceeded }
+                if data.count > FileServerAPI.maxFileSize { throw NetworkError.maxFileSizeExceeded }
                 
                 // Update the attachment to the 'uploading' state
                 _ = try? Attachment
@@ -1126,7 +1126,7 @@ extension Attachment {
                     .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.uploading))
                 
                 // We need database access for OpenGroup uploads so generate prepared data
-                let preparedSendData: HTTP.PreparedRequest<FileUploadResponse>? = try {
+                let preparedSendData: Network.PreparedRequest<FileUploadResponse>? = try {
                     switch destination {
                         case .openGroup(let openGroup):
                             return try OpenGroupAPI

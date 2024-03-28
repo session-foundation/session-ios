@@ -118,7 +118,7 @@ extension MessageReceiver {
                     
                 case .group:
                     SNLog("Ignoring message with invalid sender.")
-                    throw HTTPError.parsingFailed
+                    throw NetworkError.parsingFailed
             }
         }()
         

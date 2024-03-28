@@ -10,8 +10,10 @@ public protocol RequestTarget: Equatable {
 }
 
 public protocol ServerRequestTarget: RequestTarget {
+    associatedtype Endpoint: EndpointType
+    
     var server: String { get }
-    var rawEndpoint: String { get }
+    var endpoint: Endpoint { get }
     var x25519PublicKey: String { get }
 }
 
@@ -31,29 +33,28 @@ public extension ServerRequestTarget {
 
 // MARK: - ServerTarget
 
-public extension HTTP {
-    struct ServerTarget: ServerRequestTarget {
+public extension Network {
+    struct ServerTarget<E: EndpointType>: ServerRequestTarget {
+        public typealias Endpoint = E
+        
         public let server: String
-        public let rawEndpoint: String
-        let path: String
+        public let endpoint: Endpoint
         let queryParameters: [HTTPQueryParam: String]
         public let x25519PublicKey: String
         
         public var url: URL? { URL(string: "\(server)\(urlPathAndParamsString)") }
-        public var urlPathAndParamsString: String { pathFor(path: path, queryParams: queryParameters) }
+        public var urlPathAndParamsString: String { pathFor(path: endpoint.path, queryParams: queryParameters) }
         
         // MARK: - Initialization
         
-        public init<E: EndpointType>(
+        public init(
             server: String,
             endpoint: E,
-            path: String,
             queryParameters: [HTTPQueryParam: String],
             x25519PublicKey: String
         ) {
             self.server = server
-            self.rawEndpoint = endpoint.path
-            self.path = path
+            self.endpoint = endpoint
             self.queryParameters = queryParameters
             self.x25519PublicKey = x25519PublicKey
         }
@@ -75,10 +76,9 @@ public extension Request {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.ServerTarget(
+            target: Network.ServerTarget(
                 server: server,
                 endpoint: endpoint,
-                path: endpoint.path,
                 queryParameters: queryParameters,
                 x25519PublicKey: x25519PublicKey
             ),

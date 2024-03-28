@@ -9,33 +9,71 @@ import GRDB
 import SessionUtilitiesKit
 
 public extension Network.RequestType {
-    static func onionRequest(_ payload: Data, to snode: Snode, timeout: TimeInterval = HTTP.defaultTimeout) -> Network.RequestType<Data?> {
+    static func onionRequest(
+        _ payload: Data,
+        to snode: Snode,
+        swarmPublicKey: String?,
+        timeout: TimeInterval = Network.defaultTimeout
+    ) -> Network.RequestType<Data?> {
         return Network.RequestType(
             id: "onionRequest",
-            url: snode.address,
+            url: "quic://\(snode.ip):\(snode.lmqPort)",
             method: "POST",
             body: payload,
-            args: [payload, snode, timeout]
-        ) { OnionRequestAPI.sendOnionRequest(payload, to: snode, timeout: timeout) }
+            args: [payload, snode, swarmPublicKey, timeout]
+        ) {
+            OnionRequestAPI.sendOnionRequest(
+                with: payload,
+                to: OnionRequestAPIDestination.snode(snode),
+                swarmPublicKey: swarmPublicKey,
+                timeout: timeout,
+                using: $0
+            )
+        }
     }
     
-    static func onionRequest(_ request: URLRequest, to server: String, with x25519PublicKey: String, timeout: TimeInterval = HTTP.defaultTimeout) -> Network.RequestType<Data?> {
+    static func onionRequest<E: EndpointType>(
+        _ request: URLRequest,
+        to server: String,
+        endpoint: E,
+        with x25519PublicKey: String,
+        timeout: TimeInterval = Network.defaultTimeout
+    ) -> Network.RequestType<Data?> {
         return Network.RequestType(
             id: "onionRequest",
             url: request.url?.absoluteString,
             method: request.httpMethod,
             headers: request.allHTTPHeaderFields,
             body: request.httpBody,
-            args: [request, server, x25519PublicKey, timeout]
-        ) { OnionRequestAPI.sendOnionRequest(request, to: server, with: x25519PublicKey, timeout: timeout) }
+            args: [request, server, endpoint, x25519PublicKey, timeout]
+        ) {
+            guard let url = request.url, let host = request.url?.host else {
+                return Fail(error: NetworkError.invalidURL).eraseToAnyPublisher()
+            }
+            
+            return OnionRequestAPI.sendOnionRequest(
+                with: request.httpBody,
+                to: OnionRequestAPIDestination.server(
+                    method: request.httpMethod,
+                    scheme: url.scheme,
+                    host: host,
+                    endpoint: endpoint,
+                    port: url.port.map { UInt16($0) },
+                    headers: request.allHTTPHeaderFields,
+                    x25519PublicKey: x25519PublicKey
+                ),
+                swarmPublicKey: nil,
+                timeout: timeout,
+                using: $0
+            )
+        }
     }
 }
 
 /// See the "Onion Requests" section of [The Session Whitepaper](https://arxiv.org/pdf/2002.04609.pdf) for more information.
 public enum OnionRequestAPI {
     private static var buildPathsPublisher: Atomic<AnyPublisher<[[Snode]], Error>?> = Atomic(nil)
-    private static var pathFailureCount: Atomic<[[Snode]: UInt]> = Atomic([:])
-    private static var snodeFailureCount: Atomic<[Snode: UInt]> = Atomic([:])
+    internal static var pathFailureCount: Atomic<[[Snode]: UInt]> = Atomic([:])
     public static var guardSnodes: Atomic<Set<Snode>> = Atomic([])
     
     // Not a set to ensure we consistently show the same path to the user
@@ -75,30 +113,6 @@ public enum OnionRequestAPI {
 
     // MARK: - Private API
     
-    /// Tests the given snode. The returned promise errors out if the snode is faulty; the promise is fulfilled otherwise.
-    private static func testSnode(_ snode: Snode, using dependencies: Dependencies) -> AnyPublisher<Void, Error> {
-        let url = "\(snode.address):\(snode.port)/get_stats/v1"
-        let timeout: TimeInterval = 3 // Use a shorter timeout for testing
-
-        return LibSession
-            .sendRequest(
-                ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
-                snode: snode,
-                endpoint: SnodeAPI.Endpoint.getInfo.rawValue
-            )
-            .decoded(as: SnodeAPI.GetInfoResponse.self, using: dependencies)
-            .tryMap { _, response -> Void in
-                guard let version: Version = response.version else { throw OnionRequestAPIError.missingSnodeVersion }
-                guard version >= Version(major: 2, minor: 0, patch: 7) else {
-                    SNLog("Unsupported snode version: \(version.stringValue).")
-                    throw OnionRequestAPIError.unsupportedSnodeVersion(version.stringValue)
-                }
-                
-                return ()
-            }
-            .eraseToAnyPublisher()
-    }
-    
     /// Finds `targetGuardSnodeCount` guard snodes to use for path building. The returned promise errors out with
     /// `Error.insufficientSnodes` if not enough (reliable) snodes are available.
     private static func getGuardSnodes(
@@ -117,7 +131,7 @@ public enum OnionRequestAPI {
         let reusableGuardSnodeCount = UInt(reusableGuardSnodes.count)
         
         guard unusedSnodes.count >= (targetGuardSnodeCount - reusableGuardSnodeCount) else {
-            return Fail(error: OnionRequestAPIError.insufficientSnodes)
+            return Fail(error: SnodeAPIError.insufficientSnodes)
                 .eraseToAnyPublisher()
         }
         
@@ -125,7 +139,7 @@ public enum OnionRequestAPI {
             // randomElement() uses the system's default random generator, which
             // is cryptographically secure
             guard let candidate = unusedSnodes.randomElement() else {
-                return Fail(error: OnionRequestAPIError.insufficientSnodes)
+                return Fail(error: SnodeAPIError.insufficientSnodes)
                     .eraseToAnyPublisher()
             }
             
@@ -133,7 +147,11 @@ public enum OnionRequestAPI {
             SNLog("Testing guard snode: \(candidate).")
             
             // Loop until a reliable guard snode is found
-            return testSnode(candidate, using: dependencies)
+            return SnodeAPI
+                .testSnode(
+                    snode: candidate,
+                    using: dependencies
+                )
                 .map { _ in candidate }
                 .catch { _ in
                     return Just(())
@@ -194,7 +212,7 @@ public enum OnionRequestAPI {
                     let pathSnodeCount: UInt = (targetGuardSnodeCount - reusableGuardSnodeCount) * pathSize - (targetGuardSnodeCount - reusableGuardSnodeCount)
                     
                     guard unusedSnodes.count >= pathSnodeCount else {
-                        return Fail<[[Snode]], Error>(error: OnionRequestAPIError.insufficientSnodes)
+                        return Fail<[[Snode]], Error>(error: SnodeAPIError.insufficientSnodes)
                             .eraseToAnyPublisher()
                     }
                     
@@ -294,7 +312,7 @@ public enum OnionRequestAPI {
                     return buildPaths(reusing: paths, using: dependencies)
                         .flatMap { paths in
                             guard let path: [Snode] = paths.filter({ !$0.contains(snode) }).randomElement() else {
-                                return Fail<[Snode], Error>(error: OnionRequestAPIError.insufficientSnodes)
+                                return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
                                     .eraseToAnyPublisher()
                             }
                             
@@ -312,7 +330,7 @@ public enum OnionRequestAPI {
                     .store(in: &cancellable)
                 
                 guard let path: [Snode] = paths.randomElement() else {
-                    return Fail<[Snode], Error>(error: OnionRequestAPIError.insufficientSnodes)
+                    return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
                         .eraseToAnyPublisher()
                 }
                 
@@ -331,12 +349,12 @@ public enum OnionRequestAPI {
                                 .eraseToAnyPublisher()
                         }
                         
-                        return Fail<[Snode], Error>(error: OnionRequestAPIError.insufficientSnodes)
+                        return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
                             .eraseToAnyPublisher()
                     }
                     
                     guard let path: [Snode] = paths.randomElement() else {
-                        return Fail<[Snode], Error>(error: OnionRequestAPIError.insufficientSnodes)
+                        return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
                             .eraseToAnyPublisher()
                     }
                     
@@ -348,7 +366,7 @@ public enum OnionRequestAPI {
         }
     }
 
-    private static func dropGuardSnode(_ snode: Snode) {
+    internal static func dropGuardSnode(_ snode: Snode) {
         guardSnodes.mutate { snodes in snodes = snodes.filter { $0 != snode } }
     }
 
@@ -356,14 +374,14 @@ public enum OnionRequestAPI {
         // We repair the path here because we can do it sync. In the case where we drop a whole
         // path we leave the re-building up to getPath(excluding:using:) because re-building the path
         // in that case is async.
-        OnionRequestAPI.snodeFailureCount.mutate { $0[snode] = 0 }
+        SnodeAPI.snodeFailureCount.mutate { $0[snode] = 0 }
         var oldPaths = paths
         guard let pathIndex = oldPaths.firstIndex(where: { $0.contains(snode) }) else { return }
         var path = oldPaths[pathIndex]
         guard let snodeIndex = path.firstIndex(of: snode) else { return }
         path.remove(at: snodeIndex)
         let unusedSnodes = SnodeAPI.snodePool.wrappedValue.subtracting(oldPaths.flatMap { $0 })
-        guard !unusedSnodes.isEmpty else { throw OnionRequestAPIError.insufficientSnodes }
+        guard !unusedSnodes.isEmpty else { throw SnodeAPIError.insufficientSnodes }
         // randomElement() uses the system's default random generator, which is cryptographically secure
         path.append(unusedSnodes.randomElement()!)
         // Don't test the new snode as this would reveal the user's IP
@@ -377,7 +395,7 @@ public enum OnionRequestAPI {
         }
     }
 
-    private static func drop(_ path: [Snode]) {
+    internal static func drop(_ path: [Snode]) {
         OnionRequestAPI.pathFailureCount.mutate { $0[path] = 0 }
         var paths = OnionRequestAPI.paths
         guard let pathIndex = paths.firstIndex(of: path) else { return }
@@ -395,130 +413,14 @@ public enum OnionRequestAPI {
             try? paths.save(db)
         }
     }
-    
-    /// Builds an onion around `payload` and returns the result.
-    private static func buildOnion(
-        around payload: Data,
-        targetedAt destination: OnionRequestAPIDestination,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<OnionBuildingResult, Error> {
-        var guardSnode: Snode!
-        var targetSnodeSymmetricKey: Data! // Needed by invoke(_:on:with:) to decrypt the response sent back by the destination
-        var encryptionResult: AES.GCM.EncryptionResult!
-        var snodeToExclude: Snode?
-        
-        if case .snode(let snode) = destination { snodeToExclude = snode }
-        
-        return getPath(excluding: snodeToExclude, using: dependencies)
-            .flatMap { path -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
-                guardSnode = path.first!
-                
-                // Encrypt in reverse order, i.e. the destination first
-                return encrypt(payload, for: destination)
-                    .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
-                        targetSnodeSymmetricKey = r.symmetricKey
-                        
-                        // Recursively encrypt the layers of the onion (again in reverse order)
-                        encryptionResult = r
-                        var path = path
-                        var rhs = destination
-                        
-                        func addLayer() -> AnyPublisher<AES.GCM.EncryptionResult, Error> {
-                            guard !path.isEmpty else {
-                                return Just(encryptionResult)
-                                    .setFailureType(to: Error.self)
-                                    .eraseToAnyPublisher()
-                            }
-                            
-                            let lhs = OnionRequestAPIDestination.snode(path.removeLast())
-                            return OnionRequestAPI
-                                .encryptHop(from: lhs, to: rhs, using: encryptionResult)
-                                .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
-                                    encryptionResult = r
-                                    rhs = lhs
-                                    return addLayer()
-                                }
-                                .eraseToAnyPublisher()
-                        }
-                        
-                        return addLayer()
-                    }
-                    .eraseToAnyPublisher()
-            }
-            .map { _ in (guardSnode, encryptionResult, targetSnodeSymmetricKey) }
-            .eraseToAnyPublisher()
-    }
 
-    // MARK: - Public API
-    
-    /// Sends an onion request to `snode`. Builds new paths as needed.
-    public static func sendOnionRequest(
-        _ payload: Data,
-        to snode: Snode,
-        timeout: TimeInterval = HTTP.defaultTimeout
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        /// **Note:** Currently the service nodes only support V3 Onion Requests
-        return sendOnionRequest(
-            with: payload,
-            to: OnionRequestAPIDestination.snode(snode),
-            version: .v3,
-            timeout: timeout
-        )
-    }
-    
-    /// Sends an onion request to `server`. Builds new paths as needed.
-    public static func sendOnionRequest(
-        _ request: URLRequest,
-        to server: String,
-        with x25519PublicKey: String,
-        timeout: TimeInterval = HTTP.defaultTimeout
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        guard let url = request.url, let host = request.url?.host else {
-            return Fail(error: OnionRequestAPIError.invalidURL)
-                .eraseToAnyPublisher()
-        }
-        
-        let scheme: String? = url.scheme
-        let port: UInt16? = url.port.map { UInt16($0) }
-        
-        guard let payload: Data = generateV4Payload(for: request) else {
-            return Fail(error: OnionRequestAPIError.invalidRequestInfo)
-                .eraseToAnyPublisher()
-        }
-        
-        return OnionRequestAPI
-            .sendOnionRequest(
-                with: payload,
-                to: OnionRequestAPIDestination.server(
-                    host: host,
-                    target: OnionRequestAPIVersion.v4.rawValue,
-                    x25519PublicKey: x25519PublicKey,
-                    scheme: scheme,
-                    port: port
-                ),
-                version: .v4,
-                timeout: timeout
-            )
-            .handleEvents(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: break
-                        case .failure(let error):
-                            SNLog("Couldn't reach server: \(url) due to error: \(error).")
-                    }
-                }
-            )
-            .eraseToAnyPublisher()
-    }
-    
-    public static func sendOnionRequest(
-        with payload: Data,
+    fileprivate static func sendOnionRequest(
+        with body: Data?,
         to destination: OnionRequestAPIDestination,
-        version: OnionRequestAPIVersion,
-        timeout: TimeInterval = HTTP.defaultTimeout,
-        using dependencies: Dependencies = Dependencies()
+        swarmPublicKey: String?,
+        timeout: TimeInterval,
+        using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        
         let snodeToExclude: Snode? = {
             switch destination {
                 case .snode(let snode): return snode
@@ -528,20 +430,15 @@ public enum OnionRequestAPI {
         
         return getPath(excluding: snodeToExclude, using: dependencies)
             .tryFlatMap { path -> AnyPublisher<(ResponseInfoType, Data?), Error> in
-                guard let guardSnode: Snode = path.first else { throw OnionRequestAPIError.insufficientSnodes }
-                
-                return LibSession
-                    .sendOnionRequest(
-                        path: path,
-                        ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
-                        to: destination,
-                        payload: payload//Data()//body
-                    )
+                LibSession.sendOnionRequest(
+                    to: destination,
+                    body: body,
+                    path: path,
+                    swarmPublicKey: swarmPublicKey,
+                    ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
+                    using: dependencies
+                )
             }
-            .handleEvents(
-                receiveCompletion: { result in
-                }
-            )
             .eraseToAnyPublisher()
     }
     
@@ -556,7 +453,7 @@ public enum OnionRequestAPI {
         let endpoint: String = url.path
             .appending(url.query.map { value in "?\(value)" })
         
-        let requestInfo: HTTP.RequestInfo = HTTP.RequestInfo(
+        let requestInfo: Network.RequestInfo = Network.RequestInfo(
             method: (request.httpMethod ?? "GET"),   // The default (if nil) is 'GET'
             endpoint: endpoint,
             headers: (request.allHTTPHeaderFields ?? [:])
@@ -581,169 +478,5 @@ public enum OnionRequestAPI {
         }
         
         return (prefixData + requestInfoData + suffixData)
-    }
-    
-    private static func handleResponse(
-        responseData: Data,
-        destinationSymmetricKey: Data,
-        version: OnionRequestAPIVersion,
-        destination: OnionRequestAPIDestination
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        switch version {
-            // V2 and V3 Onion Requests have the same structure for responses
-            case .v2, .v3:
-                let json: JSON
-                
-                if let processedJson = try? JSONSerialization.jsonObject(with: responseData, options: [ .fragmentsAllowed ]) as? JSON {
-                    json = processedJson
-                }
-                else if let result: String = String(data: responseData, encoding: .utf8) {
-                    json = [ "result": result ]
-                }
-                else {
-                    return Fail(error: HTTPError.invalidJSON)
-                        .eraseToAnyPublisher()
-                }
-                
-                guard let base64EncodedIVAndCiphertext = json["result"] as? String, let ivAndCiphertext = Data(base64Encoded: base64EncodedIVAndCiphertext), ivAndCiphertext.count >= AES.GCM.ivSize else {
-                    return Fail(error: HTTPError.invalidJSON)
-                        .eraseToAnyPublisher()
-                }
-                
-                do {
-                    let data = try AES.GCM.decrypt(ivAndCiphertext, with: destinationSymmetricKey)
-                    
-                    guard let json = try JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON, let statusCode = json["status_code"] as? Int ?? json["status"] as? Int else {
-                        return Fail(error: HTTPError.invalidJSON)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    if statusCode == 406 { // Clock out of sync
-                        SNLog("The user's clock is out of sync with the service node network.")
-                        return Fail(error: SnodeAPIError.clockOutOfSync)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    if statusCode == 401 { // Signature verification failed
-                        SNLog("Failed to verify the signature.")
-                        return Fail(error: SnodeAPIError.signatureVerificationFailed)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    if let bodyAsString = json["body"] as? String {
-                        guard let bodyAsData = bodyAsString.data(using: .utf8) else {
-                            return Fail(error: HTTPError.invalidResponse)
-                                .eraseToAnyPublisher()
-                        }
-                        guard let body = try? JSONSerialization.jsonObject(with: bodyAsData, options: [ .fragmentsAllowed ]) as? JSON else {
-                            return Fail(
-                                error: OnionRequestAPIError.httpRequestFailedAtDestination(
-                                    statusCode: UInt(statusCode),
-                                    data: bodyAsData,
-                                    destination: destination
-                                )
-                            ).eraseToAnyPublisher()
-                        }
-                        
-                        if let timestamp = body["t"] as? Int64 {
-                            let offset = timestamp - Int64(floor(Date().timeIntervalSince1970 * 1000))
-                            SnodeAPI.clockOffsetMs.mutate { $0 = offset }
-                        }
-                        
-                        guard 200...299 ~= statusCode else {
-                            return Fail(
-                                error: OnionRequestAPIError.httpRequestFailedAtDestination(
-                                    statusCode: UInt(statusCode),
-                                    data: bodyAsData,
-                                    destination: destination
-                                )
-                            ).eraseToAnyPublisher()
-                        }
-                        
-                        return Just((HTTP.ResponseInfo(code: statusCode, headers: [:]), bodyAsData))
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    guard 200...299 ~= statusCode else {
-                        return Fail(
-                            error: OnionRequestAPIError.httpRequestFailedAtDestination(
-                                statusCode: UInt(statusCode),
-                                data: data,
-                                destination: destination
-                            )
-                        ).eraseToAnyPublisher()
-                    }
-                    
-                    return Just((HTTP.ResponseInfo(code: statusCode, headers: [:]), data))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                catch {
-                    return Fail(error: error)
-                        .eraseToAnyPublisher()
-                }
-                
-            // V4 Onion Requests have a very different structure for responses
-            case .v4:
-                guard responseData.count >= AES.GCM.ivSize else {
-                    return Fail(error: HTTPError.invalidResponse)
-                        .eraseToAnyPublisher()
-                }
-                
-                do {
-                    let data: Data = try AES.GCM.decrypt(responseData, with: destinationSymmetricKey)
-                    
-                    // Process the bencoded response
-                    guard let processedResponse: (info: ResponseInfoType, body: Data?) = process(bencodedData: data) else {
-                        return Fail(error: HTTPError.invalidResponse)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    // Custom handle a clock out of sync error (v4 returns '425' but included the '406'
-                    // just in case)
-                    guard processedResponse.info.code != 406 && processedResponse.info.code != 425 else {
-                        SNLog("The user's clock is out of sync with the service node network.")
-                        return Fail(error: SnodeAPIError.clockOutOfSync)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    guard processedResponse.info.code != 401 else { // Signature verification failed
-                        SNLog("Failed to verify the signature.")
-                        return Fail(error: SnodeAPIError.signatureVerificationFailed)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    // Handle error status codes
-                    guard 200...299 ~= processedResponse.info.code else {
-                        return Fail(error: OnionRequestAPIError.httpRequestFailedAtDestination(
-                            statusCode: UInt(processedResponse.info.code),
-                            data: data,
-                            destination: destination
-                        )).eraseToAnyPublisher()
-                    }
-                    
-                    return Just(processedResponse)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                catch {
-                    return Fail(error: error)
-                        .eraseToAnyPublisher()
-                }
-        }
-    }
-    
-    public static func process(bencodedData data: Data) -> (info: ResponseInfoType, body: Data?)? {
-        guard let response: BencodeResponse<HTTP.ResponseInfo> = try? Bencode.decodeResponse(from: data) else {
-            return nil
-        }
-        
-        // Custom handle a clock out of sync error (v4 returns '425' but included the '406' just
-        // in case)
-        guard response.info.code != 406 && response.info.code != 425 else { return nil }
-        guard response.info.code != 401 else { return nil }
-        
-        return (response.info, response.data)
     }
 }

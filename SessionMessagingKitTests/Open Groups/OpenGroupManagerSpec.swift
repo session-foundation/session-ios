@@ -932,7 +932,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .mapError { result -> Error in error.setting(to: result) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(HTTPError.parsingFailed))
+                        expect(error).to(matchError(NetworkError.parsingFailed))
                     }
                 }
             }
@@ -1808,7 +1808,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("does nothing if it fails to retrieve the room image") {
                         mockOGMCache.when { $0.groupImagePublishers }
                             .thenReturn([
-                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Fail(error: HTTPError.generic).eraseToAnyPublisher()
+                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Fail(error: NetworkError.generic).eraseToAnyPublisher()
                             ])
                         
                         testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
@@ -3138,7 +3138,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .mapError { result -> Error in error.setting(to: result) }
                         .sinkAndStore(in: &disposables)
                     
-                    expect(error).to(matchError(HTTPError.parsingFailed))
+                    expect(error).to(matchError(NetworkError.parsingFailed))
                     expect(mockNetwork)   // First attempt + 8 retries
                         .to(call(.exactly(times: 9)) {
                             $0.send(.onionRequest(any(), to: any(), endpoint: any(), with: any()), using: dependencies)
@@ -3158,7 +3158,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(error)
-                        .to(matchError(HTTPError.parsingFailed))
+                        .to(matchError(NetworkError.parsingFailed))
                     expect(mockOGMCache)
                         .to(call(matchingParameters: true) {
                             $0.defaultRoomsPublisher = nil

@@ -57,7 +57,7 @@ extension Snode {
         }
         catch {
             SNLog("Failed to parse snode: \(error.localizedDescription).")
-            throw HTTPError.invalidJSON
+            throw NetworkError.parsingFailed
         }
     }
 }
