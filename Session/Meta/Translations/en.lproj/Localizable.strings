@@ -634,6 +634,7 @@
 "communityLeaveError" = "Failed to leave {communityname}";
 "contentDescriptionMediaMessage" = "Media message";
 "attachmentsErrorLoad" = "Error attaching file";
+"document" = "Document";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";

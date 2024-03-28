@@ -2664,7 +2664,8 @@ extension ConversationVC {
             indexPath: IndexPath(row: 0, section: 0),
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
-            viewController: self
+            viewController: self, 
+            navigatableStateHolder: nil
         )
         
         guard let action: UIContextualAction = actions?.first else { return }
@@ -2687,7 +2688,8 @@ extension ConversationVC {
             indexPath: IndexPath(row: 0, section: 0),
             tableView: self.tableView,
             threadViewModel: self.viewModel.threadData,
-            viewController: self
+            viewController: self,
+            navigatableStateHolder: nil
         )
         
         guard let action: UIContextualAction = actions?.first else { return }

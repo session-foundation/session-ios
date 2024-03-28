@@ -801,7 +801,7 @@ extension Attachment {
         if isImage { return "photo".localized() }
         if isAudio { return "audio".localized() }
         if isVideo { return "video".localized() }
-        return "Document"
+        return "document".localized()
     }
     
     public var documentFileInfo: String {

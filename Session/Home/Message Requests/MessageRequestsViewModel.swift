@@ -274,7 +274,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         indexPath: indexPath,
                         tableView: tableView,
                         threadViewModel: threadViewModel,
-                        viewController: viewController
+                        viewController: viewController,
+                        navigatableStateHolder: nil
                     )
                 )
                 
