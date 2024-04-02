@@ -836,7 +836,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         let callVC: CallVC = CallVC(for: call)
         
-        if let conversationVC: ConversationVC = presentingVC as? ConversationVC, conversationVC.viewModel.threadData.threadId == call.sessionId {
+        if
+            let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
+            conversationVC.viewModel.threadData.threadId == call.sessionId
+        {
             callVC.conversationVC = conversationVC
             conversationVC.inputAccessoryView?.isHidden = true
             conversationVC.inputAccessoryView?.alpha = 0

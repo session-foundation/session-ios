@@ -185,7 +185,7 @@ struct PageControl: View {
                 ForEach(0...maxIndex, id: \.self) { index in
                     Circle()
                         .fill(index == ((self.index - 1) % (self.maxIndex + 1)) ? Color.white : Color.gray)
-                        .frame(width: 6.62, height: 6.62)
+                        .frame(width: 7, height: 7)
                 }
             }
             .padding(6)
@@ -208,7 +208,22 @@ struct SessionCarouselView_SwiftUI_Previews: PreviewProvider {
                 Color.black
             }
             
-            SessionCarouselView_SwiftUI(index: $index, isOutgoing: true, contentInfos: [])
+            SessionCarouselView_SwiftUI(
+                index: $index,
+                isOutgoing: true,
+                contentInfos: [
+                    Attachment(
+                        variant: .standard,
+                        contentType: "jpeg",
+                        byteCount: 100
+                    ),
+                    Attachment(
+                        variant: .standard,
+                        contentType: "jpeg",
+                        byteCount: 100
+                    )
+                ]
+            )
         }
     }
 }

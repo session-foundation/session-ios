@@ -27,7 +27,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.alpha = 1
-        
+
         return result
     }()
 
@@ -37,7 +37,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.alpha = 0
-        
+
         return result
     }()
     
@@ -56,11 +56,11 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
     
     public override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         navigationItem.backButtonTitle = ""
         view.themeBackgroundColor = .backgroundPrimary
         ThemeManager.applyNavigationStylingIfNeeded(to: self)
-        
+
         setNeedsStatusBarAppearanceUpdate()
     }
     
@@ -82,18 +82,18 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         let container = UIView()
         navBarTitleLabel.text = title
         crossfadeLabel.text = title
-        
+
         if let customFontSize = customFontSize {
             navBarTitleLabel.font = .boldSystemFont(ofSize: customFontSize)
             crossfadeLabel.font = .boldSystemFont(ofSize: customFontSize)
         }
-        
+
         container.addSubview(navBarTitleLabel)
         container.addSubview(crossfadeLabel)
-        
+
         navBarTitleLabel.pin(to: container)
         crossfadeLabel.pin(to: container)
-        
+
         navigationItem.titleView = container
     }
     
