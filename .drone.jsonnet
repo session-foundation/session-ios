@@ -28,6 +28,7 @@ local custom_clone = {
     'eval "$(ssh-agent -s)"',
     'ssh-add $HOME/.ssh/id_ed25519_drone_ci_deploy',
     'ssh-keyscan -t ed25519 github.com >> $HOME/.ssh/known_hosts',
+    'export SSH_KNOWN_HOSTS=$HOME/.ssh/known_hosts',
     'git init',
     'git remote add origin $DRONE_GIT_SSH_URL',
     'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
