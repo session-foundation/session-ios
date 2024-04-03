@@ -83,7 +83,7 @@ struct InviteAFriendScreen: View {
                     Spacer(minLength: Values.mediumSpacing)
                     
                     Button {
-                        copyAccoounId()
+                        copyAccountId()
                     } label: {
                         let buttonTitle: String = self.copied ? "copied".localized() : "copy".localized()
                         Text(buttonTitle)
@@ -116,7 +116,7 @@ struct InviteAFriendScreen: View {
         .backgroundColor(themeColor: .backgroundSecondary)
     }
     
-    private func copyAccoounId() {
+    private func copyAccountId() {
         UIPasteboard.general.string = self.accountId
         self.copied = true
     }
