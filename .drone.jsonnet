@@ -12,9 +12,18 @@ local version_info = {
 };
 
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
-local clone_submodules = {
-  name: 'Clone Submodules',
-  commands: ['git fetch --tags', 'git submodule update --init --recursive --depth=2 --jobs=4']
+local custom_clone = {
+  name: 'Clone',
+  environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
+  commands: [
+    'echo "$CLONE_KEY" > $HOME/.ssh/id_git_rsa',
+    'git init',
+    'git remote add origin git@github.com:$DRONE_REPO.git',
+    'git fetch --depth=1 origin +refs/heads/dev'
+    'git checkout $DRONE_COMMIT',
+    'git fetch --tags',
+    'git submodule update --init --recursive --depth=2 --jobs=4'
+  ]
 };
 
 // cmake options for static deps mirror
@@ -106,9 +115,10 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
     trigger: { event: { exclude: [ 'push' ] } },
+    clone: { disable: true },
     steps: [
       version_info,
-      clone_submodules,
+      custom_clone,
       load_cocoapods_cache,
       install_cocoapods,
       {
@@ -188,7 +198,9 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Check Build Artifact Existence',
     platform: { os: 'darwin', arch: 'amd64' },
     trigger: { event: { exclude: [ 'push' ] } },
+    clone: { disable: true },
     steps: [
+      custom_clone,
       {
         name: 'Poll for build artifact existence',
         commands: [
@@ -204,9 +216,10 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'amd64' },
     trigger: { event: { exclude: [ 'pull_request' ] } },
+    clone: { disable: true },
     steps: [
       version_info,
-      clone_submodules,
+      custom_clone,
       load_cocoapods_cache,
       install_cocoapods,
       {
