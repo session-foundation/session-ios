@@ -676,7 +676,7 @@ public extension Message {
                     let expiresInSeconds = message.expiresInSeconds,     // Not disappearing messages
                     expiresInSeconds > 0,                                // Not disappearing messages (0 == disabled)
                     let expiresStartedAtMs = message.expiresStartedAtMs, // Unread disappear after read message
-                    message.sentTimestamp == UInt64(expiresStartedAtMs)  // Already read disappear after read message
+                    message.sentTimestamp == UInt64(expiresStartedAtMs)  // Already read disappearing messages
                 else { return message.ttl }
                 
                 return UInt64(expiresInSeconds * 1000)
