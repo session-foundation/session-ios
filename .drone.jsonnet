@@ -24,7 +24,7 @@ local custom_clone = {
     |||,
     'mkdir -p ~/.ssh && touch ~/.ssh/config && touch ~/.ssh/known_hosts',
     'echo "$CLONE_KEY" > ~/.ssh/id_ed25519_drone_ci_deploy',
-    'chmod -R 600 ~/.ssh',
+    'chmod 600 ~/.ssh/config && chmod 600 ~/.ssh/known_hosts && chmod 600 ~/.ssh/id_ed25519_drone_ci_deploy',
     'ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts',
     'eval "$(ssh-agent -s)"',
     'ssh-add ~/.ssh/id_ed25519_drone_ci_deploy',
