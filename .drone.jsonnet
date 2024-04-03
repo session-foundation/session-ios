@@ -16,10 +16,10 @@ local custom_clone = {
   name: 'Clone',
   environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
   commands: [
-    'echo "$CLONE_KEY" > id_git',
-    'chmod 600 id_git',
+    'echo "$CLONE_KEY" > ~/.ssh/id_git',
+    'chmod 600 ~/.ssh/id_git',
     'eval "$(ssh-agent)"',
-    'ssh-agent ssh-add id_git',
+    'ssh-agent ssh-add ~/.ssh/id_git',
     'git init',
     'git remote add origin git@github.com:$DRONE_REPO.git',
     'git fetch --depth=1 origin +refs/heads/$DRONE_BRANCH',
