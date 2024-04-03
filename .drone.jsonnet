@@ -22,12 +22,12 @@ local custom_clone = {
         exit 1
       fi
     |||,
-    'eval "$(ssh-agent -s)"',
-    'echo "$CLONE_KEY" | ssh-add -',
     'mkdir -p ~/.ssh && touch ~/.ssh/config && touch ~/.ssh/known_hosts',
-    'chmod 644 ~/.ssh/known_hosts',
-    'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts',
-    'cat ~/.ssh/known_hosts',
+    'chmod 600 ~/.ssh/known_hosts',
+    'ssh-keyscan github.com >> ~/.ssh/known_hosts',
+    'eval "$(ssh-agent -s)"',
+    'echo "$CLONE_KEY" > ~/.ssh/id_ed25519_drone_ci_deploy',
+    'ssh -T git@github.com -i ~/.ssh/id_ed25519_drone_ci_deploy',
     'git init',
     'git remote add origin $DRONE_GIT_SSH_URL',
     'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
