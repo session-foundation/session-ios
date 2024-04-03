@@ -25,7 +25,7 @@ local custom_clone = {
     |||,
     'eval "$(ssh-agent -s)"',
     'echo "$CLONE_KEY" | ssh-add -',
-    'mkdir -p ~/.ssh && touch ~/.ssh/config && touch ~/.ssh/known_hosts && chmod -R 600 ~/.ssh',
+    'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts',
     'git init',
     'git remote add origin $DRONE_GIT_SSH_URL',
     'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
