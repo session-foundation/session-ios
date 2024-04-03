@@ -31,7 +31,6 @@ local custom_clone = {
     'git remote add origin $DRONE_GIT_SSH_URL',
     'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
     'git checkout $DRONE_COMMIT -b $DRONE_BRANCH',
-    'git fetch --tags',
     'git submodule update --init --recursive --depth=2 --jobs=4'
   ]
 };
