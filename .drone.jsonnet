@@ -145,7 +145,13 @@ local update_cocoapods_cache(depends_on) = {
       {
         name: 'Unit Test Summary',
         commands: [
-          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult',
+          |||
+            if [[ -d ./build/artifacts/testResults.xcresult ]]; then
+              xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
+            else
+              echo -e "\n\n\n\e[31;1mUnit test results not found\e[0m"
+            fi
+          |||,
         ],
         depends_on: ['Build and Run Tests'],
         when: {
@@ -155,7 +161,11 @@ local update_cocoapods_cache(depends_on) = {
       {
         name: 'Delete Test Simulator',
         commands: [
-          'xcrun simctl delete $(cat ./build/artifacts/sim_uuid)'
+          |||
+            if [[ -f ./build/artifacts/sim_uuid ]]; then
+              xcrun simctl delete $(cat ./build/artifacts/sim_uuid)
+            fi
+          |||,
         ],
         depends_on: [
           'Build and Run Tests',
