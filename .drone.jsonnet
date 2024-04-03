@@ -19,7 +19,7 @@ local custom_clone = {
     'echo "$CLONE_KEY" > $HOME/.ssh/id_git_rsa',
     'git init',
     'git remote add origin git@github.com:$DRONE_REPO.git',
-    'git fetch --depth=1 origin +refs/heads/dev'
+    'git fetch --depth=1 origin +refs/heads/$DRONE_BRANCH',
     'git checkout $DRONE_COMMIT',
     'git fetch --tags',
     'git submodule update --init --recursive --depth=2 --jobs=4'
