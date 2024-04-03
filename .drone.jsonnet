@@ -14,12 +14,10 @@ local version_info = {
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
 local custom_clone = {
   name: 'Clone Repo',
-  environment: {
-    CLONE_KEY: { from_secret: 'CLONE_KEY' },
-    DRONE_SCRIPT_NOPRE: true
-  },
+  environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
   commands: [
     |||
+      set +x
       if [ -z "$CLONE_KEY" ]; then
         echo -e "\n\n\n\e[31;1mUnable to checkout repo: CLONE_KEY not set\e[0m"
         exit 1
@@ -27,7 +25,7 @@ local custom_clone = {
     |||,
     'eval "$(ssh-agent -s)"',
     'echo "$CLONE_KEY" | ssh-add -',
-    'set -x',
+    'mkdir -p ~/.ssh && touch ~/.ssh/config && touch ~/.ssh/known_hosts && chmod -R 600 ~/.ssh',
     'git init',
     'git remote add origin $DRONE_GIT_SSH_URL',
     'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
