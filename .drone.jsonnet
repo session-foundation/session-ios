@@ -16,8 +16,8 @@ local custom_clone = {
   name: 'Clone',
   environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
   commands: [
-    'eval "$(ssh-agent)"',
-    '$(echo "$CLONE_KEY" | ssh-add -)',
+    'eval "$(ssh-agent -s)"',
+    'echo "$CLONE_KEY" | ssh-add -',
     'mkdir -p ~/.ssh && touch ~/.ssh/config && touch ~/.ssh/known_hosts && chmod -R 400 ~/.ssh',
     'git init',
     'git remote add origin $DRONE_GIT_SSH_URL',
