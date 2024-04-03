@@ -17,7 +17,6 @@ local custom_clone = {
   environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
   commands: [
     |||
-      set +x
       if [ -z "$CLONE_KEY" ]; then
         echo -e "\n\n\n\e[31;1mUnable to checkout repo: CLONE_KEY not set\e[0m"
         exit 1
@@ -26,7 +25,9 @@ local custom_clone = {
     'eval "$(ssh-agent -s)"',
     'echo "$CLONE_KEY" | ssh-add -',
     'mkdir -p ~/.ssh && touch ~/.ssh/config && touch ~/.ssh/known_hosts',
+    'chmod 644 ~/.ssh/known_hosts',
     'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts',
+    'cat ~/.ssh/known_hosts',
     'git init',
     'git remote add origin $DRONE_GIT_SSH_URL',
     'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
@@ -206,6 +207,9 @@ local update_cocoapods_cache(depends_on) = {
         name: 'Poll for build artifact existence',
         commands: [
           './Scripts/drone-upload-exists.sh'
+        ],
+        depends_on: [
+          'Clone Repo'
         ]
       }
     ]
