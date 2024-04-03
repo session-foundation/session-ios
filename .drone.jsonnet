@@ -5,9 +5,9 @@
 local version_info = {
   name: 'Version Information',
   commands: [
-//    'git --version',
-//    'pod --version',
-//    'xcodebuild -version'
+    'git --version',
+    'LANG=en_US.UTF-8 pod --version',
+    'xcodebuild -version'
   ]
 };
 
@@ -16,6 +16,7 @@ local custom_clone = {
   name: 'Clone',
   environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
   commands: [
+    'set -x', // Disable execution output
     |||
       if [ -z "$CLONE_KEY" ]; then
         echo -e "\n\n\n\e[31;1mUnable to checkout repo: CLONE_KEY not set\e[0m"
@@ -36,15 +37,6 @@ local custom_clone = {
 
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
-
-// Output some information about the built tools in case specific combinations break the build
-local machine_info = {
-  name: 'Machine info',
-  commands: [
-    'xcodebuild -version',
-    'LANG=en_US.UTF-8 pod --version'
-  ]
-};
 
 // Cocoapods
 // 
@@ -84,7 +76,7 @@ local load_cocoapods_cache = {
     'rm -f /Users/drone/.cocoapods_cache.lock'
   ],
   depends_on: [
-    'Clone Submodules'
+    'Clone'
   ]
 };
 
