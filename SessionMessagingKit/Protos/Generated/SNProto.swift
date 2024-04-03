@@ -3230,9 +3230,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         if let _value = inviteMessage {
             builder.setInviteMessage(_value)
         }
-        if let _value = deleteMessage {
-            builder.setDeleteMessage(_value)
-        }
         if let _value = infoChangeMessage {
             builder.setInfoChangeMessage(_value)
         }
@@ -3262,10 +3259,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
 
         @objc public func setInviteMessage(_ valueParam: SNProtoGroupUpdateInviteMessage) {
             proto.inviteMessage = valueParam.proto
-        }
-
-        @objc public func setDeleteMessage(_ valueParam: SNProtoGroupUpdateDeleteMessage) {
-            proto.deleteMessage = valueParam.proto
         }
 
         @objc public func setInfoChangeMessage(_ valueParam: SNProtoGroupUpdateInfoChangeMessage) {
@@ -3305,8 +3298,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
 
     @objc public let inviteMessage: SNProtoGroupUpdateInviteMessage?
 
-    @objc public let deleteMessage: SNProtoGroupUpdateDeleteMessage?
-
     @objc public let infoChangeMessage: SNProtoGroupUpdateInfoChangeMessage?
 
     @objc public let memberChangeMessage: SNProtoGroupUpdateMemberChangeMessage?
@@ -3321,7 +3312,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
 
     private init(proto: SessionProtos_GroupUpdateMessage,
                  inviteMessage: SNProtoGroupUpdateInviteMessage?,
-                 deleteMessage: SNProtoGroupUpdateDeleteMessage?,
                  infoChangeMessage: SNProtoGroupUpdateInfoChangeMessage?,
                  memberChangeMessage: SNProtoGroupUpdateMemberChangeMessage?,
                  promoteMessage: SNProtoGroupUpdatePromoteMessage?,
@@ -3330,7 +3320,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
                  deleteMemberContent: SNProtoGroupUpdateDeleteMemberContentMessage?) {
         self.proto = proto
         self.inviteMessage = inviteMessage
-        self.deleteMessage = deleteMessage
         self.infoChangeMessage = infoChangeMessage
         self.memberChangeMessage = memberChangeMessage
         self.promoteMessage = promoteMessage
@@ -3353,11 +3342,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
         var inviteMessage: SNProtoGroupUpdateInviteMessage? = nil
         if proto.hasInviteMessage {
             inviteMessage = try SNProtoGroupUpdateInviteMessage.parseProto(proto.inviteMessage)
-        }
-
-        var deleteMessage: SNProtoGroupUpdateDeleteMessage? = nil
-        if proto.hasDeleteMessage {
-            deleteMessage = try SNProtoGroupUpdateDeleteMessage.parseProto(proto.deleteMessage)
         }
 
         var infoChangeMessage: SNProtoGroupUpdateInfoChangeMessage? = nil
@@ -3396,7 +3380,6 @@ extension SNProtoAttachmentPointer.SNProtoAttachmentPointerBuilder {
 
         let result = SNProtoGroupUpdateMessage(proto: proto,
                                                inviteMessage: inviteMessage,
-                                               deleteMessage: deleteMessage,
                                                infoChangeMessage: infoChangeMessage,
                                                memberChangeMessage: memberChangeMessage,
                                                promoteMessage: promoteMessage,
@@ -3563,118 +3546,6 @@ extension SNProtoGroupUpdateInviteMessage {
 
 extension SNProtoGroupUpdateInviteMessage.SNProtoGroupUpdateInviteMessageBuilder {
     @objc public func buildIgnoringErrors() -> SNProtoGroupUpdateInviteMessage? {
-        return try! self.build()
-    }
-}
-
-#endif
-
-// MARK: - SNProtoGroupUpdateDeleteMessage
-
-@objc public class SNProtoGroupUpdateDeleteMessage: NSObject {
-
-    // MARK: - SNProtoGroupUpdateDeleteMessageBuilder
-
-    @objc public class func builder(adminSignature: Data) -> SNProtoGroupUpdateDeleteMessageBuilder {
-        return SNProtoGroupUpdateDeleteMessageBuilder(adminSignature: adminSignature)
-    }
-
-    // asBuilder() constructs a builder that reflects the proto's contents.
-    @objc public func asBuilder() -> SNProtoGroupUpdateDeleteMessageBuilder {
-        let builder = SNProtoGroupUpdateDeleteMessageBuilder(adminSignature: adminSignature)
-        builder.setMemberSessionIds(memberSessionIds)
-        return builder
-    }
-
-    @objc public class SNProtoGroupUpdateDeleteMessageBuilder: NSObject {
-
-        private var proto = SessionProtos_GroupUpdateDeleteMessage()
-
-        @objc fileprivate override init() {}
-
-        @objc fileprivate init(adminSignature: Data) {
-            super.init()
-
-            setAdminSignature(adminSignature)
-        }
-
-        @objc public func addMemberSessionIds(_ valueParam: String) {
-            var items = proto.memberSessionIds
-            items.append(valueParam)
-            proto.memberSessionIds = items
-        }
-
-        @objc public func setMemberSessionIds(_ wrappedItems: [String]) {
-            proto.memberSessionIds = wrappedItems
-        }
-
-        @objc public func setAdminSignature(_ valueParam: Data) {
-            proto.adminSignature = valueParam
-        }
-
-        @objc public func build() throws -> SNProtoGroupUpdateDeleteMessage {
-            return try SNProtoGroupUpdateDeleteMessage.parseProto(proto)
-        }
-
-        @objc public func buildSerializedData() throws -> Data {
-            return try SNProtoGroupUpdateDeleteMessage.parseProto(proto).serializedData()
-        }
-    }
-
-    fileprivate let proto: SessionProtos_GroupUpdateDeleteMessage
-
-    @objc public let adminSignature: Data
-
-    @objc public var memberSessionIds: [String] {
-        return proto.memberSessionIds
-    }
-
-    private init(proto: SessionProtos_GroupUpdateDeleteMessage,
-                 adminSignature: Data) {
-        self.proto = proto
-        self.adminSignature = adminSignature
-    }
-
-    @objc
-    public func serializedData() throws -> Data {
-        return try self.proto.serializedData()
-    }
-
-    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoGroupUpdateDeleteMessage {
-        let proto = try SessionProtos_GroupUpdateDeleteMessage(serializedData: serializedData)
-        return try parseProto(proto)
-    }
-
-    fileprivate class func parseProto(_ proto: SessionProtos_GroupUpdateDeleteMessage) throws -> SNProtoGroupUpdateDeleteMessage {
-        guard proto.hasAdminSignature else {
-            throw SNProtoError.invalidProtobuf(description: "\(String(describing: logTag)) missing required field: adminSignature")
-        }
-        let adminSignature = proto.adminSignature
-
-        // MARK: - Begin Validation Logic for SNProtoGroupUpdateDeleteMessage -
-
-        // MARK: - End Validation Logic for SNProtoGroupUpdateDeleteMessage -
-
-        let result = SNProtoGroupUpdateDeleteMessage(proto: proto,
-                                                     adminSignature: adminSignature)
-        return result
-    }
-
-    @objc public override var debugDescription: String {
-        return "\(proto)"
-    }
-}
-
-#if DEBUG
-
-extension SNProtoGroupUpdateDeleteMessage {
-    @objc public func serializedDataIgnoringErrors() -> Data? {
-        return try! self.serializedData()
-    }
-}
-
-extension SNProtoGroupUpdateDeleteMessage.SNProtoGroupUpdateDeleteMessageBuilder {
-    @objc public func buildIgnoringErrors() -> SNProtoGroupUpdateDeleteMessage? {
         return try! self.build()
     }
 }
