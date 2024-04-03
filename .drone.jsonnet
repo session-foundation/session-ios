@@ -17,6 +17,7 @@ local custom_clone = {
   environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
   commands: [
     'echo "$CLONE_KEY" > id_git',
+    'chmod 600 id_git',
     'eval "$(ssh-agent)"',
     'ssh-agent ssh-add id_git',
     'git init',
