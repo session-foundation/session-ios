@@ -16,6 +16,12 @@ local custom_clone = {
   name: 'Clone',
   environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
   commands: [
+    |||
+    if [ -z "$CLONE_KEY" ]; then
+      echo -e "\n\n\n\e[31;1mUnable to checkout repo: CLONE_KEY not set\e[0m"
+      exit 1
+    fi
+    |||,
     'eval "$(ssh-agent -s)"',
     'echo "${CLONE_KEY}" | ssh-add -',
     'mkdir -p ~/.ssh && touch ~/.ssh/config && touch ~/.ssh/known_hosts && chmod -R 400 ~/.ssh',
