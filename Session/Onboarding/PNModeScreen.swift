@@ -247,6 +247,7 @@ struct PNOptionView: View {
         .frame(
             maxWidth: .infinity
         )
+        .contentShape(Rectangle())
         .onTapGesture {
             currentSelection = info.mode
         }
