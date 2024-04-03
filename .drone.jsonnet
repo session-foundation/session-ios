@@ -13,7 +13,7 @@ local version_info = {
 
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
 local custom_clone = {
-  name: 'Clone',
+  name: 'Clone Repo',
   environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
   commands: [
     'set -x', // Disable execution output
@@ -76,7 +76,7 @@ local load_cocoapods_cache = {
     'rm -f /Users/drone/.cocoapods_cache.lock'
   ],
   depends_on: [
-    'Clone'
+    'Clone Repo'
   ]
 };
 
