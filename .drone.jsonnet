@@ -24,15 +24,13 @@ local custom_clone = {
     |||,
     'mkdir -p $HOME/.ssh && touch $HOME/.ssh/config && touch $HOME/.ssh/known_hosts',
     'echo "$CLONE_KEY" > $HOME/.ssh/id_ed25519_drone_ci_deploy',
-    'chmod 600 $HOME/.ssh/config && chmod 600 $HOME/.ssh/known_hosts && chmod 600 $HOME/.ssh/id_ed25519_drone_ci_deploy',
-    'eval "$(ssh-agent -s)"',
-    'ssh-add $HOME/.ssh/id_ed25519_drone_ci_deploy',
+    'chmod 600 $HOME/.ssh/config $HOME/.ssh/known_hosts $HOME/.ssh/id_ed25519_drone_ci_deploy',
     'ssh-keyscan -t ed25519 github.com >> $HOME/.ssh/known_hosts',
     'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519_drone_ci_deploy -F $HOME/.ssh/config -o UserKnownHostsFile=$HOME/.ssh/known_hosts"',
-    'git init',
+    'git -c init.defaultBranch=master init',
     'git remote add origin $DRONE_GIT_SSH_URL',
     'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
-    'git checkout $DRONE_COMMIT',
+    'git checkout $DRONE_COMMIT -b $DRONE_BRANCH',
     'git fetch --tags',
     'git submodule update --init --recursive --depth=2 --jobs=4'
   ]
