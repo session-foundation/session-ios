@@ -5,9 +5,9 @@
 local version_info = {
   name: 'Version Information',
   commands: [
-    'git --version',
-    'pod --version',
-    'xcodebuild -version'
+//    'git --version',
+//    'pod --version',
+//    'xcodebuild -version'
   ]
 };
 
