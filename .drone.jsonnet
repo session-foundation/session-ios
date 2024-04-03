@@ -106,6 +106,7 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'amd64' },
     trigger: { event: { exclude: [ 'push' ] } },
+    clone: { depth: 1 },
     steps: [
       version_info,
       clone_submodules,
@@ -188,6 +189,7 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Check Build Artifact Existence',
     platform: { os: 'darwin', arch: 'amd64' },
     trigger: { event: { exclude: [ 'push' ] } },
+    clone: { disable: true },
     steps: [
       {
         name: 'Poll for build artifact existence',
@@ -204,6 +206,7 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'amd64' },
     trigger: { event: { exclude: [ 'pull_request' ] } },
+    clone: { depth: 1 },
     steps: [
       version_info,
       clone_submodules,
