@@ -13,6 +13,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
+import SwiftUI
 import SessionSnodeKit
 
 extension ConversationVC:
@@ -837,6 +838,7 @@ extension ConversationVC:
                     on: self.viewModel.threadData.openGroupServer
                 ),
                 currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
+                forMessageInfoScreen: false,
                 delegate: self
             )
         else { return }
@@ -1052,6 +1054,9 @@ extension ConversationVC:
                                 FileManager.default.fileExists(atPath: originalFilePath)
                             else { return SNLog("Missing video file") }
                             
+                            /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
+                            /// doesn't prevent video audio from playing
+                            try? AVAudioSession.sharedInstance().setCategory(.playback)
                             let viewController: AVPlayerViewController = AVPlayerViewController()
                             viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
                             self.navigationController?.present(viewController, animated: true)
@@ -1095,7 +1100,9 @@ extension ConversationVC:
                     let originalFilePath: String = attachment.originalFilePath
                 else { return }
                 
-                // Use the native player to play audio files
+                /// When playing media we need to change the AVAudioSession to 'playback' mode so the device "silent mode"
+                /// doesn't prevent video audio from playing
+                try? AVAudioSession.sharedInstance().setCategory(.playback)
                 let viewController: AVPlayerViewController = AVPlayerViewController()
                 viewController.player = AVPlayer(url: URL(fileURLWithPath: originalFilePath))
                 self.navigationController?.present(viewController, animated: true)
@@ -1818,14 +1825,30 @@ extension ConversationVC:
     // MARK: - ContextMenuActionDelegate
     
     func info(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
-        let mediaInfoVC = MediaInfoVC(
-            attachments: (cellViewModel.attachments ?? []),
-            isOutgoing: (cellViewModel.variant == .standardOutgoing),
-            threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
-            interactionId: cellViewModel.id
+        let actions: [ContextMenuVC.Action] = ContextMenuVC.actions(
+            for: cellViewModel,
+            recentEmojis: [],
+            currentUserPublicKey: self.viewModel.threadData.currentUserPublicKey,
+            currentUserBlinded15PublicKey: self.viewModel.threadData.currentUserBlinded15PublicKey,
+            currentUserBlinded25PublicKey: self.viewModel.threadData.currentUserBlinded25PublicKey,
+            currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
+                self.viewModel.threadData.currentUserPublicKey,
+                for: self.viewModel.threadData.openGroupRoomToken,
+                on: self.viewModel.threadData.openGroupServer
+            ),
+            currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
+            forMessageInfoScreen: true,
+            delegate: self,
+            using: dependencies
+        ) ?? []
+        
+        let messageInfoViewController = MessageInfoViewController(
+            actions: actions,
+            messageViewModel: cellViewModel
         )
-        navigationController?.pushViewController(mediaInfoVC, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.navigationController?.pushViewController(messageInfoViewController, animated: true)
+        }
     }
 
     func retry(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
@@ -2432,7 +2455,8 @@ extension ConversationVC:
         let url: URL = URL(fileURLWithPath: directory).appendingPathComponent(fileName)
         
         // Set up audio session
-        guard Environment.shared?.audioSession.startAudioActivity(recordVoiceMessageActivity) == true else {
+        let isConfigured = (SessionEnvironment.shared?.audioSession.startAudioActivity(recordVoiceMessageActivity) == true)
+        guard isConfigured else {
             return cancelVoiceMessageRecording()
         }
         
@@ -2552,7 +2576,7 @@ extension ConversationVC:
 
     func stopVoiceMessageRecording() {
         audioRecorder?.stop()
-        Environment.shared?.audioSession.endAudioActivity(recordVoiceMessageActivity)
+        SessionEnvironment.shared?.audioSession.endAudioActivity(recordVoiceMessageActivity)
     }
     
     // MARK: - Data Extraction Notifications
