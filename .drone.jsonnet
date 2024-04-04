@@ -179,9 +179,13 @@ local update_cocoapods_cache(depends_on) = {
       {
         name: 'Install Codecov CLI',
         commands: [
-          'pip3 install codecov-cli',
-          'pip3 show codecov-cli',
-          '$(pip3 show codecov-cli | grep Location | sed "s/Location: //")/codecovcli --version'
+          'pip3 install codecov-cli 2>&1 | grep "The script codecovcli is installed in" | sed -n -e "s/^.*The script codecovcli is installed in \(.*\) which is not on PATH.*$/\1/p" > ./build/artifacts/codecov_install_path',
+          |||
+            if [[ ! -s ./build/artifacts/codecov_install_path ]]; then
+              which codecovcli > ./build/artifacts/codecov_install_path
+            fi
+          |||
+          '$(cat ./build/artifacts/codecov_install_path)/codecovcli --version'
         ],
       },
       {
@@ -194,7 +198,7 @@ local update_cocoapods_cache(depends_on) = {
       {
         name: 'Upload coverage to Codecov',
         commands: [
-          'codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+          '$(cat ./build/artifacts/codecov_install_path)/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
         ],
         depends_on: [
           'Convert xcresult to xml',
