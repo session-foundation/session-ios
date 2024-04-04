@@ -236,7 +236,7 @@ local update_cocoapods_cache(depends_on) = {
         commands: [
           'ls $HOME/Library/Developer/Xcode/Archives',
           'ls $HOME/Library/Developer/Xcode/DerivedData',
-          'ls $HOME/Library/Developer/Xcode/iOS\ DeviceSupport'
+          'ls "$HOME/Library/Developer/Xcode/iOS DeviceSupport"'
         ]
       },
       version_info,
