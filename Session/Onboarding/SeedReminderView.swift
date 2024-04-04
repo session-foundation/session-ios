@@ -6,10 +6,7 @@ import SessionUtilitiesKit
 
 final class SeedReminderView: UIView {
     private static let progressBarThickness: CGFloat = 2
-    
-    private let hasContinueButton: Bool
-    private let hasSessionShieldIcon: Bool
-    
+
     var title = NSAttributedString(string: "") { didSet { titleLabel.attributedText = title } }
     var subtitle = "" { didSet { subtitleLabel.text = subtitle } }
     var delegate: SeedReminderViewDelegate?
@@ -47,10 +44,7 @@ final class SeedReminderView: UIView {
     
     // MARK: - Lifecycle
     
-    init(hasContinueButton: Bool, hasSessionShieldIcon: Bool) {
-        self.hasContinueButton = hasContinueButton
-        self.hasSessionShieldIcon = hasSessionShieldIcon
-        
+    init() {
         super.init(frame: CGRect.zero)
         
         setUpViewHierarchy()
@@ -83,7 +77,6 @@ final class SeedReminderView: UIView {
         sessionShieldIcon.contentMode = .scaleAspectFill
         sessionShieldIcon.set(.height, to: 16)
         sessionShieldIcon.set(.width, to: 14)
-        sessionShieldIcon.isHidden = !hasSessionShieldIcon
         let titleContainerView: UIStackView = UIStackView(arrangedSubviews: [titleLabel, sessionShieldIcon, UIView.hStretchingSpacer()])
         titleContainerView.axis = .horizontal
         titleContainerView.spacing = Values.verySmallSpacing
@@ -105,10 +98,8 @@ final class SeedReminderView: UIView {
         
         // Set up content stack view
         let contentStackView = UIStackView(arrangedSubviews: [ labelStackView ])
-        if hasContinueButton {
-            contentStackView.addArrangedSubview(UIView.hStretchingSpacer())
-            contentStackView.addArrangedSubview(button)
-        }
+        contentStackView.addArrangedSubview(UIView.hStretchingSpacer())
+        contentStackView.addArrangedSubview(button)
         contentStackView.axis = .horizontal
         contentStackView.spacing = 4
         contentStackView.alignment = .center
