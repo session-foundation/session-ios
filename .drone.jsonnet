@@ -113,7 +113,7 @@ local update_cocoapods_cache(depends_on) = {
     kind: 'pipeline',
     type: 'exec',
     name: 'Unit Tests',
-    platform: { os: 'darwin', arch: 'amd64' },
+    platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
     clone: { disable: true },
     steps: [
@@ -206,7 +206,7 @@ local update_cocoapods_cache(depends_on) = {
     kind: 'pipeline',
     type: 'exec',
     name: 'Check Build Artifact Existence',
-    platform: { os: 'darwin', arch: 'amd64' },
+    platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
     clone: { disable: true },
     steps: [
@@ -227,37 +227,10 @@ local update_cocoapods_cache(depends_on) = {
     kind: 'pipeline',
     type: 'exec',
     name: 'Simulator Build',
-    platform: { os: 'darwin', arch: 'amd64' },
+    platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'pull_request' ] } },
     clone: { disable: true },
     steps: [
-      {
-        name: 'Check DerivedData',
-        commands: [
-          |||
-            if [[ -d /Library/Developer/Xcode ]]; then
-              ls /Library/Developer/Xcode
-            else
-              echo "No Xcode folder"
-            fi
-            if [[ -d /Library/Developer/Xcode/Archives ]]; then
-              ls /Library/Developer/Xcode/Archives
-            else
-              echo "No Xcode/Archives folder"
-            fi
-            if [[ -d /Library/Developer/Xcode/DerivedData ]]; then
-              ls /Library/Developer/Xcode/DerivedData
-            else
-              echo "No Xcode/DerivedData folder"
-            fi
-            if [[ -d "/Library/Developer/Xcode/iOS DeviceSupport" ]]; then
-              ls "/Library/Developer/Xcode/iOS DeviceSupport"
-            else
-              echo "No Xcode/iOS DeviceSupport folder"
-            fi
-          |||
-        ]
-      },
       version_info,
       custom_clone,
       load_cocoapods_cache,
