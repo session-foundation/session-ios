@@ -532,7 +532,9 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                 }
             }
-            
+        }
+        
+        describe("an OpenGroupAPI") {
             // MARK: -- when preparing a capabilitiesAndRooms request
             context("when preparing a capabilitiesAndRooms request") {
                 // MARK: ---- generates the request correctly
@@ -1355,7 +1357,9 @@ class OpenGroupAPISpec: QuickSpec {
                         .to(contain("TestFileName"))
                 }
             }
-            
+        }
+        
+        describe("an OpenGroupAPI") {
             // MARK: -- when preparing a download file request
             context("when preparing a download file request") {
                 // MARK: ---- generates the request correctly
@@ -1620,7 +1624,9 @@ class OpenGroupAPISpec: QuickSpec {
                         .to(equal(.roomDeleteMessages("testRoom", sessionId: "testUserId")))
                 }
             }
-            
+        }
+        
+        describe("an OpenGroupAPI") {
             // MARK: -- when signing
             context("when signing") {
                 // MARK: ---- fails when there is no serverPublicKey

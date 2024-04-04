@@ -94,7 +94,10 @@ abstract_target 'GlobalDependencies' do
         pod 'Nimble'
         
         # Need to include these for the tests because otherwise it won't actually build
+        pod 'SAMKeychain'
+        pod 'PureLayout', '~> 3.1.8'
         pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
+        pod 'DifferenceKit'
       end
     end
   end

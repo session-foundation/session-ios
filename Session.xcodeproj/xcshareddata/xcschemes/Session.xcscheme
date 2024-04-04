@@ -168,6 +168,18 @@
                ReferencedContainer = "container:Session.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES"
+            testExecutionOrdering = "random">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FD7C37AD2BBB8B1D009DEEA7"
+               BuildableName = "SessionSnodeKitTests.xctest"
+               BlueprintName = "SessionSnodeKitTests"
+               ReferencedContainer = "container:Session.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
