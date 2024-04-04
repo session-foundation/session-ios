@@ -180,8 +180,8 @@ local update_cocoapods_cache(depends_on) = {
         name: 'Install Codecov CLI',
         commands: [
           'pip3 install codecov-cli',
-          'which codecovcli',
-          'codecovcli --version'
+          'pip3 show codecov-cli',
+          '$(pip3 show codecov-cli | grep Location | sed 's/Location: //')/codecovcli --version'
         ],
       },
       {
