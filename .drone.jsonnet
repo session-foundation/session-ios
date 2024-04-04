@@ -184,7 +184,7 @@ local update_cocoapods_cache(depends_on) = {
             if [[ ! -s ./build/artifacts/codecov_install_path ]]; then
               which codecovcli > ./build/artifacts/codecov_install_path
             fi
-          |||
+          |||,
           '$(cat ./build/artifacts/codecov_install_path)/codecovcli --version'
         ],
       },
