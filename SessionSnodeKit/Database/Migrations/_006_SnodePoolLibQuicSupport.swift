@@ -11,8 +11,8 @@ enum _006_SnodePoolLibQuicSupport: Migration {
     static let identifier: String = "SnodePoolLibQuicSupport" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [Snode.self]
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Snode.self]
+    static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Snode.self, SnodeSet.self]
     
     static func migrate(_ db: Database) throws {
         try db.drop(table: Snode.self)
@@ -21,6 +21,7 @@ enum _006_SnodePoolLibQuicSupport: Migration {
         try db.create(table: Snode.self) { t in
             t.column(.ip, .text).notNull()
             t.column(.lmqPort, .integer).notNull()
+            t.column(.x25519PublicKey, .text).notNull()
             t.column(.ed25519PublicKey, .text).notNull()
             
             t.primaryKey([.ip, .lmqPort])

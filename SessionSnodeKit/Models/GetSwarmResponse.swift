@@ -86,7 +86,7 @@ extension GetSwarmResponse._Snode {
             )
         }
         catch {
-            SNLog("Failed to parse snode: \(error.localizedDescription).")
+            SNLog("Failed to parse snode: \(error).")
             throw NetworkError.parsingFailed
         }
     }

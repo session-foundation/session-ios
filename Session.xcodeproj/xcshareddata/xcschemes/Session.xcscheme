@@ -34,6 +34,20 @@
                ReferencedContainer = "container:Session.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FD7C37AD2BBB8B1D009DEEA7"
+               BuildableName = "SessionSnodeKitTests.xctest"
+               BlueprintName = "SessionSnodeKitTests"
+               ReferencedContainer = "container:Session.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

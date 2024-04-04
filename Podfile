@@ -8,7 +8,7 @@ install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 # Dependencies to be included in the app and all extensions/frameworks
 abstract_target 'GlobalDependencies' do
   # FIXME: If https://github.com/jedisct1/swift-sodium/pull/249 gets resolved then revert this back to the standard pod
-  pod 'Sodium', :git => 'https://github.com/oxen-io/session-ios-swift-sodium.git', branch: 'session-build'
+  pod 'Sodium', :git => 'https://github.com/oxen-io/session-ios-swift-sodium.git', commit: '310c343'
   pod 'GRDB.swift/SQLCipher'
   
   # FIXME: Would be nice to migrate from CocoaPods to SwiftPackageManager (should allow us to speed up build time), haven't gone through all of the dependencies but currently unfortunately SQLCipher doesn't support SPM (for more info see: https://github.com/sqlcipher/sqlcipher/issues/371)
@@ -36,7 +36,6 @@ abstract_target 'GlobalDependencies' do
     pod 'SignalCoreKit', git: 'https://github.com/oxen-io/session-ios-core-kit', branch: 'session-version'
     
     target 'SessionNotificationServiceExtension'
-    target 'SessionSnodeKit'
     
     # Dependencies that are shared across a number of extensions/frameworks but not all
     abstract_target 'ExtendedDependencies' do
@@ -84,6 +83,18 @@ abstract_target 'GlobalDependencies' do
           pod 'Quick'
           pod 'Nimble'
         end
+      end
+    end
+    
+    target 'SessionSnodeKit' do
+      target 'SessionSnodeKitTests' do
+        inherit! :complete
+        
+        pod 'Quick'
+        pod 'Nimble'
+        
+        # Need to include these for the tests because otherwise it won't actually build
+        pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
       end
     end
   end

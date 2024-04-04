@@ -15,9 +15,9 @@ class PreparedRequestSpec: QuickSpec {
         @TestState var dependencies: Dependencies! = Dependencies()
         
         @TestState var urlRequest: URLRequest?
-        @TestState var preparedRequest: HTTP.PreparedRequest<TestType>!
+        @TestState var preparedRequest: Network.PreparedRequest<TestType>!
         @TestState var request: Request<NoBody, TestEndpoint>!
-        @TestState var responseInfo: ResponseInfoType! = HTTP.ResponseInfo(code: 200, headers: [:])
+        @TestState var responseInfo: ResponseInfoType! = Network.ResponseInfo(code: 200, headers: [:])
         
         // MARK: - a PreparedRequest
         describe("a PreparedRequest") {
@@ -37,7 +37,7 @@ class PreparedRequestSpec: QuickSpec {
                         x25519PublicKey: "",
                         body: nil
                     )
-                    preparedRequest = HTTP.PreparedRequest(
+                    preparedRequest = Network.PreparedRequest(
                         request: request,
                         urlRequest: try! request.generateUrlRequest(using: dependencies),
                         responseType: TestType.self,
@@ -66,7 +66,7 @@ class PreparedRequestSpec: QuickSpec {
                         x25519PublicKey: "",
                         body: nil
                     )
-                    preparedRequest = HTTP.PreparedRequest(
+                    preparedRequest = Network.PreparedRequest(
                         request: request,
                         urlRequest: try! request.generateUrlRequest(using: dependencies),
                         responseType: TestType.self,
@@ -160,7 +160,7 @@ fileprivate enum TestEndpoint: EndpointType {
     case endpoint
     
     static var name: String { "TestEndpoint" }
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }
     static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
     
     var path: String { return "endpoint" }

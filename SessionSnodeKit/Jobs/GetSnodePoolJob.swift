@@ -32,10 +32,16 @@ public enum GetSnodePoolJob: JobExecutor {
             return success(job, false, dependencies)
         }
         
+        // If we don't have a user yet then generate a dummy secret key to populate the snode
+        // pool from the seed node (so we can do so before account creation on first launch)
+        let ed25519SecretKey: [UInt8] = (Identity.fetchUserEd25519KeyPair()?.secretKey ??
+            (try! Identity.generate(from: try! Randomness.generateRandomBytes(numberBytes: 16))).ed25519KeyPair.secretKey
+        )
+        
         // If we don't have the snode pool cached then we should also try to build the path (this will
         // speed up the onboarding process for new users because it can run before the user is created)
-        SnodeAPI.getSnodePool()
-            .flatMap { _ in OnionRequestAPI.getPath(excluding: nil, using: dependencies) }
+        SnodeAPI.getSnodePool(ed25519SecretKey: ed25519SecretKey, using: dependencies)
+            .flatMap { _ in OnionRequestAPI.getPath(excluding: nil, ed25519SecretKey: ed25519SecretKey, using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
             .sinkUntilComplete(

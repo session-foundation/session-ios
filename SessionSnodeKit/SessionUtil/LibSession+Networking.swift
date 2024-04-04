@@ -16,6 +16,7 @@ public extension LibSession {
             case invalidPath = 1
             case replaceSwarm = 2
             case updatePath = 3
+            case updateNode = 4
         }
         
         let change: Change
@@ -23,10 +24,12 @@ public extension LibSession {
         let nodeFailureCount: [UInt]
         let nodeInvalid: [Bool]
         let pathFailureCount: UInt
+        let pathInvalid: Bool
         
         init(cChanges: network_service_node_changes) {
             self.change = (Change(rawValue: cChanges.type.rawValue) ?? .none)
             self.pathFailureCount = UInt(cChanges.failure_count)
+            self.pathInvalid = cChanges.invalid
             
             guard cChanges.nodes_count > 0 else {
                 self.nodes = []
@@ -105,6 +108,49 @@ public extension LibSession {
         _ swarmPublicKey: String?,
         using dependencies: Dependencies
     ) -> Error? {
+        /// Process the `ServiceNodeChanges` before handling the error to ensure we have updated out snode cache correctly
+        switch changes.change {
+            case .none, .invalidPath: break
+                
+            case .updatePath, .updateNode:
+                /// Update the failure count or drop any nodes flagged as invalid
+                zip(changes.nodes, changes.nodeFailureCount, changes.nodeInvalid).forEach { snode, failureCount, invalid in
+                    guard invalid else {
+                        /// If the snode wasn't marked as invalid and it's failure count hasn't changed then do nothing
+                        guard failureCount != (SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0) else { return }
+                        
+                        SNLog("Couldn't reach snode at: \(snode); setting failure count to \(failureCount).")
+                        SnodeAPI.snodeFailureCount.mutate { $0[snode] = failureCount }
+                        return
+                    }
+                    
+                    SNLog("Failure threshold reached for: \(snode); dropping it.")
+                    if let publicKey: String = swarmPublicKey {
+                        SnodeAPI.dropSnodeFromSwarmIfNeeded(snode, publicKey: publicKey)
+                    }
+                    SnodeAPI.dropSnodeFromSnodePool(snode)
+                    SnodeAPI.snodeFailureCount.mutate { $0.removeValue(forKey: snode) }
+                    SNLog("Snode pool count: \(SnodeAPI.snodePool.wrappedValue.count).")
+                }
+                
+                /// There should never be a case where `pathInvalid` when the change is `updateNode` but including this just to be safe
+                guard changes.change != .updateNode else { break }
+                
+                /// Update the path failure count or drop the path if invalid
+                switch changes.pathInvalid {
+                    case false: OnionRequestAPI.pathFailureCount.mutate { $0[changes.nodes] = changes.pathFailureCount }
+                    case true:
+                        OnionRequestAPI.dropGuardSnode(changes.nodes.first)
+                        OnionRequestAPI.drop(changes.nodes)
+                }
+                
+            case .replaceSwarm:
+                switch swarmPublicKey {
+                    case .none: SNLog("Tried to replace the swarm without an associated public key.")
+                    case .some(let publicKey): SnodeAPI.setSwarm(to: changes.nodes.asSet(), for: publicKey)
+                }
+        }
+        
         guard !success || statusCode < 200 || statusCode > 299 else { return nil }
         guard !timeout else { return NetworkError.timeout }
         
@@ -125,21 +171,8 @@ public extension LibSession {
             case (406, _), (425, _):
                 SNLog("The user's clock is out of sync with the service node network.")
                 return SnodeAPIError.clockOutOfSync
-                
-            case (421, _):
-                switch swarmPublicKey {
-                    case .none: SNLog("Got a 421 without an associated public key.")
-                    case .some(let publicKey):
-                        if
-                            let data: Data = data,
-                            let swarmResponse: GetSwarmResponse = try? data.decoded(as: GetSwarmResponse.self, using: dependencies),
-                            !swarmResponse.snodes.isEmpty
-                        {
-                            SnodeAPI.setSwarm(to: swarmResponse.snodes, for: publicKey)
-                        }
-                }
-                return SnodeAPIError.unassociatedPubkey
-                
+            
+            case (421, _): return SnodeAPIError.unassociatedPubkey
             case (429, _): return SnodeAPIError.rateLimited
             case (500, _), (502, _), (503, _): return SnodeAPIError.unreachable
             case (_, .none): return NetworkError.unknown
@@ -311,19 +344,28 @@ public extension LibSession {
                             cWrapperPtr
                         )
                         
-                    case .server(let method, let scheme, let host, let endpoint, let port, let headers, let x25519PublicKey):
+                    case .server(let method, let scheme, let host, let endpoint, let port, let headers, let queryParams, let x25519PublicKey):
                         let targetScheme: String = (scheme ?? "https")
                         let headerInfo: [(key: String, value: String)]? = headers?.map { ($0.key, $0.value) }
+                        let queryInfo: [(key: String, value: String)]? = queryParams?.map { ($0.key, $0.value) }
                         var cHeaderKeys: [UnsafePointer<CChar>?] = (headerInfo ?? [])
                             .map { $0.key.cArray.nullTerminated() }
                             .unsafeCopy()
                         var cHeaderValues: [UnsafePointer<CChar>?] = (headerInfo ?? [])
                             .map { $0.value.cArray.nullTerminated() }
                             .unsafeCopy()
+                        var cQueryParamKeys: [UnsafePointer<CChar>?] = (queryInfo ?? [])
+                            .map { $0.key.cArray.nullTerminated() }
+                            .unsafeCopy()
+                        var cQueryParamValues: [UnsafePointer<CChar>?] = (queryInfo ?? [])
+                            .map { $0.value.cArray.nullTerminated() }
+                            .unsafeCopy()
                         
                         // Add a cleanup callback to deallocate the header arrays
                         cHeaderKeys.forEach { callbackWrapper.addUnsafePointerToCleanup($0) }
                         cHeaderValues.forEach { callbackWrapper.addUnsafePointerToCleanup($0) }
+                        cQueryParamKeys.forEach { callbackWrapper.addUnsafePointerToCleanup($0) }
+                        cQueryParamValues.forEach { callbackWrapper.addUnsafePointerToCleanup($0) }
 
                         network_send_onion_request_to_server_destination(
                             cOnionPath,
@@ -334,6 +376,9 @@ public extension LibSession {
                             endpoint.path.cArray.nullTerminated(),
                             (port ?? (targetScheme == "https" ? 443 : 80)),
                             x25519PublicKey.cArray,
+                            &cQueryParamKeys,
+                            &cQueryParamValues,
+                            cQueryParamKeys.count,
                             &cHeaderKeys,
                             &cHeaderValues,
                             cHeaderKeys.count,

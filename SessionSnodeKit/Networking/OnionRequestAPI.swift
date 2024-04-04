@@ -21,13 +21,13 @@ public extension Network.RequestType {
             method: "POST",
             body: payload,
             args: [payload, snode, swarmPublicKey, timeout]
-        ) {
+        ) { dependencies in
             OnionRequestAPI.sendOnionRequest(
                 with: payload,
                 to: OnionRequestAPIDestination.snode(snode),
                 swarmPublicKey: swarmPublicKey,
                 timeout: timeout,
-                using: $0
+                using: dependencies
             )
         }
     }
@@ -46,7 +46,7 @@ public extension Network.RequestType {
             headers: request.allHTTPHeaderFields,
             body: request.httpBody,
             args: [request, server, endpoint, x25519PublicKey, timeout]
-        ) {
+        ) { dependencies in
             guard let url = request.url, let host = request.url?.host else {
                 return Fail(error: NetworkError.invalidURL).eraseToAnyPublisher()
             }
@@ -60,11 +60,19 @@ public extension Network.RequestType {
                     endpoint: endpoint,
                     port: url.port.map { UInt16($0) },
                     headers: request.allHTTPHeaderFields,
+                    queryParams: request.url?.query?
+                        .split(separator: "&")
+                        .map { $0.split(separator: "=").map { String($0) } }
+                        .reduce(into: [:]) { result, next in
+                            guard next.count == 2 else { return }
+                            
+                            result[next[0]] = next[1]
+                        },
                     x25519PublicKey: x25519PublicKey
                 ),
                 swarmPublicKey: nil,
                 timeout: timeout,
-                using: $0
+                using: dependencies
             )
         }
     }
@@ -117,6 +125,7 @@ public enum OnionRequestAPI {
     /// `Error.insufficientSnodes` if not enough (reliable) snodes are available.
     private static func getGuardSnodes(
         reusing reusableGuardSnodes: [Snode],
+        ed25519SecretKey: [UInt8]?,
         using dependencies: Dependencies
     ) -> AnyPublisher<Set<Snode>, Error> {
         guard guardSnodes.wrappedValue.count < targetGuardSnodeCount else {
@@ -150,6 +159,7 @@ public enum OnionRequestAPI {
             return SnodeAPI
                 .testSnode(
                     snode: candidate,
+                    ed25519SecretKey: ed25519SecretKey,
                     using: dependencies
                 )
                 .map { _ in candidate }
@@ -181,6 +191,7 @@ public enum OnionRequestAPI {
     @discardableResult
     private static func buildPaths(
         reusing reusablePaths: [[Snode]],
+        ed25519SecretKey: [UInt8]?,
         using dependencies: Dependencies
     ) -> AnyPublisher<[[Snode]], Error> {
         if let existingBuildPathsPublisher = buildPathsPublisher.wrappedValue {
@@ -203,7 +214,7 @@ public enum OnionRequestAPI {
             /// Need to include the post-request code and a `shareReplay` within the publisher otherwise it can still be executed
             /// multiple times as a result of multiple subscribers
             let reusableGuardSnodes = reusablePaths.map { $0[0] }
-            let publisher: AnyPublisher<[[Snode]], Error> = getGuardSnodes(reusing: reusableGuardSnodes, using: dependencies)
+            let publisher: AnyPublisher<[[Snode]], Error> = getGuardSnodes(reusing: reusableGuardSnodes, ed25519SecretKey: ed25519SecretKey, using: dependencies)
                 .flatMap { (guardSnodes: Set<Snode>) -> AnyPublisher<[[Snode]], Error> in
                     var unusedSnodes: Set<Snode> = SnodeAPI.snodePool.wrappedValue
                         .subtracting(guardSnodes)
@@ -268,6 +279,7 @@ public enum OnionRequestAPI {
     /// Returns a `Path` to be used for building an onion request. Builds new paths as needed.
     internal static func getPath(
         excluding snode: Snode?,
+        ed25519SecretKey: [UInt8]?,
         using dependencies: Dependencies
     ) -> AnyPublisher<[Snode], Error> {
         guard pathSize >= 1 else { preconditionFailure("Can't build path of size zero.") }
@@ -299,7 +311,7 @@ public enum OnionRequestAPI {
         else if !paths.isEmpty {
             if let snode = snode {
                 if let path = paths.first(where: { !$0.contains(snode) }) {
-                    buildPaths(reusing: paths, using: dependencies) // Re-build paths in the background
+                    buildPaths(reusing: paths, ed25519SecretKey: ed25519SecretKey, using: dependencies) // Re-build paths in the background
                         .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
                         .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
                         .store(in: &cancellable)
@@ -309,7 +321,7 @@ public enum OnionRequestAPI {
                         .eraseToAnyPublisher()
                 }
                 else {
-                    return buildPaths(reusing: paths, using: dependencies)
+                    return buildPaths(reusing: paths, ed25519SecretKey: ed25519SecretKey, using: dependencies)
                         .flatMap { paths in
                             guard let path: [Snode] = paths.filter({ !$0.contains(snode) }).randomElement() else {
                                 return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
@@ -324,7 +336,7 @@ public enum OnionRequestAPI {
                 }
             }
             else {
-                buildPaths(reusing: paths, using: dependencies) // Re-build paths in the background
+                buildPaths(reusing: paths, ed25519SecretKey: ed25519SecretKey, using: dependencies) // Re-build paths in the background
                     .subscribe(on: DispatchQueue.global(qos: .background))
                     .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
                     .store(in: &cancellable)
@@ -340,7 +352,7 @@ public enum OnionRequestAPI {
             }
         }
         else {
-            return buildPaths(reusing: [], using: dependencies)
+            return buildPaths(reusing: [], ed25519SecretKey: ed25519SecretKey, using: dependencies)
                 .flatMap { paths in
                     if let snode = snode {
                         if let path = paths.filter({ !$0.contains(snode) }).randomElement() {
@@ -366,7 +378,7 @@ public enum OnionRequestAPI {
         }
     }
 
-    internal static func dropGuardSnode(_ snode: Snode) {
+    internal static func dropGuardSnode(_ snode: Snode?) {
         guardSnodes.mutate { snodes in snodes = snodes.filter { $0 != snode } }
     }
 
@@ -396,8 +408,8 @@ public enum OnionRequestAPI {
     }
 
     internal static func drop(_ path: [Snode]) {
-        OnionRequestAPI.pathFailureCount.mutate { $0[path] = 0 }
-        var paths = OnionRequestAPI.paths
+        OnionRequestAPI.pathFailureCount.mutate { $0.removeValue(forKey: path) }
+        var paths: [[Snode]] = OnionRequestAPI.paths
         guard let pathIndex = paths.firstIndex(of: path) else { return }
         paths.remove(at: pathIndex)
         OnionRequestAPI.paths = paths
@@ -427,15 +439,16 @@ public enum OnionRequestAPI {
                 default: return nil
             }
         }()
+        let ed25519SecretKey: [UInt8]? = Identity.fetchUserEd25519KeyPair()?.secretKey
         
-        return getPath(excluding: snodeToExclude, using: dependencies)
+        return getPath(excluding: snodeToExclude, ed25519SecretKey: ed25519SecretKey, using: dependencies)
             .tryFlatMap { path -> AnyPublisher<(ResponseInfoType, Data?), Error> in
                 LibSession.sendOnionRequest(
                     to: destination,
                     body: body,
                     path: path,
                     swarmPublicKey: swarmPublicKey,
-                    ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
+                    ed25519SecretKey: ed25519SecretKey,
                     using: dependencies
                 )
             }

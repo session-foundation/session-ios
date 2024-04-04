@@ -183,6 +183,7 @@ public final class SnodeAPI {
     }
     
     public static func getSnodePool(
+        ed25519SecretKey: [UInt8]? = nil,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Set<Snode>, Error> {
         loadSnodePoolIfNeeded()
@@ -212,10 +213,10 @@ public final class SnodeAPI {
             }
             
             let targetPublisher: AnyPublisher<Set<Snode>, Error> = {
-                guard snodePool.count >= minSnodePoolCount else { return getSnodePoolFromSeedNode(using: dependencies) }
+                guard snodePool.count >= minSnodePoolCount else { return getSnodePoolFromSeedNode(ed25519SecretKey: ed25519SecretKey, using: dependencies) }
                 
                 return getSnodePoolFromSnode(using: dependencies)
-                    .catch { _ in getSnodePoolFromSeedNode(using: dependencies) }
+                    .catch { _ in getSnodePoolFromSeedNode(ed25519SecretKey: ed25519SecretKey, using: dependencies) }
                     .eraseToAnyPublisher()
             }()
             
@@ -1182,14 +1183,6 @@ public final class SnodeAPI {
                                     using: dependencies
                                 )
                                 .send(using: dependencies)
-                                .mapError { error -> Error in
-                                    switch error {
-                                        case NetworkError.parsingFailed:
-                                            return SnodeAPIError.snodePoolUpdatingFailed
-                                            
-                                        default: return error
-                                    }
-                                }
                                 .map { _, snodePool -> Set<Snode> in
                                     snodePool.result
                                         .serviceNodeStates
@@ -1219,6 +1212,7 @@ public final class SnodeAPI {
     // MARK: - Direct Requests
     
     private static func getSnodePoolFromSeedNode(
+        ed25519SecretKey: [UInt8]?,
         using dependencies: Dependencies
     ) -> AnyPublisher<Set<Snode>, Error> {
         guard let targetSeedNode: Snode = seedNodePool.randomElement() else {
@@ -1246,16 +1240,10 @@ public final class SnodeAPI {
                 ),
                 snode: targetSeedNode,
                 swarmPublicKey: nil,
-                ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
+                ed25519SecretKey: ed25519SecretKey,
                 using: dependencies
             )
             .decoded(as: SnodePoolResponse.self, using: dependencies)
-            .mapError { error in
-                switch error {
-                    case NetworkError.parsingFailed: return SnodeAPIError.snodePoolUpdatingFailed
-                    default: return error
-                }
-            }
             .map { _, snodePool -> Set<Snode> in
                 snodePool.result
                     .serviceNodeStates
@@ -1277,6 +1265,7 @@ public final class SnodeAPI {
     /// Tests the given snode. The returned promise errors out if the snode is faulty; the promise is fulfilled otherwise.
     internal static func testSnode(
         snode: Snode,
+        ed25519SecretKey: [UInt8]?,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return LibSession
@@ -1285,7 +1274,7 @@ public final class SnodeAPI {
                 body: NoBody.null,
                 snode: snode,
                 swarmPublicKey: nil,
-                ed25519SecretKey: Identity.fetchUserEd25519KeyPair()?.secretKey,
+                ed25519SecretKey: (ed25519SecretKey ?? Identity.fetchUserEd25519KeyPair()?.secretKey),
                 using: dependencies
             )
             .decoded(as: SnodeAPI.GetInfoResponse.self, using: dependencies)
@@ -1301,85 +1290,6 @@ public final class SnodeAPI {
             .eraseToAnyPublisher()
     }
 
-    // MARK: - Error Handling
-    
-    @discardableResult
-    internal static func handleError(
-        withStatusCode statusCode: UInt,
-        data: Data?,
-        forSnode snode: Snode,
-        swarmPublicKey publicKey: String? = nil,
-        using dependencies: Dependencies
-    ) -> Error? {
-        func handleBadSnode() {
-            let oldFailureCount = (SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0)
-            let newFailureCount = oldFailureCount + 1
-            SnodeAPI.snodeFailureCount.mutate { $0[snode] = newFailureCount }
-            SNLog("Couldn't reach snode at: \(snode); setting failure count to \(newFailureCount).")
-            if newFailureCount >= SnodeAPI.snodeFailureThreshold {
-                SNLog("Failure threshold reached for: \(snode); dropping it.")
-                if let publicKey = publicKey {
-                    SnodeAPI.dropSnodeFromSwarmIfNeeded(snode, publicKey: publicKey)
-                }
-                SnodeAPI.dropSnodeFromSnodePool(snode)
-                SNLog("Snode pool count: \(snodePool.wrappedValue.count).")
-                SnodeAPI.snodeFailureCount.mutate { $0[snode] = 0 }
-            }
-        }
-        
-        switch statusCode {
-            case 500, 502, 503:
-                // The snode is unreachable
-                handleBadSnode()
-                
-            case 404:
-                // May caused by invalid open groups
-                SNLog("Can't reach the server.")
-                
-            case 406:
-                SNLog("The user's clock is out of sync with the service node network.")
-                return SnodeAPIError.clockOutOfSync
-                
-            case 421:
-                // The snode isn't associated with the given public key anymore
-                if let publicKey = publicKey {
-                    func invalidateSwarm() {
-                        SNLog("Invalidating swarm for: \(publicKey).")
-                        SnodeAPI.dropSnodeFromSwarmIfNeeded(snode, publicKey: publicKey)
-                    }
-                    
-                    if let data: Data = data {
-                        let snodes = parseSnodes(from: data)
-                        
-                        if !snodes.isEmpty {
-                            setSwarm(to: snodes, for: publicKey)
-                        }
-                        else {
-                            invalidateSwarm()
-                        }
-                    }
-                    else {
-                        invalidateSwarm()
-                    }
-                }
-                else {
-                    SNLog("Got a 421 without an associated public key.")
-                }
-                
-            default:
-                handleBadSnode()
-                let message: String = {
-                    if let data: Data = data, let stringFromData = String(data: data, encoding: .utf8) {
-                        return stringFromData
-                    }
-                    return "Empty data."
-                }()
-                SNLog("Unhandled response code: \(statusCode), messasge: \(message)")
-        }
-        
-        return nil
-    }
-    
     // MARK: - Convenience
     
     private static func prepareRequest<T: Encodable, R: Decodable>(

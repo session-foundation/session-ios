@@ -104,7 +104,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a poll request") {
                 // MARK: ---- generates the correct request
                 it("generates the correct request") {
-                    let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                    let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPoll(
                             db,
                             server: "testserver",
@@ -127,7 +127,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- retrieves recent messages if there was no last message
                 it("retrieves recent messages if there was no last message") {
-                    let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                    let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPoll(
                             db,
                             server: "testserver",
@@ -148,7 +148,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: 121))
                     }
                     
-                    let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                    let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPoll(
                             db,
                             server: "testserver",
@@ -169,7 +169,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: 122))
                     }
                     
-                    let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                    let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPoll(
                             db,
                             server: "testserver",
@@ -190,7 +190,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .updateAll(db, OpenGroup.Columns.sequenceNumber.set(to: 123))
                     }
 
-                    let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                    let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPoll(
                             db,
                             server: "testserver",
@@ -215,7 +215,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                     // MARK: ------ does not call the inbox and outbox endpoints
                     it("does not call the inbox and outbox endpoints") {
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -244,7 +244,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                     // MARK: ------ includes the inbox and outbox endpoints
                     it("includes the inbox and outbox endpoints") {
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -260,7 +260,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ retrieves recent inbox messages if there was no last message
                     it("retrieves recent inbox messages if there was no last message") {
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -280,7 +280,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 .updateAll(db, OpenGroup.Columns.inboxLatestMessageId.set(to: 124))
                         }
                         
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -295,7 +295,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ retrieves recent outbox messages if there was no last message
                     it("retrieves recent outbox messages if there was no last message") {
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -315,7 +315,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 .updateAll(db, OpenGroup.Columns.outboxLatestMessageId.set(to: 125))
                         }
                         
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -343,7 +343,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ includes the inbox and outbox endpoints
                     it("does not include the inbox endpoint") {
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -358,7 +358,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ does not retrieve recent inbox messages if there was no last message
                     it("does not retrieve recent inbox messages if there was no last message") {
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -378,7 +378,7 @@ class OpenGroupAPISpec: QuickSpec {
                                 .updateAll(db, OpenGroup.Columns.inboxLatestMessageId.set(to: 124))
                         }
                         
-                        let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                        let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedPoll(
                                 db,
                                 server: "testserver",
@@ -397,7 +397,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a capabilities request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request and handles the response correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Capabilities>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Capabilities>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedCapabilities(
                             db,
                             server: "testserver",
@@ -412,10 +412,9 @@ class OpenGroupAPISpec: QuickSpec {
             
             // MARK: -- when preparing a rooms request
             context("when preparing a rooms request") {
-                
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedRooms(
                             db,
                             server: "testserver",
@@ -432,7 +431,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a capabilitiesAndRoom request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedCapabilitiesAndRoom(
                             db,
                             for: "testRoom",
@@ -454,8 +453,8 @@ class OpenGroupAPISpec: QuickSpec {
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: any(), with: any()), using: dependencies) }
-                        .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomResponse)
+                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
                     
@@ -483,8 +482,8 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: any(), with: any()), using: dependencies) }
-                            .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndBanResponse)
+                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
                         
@@ -509,8 +508,8 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: any(), with: any()), using: dependencies) }
-                            .thenReturn(HTTP.BatchResponse.mockBanAndRoomResponse)
+                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .thenReturn(Network.BatchResponse.mockBanAndRoomResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
                         
@@ -538,7 +537,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a capabilitiesAndRooms request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedCapabilitiesAndRooms(
                             db,
                             on: "testserver",
@@ -559,8 +558,8 @@ class OpenGroupAPISpec: QuickSpec {
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: any(), with: any()), using: dependencies) }
-                        .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomsResponse)
+                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
                     
@@ -587,8 +586,8 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: any(), with: any(), using: dependencies)) }
-                            .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndBanResponse)
+                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
                         
@@ -612,8 +611,8 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: any(), with: any(), using: dependencies)) }
-                            .thenReturn(HTTP.BatchResponse.mockBanAndRoomsResponse)
+                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .thenReturn(Network.BatchResponse.mockBanAndRoomsResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
                         
@@ -640,7 +639,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a send message request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedSend(
                             db,
                             plaintext: "test".data(using: .utf8)!,
@@ -668,7 +667,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ signs the message correctly
                     it("signs the message correctly") {
-                        let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedSend(
                                 db,
                                 plaintext: "test".data(using: .utf8)!,
@@ -694,7 +693,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedSend(
                                     db,
@@ -725,7 +724,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedSend(
                                     db,
@@ -756,7 +755,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedSend(
                                     db,
@@ -792,7 +791,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ signs the message correctly
                     it("signs the message correctly") {
-                        let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedSend(
                                 db,
                                 plaintext: "test".data(using: .utf8)!,
@@ -818,7 +817,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedSend(
                                     db,
@@ -849,7 +848,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedSend(
                                     db,
@@ -888,7 +887,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedSend(
                                     db,
@@ -917,7 +916,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing an individual message request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<OpenGroupAPI.Message>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedMessage(
                             db,
                             id: 123,
@@ -947,7 +946,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedMessageUpdate(
                             db,
                             id: 123,
@@ -974,7 +973,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ signs the message correctly
                     it("signs the message correctly") {
-                        let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedMessageUpdate(
                                 db,
                                 id: 123,
@@ -999,7 +998,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedMessageUpdate(
                                     db,
@@ -1029,7 +1028,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedMessageUpdate(
                                     db,
@@ -1059,7 +1058,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedMessageUpdate(
                                     db,
@@ -1094,7 +1093,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ signs the message correctly
                     it("signs the message correctly") {
-                        let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedMessageUpdate(
                                 db,
                                 id: 123,
@@ -1119,7 +1118,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedMessageUpdate(
                                     db,
@@ -1149,7 +1148,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedMessageUpdate(
                                     db,
@@ -1187,7 +1186,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedMessageUpdate(
                                     db,
@@ -1215,7 +1214,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a delete message request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedMessageDelete(
                             db,
                             id: 123,
@@ -1234,7 +1233,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a delete all messages request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedMessagesDeleteAll(
                             db,
                             sessionId: "testUserId",
@@ -1253,7 +1252,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a pin message request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedPinMessage(
                             db,
                             id: 123,
@@ -1272,7 +1271,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing an unpin message request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUnpinMessage(
                             db,
                             id: 123,
@@ -1291,7 +1290,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing an unpin all request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUnpinAll(
                             db,
                             in: "testRoom",
@@ -1309,7 +1308,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing an upload file request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<FileUploadResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<FileUploadResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUploadFile(
                             db,
                             bytes: [],
@@ -1325,7 +1324,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- doesn't add a fileName to the content-disposition header when not provided
                 it("doesn't add a fileName to the content-disposition header when not provided") {
-                    let preparedRequest: HTTP.PreparedRequest<FileUploadResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<FileUploadResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUploadFile(
                             db,
                             bytes: [],
@@ -1341,7 +1340,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- adds the fileName to the content-disposition header when provided
                 it("adds the fileName to the content-disposition header when provided") {
-                    let preparedRequest: HTTP.PreparedRequest<FileUploadResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<FileUploadResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUploadFile(
                             db,
                             bytes: [],
@@ -1361,7 +1360,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a download file request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<Data>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<Data>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedDownloadFile(
                             db,
                             fileId: "1",
@@ -1380,7 +1379,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a send direct message request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.SendDirectMessageResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<OpenGroupAPI.SendDirectMessageResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedSend(
                             db,
                             ciphertext: "test".data(using: .utf8)!,
@@ -1399,7 +1398,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a ban user request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserBan(
                             db,
                             sessionId: "testUserId",
@@ -1416,7 +1415,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- does a global ban if no room tokens are provided
                 it("does a global ban if no room tokens are provided") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserBan(
                             db,
                             sessionId: "testUserId",
@@ -1435,7 +1434,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- does room specific bans if room tokens are provided
                 it("does room specific bans if room tokens are provided") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserBan(
                             db,
                             sessionId: "testUserId",
@@ -1457,7 +1456,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing an unban user request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserUnban(
                             db,
                             sessionId: "testUserId",
@@ -1473,7 +1472,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- does a global unban if no room tokens are provided
                 it("does a global unban if no room tokens are provided") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserUnban(
                             db,
                             sessionId: "testUserId",
@@ -1491,7 +1490,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- does room specific unbans if room tokens are provided
                 it("does room specific unbans if room tokens are provided") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserUnban(
                             db,
                             sessionId: "testUserId",
@@ -1512,7 +1511,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a user permissions request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserModeratorUpdate(
                             db,
                             sessionId: "testUserId",
@@ -1531,7 +1530,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- does a global update if no room tokens are provided
                 it("does a global update if no room tokens are provided") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserModeratorUpdate(
                             db,
                             sessionId: "testUserId",
@@ -1552,7 +1551,7 @@ class OpenGroupAPISpec: QuickSpec {
                 
                 // MARK: ---- does room specific updates if room tokens are provided
                 it("does room specific updates if room tokens are provided") {
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserModeratorUpdate(
                             db,
                             sessionId: "testUserId",
@@ -1574,7 +1573,7 @@ class OpenGroupAPISpec: QuickSpec {
                 // MARK: ---- fails if neither moderator or admin are set
                 it("fails if neither moderator or admin are set") {
                     var preparationError: Error?
-                    let preparedRequest: HTTP.PreparedRequest<NoResponse>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<NoResponse>? = mockStorage.read { db in
                         do {
                             return try OpenGroupAPI.preparedUserModeratorUpdate(
                                 db,
@@ -1593,7 +1592,7 @@ class OpenGroupAPISpec: QuickSpec {
                         }
                     }
                     
-                    expect(preparationError).to(matchError(NetworkError.generic))
+                    expect(preparationError).to(matchError(NetworkError.invalidPreparedRequest))
                     expect(preparedRequest).to(beNil())
                 }
             }
@@ -1602,7 +1601,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when preparing a ban and delete all request") {
                 // MARK: ---- generates the request correctly
                 it("generates the request correctly") {
-                    let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
+                    let preparedRequest:  Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
                         try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
                             db,
                             sessionId: "testUserId",
@@ -1615,28 +1614,11 @@ class OpenGroupAPISpec: QuickSpec {
                     expect(preparedRequest?.request.url?.absoluteString).to(equal("testserver/sequence"))
                     expect(preparedRequest?.request.httpMethod).to(equal("POST"))
                     expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0]).to(equal(.userBan("testUserId")))
-                    expect(preparedRequest?.batchEndpoints[test: 1])
+                    expect(preparedRequest?.batchEndpoints[test: 0].asType(OpenGroupAPI.Endpoint.self))
+                        .to(equal(.userBan("testUserId")))
+                    expect(preparedRequest?.batchEndpoints[test: 1].asType(OpenGroupAPI.Endpoint.self))
                         .to(equal(.roomDeleteMessages("testRoom", sessionId: "testUserId")))
                 }
-                
-//                // MARK: ---- bans the user from the specified room rather than globally
-//                it("bans the user from the specified room rather than globally") {
-//                    let preparedRequest:  HTTP.PreparedRequest<HTTP.BatchResponseMap<OpenGroupAPI.Endpoint>>? = mockStorage.read { db in
-//                        try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
-//                            db,
-//                            sessionId: "testUserId",
-//                            in: "testRoom",
-//                            on: "testserver",
-//                            using: dependencies
-//                        )
-//                    }
-//
-//                    let requestBody: OpenGroupAPI.UserBanRequest? = preparedRequest?.batchRequestBodies[test: 0]?
-//                        .decoded(as: OpenGroupAPI.UserBanRequest.self)
-//                    expect(requestBody?.global).to(beNil())
-//                    expect(requestBody?.rooms).to(equal(["testRoom"]))
-//                }
             }
             
             // MARK: -- when signing
@@ -1648,7 +1630,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     var preparationError: Error?
-                    let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                         do {
                             return try OpenGroupAPI.preparedRooms(
                                 db,
@@ -1674,7 +1656,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     var preparationError: Error?
-                    let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                         do {
                             return try OpenGroupAPI.preparedRooms(
                                 db,
@@ -1699,7 +1681,7 @@ class OpenGroupAPISpec: QuickSpec {
                     }
                     
                     var preparationError: Error?
-                    let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                    let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                         do {
                             return try OpenGroupAPI.preparedRooms(
                                 db,
@@ -1728,7 +1710,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ signs correctly
                     it("signs correctly") {
-                        let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedRooms(
                                 db,
                                 server: "testserver",
@@ -1738,7 +1720,8 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(preparedRequest?.request.url?.absoluteString).to(equal("testserver/rooms"))
                         expect(preparedRequest?.request.httpMethod).to(equal("GET"))
-                        expect(preparedRequest?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
+                        expect((preparedRequest?.target as? (any ServerRequestTarget))?.x25519PublicKey)
+                            .to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                         expect(preparedRequest?.request.allHTTPHeaderFields).to(haveCount(4))
                         expect(preparedRequest?.request.allHTTPHeaderFields?[HTTPHeader.sogsPubKey])
                             .to(equal("00bac6e71efd7dfa4a83c98ed24f254ab2c267f9ccdb172a5280a0444ad24e89cc"))
@@ -1757,7 +1740,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedRooms(
                                     db,
@@ -1788,7 +1771,7 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     // MARK: ------ signs correctly
                     it("signs correctly") {
-                        let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                             try OpenGroupAPI.preparedRooms(
                                 db,
                                 server: "testserver",
@@ -1798,7 +1781,8 @@ class OpenGroupAPISpec: QuickSpec {
                         
                         expect(preparedRequest?.request.url?.absoluteString).to(equal("testserver/rooms"))
                         expect(preparedRequest?.request.httpMethod).to(equal("GET"))
-                        expect(preparedRequest?.publicKey).to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
+                        expect((preparedRequest?.target as? (any ServerRequestTarget))?.x25519PublicKey)
+                            .to(equal("88672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                         expect(preparedRequest?.request.allHTTPHeaderFields).to(haveCount(4))
                         expect(preparedRequest?.request.allHTTPHeaderFields?[HTTPHeader.sogsPubKey])
                             .to(equal("1588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
@@ -1825,7 +1809,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedRooms(
                                     db,
@@ -1858,7 +1842,7 @@ class OpenGroupAPISpec: QuickSpec {
                             .thenReturn(nil)
                         
                         var preparationError: Error?
-                        let preparedRequest: HTTP.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
+                        let preparedRequest: Network.PreparedRequest<[OpenGroupAPI.Room]>? = mockStorage.read { db in
                             do {
                                 return try OpenGroupAPI.preparedRooms(
                                     db,
@@ -1878,11 +1862,11 @@ class OpenGroupAPISpec: QuickSpec {
                 }
             }
             
-            // MARK: ---- when sending
+            // MARK: -- when sending
             context("when sending") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), with: any())) }
+                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
                         .thenReturn(MockNetwork.response(type: [OpenGroupAPI.Room].self))
                 }
                 
@@ -1898,26 +1882,13 @@ class OpenGroupAPISpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+                        .flatMap { $0.send(using: dependencies) }
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
 
                     expect(response).toNot(beNil())
                     expect(error).to(beNil())
-                }
-                
-                // MARK: ---- fails when not given prepared data
-                it("fails when not given prepared data") {
-                    var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
-                    
-                    OpenGroupAPI.send(data: nil, using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-
-                    expect(error).to(matchError(OpenGroupAPIError.invalidPreparedData))
-                    expect(response).to(beNil())
                 }
             }
         }
@@ -1926,7 +1897,7 @@ class OpenGroupAPISpec: QuickSpec {
 
 // MARK: - Mock Batch Responses
                         
-extension HTTP.BatchResponse {
+extension Network.BatchResponse {
     // MARK: - Valid Responses
     
     static let mockCapabilitiesAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(

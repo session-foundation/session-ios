@@ -61,7 +61,7 @@ DEPENDENCIES:
   - Reachability
   - SAMKeychain
   - SignalCoreKit (from `https://github.com/oxen-io/session-ios-core-kit`, branch `session-version`)
-  - Sodium (from `https://github.com/oxen-io/session-ios-swift-sodium.git`, branch `session-build`)
+  - Sodium (from `https://github.com/oxen-io/session-ios-swift-sodium.git`, commit `310c343`)
   - SQLCipher (~> 4.5.3)
   - SwiftProtobuf (~> 1.5.0)
   - WebRTC-lib
@@ -92,7 +92,7 @@ EXTERNAL SOURCES:
     :branch: session-version
     :git: https://github.com/oxen-io/session-ios-core-kit
   Sodium:
-    :branch: session-build
+    :commit: 310c343
     :git: https://github.com/oxen-io/session-ios-swift-sodium.git
   YYImage:
     :git: https://github.com/signalapp/YYImage
@@ -105,7 +105,7 @@ CHECKOUT OPTIONS:
     :commit: 4590c2737a2b5dc0ef4ace9f9019b581caccc1de
     :git: https://github.com/oxen-io/session-ios-core-kit
   Sodium:
-    :commit: 4ecfe2ddfd75e7b396c57975b4163e5c8cf4d5cc
+    :commit: 310c343
     :git: https://github.com/oxen-io/session-ios-swift-sodium.git
   YYImage:
     :commit: 62a4cede20bcf31da73d18163408e46a92f171c6
@@ -131,6 +131,6 @@ SPEC CHECKSUMS:
   WebRTC-lib: d83df8976fa608b980f1d85796b3de66d60a1953
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
 
-PODFILE CHECKSUM: 4e88e94d595188c412f739792fb78e0e92a8be12
+PODFILE CHECKSUM: 2f2ab5029f554a2a802b5c59be8de1a307d19e76
 
-COCOAPODS: 1.14.3
+COCOAPODS: 1.15.2
