@@ -235,23 +235,23 @@ local update_cocoapods_cache(depends_on) = {
         name: 'Check DerivedData',
         commands: [
           |||
-            if [[ -d ~/Library/Developer/Xcode ]]; then
-              ls ~/Library/Developer/Xcode
+            if [[ -d /Library/Developer/Xcode ]]; then
+              ls /Library/Developer/Xcode
             else
               echo "No Xcode folder"
             fi
-            if [[ -d ~/Library/Developer/Xcode/Archives ]]; then
-              ls ~/Library/Developer/Xcode/Archives
+            if [[ -d /Library/Developer/Xcode/Archives ]]; then
+              ls /Library/Developer/Xcode/Archives
             else
               echo "No Xcode/Archives folder"
             fi
-            if [[ -d ~/Library/Developer/Xcode/DerivedData ]]; then
-              ls ~/Library/Developer/Xcode/DerivedData
+            if [[ -d /Library/Developer/Xcode/DerivedData ]]; then
+              ls /Library/Developer/Xcode/DerivedData
             else
               echo "No Xcode/DerivedData folder"
             fi
-            if [[ -d "~/Library/Developer/Xcode/iOS DeviceSupport" ]]; then
-              ls "~/Library/Developer/Xcode/iOS DeviceSupport"
+            if [[ -d "/Library/Developer/Xcode/iOS DeviceSupport" ]]; then
+              ls "/Library/Developer/Xcode/iOS DeviceSupport"
             else
               echo "No Xcode/iOS DeviceSupport folder"
             fi
