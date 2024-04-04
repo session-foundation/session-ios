@@ -1,33 +1,42 @@
 // This build configuration requires the following to be installed:
-// Git, Xcode, XCode Command-line Tools, Cocoapods, Xcodebuild, Xcresultparser, pip
+// Git, Xcode, XCode Command-line Tools, Cocoapods, Xcbeautify, Xcresultparser, pip
 
 // Log a bunch of version information to make it easier for debugging
 local version_info = {
   name: 'Version Information',
   commands: [
     'git --version',
-    'pod --version',
+    'LANG=en_US.UTF-8 pod --version',
     'xcodebuild -version'
   ]
 };
 
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
-local clone_submodules = {
-  name: 'Clone Submodules',
-  commands: ['git fetch --tags', 'git submodule update --init --recursive --depth=2 --jobs=4']
+local custom_clone = {
+  name: 'Clone Repo',
+  environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
+  commands: [
+    |||
+      if [ -z "$CLONE_KEY" ]; then
+        echo -e "\n\n\n\e[31;1mUnable to checkout repo: CLONE_KEY not set\e[0m"
+        exit 1
+      fi
+    |||,
+    'mkdir -p $HOME/.ssh && touch $HOME/.ssh/config && touch $HOME/.ssh/known_hosts',
+    'echo "$CLONE_KEY" > $HOME/.ssh/id_ed25519_drone_ci_deploy',
+    'chmod 600 $HOME/.ssh/config $HOME/.ssh/known_hosts $HOME/.ssh/id_ed25519_drone_ci_deploy',
+    'ssh-keyscan -t ed25519 github.com >> $HOME/.ssh/known_hosts',
+    'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519_drone_ci_deploy -F $HOME/.ssh/config -o UserKnownHostsFile=$HOME/.ssh/known_hosts"',
+    'git -c init.defaultBranch=master init',
+    'git remote add origin $DRONE_GIT_SSH_URL',
+    'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
+    'git checkout $DRONE_COMMIT -b $DRONE_BRANCH',
+    'git submodule update --init --recursive --depth=2 --jobs=4'
+  ]
 };
 
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
-
-// Output some information about the built tools in case specific combinations break the build
-local machine_info = {
-  name: 'Machine info',
-  commands: [
-    'xcodebuild -version',
-    'LANG=en_US.UTF-8 pod --version'
-  ]
-};
 
 // Cocoapods
 // 
@@ -67,7 +76,7 @@ local load_cocoapods_cache = {
     'rm -f /Users/drone/.cocoapods_cache.lock'
   ],
   depends_on: [
-    'Clone Submodules'
+    'Clone Repo'
   ]
 };
 
@@ -104,11 +113,12 @@ local update_cocoapods_cache(depends_on) = {
     kind: 'pipeline',
     type: 'exec',
     name: 'Unit Tests',
-    platform: { os: 'darwin', arch: 'amd64' },
+    platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
+    clone: { disable: true },
     steps: [
       version_info,
-      clone_submodules,
+      custom_clone,
       load_cocoapods_cache,
       install_cocoapods,
       {
@@ -135,7 +145,13 @@ local update_cocoapods_cache(depends_on) = {
       {
         name: 'Unit Test Summary',
         commands: [
-          'xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult',
+          |||
+            if [[ -d ./build/artifacts/testResults.xcresult ]]; then
+              xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
+            else
+              echo -e "\n\n\n\e[31;1mUnit test results not found\e[0m"
+            fi
+          |||,
         ],
         depends_on: ['Build and Run Tests'],
         when: {
@@ -145,7 +161,11 @@ local update_cocoapods_cache(depends_on) = {
       {
         name: 'Delete Test Simulator',
         commands: [
-          'xcrun simctl delete $(cat ./build/artifacts/sim_uuid)'
+          |||
+            if [[ -f ./build/artifacts/sim_uuid ]]; then
+              xcrun simctl delete $(cat ./build/artifacts/sim_uuid)
+            fi
+          |||,
         ],
         depends_on: [
           'Build and Run Tests',
@@ -186,13 +206,18 @@ local update_cocoapods_cache(depends_on) = {
     kind: 'pipeline',
     type: 'exec',
     name: 'Check Build Artifact Existence',
-    platform: { os: 'darwin', arch: 'amd64' },
+    platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
+    clone: { disable: true },
     steps: [
+      custom_clone,
       {
         name: 'Poll for build artifact existence',
         commands: [
           './Scripts/drone-upload-exists.sh'
+        ],
+        depends_on: [
+          'Clone Repo'
         ]
       }
     ]
@@ -202,11 +227,12 @@ local update_cocoapods_cache(depends_on) = {
     kind: 'pipeline',
     type: 'exec',
     name: 'Simulator Build',
-    platform: { os: 'darwin', arch: 'amd64' },
+    platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'pull_request' ] } },
+    clone: { disable: true },
     steps: [
       version_info,
-      clone_submodules,
+      custom_clone,
       load_cocoapods_cache,
       install_cocoapods,
       {
