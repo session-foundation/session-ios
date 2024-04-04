@@ -7,7 +7,8 @@ local version_info = {
   commands: [
     'git --version',
     'LANG=en_US.UTF-8 pod --version',
-    'xcodebuild -version'
+    'xcodebuild -version',
+    'xcbeautify --version'
   ]
 };
 
@@ -179,7 +180,8 @@ local update_cocoapods_cache(depends_on) = {
         name: 'Install Codecov CLI',
         commands: [
           'pip3 install codecov-cli',
-          '~/Library/Python/3.9/bin/codecovcli --version'
+          'which codecovcli',
+          'codecovcli --version'
         ],
       },
       {
@@ -192,7 +194,7 @@ local update_cocoapods_cache(depends_on) = {
       {
         name: 'Upload coverage to Codecov',
         commands: [
-          '~/Library/Python/3.9/bin/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+          'codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
         ],
         depends_on: [
           'Convert xcresult to xml',
