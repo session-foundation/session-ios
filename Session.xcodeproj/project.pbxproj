@@ -174,6 +174,7 @@
 		7BFD1A8A2745C4F000FB91B9 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A892745C4F000FB91B9 /* Permissions.swift */; };
 		7BFD1A8C2747150E00FB91B9 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFD1A8B2747150E00FB91B9 /* TurnServerInfo.swift */; };
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
+		941061402BBE45EB0056C084 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9410613F2BBE45EB0056C084 /* ActivityView.swift */; };
 		9422EE2B2B8C3A97004C740D /* String+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422EE2A2B8C3A97004C740D /* String+Utilities.swift */; };
 		942C9CA22B67769000B5153A /* SessionSearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942C9CA12B67769000B5153A /* SessionSearchBar.swift */; };
 		943C6D762B705B7D004ACE64 /* CompatibleScrollingVStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D752B705B7D004ACE64 /* CompatibleScrollingVStack.swift */; };
@@ -1332,6 +1333,7 @@
 		8E946CB54A221018E23599DE /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
 		92E8569C96285EE3CDB5960D /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SignalUtilitiesKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		93359C81CF2660040B7CD106 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit_SessionUtilitiesKitTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		9410613F2BBE45EB0056C084 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		9422EE2A2B8C3A97004C740D /* String+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Utilities.swift"; sourceTree = "<group>"; };
 		942C9CA12B67769000B5153A /* SessionSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSearchBar.swift; sourceTree = "<group>"; };
 		943C6D752B705B7D004ACE64 /* CompatibleScrollingVStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompatibleScrollingVStack.swift; sourceTree = "<group>"; };
@@ -2547,6 +2549,7 @@
 				7BF570D22A9C1F9300DB013E /* Toast.swift */,
 				942C9CA12B67769000B5153A /* SessionSearchBar.swift */,
 				943C6D752B705B7D004ACE64 /* CompatibleScrollingVStack.swift */,
+				9410613F2BBE45EB0056C084 /* ActivityView.swift */,
 			);
 			path = SwiftUI;
 			sourceTree = "<group>";
@@ -5700,6 +5703,7 @@
 				7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */,
 				FD09B7E328865FDA00ED0B66 /* HighlightMentionBackgroundView.swift in Sources */,
 				C331FFB82558FA8D00070591 /* DeviceUtilities.swift in Sources */,
+				941061402BBE45EB0056C084 /* ActivityView.swift in Sources */,
 				C331FFE72558FB0000070591 /* TextField.swift in Sources */,
 				942C9CA22B67769000B5153A /* SessionSearchBar.swift in Sources */,
 				FD71165B28E6DDBC00B47552 /* StyledNavigationController.swift in Sources */,

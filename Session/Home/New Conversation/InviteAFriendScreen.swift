@@ -123,12 +123,19 @@ struct InviteAFriendScreen: View {
     
     private func share() {
         let invitation: String = "Hey, I've been using Session to chat with complete privacy and security. Come join me! My Account ID is \n\n\(self.accountId) \n\nDownload it at https://getsession.org/"
+        let shareVC: UIActivityViewController = UIActivityViewController(
+            activityItems: [ invitation ],
+            applicationActivities: nil
+        )
+        
+        if UIDevice.current.isIPad {
+            shareVC.popoverPresentationController?.permittedArrowDirections = []
+            shareVC.popoverPresentationController?.sourceView = self.host.controller?.view
+            shareVC.popoverPresentationController?.sourceRect = (self.host.controller?.view.bounds ?? UIScreen.main.bounds)
+        }
         
         self.host.controller?.present(
-            UIActivityViewController(
-                activityItems: [ invitation ],
-                applicationActivities: nil
-            ),
+            shareVC,
             animated: true
         )
     }
