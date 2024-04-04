@@ -1,5 +1,5 @@
 // This build configuration requires the following to be installed:
-// Git, Xcode, XCode Command-line Tools, Cocoapods, Xcodebuild, Xcresultparser, pip
+// Git, Xcode, XCode Command-line Tools, Cocoapods, Xcbeautify, Xcresultparser, pip
 
 // Log a bunch of version information to make it easier for debugging
 local version_info = {
@@ -231,6 +231,14 @@ local update_cocoapods_cache(depends_on) = {
     trigger: { event: { exclude: [ 'pull_request' ] } },
     clone: { disable: true },
     steps: [
+      {
+        name: 'Check DerivedData',
+        commands: [
+          'ls $HOME/Library/Developer/Xcode/Archives',
+          'ls $HOME/Library/Developer/Xcode/DerivedData',
+          'ls $HOME/Library/Developer/Xcode/iOS\ DeviceSupport'
+        ]
+      },
       version_info,
       custom_clone,
       load_cocoapods_cache,
