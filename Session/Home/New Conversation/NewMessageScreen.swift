@@ -97,9 +97,7 @@ struct NewMessageScreen: View {
                                     var messageOrNil: String?
                                     if let error = error as? SnodeAPIError {
                                         switch error {
-                                            case .decryptionFailed, .hashingFailed, .validationFailed:
-                                                messageOrNil = error.errorDescription
-                                            case .generic:
+                                            case .generic, .decryptionFailed, .hashingFailed, .validationFailed:
                                                 messageOrNil = "onsErrorUnableToSearch".localized()
                                             default: break
                                         }
