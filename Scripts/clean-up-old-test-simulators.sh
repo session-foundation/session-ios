@@ -10,6 +10,7 @@ dir="$HOME/Library/Developer/CoreSimulator/Devices"
 if [[ ! -d $dir ]]; then
   dir="/Users/drone/Library/Developer/CoreSimulator/Devices"
   ls $dir
+  cat "${dir}/device_set.plist"
 fi
 
 # Plist file
