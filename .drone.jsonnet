@@ -41,22 +41,22 @@ local load_cocoapods_cache = {
   commands: [
     |||
       LOOP_BREAK=0
-      while test -e /Users/drone/.cocoapods_cache.lock; do
+      while test -e /Users/$USER/.cocoapods_cache.lock; do
           sleep 1
           LOOP_BREAK=$((LOOP_BREAK + 1))
 
           if [[ $LOOP_BREAK -ge 600 ]]; then
-            rm -f /Users/drone/.cocoapods_cache.lock
+            rm -f /Users/$USER/.cocoapods_cache.lock
           fi
       done
     |||,
-    'touch /Users/drone/.cocoapods_cache.lock',
+    'touch /Users/$USER/.cocoapods_cache.lock',
     |||
-      if [[ -d /Users/drone/.cocoapods_cache ]]; then
-        cp -r /Users/drone/.cocoapods_cache ./Pods
+      if [[ -d /Users/$USER/.cocoapods_cache ]]; then
+        cp -r /Users/$USER/.cocoapods_cache ./Pods
       fi
     |||,
-    'rm -f /Users/drone/.cocoapods_cache.lock'
+    'rm -f /Users/$USER/.cocoapods_cache.lock',
   ],
   depends_on: [
     'Clone Submodules'
@@ -69,25 +69,49 @@ local update_cocoapods_cache(depends_on) = {
   commands: [
     |||
       LOOP_BREAK=0
-      while test -e /Users/drone/.cocoapods_cache.lock; do
+      while test -e /Users/$USER/.cocoapods_cache.lock; do
           sleep 1
           LOOP_BREAK=$((LOOP_BREAK + 1))
 
           if [[ $LOOP_BREAK -ge 600 ]]; then
-            rm -f /Users/drone/.cocoapods_cache.lock
+            rm -f /Users/$USER/.cocoapods_cache.lock
           fi
       done
     |||,
-    'touch /Users/drone/.cocoapods_cache.lock',
+    'touch /Users/$USER/.cocoapods_cache.lock',
     |||
       if [[ -d ./Pods ]]; then
-        rsync -a --delete ./Pods/ /Users/drone/.cocoapods_cache
+        rsync -a --delete ./Pods/ /Users/$USER/.cocoapods_cache
       fi
     |||,
-    'rm -f /Users/drone/.cocoapods_cache.lock'
+    'rm -f /Users/$USER/.cocoapods_cache.lock',
   ],
   depends_on: depends_on,
 };
+
+local boot_simulator(device_type) = {
+  name: 'Boot Test Simulator',
+  commands: [
+    'devname="Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}"',
+    'xcrun simctl create "$devname" ' + device_type,
+    'sim_uuid=$(xcrun simctl list devices -je | jq -re \'[.devices[][] | select(.name == "\'$devname\'").udid][0]\')',
+    'xcrun simctl boot $sim_uuid',
+
+    'mkdir -p build/artifacts',
+    'echo $sim_uuid > ./build/artifacts/sim_uuid',
+    'echo $devname > ./build/artifacts/device_name',
+
+    'xcrun simctl list -je devices $sim_uuid | jq -r \'.devices[][0] | "\\u001b[32;1mSimulator " + .state + ": \\u001b[34m" + .name + " (\\u001b[35m" + .deviceTypeIdentifier + ", \\u001b[36m" + .udid + "\\u001b[34m)\\u001b[0m"\'',
+  ],
+};
+local sim_keepalive = {
+  name: '(Simulator keep-alive)',
+  commands: [
+    '/Users/$USER/sim-keepalive/keepalive.sh $(<./build/artifacts/sim_uuid)',
+  ],
+  depends_on: ['Boot Test Simulator'],
+};
+local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$USER/sim-keepalive/$(<./build/artifacts/sim_uuid); fi';
 
 [
   // Unit tests (PRs only)
@@ -102,36 +126,23 @@ local update_cocoapods_cache(depends_on) = {
       clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
-      {
-        name: 'Clean Up Old Test Simulators',
-        commands: [
-          './Scripts/clean-up-old-test-simulators.sh'
-        ]
-      },
-      {
-        name: 'Pre-Boot Test Simulator',
-        commands: [
-          'mkdir -p build/artifacts',
-          'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
-          'xcrun simctl create "$(<./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
-          'echo $(xcrun simctl list devices | grep -m 1 $(<./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
-          'xcrun simctl boot $(<./build/artifacts/sim_uuid)',
-          'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(<./build/artifacts/sim_uuid).*")[0m"',
-        ]
-      },
+
+      boot_simulator('com.apple.CoreSimulator.SimDeviceType.iPhone-14'),
+      sim_keepalive,
       {
         name: 'Build and Run Tests',
         commands: [
           'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
         ],
         depends_on: [
-          'Pre-Boot Test Simulator',
-          'Install CocoaPods'
+          'Boot Test Simulator',
+          'Install CocoaPods',
         ],
       },
       {
         name: 'Unit Test Summary',
         commands: [
+          sim_delete_cmd,
           |||
             if [[ -d ./build/artifacts/testResults.xcresult ]]; then
               xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
