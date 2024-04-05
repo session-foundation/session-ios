@@ -108,7 +108,26 @@ local pre_boot_test_sim = {
 local clean_up_test_simulator = {
   name: 'Clean Up Test Simulator',
   commands: [
-    './Scripts/clean-up-test-simulator.sh $(<./build/artifacts/sim_uuid)'
+    |||
+      function handle_exit() {
+        xcrun simctl delete unavailable
+
+        if [ -e build/artifacts/sim_uuid ]; then
+            xcrun simctl delete $(<./build/artifacts/sim_uuid)
+            echo -e "\n\n\n\n\e[32mSimulator $(<./build/artifacts/sim_uuid) deleted.\e[0m\n\n\n"
+        else
+          echo -e "\n\n\n\n\e[31mSimulator not deleted.\e[0m\n\n\n"
+        fi
+        exit 0
+      }
+
+      trap handle_exit EXIT
+
+      while true; do
+        sleep 10
+      done
+    |||
+//    './Scripts/clean-up-test-simulator.sh $(<./build/artifacts/sim_uuid)'
   ],
   depends_on: [
     'Pre-Boot Test Simulator',

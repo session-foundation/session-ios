@@ -12,6 +12,7 @@ SIM_UUID="$1"
 function handle_exit() {
 	xcrun simctl delete unavailable
 	xcrun simctl delete ${SIM_UUID}
+	echo -e "\n\n\n\n\e[32mSimulator ${SIM_UUID} deleted.\e[0m\n\n\n"
 	exit 0
 }
 
