@@ -108,7 +108,6 @@ local pre_boot_test_sim = {
     'echo $(xcrun simctl list devices | grep -m 1 $(<./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
     'xcrun simctl boot $(<./build/artifacts/sim_uuid)',
     'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(<./build/artifacts/sim_uuid).*")[0m"',
-    'echo "[32mNumber of Simulators: $(ls -1 /Users/drone/Library/Developer/CoreSimulator/Devices | wc -l)[0m"',
   ]
 };
 
