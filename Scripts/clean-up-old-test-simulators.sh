@@ -5,6 +5,13 @@
 
 dir="$HOME/Library/Developer/CoreSimulator/Devices"
 
+# The $HOME directory for a drone pipeline won't be the directory the simulators are stored in so
+# check if it exists and if not, fallback to a hard-coded directory
+if [[ ! -d $dir ]]; then
+  dir="/Users/drone/Library/Developer/CoreSimulator/Devices"
+  ls $dir
+fi
+
 # Plist file
 plist="${dir}/device_set.plist"
 
