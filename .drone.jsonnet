@@ -233,7 +233,7 @@ local delete_test_simulator = {
   {
     kind: 'pipeline',
     type: 'exec',
-    name: 'Simulator Build',
+    name: 'Unit Tests and Code Coverage',
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'pull_request' ] } },
     steps: [
