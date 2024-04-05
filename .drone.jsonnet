@@ -27,9 +27,9 @@ local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https:/
 // 'LANG' env var so we need to work around the with https://github.com/CocoaPods/CocoaPods/issues/6333
 local install_cocoapods = {
   name: 'Install CocoaPods',
-  commands: ['
-    LANG=en_US.UTF-8 pod install || rm -rf ./Pods && LANG=en_US.UTF-8 pod install
-  '],
+  commands: [
+    'LANG=en_US.UTF-8 pod install || (rm -rf ./Pods && LANG=en_US.UTF-8 pod install)'
+  ],
   depends_on: [
     'Load CocoaPods Cache'
   ]
@@ -89,56 +89,6 @@ local update_cocoapods_cache(depends_on) = {
   depends_on: depends_on,
 };
 
-// Unit tests
-//
-// The following 4 steps need to be run in order to run the unit tests
-local clean_up_old_test_simulators = {
-  name: 'Clean Up Old Test Simulators',
-  commands: [
-    './Scripts/clean-up-old-test-simulators.sh'
-  ]
-};
-
-local pre_boot_test_sim = {
-  name: 'Pre-Boot Test Simulator',
-  commands: [
-    'mkdir -p build/artifacts',
-    'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
-    'xcrun simctl create "$(<./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
-    'echo $(xcrun simctl list devices | grep -m 1 $(<./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
-    'xcrun simctl boot $(<./build/artifacts/sim_uuid)',
-    'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(<./build/artifacts/sim_uuid).*")[0m"',
-  ]
-};
-
-local build_and_run_tests = {
-  name: 'Build and Run Tests',
-  commands: [
-    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
-  ],
-  depends_on: [
-    'Pre-Boot Test Simulator',
-    'Install CocoaPods'
-  ],
-};
-
-local unit_test_summary = {
-  name: 'Unit Test Summary',
-  commands: [
-    |||
-      if [[ -d ./build/artifacts/testResults.xcresult ]]; then
-        xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
-      else
-        echo -e "\n\n\n\e[31;1mUnit test results not found\e[0m"
-      fi
-    |||,
-  ],
-  depends_on: ['Build and Run Tests'],
-  when: {
-    status: ['failure', 'success']
-  }
-};
-
 [
   // Unit tests (PRs only)
   {
@@ -152,11 +102,82 @@ local unit_test_summary = {
       clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
-      clean_up_old_test_simulators,
-      pre_boot_test_sim,
-      build_and_run_tests,
-      unit_test_summary,
-      update_cocoapods_cache(['Build and Run Tests'])
+      {
+        name: 'Clean Up Old Test Simulators',
+        commands: [
+          './Scripts/clean-up-old-test-simulators.sh'
+        ]
+      },
+      {
+        name: 'Pre-Boot Test Simulator',
+        commands: [
+          'mkdir -p build/artifacts',
+          'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
+          'xcrun simctl create "$(<./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
+          'echo $(xcrun simctl list devices | grep -m 1 $(<./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
+          'xcrun simctl boot $(<./build/artifacts/sim_uuid)',
+          'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(<./build/artifacts/sim_uuid).*")[0m"',
+        ]
+      },
+      {
+        name: 'Build and Run Tests',
+        commands: [
+          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
+        ],
+        depends_on: [
+          'Pre-Boot Test Simulator',
+          'Install CocoaPods'
+        ],
+      },
+      {
+        name: 'Unit Test Summary',
+        commands: [
+          |||
+            if [[ -d ./build/artifacts/testResults.xcresult ]]; then
+              xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
+            else
+              echo -e "\n\n\n\e[31;1mUnit test results not found\e[0m"
+            fi
+          |||,
+        ],
+        depends_on: ['Build and Run Tests'],
+        when: {
+          status: ['failure', 'success']
+        }
+      },
+      update_cocoapods_cache(['Build and Run Tests']),
+      {
+        name: 'Install Codecov CLI',
+        commands: [
+          'mkdir -p build/artifacts',
+          'pip3 install codecov-cli',
+          'find $HOME/Library/Python -name codecovcli -print -quit > ./build/artifacts/codecov_path',
+          |||
+            if [[ ! -s ./build/artifacts/codecov_path ]]; then
+              which codecovcli > ./build/artifacts/codecov_path
+            fi
+          |||,
+          '$(<./build/artifacts/codecov_path) --version'
+        ],
+      },
+      {
+        name: 'Convert xcresult to xml',
+        commands: [
+          'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
+        ],
+        depends_on: ['Build and Run Tests']
+      },
+      {
+        // No token needed for public repos
+        name: 'Upload coverage to Codecov',
+        commands: [
+          '$(<./build/artifacts/codecov_path) upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+        ],
+        depends_on: [
+          'Convert xcresult to xml',
+          'Install Codecov CLI'
+        ]
+      },
     ],
   },
   // Validate build artifact was created by the direct branch push (PRs only)
@@ -206,57 +227,6 @@ local unit_test_summary = {
         ],
         depends_on: [
           'Build'
-        ]
-      },
-    ],
-  },
-  // Unit tests and code coverage (non-PRs only)
-  {
-    kind: 'pipeline',
-    type: 'exec',
-    name: 'Unit Tests and Code Coverage',
-    platform: { os: 'darwin', arch: 'arm64' },
-    trigger: { event: { exclude: [ 'pull_request' ] } },
-    steps: [
-      version_info,
-      clone_submodules,
-      load_cocoapods_cache,
-      install_cocoapods,
-      clean_up_old_test_simulators,
-      pre_boot_test_sim,
-      build_and_run_tests,
-      unit_test_summary,
-      update_cocoapods_cache(['Build and Run Tests']),
-      {
-        name: 'Install Codecov CLI',
-        commands: [
-          'mkdir -p build/artifacts',
-          'pip3 install codecov-cli',
-          'find $HOME/Library/Python -name codecovcli -print -quit > ./build/artifacts/codecov_path',
-          |||
-            if [[ ! -s ./build/artifacts/codecov_path ]]; then
-              which codecovcli > ./build/artifacts/codecov_path
-            fi
-          |||,
-          '$(<./build/artifacts/codecov_path) --version'
-        ],
-      },
-      {
-        name: 'Convert xcresult to xml',
-        commands: [
-          'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
-        ],
-        depends_on: ['Build and Run Tests']
-      },
-      {
-        name: 'Upload coverage to Codecov',
-        environment: { CODECOV_TOKEN: { from_secret: 'CODECOV_TOKEN' } },
-        commands: [
-          '$(<./build/artifacts/codecov_path) upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
-        ],
-        depends_on: [
-          'Convert xcresult to xml',
-          'Install Codecov CLI'
         ]
       },
     ],
