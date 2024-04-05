@@ -154,7 +154,7 @@ local delete_test_simulator = {
     'Build and Run Tests',
   ],
   when: {
-    status: ['failure', 'killed', 'success']
+    status: ['failure', 'skipped', 'killed', 'success']
   }
 };
 
