@@ -233,13 +233,13 @@ local unit_test_summary = {
         commands: [
           'mkdir -p build/artifacts',
           'pip3 install codecov-cli',
-          'find $HOME/Library/Python -name codecovcli -print -quit > ./build/artifacts/codecov_install_path',
+          'find $HOME/Library/Python -name codecovcli -print -quit > ./build/artifacts/codecov_path',
           |||
-            if [[ ! -s ./build/artifacts/codecov_install_path ]]; then
-              which codecovcli > ./build/artifacts/codecov_install_path
+            if [[ ! -s ./build/artifacts/codecov_path ]]; then
+              which codecovcli > ./build/artifacts/codecov_path
             fi
           |||,
-          '$(<./build/artifacts/codecov_install_path)/codecovcli --version'
+          '$(<./build/artifacts/codecov_path) --version'
         ],
       },
       {
@@ -253,7 +253,7 @@ local unit_test_summary = {
         name: 'Upload coverage to Codecov',
         environment: { CODECOV_TOKEN: { from_secret: 'CODECOV_TOKEN' } },
         commands: [
-          '$(<./build/artifacts/codecov_install_path)/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+          '$(<./build/artifacts/codecov_path) upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
         ],
         depends_on: [
           'Convert xcresult to xml',
