@@ -47,21 +47,26 @@ done < <(find "$dir" -maxdepth 1 -type d -not -path "$dir" -mmin +60)
 
 # Delete the simulators
 if [ ${#uuids_to_remove[@]} -eq 0 ]; then
-  echo "\e[31mNo simulators to delete\e[0m"
+  echo -e "\e[31mNo simulators to delete\e[0m"
 else
-  echo -e "\e[31mDeleting ${#uuids_to_remove[@]} old test Simulators:\e[0m"
+  echo -e "\e[31mDeleting ${#uuids_to_remove[@]} old test simulators:\e[0m"
   for uuid in "${uuids_to_remove[@]}"; do
-  	if echo "$running_uuids" | grep -q "$uuid"; then
-      echo "UUID is in running_uuids - shutting down"
-      xcrun simctl shutdown "$uuid"
-    fi
-
     echo -e "\e[31m    $uuid\e[0m"
-    # xcrun simctl delete "$uuid"
+    xcrun simctl delete "$uuid"
   done
 fi
 
-echo -e "\e[32m\nLeaving ${#uuids_to_leave[@]} Xcode Simulators:\e[0m"
+# Output the pipeline simulators we are leaving
+uuids_to_keep=$(echo "$uuids" | grep -v "${uuids_to_leave[*]}" | grep -v "${uuids_to_remove[*]}")
+if [ ${#uuids_to_keep[@]} -gt 0 ]; then
+  echo -e "\e[33m\nIgnoring ${#uuids_to_keep[@]} test simulators (might be in use):\e[0m"
+  for uuid in "${uuids_to_keep[@]}"; do
+  	echo -e "\e[33m    $uuid\e[0m"
+  done
+fi
+
+# Output the remaining Xcode Simulators
+echo -e "\e[32m\nIgnoring ${#uuids_to_leave[@]} Xcode simulators:\e[0m"
 for uuid in "${uuids_to_leave[@]}"; do
   echo -e "\e[32m    $uuid\e[0m"
 done
