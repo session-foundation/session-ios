@@ -118,13 +118,12 @@ local sim_keepalive = {
 local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$USER/sim-keepalive/$(<./build/artifacts/sim_uuid); fi';
 
 [
-  // Unit tests (PRs only)
+  // Unit tests
   {
     kind: 'pipeline',
     type: 'exec',
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'arm64' },
-    trigger: { event: { exclude: ['push'] } },
     steps: [
       version_info,
       clone_submodules,
