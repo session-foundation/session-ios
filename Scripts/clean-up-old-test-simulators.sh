@@ -26,6 +26,7 @@ xcrun simctl delete unavailable
 
 # Extract all UUIDs from the device_set
 uuids=$(grep -Eo '[A-F0-9]{8}-([A-F0-9]{4}-){3}[A-F0-9]{12}' "$plist")
+running_uuids=$(xcrun simctl list devices | grep -Eo '[A-F0-9]{8}-([A-F0-9]{4}-){3}[A-F0-9]{12}' | grep -v 'Shutdown')
 
 # Create empty arrays to store the outputs
 uuids_to_leave=()
@@ -50,6 +51,11 @@ if [ ${#uuids_to_remove[@]} -eq 0 ]; then
 else
   echo -e "\e[31mDeleting ${#uuids_to_remove[@]} old test Simulators:\e[0m"
   for uuid in "${uuids_to_remove[@]}"; do
+  	if echo "$running_uuids" | grep -q "$uuid"; then
+      echo "UUID is in running_uuids - shutting down"
+      xcrun simctl shutdown "$uuid"
+    fi
+
     echo -e "\e[31m    $uuid\e[0m"
     # xcrun simctl delete "$uuid"
   done
