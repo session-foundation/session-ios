@@ -186,7 +186,6 @@ local delete_test_simulator = {
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
     steps: [
-      custom_clone,
       {
         name: 'Poll for build artifact existence',
         commands: [
