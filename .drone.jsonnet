@@ -1,14 +1,17 @@
 // This build configuration requires the following to be installed:
-// Git, Xcode, XCode Command-line Tools, Cocoapods, Xcbeautify, Xcresultparser, pip
+// Git, Xcode, XCode Command-line Tools, Cocoapods, xcbeautify, xcresultparser, pip
 
 // Log a bunch of version information to make it easier for debugging
 local version_info = {
   name: 'Version Information',
+  environment: { LANG: 'en_US.UTF-8' },
   commands: [
     'git --version',
-    'LANG=en_US.UTF-8 pod --version',
+    'pod --version',
     'xcodebuild -version',
     'xcbeautify --version',
+    'xcresultparser --version',
+    'pip --version',
   ],
 };
 
@@ -27,8 +30,9 @@ local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https:/
 // 'LANG' env var so we need to work around the with https://github.com/CocoaPods/CocoaPods/issues/6333
 local install_cocoapods = {
   name: 'Install CocoaPods',
+  environment: { LANG: 'en_US.UTF-8' },
   commands: [
-    'LANG=en_US.UTF-8 pod install || (rm -rf ./Pods && LANG=en_US.UTF-8 pod install)',
+    'pod install || (rm -rf ./Pods && pod install)',
   ],
   depends_on: [
     'Load CocoaPods Cache',
