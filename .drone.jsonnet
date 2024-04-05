@@ -7,32 +7,15 @@ local version_info = {
   commands: [
     'git --version',
     'LANG=en_US.UTF-8 pod --version',
-    'xcodebuild -version'
+    'xcodebuild -version',
+    'xcbeautify --version'
   ]
 };
 
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
-local custom_clone = {
-  name: 'Clone Repo',
-  environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
-  commands: [
-    |||
-      if [ -z "$CLONE_KEY" ]; then
-        echo -e "\n\n\n\e[31;1mUnable to checkout repo: CLONE_KEY not set\e[0m"
-        exit 1
-      fi
-    |||,
-    'mkdir -p $HOME/.ssh && touch $HOME/.ssh/config && touch $HOME/.ssh/known_hosts',
-    'echo "$CLONE_KEY" > $HOME/.ssh/id_ed25519_drone_ci_deploy',
-    'chmod 600 $HOME/.ssh/config $HOME/.ssh/known_hosts $HOME/.ssh/id_ed25519_drone_ci_deploy',
-    'ssh-keyscan -t ed25519 github.com >> $HOME/.ssh/known_hosts',
-    'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519_drone_ci_deploy -F $HOME/.ssh/config -o UserKnownHostsFile=$HOME/.ssh/known_hosts"',
-    'git -c init.defaultBranch=master init',
-    'git remote add origin $DRONE_GIT_SSH_URL',
-    'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
-    'git checkout $DRONE_COMMIT -b $DRONE_BRANCH',
-    'git submodule update --init --recursive --depth=2 --jobs=4'
-  ]
+local clone_submodules = {
+  name: 'Clone Submodules',
+  commands: [ 'git submodule update --init --recursive --depth=2 --jobs=4' ]
 };
 
 // cmake options for static deps mirror
@@ -44,9 +27,9 @@ local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https:/
 // 'LANG' env var so we need to work around the with https://github.com/CocoaPods/CocoaPods/issues/6333
 local install_cocoapods = {
   name: 'Install CocoaPods',
-  commands: ['
-    LANG=en_US.UTF-8 pod install || rm -rf ./Pods && LANG=en_US.UTF-8 pod install
-  '],
+  commands: [
+    'LANG=en_US.UTF-8 pod install || (rm -rf ./Pods && LANG=en_US.UTF-8 pod install)'
+  ],
   depends_on: [
     'Load CocoaPods Cache'
   ]
@@ -76,7 +59,7 @@ local load_cocoapods_cache = {
     'rm -f /Users/drone/.cocoapods_cache.lock'
   ],
   depends_on: [
-    'Clone Repo'
+    'Clone Submodules'
   ]
 };
 
@@ -98,8 +81,7 @@ local update_cocoapods_cache(depends_on) = {
     'touch /Users/drone/.cocoapods_cache.lock',
     |||
       if [[ -d ./Pods ]]; then
-        rm -rf /Users/drone/.cocoapods_cache
-        cp -r ./Pods /Users/drone/.cocoapods_cache
+        rsync -a --delete ./Pods/ /Users/drone/.cocoapods_cache
       fi
     |||,
     'rm -f /Users/drone/.cocoapods_cache.lock'
@@ -115,27 +97,32 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
-    clone: { disable: true },
     steps: [
       version_info,
-      custom_clone,
+      clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
+      {
+        name: 'Clean Up Old Test Simulators',
+        commands: [
+          './Scripts/clean-up-old-test-simulators.sh'
+        ]
+      },
       {
         name: 'Pre-Boot Test Simulator',
         commands: [
           'mkdir -p build/artifacts',
           'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
-          'xcrun simctl create "$(cat ./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
-          'echo $(xcrun simctl list devices | grep -m 1 $(cat ./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
-          'xcrun simctl boot $(cat ./build/artifacts/sim_uuid)',
-          'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(cat ./build/artifacts/sim_uuid).*")[0m"',
+          'xcrun simctl create "$(<./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
+          'echo $(xcrun simctl list devices | grep -m 1 $(<./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
+          'xcrun simctl boot $(<./build/artifacts/sim_uuid)',
+          'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(<./build/artifacts/sim_uuid).*")[0m"',
         ]
       },
       {
         name: 'Build and Run Tests',
         commands: [
-          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(cat ./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
+          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
         ],
         depends_on: [
           'Pre-Boot Test Simulator',
@@ -158,28 +145,19 @@ local update_cocoapods_cache(depends_on) = {
           status: ['failure', 'success']
         }
       },
-      {
-        name: 'Delete Test Simulator',
-        commands: [
-          |||
-            if [[ -f ./build/artifacts/sim_uuid ]]; then
-              xcrun simctl delete $(cat ./build/artifacts/sim_uuid)
-            fi
-          |||,
-        ],
-        depends_on: [
-          'Build and Run Tests',
-        ],
-        when: {
-          status: ['failure', 'success']
-        }
-      },
       update_cocoapods_cache(['Build and Run Tests']),
       {
         name: 'Install Codecov CLI',
         commands: [
+          'mkdir -p build/artifacts',
           'pip3 install codecov-cli',
-          '~/Library/Python/3.9/bin/codecovcli --version'
+          'find $HOME/Library/Python -name codecovcli -print -quit > ./build/artifacts/codecov_path',
+          |||
+            if [[ ! -s ./build/artifacts/codecov_path ]]; then
+              which codecovcli > ./build/artifacts/codecov_path
+            fi
+          |||,
+          '$(<./build/artifacts/codecov_path) --version'
         ],
       },
       {
@@ -190,9 +168,10 @@ local update_cocoapods_cache(depends_on) = {
         depends_on: ['Build and Run Tests']
       },
       {
+        // No token needed for public repos
         name: 'Upload coverage to Codecov',
         commands: [
-          '~/Library/Python/3.9/bin/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+          '$(<./build/artifacts/codecov_path) upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
         ],
         depends_on: [
           'Convert xcresult to xml',
@@ -208,16 +187,11 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Check Build Artifact Existence',
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
-    clone: { disable: true },
     steps: [
-      custom_clone,
       {
         name: 'Poll for build artifact existence',
         commands: [
           './Scripts/drone-upload-exists.sh'
-        ],
-        depends_on: [
-          'Clone Repo'
         ]
       }
     ]
@@ -229,10 +203,9 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'pull_request' ] } },
-    clone: { disable: true },
     steps: [
       version_info,
-      custom_clone,
+      clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
       {

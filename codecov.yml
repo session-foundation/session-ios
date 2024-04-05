@@ -5,4 +5,5 @@ codecov:
 ignore:
   - "SessionMessagingKitTests"
   - "SessionTests"
+  - "SessionSnodeKitTests"
   - "SessionUtilitiesKitTests"
