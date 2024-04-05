@@ -26,7 +26,8 @@ xcrun simctl delete unavailable
 
 # Convert the plist to JSON and get the UUIDs
 uuids=$(plutil -convert json -o - "$plist" | jq -r '.. | select(type=="string")')
-
+echo "RAWR\n\n$(plutil -convert json -o - "$plist")"
+echo "RAWR2\n\n$uuids\n\n"
 # Create empty arrays to store the outputs
 uuids_to_leave=()
 uuids_to_remove=()
