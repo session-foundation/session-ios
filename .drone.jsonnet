@@ -81,8 +81,7 @@ local update_cocoapods_cache(depends_on) = {
     'touch /Users/drone/.cocoapods_cache.lock',
     |||
       if [[ -d ./Pods ]]; then
-        rm -rf /Users/drone/.cocoapods_cache
-        cp -r ./Pods /Users/drone/.cocoapods_cache
+        rsync -a --delete ./Pods/ /Users/drone/.cocoapods_cache
       fi
     |||,
     'rm -f /Users/drone/.cocoapods_cache.lock'
@@ -98,17 +97,43 @@ local pre_boot_test_sim = {
   commands: [
     'mkdir -p build/artifacts',
     'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
-    'xcrun simctl create "$(cat ./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
-    'echo $(xcrun simctl list devices | grep -m 1 $(cat ./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
-    'xcrun simctl boot $(cat ./build/artifacts/sim_uuid)',
-    'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(cat ./build/artifacts/sim_uuid).*")[0m"',
+    'xcrun simctl create "$(<./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
+    'echo $(xcrun simctl list devices | grep -m 1 $(<./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
+    'xcrun simctl boot $(<./build/artifacts/sim_uuid)',
+    'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(<./build/artifacts/sim_uuid).*")[0m"',
+    'echo "[32mNumber of Simulators: $(ls -1 /Users/drone/Library/Developer/CoreSimulator/Devices | wc -l)[0m"',
+  ]
+};
+
+local clean_up_test_simulator = {
+  name: 'Clean Up Test Simulator',
+  commands: [
+    |||
+      function handle_exit() {
+        xcrun simctl delete unavailable
+
+        if [ -e build/artifacts/sim_uuid ]; then
+            xcrun simctl delete $(<./build/artifacts/sim_uuid)
+        fi
+        exit 0
+      }
+
+      trap handle_exit EXIT
+
+      while true; do
+        sleep 10
+      done
+    |||
+  ],
+  depends_on: [
+    'Pre-Boot Test Simulator',
   ]
 };
 
 local build_and_run_tests = {
   name: 'Build and Run Tests',
   commands: [
-    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(cat ./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
+    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
   ],
   depends_on: [
     'Pre-Boot Test Simulator',
@@ -133,31 +158,6 @@ local unit_test_summary = {
   }
 };
 
-local delete_test_simulator = {
-  name: 'Delete Test Simulator',
-  commands: [
-    'xcrun simctl delete unavailable',
-    |||
-      if [[ -f ./build/artifacts/sim_uuid ]]; then
-        xcrun simctl delete $(cat ./build/artifacts/sim_uuid)
-      fi
-    |||,
-    |||
-      if [[ -z $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*2879BA18-1253-4EDC-B4AF-A21DAC3025DD.*") ]]; then
-        echo "[32mSuccessfully deleted simulator.[0m"
-      else
-        echo "[31;1mFailed to delete simulator![0m"
-      fi
-    |||
-  ],
-  depends_on: [
-    'Build and Run Tests',
-  ],
-  when: {
-    status: ['failure', 'skipped', 'killed', 'success']
-  }
-};
-
 [
   // Unit tests (PRs only)
   {
@@ -172,9 +172,9 @@ local delete_test_simulator = {
       load_cocoapods_cache,
       install_cocoapods,
       pre_boot_test_sim,
+      clean_up_test_simulator,
       build_and_run_tests,
       unit_test_summary,
-      delete_test_simulator,
       update_cocoapods_cache(['Build and Run Tests'])
     ],
   },
@@ -242,9 +242,9 @@ local delete_test_simulator = {
       load_cocoapods_cache,
       install_cocoapods,
       pre_boot_test_sim,
+      clean_up_test_simulator,
       build_and_run_tests,
       unit_test_summary,
-      delete_test_simulator,
       update_cocoapods_cache(['Build and Run Tests']),
       {
         name: 'Install Codecov CLI',
@@ -255,7 +255,7 @@ local delete_test_simulator = {
               which codecovcli > ./build/artifacts/codecov_install_path
             fi
           |||,
-          '$(cat ./build/artifacts/codecov_install_path)/codecovcli --version'
+          '$(<./build/artifacts/codecov_install_path)/codecovcli --version'
         ],
       },
       {
@@ -269,7 +269,7 @@ local delete_test_simulator = {
         name: 'Upload coverage to Codecov',
         environment: { CODECOV_TOKEN: { from_secret: 'CODECOV_TOKEN' } },
         commands: [
-          '$(cat ./build/artifacts/codecov_install_path)/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+          '$(<./build/artifacts/codecov_install_path)/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
         ],
         depends_on: [
           'Convert xcresult to xml',
