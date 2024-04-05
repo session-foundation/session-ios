@@ -9,8 +9,6 @@ dir="$HOME/Library/Developer/CoreSimulator/Devices"
 # check if it exists and if not, fallback to a hard-coded directory
 if [[ ! -d $dir ]]; then
   dir="/Users/drone/Library/Developer/CoreSimulator/Devices"
-  ls $dir
-  cat "${dir}/device_set.plist"
 fi
 
 # Plist file
@@ -27,10 +25,6 @@ xcrun simctl delete unavailable
 # Extract all UUIDs from the device_set
 uuids=$(grep -Eo '[A-F0-9]{8}-([A-F0-9]{4}-){3}[A-F0-9]{12}' "$plist")
 
-# Get the current time in minutes since 1970-01-01 00:00:00 UTC
-current_time=$(date +%s)
-current_time=$((current_time / 60))
-
 # Create empty arrays to store the outputs
 uuids_to_keep=()
 uuids_to_ignore=()
@@ -41,24 +35,25 @@ while read -r dir; do
   # Get the last component of the directory path
   dir_name=$(basename "$dir")
 
-  # Get the modification time of the folder in minutes since 1970-01-01 00:00:00 UTC
-  folder_time=$(stat -f "%m" "$dir")
-  folder_time=$((folder_time / 60))
-
-  # Check if the folder is in the uuids array
+  # If the folder is not in the uuids array then add it to the uuids_to_remove
+  # array, otherwise add it to uuids_to_ignore
   if ! echo "$uuids" | grep -q "$dir_name"; then
-  	if ((current_time - folder_time <= 60)); then
-    	# If the folder was created within the past 60 minutes, add it to uuids_to_keep
-	    uuids_to_keep+=("$dir_name")
-	  else
-	    # If the folder was created longer than 60 minutes ago, add it to uuids_to_remove
-	    uuids_to_remove+=("$dir_name")
-	  fi
+    uuids_to_remove+=("$dir_name")
   else
-    # If the folder is in the uuids array, add it to uuids_to_ignore
     uuids_to_ignore+=("$dir_name")
   fi
-done < <(find "$dir" -maxdepth 1 -type d -not -path "$dir")
+done < <(find "$dir" -maxdepth 1 -type d -not -path "$dir" -mmin +60)
+
+# Find directories newer than an hour
+while read -r dir; do
+  # Get the last component of the directory path
+  dir_name=$(basename "$dir")
+
+  # If the folder is not in the uuids array then add it to the uuids_to_keep array
+  if ! echo "$uuids" | grep -q "$dir_name"; then
+    uuids_to_keep+=("$dir_name")
+  fi
+done < <(find "$dir" -maxdepth 1 -type d -not -path "$dir" -mmin -60)
 
 # Delete the simulators
 if [ ${#uuids_to_remove[@]} -eq 0 ]; then
