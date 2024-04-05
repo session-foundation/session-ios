@@ -23,12 +23,10 @@ fi
 
 # Delete any unavailable simulators
 xcrun simctl delete unavailable
-which jq
-# Convert the plist to JSON and get the UUIDs
-plist_json=$(plutil -convert json -o - "$plist")
-uuids=$(echo $plist_json | jq -r '.. | select(type=="string")')
-echo "RAWR\n\n$plist_json"
-echo "RAWR2\n\n$uuids\n\n"
+
+# Extract all UUIDs from the device_set
+uuids=$(grep -Eo '[A-F0-9]{8}-([A-F0-9]{4}-){3}[A-F0-9]{12}' "$plist")
+
 # Create empty arrays to store the outputs
 uuids_to_leave=()
 uuids_to_remove=()
