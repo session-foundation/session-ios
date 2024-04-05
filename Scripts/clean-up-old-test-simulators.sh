@@ -23,10 +23,11 @@ fi
 
 # Delete any unavailable simulators
 xcrun simctl delete unavailable
-
+which jq
 # Convert the plist to JSON and get the UUIDs
-uuids=$(plutil -convert json -o - "$plist" | jq -r '.. | select(type=="string")')
-echo "RAWR\n\n$(plutil -convert json -o - "$plist")"
+plist_json=$(plutil -convert json -o - "$plist")
+uuids=$(echo $plist_json | jq -r '.. | select(type=="string")')
+echo "RAWR\n\n$plist_json"
 echo "RAWR2\n\n$uuids\n\n"
 # Create empty arrays to store the outputs
 uuids_to_leave=()
