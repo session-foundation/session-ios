@@ -232,7 +232,8 @@ local unit_test_summary = {
         name: 'Install Codecov CLI',
         commands: [
           'mkdir -p build/artifacts',
-          'pip3 install codecov-cli 2>&1 | grep "The script codecovcli is installed in" | sed -n -e "s/^.*The script codecovcli is installed in //p" | sed -n -e "s/ which is not on PATH.$//p" > ./build/artifacts/codecov_install_path',
+          'pip3 install codecov-cli',
+          'find $HOME/Library/Python -name codecovcli -print -quit > ./build/artifacts/codecov_install_path',
           |||
             if [[ ! -s ./build/artifacts/codecov_install_path ]]; then
               which codecovcli > ./build/artifacts/codecov_install_path

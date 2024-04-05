@@ -31,9 +31,9 @@ uuids_to_ignore=()
 uuids_to_remove=()
 
 # Find directories older than an hour
-while read -r dir; do
+while read -r child_dir; do
   # Get the last component of the directory path
-  dir_name=$(basename "$dir")
+  dir_name=$(basename "$child_dir")
 
   # If the folder is not in the uuids array then add it to the uuids_to_remove
   # array, otherwise add it to uuids_to_ignore
@@ -45,9 +45,9 @@ while read -r dir; do
 done < <(find "$dir" -maxdepth 1 -type d -not -path "$dir" -mmin +60)
 
 # Find directories newer than an hour
-while read -r dir; do
+while read -r child_dir; do
   # Get the last component of the directory path
-  dir_name=$(basename "$dir")
+  dir_name=$(basename "$child_dir")
 
   # If the folder is not in the uuids array then add it to the uuids_to_keep array
   if ! echo "$uuids" | grep -q "$dir_name"; then
@@ -62,7 +62,7 @@ else
   echo -e "\e[31mDeleting ${#uuids_to_remove[@]} old test simulators:\e[0m"
   for uuid in "${uuids_to_remove[@]}"; do
     echo -e "\e[31m    $uuid\e[0m"
-    xcrun simctl delete "$uuid"
+    # xcrun simctl delete "$uuid"
   done
 fi
 
