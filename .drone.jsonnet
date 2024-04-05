@@ -92,6 +92,13 @@ local update_cocoapods_cache(depends_on) = {
 // Unit tests
 //
 // The following 4 steps need to be run in order to run the unit tests
+local clean_up_old_test_simulators = {
+  name: 'Clean Up Old Test Simulators',
+  commands: [
+    './Scripts/clean-up-old-test-simulators.sh'
+  ]
+};
+
 local pre_boot_test_sim = {
   name: 'Pre-Boot Test Simulator',
   commands: [
@@ -102,35 +109,6 @@ local pre_boot_test_sim = {
     'xcrun simctl boot $(<./build/artifacts/sim_uuid)',
     'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(<./build/artifacts/sim_uuid).*")[0m"',
     'echo "[32mNumber of Simulators: $(ls -1 /Users/drone/Library/Developer/CoreSimulator/Devices | wc -l)[0m"',
-  ]
-};
-
-local clean_up_test_simulator = {
-  name: 'Clean Up Test Simulator',
-  commands: [
-    |||
-      function handle_exit() {
-        xcrun simctl delete unavailable
-
-        if [ -e build/artifacts/sim_uuid ]; then
-            xcrun simctl delete $(<./build/artifacts/sim_uuid)
-            echo -e "\n\n\n\n\e[32mSimulator $(<./build/artifacts/sim_uuid) deleted.\e[0m\n\n\n"
-        else
-          echo -e "\n\n\n\n\e[31mSimulator not deleted.\e[0m\n\n\n"
-        fi
-        exit 0
-      }
-
-      trap handle_exit EXIT
-
-      while true; do
-        sleep 10
-      done
-    |||
-//    './Scripts/clean-up-test-simulator.sh $(<./build/artifacts/sim_uuid)'
-  ],
-  depends_on: [
-    'Pre-Boot Test Simulator',
   ]
 };
 
@@ -175,8 +153,8 @@ local unit_test_summary = {
       clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
+      clean_up_old_test_simulators,
       pre_boot_test_sim,
-      clean_up_test_simulator,
       build_and_run_tests,
       unit_test_summary,
       update_cocoapods_cache(['Build and Run Tests'])
@@ -245,8 +223,8 @@ local unit_test_summary = {
       clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
+      clean_up_old_test_simulators,
       pre_boot_test_sim,
-      clean_up_test_simulator,
       build_and_run_tests,
       unit_test_summary,
       update_cocoapods_cache(['Build and Run Tests']),
