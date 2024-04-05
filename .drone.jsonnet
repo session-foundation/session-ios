@@ -8,31 +8,31 @@ local version_info = {
     'git --version',
     'LANG=en_US.UTF-8 pod --version',
     'xcodebuild -version',
-    'xcbeautify --version'
-  ]
+    'xcbeautify --version',
+  ],
 };
 
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
 local clone_submodules = {
   name: 'Clone Submodules',
-  commands: [ 'git submodule update --init --recursive --depth=2 --jobs=4' ]
+  commands: ['git submodule update --init --recursive --depth=2 --jobs=4'],
 };
 
 // cmake options for static deps mirror
 local ci_dep_mirror(want_mirror) = (if want_mirror then ' -DLOCAL_MIRROR=https://oxen.rocks/deps ' else '');
 
 // Cocoapods
-// 
+//
 // Unfortunately Cocoapods has a dumb restriction which requires you to use UTF-8 for the
 // 'LANG' env var so we need to work around the with https://github.com/CocoaPods/CocoaPods/issues/6333
 local install_cocoapods = {
   name: 'Install CocoaPods',
   commands: [
-    'LANG=en_US.UTF-8 pod install || (rm -rf ./Pods && LANG=en_US.UTF-8 pod install)'
+    'LANG=en_US.UTF-8 pod install || (rm -rf ./Pods && LANG=en_US.UTF-8 pod install)',
   ],
   depends_on: [
-    'Load CocoaPods Cache'
-  ]
+    'Load CocoaPods Cache',
+  ],
 };
 
 // Load from the cached CocoaPods directory (to speed up the build)
@@ -59,8 +59,8 @@ local load_cocoapods_cache = {
     'rm -f /Users/$USER/.cocoapods_cache.lock',
   ],
   depends_on: [
-    'Clone Submodules'
-  ]
+    'Clone Submodules',
+  ],
 };
 
 // Override the cached CocoaPods directory (to speed up the next build)
@@ -120,7 +120,7 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     type: 'exec',
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'arm64' },
-    trigger: { event: { exclude: [ 'push' ] } },
+    trigger: { event: { exclude: ['push'] } },
     steps: [
       version_info,
       clone_submodules,
@@ -153,8 +153,8 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         ],
         depends_on: ['Build and Run Tests'],
         when: {
-          status: ['failure', 'success']
-        }
+          status: ['failure', 'success'],
+        },
       },
       update_cocoapods_cache(['Build and Run Tests']),
       {
@@ -168,7 +168,7 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
               which codecovcli > ./build/artifacts/codecov_path
             fi
           |||,
-          '$(<./build/artifacts/codecov_path) --version'
+          '$(<./build/artifacts/codecov_path) --version',
         ],
       },
       {
@@ -176,7 +176,7 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         commands: [
           'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
         ],
-        depends_on: ['Build and Run Tests']
+        depends_on: ['Build and Run Tests'],
       },
       {
         // No token needed for public repos
@@ -186,8 +186,8 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         ],
         depends_on: [
           'Convert xcresult to xml',
-          'Install Codecov CLI'
-        ]
+          'Install Codecov CLI',
+        ],
       },
     ],
   },
@@ -197,15 +197,15 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     type: 'exec',
     name: 'Check Build Artifact Existence',
     platform: { os: 'darwin', arch: 'arm64' },
-    trigger: { event: { exclude: [ 'push' ] } },
+    trigger: { event: { exclude: ['push'] } },
     steps: [
       {
         name: 'Poll for build artifact existence',
         commands: [
-          './Scripts/drone-upload-exists.sh'
-        ]
-      }
-    ]
+          './Scripts/drone-upload-exists.sh',
+        ],
+      },
+    ],
   },
   // Simulator build (non-PRs only)
   {
@@ -213,7 +213,7 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
     type: 'exec',
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'arm64' },
-    trigger: { event: { exclude: [ 'pull_request' ] } },
+    trigger: { event: { exclude: ['pull_request'] } },
     steps: [
       version_info,
       clone_submodules,
@@ -223,10 +223,10 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         name: 'Build',
         commands: [
           'mkdir build',
-          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App Store Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci'
+          'xcodebuild archive -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -parallelizeTargets -configuration "App Store Release" -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" | xcbeautify --is-ci',
         ],
         depends_on: [
-          'Install CocoaPods'
+          'Install CocoaPods',
         ],
       },
       update_cocoapods_cache(['Build']),
@@ -234,11 +234,11 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
         name: 'Upload artifacts',
         environment: { SSH_KEY: { from_secret: 'SSH_KEY' } },
         commands: [
-          './Scripts/drone-static-upload.sh'
+          './Scripts/drone-static-upload.sh',
         ],
         depends_on: [
-          'Build'
-        ]
+          'Build',
+        ],
       },
     ],
   },
