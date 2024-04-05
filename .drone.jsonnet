@@ -239,7 +239,6 @@ local unit_test_summary = {
               which codecovcli > ./build/artifacts/codecov_install_path
             fi
           |||,
-          'ls $(<./build/artifacts/codecov_install_path)',
           '$(<./build/artifacts/codecov_install_path)/codecovcli --version'
         ],
       },
