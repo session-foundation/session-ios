@@ -13,27 +13,9 @@ local version_info = {
 };
 
 // Intentionally doing a depth of 2 as libSession-util has it's own submodules (and libLokinet likely will as well)
-local custom_clone = {
-  name: 'Clone Repo',
-  environment: { CLONE_KEY: { from_secret: 'CLONE_KEY' } },
-  commands: [
-    |||
-      if [ -z "$CLONE_KEY" ]; then
-        echo -e "\n\n\n\e[31;1mUnable to checkout repo: CLONE_KEY not set\e[0m"
-        exit 1
-      fi
-    |||,
-    'mkdir -p $HOME/.ssh && touch $HOME/.ssh/config && touch $HOME/.ssh/known_hosts',
-    'echo "$CLONE_KEY" > $HOME/.ssh/id_ed25519_drone_ci_deploy',
-    'chmod 600 $HOME/.ssh/config $HOME/.ssh/known_hosts $HOME/.ssh/id_ed25519_drone_ci_deploy',
-    'ssh-keyscan -t ed25519 github.com >> $HOME/.ssh/known_hosts',
-    'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519_drone_ci_deploy -F $HOME/.ssh/config -o UserKnownHostsFile=$HOME/.ssh/known_hosts"',
-    'git -c init.defaultBranch=master init',
-    'git remote add origin $DRONE_GIT_SSH_URL',
-    'git fetch --depth=1 origin +$DRONE_COMMIT_REF',
-    'git checkout $DRONE_COMMIT -b $DRONE_BRANCH',
-    'git submodule update --init --recursive --depth=2 --jobs=4'
-  ]
+local clone_submodules = {
+  name: 'Clone Submodules',
+  commands: [ 'git submodule update --init --recursive --depth=2 --jobs=4' ]
 };
 
 // cmake options for static deps mirror
@@ -77,7 +59,7 @@ local load_cocoapods_cache = {
     'rm -f /Users/drone/.cocoapods_cache.lock'
   ],
   depends_on: [
-    'Clone Repo'
+    'Clone Submodules'
   ]
 };
 
@@ -108,6 +90,74 @@ local update_cocoapods_cache(depends_on) = {
   depends_on: depends_on,
 };
 
+// Unit tests
+//
+// The following 4 steps need to be run in order to run the unit tests
+local pre_boot_test_sim = {
+  name: 'Pre-Boot Test Simulator',
+  commands: [
+    'mkdir -p build/artifacts',
+    'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
+    'xcrun simctl create "$(cat ./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
+    'echo $(xcrun simctl list devices | grep -m 1 $(cat ./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
+    'xcrun simctl boot $(cat ./build/artifacts/sim_uuid)',
+    'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(cat ./build/artifacts/sim_uuid).*")[0m"',
+  ]
+};
+
+local build_and_run_tests = {
+  name: 'Build and Run Tests',
+  commands: [
+    'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(cat ./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
+  ],
+  depends_on: [
+    'Pre-Boot Test Simulator',
+    'Install CocoaPods'
+  ],
+};
+
+local unit_test_summary = {
+  name: 'Unit Test Summary',
+  commands: [
+    |||
+      if [[ -d ./build/artifacts/testResults.xcresult ]]; then
+        xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
+      else
+        echo -e "\n\n\n\e[31;1mUnit test results not found\e[0m"
+      fi
+    |||,
+  ],
+  depends_on: ['Build and Run Tests'],
+  when: {
+    status: ['failure', 'success']
+  }
+};
+
+local delete_test_simulator = {
+  name: 'Delete Test Simulator',
+  commands: [
+    'xcrun simctl delete unavailable',
+    |||
+      if [[ -f ./build/artifacts/sim_uuid ]]; then
+        xcrun simctl delete $(cat ./build/artifacts/sim_uuid)
+      fi
+    |||,
+    |||
+      if [[ -z $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*2879BA18-1253-4EDC-B4AF-A21DAC3025DD.*") ]]; then
+        echo "[32mSuccessfully deleted simulator.[0m"
+      else
+        echo "[31;1mFailed to delete simulator![0m"
+      fi
+    |||
+  ],
+  depends_on: [
+    'Build and Run Tests',
+  ],
+  when: {
+    status: ['failure', 'success']
+  }
+};
+
 [
   // Unit tests (PRs only)
   {
@@ -116,95 +166,16 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Unit Tests',
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
-    clone: { disable: true },
     steps: [
       version_info,
-      custom_clone,
+      clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
-      {
-        name: 'Pre-Boot Test Simulator',
-        commands: [
-          'mkdir -p build/artifacts',
-          'echo "Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}" > ./build/artifacts/device_name',
-          'xcrun simctl create "$(cat ./build/artifacts/device_name)" com.apple.CoreSimulator.SimDeviceType.iPhone-14',
-          'echo $(xcrun simctl list devices | grep -m 1 $(cat ./build/artifacts/device_name) | grep -E -o -i "([0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12})") > ./build/artifacts/sim_uuid',
-          'xcrun simctl boot $(cat ./build/artifacts/sim_uuid)',
-          'echo "[32mPre-booting simulator complete: $(xcrun simctl list | sed "s/^[[:space:]]*//" | grep -o ".*$(cat ./build/artifacts/sim_uuid).*")[0m"',
-        ]
-      },
-      {
-        name: 'Build and Run Tests',
-        commands: [
-          'NSUnbufferedIO=YES set -o pipefail && xcodebuild test -workspace Session.xcworkspace -scheme Session -derivedDataPath ./build/derivedData -resultBundlePath ./build/artifacts/testResults.xcresult -parallelizeTargets -destination "platform=iOS Simulator,id=$(cat ./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never 2>&1 | xcbeautify --is-ci',
-        ],
-        depends_on: [
-          'Pre-Boot Test Simulator',
-          'Install CocoaPods'
-        ],
-      },
-      {
-        name: 'Unit Test Summary',
-        commands: [
-          |||
-            if [[ -d ./build/artifacts/testResults.xcresult ]]; then
-              xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
-            else
-              echo -e "\n\n\n\e[31;1mUnit test results not found\e[0m"
-            fi
-          |||,
-        ],
-        depends_on: ['Build and Run Tests'],
-        when: {
-          status: ['failure', 'success']
-        }
-      },
-      {
-        name: 'Delete Test Simulator',
-        commands: [
-          |||
-            if [[ -f ./build/artifacts/sim_uuid ]]; then
-              xcrun simctl delete $(cat ./build/artifacts/sim_uuid)
-            fi
-          |||,
-        ],
-        depends_on: [
-          'Build and Run Tests',
-        ],
-        when: {
-          status: ['failure', 'success']
-        }
-      },
-      update_cocoapods_cache(['Build and Run Tests']),
-      {
-        name: 'Install Codecov CLI',
-        commands: [
-          'pip3 install codecov-cli 2>&1 | grep "The script codecovcli is installed in" | sed -n -e "s/^.*The script codecovcli is installed in \\(.*\\) which is not on PATH.*$/\\1/p" > ./build/artifacts/codecov_install_path',
-          |||
-            if [[ ! -s ./build/artifacts/codecov_install_path ]]; then
-              which codecovcli > ./build/artifacts/codecov_install_path
-            fi
-          |||,
-          '$(cat ./build/artifacts/codecov_install_path)/codecovcli --version'
-        ],
-      },
-      {
-        name: 'Convert xcresult to xml',
-        commands: [
-          'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
-        ],
-        depends_on: ['Build and Run Tests']
-      },
-      {
-        name: 'Upload coverage to Codecov',
-        commands: [
-          '$(cat ./build/artifacts/codecov_install_path)/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
-        ],
-        depends_on: [
-          'Convert xcresult to xml',
-          'Install Codecov CLI'
-        ]
-      },
+      pre_boot_test_sim,
+      build_and_run_tests,
+      unit_test_summary,
+      delete_test_simulator,
+      update_cocoapods_cache(['Build and Run Tests'])
     ],
   },
   // Validate build artifact was created by the direct branch push (PRs only)
@@ -214,16 +185,12 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Check Build Artifact Existence',
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'push' ] } },
-    clone: { disable: true },
     steps: [
       custom_clone,
       {
         name: 'Poll for build artifact existence',
         commands: [
           './Scripts/drone-upload-exists.sh'
-        ],
-        depends_on: [
-          'Clone Repo'
         ]
       }
     ]
@@ -235,10 +202,9 @@ local update_cocoapods_cache(depends_on) = {
     name: 'Simulator Build',
     platform: { os: 'darwin', arch: 'arm64' },
     trigger: { event: { exclude: [ 'pull_request' ] } },
-    clone: { disable: true },
     steps: [
       version_info,
-      custom_clone,
+      clone_submodules,
       load_cocoapods_cache,
       install_cocoapods,
       {
@@ -260,6 +226,55 @@ local update_cocoapods_cache(depends_on) = {
         ],
         depends_on: [
           'Build'
+        ]
+      },
+    ],
+  },
+  // Unit tests and code coverage (non-PRs only)
+  {
+    kind: 'pipeline',
+    type: 'exec',
+    name: 'Simulator Build',
+    platform: { os: 'darwin', arch: 'arm64' },
+    trigger: { event: { exclude: [ 'pull_request' ] } },
+    steps: [
+      version_info,
+      clone_submodules,
+      load_cocoapods_cache,
+      install_cocoapods,
+      pre_boot_test_sim,
+      build_and_run_tests,
+      unit_test_summary,
+      delete_test_simulator,
+      update_cocoapods_cache(['Build and Run Tests']),
+      {
+        name: 'Install Codecov CLI',
+        commands: [
+          'pip3 install codecov-cli 2>&1 | grep "The script codecovcli is installed in" | sed -n -e "s/^.*The script codecovcli is installed in (.*) which is not on PATH.*$/\1/p" > ./build/artifacts/codecov_install_path',
+          |||
+            if [[ ! -s ./build/artifacts/codecov_install_path ]]; then
+              which codecovcli > ./build/artifacts/codecov_install_path
+            fi
+          |||,
+          '$(cat ./build/artifacts/codecov_install_path)/codecovcli --version'
+        ],
+      },
+      {
+        name: 'Convert xcresult to xml',
+        commands: [
+          'xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml',
+        ],
+        depends_on: ['Build and Run Tests']
+      },
+      {
+        name: 'Upload coverage to Codecov',
+        environment: { CODECOV_TOKEN: { from_secret: 'CODECOV_TOKEN' } },
+        commands: [
+          '$(cat ./build/artifacts/codecov_install_path)/codecovcli upload-process --fail-on-error -f ./build/artifacts/coverage.xml',
+        ],
+        depends_on: [
+          'Convert xcresult to xml',
+          'Install Codecov CLI'
         ]
       },
     ],
