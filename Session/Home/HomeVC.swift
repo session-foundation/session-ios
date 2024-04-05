@@ -210,6 +210,29 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         return result
     }()
     
+    private lazy var emptyStateLogoView: UIView = {
+        let sessionLogoImage: UIImageView = UIImageView(image: UIImage(named: "SessionGreen64"))
+        sessionLogoImage.contentMode = .scaleAspectFit
+        sessionLogoImage.set(.height, to: 103)
+        
+        let sessionTitleImage: UIImageView = UIImageView(image: UIImage(named: "SessionHeading"))
+        sessionTitleImage.contentMode = .scaleAspectFit
+        sessionTitleImage.set(.height, to: 22)
+        
+        let result = UIStackView(arrangedSubviews: [
+            sessionLogoImage,
+            UIView.vSpacer(Values.smallSpacing + Values.verySmallSpacing),
+            sessionTitleImage,
+            UIView.vSpacer(Values.verySmallSpacing)
+        ])
+        result.axis = .vertical
+        result.spacing = Values.verySmallSpacing
+        result.alignment = .fill
+        result.isHidden = true
+        
+        return result
+    }()
+    
     private lazy var accountCreatedView: UIView = {
         let image: UIImageView = UIImageView(image: UIImage(named: "Hooray"))
         image.contentMode = .center
@@ -231,10 +254,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
             image,
             accountCreatedLabel,
             welcomeLabel,
-            UIView.vSpacer(Values.smallSpacing),
-            UIView.line(),
-            UIView.vSpacer(Values.smallSpacing),
-            
+            UIView.vSpacer(Values.verySmallSpacing)
         ])
         result.axis = .vertical
         result.spacing = Values.verySmallSpacing
@@ -247,6 +267,10 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     private lazy var emptyStateStackView: UIStackView = {
         let result = UIStackView(arrangedSubviews: [
             accountCreatedView,
+            emptyStateLogoView,
+            UIView.vSpacer(Values.smallSpacing),
+            UIView.line(),
+            UIView.vSpacer(Values.smallSpacing),
             emptyStateView
         ])
         result.axis = .vertical
@@ -451,6 +475,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 
                 // Show the empty state if there is no data
                 self?.accountCreatedView.isHidden = (self?.flow != .register)
+                self?.emptyStateLogoView.isHidden = (self?.flow == .register)
                 self?.emptyStateStackView.isHidden = (
                     !updatedData.isEmpty &&
                     updatedData.contains(where: { !$0.elements.isEmpty })
@@ -472,7 +497,9 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 !updatedData.isEmpty &&
                 updatedData.contains(where: { !$0.elements.isEmpty })
             )
+            emptyStateLogoView.isHidden = true
         } else {
+            emptyStateLogoView.isHidden = false
             emptyStateView.isHidden = (
                 !updatedData.isEmpty &&
                 updatedData.contains(where: { !$0.elements.isEmpty })
