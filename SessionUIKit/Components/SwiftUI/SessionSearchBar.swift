@@ -1,6 +1,7 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import SessionUtilitiesKit
 
 public struct SessionSearchBar: View {
     @Binding var searchText: String
@@ -31,7 +32,7 @@ public struct SessionSearchBar: View {
                 
                 ZStack(alignment: .leading) {
                     if searchText.isEmpty {
-                        Text("Search")
+                        Text("search".localized())
                             .font(.system(size: Values.smallFontSize))
                             .foregroundColor(themeColor: .textSecondary)
                     }

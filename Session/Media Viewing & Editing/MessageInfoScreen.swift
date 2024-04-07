@@ -164,7 +164,7 @@ struct MessageInfoScreen: View {
                                     alignment: .center
                                 ) {
                                     let resolution: String = {
-                                        guard let width = attachment.width, let height = attachment.height else { return "N/A" }
+                                        guard let width = attachment.width, let height = attachment.height else { return "attachmentsNa".localized() }
                                         return "\(width)×\(height)"
                                     }()
                                     InfoBlock(title: "ATTACHMENT_INFO_RESOLUTION".localized() + ":") {
@@ -176,7 +176,7 @@ struct MessageInfoScreen: View {
                                     Spacer()
                                     
                                     let duration: String = {
-                                        guard let duration = attachment.duration else { return "N/A" }
+                                        guard let duration = attachment.duration else { return "attachmentsNa".localized() }
                                         return floor(duration).formatted(format: .videoDuration)
                                     }()
                                     InfoBlock(title: "ATTACHMENT_INFO_DURATION".localized() + ":") {

@@ -1123,3 +1123,7 @@ The point that a message will disappear in a disappearing message update message
 "accountIdErrorInvalid" = "This Account ID is invalid. Please check and try again.";
 "new_message_screen_error_msg_unrecognized_ons" = "We couldn’t recognize this ONS. Please check and try again.";
 "onsErrorUnableToSearch" = "We were unable to search for this ONS. Please try again later.";
+
+//General
+"attachmentsNa" = "N/A";
+"search" = "Search";
