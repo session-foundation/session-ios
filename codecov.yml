@@ -7,3 +7,8 @@ ignore:
   - "SessionTests"
   - "SessionSnodeKitTests"
   - "SessionUtilitiesKitTests"
+  - "*.+SwiftUI.swift"
+  - "*._SwiftUI.swift"
+  - "*.Cell.swift"
+  - "*.View.swift"
+  
