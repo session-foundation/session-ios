@@ -9,12 +9,12 @@ import SessionUtilitiesKit
 // MARK: - LibSession
 
 public extension LibSession {
-    public struct ConfResult {
+    struct ConfResult {
         let needsPush: Bool
         let needsDump: Bool
     }
     
-    public struct IncomingConfResult {
+    struct IncomingConfResult {
         let needsPush: Bool
         let needsDump: Bool
         let messageHashes: [String]
@@ -23,7 +23,7 @@ public extension LibSession {
         var result: ConfResult { ConfResult(needsPush: needsPush, needsDump: needsDump) }
     }
     
-    public struct OutgoingConfResult {
+    struct OutgoingConfResult {
         let message: SharedConfigMessage
         let namespace: SnodeAPI.Namespace
         let obsoleteHashes: [String]
@@ -33,7 +33,7 @@ public extension LibSession {
     
     fileprivate static var configStore: Atomic<[ConfigKey: Atomic<UnsafeMutablePointer<config_object>?>]> = Atomic([:])
     
-    public static func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<UnsafeMutablePointer<config_object>?> {
+    static func config(for variant: ConfigDump.Variant, publicKey: String) -> Atomic<UnsafeMutablePointer<config_object>?> {
         let key: ConfigKey = ConfigKey(variant: variant, publicKey: publicKey)
         
         return (
@@ -50,7 +50,7 @@ public extension LibSession {
     
     /// Returns `true` if there is a config which needs to be pushed, but returns `false` if the configs are all up to date or haven't been
     /// loaded yet (eg. fresh install)
-    public static var needsSync: Bool {
+    static var needsSync: Bool {
         configStore
             .wrappedValue
             .contains { _, atomicConf in
@@ -60,7 +60,7 @@ public extension LibSession {
             }
     }
     
-    public static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
+    static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
     
     internal static func lastError(_ conf: UnsafeMutablePointer<config_object>?) -> String {
         return (conf?.pointee.last_error.map { String(cString: $0) } ?? "Unknown")  // stringlint:disable
@@ -68,13 +68,13 @@ public extension LibSession {
     
     // MARK: - Loading
     
-    public static func clearMemoryState() {
+    static func clearMemoryState() {
         LibSession.configStore.mutate { confStore in
             confStore.removeAll()
         }
     }
     
-    public static func loadState(
+    static func loadState(
         _ db: Database? = nil,
         userPublicKey: String,
         ed25519SecretKey: [UInt8]?
@@ -204,7 +204,7 @@ public extension LibSession {
     
     // MARK: - Pushes
     
-    public static func pendingChanges(
+    static func pendingChanges(
         _ db: Database,
         publicKey: String
     ) throws -> [OutgoingConfResult] {
@@ -285,7 +285,7 @@ public extension LibSession {
             }
     }
     
-    public static func markingAsPushed(
+    static func markingAsPushed(
         message: SharedConfigMessage,
         serverHash: String,
         publicKey: String
@@ -311,7 +311,7 @@ public extension LibSession {
             }
     }
     
-    public static func configHashes(for publicKey: String) -> [String] {
+    static func configHashes(for publicKey: String) -> [String] {
         return Storage.shared
             .read { db -> Set<ConfigDump.Variant> in
                 guard Identity.userExists(db) else { return [] }
@@ -346,7 +346,7 @@ public extension LibSession {
     
     // MARK: - Receiving
     
-    public static func handleConfigMessages(
+    static func handleConfigMessages(
         _ db: Database,
         messages: [SharedConfigMessage],
         publicKey: String
