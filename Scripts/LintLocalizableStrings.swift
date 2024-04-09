@@ -185,6 +185,17 @@ enum ScriptAction: String {
                     missingKeysFromOtherFiles.forEach { missingKey, namesOfFilesItWasFound in
                         Output.warning(file, "Phrase '\(missingKey)' is missing (found in: \(namesOfFilesItWasFound.joined(separator: ", ")))")
                     }
+                    
+                    var maybeFaulty: [String] = []
+                    file.keyPhrase.forEach { key, phrase in
+                        guard let original = projectState.primaryLocalizationFile.keyPhrase[key] else { return }
+                        let numberOfVarablesOrignal = Regex.matches("\\{.*\\}", content: original.value).count
+                        let numberOfVarablesPhrase = Regex.matches("\\{.*\\}", content: phrase.value).count
+                        if numberOfVarablesPhrase != numberOfVarablesOrignal {
+                            maybeFaulty.append(key)
+                        }
+                    }
+                    maybeFaulty.forEach { key in Output.warning(file, "\(key) may be faulty.") }
                 }
                 
                 // Process the source code
