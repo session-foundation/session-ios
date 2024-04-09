@@ -738,6 +738,9 @@
 		FD848B9828422F1A000E298B /* Date+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD848B9728422F1A000E298B /* Date+Utilities.swift */; };
 		FD848B9A28442CE6000E298B /* StorageError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD848B9928442CE6000E298B /* StorageError.swift */; };
 		FD848B9C284435D7000E298B /* AppSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD848B9B284435D7000E298B /* AppSetup.swift */; };
+		FD86FDA32BC5020600EC251B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */; };
+		FD86FDA42BC51C5400EC251B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */; };
+		FD86FDA52BC51C5500EC251B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */; };
 		FD87DCFA28B74DB300AF0F98 /* ConversationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD87DCF928B74DB300AF0F98 /* ConversationSettingsViewModel.swift */; };
 		FD87DCFE28B7582C00AF0F98 /* BlockedContactsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD87DCFD28B7582C00AF0F98 /* BlockedContactsViewModel.swift */; };
 		FD87DD0428B8727D00AF0F98 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD87DD0328B8727D00AF0F98 /* Configuration.swift */; };
@@ -1870,6 +1873,7 @@
 		FD859EEF27BF207700510D0C /* SessionProtos.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = SessionProtos.proto; sourceTree = "<group>"; };
 		FD859EF027BF207C00510D0C /* WebSocketResources.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = WebSocketResources.proto; sourceTree = "<group>"; };
 		FD859EF127BF6BA200510D0C /* Data+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Utilities.swift"; sourceTree = "<group>"; };
+		FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		FD87DCF928B74DB300AF0F98 /* ConversationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSettingsViewModel.swift; sourceTree = "<group>"; };
 		FD87DCFD28B7582C00AF0F98 /* BlockedContactsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockedContactsViewModel.swift; sourceTree = "<group>"; };
 		FD87DD0328B8727D00AF0F98 /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
@@ -3517,6 +3521,7 @@
 				45CB2FA71CB7146C00E1B343 /* Launch Screen.storyboard */,
 				FDE125222A837E4E002DA685 /* MainAppContext.swift */,
 				C3CA3AA0255CDA7000F4C6D4 /* Mnemonic */,
+				FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */,
 				B67EBF5C19194AC60084CCFD /* Settings.bundle */,
 				B657DDC91911A40500F45B0C /* Signal.entitlements */,
 				FDF2220A2818F38D000A4995 /* SessionApp.swift */,
@@ -5068,6 +5073,7 @@
 				4535186E1FC635DD00210559 /* MainInterface.storyboard in Resources */,
 				FDC498C22AC17BFC00EDD897 /* Localizable.strings in Resources */,
 				B8D07406265C683A00F77E07 /* ElegantIcons.ttf in Resources */,
+				FD86FDA42BC51C5400EC251B /* PrivacyInfo.xcprivacy in Resources */,
 				3478504C1FD7496D007B8332 /* Images.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5076,6 +5082,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD86FDA52BC51C5500EC251B /* PrivacyInfo.xcprivacy in Resources */,
 				FDC498BE2AC1732E00EDD897 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5121,6 +5128,7 @@
 			files = (
 				4C63CC00210A620B003AE45C /* SignalTSan.supp in Resources */,
 				4C6F527C20FFE8400097DEEE /* SignalUBSan.supp in Resources */,
+				FD86FDA32BC5020600EC251B /* PrivacyInfo.xcprivacy in Resources */,
 				34CF078A203E6B78005C4D61 /* end_call_tone_cept.caf in Resources */,
 				C3CA3AA2255CDADA00F4C6D4 /* english.txt in Resources */,
 				B66DBF4A19D5BBC8006EA940 /* Images.xcassets in Resources */,
