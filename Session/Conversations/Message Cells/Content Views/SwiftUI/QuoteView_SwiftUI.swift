@@ -54,7 +54,7 @@ struct QuoteView_SwiftUI: View {
         return nil
     }
     private var author: String? {
-        guard !isCurrentUser else { return "MEDIA_GALLERY_SENDER_NAME_YOU".localized() }
+        guard !isCurrentUser else { return "onionRoutingPathYou".localized() }
         guard quotedText != nil else {
             // When we can't find the quoted message we want to hide the author label
             return Profile.displayNameNoFallback(
@@ -174,7 +174,7 @@ struct QuoteView_SwiftUI: View {
                     )
                     .lineLimit(2)
                 } else {
-                    Text("QUOTED_MESSAGE_NOT_FOUND".localized())
+                    Text("messageErrorOriginal".localized())
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: targetThemeColor)
                 }

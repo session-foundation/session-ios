@@ -766,3 +766,4 @@
 "EMOJI_CATEGORY_SMILEYSANDPEOPLE_NAME" = "Smileys & People";
 "EMOJI_CATEGORY_SYMBOLS_NAME" = "Symbols";
 "EMOJI_CATEGORY_TRAVEL_NAME" = "Travel & Places";
+"SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";

@@ -1018,7 +1018,7 @@ public extension Interaction {
                 }
                 
                 if isOpenGroupInvitation {
-                    return "😎 Open group invitation"
+                    return "communityInvitation".localized()
                 }
                 
                 // TODO: We should do better here
