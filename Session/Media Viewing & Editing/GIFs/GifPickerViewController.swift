@@ -464,7 +464,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                 info: ConfirmationModal.Info(
                     title: "error".localized(),
                     body: .text("searchEnter".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
             )

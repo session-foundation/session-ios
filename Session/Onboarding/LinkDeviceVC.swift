@@ -141,7 +141,7 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
                 info: ConfirmationModal.Info(
                     title: "recoveryPasswordErrorTitle".localized(),
                     body: .text("recoveryPasswordErrorMessageGeneric".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text,
                     afterClosed: onError
                 )
@@ -302,7 +302,7 @@ private final class RecoveryPhraseVC: UIViewController {
                 info: ConfirmationModal.Info(
                     title: title,
                     body: .text(message),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
             )

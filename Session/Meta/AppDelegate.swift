@@ -895,7 +895,7 @@ private enum StartupError: Error {
                 return "DATABASE_STARTUP_FAILED".localized()
 
             case .databaseError(StorageError.migrationNoLongerSupported):
-                return "DATABASE_UNSUPPORTED_MIGRATION".localized()
+                return "databaseErrorUpdate".localized()
             
             case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
             case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()

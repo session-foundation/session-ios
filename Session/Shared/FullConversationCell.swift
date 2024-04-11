@@ -585,7 +585,11 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         }
         
         let previewText: String = {
-            if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving { return "group_leave_error".localized() }
+            if cellViewModel.interactionVariant == .infoClosedGroupCurrentUserErrorLeaving {
+                return "groupLeaveErrorFailed"
+                    .put(key: "groupname", value: cellViewModel.displayName)
+                    .localized()
+            }
             return Interaction.previewText(
                 variant: (cellViewModel.interactionVariant ?? .standardIncoming),
                 body: cellViewModel.interactionBody,

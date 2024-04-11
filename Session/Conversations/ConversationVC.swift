@@ -1634,7 +1634,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                                     info: ConfirmationModal.Info(
                                         title: "error".localized(),
                                         body: .text("audioUnableToPlay".localized()),
-                                        cancelTitle: "BUTTON_OK".localized(),
+                                        cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text
                                     )
                                 )

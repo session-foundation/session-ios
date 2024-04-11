@@ -86,7 +86,7 @@ final class CallMissedTipsModal: Modal {
     }
 
     override func populateContentView() {
-        cancelButton.setTitle("BUTTON_OK".localized(), for: .normal)
+        cancelButton.setTitle("okay".localized(), for: .normal)
         
         contentView.addSubview(mainStackView)
         tipsIconContainerView.addSubview(tipsIconImageView)

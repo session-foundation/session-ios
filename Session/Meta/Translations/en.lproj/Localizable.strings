@@ -635,23 +635,23 @@
 "contentDescriptionMediaMessage" = "Media message";
 "attachmentsErrorLoad" = "Error attaching file";
 "document" = "Document";
+"unknown" = "Unknown";
+"databaseErrorUpdate" = "Your app database is incompatible with this version of Session. Restore your account to generate a new database and continue using Session.<br/><br/>Warning: Restoring will result in the loss of all messages, attachments, and account data older than two weeks.";
+"okay" = "Okay";
+"messageVoiceSlideToCancel" = "Slide to Cancel";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";
-"DATABASE_UNSUPPORTED_MIGRATION" = "You are trying to updated from a version which no longer supports upgrading\n\nIn order to continue to use session you need to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
 "DATABASE_STARTUP_FAILED" = "An error occurred when opening the database\n\nYou can export your application logs to share for troubleshooting or you can try to restore your device\n\nWarning: Restoring your device will result in loss of any data older than two weeks";
 "DATABASE_RESTORE_FAILED" = "An error occurred when opening the restored database\n\nYou can export your application logs to share for troubleshooting but to continue to use Session you may need to reinstall";
 "APP_STARTUP_TIMEOUT" = "The app is taking a long time to start\n\nYou can continue to wait for the app to start, export your application logs to share for troubleshooting or you can try to open the app again";
-"BUTTON_OK" = "OK";
 "GROUP_CREATION_PLEASE_WAIT" = "Please wait while the group is created...";
 "GROUP_CREATION_ERROR_TITLE" = "Couldn't Create Group";
 "GROUP_CREATION_ERROR_MESSAGE" = "Please check your internet connection and try again.";
 "GROUP_TITLE_FALLBACK" = "Group";
-"GROUP_TITLE_MEMBERS" = "Members";
 "vc_conversation_settings_invite_button_title" = "Add Members";
 "GROUP_UPDATE_ERROR_MESSAGE" = "Can't leave while adding or removing other members.";
 "GROUP_UPDATE_ERROR_TITLE" = "Couldn't Update Group";
-"vc_conversation_voice_message_cancel_message" = "Slide to Cancel";
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
 "context_menu_resync" = "Resync";
 "context_menu_ban_and_delete_all" = "Ban and Delete All";

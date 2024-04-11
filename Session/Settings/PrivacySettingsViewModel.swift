@@ -124,7 +124,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "lockAppEnablePasscode".localized(),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         ),

@@ -758,7 +758,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
                 info: ConfirmationModal.Info(
                     title: "error".localized(),
                     body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
             )

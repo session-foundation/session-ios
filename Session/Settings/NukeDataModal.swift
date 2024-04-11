@@ -208,7 +208,7 @@ final class NukeDataModal: Modal {
                                         info: ConfirmationModal.Info(
                                             title: "clearDataError".localized(),
                                             body: .text(error.localizedDescription),
-                                            cancelTitle: "BUTTON_OK".localized(),
+                                            cancelTitle: "okay".localized(),
                                             cancelStyle: .alert_text
                                         )
                                     )
@@ -244,7 +244,7 @@ final class NukeDataModal: Modal {
                                 info: ConfirmationModal.Info(
                                     title: "clearDataError".localized(),
                                     body: .text(message),
-                                    cancelTitle: "BUTTON_OK".localized(),
+                                    cancelTitle: "okay".localized(),
                                     cancelStyle: .alert_text
                                 )
                             )

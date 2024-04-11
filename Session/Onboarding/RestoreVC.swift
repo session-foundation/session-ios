@@ -184,7 +184,7 @@ final class RestoreVC: BaseVC {
                 info: ConfirmationModal.Info(
                     title: title,
                     body: .text(message),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
             )

@@ -173,7 +173,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let membersLabel = UILabel()
         membersLabel.font = .systemFont(ofSize: Values.mediumFontSize)
         membersLabel.themeTextColor = .textPrimary
-        membersLabel.text = "GROUP_TITLE_MEMBERS".localized()
+        membersLabel.text = "groupMembers".localized()
         
         addMembersButton.isEnabled = self.hasContactsToAdd
         
@@ -510,7 +510,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             info: ConfirmationModal.Info(
                 title: title,
                 body: .text(message),
-                cancelTitle: "BUTTON_OK".localized(),
+                cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text
             )
         )

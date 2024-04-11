@@ -180,7 +180,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "displayNameErrorDescription".localized(),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         ),
@@ -193,7 +193,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
                                                 title: "displayNameErrorDescriptionShorter".localized(),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         ),
@@ -434,7 +434,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                         info: ConfirmationModal.Info(
                                             title: "error".localized(),
                                             body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
-                                            cancelTitle: "BUTTON_OK".localized(),
+                                            cancelTitle: "okay".localized(),
                                             cancelStyle: .alert_text
                                         )
                                     )
@@ -613,7 +613,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     info: ConfirmationModal.Info(
                                         title: title,
                                         body: (message.map { .text($0) } ?? .none),
-                                        cancelTitle: "BUTTON_OK".localized(),
+                                        cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text,
                                         dismissType: .single
                                     )

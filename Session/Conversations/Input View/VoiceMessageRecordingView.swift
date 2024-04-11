@@ -80,7 +80,7 @@ final class VoiceMessageRecordingView: UIView {
     private lazy var slideToCancelLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.text = "vc_conversation_voice_message_cancel_message".localized()
+        result.text = "messageVoiceSlideToCancel".localized()
         result.themeTextColor = .textPrimary
         result.alpha = Values.mediumOpacity
         

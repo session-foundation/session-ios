@@ -338,7 +338,7 @@ public class SignalAttachment: Equatable, Hashable {
             }
         }
         if dataUTI == kUnknownTestAttachmentUTI {
-            return "unknown"
+            return "unknown".localized()
         }
         guard let fileExtension = MIMETypeUtil.fileExtension(forUTIType: dataUTI) else {
             return nil

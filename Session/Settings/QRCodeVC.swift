@@ -131,7 +131,7 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
                 info: ConfirmationModal.Info(
                     title: "invalid_session_id".localized(),
                     body: .text("INVALID_SESSION_ID_MESSAGE".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text,
                     afterClosed: onError
                 )

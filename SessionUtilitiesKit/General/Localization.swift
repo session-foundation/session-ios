@@ -202,6 +202,9 @@ final public class LocalizationHelper: CustomStringConvertible {
         for (key, value) in replacements {
             localizedString = localizedString.replacingOccurrences(of: tokenize(key), with: value)
         }
+        
+        // Replace html tag "<br/>" with "\n"
+        localizedString = localizedString.replacingOccurrences(of: "<br/>", with: "\n")
 
         return localizedString
     }

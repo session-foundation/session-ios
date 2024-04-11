@@ -356,7 +356,7 @@ extension ConversationVC:
                     info: ConfirmationModal.Info(
                         title: "attachmentsErrorNotSupported".localized(),
                         body: .text("attachmentsErrorSize".localized()),
-                        cancelTitle: "BUTTON_OK".localized(),
+                        cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
                     )
                 )
@@ -1718,7 +1718,7 @@ extension ConversationVC:
                         let errorModal: ConfirmationModal = ConfirmationModal(
                             info: ConfirmationModal.Info(
                                 title: "COMMUNITY_ERROR_GENERIC".localized(),
-                                cancelTitle: "BUTTON_OK".localized(),
+                                cancelTitle: "okay".localized(),
                                 cancelStyle: .alert_text
                             )
                         )
@@ -1768,7 +1768,7 @@ extension ConversationVC:
                                             info: ConfirmationModal.Info(
                                                 title: "COMMUNITY_ERROR_GENERIC".localized(),
                                                 body: .text(error.localizedDescription),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         )
@@ -1824,7 +1824,7 @@ extension ConversationVC:
                     info: ConfirmationModal.Info(
                         title: "error".localized(),
                         body: .text("FAILED_TO_STORE_OUTGOING_MESSAGE".localized()),
-                        cancelTitle: "BUTTON_OK".localized(),
+                        cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
                     )
                 )
@@ -2287,7 +2287,7 @@ extension ConversationVC:
             info: ConfirmationModal.Info(
                 title: "sessionMessenger".localized(),
                 body: .text("This will ban the selected user from this room. It won't ban them from other rooms."),
-                confirmTitle: "BUTTON_OK".localized(),
+                confirmTitle: "okay".localized(),
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
@@ -2317,7 +2317,7 @@ extension ConversationVC:
                                             info: ConfirmationModal.Info(
                                                 title: "error".localized(),
                                                 body: .text("context_menu_ban_user_error_alert_message".localized()),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         )
@@ -2343,7 +2343,7 @@ extension ConversationVC:
             info: ConfirmationModal.Info(
                 title: "sessionMessenger".localized(),
                 body: .text("This will ban the selected user from this room and delete all messages sent by them. It won't ban them from other rooms or delete the messages they sent there."),
-                confirmTitle: "BUTTON_OK".localized(),
+                confirmTitle: "okay".localized(),
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self] _ in
                     Storage.shared
@@ -2373,7 +2373,7 @@ extension ConversationVC:
                                             info: ConfirmationModal.Info(
                                                 title: "error".localized(),
                                                 body: .text("context_menu_ban_user_error_alert_message".localized()),
-                                                cancelTitle: "BUTTON_OK".localized(),
+                                                cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
                                             )
                                         )
@@ -2459,7 +2459,7 @@ extension ConversationVC:
                     info: ConfirmationModal.Info(
                         title: "error".localized(),
                         body: .text("audioUnableToRecord".localized()),
-                        cancelTitle: "BUTTON_OK".localized(),
+                        cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
                     )
                 )
@@ -2497,7 +2497,7 @@ extension ConversationVC:
                 info: ConfirmationModal.Info(
                     title: "messageVoice".localized(),
                     body: .text("messageVoiceErrorShort".localized()),
-                    cancelTitle: "BUTTON_OK".localized(),
+                    cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )
             )
@@ -2578,7 +2578,7 @@ extension ConversationVC:
             info: ConfirmationModal.Info(
                 title: "attachmentsErrorSending".localized(),
                 body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
-                cancelTitle: "BUTTON_OK".localized(),
+                cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text
             )
         )
