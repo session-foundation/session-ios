@@ -313,7 +313,10 @@ public class NotificationPresenter: NotificationsProtocol {
         
         let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
         let notificationTitle = "sessionMessenger".localized()
-        var notificationBody = String(format: "EMOJI_REACTS_NOTIFICATION".localized(), senderName, reaction.emoji)
+        var notificationBody = "emojiReactsHoverName"
+            .put(key: "name", value: senderName)
+            .put(key: "emoji", value: reaction.emoji)
+            .localized()
         
         // Title & body
         let previewType: Preferences.NotificationPreviewType = db[.preferencesNotificationPreviewType]

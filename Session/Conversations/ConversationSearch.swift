@@ -336,7 +336,10 @@ public final class SearchResultsBar: UIView {
             
             case 1:
                 // Keyboard toolbar label when exactly 1 message matches the search string
-                label.text = "CONVERSATION_SEARCH_ONE_RESULT".localized()
+                label.text = "searchMatches"
+                    .put(key: "count", value: 1)
+                    .put(key: "totalcount", value: results.count)
+                    .localized()
         
             default:
                 // Keyboard toolbar label when more than 1 message matches the search string

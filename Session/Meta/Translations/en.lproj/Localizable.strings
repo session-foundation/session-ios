@@ -586,7 +586,7 @@
 "lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 "settingsRestartDescription" = "You must restart Session to apply your new settings.";
 "disappearingMessagesSetYou" = "<b>You</b> set messages to disappear {time} after they have been {disappearingmessagestype}.";
-"disappearingMessagesTurnedOffYou" = "<b>You</b> turned disappearing messages off.";
+"disappearingMessagesTurnedOffYou" = "<b>You</b> turned <b>off</b> disappearing messages. Messages you seend will no longer appear.";
 "disappearingMessagesUpdatedYou" = "<b>You</b> updated disappearing message settings.";
 "groupInviteYou" = "<b>You</b> were invited to join the group.";
 "groupRemovedYou" = "You were removed from <b>{groupname}</b>.";
@@ -638,7 +638,18 @@
 "unknown" = "Unknown";
 "databaseErrorUpdate" = "Your app database is incompatible with this version of Session. Restore your account to generate a new database and continue using Session.<br/><br/>Warning: Restoring will result in the loss of all messages, attachments, and account data older than two weeks.";
 "okay" = "Okay";
-"messageVoiceSlideToCancel" = "Slide to Cancel";
+"emojiReactsHoverName" = "{name} reacted with {emoji}";
+"conversationsAudioMessages" = "Audio Messages";
+"conversationsAutoplayAudioMessage" = "Autoplay Audio Messages";
+"conversationsAutoplayAudioMessageDescription" = "Autoplay consecutively sent audio messages";
+"emojiCategorySmileys" = "Smileys & People";
+"emojiCategorySymbols" = "Symbols";
+"emojiCategoryTravel" = "Travel & Places";
+"emojiCategoryActivities" = "Activities";
+"emojiCategoryAnimals" = "Animals & Nature";
+"emojiCategoryFlags" = "Flags";
+"emojiCategoryFood" = "Food & Drink";
+"emojiCategoryObjects" = "Objects";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";
@@ -649,7 +660,6 @@
 "GROUP_CREATION_ERROR_TITLE" = "Couldn't Create Group";
 "GROUP_CREATION_ERROR_MESSAGE" = "Please check your internet connection and try again.";
 "GROUP_TITLE_FALLBACK" = "Group";
-"vc_conversation_settings_invite_button_title" = "Add Members";
 "GROUP_UPDATE_ERROR_MESSAGE" = "Can't leave while adding or removing other members.";
 "GROUP_UPDATE_ERROR_TITLE" = "Couldn't Update Group";
 "MEDIA_GALLERY_MORE_ITEMS_FORMAT" = "+%@";
@@ -670,9 +680,7 @@
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages."; // TODO: Delete
 "FAILED_TO_STORE_OUTGOING_MESSAGE" = "An error occurred when trying to store the outgoing message for sending, you may need to restart the app before you can send messages.";
 "TXT_BLOCK_USER_TITLE" = "Block User";
-"CONVERSATION_SEARCH_ONE_RESULT" = "1 match";
 "DM_ERROR_DIRECT_BLINDED_ID" = "You can only send messages to Blinded IDs from within a Community";
-"DM_ERROR_INVALID" = "Please check the Session ID or ONS name and try again";
 "vc_enter_public_key_explanation" = "Start a new conversation by entering someone's Session ID or share your Session ID with them."; // TODO: Delete
 "LOADING_CONVERSATIONS" = "Loading Conversations...";
 "DOCUMENT_TAB_TITLE" = "Documents";
@@ -699,21 +707,17 @@
 "TIME_AMOUNT_SECONDS_SHORT_FORMAT" = "%@s";
 "none" = "None";
 "group_you_leaving" = "Leaving...";
-"group_unable_to_leave" = "Unable to leave the Group, please try again";
 "ATTACHMENT_ERROR_MISSING_DATA" = "Attachment is empty.";
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Unable to parse image.";
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Unable to convert image.";
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Unable to process video.";
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Unable to resize image.";
 "GROUP_CREATED" = "Group created";
-"DISAPPERING_MESSAGES_INFO_DISABLE" = "%@ has turned off disappearing messages. Messages they send will no longer disappear.";
 "DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set messages to disappear %@ after they have been %@";
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
-"EMOJI_REACTS_NOTIFICATION" = "%@ reacts to a message with %@.";
 "database_inaccessible_error" = "There is an issue opening the database. Please restart the app and try again.";
 "modal_permission_explanation" = "Session needs %@ access to continue. You can enable access in the iOS settings.";
 "modal_permission_library" = "library";
-"MESSAGE_STATUS_FAILED" = "Sending failed.";
 "modal_permission_camera" = "camera";
 "unmute_button_text" = "Unmute";
 "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON" = "Are you sure you want to block this contact?";
@@ -721,9 +725,6 @@
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "this contact";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "and %@?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "and %d others?";
-"CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES" = "Audio Messages";
-"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE" = "Autoplay Audio Messages";
-"CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION" = "Autoplay consecutive audio messages.";
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (default)";
 "qrCode" = "QR Code";
 "vc_qr_code_view_scan_qr_code_explanation" = "Scan someone's QR code to start a conversation with them"; // TODO: Delete
@@ -758,12 +759,4 @@
 "MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
 "delete_message_for_me_and_my_devices" = "Delete from all of my devices";
 "context_menu_ban_user_error_alert_message" = "Unable to ban user";
-"EMOJI_CATEGORY_ACTIVITIES_NAME" = "Activities";
-"EMOJI_CATEGORY_ANIMALS_NAME" = "Animals & Nature";
-"EMOJI_CATEGORY_FLAGS_NAME" = "Flags";
-"EMOJI_CATEGORY_FOOD_NAME" = "Food & Drink";
-"EMOJI_CATEGORY_OBJECTS_NAME" = "Objects";
-"EMOJI_CATEGORY_SMILEYSANDPEOPLE_NAME" = "Smileys & People";
-"EMOJI_CATEGORY_SYMBOLS_NAME" = "Symbols";
-"EMOJI_CATEGORY_TRAVEL_NAME" = "Travel & Places";
 "SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";

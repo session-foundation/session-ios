@@ -420,14 +420,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     UIImage(named: "ic_plus_24")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: "vc_conversation_settings_invite_button_title".localized(),
+                                title: "membersInvite".localized(),
                                 accessibility: Accessibility(
                                     identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
                                 ),
                                 onTap: { [weak self] in
                                     self?.transitionToScreen(
                                         UserSelectionVC(
-                                            with: "vc_conversation_settings_invite_button_title".localized(),
+                                            with: "membersInvite".localized(),
                                             excluding: Set()
                                         ) { [weak self] selectedUsers in
                                             self?.addUsersToOpenGoup(

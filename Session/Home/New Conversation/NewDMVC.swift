@@ -197,7 +197,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                         targetView: self.view,
                         info: ConfirmationModal.Info(
                             title: "error".localized(),
-                            body: .text("DM_ERROR_INVALID".localized()),
+                            body: .text("accountIdErrorInvalid".localized()),
                             cancelTitle: "okay".localized(),
                             cancelStyle: .alert_text,
                             afterClosed: onError
@@ -236,7 +236,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                         
                                         return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
                                             "DM_ERROR_DIRECT_BLINDED_ID".localized() :
-                                            "DM_ERROR_INVALID".localized()
+                                            "accountIdErrorInvalid".localized()
                                         )
                                     }()
                                     

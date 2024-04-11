@@ -60,7 +60,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
         let result: SessionButton = SessionButton(style: .bordered, size: .medium)
         result.accessibilityLabel = "Add members"
         result.isAccessibilityElement = true
-        result.setTitle("vc_conversation_settings_invite_button_title".localized(), for: .normal)
+        result.setTitle("membersInvite".localized(), for: .normal)
         result.addTarget(self, action: #selector(addMembers), for: UIControl.Event.touchUpInside)
         result.contentEdgeInsets = UIEdgeInsets(top: 0, leading: Values.mediumSpacing, bottom: 0, trailing: Values.mediumSpacing)
         
@@ -359,7 +359,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
     }
 
     @objc private func addMembers() {
-        let title: String = "vc_conversation_settings_invite_button_title".localized()
+        let title: String = "membersInvite".localized()
         
         let userPublicKey: String = self.userPublicKey
         let userSelectionVC: UserSelectionVC = UserSelectionVC(

@@ -31,7 +31,7 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
         var title: String? {
             switch self {
                 case .messageTrimming: return "conversationsMessageTrimming".localized()
-                case .audioMessages: return "CONVERSATION_SETTINGS_SECTION_AUDIO_MESSAGES".localized()
+                case .audioMessages: return "conversationsAudioMessages".localized()
                 case .blockedContacts: return nil
             }
         }
@@ -89,8 +89,8 @@ class ConversationSettingsViewModel: SessionTableViewModel, NavigatableStateHold
                     elements: [
                         SessionCell.Info(
                             id: .audioMessages,
-                            title: "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_TITLE".localized(),
-                            subtitle: "CONVERSATION_SETTINGS_AUDIO_MESSAGES_AUTOPLAY_DESCRIPTION".localized(),
+                            title: "conversationsAutoplayAudioMessage".localized(),
+                            subtitle: "conversationsAutoplayAudioMessageDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .shouldAutoPlayConsecutiveAudioMessages,

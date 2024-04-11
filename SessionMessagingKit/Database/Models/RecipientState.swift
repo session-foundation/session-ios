@@ -52,7 +52,7 @@ public struct RecipientState: Codable, Equatable, FetchableRecord, PersistableRe
                     
                     return "uploading".localized()
                 
-                case .failed: return "MESSAGE_STATUS_FAILED".localized()
+                case .failed: return "messageStatusFailedToSend".localized()
                     
                 case .sent:
                     guard hasAtLeastOneReadReceipt else {

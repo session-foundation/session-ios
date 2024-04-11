@@ -158,7 +158,9 @@ public extension DisappearingMessagesConfiguration {
             }
             
             guard isEnabled, durationSeconds > 0 else {
-                return String(format: "DISAPPERING_MESSAGES_INFO_DISABLE".localized(), senderName)
+                return "disappearingMessagesTurnedOff"
+                    .put(key: "name", value: senderName)
+                    .localized()
             }
             
             return "disappearingMessagesSet"
