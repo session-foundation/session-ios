@@ -8,6 +8,7 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionSnodeKit
+import SignalCoreKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel = ThreadPickerViewModel()
@@ -327,6 +328,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
+                        DDLog.flushLog()
                         Storage.suspendDatabaseAccess()
                         activityIndicator.dismiss { }
                         

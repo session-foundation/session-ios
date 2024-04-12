@@ -16,6 +16,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
     private var openGroupPollCancellable: AnyCancellable?
+    private var fileLogger: DDFileLogger?
 
     public static let isFromRemoteKey = "remote"
     public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"
@@ -88,7 +89,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             (lastCallPreOffer ?? Date.distantPast).timeIntervalSinceNow < NotificationServiceExtension.callPreOfferLargeNotificationSupressionDuration
                         else { return self.handleFailure(for: notificationContent, error: .processing(result)) }
                         
-                        NSLog("[NotificationServiceExtension] Suppressing large notification too close to a call.")
+                        SNLog("[NotificationServiceExtension] Suppressing large notification too close to a call.", forceNSLog: true)
                         return
                         
                     case .legacyForceSilent, .failureNoContent: return
@@ -218,7 +219,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // to process new messages.
         guard !didPerformSetup else { return }
 
-        NSLog("[NotificationServiceExtension] Performing setup")
+        SNLog("[NotificationServiceExtension] Performing setup", forceNSLog: true)
         didPerformSetup = true
 
         _ = AppVersion.sharedInstance()
@@ -227,16 +228,26 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         AppSetup.setupEnvironment(
             retrySetupIfDatabaseInvalid: true,
-            appSpecificBlock: {
+            appSpecificBlock: { [weak self] in
                 SessionEnvironment.shared?.notificationsManager.mutate {
                     $0 = NSENotificationPresenter()
                 }
+                
+                // Add the file logger
+                let logFileManager: DDLogFileManagerDefault = DDLogFileManagerDefault(
+                    logsDirectory: "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/NotificationExtension" // stringlint:disable
+                )
+                let fileLogger: DDFileLogger = DDFileLogger(logFileManager: logFileManager)
+                fileLogger.rollingFrequency = kDayInterval // Refresh everyday
+                fileLogger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
+                DDLog.add(fileLogger)
+                self?.fileLogger = fileLogger
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 switch result {
                     // Only 'NSLog' works in the extension - viewable via Console.app
                     case .failure(let error):
-                        NSLog("[NotificationServiceExtension] Failed to complete migrations: \(error)")
+                        SNLog("[NotificationServiceExtension] Failed to complete migrations: \(error)", forceNSLog: true)
                         self?.completeSilenty()
                         
                     case .success:
@@ -246,7 +257,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         // so it is possible that could change in the future. If it does, do nothing
                         // and don't disturb the user. Messages will be processed when they open the app.
                         guard Storage.shared[.isReadyForAppExtensions] else {
-                            NSLog("[NotificationServiceExtension] Not ready for extensions")
+                            SNLog("[NotificationServiceExtension] Not ready for extensions", forceNSLog: true)
                             self?.completeSilenty()
                             return
                         }
@@ -282,7 +293,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard Storage.shared.isValid && migrationsCompleted else {
-            NSLog("[NotificationServiceExtension] Storage invalid")
+            SNLog("[NotificationServiceExtension] Storage invalid", forceNSLog: true)
             self.completeSilenty()
             return
         }
@@ -298,13 +309,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     override public func serviceExtensionTimeWillExpire() {
         // Called just before the extension will be terminated by the system.
         // Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
-        NSLog("[NotificationServiceExtension] Execution time expired")
+        SNLog("[NotificationServiceExtension] Execution time expired", forceNSLog: true)
         openGroupPollCancellable?.cancel()
         completeSilenty()
     }
     
     private func completeSilenty() {
-        NSLog("[NotificationServiceExtension] Complete silently")
+        SNLog("[NotificationServiceExtension] Complete silently", forceNSLog: true)
+        DDLog.flushLog()
         let silentContent: UNMutableNotificationContent = UNMutableNotificationContent()
         silentContent.badge = Storage.shared
             .read { db in try Interaction.fetchUnreadCount(db) }
@@ -328,10 +340,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             CXProvider.reportNewIncomingVoIPPushPayload(payload) { error in
                 if let error = error {
                     self.handleFailureForVoIP(db, for: callMessage)
-                    NSLog("[NotificationServiceExtension] Failed to notify main app of call message: \(error)")
+                    SNLog("[NotificationServiceExtension] Failed to notify main app of call message: \(error)", forceNSLog: true)
                 }
                 else {
-                    NSLog("[NotificationServiceExtension] Successfully notified main app of call message.")
+                    SNLog("[NotificationServiceExtension] Successfully notified main app of call message.", forceNSLog: true)
                     UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
                     self.completeSilenty()
                 }
@@ -364,16 +376,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                NSLog("[NotificationServiceExtension] Failed to add notification request due to error: \(error)")
+                SNLog("[NotificationServiceExtension] Failed to add notification request due to error: \(error)", forceNSLog: true)
             }
             semaphore.signal()
         }
         semaphore.wait()
-        NSLog("[NotificationServiceExtension] Add remote notification request")
+        SNLog("[NotificationServiceExtension] Add remote notification request", forceNSLog: true)
+        DDLog.flushLog()
     }
 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
-        NSLog("[NotificationServiceExtension] Show generic failure message due to error: \(error)")
+        SNLog("[NotificationServiceExtension] Show generic failure message due to error: \(error)", forceNSLog: true)
+        DDLog.flushLog()
         Storage.suspendDatabaseAccess()
         
         content.title = "Session"

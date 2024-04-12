@@ -32,5 +32,6 @@ public enum SNSnodeKit: MigratableTarget { // Just to make the external API nice
     public static func configure() {
         // Configure the job executors
         JobRunner.setExecutor(GetSnodePoolJob.self, for: .getSnodePool)
+        JobRunner.setExecutor(BuildPathsJob.self, for: .buildPaths)
     }
 }

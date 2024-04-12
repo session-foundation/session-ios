@@ -255,7 +255,8 @@ public final class JobRunner: JobRunnerType {
                     jobVariants.remove(.notifyPushServer),
                     jobVariants.remove(.sendReadReceipts),
                     jobVariants.remove(.groupLeaving),
-                    jobVariants.remove(.configurationSync)
+                    jobVariants.remove(.configurationSync),
+                    jobVariants.remove(.buildPaths)
                 ].compactMap { $0 }
             ),
             

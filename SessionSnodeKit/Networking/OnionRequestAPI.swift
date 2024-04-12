@@ -80,7 +80,6 @@ public extension Network.RequestType {
 
 /// See the "Onion Requests" section of [The Session Whitepaper](https://arxiv.org/pdf/2002.04609.pdf) for more information.
 public enum OnionRequestAPI {
-    private static var buildPathsPublisher: Atomic<AnyPublisher<[[Snode]], Error>?> = Atomic(nil)
     internal static var pathFailureCount: Atomic<[[Snode]: UInt]> = Atomic([:])
     internal static var guardSnodes: Atomic<Set<Snode>> = Atomic([])
     
@@ -119,274 +118,12 @@ public enum OnionRequestAPI {
     private static let pathFailureThreshold: UInt = 3
     /// The number of times a snode can fail before it's replaced.
     private static let snodeFailureThreshold: UInt = 3
-    /// The number of paths to maintain.
-    public static let targetPathCount: UInt = 2
-
-    /// The number of guard snodes required to maintain `targetPathCount` paths.
-    private static var targetGuardSnodeCount: UInt { return targetPathCount } // One per path
     
     // MARK: - Onion Building Result
     
     private typealias OnionBuildingResult = (guardSnode: Snode, finalEncryptionResult: AES.GCM.EncryptionResult, destinationSymmetricKey: Data)
 
     // MARK: - Private API
-    
-    /// Finds `targetGuardSnodeCount` guard snodes to use for path building. The returned promise errors out with
-    /// `Error.insufficientSnodes` if not enough (reliable) snodes are available.
-    private static func getGuardSnodes(
-        reusing reusableGuardSnodes: [Snode],
-        ed25519SecretKey: [UInt8]?,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<Set<Snode>, Error> {
-        guard guardSnodes.wrappedValue.count < targetGuardSnodeCount else {
-            return Just(guardSnodes.wrappedValue)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        SNLog("Populating guard snode cache.")
-        // Sync on LokiAPI.workQueue
-        var unusedSnodes = SnodeAPI.snodePool.wrappedValue.subtracting(reusableGuardSnodes)
-        let reusableGuardSnodeCount = UInt(reusableGuardSnodes.count)
-        
-        guard unusedSnodes.count >= (targetGuardSnodeCount - reusableGuardSnodeCount) else {
-            return Fail(error: SnodeAPIError.insufficientSnodes)
-                .eraseToAnyPublisher()
-        }
-        
-        func getGuardSnode() -> AnyPublisher<Snode, Error> {
-            // randomElement() uses the system's default random generator, which
-            // is cryptographically secure
-            guard let candidate = unusedSnodes.randomElement() else {
-                return Fail(error: SnodeAPIError.insufficientSnodes)
-                    .eraseToAnyPublisher()
-            }
-            
-            unusedSnodes.remove(candidate) // All used snodes should be unique
-            SNLog("Testing guard snode: \(candidate).")
-            
-            // Loop until a reliable guard snode is found
-            return SnodeAPI
-                .testSnode(
-                    snode: candidate,
-                    ed25519SecretKey: ed25519SecretKey,
-                    using: dependencies
-                )
-                .map { _ in candidate }
-                .catch { _ in
-                    return Just(())
-                        .setFailureType(to: Error.self)
-                        .delay(for: .milliseconds(100), scheduler: Threading.workQueue)
-                        .flatMap { _ in getGuardSnode() }
-                }
-                .eraseToAnyPublisher()
-        }
-        
-        let publishers = (0..<(targetGuardSnodeCount - reusableGuardSnodeCount))
-            .map { _ in getGuardSnode() }
-        
-        return Publishers.MergeMany(publishers)
-            .collect()
-            .map { output in Set(output) }
-            .handleEvents(
-                receiveOutput: { output in
-                    OnionRequestAPI.guardSnodes.mutate { $0 = output }
-                }
-            )
-            .eraseToAnyPublisher()
-    }
-    
-    /// Builds and returns `targetPathCount` paths. The returned promise errors out with `Error.insufficientSnodes`
-    /// if not enough (reliable) snodes are available.
-    @discardableResult
-    private static func buildPaths(
-        reusing reusablePaths: [[Snode]],
-        ed25519SecretKey: [UInt8]?,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<[[Snode]], Error> {
-        if let existingBuildPathsPublisher = buildPathsPublisher.wrappedValue {
-            return existingBuildPathsPublisher
-        }
-        
-        return buildPathsPublisher.mutate { result in
-            /// It was possible for multiple threads to call this at the same time resulting in duplicate promises getting created, while
-            /// this should no longer be possible (as the `wrappedValue` should now properly be blocked) this is a sanity check
-            /// to make sure we don't create an additional promise when one already exists
-            if let previouslyBlockedPublisher: AnyPublisher<[[Snode]], Error> = result {
-                return previouslyBlockedPublisher
-            }
-            
-            SNLog("Building onion request paths.")
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .buildingPaths, object: nil)
-            }
-            
-            /// Need to include the post-request code and a `shareReplay` within the publisher otherwise it can still be executed
-            /// multiple times as a result of multiple subscribers
-            let reusableGuardSnodes = reusablePaths.map { $0[0] }
-            let publisher: AnyPublisher<[[Snode]], Error> = getGuardSnodes(reusing: reusableGuardSnodes, ed25519SecretKey: ed25519SecretKey, using: dependencies)
-                .flatMap { (guardSnodes: Set<Snode>) -> AnyPublisher<[[Snode]], Error> in
-                    var unusedSnodes: Set<Snode> = SnodeAPI.snodePool.wrappedValue
-                        .subtracting(guardSnodes)
-                        .subtracting(reusablePaths.flatMap { $0 })
-                    let reusableGuardSnodeCount: UInt = UInt(reusableGuardSnodes.count)
-                    let pathSnodeCount: UInt = (targetGuardSnodeCount - reusableGuardSnodeCount) * pathSize - (targetGuardSnodeCount - reusableGuardSnodeCount)
-                    
-                    guard unusedSnodes.count >= pathSnodeCount else {
-                        return Fail<[[Snode]], Error>(error: SnodeAPIError.insufficientSnodes)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    // Don't test path snodes as this would reveal the user's IP to them
-                    let paths: [[Snode]] = guardSnodes
-                        .subtracting(reusableGuardSnodes)
-                        .map { (guardSnode: Snode) in
-                            let result: [Snode] = [guardSnode]
-                                .appending(
-                                    contentsOf: (0..<(pathSize - 1))
-                                        .map { _ in
-                                            // randomElement() uses the system's default random generator,
-                                            // which is cryptographically secure
-                                            let pathSnode: Snode = unusedSnodes.randomElement()! // Safe because of the pathSnodeCount check above
-                                            unusedSnodes.remove(pathSnode) // All used snodes should be unique
-                                            return pathSnode
-                                        }
-                                    )
-                            
-                            SNLog("Built new onion request path: \(result.prettifiedDescription).")
-                            return result
-                        }
-                    
-                    return Just(paths)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                .handleEvents(
-                    receiveOutput: { output in
-                        OnionRequestAPI.paths = (output + reusablePaths)
-                        
-                        Storage.shared.write { db in
-                            SNLog("Persisting onion request paths to database.")
-                            try? output.save(db)
-                        }
-                        
-                        DispatchQueue.main.async {
-                            NotificationCenter.default.post(name: .pathsBuilt, object: nil)
-                        }
-                    },
-                    receiveCompletion: { _ in buildPathsPublisher.mutate { $0 = nil } }
-                )
-                .shareReplay(1)
-                .eraseToAnyPublisher()
-            
-            /// Actually assign the atomic value
-            result = publisher
-            
-            return publisher
-        }
-    }
-    
-    /// Returns a `Path` to be used for building an onion request. Builds new paths as needed.
-    internal static func getPath(
-        excluding snode: Snode?,
-        ed25519SecretKey: [UInt8]?,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<[Snode], Error> {
-        guard pathSize >= 1 else { preconditionFailure("Can't build path of size zero.") }
-        
-        let paths: [[Snode]] = OnionRequestAPI.paths
-        var cancellable: [AnyCancellable] = []
-        
-        if !paths.isEmpty {
-            guardSnodes.mutate {
-                $0.formUnion([ paths[0][0] ])
-                
-                if paths.count >= 2 {
-                    $0.formUnion([ paths[1][0] ])
-                }
-            }
-        }
-        
-        // randomElement() uses the system's default random generator, which is cryptographically secure
-        if
-            paths.count >= targetPathCount,
-            let targetPath: [Snode] = paths
-                .filter({ snode == nil || !$0.contains(snode!) })
-                .randomElement()
-        {
-            return Just(targetPath)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        else if !paths.isEmpty {
-            if let snode = snode {
-                if let path = paths.first(where: { !$0.contains(snode) }) {
-                    buildPaths(reusing: paths, ed25519SecretKey: ed25519SecretKey, using: dependencies) // Re-build paths in the background
-                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                        .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
-                        .store(in: &cancellable)
-                    
-                    return Just(path)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                else {
-                    return buildPaths(reusing: paths, ed25519SecretKey: ed25519SecretKey, using: dependencies)
-                        .flatMap { paths in
-                            guard let path: [Snode] = paths.filter({ !$0.contains(snode) }).randomElement() else {
-                                return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
-                                    .eraseToAnyPublisher()
-                            }
-                            
-                            return Just(path)
-                                .setFailureType(to: Error.self)
-                                .eraseToAnyPublisher()
-                        }
-                        .eraseToAnyPublisher()
-                }
-            }
-            else {
-                buildPaths(reusing: paths, ed25519SecretKey: ed25519SecretKey, using: dependencies) // Re-build paths in the background
-                    .subscribe(on: DispatchQueue.global(qos: .background))
-                    .sink(receiveCompletion: { _ in cancellable = [] }, receiveValue: { _ in })
-                    .store(in: &cancellable)
-                
-                guard let path: [Snode] = paths.randomElement() else {
-                    return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
-                        .eraseToAnyPublisher()
-                }
-                
-                return Just(path)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
-        }
-        else {
-            return buildPaths(reusing: [], ed25519SecretKey: ed25519SecretKey, using: dependencies)
-                .flatMap { paths in
-                    if let snode = snode {
-                        if let path = paths.filter({ !$0.contains(snode) }).randomElement() {
-                            return Just(path)
-                                .setFailureType(to: Error.self)
-                                .eraseToAnyPublisher()
-                        }
-                        
-                        return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    guard let path: [Snode] = paths.randomElement() else {
-                        return Fail<[Snode], Error>(error: SnodeAPIError.insufficientSnodes)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    return Just(path)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                .eraseToAnyPublisher()
-        }
-    }
 
     internal static func dropGuardSnode(_ snode: Snode?) {
         guardSnodes.mutate { snodes in snodes = snodes.filter { $0 != snode } }
@@ -394,7 +131,7 @@ public enum OnionRequestAPI {
 
     private static func drop(_ snode: Snode) throws {
         // We repair the path here because we can do it sync. In the case where we drop a whole
-        // path we leave the re-building up to getPath(excluding:using:) because re-building the path
+        // path we leave the re-building up to the `BuildPathsJob` because re-building the path
         // in that case is async.
         SnodeAPI.snodeFailureCount.mutate { $0[snode] = 0 }
         var oldPaths = paths
@@ -451,8 +188,13 @@ public enum OnionRequestAPI {
         }()
         let ed25519SecretKey: [UInt8]? = Identity.fetchUserEd25519KeyPair()?.secretKey
         
-        return getPath(excluding: snodeToExclude, ed25519SecretKey: ed25519SecretKey, using: dependencies)
-            .tryFlatMap { path -> AnyPublisher<(ResponseInfoType, Data?), Error> in
+        return BuildPathsJob
+            .runIfNeeded(
+                excluding: snodeToExclude,
+                ed25519SecretKey: ed25519SecretKey,
+                using: dependencies
+            )
+            .tryFlatMap { _ -> AnyPublisher<(ResponseInfoType, Data?), Error> in
                 LibSession.sendOnionRequest(
                     to: destination,
                     body: body,
