@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -15,6 +17,7 @@ public final class CurrentUserPoller: Poller {
     // MARK: - Settings
     
     override var namespaces: [SnodeAPI.Namespace] { CurrentUserPoller.namespaces }
+    override var pollerQueue: DispatchQueue { Threading.pollerQueue }
     
     /// After polling a given snode 6 times we always switch to a new one.
     ///

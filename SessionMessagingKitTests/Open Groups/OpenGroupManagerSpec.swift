@@ -1176,6 +1176,14 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
+                    mockOGMCache.when { $0.hasPerformedInitialPoll }.thenReturn([:])
+                    mockOGMCache.when { $0.timeSinceLastPoll }.thenReturn([:])
+                    mockOGMCache
+                        .when { [dependencies = dependencies!] cache in
+                            cache.getTimeSinceLastOpen(using: dependencies)
+                        }
+                        .thenReturn(0)
+                    mockOGMCache.when { $0.isPolling }.thenReturn(false)
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
@@ -1590,9 +1598,12 @@ class OpenGroupManagerSpec: QuickSpec {
                             })
                     }
                     
-                    // MARK: ------ does not start a new poller when already polling
-                    it("does not start a new poller when already polling") {
+                    // MARK: ------ restarts the poller if there already is one
+                    it("restarts the poller if there already is one") {
                         mockOGMCache.when { $0.pollers }.thenReturn(["testserver": OpenGroupAPI.Poller(for: "testserver")])
+                        mockNetwork
+                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .thenReturn(Network.BatchResponse.mockBlindedPollResponse)
                         
                         mockStorage.write { db in
                             try OpenGroupManager.handlePollInfo(
@@ -1605,7 +1616,10 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(mockOGMCache).to(call(.exactly(times: 1)) { $0.pollers })
+                        expect(mockOGMCache)
+                            .to(call(matchingParameters: true) {
+                                $0.pollers = ["testserver": OpenGroupAPI.Poller(for: "testserver")]
+                            })
                     }
                 }
                 

@@ -2090,7 +2090,7 @@ extension ConversationVC:
                     let targetJob: Job? = jobs.first(where: { JobRunner.isCurrentlyRunning($0) })
                     
                     guard targetJob == nil else {
-                        JobRunner.afterCurrentlyRunningJob(targetJob) { [weak self] result in
+                        JobRunner.afterJob(targetJob, state: .running) { [weak self] result in
                             switch result {
                                 // If it succeeded then we'll need to delete from the server so re-run
                                 // this function (if we still don't have the server id for some reason

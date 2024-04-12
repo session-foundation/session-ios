@@ -10,6 +10,8 @@ import SessionUtilitiesKit
 // MARK: - LibSession
 
 public extension LibSession {
+    fileprivate static var networkCache: Atomic<(ed25519Pubkey: String, network: UnsafeMutablePointer<network_object>?)?> = Atomic(nil)
+    
     struct ServiceNodeChanges {
         enum Change: UInt32 {
             case none = 0
@@ -46,7 +48,7 @@ public extension LibSession {
                 pendingNodes.append(
                     Snode(
                         ip: String(libSessionVal: cNodes[index].ip),
-                        lmqPort: cNodes[index].lmq_port,
+                        lmqPort: cNodes[index].quic_port,
                         x25519PublicKey: String(libSessionVal: cNodes[index].x25519_pubkey_hex),
                         ed25519PublicKey: String(libSessionVal: cNodes[index].ed25519_pubkey_hex)
                     )
@@ -79,6 +81,57 @@ public extension LibSession {
     
     // MARK: - Internal Functions
     
+    private static func getNetwork(ed25519SecretKey: [UInt8]?, canOverrideKey: Bool) throws -> UnsafeMutablePointer<network_object>? {
+        guard let cEd25519SecretKey: [UInt8] = ed25519SecretKey else {
+            throw SnodeAPIError.missingSecretKey
+        }
+        
+        let ed25519Pubkey: String = String(cEd25519SecretKey.toHexString().suffix(32))
+        
+        // If we have an existing network and, either we can't override the key or the key matches then use
+        // the existing network
+        if
+            let existingNetworkCache: (ed25519Pubkey: String, network: UnsafeMutablePointer<network_object>?) = networkCache.wrappedValue,
+            let network: UnsafeMutablePointer<network_object> = existingNetworkCache.network,
+            (
+                !canOverrideKey ||
+                existingNetworkCache.ed25519Pubkey == ed25519Pubkey
+            )
+        { return network }
+        
+        return try networkCache.mutate { networkCache in
+            var error: [CChar] = [CChar](repeating: 0, count: 256)
+            
+            if let networkPtr: UnsafeMutablePointer<network_object> = networkCache?.network {
+                networkCache = (ed25519Pubkey, networkPtr)
+                guard network_replace_key(networkPtr, cEd25519SecretKey, &error) else {
+                    SNLog("[LibQuic Error] Unable to replace network key: \(String(cString: error))")
+                    throw SnodeAPIError.invalidNetwork
+                }
+                
+                return networkPtr
+            }
+            
+            var network: UnsafeMutablePointer<network_object>?
+            
+            guard network_init(&network, cEd25519SecretKey, &error) else {
+                SNLog("[LibQuic Error] Unable to create network object: \(String(cString: error))")
+                throw SnodeAPIError.invalidNetwork
+            }
+            networkCache = (ed25519Pubkey, network)
+            
+            return network
+        }
+    }
+    
+    private static func toCIp(ip: String) throws -> (UInt8, UInt8, UInt8, UInt8) {
+        let result: [UInt8] = ip.split(separator: ".").compactMap { UInt8($0) }
+        
+        guard result.count == 4 else { throw SnodeAPIError.invalidIP }
+        
+        return (result[0], result[1], result[2], result[3])
+    }
+    
     private static func cSwarm(for swarmPublicKey: String?) -> (ptr: UnsafePointer<network_service_node>?, count: Int) {
         guard let swarm: Set<Snode> = swarmPublicKey.map({ SnodeAPI.swarmCache.wrappedValue[$0] }) else { return (nil, 0) }
         
@@ -87,7 +140,7 @@ public extension LibSession {
             .map { index, snode in
                 network_service_node(
                     ip: snode.ip.toLibSession(),
-                    lmq_port: snode.lmqPort,
+                    quic_port: snode.lmqPort,
                     x25519_pubkey_hex: snode.x25519PublicKey.toLibSession(),
                     ed25519_pubkey_hex: snode.ed25519PublicKey.toLibSession(),
                     failure_count: UInt8(SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0),
@@ -140,6 +193,7 @@ public extension LibSession {
                 switch changes.pathInvalid {
                     case false: OnionRequestAPI.pathFailureCount.mutate { $0[changes.nodes] = changes.pathFailureCount }
                     case true:
+                        LibSession.removePath(path: changes.nodes)
                         OnionRequestAPI.dropGuardSnode(changes.nodes.first)
                         OnionRequestAPI.drop(changes.nodes)
                 }
@@ -182,8 +236,76 @@ public extension LibSession {
     
     // MARK: - Public Interface
     
-    static func addNetworkLogger() {
-        network_add_logger({ logPtr, msgLen in
+    static func addPath(path: [Snode]) {
+        guard let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair()?.secretKey else {
+            SNLog("[LibSession] Unable to add path to network due to missing secret key.")
+            return
+        }
+        
+        let network: UnsafeMutablePointer<network_object>?
+        let cNodes: UnsafePointer<network_service_node>?
+        
+        do {
+            network = try getNetwork(ed25519SecretKey: ed25519SecretKey, canOverrideKey: true)
+            cNodes = try path
+                .enumerated()
+                .map { index, snode in
+                    network_service_node(
+                        ip: try toCIp(ip: snode.ip),
+                        quic_port: snode.lmqPort,
+                        x25519_pubkey_hex: snode.x25519PublicKey.toLibSession(),
+                        ed25519_pubkey_hex: snode.ed25519PublicKey.toLibSession(),
+                        failure_count: UInt8(SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0),
+                        invalid: false
+                    )
+                }
+                .unsafeCopy()
+        }
+        catch { return }
+        
+        let cOnionPath: onion_request_path = onion_request_path(
+            nodes: cNodes,
+            nodes_count: path.count,
+            failure_count: UInt8(OnionRequestAPI.pathFailureCount.wrappedValue[path] ?? 0)
+        )
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
+        if !network_add_path(network, cOnionPath, &error) {
+            SNLog("[LibSession] Failed to add path due to error: \(error).")
+        }
+        cNodes?.deallocate()
+    }
+    
+    static func removePath(path: [Snode]) {
+        guard let ed25519SecretKey: [UInt8] = Identity.fetchUserEd25519KeyPair()?.secretKey else {
+            return SNLog("[LibSession] Unable to add path to network due to missing secret key.")
+        }
+        guard let snode: Snode = path.first else { return SNLog("[LibSession] Unable to remove empty path.") }
+        
+        let network: UnsafeMutablePointer<network_object>?
+        let cNodeIp: (UInt8, UInt8, UInt8, UInt8)
+        
+        do {
+            network = try getNetwork(ed25519SecretKey: ed25519SecretKey, canOverrideKey: true)
+            cNodeIp = try toCIp(ip: snode.ip)
+        }
+        catch { return }
+        
+        let cNode: network_service_node = network_service_node(
+            ip: cNodeIp,
+            quic_port: snode.lmqPort,
+            x25519_pubkey_hex: snode.x25519PublicKey.toLibSession(),
+            ed25519_pubkey_hex: snode.ed25519PublicKey.toLibSession(),
+            failure_count: UInt8(SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0),
+            invalid: false
+        )
+        var error: [CChar] = [CChar](repeating: 0, count: 256)
+        if !network_remove_path(network, cNode, &error) {
+            SNLog("[LibSession] Failed to remove path due to error: \(error).")
+        }
+    }
+    
+    static func addNetworkLogger(ed25519SecretKey: [UInt8]?) {
+        network_add_logger(try? getNetwork(ed25519SecretKey: ed25519SecretKey, canOverrideKey: true), { logPtr, msgLen in
             guard let log: String = String(pointer: logPtr, length: msgLen, encoding: .utf8) else {
                 print("[quic:info] Null log")
                 return
@@ -199,13 +321,19 @@ public extension LibSession {
         snode: Snode,
         swarmPublicKey: String?,
         ed25519SecretKey: [UInt8]?,
+        canOverrideKey: Bool = true,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return Deferred {
             Future<(ResponseInfoType, Data?), Error> { resolver in
-                guard let cEd25519SecretKey: [UInt8] = ed25519SecretKey else {
-                    return resolver(Result.failure(SnodeAPIError.missingSecretKey))
+                let network: UnsafeMutablePointer<network_object>?
+                let cSnodeIp: (UInt8, UInt8, UInt8, UInt8)
+                
+                do {
+                    network = try getNetwork(ed25519SecretKey: ed25519SecretKey, canOverrideKey: canOverrideKey)
+                    cSnodeIp = try toCIp(ip: snode.ip)
                 }
+                catch { return resolver(Result.failure(error)) }
                 
                 // Prepare the parameters
                 let cPayloadBytes: [UInt8]
@@ -222,8 +350,8 @@ public extension LibSession {
                         cPayloadBytes = Array(encodedBody)
                 }
                 let cTarget: network_service_node = network_service_node(
-                    ip: snode.ip.toLibSession(),
-                    lmq_port: snode.lmqPort,
+                    ip: cSnodeIp,
+                    quic_port: snode.lmqPort,
                     x25519_pubkey_hex: snode.x25519PublicKey.toLibSession(),
                     ed25519_pubkey_hex: snode.ed25519PublicKey.toLibSession(),
                     failure_count: UInt8(SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0),
@@ -241,7 +369,7 @@ public extension LibSession {
                 
                 // Trigger the request
                 network_send_request(
-                    cEd25519SecretKey,
+                    network,
                     cTarget,
                     endpoint.path.cArray.nullTerminated(),
                     cPayloadBytes,
@@ -263,16 +391,16 @@ public extension LibSession {
     static func sendOnionRequest<T: Encodable>(
         to destination: OnionRequestAPIDestination,
         body: T?,
-        path: [Snode],
         swarmPublicKey: String?,
         ed25519SecretKey: [UInt8]?,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return Deferred {
             Future<(ResponseInfoType, Data?), Error> { resolver in
-                guard let cEd25519SecretKey: [UInt8] = ed25519SecretKey else {
-                    return resolver(Result.failure(SnodeAPIError.missingSecretKey))
-                }
+                let network: UnsafeMutablePointer<network_object>?
+                
+                do { network = try getNetwork(ed25519SecretKey: ed25519SecretKey, canOverrideKey: true) }
+                catch { return resolver(Result.failure(error)) }
                 
                 // Prepare the parameters
                 let cPayloadBytes: [UInt8]
@@ -288,24 +416,6 @@ public extension LibSession {
                         
                         cPayloadBytes = Array(encodedBody)
                 }
-                let cNodes: UnsafePointer<network_service_node>? = path
-                    .enumerated()
-                    .map { index, snode in
-                        network_service_node(
-                            ip: snode.ip.toLibSession(),
-                            lmq_port: snode.lmqPort,
-                            x25519_pubkey_hex: snode.x25519PublicKey.toLibSession(),
-                            ed25519_pubkey_hex: snode.ed25519PublicKey.toLibSession(),
-                            failure_count: UInt8(SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0),
-                            invalid: false
-                        )
-                    }
-                    .unsafeCopy()
-                let cOnionPath: onion_request_path = onion_request_path(
-                    nodes: cNodes,
-                    nodes_count: path.count,
-                    failure_count: UInt8(OnionRequestAPI.pathFailureCount.wrappedValue[path] ?? 0)
-                )
                 let cSwarmInfo: (ptr: UnsafePointer<network_service_node>?, count: Int) = cSwarm(for: swarmPublicKey)
                 let callbackWrapper: CWrapper = CWrapper { success, timeout, statusCode, data, changes in
                     switch processError(success, timeout, statusCode, data, changes, swarmPublicKey, using: dependencies) {
@@ -313,19 +423,22 @@ public extension LibSession {
                         case .none: resolver(Result.success((Network.ResponseInfo(code: Int(statusCode), headers: [:]), data)))
                     }
                 }
-                callbackWrapper.addUnsafePointerToCleanup(cNodes)
                 callbackWrapper.addUnsafePointerToCleanup(cSwarmInfo.ptr)
                 let cWrapperPtr: UnsafeMutableRawPointer = Unmanaged.passRetained(callbackWrapper).toOpaque()
                 
                 // Trigger the request
                 switch destination {
                     case .snode(let snode):
+                        let cSnodeIp: (UInt8, UInt8, UInt8, UInt8)
+                        
+                        do { cSnodeIp = try toCIp(ip: snode.ip) }
+                        catch { return resolver(Result.failure(error)) }
+                        
                         network_send_onion_request_to_snode_destination(
-                            cOnionPath,
-                            cEd25519SecretKey,
+                            network,
                             onion_request_service_node_destination(
-                                ip: snode.ip.toLibSession(),
-                                lmq_port: snode.lmqPort,
+                                ip: cSnodeIp,
+                                quic_port: snode.lmqPort,
                                 x25519_pubkey_hex: snode.x25519PublicKey.toLibSession(),
                                 ed25519_pubkey_hex: snode.ed25519PublicKey.toLibSession(),
                                 failure_count: UInt8(SnodeAPI.snodeFailureCount.wrappedValue[snode] ?? 0),
@@ -368,8 +481,7 @@ public extension LibSession {
                         cQueryParamValues.forEach { callbackWrapper.addUnsafePointerToCleanup($0) }
 
                         network_send_onion_request_to_server_destination(
-                            cOnionPath,
-                            cEd25519SecretKey,
+                            network,
                             (method ?? "GET").cArray.nullTerminated(),
                             targetScheme.cArray.nullTerminated(),
                             host.cArray.nullTerminated(),

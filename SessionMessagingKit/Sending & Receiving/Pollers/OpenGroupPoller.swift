@@ -56,12 +56,12 @@ extension OpenGroupAPI {
             let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
             
             poll(using: dependencies)
-                .subscribe(on: Threading.pollerQueue, using: dependencies)
+                .subscribe(on: Threading.communityPollerQueue, using: dependencies)
                 .receive(on: OpenGroupAPI.workQueue, using: dependencies)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] _ in
                         let minPollFailureCount: Int64 = dependencies.storage
-                            .read { db in
+                            .read(using: dependencies) { db in
                                 try OpenGroup
                                     .filter(OpenGroup.Columns.server == server)
                                     .select(min(OpenGroup.Columns.pollFailureCount))
@@ -81,12 +81,12 @@ extension OpenGroupAPI {
                         
                         // Schedule the next poll
                         guard remainingInterval > 0 else {
-                            return Threading.pollerQueue.async(using: dependencies) {
+                            return Threading.communityPollerQueue.async(using: dependencies) {
                                 self?.pollRecursively(using: dependencies)
                             }
                         }
                         
-                        Threading.pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
+                        Threading.communityPollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
                             self?.pollRecursively(using: dependencies)
                         }
                     }
@@ -126,7 +126,7 @@ extension OpenGroupAPI {
             )
             
             return dependencies.storage
-                .readPublisher { db -> (Int64, Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>) in
+                .readPublisher(using: dependencies) { db -> (Int64, Network.PreparedRequest<Network.BatchResponseMap<OpenGroupAPI.Endpoint>>) in
                     let failureCount: Int64 = (try? OpenGroup
                         .filter(OpenGroup.Columns.server == server)
                         .select(max(OpenGroup.Columns.pollFailureCount))
@@ -207,8 +207,8 @@ extension OpenGroupAPI {
                             receiveOutput: { [weak self] didHandleError in
                                 if !didHandleError && isBackgroundPollerValid() {
                                     // Increase the failure count
-                                    let pollFailureCount: Int64 = Storage.shared
-                                        .read { db in
+                                    let pollFailureCount: Int64 = dependencies.storage
+                                        .read(using: dependencies) { db in
                                             try OpenGroup
                                                 .filter(OpenGroup.Columns.server == server)
                                                 .select(max(OpenGroup.Columns.pollFailureCount))
@@ -218,7 +218,7 @@ extension OpenGroupAPI {
                                         .defaulting(to: 0)
                                     var prunedIds: [String] = []
 
-                                    dependencies.storage.writeAsync { db in
+                                    dependencies.storage.writeAsync(using: dependencies) { db in
                                         struct Info: Decodable, FetchableRecord {
                                             let id: String
                                             let shouldBeVisible: Bool
@@ -312,7 +312,7 @@ extension OpenGroupAPI {
                 !isPostCapabilitiesRetry,
                 let error: NetworkError = error as? NetworkError,
                 case .badRequest(let dataString, _) = error,
-                dataString.contains("Invalid authentication: this server requires the use of blinded ids")
+                dataString.contains("Invalid authentication: this server requires the use of blinded ids") // stringlint:disable
             else {
                 return Just(false)
                     .setFailureType(to: Error.self)

@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -21,6 +23,11 @@ public class Poller {
     
     /// The namespaces which this poller queries
     internal var namespaces: [SnodeAPI.Namespace] {
+        preconditionFailure("abstract class - override in subclass")
+    }
+    
+    /// The queue this poller should run on
+    internal var pollerQueue: DispatchQueue {
         preconditionFailure("abstract class - override in subclass")
     }
     
@@ -92,6 +99,7 @@ public class Poller {
         guard isPolling.wrappedValue[swarmPublicKey] == true else { return }
         
         let namespaces: [SnodeAPI.Namespace] = self.namespaces
+        let pollerQueue: DispatchQueue = self.pollerQueue
         let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let lastPollInterval: TimeInterval = nextPollDelay(for: swarmPublicKey, using: dependencies)
         
@@ -103,8 +111,8 @@ public class Poller {
                     drainBehaviour: drainBehaviour,
                     using: dependencies
                 )
-                .subscribe(on: Threading.pollerQueue, using: dependencies)
-                .receive(on: Threading.pollerQueue, using: dependencies)
+                .subscribe(on: pollerQueue, using: dependencies)
+                .receive(on: pollerQueue, using: dependencies)
                 .sink(
                     receiveCompletion: { result in
                         switch result {
@@ -127,12 +135,12 @@ public class Poller {
                         
                         // Schedule the next poll
                         guard remainingInterval > 0 else {
-                            return Threading.pollerQueue.async(using: dependencies) {
+                            return pollerQueue.async(using: dependencies) {
                                 self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
                             }
                         }
                         
-                        Threading.pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
+                        pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
                             self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
                         }
                     },
@@ -165,6 +173,7 @@ public class Poller {
         }
         
         let pollerName: String = pollerName(for: swarmPublicKey)
+        let pollerQueue: DispatchQueue = self.pollerQueue
         let configHashes: [String] = LibSession.configHashes(for: swarmPublicKey)
         
         // Fetch the messages
@@ -368,7 +377,7 @@ public class Poller {
                                     // Note: In the background we just want jobs to fail silently
                                     ConfigMessageReceiveJob.run(
                                         job,
-                                        queue: Threading.pollerQueue,
+                                        queue: pollerQueue,
                                         success: { _, _, _ in resolver(Result.success(())) },
                                         failure: { _, _, _, _ in resolver(Result.success(())) },
                                         deferred: { _, _ in resolver(Result.success(())) },
@@ -389,7 +398,7 @@ public class Poller {
                                             // Note: In the background we just want jobs to fail silently
                                             MessageReceiveJob.run(
                                                 job,
-                                                queue: Threading.pollerQueue,
+                                                queue: pollerQueue,
                                                 success: { _, _, _ in resolver(Result.success(())) },
                                                 failure: { _, _, _, _ in resolver(Result.success(())) },
                                                 deferred: { _, _ in resolver(Result.success(())) },

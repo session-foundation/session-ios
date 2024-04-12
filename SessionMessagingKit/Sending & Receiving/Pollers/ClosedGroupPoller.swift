@@ -14,6 +14,7 @@ public final class ClosedGroupPoller: Poller {
     // MARK: - Settings
     
     override var namespaces: [SnodeAPI.Namespace] { ClosedGroupPoller.namespaces }
+    override var pollerQueue: DispatchQueue { Threading.groupPollerQueue }
     override var pollDrainBehaviour: SwarmDrainBehaviour { .alwaysRandom }
     
     private static let minPollInterval: Double = 3

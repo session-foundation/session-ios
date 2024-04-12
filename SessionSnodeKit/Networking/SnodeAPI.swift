@@ -213,10 +213,18 @@ public final class SnodeAPI {
             }
             
             let targetPublisher: AnyPublisher<Set<Snode>, Error> = {
-                guard snodePool.count >= minSnodePoolCount else { return getSnodePoolFromSeedNode(ed25519SecretKey: ed25519SecretKey, using: dependencies) }
+                guard snodePool.count >= minSnodePoolCount else {
+                    let targetEd25519SecretKey: [UInt8]? = (ed25519SecretKey ?? Identity.fetchUserEd25519KeyPair()?.secretKey)
+                    
+                    return getSnodePoolFromSeedNode(ed25519SecretKey: targetEd25519SecretKey, using: dependencies)
+                }
                 
                 return getSnodePoolFromSnode(using: dependencies)
-                    .catch { _ in getSnodePoolFromSeedNode(ed25519SecretKey: ed25519SecretKey, using: dependencies) }
+                    .catch { _ in
+                        let targetEd25519SecretKey: [UInt8]? = (ed25519SecretKey ?? Identity.fetchUserEd25519KeyPair()?.secretKey)
+                        
+                        return getSnodePoolFromSeedNode(ed25519SecretKey: targetEd25519SecretKey, using: dependencies)
+                    }
                     .eraseToAnyPublisher()
             }()
             
@@ -1241,6 +1249,7 @@ public final class SnodeAPI {
                 snode: targetSeedNode,
                 swarmPublicKey: nil,
                 ed25519SecretKey: ed25519SecretKey,
+                canOverrideKey: false,
                 using: dependencies
             )
             .decoded(as: SnodePoolResponse.self, using: dependencies)
@@ -1275,6 +1284,7 @@ public final class SnodeAPI {
                 snode: snode,
                 swarmPublicKey: nil,
                 ed25519SecretKey: (ed25519SecretKey ?? Identity.fetchUserEd25519KeyPair()?.secretKey),
+                canOverrideKey: (ed25519SecretKey == nil),  // Only allow override if we are using the user key
                 using: dependencies
             )
             .decoded(as: SnodeAPI.GetInfoResponse.self, using: dependencies)

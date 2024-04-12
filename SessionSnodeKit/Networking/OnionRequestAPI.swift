@@ -82,7 +82,7 @@ public extension Network.RequestType {
 public enum OnionRequestAPI {
     private static var buildPathsPublisher: Atomic<AnyPublisher<[[Snode]], Error>?> = Atomic(nil)
     internal static var pathFailureCount: Atomic<[[Snode]: UInt]> = Atomic([:])
-    public static var guardSnodes: Atomic<Set<Snode>> = Atomic([])
+    internal static var guardSnodes: Atomic<Set<Snode>> = Atomic([])
     
     // Not a set to ensure we consistently show the same path to the user
     private static var _paths: Atomic<[[Snode]]?> = Atomic(nil)
@@ -94,17 +94,27 @@ public enum OnionRequestAPI {
                 try? Snode.fetchAllOnionRequestPaths(db)
             }
             
-            if results?.isEmpty == false { _paths.mutate { $0 = results } }
+            if results?.isEmpty == false {
+                _paths.mutate {
+                    $0 = results
+                    results?.forEach { LibSession.addPath(path: $0) }
+                }
+            }
             return (results ?? [])
         }
-        set { _paths.mutate { $0 = newValue } }
+        set {
+            _paths.mutate {
+                $0 = newValue
+                newValue.forEach { LibSession.addPath(path: $0) }
+            }
+        }
     }
 
     // MARK: - Settings
     
     public static let maxRequestSize = 10_000_000 // 10 MB
     /// The number of snodes (including the guard snode) in a path.
-    private static let pathSize: UInt = 3
+    internal static let pathSize: Int = 3
     /// The number of times a path can fail before it's replaced.
     private static let pathFailureThreshold: UInt = 3
     /// The number of times a snode can fail before it's replaced.
@@ -446,7 +456,6 @@ public enum OnionRequestAPI {
                 LibSession.sendOnionRequest(
                     to: destination,
                     body: body,
-                    path: path,
                     swarmPublicKey: swarmPublicKey,
                     ed25519SecretKey: ed25519SecretKey,
                     using: dependencies

@@ -3,6 +3,10 @@
 import Foundation
 import GRDB
 
+public protocol UniqueHashable {
+    var customHash: Int { get }
+}
+
 public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "job" }
     internal static let dependencyForeignKey = ForeignKey([Columns.id], to: [JobDependencies.Columns.dependantId])
@@ -38,6 +42,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         case threadId
         case interactionId
         case details
+        case uniqueHashValue
     }
     
     public enum Variant: Int, Codable, DatabaseValueConvertible, CaseIterable {
@@ -124,6 +129,10 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job that runs once whenever a message is marked as read because of syncing from user config and
         /// needs to get expiration from network
         case getExpiration
+        
+        /// This job runs whenever we don't have enough onion request paths, it also runs distinctly so there should only
+        /// ever be one at a time
+        case buildPaths
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {
@@ -197,6 +206,12 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     /// JSON encoded data required for the job
     public let details: Data?
     
+    /// When initalizing with `shouldBeUnique` set to `true` this value will be populated with a hash constructed by
+    /// combining the `variant`, `threadId`, `interactionId` and `details` and if this value is populated
+    /// adding/inserting a `Job` will fail if there is already a job with the same `uniqueHashValue` in the database or
+    /// in the `JobRunner`
+    public let uniqueHashValue: Int?
+    
     /// The other jobs which this job is dependant on
     ///
     /// **Note:** When completing a job the dependencies **MUST** be cleared before the job is
@@ -222,6 +237,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         variant: Variant,
         behaviour: Behaviour,
         shouldBlock: Bool,
+        shouldBeUnique: Bool,
         shouldSkipLaunchBecomeActive: Bool,
         nextRunTimestamp: TimeInterval,
         threadId: String?,
@@ -245,6 +261,14 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         self.threadId = threadId
         self.interactionId = interactionId
         self.details = details
+        self.uniqueHashValue = Job.createUniqueHash(
+            shouldBeUnique: shouldBeUnique,
+            customHash: nil,
+            variant: variant,
+            threadId: threadId,
+            interactionId: interactionId,
+            detailsData: details
+        )
     }
     
     public init(
@@ -253,6 +277,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         variant: Variant,
         behaviour: Behaviour = .runOnce,
         shouldBlock: Bool = false,
+        shouldBeUnique: Bool = false,
         shouldSkipLaunchBecomeActive: Bool = false,
         nextRunTimestamp: TimeInterval = 0,
         threadId: String? = nil,
@@ -274,6 +299,14 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         self.threadId = threadId
         self.interactionId = interactionId
         self.details = nil
+        self.uniqueHashValue = Job.createUniqueHash(
+            shouldBeUnique: shouldBeUnique,
+            customHash: nil,
+            variant: variant,
+            threadId: threadId,
+            interactionId: interactionId,
+            detailsData: nil
+        )
     }
     
     public init?<T: Encodable>(
@@ -282,6 +315,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         variant: Variant,
         behaviour: Behaviour = .runOnce,
         shouldBlock: Bool = false,
+        shouldBeUnique: Bool = false,
         shouldSkipLaunchBecomeActive: Bool = false,
         nextRunTimestamp: TimeInterval = 0,
         threadId: String? = nil,
@@ -312,6 +346,14 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         self.threadId = threadId
         self.interactionId = interactionId
         self.details = detailsData
+        self.uniqueHashValue = Job.createUniqueHash(
+            shouldBeUnique: shouldBeUnique,
+            customHash: (details as? UniqueHashable)?.customHash,
+            variant: variant,
+            threadId: threadId,
+            interactionId: interactionId,
+            detailsData: detailsData
+        )
     }
     
     fileprivate static func ensureValidBehaviour(
@@ -321,14 +363,35 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     ) {
         // Blocking jobs can only run on launch as we can't guarantee that any other behaviours will get added
         // to the JobRunner before any prior blocking jobs have completed (resulting in them being non-blocking)
-        precondition(
-            !shouldBlock || behaviour == .recurringOnLaunch || behaviour == .runOnceNextLaunch,
-            "[Job] Fatal error trying to create a blocking job which doesn't run on launch"
-        )
-        precondition(
-            !shouldSkipLaunchBecomeActive || behaviour == .recurringOnActive,
-            "[Job] Fatal error trying to create a job which skips on 'OnActive' triggered during launch with doesn't run on active"
-        )
+        let blockingValid: Bool = (!shouldBlock || behaviour == .recurringOnLaunch || behaviour == .runOnceNextLaunch)
+        let becomeActiveValid: Bool = (!shouldSkipLaunchBecomeActive || behaviour == .recurringOnActive)
+        precondition(blockingValid, "[Job] Fatal error trying to create a blocking job which doesn't run on launch")
+        precondition(becomeActiveValid, "[Job] Fatal error trying to create a job which skips on 'OnActive' triggered during launch with doesn't run on active")
+    }
+    
+    private static func createUniqueHash(
+        shouldBeUnique: Bool,
+        customHash: Int?,
+        variant: Variant,
+        threadId: String?,
+        interactionId: Int64?,
+        detailsData: Data?
+    ) -> Int? {
+        // Only generate a unique hash if the Job should actually be unique (we don't want to prevent
+        // all duplicate jobs, just the ones explicitly marked as unique)
+        guard shouldBeUnique else { return nil }
+        
+        switch customHash {
+            case .some(let customHash): return customHash
+            default:
+                var hasher: Hasher = Hasher()
+                variant.hash(into: &hasher)
+                threadId?.hash(into: &hasher)
+                interactionId?.hash(into: &hasher)
+                detailsData?.hash(into: &hasher)
+                
+                return hasher.finalize()
+        }
     }
     
     // MARK: - Custom Database Interaction
@@ -396,6 +459,7 @@ public extension Job {
             variant: self.variant,
             behaviour: self.behaviour,
             shouldBlock: self.shouldBlock,
+            shouldBeUnique: (self.uniqueHashValue != nil),
             shouldSkipLaunchBecomeActive: self.shouldSkipLaunchBecomeActive,
             nextRunTimestamp: nextRunTimestamp,
             threadId: self.threadId,
@@ -418,6 +482,7 @@ public extension Job {
             variant: self.variant,
             behaviour: self.behaviour,
             shouldBlock: self.shouldBlock,
+            shouldBeUnique: (self.uniqueHashValue != nil),
             shouldSkipLaunchBecomeActive: self.shouldSkipLaunchBecomeActive,
             nextRunTimestamp: self.nextRunTimestamp,
             threadId: self.threadId,

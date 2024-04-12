@@ -5,7 +5,7 @@ import GRDB
 import SessionUtilitiesKit
 
 public struct SnodeSet: Codable, FetchableRecord, EncodableRecord, PersistableRecord, TableRecord, ColumnExpressible {
-    public static let onionRequestPathPrefix = "OnionRequestPath-"
+    public static let onionRequestPathPrefix = "OnionRequestPath-"  // stringlint:disable
     public static var databaseTableName: String { "snodeSet" }
     static let node = hasOne(Snode.self, using: Snode.snodeSetForeignKey)
         

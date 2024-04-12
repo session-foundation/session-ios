@@ -498,13 +498,13 @@ public final class OpenGroupManager {
             // Dispatch async to the workQueue to prevent holding up the DBWrite thread from the
             // above transaction
             OpenGroupAPI.workQueue.async(using: dependencies) {
-                // Start the poller if needed
-                if dependencies.caches[.openGroupManager].pollers[server.lowercased()] == nil {
-                    dependencies.caches.mutate(cache: .openGroupManager) {
-                        $0.pollers[server.lowercased()]?.stop()
-                        $0.pollers[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
-                    }
-                    
+                // (Re)start the poller if needed (want to force it to poll immediately in the next
+                // run loop to avoid a big delay before the next poll)
+                dependencies.caches.mutate(cache: .openGroupManager) {
+                    $0.pollers[server.lowercased()]?.stop()
+                    $0.pollers[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
+                }
+                OpenGroupAPI.workQueue.async(using: dependencies) {
                     dependencies.caches[.openGroupManager].pollers[server.lowercased()]?
                         .startIfNeeded(using: dependencies)
                 }

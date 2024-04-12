@@ -347,9 +347,14 @@ public enum MessageReceiver {
                 
                 // Start the disappearing messages timer if needed
                 // For disappear after send, this is necessary so the message will disappear even if it is not read
-                JobRunner.upsert(
-                    db,
-                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+                db.afterNextTransactionNestedOnce(
+                    dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:disable
+                    onCommit: { db in
+                        JobRunner.upsert(
+                            db,
+                            job: DisappearingMessagesJob.updateNextRunIfNeeded(db)
+                        )
+                    }
                 )
 
                 guard !isCurrentlyVisible else { return }
