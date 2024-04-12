@@ -21,12 +21,12 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
     // Onion Request Errors
     case emptySnodePool
     case insufficientSnodes
-    case ranOutOfRandomSnodes
+    case ranOutOfRandomSnodes(Error?)
     
     // ONS
-    case decryptionFailed
-    case hashingFailed
-    case validationFailed
+    case onsDecryptionFailed
+    case onsHashingFailed
+    case onsValidationFailed
     
     // Quic
     case invalidPayload
@@ -51,12 +51,18 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             // Onion Request Errors
             case .emptySnodePool: return "Service Node pool is empty (SnodeAPIError.emptySnodePool)."
             case .insufficientSnodes: return "Couldn't find enough Service Nodes to build a path (SnodeAPIError.insufficientSnodes)."
-            case .ranOutOfRandomSnodes: return "Ran out of random snodes to send the request through (SnodeAPIError.ranOutOfRandomSnodes)."
+            case .ranOutOfRandomSnodes(let maybeError):
+                switch maybeError {
+                    case .none: return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(nil))."
+                    case .some(let error):
+                        let errorDesc = "\(error)".trimmingCharacters(in: CharacterSet(["."]))
+                        return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(\(errorDesc))."
+                }
                 
             // ONS
-            case .decryptionFailed: return "Couldn't decrypt ONS name (SnodeAPIError.decryptionFailed)."
-            case .hashingFailed: return "Couldn't compute ONS name hash (SnodeAPIError.hashingFailed)."
-            case .validationFailed: return "ONS name validation failed (SnodeAPIError.validationFailed)."
+            case .onsDecryptionFailed: return "Couldn't decrypt ONS name (SnodeAPIError.onsDecryptionFailed)."
+            case .onsHashingFailed: return "Couldn't compute ONS name hash (SnodeAPIError.onsHashingFailed)."
+            case .onsValidationFailed: return "ONS name validation failed (SnodeAPIError.onsValidationFailed)."
                 
             // Quic
             case .invalidPayload: return "Invalid payload (SnodeAPIError.invalidPayload)."

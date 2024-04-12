@@ -600,7 +600,7 @@ public final class SnodeAPI {
         let nameAsData = [UInt8](onsName.data(using: String.Encoding.utf8)!)
         
         guard let nameHash = sodium.wrappedValue.genericHash.hash(message: nameAsData) else {
-            return Fail(error: SnodeAPIError.hashingFailed)
+            return Fail(error: SnodeAPIError.onsHashingFailed)
                 .eraseToAnyPublisher()
         }
         
@@ -647,7 +647,7 @@ public final class SnodeAPI {
             .collect()
             .tryMap { results -> String in
                 guard results.count == validationCount, Set(results).count == 1 else {
-                    throw SnodeAPIError.validationFailed
+                    throw SnodeAPIError.onsValidationFailed
                 }
                 
                 return results[0]
@@ -1362,6 +1362,7 @@ public extension Publisher where Output == Set<Snode> {
                             return swarm.subtracting(usedSnodes)
                     }
                 }()
+                var lastError: Error?
                 
                 return Just(())
                     .setFailureType(to: Error.self)
@@ -1374,7 +1375,7 @@ public extension Publisher where Output == Set<Snode> {
                             
                             // Select the next snode
                             return try dependencies.popRandomElement(&remainingSnodes) ?? {
-                                throw SnodeAPIError.ranOutOfRandomSnodes
+                                throw SnodeAPIError.ranOutOfRandomSnodes(lastError)
                             }()
                         }()
                         drainBehaviour.mutate { $0 = $0.use(snode: snode, from: swarm) }
@@ -1382,33 +1383,14 @@ public extension Publisher where Output == Set<Snode> {
                         return try transform(snode)
                             .eraseToAnyPublisher()
                     }
-                    .retry(retries)
-                    .eraseToAnyPublisher()
-            }
-            .eraseToAnyPublisher()
-    }
-}
-
-// MARK: - Convenience
-
-public extension Publisher where Output == Set<Snode> {
-    func tryFlatMapWithRandomSnode<T, P>(
-        maxPublishers: Subscribers.Demand = .unlimited,
-        retry retries: Int = 0,
-        _ transform: @escaping (Snode) throws -> P
-    ) -> AnyPublisher<T, Error> where T == P.Output, P: Publisher, P.Failure == Error {
-        return self
-            .mapError { $0 }
-            .flatMap(maxPublishers: maxPublishers) { swarm -> AnyPublisher<T, Error> in
-                var remainingSnodes: Set<Snode> = swarm
-                
-                return Just(())
-                    .setFailureType(to: Error.self)
-                    .tryFlatMap(maxPublishers: maxPublishers) { _ -> AnyPublisher<T, Error> in
-                        let snode: Snode = try remainingSnodes.popRandomElement() ?? { throw SnodeAPIError.ranOutOfRandomSnodes }()
+                    .mapError { error in
+                        // Prevent nesting the 'ranOutOfRandomSnodes' errors
+                        switch error {
+                            case SnodeAPIError.ranOutOfRandomSnodes: break
+                            default: lastError = error
+                        }
                         
-                        return try transform(snode)
-                            .eraseToAnyPublisher()
+                        return error
                     }
                     .retry(retries)
                     .eraseToAnyPublisher()

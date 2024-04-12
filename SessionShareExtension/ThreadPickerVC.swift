@@ -253,7 +253,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                             }(),
                             using: dependencies
                         )
-                        .tryFlatMapWithRandomSnode { SnodeAPI.getNetworkTime(from: $0, using: dependencies) }
+                        .tryFlatMapWithRandomSnode(using: dependencies) {
+                            SnodeAPI.getNetworkTime(from: $0, using: dependencies)
+                        }
                         .map { _ in () }
                         .eraseToAnyPublisher()
                 }
