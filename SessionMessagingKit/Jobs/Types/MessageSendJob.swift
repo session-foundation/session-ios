@@ -176,7 +176,6 @@ public enum MessageSendJob: JobExecutor {
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
                     interactionId: job.interactionId,
-                    isSyncMessage: details.isSyncMessage,
                     using: dependencies
                 )
             }
@@ -197,7 +196,7 @@ public enum MessageSendJob: JobExecutor {
                                     SNLog("[MessageSendJob] Couldn't send message due to error: \(error) (paths: \(OnionRequestAPI.paths.prettifiedDescription)).")
                                     
                                 default:
-                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error).")
+                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error)")
                             }
                             
                             // Actual error handling
@@ -240,25 +239,22 @@ extension MessageSendJob {
         private enum CodingKeys: String, CodingKey {
             case destination
             case message
-            case isSyncMessage
+            @available(*, deprecated, message: "replaced by 'Message.Destination.syncMessage'") case isSyncMessage
             case variant
         }
         
         public let destination: Message.Destination
         public let message: Message
-        public let isSyncMessage: Bool
         public let variant: Message.Variant?
         
         // MARK: - Initialization
         
         public init(
             destination: Message.Destination,
-            message: Message,
-            isSyncMessage: Bool = false
+            message: Message
         ) {
             self.destination = destination
             self.message = message
-            self.isSyncMessage = isSyncMessage
             self.variant = Message.Variant(from: message)
         }
         
@@ -272,10 +268,42 @@ extension MessageSendJob {
                 throw StorageError.decodingFailed
             }
             
+            let message: Message = try variant.decode(from: container, forKey: .message)
+            var destination: Message.Destination = try container.decode(Message.Destination.self, forKey: .destination)
+            
+            /// Handle the legacy 'isSyncMessage' flag - this flag was deprecated in `2.5.2` (April 2024) and can be removed in a
+            /// subsequent release after May 2024
+            if ((try? container.decode(Bool.self, forKey: .isSyncMessage)) ?? false) {
+                switch (destination, message) {
+                    case (.contact, let message as VisibleMessage):
+                        guard let targetPublicKey: String = message.syncTarget else {
+                            SNLog("Unable to decode messageSend job due to missing syncTarget")
+                            throw StorageError.decodingFailed
+                        }
+                        
+                        destination = .syncMessage(originalRecipientPublicKey: targetPublicKey)
+                        
+                    case (.contact, let message as ExpirationTimerUpdate):
+                        guard let targetPublicKey: String = message.syncTarget else {
+                            SNLog("Unable to decode messageSend job due to missing syncTarget")
+                            throw StorageError.decodingFailed
+                        }
+                        
+                        destination = .syncMessage(originalRecipientPublicKey: targetPublicKey)
+                        
+                    case (.contact(let publicKey), _):
+                        SNLog("Sync message in messageSend job was missing explicit syncTarget (falling back to specified value)")
+                        destination = .syncMessage(originalRecipientPublicKey: publicKey)
+                        
+                    default:
+                        SNLog("Unable to decode messageSend job due to invalid sync message state")
+                        throw StorageError.decodingFailed
+                }
+            }
+            
             self = Details(
-                destination: try container.decode(Message.Destination.self, forKey: .destination),
-                message: try variant.decode(from: container, forKey: .message),
-                isSyncMessage: ((try? container.decode(Bool.self, forKey: .isSyncMessage)) ?? false)
+                destination: destination,
+                message: message
             )
         }
         
@@ -289,7 +317,6 @@ extension MessageSendJob {
 
             try container.encode(destination, forKey: .destination)
             try container.encode(message, forKey: .message)
-            try container.encode(isSyncMessage, forKey: .isSyncMessage)
             try container.encode(variant, forKey: .variant)
         }
     }
