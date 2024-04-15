@@ -9,7 +9,10 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate {
+final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate, NavigatableStateHolder {
+    public let navigatableState: NavigatableState = NavigatableState()
+    private var disposables: Set<AnyCancellable> = Set()
+    
     private let pageVC = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
     private var pages: [UIViewController] = []
     private var isJoining = false
@@ -92,6 +95,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         let size: CGSize = CGSize(width: UIScreen.main.bounds.width, height: height)
         enterURLVC.constrainSize(to: size)
         scanQRCodePlaceholderVC.constrainSize(to: size)
+        
+        navigatableState.setupBindings(viewController: self, disposables: &disposables)
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -165,6 +170,18 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
 
     fileprivate func joinOpenGroup(roomToken: String, server: String, publicKey: String, shouldOpenCommunity: Bool, onError: (() -> ())?) {
         guard !isJoining, let navigationController: UINavigationController = navigationController else { return }
+        
+        guard OpenGroupManager.shared.hasExistingOpenGroup(
+            roomToken: roomToken,
+            server: server,
+            publicKey: publicKey
+        ) != true else {
+            self.showToast(
+                text: "communityJoinedAlready".localized(),
+                backgroundColor: .backgroundSecondary
+            )
+            return
+        }
         
         isJoining = true
         

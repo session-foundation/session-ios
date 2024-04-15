@@ -586,7 +586,7 @@
 "lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 "settingsRestartDescription" = "You must restart Session to apply your new settings.";
 "disappearingMessagesSetYou" = "<b>You</b> set messages to disappear {time} after they have been {disappearingmessagestype}.";
-"disappearingMessagesTurnedOffYou" = "<b>You</b> turned <b>off</b> disappearing messages. Messages you seend will no longer appear.";
+"disappearingMessagesTurnedOffYou" = "<b>You</b> turned <b>off</b> disappearing messages. Messages you send will no longer appear.";
 "disappearingMessagesUpdatedYou" = "<b>You</b> updated disappearing message settings.";
 "groupInviteYou" = "<b>You</b> were invited to join the group.";
 "groupRemovedYou" = "You were removed from <b>{groupname}</b>.";
@@ -640,8 +640,6 @@
 "okay" = "Okay";
 "emojiReactsHoverName" = "{name} reacted with {emoji}";
 "conversationsAudioMessages" = "Audio Messages";
-"conversationsAutoplayAudioMessage" = "Autoplay Audio Messages";
-"conversationsAutoplayAudioMessageDescription" = "Autoplay consecutively sent audio messages";
 "emojiCategorySmileys" = "Smileys & People";
 "emojiCategorySymbols" = "Symbols";
 "emojiCategoryTravel" = "Travel & Places";
@@ -650,3 +648,6 @@
 "emojiCategoryFlags" = "Flags";
 "emojiCategoryFood" = "Food & Drink";
 "emojiCategoryObjects" = "Objects";
+"notificationsMuted" = "Muted";
+"none" = "None";
+"qrCode" = "QR Code";

@@ -586,7 +586,7 @@
 "lockAppEnablePasscode" = "You must enable a passcode in your iOS Settings in order to use Screen Lock.";
 "settingsRestartDescription" = "You must restart Session to apply your new settings.";
 "disappearingMessagesSetYou" = "<b>You</b> set messages to disappear {time} after they have been {disappearingmessagestype}.";
-"disappearingMessagesTurnedOffYou" = "<b>You</b> turned <b>off</b> disappearing messages. Messages you seend will no longer appear.";
+"disappearingMessagesTurnedOffYou" = "<b>You</b> turned <b>off</b> disappearing messages. Messages you send will no longer appear.";
 "disappearingMessagesUpdatedYou" = "<b>You</b> updated disappearing message settings.";
 "groupInviteYou" = "<b>You</b> were invited to join the group.";
 "groupRemovedYou" = "You were removed from <b>{groupname}</b>.";
@@ -640,8 +640,6 @@
 "okay" = "Okay";
 "emojiReactsHoverName" = "{name} reacted with {emoji}";
 "conversationsAudioMessages" = "Audio Messages";
-"conversationsAutoplayAudioMessage" = "Autoplay Audio Messages";
-"conversationsAutoplayAudioMessageDescription" = "Autoplay consecutively sent audio messages";
 "emojiCategorySmileys" = "Smileys & People";
 "emojiCategorySymbols" = "Symbols";
 "emojiCategoryTravel" = "Travel & Places";
@@ -650,6 +648,9 @@
 "emojiCategoryFlags" = "Flags";
 "emojiCategoryFood" = "Food & Drink";
 "emojiCategoryObjects" = "Objects";
+"notificationsMuted" = "Muted";
+"none" = "None";
+"qrCode" = "QR Code";
 
 // NOT IN THE LIST YET
 "APP_STARTUP_EXIT" = "Exit";
@@ -666,7 +667,6 @@
 "context_menu_resync" = "Resync";
 "context_menu_ban_and_delete_all" = "Ban and Delete All";
 "DISAPPEARING_MESSAGES_AUTO_DELETES_COUNT_DOWN" = "Auto-deletes in %@";
-"notificationsMuted" = "Muted";
 "EMOJI_REACTS_MORE_REACTORS_ONE" = "And 1 other has reacted %@ to this message.";
 "EMOJI_REACTS_MORE_REACTORS_MUTIPLE" = "And %@ others have reacted %@ to this message.";
 "EMOJI_CATEGORY_RECENTS_NAME" = "Recently Used";
@@ -705,7 +705,6 @@
 "TIME_AMOUNT_HOURS_SHORT_FORMAT" = "%@h";
 "TIME_AMOUNT_MINUTES_SHORT_FORMAT" = "%@m";
 "TIME_AMOUNT_SECONDS_SHORT_FORMAT" = "%@s";
-"none" = "None";
 "group_you_leaving" = "Leaving...";
 "ATTACHMENT_ERROR_MISSING_DATA" = "Attachment is empty.";
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Unable to parse image.";
@@ -726,7 +725,6 @@
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "and %@?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "and %d others?";
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (default)";
-"qrCode" = "QR Code";
 "vc_qr_code_view_scan_qr_code_explanation" = "Scan someone's QR code to start a conversation with them"; // TODO: Delete
 "invalid_session_id" = "Invalid Session ID"; // TODO: Delete
 "INVALID_SESSION_ID_MESSAGE" = "Please check the Session ID and try again."; // TODO: Delete

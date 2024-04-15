@@ -105,6 +105,23 @@ public final class OpenGroupManager {
     }
     
     public func hasExistingOpenGroup(
+        roomToken: String,
+        server: String,
+        publicKey: String,
+        using dependencies: Dependencies = Dependencies()
+    ) -> Bool? {
+        return Storage.shared.read { db in
+            self.hasExistingOpenGroup(
+                db,
+                roomToken: roomToken,
+                server: server,
+                publicKey: publicKey,
+                using: dependencies
+            )
+        }
+    }
+    
+    public func hasExistingOpenGroup(
         _ db: Database,
         roomToken: String,
         server: String,

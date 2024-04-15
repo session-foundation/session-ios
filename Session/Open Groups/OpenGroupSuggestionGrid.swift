@@ -212,6 +212,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let room = data[indexPath.section * itemsPerSection + indexPath.item].room
         delegate?.join(room)
+        collectionView.deselectItem(at: indexPath, animated: true)
     }
 }
 
