@@ -25,7 +25,9 @@ public enum MentionUtilities {
             theme: .classicDark,
             primaryColor: Theme.PrimaryColor.green,
             attributes: [:]
-        ).string
+        )
+        .string
+        .deformatted()
     }
 
     public static func highlightMentions(

@@ -276,4 +276,8 @@ public extension String {
     func formatted(baseFont: UIFont) -> NSAttributedString {
         return NSAttributedString(stringWithHTMLTags: self, font: baseFont)
     }
+    
+    func deformatted() -> String {
+        return NSAttributedString(stringWithHTMLTags: self, font: .systemFont(ofSize: 14)).string
+    }
 }
