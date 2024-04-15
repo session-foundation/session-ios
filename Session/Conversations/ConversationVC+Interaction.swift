@@ -2364,18 +2364,16 @@ extension ConversationVC:
                         .sinkUntilComplete(
                             receiveCompletion: { result in
                                 switch result {
-                                    case .finished: break
-                                    case .failure:
-                                        let modal: ConfirmationModal = ConfirmationModal(
-                                            targetView: self?.view,
-                                            info: ConfirmationModal.Info(
-                                                title: "error".localized(),
-                                                body: .text("context_menu_ban_user_error_alert_message".localized()),
-                                                cancelTitle: "okay".localized(),
-                                                cancelStyle: .alert_text
-                                            )
+                                    case .finished:
+                                        self?.viewModel.showToast(
+                                            text: "banUserBanned".localized(),
+                                            backgroundColor: .backgroundSecondary
                                         )
-                                        self?.present(modal, animated: true)
+                                    case .failure:
+                                        self?.viewModel.showToast(
+                                            text: "banErrorFailed".localized(),
+                                            backgroundColor: .backgroundSecondary
+                                        )
                                 }
                             }
                         )
