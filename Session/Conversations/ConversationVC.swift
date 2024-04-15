@@ -528,6 +528,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             object: nil
         )
         
+        self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
+        
         // The first time the view loads we should mark the thread as read (in case it was manually
         // marked as unread) - doing this here means if we add a "mark as unread" action within the
         // conversation settings then we don't need to worry about the conversation getting marked as

@@ -16,11 +16,16 @@ extension ContextMenuVC {
         let title: String
         let expirationInfo: ExpirationInfo?
         let themeColor: ThemeValue
-        let isEmojiAction: Bool
-        let isEmojiPlus: Bool
-        let isDismissAction: Bool
+        let actionType: ActionType
         let accessibilityLabel: String?
         let work: () -> Void
+        
+        enum ActionType {
+            case emoji
+            case emojiPlus
+            case dismiss
+            case generic
+        }
         
         // MARK: - Initialization
         
@@ -29,9 +34,7 @@ extension ContextMenuVC {
             title: String = "",
             expirationInfo: ExpirationInfo? = nil,
             themeColor: ThemeValue = .textPrimary,
-            isEmojiAction: Bool = false,
-            isEmojiPlus: Bool = false,
-            isDismissAction: Bool = false,
+            actionType: ActionType = .generic,
             accessibilityLabel: String? = nil,
             work: @escaping () -> Void
         ) {
@@ -39,9 +42,7 @@ extension ContextMenuVC {
             self.title = title
             self.expirationInfo = expirationInfo
             self.themeColor = themeColor
-            self.isEmojiAction = isEmojiAction
-            self.isEmojiPlus = isEmojiPlus
-            self.isDismissAction = isDismissAction
+            self.actionType = actionType
             self.accessibilityLabel = accessibilityLabel
             self.work = work
         }
@@ -134,20 +135,20 @@ extension ContextMenuVC {
         static func react(_ cellViewModel: MessageViewModel, _ emoji: EmojiWithSkinTones, _ delegate: ContextMenuActionDelegate?, using dependencies: Dependencies) -> Action {
             return Action(
                 title: emoji.rawValue,
-                isEmojiAction: true
+                actionType: .emoji
             ) { delegate?.react(cellViewModel, with: emoji, using: dependencies) }
         }
         
         static func emojiPlusButton(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?, using dependencies: Dependencies) -> Action {
             return Action(
-                isEmojiPlus: true,
+                actionType: .emojiPlus,
                 accessibilityLabel: "Add emoji"
             ) { delegate?.showFullEmojiKeyboard(cellViewModel, using: dependencies) }
         }
         
         static func dismiss(_ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                isDismissAction: true
+                actionType: .dismiss
             ) { delegate?.contextMenuDismissed() }
         }
     }

@@ -47,6 +47,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public static let pageSize: Int = 50
     
     public let navigatableState: NavigatableState = NavigatableState()
+    public var disposables: Set<AnyCancellable> = Set()
     
     private var threadId: String
     public let initialThreadVariant: SessionThread.Variant
