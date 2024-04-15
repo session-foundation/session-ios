@@ -55,8 +55,8 @@ public extension Network.PreparedRequest {
                     case let randomSnode as Network.RandomSnodeTarget:
                         guard let payload: Data = request.httpBody else { throw NetworkError.invalidPreparedRequest }
 
-                        return SnodeAPI.getSwarm(for: randomSnode.swarmPublicKey, using: dependencies)
-                            .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount, using: dependencies) { snode in
+                        return GetSwarmJob.run(for: randomSnode.swarmPublicKey, using: dependencies)
+                            .tryFlatMapWithRandomSnode(retry: randomSnode.retryCount, using: dependencies) { snode in
                                 dependencies.network
                                     .send(
                                         .onionRequest(
@@ -72,7 +72,7 @@ public extension Network.PreparedRequest {
                     case let randomSnode as Network.RandomSnodeLatestNetworkTimeTarget:
                         guard request.httpBody != nil else { throw NetworkError.invalidPreparedRequest }
                         
-                        return SnodeAPI.getSwarm(for: randomSnode.swarmPublicKey, using: dependencies)
+                        return GetSwarmJob.run(for: randomSnode.swarmPublicKey, using: dependencies)
                             .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount, using: dependencies) { snode in
                                 SnodeAPI
                                     .getNetworkTime(from: snode, using: dependencies)

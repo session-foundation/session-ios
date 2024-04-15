@@ -200,15 +200,11 @@ public enum BuildPathsJob: JobExecutor {
                     .defaulting(to: true)
                 
                 let targetJob: Job? = dependencies.storage.write(using: dependencies) { db in
-                    // Fetch an existing job if there is one (if there are multiple it doesn't matter which we select)
-                    if let existingJob: Job = try? Job.filter(Job.Columns.variant == Job.Variant.buildPaths).fetchOne(db) {
-                        return existingJob
-                    }
-                    
-                    return dependencies.jobRunner.add(
+                    return dependencies.jobRunner.upsert(
                         db,
                         job: Job(
                             variant: .buildPaths,
+                            behaviour: .runOnceTransient,
                             shouldBeUnique: true,
                             details: Details(reusablePaths: paths, ed25519SecretKey: ed25519SecretKey)
                         ),

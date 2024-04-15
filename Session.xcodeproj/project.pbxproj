@@ -460,6 +460,7 @@
 		FCB11D8C1A129A76002F93FB /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FCB11D8B1A129A76002F93FB /* CoreMedia.framework */; };
 		FD0606BD2BC8BF6F00C3816E /* BuildPathsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606BC2BC8BF6F00C3816E /* BuildPathsJob.swift */; };
 		FD0606BF2BC8C10200C3816E /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */; };
+		FD0606C12BCC9A1500C3816E /* GetSwarmJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606C02BCC9A1500C3816E /* GetSwarmJob.swift */; };
 		FD078E4827E02561000769AF /* CommonMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD078E4727E02561000769AF /* CommonMockedExtensions.swift */; };
 		FD078E4927E02576000769AF /* CommonMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD078E4727E02561000769AF /* CommonMockedExtensions.swift */; };
 		FD078E4D27E17156000769AF /* MockOGMCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD078E4C27E17156000769AF /* MockOGMCache.swift */; };
@@ -1688,6 +1689,7 @@
 		FCB11D8B1A129A76002F93FB /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
 		FD0606BC2BC8BF6F00C3816E /* BuildPathsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildPathsJob.swift; sourceTree = "<group>"; };
 		FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
+		FD0606C02BCC9A1500C3816E /* GetSwarmJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetSwarmJob.swift; sourceTree = "<group>"; };
 		FD078E4727E02561000769AF /* CommonMockedExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonMockedExtensions.swift; sourceTree = "<group>"; };
 		FD078E4C27E17156000769AF /* MockOGMCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockOGMCache.swift; sourceTree = "<group>"; };
 		FD0969F82A69FFE700C5C365 /* Mocked.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mocked.swift; sourceTree = "<group>"; };
@@ -4564,6 +4566,7 @@
 			isa = PBXGroup;
 			children = (
 				FDF8488D29405C04007DCAE5 /* GetSnodePoolJob.swift */,
+				FD0606C02BCC9A1500C3816E /* GetSwarmJob.swift */,
 				FD0606BC2BC8BF6F00C3816E /* BuildPathsJob.swift */,
 			);
 			path = Jobs;
@@ -6020,6 +6023,7 @@
 				FD17D7B327F51E5B00122BE0 /* SSKSetting.swift in Sources */,
 				FDF848E429405D6E007DCAE5 /* SnodeAPIEndpoint.swift in Sources */,
 				FDF848BE29405C5A007DCAE5 /* GetServiceNodesRequest.swift in Sources */,
+				FD0606C12BCC9A1500C3816E /* GetSwarmJob.swift in Sources */,
 				FDF848EB29405E4F007DCAE5 /* OnionRequestAPI.swift in Sources */,
 				FD17D7AE27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift in Sources */,
 			);
@@ -8100,7 +8104,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.5.1;
+				MARKETING_VERSION = 2.6.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -8173,7 +8177,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.5.1;
+				MARKETING_VERSION = 2.6.0;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",

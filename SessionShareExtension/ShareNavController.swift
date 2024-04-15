@@ -153,6 +153,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         // We don't need to use SyncPushTokensJob in the SAE.
         // We don't need to use DeviceSleepManager in the SAE.
 
+        JobRunner.enableNewSingleExecutionJobsOnly()
         AppVersion.sharedInstance().saeLaunchDidComplete()
 
         showLockScreenOrMainContent()

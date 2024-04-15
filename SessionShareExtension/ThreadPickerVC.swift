@@ -244,8 +244,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .flatMap { _ in
-                    SnodeAPI
-                        .getSwarm(
+                    GetSwarmJob
+                        .run(
                             for: {
                                 switch threadVariant {
                                     case .contact, .legacyGroup, .group: return threadId

@@ -775,6 +775,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
         
         dependencies.storage.writeAsync { [dependencies] db in
+            let currentUserSessionId: String = getUserHexEncodedPublicKey(db, using: dependencies)
             try selectedUsers.forEach { userId in
                 let thread: SessionThread = try SessionThread
                     .fetchOrCreate(db, id: userId, variant: .contact, shouldBeVisible: nil)
@@ -788,7 +789,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 
                 let interaction: Interaction = try Interaction(
                     threadId: thread.id,
-                    authorId: userId,
+                    authorId: currentUserSessionId,
                     variant: .standardOutgoing,
                     timestampMs: SnodeAPI.currentOffsetTimestampMs(),
                     expiresInSeconds: try? DisappearingMessagesConfiguration

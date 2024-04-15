@@ -9,6 +9,18 @@ import SignalCoreKit
 import SessionMessagingKit
 
 public class AppEnvironment {
+    
+    enum ExtensionType {
+        case share
+        case notification
+        
+        var name: String {
+            switch self {
+                case .share: return "ShareExtension"
+                case .notification: return "NotificationExtension"
+            }
+        }
+    }
 
     private static var _shared: AppEnvironment = AppEnvironment()
 
@@ -67,45 +79,61 @@ public class AppEnvironment {
         // to a local directory (so they can be exported via XCode) - the below code reads any
         // logs from the shared directly and attempts to add them to the main app logs to make
         // debugging user issues in extensions easier
-        DispatchQueue.global(qos: .background).async {
-            let extensionDirs: [String] = [
-                "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/NotificationExtension",
-                "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/ShareExtension"
+        DispatchQueue.global(qos: .background).async { [fileLogger] in
+            let extensionInfo: [(dir: String, type: ExtensionType)] = [
+                ("\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/NotificationExtension", .notification),
+                ("\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/ShareExtension", .share)
             ]
-            let extensionLogs: [String] = extensionDirs.flatMap { dir -> [String] in
+            let extensionLogs: [(path: String, type: ExtensionType)] = extensionInfo.flatMap { dir, type -> [(path: String, type: ExtensionType)] in
                 guard let files: [String] = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return [] }
                 
-                return files.map { "\(dir)/\($0)" }
+                return files.map { ("\(dir)/\($0)", type) }
             }
+            // Log to ensure the log file exists
+            OWSLogger.info("")
+            DDLog.flushLog()
             
-            extensionLogs.forEach { logFilePath in
-                guard let logs: String = try? String(contentsOfFile: logFilePath) else {
-                    try? FileManager.default.removeItem(atPath: logFilePath)
-                    return
-                }
+            do {
+                guard
+                    let currentLogFileInfo: DDLogFileInfo = fileLogger.currentLogFileInfo,
+                    let fileHandle: FileHandle = FileHandle(forWritingAtPath: currentLogFileInfo.filePath)
+                else { throw StorageError.objectNotFound }
                 
-                logs.split(separator: "\n").forEach { line in
-                    let lineEmoji: Character? = line
-                        .split(separator: "[")
-                        .first
-                        .map { String($0) }?
-                        .trimmingCharacters(in: .whitespaces)
-                        .last
-                    
-                    switch lineEmoji {
-                        case "💙": OWSLogger.verbose("Extension: \(String(line))")
-                        case "💚": OWSLogger.debug("Extension: \(String(line))")
-                        case "💛": OWSLogger.info("Extension: \(String(line))")
-                        case "🧡": OWSLogger.warn("Extension: \(String(line))")
-                        case "❤️": OWSLogger.error("Extension: \(String(line))")
-                        default: OWSLogger.info("Extension: \(String(line))")
+                // Ensure we close the file handle
+                defer { fileHandle.closeFile() }
+                
+                // Move to the end of the file to insert the logs
+                if #available(iOS 13.4, *) { try fileHandle.seekToEnd() }
+                else { fileHandle.seekToEndOfFile() }
+                
+                try extensionLogs
+                    .grouped(by: \.type)
+                    .forEach { type, value in
+                        guard
+                            let typeNameStartData: Data = "🧩 \(type.name) -- Start\n".data(using: .utf8),
+                            let typeNameEndData: Data = "🧩 \(type.name) -- End\n".data(using: .utf8)
+                        else { throw StorageError.invalidData }
+                        
+                        // Write the type start separator
+                        if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: typeNameStartData) }
+                        else { fileHandle.write(typeNameStartData) }
+                        
+                        // Write the logs
+                        try value.forEach { path, _ in
+                            let logData: Data = try Data(contentsOf: URL(fileURLWithPath: path))
+                            if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: logData) }
+                            else { fileHandle.write(logData) }
+                            
+                            // Extension logs have been writen to the app logs, remove them now
+                            try? FileManager.default.removeItem(atPath: path)
+                        }
+                        
+                        // Write the type end separator
+                        if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: typeNameEndData) }
+                        else { fileHandle.write(typeNameEndData) }
                     }
-                }
-                
-                // Logs have been added - remove them now
-                DDLog.flushLog()
-                try? FileManager.default.removeItem(atPath: logFilePath)
             }
+            catch { SNLog("Unable to write extension logs to current log file") }
         }
     }
 }

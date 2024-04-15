@@ -43,8 +43,8 @@ public enum GetExpirationJob: JobExecutor {
         }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
-        SnodeAPI
-            .getSwarm(for: userPublicKey, using: dependencies)
+        GetSwarmJob
+            .run(for: userPublicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(using: dependencies) { snode -> AnyPublisher<(ResponseInfoType, GetExpiriesResponse), Error> in
                 SnodeAPI.getExpiries(
                     from: snode,

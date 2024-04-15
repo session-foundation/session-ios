@@ -22,6 +22,7 @@ internal extension Network {
 internal extension Network {
     struct RandomSnodeTarget: RequestTarget, Equatable {
         let swarmPublicKey: String
+        let retryCount: Int
         
         var url: URL? { URL(string: "snode:\(swarmPublicKey)") }
         var urlPathAndParamsString: String { return "" }
@@ -53,7 +54,8 @@ public extension Request {
         snode: Snode,
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
-        swarmPublicKey: String?
+        swarmPublicKey: String?,
+        retryCount: Int
     ) {
         self = Request(
             method: method,
@@ -76,13 +78,15 @@ public extension Request {
         endpoint: Endpoint,
         swarmPublicKey: String,
         headers: [HTTPHeader: String] = [:],
-        body: T? = nil
+        body: T? = nil,
+        retryCount: Int
     ) {
         self = Request(
             method: method,
             endpoint: endpoint,
             target: Network.RandomSnodeTarget(
-                swarmPublicKey: swarmPublicKey
+                swarmPublicKey: swarmPublicKey,
+                retryCount: retryCount
             ),
             headers: headers,
             body: body
@@ -99,7 +103,8 @@ public extension Request {
         swarmPublicKey: String,
         headers: [HTTPHeader: String] = [:],
         requiresLatestNetworkTime: Bool,
-        body: T? = nil
+        body: T? = nil,
+        retryCount: Int
     ) where T: UpdatableTimestamp {
         self = Request(
             method: method,
@@ -112,7 +117,8 @@ public extension Request {
                         endpoint: endpoint,
                         swarmPublicKey: swarmPublicKey,
                         headers: headers,
-                        body: body?.with(timestampMs: timestampMs)
+                        body: body?.with(timestampMs: timestampMs),
+                        retryCount: retryCount
                     ).generateUrlRequest(using: dependencies)
                 }
             ),

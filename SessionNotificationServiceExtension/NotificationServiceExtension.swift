@@ -302,6 +302,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // Note that this does much more than set a flag; it will also run all deferred blocks.
         Singleton.appReadiness.setAppReady()
+        
+        JobRunner.enableNewSingleExecutionJobsOnly()
     }
     
     // MARK: Handle completion

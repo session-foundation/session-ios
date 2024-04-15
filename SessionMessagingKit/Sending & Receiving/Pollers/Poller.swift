@@ -177,7 +177,7 @@ public class Poller {
         let configHashes: [String] = LibSession.configHashes(for: swarmPublicKey)
         
         // Fetch the messages
-        return SnodeAPI.getSwarm(for: swarmPublicKey, using: dependencies)
+        return GetSwarmJob.run(for: swarmPublicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour, using: dependencies) { snode -> AnyPublisher<[SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)], Error> in
                 SnodeAPI.poll(
                     namespaces: namespaces,

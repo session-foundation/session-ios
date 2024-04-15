@@ -23,7 +23,7 @@ public final class SnodeAPI {
     internal static let sodium: Atomic<Sodium> = Atomic(Sodium())
     
     private static var hasLoadedSnodePool: Atomic<Bool> = Atomic(false)
-    private static var loadedSwarms: Atomic<Set<String>> = Atomic([])
+    internal static var loadedSwarms: Atomic<Set<String>> = Atomic([])
     private static var getSnodePoolPublisher: Atomic<AnyPublisher<Set<Snode>, Error>?> = Atomic(nil)
     
     /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
@@ -47,7 +47,6 @@ public final class SnodeAPI {
     // MARK: - Settings
     
     internal static let maxRetryCount: Int = 8
-    private static let minSwarmSnodeCount: Int = 3
     private static let seedNodePool: Set<Snode> = {
         guard !Features.useTestnet else {
             return [
@@ -146,21 +145,8 @@ public final class SnodeAPI {
     
     // MARK: - Swarm Interaction
     
-    private static func loadSwarmIfNeeded(for publicKey: String) {
-        guard !loadedSwarms.wrappedValue.contains(publicKey) else { return }
-        
-        let updatedCacheForKey: Set<Snode> = Storage.shared
-           .read { db in try Snode.fetchSet(db, publicKey: publicKey) }
-           .defaulting(to: [])
-        
-        swarmCache.mutate { $0[publicKey] = updatedCacheForKey }
-        loadedSwarms.mutate { $0.insert(publicKey) }
-    }
-    
-    internal static func setSwarm(to newValue: Set<Snode>, for publicKey: String, persist: Bool = true) {
+    internal static func setSwarm(to newValue: Set<Snode>, for publicKey: String) {
         swarmCache.mutate { $0[publicKey] = newValue }
-        
-        guard persist else { return }
         
         Storage.shared.write { db in
             try? newValue.save(db, key: publicKey)
@@ -257,41 +243,31 @@ public final class SnodeAPI {
         }
     }
     
-    public static func getSwarm(
+    internal static func getSwarm(
         for swarmPublicKey: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> AnyPublisher<Set<Snode>, Error> {
-        loadSwarmIfNeeded(for: swarmPublicKey)
-        
-        if let cachedSwarm = swarmCache.wrappedValue[swarmPublicKey], cachedSwarm.count >= minSwarmSnodeCount {
-            return Just(cachedSwarm)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        SNLog("Getting swarm for: \((swarmPublicKey == getUserHexEncodedPublicKey()) ? "self" : swarmPublicKey).")
-        
+        // Note: We do an explicit `getRandomSnode` call here because we want to send the request
+        // to _any_ random snode rather than a random snode for the given `swarmPublicKey`
         return getRandomSnode()
-            .tryFlatMap { snode in
+            .tryFlatMap { snode -> AnyPublisher<Set<Snode>, Error> in
                 try SnodeAPI
                     .prepareRequest(
                         request: Request(
                             endpoint: .getSwarm,
                             snode: snode,
                             swarmPublicKey: swarmPublicKey,
-                            body: GetSwarmRequest(pubkey: swarmPublicKey)
+                            body: GetSwarmRequest(pubkey: swarmPublicKey),
+                            retryCount: 4
                         ),
                         responseType: GetSwarmResponse.self,
                         using: dependencies
                     )
                     .send(using: dependencies)
-                    .retry(4)
                     .map { _, response in response.snodes }
-                    .handleEvents(
-                        receiveOutput: { snodes in setSwarm(to: snodes, for: swarmPublicKey) }
-                    )
                     .eraseToAnyPublisher()
             }
+            .eraseToAnyPublisher()
     }
 
     // MARK: - Batching & Polling
@@ -1415,7 +1391,8 @@ private extension Request {
     init<B: Encodable>(
         endpoint: SnodeAPI.Endpoint,
         swarmPublicKey: String,
-        body: B
+        body: B,
+        retryCount: Int = SnodeAPI.maxRetryCount
     ) where T == SnodeRequest<B>, Endpoint == SnodeAPI.Endpoint {
         self = Request(
             method: .post,
@@ -1424,7 +1401,8 @@ private extension Request {
             body: SnodeRequest<B>(
                 endpoint: endpoint,
                 body: body
-            )
+            ),
+            retryCount: retryCount
         )
     }
     
@@ -1432,7 +1410,8 @@ private extension Request {
         endpoint: SnodeAPI.Endpoint,
         snode: Snode,
         swarmPublicKey: String? = nil,
-        body: B
+        body: B,
+        retryCount: Int = SnodeAPI.maxRetryCount
     ) where T == SnodeRequest<B>, Endpoint == SnodeAPI.Endpoint {
         self = Request(
             method: .post,
@@ -1442,7 +1421,8 @@ private extension Request {
                 endpoint: endpoint,
                 body: body
             ),
-            swarmPublicKey: swarmPublicKey
+            swarmPublicKey: swarmPublicKey,
+            retryCount: retryCount
         )
     }
     
@@ -1450,7 +1430,8 @@ private extension Request {
         endpoint: SnodeAPI.Endpoint,
         swarmPublicKey: String,
         requiresLatestNetworkTime: Bool,
-        body: B
+        body: B,
+        retryCount: Int = SnodeAPI.maxRetryCount
     ) where T == SnodeRequest<B>, Endpoint == SnodeAPI.Endpoint, B: Encodable & UpdatableTimestamp {
         self = Request(
             method: .post,
@@ -1460,7 +1441,8 @@ private extension Request {
             body: SnodeRequest<B>(
                 endpoint: endpoint,
                 body: body
-            )
+            ),
+            retryCount: retryCount
         )
     }
 }
