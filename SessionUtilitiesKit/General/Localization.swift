@@ -84,7 +84,7 @@ public extension NSAttributedString {
             let currentMatchEnd: Int = currentMatch.range.upperBound
 
             /// Ignore invalid ranges
-            guard currentMatchStart > lastMatchEnd else { return }
+            guard (currentMatchStart > lastMatchEnd) || (currentMatchStart == lastMatchEnd && currentMatchStart == 0) else { return }
 
             /// Retrieve the tag and content values, store the content and any tags which are currently applied so we can construct the
             /// formatted string at the end
