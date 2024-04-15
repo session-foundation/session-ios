@@ -1430,14 +1430,26 @@ public extension Publisher where Output == Set<Snode> {
             .mapError { $0 }
             .flatMap(maxPublishers: maxPublishers) { swarm -> AnyPublisher<T, Error> in
                 var remainingSnodes: Set<Snode> = swarm
+                var lastError: Error?
                 
                 return Just(())
                     .setFailureType(to: Error.self)
                     .tryFlatMap(maxPublishers: maxPublishers) { _ -> AnyPublisher<T, Error> in
-                        let snode: Snode = try remainingSnodes.popRandomElement() ?? { throw SnodeAPIError.generic }()
+                        let snode: Snode = try remainingSnodes.popRandomElement() ?? {
+                            throw SnodeAPIError.ranOutOfRandomSnodes(lastError)
+                        }()
                         
                         return try transform(snode)
                             .eraseToAnyPublisher()
+                    }
+                    .mapError { error in
+                        // Prevent nesting the 'ranOutOfRandomSnodes' errors
+                        switch error {
+                            case SnodeAPIError.ranOutOfRandomSnodes: break
+                            default: lastError = error
+                        }
+                        
+                        return error
                     }
                     .retry(retries)
                     .eraseToAnyPublisher()
