@@ -30,6 +30,7 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     
     func appDidFinishLaunching(using dependencies: Dependencies) {}
     func appDidBecomeActive(using dependencies: Dependencies) {}
+    func enableNewSingleExecutionJobsOnly(using dependencies: Dependencies) {}
     func startNonBlockingQueues(using dependencies: Dependencies) {}
     
     func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, onComplete: (() -> ())?) {
@@ -43,8 +44,8 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
         return accept(args: [db, job, dependantJob, canStartJob]) as? Job
     }
     
-    func upsert(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) {
-        accept(args: [db, job, canStartJob])
+    func upsert(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) -> Job? {
+        return accept(args: [db, job, canStartJob]) as? Job
     }
     
     func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)? {

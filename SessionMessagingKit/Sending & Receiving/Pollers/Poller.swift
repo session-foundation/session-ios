@@ -235,6 +235,7 @@ public class Poller {
                                     // Ignore duplicate & selfSend message errors (and don't bother logging
                                     // them as there will be a lot since we each service node duplicates messages)
                                     case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                                        DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                                         MessageReceiverError.duplicateMessage,
                                         MessageReceiverError.duplicateControlMessage,
                                         MessageReceiverError.selfSend:

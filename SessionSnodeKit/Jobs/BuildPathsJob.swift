@@ -197,7 +197,7 @@ public enum BuildPathsJob: JobExecutor {
             Future<Void, Error> { resolver in
                 let hasValidPath: Bool = snodeToExclude
                     .map { snode in paths.contains { !$0.contains(snode) } }
-                    .defaulting(to: true)
+                    .defaulting(to: !paths.isEmpty)
                 
                 let targetJob: Job? = dependencies.storage.write(using: dependencies) { db in
                     return dependencies.jobRunner.upsert(
@@ -233,6 +233,7 @@ public enum BuildPathsJob: JobExecutor {
                 
                 // Otherwise we can let the `BuildPathsJob` run in the background and should just return
                 // immediately
+                SNLog("[BuildPathsJob] Scheduled in background due to existing valid path.")
                 resolver(Result.success(()))
             }
         }.eraseToAnyPublisher()

@@ -176,10 +176,6 @@ enum Onboarding {
             // Only continue if this isn't a new account
             guard self != .register else { return }
             
-            // Enable single-execution jobs (this allows fetching the swarm for retrieving the
-            // profile name below without triggering other jobs)
-            JobRunner.enableNewSingleExecutionJobsOnly()
-            
             // Fetch any existing profile name
             Onboarding.profileNamePublisher
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))

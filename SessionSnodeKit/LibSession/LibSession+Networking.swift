@@ -270,7 +270,7 @@ public extension LibSession {
         )
         var error: [CChar] = [CChar](repeating: 0, count: 256)
         if !network_add_path(network, cOnionPath, &error) {
-            SNLog("[LibSession] Failed to add path due to error: \(error).")
+            SNLog("[LibSession] Failed to add path due to error: \(String(cString: error)).")
         }
         cNodes?.deallocate()
     }
@@ -300,7 +300,7 @@ public extension LibSession {
         )
         var error: [CChar] = [CChar](repeating: 0, count: 256)
         if !network_remove_path(network, cNode, &error) {
-            SNLog("[LibSession] Failed to remove path due to error: \(error).")
+            SNLog("[LibSession] Failed to remove path due to error: \(String(cString: error)).")
         }
     }
     

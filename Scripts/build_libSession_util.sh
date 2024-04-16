@@ -26,7 +26,7 @@
 # request ever gets implemented: https://github.com/CocoaPods/CocoaPods/issues/8464
 
 # Need to set the path or we won't find cmake
-PATH=${PATH}:/usr/local/bin:/opt/local/bin:/opt/homebrew/bin:/sbin/md5
+PATH=${PATH}:/usr/local/bin:/opt/local/bin:/opt/homebrew/bin:/opt/homebrew/opt/m4/bin:/sbin/md5
 
 exec 3>&1 # Save original stdout
 

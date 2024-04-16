@@ -2714,7 +2714,7 @@ extension ConversationVC {
             )
     }
 
-    @objc func acceptMessageRequest() {
+    func acceptMessageRequest() {
         self.approveMessageRequestIfNeeded(
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
@@ -2723,7 +2723,7 @@ extension ConversationVC {
         )
     }
 
-    @objc func deleteMessageRequest() {
+    func declineMessageRequest() {
         let actions: [UIContextualAction]? = UIContextualAction.generateSwipeActions(
             [.delete],
             for: .trailing,
@@ -2746,7 +2746,7 @@ extension ConversationVC {
         })
     }
     
-    @objc func blockMessageRequest() {
+    func blockMessageRequest() {
         let actions: [UIContextualAction]? = UIContextualAction.generateSwipeActions(
             [.block],
             for: .trailing,

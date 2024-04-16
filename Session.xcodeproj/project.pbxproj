@@ -461,6 +461,7 @@
 		FD0606BD2BC8BF6F00C3816E /* BuildPathsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606BC2BC8BF6F00C3816E /* BuildPathsJob.swift */; };
 		FD0606BF2BC8C10200C3816E /* _005_AddJobUniqueHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */; };
 		FD0606C12BCC9A1500C3816E /* GetSwarmJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606C02BCC9A1500C3816E /* GetSwarmJob.swift */; };
+		FD0606C32BCE13ED00C3816E /* MessageRequestFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */; };
 		FD078E4827E02561000769AF /* CommonMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD078E4727E02561000769AF /* CommonMockedExtensions.swift */; };
 		FD078E4927E02576000769AF /* CommonMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD078E4727E02561000769AF /* CommonMockedExtensions.swift */; };
 		FD078E4D27E17156000769AF /* MockOGMCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD078E4C27E17156000769AF /* MockOGMCache.swift */; };
@@ -1690,6 +1691,7 @@
 		FD0606BC2BC8BF6F00C3816E /* BuildPathsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildPathsJob.swift; sourceTree = "<group>"; };
 		FD0606BE2BC8C10200C3816E /* _005_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _005_AddJobUniqueHash.swift; sourceTree = "<group>"; };
 		FD0606C02BCC9A1500C3816E /* GetSwarmJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetSwarmJob.swift; sourceTree = "<group>"; };
+		FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRequestFooterView.swift; sourceTree = "<group>"; };
 		FD078E4727E02561000769AF /* CommonMockedExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonMockedExtensions.swift; sourceTree = "<group>"; };
 		FD078E4C27E17156000769AF /* MockOGMCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockOGMCache.swift; sourceTree = "<group>"; };
 		FD0969F82A69FFE700C5C365 /* Mocked.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mocked.swift; sourceTree = "<group>"; };
@@ -2629,6 +2631,7 @@
 				FD4B200D283492210034334B /* InsetLockableTableView.swift */,
 				7B9F71C828470667006DFE7B /* ReactionListSheet.swift */,
 				7B5233C32900E90F00F8F375 /* SessionLabelCarouselView.swift */,
+				FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */,
 			);
 			path = "Views & Modals";
 			sourceTree = "<group>";
@@ -6375,6 +6378,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */,
+				FD0606C32BCE13ED00C3816E /* MessageRequestFooterView.swift in Sources */,
 				FD52090928B59411006098F6 /* ScreenLockUI.swift in Sources */,
 				7B2561C429874851005C086C /* SessionCarouselView+Info.swift in Sources */,
 				FDF2220B2818F38D000A4995 /* SessionApp.swift in Sources */,

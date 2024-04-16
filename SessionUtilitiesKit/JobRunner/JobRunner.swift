@@ -480,7 +480,6 @@ public final class JobRunner: JobRunnerType {
         
         // Flag that the JobRunner can start it's queues
         appReadyToStartQueues.mutate { $0 = true }
-        forceAllowSingleExecutionJobs.mutate { $0 = false }
         
         // Note: 'appDidBecomeActive' will run on first launch anyway so we can
         // leave those jobs out and can wait until then to start the JobRunner
@@ -542,6 +541,7 @@ public final class JobRunner: JobRunnerType {
         // Flag that the JobRunner can start it's queues and start queueing non-launch jobs
         appReadyToStartQueues.mutate { $0 = true }
         appHasBecomeActive.mutate { $0 = true }
+        forceAllowSingleExecutionJobs.mutate { $0 = false }
         
         // If we have a running "sutdownBackgroundTask" then we want to cancel it as otherwise it
         // can result in the database being suspended and us being unable to interact with it at all
