@@ -472,6 +472,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 )?.becomeFirstResponder()
             }
         }
+        else if !self.isFirstResponder && hasLoadedInitialThreadData {
+            // After we have loaded the initial data if the user starts and cancels the interactive pop
+            // gesture the input view will disappear
+            self.becomeFirstResponder()
+        }
         
         recoverInputView { [weak self] in
             // Flag that the initial layout has been completed (the flag blocks and unblocks a number

@@ -961,7 +961,7 @@ public final class JobQueue: Hashable {
                 repeats: false,
                 using: dependencies,
                 block: { [weak queue] _ in
-                    queue?.start(using: dependencies)
+                    queue?.start(forceWhenAlreadyRunning: (queue?.executionType == .concurrent), using: dependencies)
                 }
             )
             return trigger
@@ -1306,7 +1306,7 @@ public final class JobQueue: Hashable {
         // on the main thread (if it is on the main thread then swap to a different thread)
         guard DispatchQueue.with(key: queueKey, matches: queueContext, using: dependencies) else {
             internalQueue.async(using: dependencies) { [weak self] in
-                self?.start(using: dependencies)
+                self?.start(forceWhenAlreadyRunning: forceWhenAlreadyRunning, using: dependencies)
             }
             return
         }
@@ -1582,8 +1582,8 @@ public final class JobQueue: Hashable {
             return
         }
         
-        // Only schedule a trigger if this queue has actually completed
-        guard executionType != .concurrent || currentlyRunningJobIds.wrappedValue.isEmpty else { return }
+        // Only schedule a trigger if the queue is concurrent, or it has actually completed
+        guard executionType == .concurrent || currentlyRunningJobIds.wrappedValue.isEmpty else { return }
         
         // Setup a trigger
         SNLog("[JobRunner] Stopping \(queueContext) until next job in \(ceilSecondsUntilNextJob) second\(ceilSecondsUntilNextJob == 1 ? "" : "s")")
