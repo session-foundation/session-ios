@@ -383,7 +383,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
             DispatchQueue.main.async {
                 CallRingTonePlayer.shared.stopPlayingRingTone()
                 
-                self?.callInfoLabel.text = "Connected"
                 self?.minimizeButton.isHidden = false
                 self?.durationTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
                     self?.updateDuration()
@@ -433,7 +432,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         AppEnvironment.shared.callManager.startCall(call) { [weak self] error in
             DispatchQueue.main.async {
                 if let _ = error {
-                    self?.callInfoLabel.text = "Can't start a call."
+                    self?.callInfoLabel.text = "callsErrorStart".localized()
                     self?.endCall()
                 }
                 else {
@@ -609,7 +608,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         AppEnvironment.shared.callManager.answerCall(call) { [weak self] error in
             DispatchQueue.main.async {
                 if let _ = error {
-                    self?.callInfoLabel.text = "Can't answer the call."
+                    self?.callInfoLabel.text = "callsErrorAnswer".localized()
                     self?.endCall()
                 }
             }

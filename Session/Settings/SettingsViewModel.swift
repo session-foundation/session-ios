@@ -602,7 +602,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 switch (avatarUpdate, error) {
                                     case (.remove, _): return nil
                                     case (_, .avatarUploadMaxFileSizeExceeded):
-                                        return "update_profile_modal_max_size_error_message".localized()
+                                        return "profileDisplayPictureSizeError".localized()
                                     
                                     default: return "update_profile_modal_error_message".localized()
                                 }

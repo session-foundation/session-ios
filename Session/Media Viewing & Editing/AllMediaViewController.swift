@@ -23,7 +23,7 @@ public class AllMediaViewController: UIViewController, UIPageViewControllerDataS
                     self.pageVC.setViewControllers([ self.pages[0] ], direction: .forward, animated: false, completion: nil)
                     self.updateSelectButton(updatedData: self.mediaTitleViewController.viewModel.galleryData, inBatchSelectMode: self.mediaTitleViewController.isInBatchSelectMode)
                 },
-                TabBar.Tab(title: "DOCUMENT_TAB_TITLE".localized()) { [weak self] in
+                TabBar.Tab(title: "files".localized()) { [weak self] in
                     guard let self = self else { return }
                     self.pageVC.setViewControllers([ self.pages[1] ], direction: .forward, animated: false, completion: nil)
                     self.endSelectMode()

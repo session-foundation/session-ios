@@ -277,7 +277,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 threadViewModel.displayName,
                                 font: .titleLarge,
                                 alignment: .center,
-                                editingPlaceholder: "CONTACT_NICKNAME_PLACEHOLDER".localized(),
+                                editingPlaceholder: "nicknameEnter".localized(),
                                 interaction: (threadViewModel.threadVariant == .contact ? .editable : .none)
                             ),
                             styling: SessionCell.StyleInfo(

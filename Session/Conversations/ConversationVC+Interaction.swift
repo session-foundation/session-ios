@@ -251,8 +251,8 @@ extension ConversationVC:
         guard Storage.shared[.isGiphyEnabled] else {
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: "GIPHY_PERMISSION_TITLE".localized(),
-                    body: .text("GIPHY_PERMISSION_MESSAGE".localized()),
+                    title: "giphyWarning".localized(),
+                    body: .text("giphyWarningDescription".localized()),
                     confirmTitle: "continue".localized()
                 ) { [weak self] _ in
                     Storage.shared.writeAsync(
@@ -1667,7 +1667,7 @@ extension ConversationVC:
         
         sheet.addAction(UIAlertAction(
             title: (cellViewModel.state == .failedToSync ?
-                "context_menu_resync".localized() :
+                "resync".localized() :
                 "resend".localized()
             ),
             style: .default,
@@ -1823,7 +1823,7 @@ extension ConversationVC:
                 let modal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "error".localized(),
-                        body: .text("FAILED_TO_STORE_OUTGOING_MESSAGE".localized()),
+                        body: .text("shareExtensionDatabaseError".localized()),
                         cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
                     )

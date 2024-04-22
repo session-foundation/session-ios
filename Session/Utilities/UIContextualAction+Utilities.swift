@@ -226,7 +226,7 @@ public extension UIContextualAction {
                         return UIContextualAction(
                             title: (threadViewModel.threadMutedUntilTimestamp == nil ?
                                 "notificationsMute".localized() :
-                                "unmute_button_text".localized()
+                                "notificationsMuteUnmute".localized()
                             ),
                             icon: (threadViewModel.threadMutedUntilTimestamp == nil ?
                                 UIImage(systemName: "speaker.slash") :
@@ -340,7 +340,9 @@ public extension UIContextualAction {
                                 case true:
                                     let confirmationModal: ConfirmationModal = ConfirmationModal(
                                         info: ConfirmationModal.Info(
-                                            title: "MESSAGE_REQUESTS_BLOCK_CONFIRMATION_ACTON".localized(),
+                                            title: "blockDescription"
+                                                .put(key: "name", value: threadViewModel.displayName)
+                                                .localized(),
                                             confirmTitle: "block".localized(),
                                             confirmAccessibility: Accessibility(
                                                 identifier: "Block"

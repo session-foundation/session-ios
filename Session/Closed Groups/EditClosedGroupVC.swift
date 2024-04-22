@@ -110,7 +110,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                 .filter(id: threadId)
                 .asRequest(of: String.self)
                 .fetchOne(db)
-                .defaulting(to: "GROUP_TITLE_FALLBACK".localized())
+                .defaulting(to: "groupUnknown".localized())
             self?.originalName = (self?.name ?? "")
             
             let profileAlias: TypedTableAlias<Profile> = TypedTableAlias()

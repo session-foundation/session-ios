@@ -49,7 +49,7 @@ extension SignalAttachmentError: LocalizedError {
         case .couldNotParseImage:
             return "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE".localized()
         case .couldNotConvertToJpeg:
-            return "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG".localized()
+            return "attachmentsErrorOpen".localized()
         case .invalidFileFormat:
             return "attachmentsErrorNotSupported".localized()
         case .couldNotConvertToMpeg4:

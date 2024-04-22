@@ -460,7 +460,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             default: break
         }
         
-        alert.addAction(UIAlertAction(title: "APP_STARTUP_EXIT".localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
             DDLog.flushLog()
             exit(0)
         })
@@ -891,15 +891,13 @@ private enum StartupError: Error {
     
     var message: String {
         switch self {
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
-                return "DATABASE_STARTUP_FAILED".localized()
+            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .failedToRestore, .databaseError:
+                return "databaseErrorGeneric".localized()
 
             case .databaseError(StorageError.migrationNoLongerSupported):
                 return "databaseErrorUpdate".localized()
             
-            case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
-            case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
-            case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()
+            case .startupTimeout: return "databaseErrorTimeout".localized()
         }
     }
 }

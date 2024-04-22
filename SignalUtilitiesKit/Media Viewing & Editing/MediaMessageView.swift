@@ -234,7 +234,7 @@ public class MediaMessageView: UIView {
                 label.numberOfLines = 2
             }
             else {
-                label.text = "vc_share_link_previews_disabled_title".localized()
+                label.text = "linkPreviewsTurnedOff".localized()
             }
         }
         // Title for everything except these types
@@ -290,7 +290,7 @@ public class MediaMessageView: UIView {
             }
             // If we have no link preview info at this point then assume link previews are disabled
             else {
-                label.text = "vc_share_link_previews_disabled_explanation".localized()
+                label.text = "linkPreviewsTurnedOffDescription".localized()
                 label.themeTextColor = .textPrimary
                 label.textAlignment = .center
                 label.numberOfLines = 0

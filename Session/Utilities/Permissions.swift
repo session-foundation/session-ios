@@ -25,11 +25,11 @@ public enum Permissions {
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "sessionMessenger".localized(),
+                        title: "permissionsRequired".localized(),
                         body: .text(
                             String(
                                 format: "modal_permission_explanation".localized(),
-                                "modal_permission_camera".localized()
+                                "contentDescriptionCamera".localized()
                             )
                         ),
                         confirmTitle: "sessionSettings".localized(),
@@ -68,7 +68,7 @@ public enum Permissions {
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "sessionMessenger".localized(),
+                        title: "permissionsRequired".localized(),
                         body: .text(
                             String(
                                 format: "modal_permission_explanation".localized(),
@@ -142,7 +142,7 @@ public enum Permissions {
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "sessionMessenger".localized(),
+                        title: "permissionsRequired".localized(),
                         body: .text(
                             String(
                                 format: "modal_permission_explanation".localized(),

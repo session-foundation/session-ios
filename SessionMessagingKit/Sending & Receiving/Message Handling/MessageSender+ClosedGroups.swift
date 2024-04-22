@@ -593,7 +593,7 @@ extension MessageSender {
             threadId: groupPublicKey,
             authorId: userPublicKey,
             variant: .infoClosedGroupCurrentUserLeaving,
-            body: "group_you_leaving".localized(),
+            body: "leaving".localized(),
             timestampMs: SnodeAPI.currentOffsetTimestampMs()
         ).inserted(db)
         

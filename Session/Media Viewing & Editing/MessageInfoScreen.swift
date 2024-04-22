@@ -214,7 +214,7 @@ struct MessageInfoScreen: View {
                                     .foregroundColor(themeColor: .textPrimary)
                             }
                             
-                            InfoBlock(title: "received".localized() + ":") {
+                            InfoBlock(title: "received".localized()) {
                                 Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
                                     .font(.system(size: Values.mediumFontSize))
                                     .foregroundColor(themeColor: .textPrimary)

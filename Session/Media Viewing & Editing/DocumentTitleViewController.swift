@@ -85,7 +85,7 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         
         ViewControllerUtilities.setUpDefaultSessionStyle(
             for: self,
-            title:"DOCUMENT_TAB_TITLE".localized(),
+            title:"files".localized(),
             hasCustomBackButton: false
         )
 
@@ -304,8 +304,8 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
                     title: {
                         switch section.model {
                             case .emptyGallery: return "attachmentsFilesEmpty".localized()
-                            case .loadOlder: return "DOCUMENT_TILES_LOADING_OLDER_LABEL".localized()
-                            case .loadNewer: return "DOCUMENT_TILES_LOADING_MORE_RECENT_LABEL".localized()
+                            case .loadOlder: return "attachmentsLoadingOlderFiles".localized()
+                            case .loadNewer: return "attachmentsLoadingNewerFiles".localized()
                             case .galleryMonth: return ""   // Impossible case
                         }
                     }()

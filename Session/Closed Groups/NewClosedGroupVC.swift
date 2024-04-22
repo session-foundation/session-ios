@@ -346,7 +346,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
-                                        title: "GROUP_CREATION_ERROR_TITLE".localized(),
+                                        title: "groupError".localized(),
                                         body: .text("GROUP_CREATION_ERROR_MESSAGE".localized()),
                                         cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text

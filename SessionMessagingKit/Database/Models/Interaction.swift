@@ -1037,7 +1037,7 @@ public extension Interaction {
                 
             case .infoClosedGroupCreated: return "GROUP_CREATED".localized()
             case .infoClosedGroupCurrentUserLeft: return "groupMemberYouLeft".localized()
-            case .infoClosedGroupCurrentUserLeaving: return "group_you_leaving".localized()
+            case .infoClosedGroupCurrentUserLeaving: return "leaving".localized()
             case .infoClosedGroupCurrentUserErrorLeaving: return (body ?? "")
             case .infoClosedGroupUpdated: return (body ?? "groupUpdated".localized())
             case .infoMessageRequestAccepted: return (body ?? "messageRequestsAccepted".localized())

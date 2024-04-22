@@ -61,7 +61,7 @@ extension ContextMenuVC {
             return Action(
                 icon: UIImage(systemName: "arrow.triangle.2.circlepath"),
                 title: (cellViewModel.state == .failedToSync ?
-                    "context_menu_resync".localized() :
+                    "resync".localized() :
                     "resend".localized()
                 ),
                 accessibilityLabel: (cellViewModel.state == .failedToSync ? "Resync message" : "Resend message")

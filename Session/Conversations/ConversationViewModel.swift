@@ -621,7 +621,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     $0.id,
                     $0.messageViewModel.with(
                         state: .failed,
-                        mostRecentFailureText: "FAILED_TO_STORE_OUTGOING_MESSAGE".localized()
+                        mostRecentFailureText: "shareExtensionDatabaseError".localized()
                     ),
                     $0.interaction,
                     $0.attachmentData,

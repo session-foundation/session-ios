@@ -197,9 +197,9 @@ final class ConversationTitleView: UIView {
                     case .legacyGroup, .group:
                         labelInfos.append(
                             SessionLabelCarouselView.LabelInfo(
-                                attributedText: NSAttributedString(
-                                    string: "\(userCount) member\(userCount == 1 ? "" : "s")"
-                                ),
+                                attributedText: "members"
+                                    .put(key: "count", value: userCount)
+                                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.miniFontSize)),
                                 accessibility: nil, // TODO: Add accessibility
                                 type: .userCount
                             )

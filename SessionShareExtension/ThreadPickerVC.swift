@@ -38,7 +38,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     private lazy var databaseErrorLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .systemFont(ofSize: Values.mediumFontSize)
-        result.text = "database_inaccessible_error".localized()
+        result.text = "shareExtensionDatabaseError".localized()
         result.textAlignment = .center
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
