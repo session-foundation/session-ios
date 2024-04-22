@@ -1648,7 +1648,7 @@ extension ConversationVC:
         let sheet = UIAlertController(
             title: (cellViewModel.state == .failedToSync ?
                 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE".localized() :
-                "MESSAGE_DELIVERY_FAILED_TITLE".localized()
+                "messageStatusFailedToSend".localized()
             ),
             message: cellViewModel.mostRecentFailureText,
             preferredStyle: .actionSheet
@@ -2176,52 +2176,50 @@ extension ConversationVC:
                     self?.showInputAccessoryView()
                 })
                 
-                actionSheet.addAction(UIAlertAction(
-                    title: {
-                        switch cellViewModel.threadVariant {
-                            case .legacyGroup, .group: return "clearMessagesForEveryone".localized()
-                            default:
-                                return (cellViewModel.threadId == userPublicKey ?
-                                    "delete_message_for_me_and_my_devices".localized() :
-                                    "clearMessagesForEveryone".localized()
-                                )
-                        }
-                    }(),
-                    accessibilityIdentifier: "Delete for everyone",
-                    style: .destructive
-                ) { [weak self] _ in
-                    let completeServerDeletion = { [weak self] in
-                        Storage.shared.writeAsync { db in
-                            try MessageSender
-                                .send(
-                                    db,
-                                    message: unsendRequest,
-                                    interactionId: nil,
-                                    threadId: cellViewModel.threadId,
-                                    threadVariant: cellViewModel.threadVariant,
-                                    using: dependencies
-                                )
+                if cellViewModel.threadId != userPublicKey {
+                    actionSheet.addAction(UIAlertAction(
+                        title: {
+                            switch cellViewModel.threadVariant {
+                                case .legacyGroup, .group: return "clearMessagesForEveryone".localized()
+                                default: return "clearMessagesForEveryone".localized()
+                            }
+                        }(),
+                        accessibilityIdentifier: "Delete for everyone",
+                        style: .destructive
+                    ) { [weak self] _ in
+                        let completeServerDeletion = { [weak self] in
+                            Storage.shared.writeAsync { db in
+                                try MessageSender
+                                    .send(
+                                        db,
+                                        message: unsendRequest,
+                                        interactionId: nil,
+                                        threadId: cellViewModel.threadId,
+                                        threadVariant: cellViewModel.threadVariant,
+                                        using: dependencies
+                                    )
+                            }
+                            
+                            self?.showInputAccessoryView()
                         }
                         
-                        self?.showInputAccessoryView()
-                    }
-                    
-                    // We can only delete messages on the server for `contact` and `group` conversations
-                    guard cellViewModel.threadVariant == .contact || cellViewModel.threadVariant == .group else {
-                        return completeServerDeletion()
-                    }
-                    
-                    deleteRemotely(
-                        from: self,
-                        request: SnodeAPI
-                            .deleteMessages(
-                                publicKey: targetPublicKey,
-                                serverHashes: [serverHash]
-                            )
-                            .map { _ in () }
-                            .eraseToAnyPublisher()
-                    ) { completeServerDeletion() }
-                })
+                        // We can only delete messages on the server for `contact` and `group` conversations
+                        guard cellViewModel.threadVariant == .contact || cellViewModel.threadVariant == .group else {
+                            return completeServerDeletion()
+                        }
+                        
+                        deleteRemotely(
+                            from: self,
+                            request: SnodeAPI
+                                .deleteMessages(
+                                    publicKey: targetPublicKey,
+                                    serverHashes: [serverHash]
+                                )
+                                .map { _ in () }
+                                .eraseToAnyPublisher()
+                        ) { completeServerDeletion() }
+                    })
+                }
 
                 actionSheet.addAction(UIAlertAction.init(title: "cancel".localized(), style: .cancel) { [weak self] _ in
                     self?.showInputAccessoryView()

@@ -1035,7 +1035,7 @@ public extension Interaction {
                     .put(key: "name", value: authorDisplayName)
                     .localized()
                 
-            case .infoClosedGroupCreated: return "GROUP_CREATED".localized()
+            case .infoClosedGroupCreated: return (body ?? "") // Deprecated
             case .infoClosedGroupCurrentUserLeft: return "groupMemberYouLeft".localized()
             case .infoClosedGroupCurrentUserLeaving: return "leaving".localized()
             case .infoClosedGroupCurrentUserErrorLeaving: return (body ?? "")

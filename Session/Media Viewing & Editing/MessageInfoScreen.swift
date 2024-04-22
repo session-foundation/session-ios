@@ -221,7 +221,7 @@ struct MessageInfoScreen: View {
                             }
                             
                             if isMessageFailed {
-                                let failureText: String = messageViewModel.mostRecentFailureText ?? "SEND_FAILED_NOTIFICATION_BODY".localized()
+                                let failureText: String = messageViewModel.mostRecentFailureText ?? "messageStatusFailedToSend".localized()
                                 InfoBlock(title: "error".localized() + ":") {
                                     Text(failureText)
                                         .font(.system(size: Values.mediumFontSize))

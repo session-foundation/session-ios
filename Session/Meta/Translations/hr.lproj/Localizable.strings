@@ -282,7 +282,7 @@
 "groupLeave" = "Leave Group";
 "notificationsLedColor" = "LED color";
 "linkPreviews" = "Link Previews";
-"recoveryPasswordDescription" = "Use your recovery password to load your account on new devices. Your account cannot be recovered without your recovery password. Make sure it\'s stored somewhere safe and secure — and don\'t share it with anyone.";
+"recoveryPasswordDescription" = "Use your recovery password to load your account on new devices. <br/>Your account cannot be recovered without your recovery password. Make sure it\'s stored somewhere safe and secure — and don\'t share it with anyone.";
 "attachmentsLoadingNewer" = "Loading Newer Media...";
 "attachmentsLoadingOlder" = "Loading Older Media...";
 "loadAccountProgressMessage" = "Loading your account";

@@ -282,7 +282,7 @@
 "groupLeave" = "Leave Group";
 "notificationsLedColor" = "LED color";
 "linkPreviews" = "Link Previews";
-"recoveryPasswordDescription" = "Use your recovery password to load your account on new devices. Your account cannot be recovered without your recovery password. Make sure it\'s stored somewhere safe and secure — and don\'t share it with anyone.";
+"recoveryPasswordDescription" = "Use your recovery password to load your account on new devices. <br/>Your account cannot be recovered without your recovery password. Make sure it\'s stored somewhere safe and secure — and don\'t share it with anyone.";
 "attachmentsLoadingNewer" = "Loading Newer Media...";
 "attachmentsLoadingOlder" = "Loading Older Media...";
 "loadAccountProgressMessage" = "Loading your account";
@@ -717,8 +717,6 @@
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Unable to parse image.";
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Unable to process video.";
 "ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Unable to resize image.";
-"GROUP_CREATED" = "Group created";
-"DISAPPERING_MESSAGES_INFO_ENABLE" = "%@ has set messages to disappear %@ after they have been %@";
 "USER_CONFIG_OUTDATED_WARNING" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated.";
 "DATE_NOW" = "Now";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_FALLBACK" = "this contact";
@@ -749,6 +747,3 @@
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Failed to choose document.";
 "CONFIRM_BUTTON_TITLE" = "Confirm";
 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";
-"MESSAGE_DELIVERY_FAILED_TITLE" = "Failed to send message";
-"delete_message_for_me_and_my_devices" = "Delete from all of my devices";
-"SEND_FAILED_NOTIFICATION_BODY" = "Your message failed to send.";
