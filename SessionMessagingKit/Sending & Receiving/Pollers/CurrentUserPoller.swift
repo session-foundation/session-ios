@@ -67,10 +67,12 @@ public final class CurrentUserPoller: Poller {
         if UserDefaults.sharedLokiProject?[.isMainAppActive] != true {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }
-        else if let targetSnode: Snode = targetSnode.wrappedValue {
-            SNLog("Main Poller polling \(targetSnode) failed; dropping it and switching to next snode.")
-            self.targetSnode.mutate { $0 = nil }
-            SnodeAPI.dropSnodeFromSwarmIfNeeded(targetSnode, publicKey: publicKey)
+        else if
+            let drainBehaviour: Atomic<SwarmDrainBehaviour> = drainBehaviour.wrappedValue[publicKey],
+            case .limitedReuse(_, .some(let targetSnode), _, _, _) = drainBehaviour.wrappedValue
+        {
+            SNLog("Main Poller polling \(targetSnode) failed with error: \(error); switching to next snode.")
+            drainBehaviour.mutate { $0 = $0.clearTargetSnode() }
         }
         else {
             SNLog("Polling failed due to having no target service node.")

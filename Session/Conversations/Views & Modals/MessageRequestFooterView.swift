@@ -154,11 +154,15 @@ class MessageRequestFooterView: UIView {
         threadRequiresApproval: Bool
     ) {
         self.isHidden = (!canWrite || (!threadIsMessageRequest && !threadRequiresApproval))
-        self.blockButton.isHidden = (threadVariant != .contact)
+        self.blockButton.isHidden = (
+            threadVariant != .contact ||
+            threadRequiresApproval
+        )
         self.descriptionLabel.text = (threadRequiresApproval ?
             "MESSAGE_REQUEST_PENDING_APPROVAL_INFO".localized() :
             "MESSAGE_REQUESTS_INFO".localized()
         )
+        self.actionStackView.isHidden = threadRequiresApproval
         self.messageRequestDescriptionLabelBottomConstraint?.constant = (threadRequiresApproval ? -4 : -20)
     }
     

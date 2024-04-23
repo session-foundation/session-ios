@@ -16,9 +16,6 @@ public class Poller {
     internal var failureCount: Atomic<[String: Int]> = Atomic([:])
     internal var drainBehaviour: Atomic<[String: Atomic<SwarmDrainBehaviour>]> = Atomic([:])
     
-    internal var targetSnode: Atomic<Snode?> = Atomic(nil)
-    private var usedSnodes: Atomic<Set<Snode>> = Atomic([])
-    
     // MARK: - Settings
     
     /// The namespaces which this poller queries
@@ -177,7 +174,7 @@ public class Poller {
         let configHashes: [String] = LibSession.configHashes(for: swarmPublicKey)
         
         // Fetch the messages
-        return GetSwarmJob.run(for: swarmPublicKey, using: dependencies)
+        return LibSession.getSwarm(swarmPublicKey: swarmPublicKey)
             .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour, using: dependencies) { snode -> AnyPublisher<[SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)], Error> in
                 SnodeAPI.poll(
                     namespaces: namespaces,

@@ -22,7 +22,7 @@ enum _004_AddJobPriority: Migration {
         let variantPriorities: [Int: [Job.Variant]] = [
             7: [Job.Variant.disappearingMessages],
             6: [Job.Variant.failedMessageSends, Job.Variant.failedAttachmentDownloads],
-            5: [Job.Variant.getSnodePool],
+            5: [Job.Variant._legacy_getSnodePool],
             4: [Job.Variant.syncPushTokens],
             3: [Job.Variant.retrieveDefaultOpenGroupRooms],
             2: [Job.Variant.updateProfilePicture],

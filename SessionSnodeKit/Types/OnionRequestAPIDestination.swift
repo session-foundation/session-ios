@@ -6,22 +6,21 @@ import Foundation
 import SessionUtilitiesKit
 
 public enum OnionRequestAPIDestination: CustomStringConvertible {
-    case snode(Snode)
+    case snode(LibSession.CSNode)
     case server(
         method: String?,
         scheme: String?,
         host: String,
-        endpoint: any EndpointType,
+        endpoint: String,
         port: UInt16?,
         headers: [HTTPHeader: String]?,
-        queryParams: [HTTPQueryParam: String]?,
         x25519PublicKey: String
     )
     
     public var description: String {
         switch self {
-            case .snode(let snode): return "Service node \(snode.ip):\(snode.lmqPort)"
-            case .server(_, _, let host, _, _, _, _, _): return host
+            case .snode(let snode): return "Service node \(snode.address)"
+            case .server(_, _, let host, _, _, _, _): return host
         }
     }
 }

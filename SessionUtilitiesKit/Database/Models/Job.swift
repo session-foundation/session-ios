@@ -46,19 +46,18 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     }
     
     public enum Variant: Int, Codable, DatabaseValueConvertible, CaseIterable {
+        // Deprecated Jobs
+        case _legacy_getSnodePool = 1
+        case _legacy_buildPaths = 3009
+        case _legacy_getSwarm = 3010
+        
         /// This is a recurring job that handles the removal of disappearing messages and is triggered
         /// at the timestamp of the next disappearing message
-        case disappearingMessages
-        
-        /// This is a recurring job that ensures the app retrieves a service node pool on become active
-        ///
-        /// **Note:** This is a blocking job so it will run before any other jobs and prevent them from
-        /// running until it's complete
-        case getSnodePool
+        case disappearingMessages = 0
         
         /// This is a recurring job that checks if the user needs to update their profile picture on launch, and if so
         /// attempt to download the latest
-        case updateProfilePicture
+        case updateProfilePicture = 2
         
         /// This is a recurring job that ensures the app fetches the default open group rooms on launch
         case retrieveDefaultOpenGroupRooms
@@ -129,14 +128,6 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job that runs once whenever a message is marked as read because of syncing from user config and
         /// needs to get expiration from network
         case getExpiration
-        
-        /// This job runs whenever we don't have enough onion request paths, it also runs distinctly so there should only
-        /// ever be one at a time
-        case buildPaths
-        
-        /// This job runs whenever we don't have the swarm for a public key, it also runs distinctly so there should only
-        /// ever be one at a time
-        case getSwarm
     }
     
     public enum Behaviour: Int, Codable, DatabaseValueConvertible, CaseIterable {

@@ -9,10 +9,10 @@ import SessionUtilitiesKit
 
 internal extension Network {
     struct SnodeTarget: RequestTarget, Equatable {
-        let snode: Snode
+        let snode: LibSession.CSNode
         let swarmPublicKey: String?
         
-        var url: URL? { URL(string: "snode:\(snode.x25519PublicKey)") }
+        var url: URL? { URL(string: "snode:\(snode.x25519PubkeyHex)") }
         var urlPathAndParamsString: String { return "" }
     }
 }
@@ -34,13 +34,14 @@ internal extension Network {
 internal extension Network {
     struct RandomSnodeLatestNetworkTimeTarget: RequestTarget, Equatable {
         let swarmPublicKey: String
+        let retryCount: Int
         let urlRequestWithUpdatedTimestampMs: ((UInt64, Dependencies) throws -> URLRequest)
         
         var url: URL? { URL(string: "snode:\(swarmPublicKey)") }
         var urlPathAndParamsString: String { return "" }
         
         static func == (lhs: Network.RandomSnodeLatestNetworkTimeTarget, rhs: Network.RandomSnodeLatestNetworkTimeTarget) -> Bool {
-            lhs.swarmPublicKey == rhs.swarmPublicKey
+            lhs.swarmPublicKey == rhs.swarmPublicKey && lhs.retryCount == rhs.retryCount
         }
     }
 }
@@ -51,7 +52,7 @@ public extension Request {
     init(
         method: HTTPMethod = .get,
         endpoint: Endpoint,
-        snode: Snode,
+        snode: LibSession.CSNode,
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
         swarmPublicKey: String?,
@@ -111,6 +112,7 @@ public extension Request {
             endpoint: endpoint,
             target: Network.RandomSnodeLatestNetworkTimeTarget(
                 swarmPublicKey: swarmPublicKey,
+                retryCount: retryCount,
                 urlRequestWithUpdatedTimestampMs: { timestampMs, dependencies in
                     try Request(
                         method: method,

@@ -34,6 +34,7 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
     case missingSecretKey
     case unreachable
     case unassociatedPubkey
+    case unableToRetrieveSwarm
 
     public var description: String {
         switch self {
@@ -71,6 +72,7 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             case .missingSecretKey: return "Missing secret key (SnodeAPIError.missingSecretKey)."
             case .unreachable: return "The service node is unreachable (SnodeAPIError.unreachable)."
             case .unassociatedPubkey: return "The service node is no longer associated with the public key (SnodeAPIError.unassociatedPubkey)."
+            case .unableToRetrieveSwarm: return "Unable to retrieve the swarm for the given public key (SnodeAPIError.unableToRetrieveSwarm)."
         }
     }
 }

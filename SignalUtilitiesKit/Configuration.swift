@@ -11,7 +11,6 @@ public enum Configuration {
         // Need to do this first to ensure the legacy database exists
         SNUtilitiesKit.configure(maxFileSize: UInt(FileServerAPI.maxFileSize))
         SNMessagingKit.configure()
-        SNSnodeKit.configure()
         SNUIKit.configure()
         
     }

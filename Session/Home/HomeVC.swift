@@ -286,7 +286,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         }
         
         // Onion request path countries cache
-        IP2Country.shared.populateCacheIfNeededAsync()
+        IP2Country.populateCacheIfNeededAsync()
     }
     
     override func viewWillAppear(_ animated: Bool) {

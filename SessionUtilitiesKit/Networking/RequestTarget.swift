@@ -18,9 +18,9 @@ public protocol ServerRequestTarget: RequestTarget {
 }
 
 public extension ServerRequestTarget {
-    func pathFor(path: String, queryParams: [HTTPQueryParam: String]) -> String {
+    func pathFor<E: EndpointType>(endpoint: E, queryParams: [HTTPQueryParam: String]) -> String {
         return [
-            "/\(path)",
+            "/\(endpoint.path)",
             queryParams
                 .map { key, value in "\(key)=\(value)" }
                 .joined(separator: "&")
@@ -43,7 +43,7 @@ public extension Network {
         public let x25519PublicKey: String
         
         public var url: URL? { URL(string: "\(server)\(urlPathAndParamsString)") }
-        public var urlPathAndParamsString: String { pathFor(path: endpoint.path, queryParams: queryParameters) }
+        public var urlPathAndParamsString: String { pathFor(endpoint: endpoint, queryParams: queryParameters) }
         
         // MARK: - Initialization
         

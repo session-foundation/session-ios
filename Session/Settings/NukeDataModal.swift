@@ -283,7 +283,7 @@ final class NukeDataModal: Modal {
         }
         
         // Clear the Snode pool
-        SnodeAPI.clearSnodePool()
+        LibSession.clearSnodeCache()
         
         // Stop any pollers
         (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()

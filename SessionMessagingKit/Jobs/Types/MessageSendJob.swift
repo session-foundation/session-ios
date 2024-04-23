@@ -193,7 +193,7 @@ public enum MessageSendJob: JobExecutor {
                         case .failure(let error):
                             switch error {
                                 case MessageSenderError.sendJobTimeout:
-                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error) (paths: \(OnionRequestAPI.paths.prettifiedDescription)).")
+                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error) (paths: \(LibSession.pathsDescription)).")
                                     
                                     // In this case the `MessageSender` process gets cancelled so we need to
                                     // call `handleFailedMessageSend` to update the statuses correctly

@@ -13,7 +13,7 @@ public struct SnodeReceivedMessage: CustomDebugStringConvertible {
     public let data: Data
     
     init?(
-        snode: Snode,
+        snode: LibSession.CSNode,
         publicKey: String,
         namespace: SnodeAPI.Namespace,
         rawMessage: GetMessagesResponse.RawMessage

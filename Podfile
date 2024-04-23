@@ -16,7 +16,6 @@ abstract_target 'GlobalDependencies' do
   pod 'WebRTC-lib'
   
   target 'Session' do
-    pod 'Reachability'
     pod 'PureLayout', '~> 3.1.8'
     pod 'NVActivityIndicatorView'
     pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
@@ -48,7 +47,6 @@ abstract_target 'GlobalDependencies' do
       
       target 'SignalUtilitiesKit' do
         pod 'NVActivityIndicatorView'
-        pod 'Reachability'
         pod 'SAMKeychain'
         pod 'SwiftProtobuf', '~> 1.5.0'
         pod 'YYImage/libwebp', git: 'https://github.com/signalapp/YYImage'
@@ -56,7 +54,6 @@ abstract_target 'GlobalDependencies' do
       end
       
       target 'SessionMessagingKit' do
-        pod 'Reachability'
         pod 'SAMKeychain'
         pod 'SwiftProtobuf', '~> 1.5.0'
         pod 'DifferenceKit'

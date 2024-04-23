@@ -31,7 +31,6 @@ public extension Network.PreparedRequest {
                                 .onionRequest(
                                     request,
                                     to: serverTarget.server,
-                                    endpoint: serverTarget.endpoint,
                                     with: serverTarget.x25519PublicKey,
                                     timeout: timeout
                                 ),
@@ -52,33 +51,33 @@ public extension Network.PreparedRequest {
                                 using: dependencies
                             )
                         
-                    case let randomSnode as Network.RandomSnodeTarget:
+                    case let randomTarget as Network.RandomSnodeTarget:
                         guard let payload: Data = request.httpBody else { throw NetworkError.invalidPreparedRequest }
 
-                        return GetSwarmJob.run(for: randomSnode.swarmPublicKey, using: dependencies)
-                            .tryFlatMapWithRandomSnode(retry: randomSnode.retryCount, using: dependencies) { snode in
+                        return LibSession.getSwarm(swarmPublicKey: randomTarget.swarmPublicKey)
+                            .tryFlatMapWithRandomSnode(retry: randomTarget.retryCount, using: dependencies) { snode in
                                 dependencies.network
                                     .send(
                                         .onionRequest(
                                             payload,
                                             to: snode,
-                                            swarmPublicKey: randomSnode.swarmPublicKey,
+                                            swarmPublicKey: randomTarget.swarmPublicKey,
                                             timeout: timeout
                                         ),
                                         using: dependencies
                                     )
                             }
                         
-                    case let randomSnode as Network.RandomSnodeLatestNetworkTimeTarget:
+                    case let randomTarget as Network.RandomSnodeLatestNetworkTimeTarget:
                         guard request.httpBody != nil else { throw NetworkError.invalidPreparedRequest }
                         
-                        return GetSwarmJob.run(for: randomSnode.swarmPublicKey, using: dependencies)
-                            .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount, using: dependencies) { snode in
+                        return LibSession.getSwarm(swarmPublicKey: randomTarget.swarmPublicKey)
+                            .tryFlatMapWithRandomSnode(retry: randomTarget.retryCount, using: dependencies) { snode in
                                 SnodeAPI
                                     .getNetworkTime(from: snode, using: dependencies)
                                     .tryFlatMap { timestampMs in
                                         guard
-                                            let updatedRequest: URLRequest = try? randomSnode
+                                            let updatedRequest: URLRequest = try? randomTarget
                                                 .urlRequestWithUpdatedTimestampMs(timestampMs, dependencies),
                                             let payload: Data = updatedRequest.httpBody
                                         else { throw NetworkError.invalidPreparedRequest }
@@ -88,7 +87,7 @@ public extension Network.PreparedRequest {
                                                 .onionRequest(
                                                     payload,
                                                     to: snode,
-                                                    swarmPublicKey: randomSnode.swarmPublicKey,
+                                                    swarmPublicKey: randomTarget.swarmPublicKey,
                                                     timeout: timeout
                                                 ),
                                                 using: dependencies

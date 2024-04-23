@@ -224,42 +224,22 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
             Storage.resumeDatabaseAccess()
             
+            let swarmPublicKey: String = {
+                switch threadVariant {
+                    case .contact, .legacyGroup, .group: return threadId
+                    case .community: return getUserHexEncodedPublicKey(using: dependencies)
+                }
+            }()
+            
             /// When we prepare the message we set the timestamp to be the `SnodeAPI.currentOffsetTimestampMs()`
             /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
             /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
-            Just(())
-                .setFailureType(to: Error.self)
-                .flatMap { _ in
-                    // We may not have sufficient snodes, so rather than failing we try to load/fetch
-                    // them if needed
-                    guard !SnodeAPI.hasCachedSnodesIncludingExpired() else {
-                        return Just(())
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    return SnodeAPI.getSnodePool()
-                        .map { _ in () }
-                        .eraseToAnyPublisher()
+            LibSession
+                .getSwarm(swarmPublicKey: swarmPublicKey)
+                .tryFlatMapWithRandomSnode(using: dependencies) { snode in
+                    SnodeAPI.getNetworkTime(from: snode, using: dependencies)
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMap { _ in
-                    GetSwarmJob
-                        .run(
-                            for: {
-                                switch threadVariant {
-                                    case .contact, .legacyGroup, .group: return threadId
-                                    case .community: return getUserHexEncodedPublicKey(using: dependencies)
-                                }
-                            }(),
-                            using: dependencies
-                        )
-                        .tryFlatMapWithRandomSnode(using: dependencies) {
-                            SnodeAPI.getNetworkTime(from: $0, using: dependencies)
-                        }
-                        .map { _ in () }
-                        .eraseToAnyPublisher()
-                }
                 .flatMap { _ in
                     dependencies.storage.writePublisher { db -> MessageSender.PreparedSendData in
                         guard

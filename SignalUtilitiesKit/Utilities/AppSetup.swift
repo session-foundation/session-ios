@@ -61,7 +61,6 @@ public enum AppSetup {
             assert(success)
 
             SessionEnvironment.shared = SessionEnvironment(
-                reachabilityManager: SSKReachabilityManagerImpl(),
                 audioSession: OWSAudioSession(),
                 proximityMonitoringManager: OWSProximityMonitoringManagerImpl(),
                 windowManager: OWSWindowManager(default: ())

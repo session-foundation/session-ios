@@ -108,7 +108,7 @@ public enum SyncPushTokensJob: JobExecutor {
         SNLog("[SyncPushTokensJob] Re-registering for remote notifications")
         PushRegistrationManager.shared.requestPushTokens()
             .flatMap { (pushToken: String, voipToken: String) -> AnyPublisher<Void, Error> in
-                guard !OnionRequestAPI.paths.isEmpty else {
+                guard !LibSession.hasPaths else {
                     SNLog("[SyncPushTokensJob] OS subscription completed, skipping server subscription due to lack of paths")
                     return Just(())
                         .setFailureType(to: Error.self)

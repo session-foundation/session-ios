@@ -52,6 +52,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             appSpecificBlock: {
                 // Create AppEnvironment
                 AppEnvironment.shared.setup()
+                LibSession.createNetworkIfNeeded()
                 
                 // Note: Intentionally dispatching sync as we want to wait for these to complete before
                 // continuing
@@ -395,7 +396,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // May as well run these on the background thread
         SessionEnvironment.shared?.audioSession.setup()
-        SessionEnvironment.shared?.reachabilityManager.setup()
     }
     
     private func showFailedStartupAlert(

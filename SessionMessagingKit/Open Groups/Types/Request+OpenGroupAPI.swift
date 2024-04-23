@@ -17,7 +17,7 @@ internal extension Network {
         public let forceBlinded: Bool
         
         public var url: URL? { URL(string: "\(server)\(urlPathAndParamsString)") }
-        public var urlPathAndParamsString: String { pathFor(path: endpoint.path, queryParams: queryParameters) }
+        public var urlPathAndParamsString: String { pathFor(endpoint: endpoint, queryParams: queryParameters) }
         public var x25519PublicKey: String { serverPublicKey }
     }
 }
