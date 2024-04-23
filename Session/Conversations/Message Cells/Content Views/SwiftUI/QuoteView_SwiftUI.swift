@@ -54,7 +54,7 @@ struct QuoteView_SwiftUI: View {
         return nil
     }
     private var author: String? {
-        guard !isCurrentUser else { return "onionRoutingPathYou".localized() }
+        guard !isCurrentUser else { return "you".localized() }
         guard quotedText != nil else {
             // When we can't find the quoted message we want to hide the author label
             return Profile.displayNameNoFallback(

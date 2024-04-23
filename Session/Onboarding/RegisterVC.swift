@@ -85,7 +85,7 @@ final class RegisterVC : BaseVC {
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
         registerButton.accessibilityLabel = "Continue"
-        registerButton.setTitle("continue".localized(), for: .normal)
+        registerButton.setTitle("theContinue".localized(), for: .normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         
         // Set up button stack view

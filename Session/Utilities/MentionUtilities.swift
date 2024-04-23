@@ -70,7 +70,7 @@ public enum MentionUtilities {
             let isCurrentUser: Bool = currentUserPublicKeys.contains(publicKey)
             
             guard let targetString: String = {
-                guard !isCurrentUser else { return "onionRoutingPathYou".localized() }
+                guard !isCurrentUser else { return "you".localized() }
                 guard let displayName: String = Profile.displayNameNoFallback(id: publicKey, threadVariant: threadVariant) else {
                     lastMatchEnd = (match.range.location + match.range.length)
                     return nil

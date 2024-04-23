@@ -326,7 +326,7 @@ class PhotoCaptureViewController: OWSViewController {
         Logger.error("error: \(error)")
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: "error".localized(),
+                title: "theError".localized(),
                 body: .text(error.localizedDescription),
                 cancelTitle: "dismiss".localized(),
                 cancelStyle: .alert_text,

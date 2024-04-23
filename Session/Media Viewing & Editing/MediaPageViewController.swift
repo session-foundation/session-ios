@@ -888,7 +888,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         .defaulting(to: Profile.truncated(id: targetItem.interactionAuthorId, truncating: .middle))
                     
                 case .standardOutgoing:
-                    return "onionRoutingPathYou".localized() //"Short sender label for media sent by you"
+                    return "you".localized() //"Short sender label for media sent by you"
                         
                 default:
                     owsFailDebug("Unsupported message variant: \(targetItem.interactionVariant)")

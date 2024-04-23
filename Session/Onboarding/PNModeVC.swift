@@ -48,7 +48,9 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
     private lazy var backgroundPollingOptionView: OptionView = {
         let result: OptionView = OptionView(
             title: "notificationsSlowMode".localized(),
-            explanation: "notificationsSlowModeDescription".localized(),
+            explanation: "notificationsSlowModeDescription"
+                .put(key: "app_name", value: Singleton.appContext.appName)
+                .localized(),
             delegate: self
         )
         result.accessibilityLabel = "Slow mode option"
@@ -84,7 +86,7 @@ final class PNModeVC: BaseVC, OptionViewDelegate {
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
         registerButton.accessibilityLabel = "Continue with settings"
-        registerButton.setTitle("continue".localized(), for: .normal)
+        registerButton.setTitle("theContinue".localized(), for: .normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         
         // Set up register button container

@@ -5,6 +5,7 @@ import GRDB
 import LocalAuthentication
 import SessionMessagingKit
 import SignalCoreKit
+import SessionUtilitiesKit
 
 public class ScreenLock {
     public enum ScreenLockError: Error {
@@ -51,7 +52,9 @@ public class ScreenLock {
         tryToVerifyLocalAuthentication(
             // Description of how and why Signal iOS uses Touch ID/Face ID/Phone Passcode to
             // unlock 'screen lock'.
-            localizedReason: "authenticateToOpen".localized()
+            localizedReason: "authenticateToOpen"
+                .put(key: "app_name", value: Singleton.appContext.appName)
+                .localized()
         ) { outcome in
             AssertIsOnMainThread()
             

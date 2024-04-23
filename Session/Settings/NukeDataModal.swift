@@ -229,13 +229,13 @@ final class NukeDataModal: Modal {
                             let message: String
                             if potentiallyMaliciousSnodes.count == 1 {
                                 message = "clearDataErrorDescription1"
-                                    .put(key: "servicenodeid", value: potentiallyMaliciousSnodes[0])
+                                    .put(key: "service_node_id", value: potentiallyMaliciousSnodes[0])
                                     .localized()
                             }
                             else {
                                 message = "clearDataErrorDescription2"
                                     .put(key: "count", value: potentiallyMaliciousSnodes.count)
-                                    .put(key: "servicenodeid", value: potentiallyMaliciousSnodes.joined(separator: ", "))
+                                    .put(key: "service_node_id", value: potentiallyMaliciousSnodes.joined(separator: ", "))
                                     .localized()
                             }
                             

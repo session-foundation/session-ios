@@ -77,7 +77,7 @@ final class RestoreVC: BaseVC {
         
         // Set up restore button
         let restoreButton = SessionButton(style: .filled, size: .large)
-        restoreButton.setTitle("continue".localized(), for: UIControl.State.normal)
+        restoreButton.setTitle("theContinue".localized(), for: UIControl.State.normal)
         restoreButton.addTarget(self, action: #selector(restore), for: UIControl.Event.touchUpInside)
         
         // Set up restore button container

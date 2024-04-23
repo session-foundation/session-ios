@@ -208,7 +208,7 @@ struct MessageInfoScreen: View {
                             alignment: .leading,
                             spacing: Values.mediumSpacing
                         ) {
-                            InfoBlock(title: "disappearingMessagesSent".localized() + ":") {
+                            InfoBlock(title: "sent".localized()) {
                                 Text(messageViewModel.dateForUI.fromattedForMessageInfo)
                                     .font(.system(size: Values.mediumFontSize))
                                     .foregroundColor(themeColor: .textPrimary)
@@ -222,14 +222,14 @@ struct MessageInfoScreen: View {
                             
                             if isMessageFailed {
                                 let failureText: String = messageViewModel.mostRecentFailureText ?? "messageStatusFailedToSend".localized()
-                                InfoBlock(title: "error".localized() + ":") {
+                                InfoBlock(title: "theError".localized() + ":") {
                                     Text(failureText)
                                         .font(.system(size: Values.mediumFontSize))
                                         .foregroundColor(themeColor: .danger)
                                 }
                             }
                             
-                            InfoBlock(title: "from".localized() + ":") {
+                            InfoBlock(title: "from".localized()) {
                                 HStack(
                                     spacing: 10
                                 ) {

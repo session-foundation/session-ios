@@ -253,7 +253,7 @@ extension ConversationVC:
                 info: ConfirmationModal.Info(
                     title: "giphyWarning".localized(),
                     body: .text("giphyWarningDescription".localized()),
-                    confirmTitle: "continue".localized()
+                    confirmTitle: "theContinue".localized()
                 ) { [weak self] _ in
                     Storage.shared.writeAsync(
                         updates: { db in
@@ -636,7 +636,11 @@ extension ConversationVC:
         let linkPreviewModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "linkPreviewsEnable".localized(),
-                body: .text("linkPreviewsFirstDescription".localized()),
+                body: .text(
+                    "linkPreviewsFirstDescription"
+                        .put(key: "app_name", value: Singleton.appContext.appName)
+                        .localized()
+                ),
                 confirmTitle: "enable".localized()
             ) { [weak self] _ in
                 Storage.shared.writeAsync { db in
@@ -1694,7 +1698,7 @@ extension ConversationVC:
     
     func joinOpenGroup(name: String?, url: String) {
         // Open groups can be unsafe, so always ask the user whether they want to join one
-        let finalName: String = (name ?? "Community")
+        let finalName: String = (name ?? "communityUnknown".localized())
         let message: String = "communityJoinDescription"
             .put(key: "communityname", value: finalName)
             .localized()
@@ -1822,7 +1826,7 @@ extension ConversationVC:
                 // Show an error for the retry
                 let modal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
-                        title: "error".localized(),
+                        title: "theError".localized(),
                         body: .text("shareExtensionDatabaseError".localized()),
                         cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text
@@ -2283,7 +2287,7 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "sessionMessenger".localized(),
+                title: Singleton.appContext.appName,
                 body: .text("This will ban the selected user from this room. It won't ban them from other rooms."),
                 confirmTitle: "okay".localized(),
                 cancelStyle: .alert_text,
@@ -2337,7 +2341,7 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "sessionMessenger".localized(),
+                title: Singleton.appContext.appName,
                 body: .text("This will ban the selected user from this room and delete all messages sent by them. It won't ban them from other rooms or delete the messages they sent there."),
                 confirmTitle: "okay".localized(),
                 cancelStyle: .alert_text,
@@ -2451,7 +2455,7 @@ extension ConversationVC:
                 let modal: ConfirmationModal = ConfirmationModal(
                     targetView: self.view,
                     info: ConfirmationModal.Info(
-                        title: "error".localized(),
+                        title: "theError".localized(),
                         body: .text("audioUnableToRecord".localized()),
                         cancelTitle: "okay".localized(),
                         cancelStyle: .alert_text

@@ -406,7 +406,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             ),
                             title: "sessionInviteAFriend".localized(),
                             onTap: {
-                                let invitation: String = "Hey, I've been using Session to chat with complete privacy and security. Come join me! Download it at https://getsession.org/. My Session ID is \(profile.id) !"
+                                let invitation: String = "accountIdShare"
+                                    .put(key: "app_name", value: Singleton.appContext.appName)
+                                    .put(key: "account_id", value: profile.id)
+                                    .put(key: "download_url", value: "https://getsession.org/")
+                                    .localized()
                                 
                                 self?.transitionToScreen(
                                     UIActivityViewController(
@@ -432,7 +436,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     
                                     return ConfirmationModal(
                                         info: ConfirmationModal.Info(
-                                            title: "error".localized(),
+                                            title: "theError".localized(),
                                             body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),
                                             cancelTitle: "okay".localized(),
                                             cancelStyle: .alert_text
@@ -482,7 +486,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let existingImageData: Data? = ProfileManager
             .profileAvatar(id: self.userSessionId)
         let editProfilePictureModalInfo: ConfirmationModal.Info = ConfirmationModal.Info(
-            title: "profileSetDisplayPicture".localized(),
+            title: "profileDisplayPictureSet".localized(),
             body: .image(
                 placeholderData: UIImage(named: "profile_placeholder")?.pngData(),
                 valueData: existingImageData,
@@ -604,7 +608,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     case (_, .avatarUploadMaxFileSizeExceeded):
                                         return "profileDisplayPictureSizeError".localized()
                                     
-                                    default: return "update_profile_modal_error_message".localized()
+                                    default: return "errorConnection".localized()
                                 }
                             }()
                             

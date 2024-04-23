@@ -183,7 +183,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                     let modal: ConfirmationModal = ConfirmationModal(
                         targetView: self.view,
                         info: ConfirmationModal.Info(
-                            title: "error".localized(),
+                            title: "theError".localized(),
                             body: .text("DM_ERROR_DIRECT_BLINDED_ID".localized()),
                             cancelTitle: "okay".localized(),
                             cancelStyle: .alert_text,
@@ -196,7 +196,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                     let modal: ConfirmationModal = ConfirmationModal(
                         targetView: self.view,
                         info: ConfirmationModal.Info(
-                            title: "error".localized(),
+                            title: "theError".localized(),
                             body: .text("accountIdErrorInvalid".localized()),
                             cancelTitle: "okay".localized(),
                             cancelStyle: .alert_text,
@@ -240,7 +240,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                     let modal: ConfirmationModal = ConfirmationModal(
                                         targetView: self?.view,
                                         info: ConfirmationModal.Info(
-                                            title: "error".localized(),
+                                            title: "theError".localized(),
                                             body: .text(message),
                                             cancelTitle: "okay".localized(),
                                             cancelStyle: .alert_text,
@@ -683,7 +683,9 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "cameraGrantAccessQr".localized()
+        explanationLabel.text = "cameraGrantAccessQr"
+            .put(key: "app_name", value: Singleton.appContext.appName)
+            .localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -692,7 +694,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
         // Set up call to action button
         let callToActionButton = UIButton()
         callToActionButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        callToActionButton.setTitle("continue".localized(), for: .normal)
+        callToActionButton.setTitle("theContinue".localized(), for: .normal)
         callToActionButton.setThemeTitleColor(.primary, for: .normal)
         callToActionButton.addTarget(self, action: #selector(requestCameraAccess), for: UIControl.Event.touchUpInside)
         

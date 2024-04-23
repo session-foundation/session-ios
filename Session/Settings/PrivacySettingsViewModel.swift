@@ -108,7 +108,9 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         SessionCell.Info(
                             id: .screenLock,
                             title: "lockApp".localized(),
-                            subtitle: "lockAppDescriptionIos".localized(),
+                            subtitle: "lockAppDescriptionIos"
+                                .put(key: "app_name", value: Singleton.appContext.appName)
+                                .localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     key: .isScreenLockEnabled,
@@ -284,7 +286,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 title: "callsVoiceAndVideoBeta".localized(),
                                 body: .text("callsVoiceAndVideoModalDescription".localized()),
                                 showCondition: .disabled,
-                                confirmTitle: "continue".localized(),
+                                confirmTitle: "theContinue".localized(),
                                 confirmAccessibility: Accessibility(identifier: "Enable"),
                                 confirmStyle: .textPrimary,
                                 onConfirm: { _ in Permissions.requestMicrophonePermissionIfNeeded() }

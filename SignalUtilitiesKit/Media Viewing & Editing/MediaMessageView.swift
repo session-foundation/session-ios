@@ -290,7 +290,9 @@ public class MediaMessageView: UIView {
             }
             // If we have no link preview info at this point then assume link previews are disabled
             else {
-                label.text = "linkPreviewsTurnedOffDescription".localized()
+                label.text = "linkPreviewsTurnedOffDescription"
+                    .put(key: "app_name", value: Singleton.appContext.appName)
+                    .localized()
                 label.themeTextColor = .textPrimary
                 label.textAlignment = .center
                 label.numberOfLines = 0

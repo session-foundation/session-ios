@@ -244,7 +244,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: "sessionMessenger".localized(),
+                title: Singleton.appContext.appName,
                 body: .text(error.localizedDescription),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,

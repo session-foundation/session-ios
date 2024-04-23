@@ -294,7 +294,9 @@ private final class ScanQRCodePlaceholderVC : UIViewController {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "cameraGrantAccessQr".localized()
+        explanationLabel.text = "cameraGrantAccessQr"
+            .put(key: "app_name", value: Singleton.appContext.appName)
+            .localized()
         explanationLabel.themeTextColor = .textPrimary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -303,7 +305,7 @@ private final class ScanQRCodePlaceholderVC : UIViewController {
         // Set up call to action button
         let callToActionButton = UIButton()
         callToActionButton.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
-        callToActionButton.setTitle("continue".localized(), for: .normal)
+        callToActionButton.setTitle("theContinue".localized(), for: .normal)
         callToActionButton.setThemeTitleColor(.primary, for: .normal)
         callToActionButton.addTarget(self, action: #selector(requestCameraAccess), for: UIControl.Event.touchUpInside)
         

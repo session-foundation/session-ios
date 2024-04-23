@@ -404,7 +404,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
         /// have access to the database when displaying this so can't extract theme information for styling purposes
         let alert: UIAlertController = UIAlertController(
-            title: "sessionMessenger".localized(),
+            title: Singleton.appContext.appName,
             message: error.message,
             preferredStyle: .alert
         )

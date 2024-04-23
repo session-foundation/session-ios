@@ -6,6 +6,7 @@ import NVActivityIndicatorView
 import SessionMessagingKit
 import SessionUIKit
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 final class PathVC: BaseVC {
     public static let dotSize: CGFloat = 8
@@ -66,7 +67,9 @@ final class PathVC: BaseVC {
         // Set up explanation label
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        explanationLabel.text = "onionRoutingPathDescription".localized()
+        explanationLabel.text = "onionRoutingPathDescription"
+            .put(key: "app_name", value: Singleton.appContext.appName)
+            .localized()
         explanationLabel.themeTextColor = .textSecondary
         explanationLabel.textAlignment = .center
         explanationLabel.lineBreakMode = .byWordWrapping
@@ -158,7 +161,7 @@ final class PathVC: BaseVC {
         }
         
         let youRow = getPathRow(
-            title: "onionRoutingPathYou".localized(),
+            title: "you".localized(),
             subtitle: nil,
             location: .top,
             dotAnimationStartDelay: 1,

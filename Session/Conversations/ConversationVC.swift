@@ -334,7 +334,9 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.font = UIFont.systemFont(ofSize: 12)
         result.text = (self.viewModel.threadData.threadRequiresApproval == false ?
-            "messageRequestsAcceptDescription".localized() :
+            "messageRequestsAcceptDescription"
+                .put(key: "app_name", value: Singleton.appContext.appName)
+                .localized() :
             "messageRequestPendingDescription".localized()
         )
         result.themeTextColor = .textSecondary
@@ -757,7 +759,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                 }
             default:
                 return "groupNoMessages"
-                    .put(key: "groupname", value: threadData.displayName)
+                    .put(key: "group_name", value: threadData.displayName)
                     .localized()
         }
     }
@@ -1634,7 +1636,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,
                                     info: ConfirmationModal.Info(
-                                        title: "error".localized(),
+                                        title: "theError".localized(),
                                         body: .text("audioUnableToPlay".localized()),
                                         cancelTitle: "okay".localized(),
                                         cancelStyle: .alert_text

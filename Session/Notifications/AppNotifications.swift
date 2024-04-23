@@ -137,12 +137,12 @@ public class NotificationPresenter: NotificationsProtocol {
         
         switch previewType {
             case .noNameNoPreview:
-                notificationTitle = "sessionMessenger".localized()
+                notificationTitle = Singleton.appContext.appName
                 
             case .nameNoPreview, .nameAndPreview:
                 switch thread.variant {
                     case .contact:
-                        notificationTitle = (isMessageRequest ? "sessionMessenger".localized() : senderName)
+                        notificationTitle = (isMessageRequest ? Singleton.appContext.appName : senderName)
                         
                     case .legacyGroup, .group, .community:
                         notificationTitle = "notificationsIosGroup"
@@ -255,7 +255,7 @@ public class NotificationPresenter: NotificationsProtocol {
             AppNotificationUserInfoKey.threadVariantRaw: thread.variant.rawValue
         ]
         
-        let notificationTitle: String = "sessionMessenger".localized()
+        let notificationTitle: String = Singleton.appContext.appName
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
         let notificationBody: String? = {
             switch messageInfo.state {
@@ -312,7 +312,7 @@ public class NotificationPresenter: NotificationsProtocol {
         guard !isMessageRequest else { return }
         
         let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
-        let notificationTitle = "sessionMessenger".localized()
+        let notificationTitle = Singleton.appContext.appName
         var notificationBody = "emojiReactsHoverName"
             .put(key: "name", value: senderName)
             .put(key: "emoji", value: reaction.emoji)

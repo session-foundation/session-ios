@@ -462,7 +462,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
             let modal: ConfirmationModal = ConfirmationModal(
                 targetView: self.view,
                 info: ConfirmationModal.Info(
-                    title: "error".localized(),
+                    title: "theError".localized(),
                     body: .text("searchEnter".localized()),
                     cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text

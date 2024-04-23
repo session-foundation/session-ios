@@ -72,7 +72,7 @@ final class DisplayNameVC: BaseVC {
         // Set up register button
         let registerButton = SessionButton(style: .filled, size: .large)
         registerButton.accessibilityLabel = "Continue"
-        registerButton.setTitle("continue".localized(), for: UIControl.State.normal)
+        registerButton.setTitle("theContinue".localized(), for: UIControl.State.normal)
         registerButton.addTarget(self, action: #selector(register), for: UIControl.Event.touchUpInside)
         
         // Set up register button container
