@@ -53,6 +53,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 // Create AppEnvironment
                 AppEnvironment.shared.setup()
                 LibSession.createNetworkIfNeeded()
+                LibSession.addNetworkLogger()
                 
                 // Note: Intentionally dispatching sync as we want to wait for these to complete before
                 // continuing
@@ -609,10 +610,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Navigate to the approriate screen depending on the onboarding state
         switch Onboarding.State.current {
             case .newUser:
-                /// Enable single-execution jobs (this allows fetching the snode pool, building paths and fetching the swarm for
-                /// retrieving the profile name when restoring an account before the account is properly created)
-                JobRunner.enableNewSingleExecutionJobsOnly()
-                
                 DispatchQueue.main.async {
                     let viewController: LandingVC = LandingVC()
                     populateHomeScreenTimer.invalidate()

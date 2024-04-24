@@ -30,7 +30,6 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     
     func appDidFinishLaunching(using dependencies: Dependencies) {}
     func appDidBecomeActive(using dependencies: Dependencies) {}
-    func enableNewSingleExecutionJobsOnly(using dependencies: Dependencies) {}
     func startNonBlockingQueues(using dependencies: Dependencies) {}
     
     func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, onComplete: (() -> ())?) {

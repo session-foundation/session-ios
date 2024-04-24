@@ -66,13 +66,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     )
             }
             
-            let (maybeEnvelope, result) = PushNotificationAPI.processNotification(
+            let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
                 notificationContent: notificationContent
             )
             
             guard
                 (result == .success || result == .legacySuccess),
-                let envelope: SNProtoEnvelope = maybeEnvelope
+                let data: Data = maybeData
             else {
                 switch result {
                     // If we got an explicit failure, or we got a success but no content then show
@@ -80,17 +80,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case .success, .legacySuccess, .failure, .legacyFailure:
                         return self.handleFailure(for: notificationContent, error: .processing(result))
                         
+                    // Just log if the notification was too long (a ~2k message should be able to fit so
+                    // these will most commonly be call or config messages)
                     case .successTooLong:
-                        /// If the notification is too long and there is an ongoing call or a recent call pre-offer then we assume the notification
-                        /// is a call `ICE_CANDIDATES` message and just complete silently (because the fallback would be annoying), if not
-                        /// then we do want to show the fallback notification
-                        guard
-                            isCallOngoing ||
-                            (lastCallPreOffer ?? Date.distantPast).timeIntervalSinceNow < NotificationServiceExtension.callPreOfferLargeNotificationSupressionDuration
-                        else { return self.handleFailure(for: notificationContent, error: .processing(result)) }
-                        
-                        SNLog("[NotificationServiceExtension] Suppressing large notification too close to a call.", forceNSLog: true)
-                        return
+                        return SNLog("[NotificationServiceExtension] Received too long notification for namespace: \(metadata.namespace).", forceNSLog: true)
                         
                     case .legacyForceSilent, .failureNoContent: return
                 }
@@ -101,7 +94,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             // is added to notification center
             Storage.shared.write { db in
                 do {
-                    guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, envelope: envelope) else {
+                    guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, data: data) else {
                         self.handleFailure(for: notificationContent, error: .messageProcessing)
                         return
                     }
@@ -302,8 +295,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // Note that this does much more than set a flag; it will also run all deferred blocks.
         Singleton.appReadiness.setAppReady()
-        
-        JobRunner.enableNewSingleExecutionJobsOnly()
     }
     
     // MARK: Handle completion

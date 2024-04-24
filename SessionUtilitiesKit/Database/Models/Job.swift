@@ -148,10 +148,6 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This job will run once each whenever the app becomes active (launch and return from background) and
         /// may run again during the same session if `nextRunTimestamp` gets set
         case recurringOnActive
-        
-        /// This job will run once and, while it does get persisted to the database, upon subsequent launch jobs with
-        /// this behaivour will not be run and will be cleared from the database
-        case runOnceTransient
     }
     
     /// The `id` value is auto incremented by the database, if the `Job` hasn't been inserted into

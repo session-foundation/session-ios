@@ -342,7 +342,7 @@ public extension Profile {
     
     /// The name to display in the UI for a given thread variant
     func displayName(for threadVariant: SessionThread.Variant = .contact) -> String {
-        return Profile.displayName(for: threadVariant, id: id, name: name, nickname: nickname)
+        return Profile.displayName(for: threadVariant, id: id, name: name, nickname: nickname, suppressId: false)
     }
     
     static func displayName(
@@ -350,6 +350,7 @@ public extension Profile {
         id: String,
         name: String?,
         nickname: String?,
+        suppressId: Bool,
         customFallback: String? = nil
     ) -> String {
         if let nickname: String = nickname, !nickname.isEmpty { return nickname }
@@ -358,10 +359,10 @@ public extension Profile {
             return (customFallback ?? Profile.truncated(id: id, threadVariant: threadVariant))
         }
         
-        switch threadVariant {
-            case .contact, .legacyGroup, .group: return name
+        switch (threadVariant, suppressId) {
+            case (.contact, _), (.legacyGroup, _), (.group, _), (.community, true): return name
                 
-            case .community:
+            case (.community, false):
                 // In open groups, where it's more likely that multiple users have the same name,
                 // we display a bit of the Session ID after a user's display name for added context
                 return "\(name) (\(Profile.truncated(id: id, truncating: .middle)))"

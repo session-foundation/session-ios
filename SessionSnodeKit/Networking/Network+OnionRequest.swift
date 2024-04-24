@@ -4,8 +4,6 @@
 
 import Foundation
 import Combine
-import CryptoKit
-import GRDB
 import SessionUtilitiesKit
 
 public extension Network.RequestType {
@@ -26,6 +24,7 @@ public extension Network.RequestType {
                 to: OnionRequestAPIDestination.snode(snode),
                 body: payload,
                 swarmPublicKey: swarmPublicKey,
+                timeout: timeout,
                 using: dependencies
             )
         }
@@ -61,28 +60,9 @@ public extension Network.RequestType {
                 ),
                 body: request.httpBody,
                 swarmPublicKey: nil,
+                timeout: timeout,
                 using: dependencies
             )
         }
-    }
-}
-
-/// See the "Onion Requests" section of [The Session Whitepaper](https://arxiv.org/pdf/2002.04609.pdf) for more information.
-public enum OnionRequestAPI {
-    // MARK: - Private API
-
-    fileprivate static func sendOnionRequest(
-        with body: Data?,
-        to destination: OnionRequestAPIDestination,
-        swarmPublicKey: String?,
-        timeout: TimeInterval,
-        using dependencies: Dependencies
-    ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
-        return LibSession.sendOnionRequest(
-            to: destination,
-            body: body,
-            swarmPublicKey: swarmPublicKey,
-            using: dependencies
-        )
     }
 }

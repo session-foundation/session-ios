@@ -383,33 +383,36 @@ public enum PushNotificationAPI {
     public static func processNotification(
         notificationContent: UNNotificationContent,
         dependencies: Dependencies = Dependencies()
-    ) -> (envelope: SNProtoEnvelope?, result: ProcessResult) {
+    ) -> (data: Data?, metadata: NotificationMetadata, result: ProcessResult) {
         // Make sure the notification is from the updated push server
         guard notificationContent.userInfo["spns"] != nil else {
             guard
                 let base64EncodedData: String = notificationContent.userInfo["ENCRYPTED_DATA"] as? String,
-                let data: Data = Data(base64Encoded: base64EncodedData),
-                let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(data: data)
-            else { return (nil, .legacyFailure) }
+                let data: Data = Data(base64Encoded: base64EncodedData)
+            else { return (nil, .invalid, .legacyFailure) }
             
             // We only support legacy notifications for legacy group conversations
-            guard envelope.type == .closedGroupMessage else { return (envelope, .legacyForceSilent) }
+            guard
+                let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(data: data),
+                envelope.type == .closedGroupMessage,
+                let metadata: NotificationMetadata = try? .legacyGroupMessage(envelope: envelope)
+            else { return (data, .invalid, .legacyForceSilent) }
 
-            return (envelope, .legacySuccess)
+            return (data, metadata, .legacySuccess)
         }
         
         guard let base64EncodedEncString: String = notificationContent.userInfo["enc_payload"] as? String else {
-            return (nil, .failureNoContent)
+            return (nil, .invalid, .failureNoContent)
         }
         
         guard
-            let encData: Data = Data(base64Encoded: base64EncodedEncString),
+            let encryptedData: Data = Data(base64Encoded: base64EncodedEncString),
             let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies),
-            encData.count > dependencies.crypto.size(.aeadXChaCha20NonceBytes)
-        else { return (nil, .failure) }
+            encryptedData.count > dependencies.crypto.size(.aeadXChaCha20NonceBytes)
+        else { return (nil, .invalid, .failure) }
         
-        let nonce: Data = encData[0..<dependencies.crypto.size(.aeadXChaCha20NonceBytes)]
-        let payload: Data = encData[dependencies.crypto.size(.aeadXChaCha20NonceBytes)...]
+        let nonce: Data = encryptedData[0..<dependencies.crypto.size(.aeadXChaCha20NonceBytes)]
+        let payload: Data = encryptedData[dependencies.crypto.size(.aeadXChaCha20NonceBytes)...]
         
         guard
             let paddedData: [UInt8] = try? dependencies.crypto.perform(
@@ -419,28 +422,27 @@ public enum PushNotificationAPI {
                     nonce: nonce.bytes
                 )
             )
-        else { return (nil, .failure) }
+        else { return (nil, .invalid, .failure) }
         
         let decryptedData: Data = Data(paddedData.reversed().drop(while: { $0 == 0 }).reversed())
         
         // Decode the decrypted data
         guard let notification: BencodeResponse<NotificationMetadata> = try? Bencode.decodeResponse(from: decryptedData) else {
-            return (nil, .failure)
+            return (nil, .invalid, .failure)
         }
         
         // If the metadata says that the message was too large then we should show the generic
         // notification (this is a valid case)
-        guard !notification.info.dataTooLong else { return (nil, .successTooLong) }
+        guard !notification.info.dataTooLong else { return (nil, notification.info, .successTooLong) }
         
         // Check that the body we were given is valid
         guard
             let notificationData: Data = notification.data,
-            notification.info.dataLength == notificationData.count,
-            let envelope = try? MessageWrapper.unwrap(data: notificationData)
-        else { return (nil, .failure) }
+            notification.info.dataLength == notificationData.count
+        else { return (nil, notification.info, .failure) }
         
         // Success, we have the notification content
-        return (envelope, .success)
+        return (notificationData, notification.info, .success)
     }
                         
     // MARK: - Security

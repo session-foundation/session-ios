@@ -946,7 +946,7 @@
 		FDF848E429405D6E007DCAE5 /* SnodeAPIEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848DF29405D6E007DCAE5 /* SnodeAPIEndpoint.swift */; };
 		FDF848E529405D6E007DCAE5 /* SnodeAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */; };
 		FDF848E629405D6E007DCAE5 /* OnionRequestAPIDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E129405D6E007DCAE5 /* OnionRequestAPIDestination.swift */; };
-		FDF848EB29405E4F007DCAE5 /* OnionRequestAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */; };
+		FDF848EB29405E4F007DCAE5 /* Network+OnionRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E829405E4E007DCAE5 /* Network+OnionRequest.swift */; };
 		FDF848EF294067E4007DCAE5 /* URLResponse+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848EE294067E4007DCAE5 /* URLResponse+Utilities.swift */; };
 		FDF848F129406A30007DCAE5 /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F029406A30007DCAE5 /* Format.swift */; };
 		FDF848F329413DB0007DCAE5 /* ImagePickerHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */; };
@@ -2136,7 +2136,7 @@
 		FDF848DF29405D6E007DCAE5 /* SnodeAPIEndpoint.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPIEndpoint.swift; sourceTree = "<group>"; };
 		FDF848E029405D6E007DCAE5 /* SnodeAPIError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SnodeAPIError.swift; sourceTree = "<group>"; };
 		FDF848E129405D6E007DCAE5 /* OnionRequestAPIDestination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnionRequestAPIDestination.swift; sourceTree = "<group>"; };
-		FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OnionRequestAPI.swift; sourceTree = "<group>"; };
+		FDF848E829405E4E007DCAE5 /* Network+OnionRequest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Network+OnionRequest.swift"; sourceTree = "<group>"; };
 		FDF848EE294067E4007DCAE5 /* URLResponse+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "URLResponse+Utilities.swift"; sourceTree = "<group>"; };
 		FDF848F029406A30007DCAE5 /* Format.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Format.swift; path = "SessionUIKit/Style Guide/Format.swift"; sourceTree = SOURCE_ROOT; };
 		FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImagePickerHandler.swift; sourceTree = "<group>"; };
@@ -4543,7 +4543,7 @@
 				FDF8489329405C1B007DCAE5 /* SnodeAPI.swift */,
 				FD7F747F2BB283A9006DDFD8 /* Request+SnodeAPI.swift */,
 				FD7F74852BB2868E006DDFD8 /* ResponseInfo+SnodeAPI.swift */,
-				FDF848E829405E4E007DCAE5 /* OnionRequestAPI.swift */,
+				FDF848E829405E4E007DCAE5 /* Network+OnionRequest.swift */,
 				FD7F747B2BB28182006DDFD8 /* PreparedRequest+OnionRequest.swift */,
 			);
 			path = Networking;
@@ -5956,7 +5956,7 @@
 				FDF848CF29405C5B007DCAE5 /* SendMessageRequest.swift in Sources */,
 				FD6A7A6D2818C61500035AC1 /* _002_SetupStandardJobs.swift in Sources */,
 				FDF848E429405D6E007DCAE5 /* SnodeAPIEndpoint.swift in Sources */,
-				FDF848EB29405E4F007DCAE5 /* OnionRequestAPI.swift in Sources */,
+				FDF848EB29405E4F007DCAE5 /* Network+OnionRequest.swift in Sources */,
 				FD17D7AE27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

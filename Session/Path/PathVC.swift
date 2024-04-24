@@ -120,7 +120,7 @@ final class PathVC: BaseVC {
         topSpacer.heightAnchor.constraint(equalTo: bottomSpacer.heightAnchor).isActive = true
         
         // Register for status updates (will be called immediately with current paths)
-        pathUpdateId = LibSession.onPathsChanged { [weak self] paths in
+        pathUpdateId = LibSession.onPathsChanged { [weak self] paths, _ in
             DispatchQueue.main.async {
                 self?.update(paths: paths, force: false)
             }

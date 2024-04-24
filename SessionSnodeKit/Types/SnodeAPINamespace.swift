@@ -5,7 +5,7 @@
 import Foundation
 
 public extension SnodeAPI {
-    enum Namespace: Int, Codable, Hashable {
+    enum Namespace: Int, Codable, Hashable, CustomStringConvertible {
         case `default` = 0
         
         case configUserProfile = 2
@@ -16,6 +16,10 @@ public extension SnodeAPI {
         
         case legacyClosedGroup = -10
         
+        /// This is used when we somehow receive a message from an unknown namespace (shouldn't really be possible)
+        case unknown = -9999989
+        
+        /// This is a convenience namespace used to represent all other namespaces for specific API calls
         case all = -9999990
         
         // MARK: Variables
@@ -51,7 +55,7 @@ public extension SnodeAPI {
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
-                    .configClosedGroupInfo, .all:
+                    .configClosedGroupInfo, .unknown, .all:
                     return false
             }
         }
@@ -87,7 +91,7 @@ public extension SnodeAPI {
                     
                 case .configUserProfile, .configContacts,
                     .configConvoInfoVolatile, .configUserGroups,
-                    .configClosedGroupInfo, .all:
+                    .configClosedGroupInfo, .unknown, .all:
                     return 1
             }
         }
@@ -109,6 +113,23 @@ public extension SnodeAPI {
                 .reduce(into: [:]) { result, next in
                     result[next.namespace] = -next.maxSize
                 }
+        }
+        
+        // MARK: - CustomStringConvertible
+        
+        public var description: String {
+            switch self {
+                case .`default`: return "default"
+                case .configUserProfile: return "configUserProfile"
+                case .configContacts: return "configContacts"
+                case .configConvoInfoVolatile: return "configConvoInfoVolatile"
+                case .configUserGroups: return "configUserGroups"
+                case .configClosedGroupInfo: return "configClosedGroupInfo"
+                case .legacyClosedGroup: return "legacyClosedGroup"
+                
+                case .unknown: return "unknown"
+                case .all: return "all"
+            }
         }
     }
 }

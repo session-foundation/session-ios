@@ -354,9 +354,10 @@ public extension Message {
     /// closed group key update messages (the `NotificationServiceExtension` does this itself)
     static func processRawReceivedMessageAsNotification(
         _ db: Database,
-        envelope: SNProtoEnvelope,
+        data: Data,
         using dependencies: Dependencies = Dependencies()
     ) throws -> ProcessedMessage? {
+        let envelope: SNProtoEnvelope = try MessageWrapper.unwrap(data: data)
         let processedMessage: ProcessedMessage? = try processRawReceivedMessage(
             db,
             envelope: envelope,

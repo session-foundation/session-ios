@@ -395,13 +395,15 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
                             for: .contact,
                             id: lhs.profileId,
                             name: lhs.profile?.name,
-                            nickname: lhs.profile?.nickname
+                            nickname: lhs.profile?.nickname,
+                            suppressId: false
                         )
                         let rhsDisplayName: String = Profile.displayName(
                             for: .contact,
                             id: rhs.profileId,
                             name: rhs.profile?.name,
-                            nickname: rhs.profile?.nickname
+                            nickname: rhs.profile?.nickname,
+                            suppressId: false
                         )
                         
                         return (lhsDisplayName < rhsDisplayName)

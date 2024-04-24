@@ -6,37 +6,24 @@ import Foundation
 import Combine
 import SessionUtil
 import SessionUtilitiesKit
+import SignalCoreKit
 
 // MARK: - LibSession
 
 public extension LibSession {
     typealias CSNode = network_service_node
     
+    private static let desiredLogCategories: [LogCategory] = [.network]
+    
     private static var networkCache: Atomic<UnsafeMutablePointer<network_object>?> = Atomic(nil)
     private static var snodeCachePath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/snodeCache" }
     private static var lastPaths: Atomic<[Set<CSNode>]> = Atomic([])
     private static var lastNetworkStatus: Atomic<NetworkStatus> = Atomic(.unknown)
-    private static var pathsChangedCallbacks: Atomic<[UUID: ([Set<CSNode>]) -> ()]> = Atomic([:])
+    private static var pathsChangedCallbacks: Atomic<[UUID: ([Set<CSNode>], UUID) -> ()]> = Atomic([:])
     private static var networkStatusCallbacks: Atomic<[UUID: (NetworkStatus) -> ()]> = Atomic([:])
     
     static var hasPaths: Bool { !lastPaths.wrappedValue.isEmpty }
     static var pathsDescription: String { lastPaths.wrappedValue.prettifiedDescription }
-    
-    enum NetworkStatus {
-        case unknown
-        case connecting
-        case connected
-        case disconnected
-        
-        init(status: CONNECTION_STATUS) {
-            switch status {
-                case CONNECTION_STATUS_CONNECTING: self = .connecting
-                case CONNECTION_STATUS_CONNECTED: self = .connected
-                case CONNECTION_STATUS_DISCONNECTED: self = .disconnected
-                default: self = .unknown
-            }
-        }
-    }
     
     typealias NodesCallback = (UnsafeMutablePointer<CSNode>?, Int) -> Void
     typealias NetworkCallback = (Bool, Bool, Int16, Data?) -> Void
@@ -81,12 +68,15 @@ public extension LibSession {
         networkStatusCallbacks.mutate { $0.removeValue(forKey: callbackId) }
     }
     
-    static func onPathsChanged(callback: @escaping ([Set<CSNode>]) -> ()) -> UUID {
+    static func onPathsChanged(skipInitialCallbackIfEmpty: Bool = false, callback: @escaping ([Set<CSNode>], UUID) -> ()) -> UUID {
         let callbackId: UUID = UUID()
         pathsChangedCallbacks.mutate { $0[callbackId] = callback }
         
         // Trigger the callback immediately with the most recent status
-        callback(lastPaths.wrappedValue)
+        let lastPaths: [Set<CSNode>] = self.lastPaths.wrappedValue
+        if !lastPaths.isEmpty || !skipInitialCallbackIfEmpty {
+            callback(lastPaths, callbackId)
+        }
         
         return callbackId
     }
@@ -99,13 +89,27 @@ public extension LibSession {
     
     static func addNetworkLogger() {
         getOrCreateNetwork().first().sinkUntilComplete(receiveValue: { network in
-            network_add_logger(network, { logPtr, msgLen in
-                guard let log: String = String(pointer: logPtr, length: msgLen, encoding: .utf8) else {
-                    print("[quic:info] Null log")
-                    return
+            network_add_logger(network, { lvl, namePtr, nameLen, msgPtr, msgLen in
+                guard
+                    LibSession.desiredLogCategories.contains(LogCategory(namePtr, nameLen)),
+                    let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8)
+                else { return }
+                
+                let trimmedLog: String = msg.trimmingCharacters(in: .whitespacesAndNewlines)
+                switch lvl {
+                    case LOG_LEVEL_TRACE: OWSLogger.verbose(trimmedLog)
+                    case LOG_LEVEL_DEBUG: OWSLogger.debug(trimmedLog)
+                    case LOG_LEVEL_INFO: OWSLogger.info(trimmedLog)
+                    case LOG_LEVEL_WARN: OWSLogger.warn(trimmedLog)
+                    case LOG_LEVEL_ERROR: OWSLogger.error(trimmedLog)
+                    case LOG_LEVEL_CRITICAL: OWSLogger.error(trimmedLog)
+                    case LOG_LEVEL_OFF: break
+                    default: break
                 }
                 
-                print(log.trimmingCharacters(in: .whitespacesAndNewlines))
+                #if DEBUG
+                print(trimmedLog)
+                #endif
             })
         })
     }
@@ -175,6 +179,7 @@ public extension LibSession {
         to destination: OnionRequestAPIDestination,
         body: T?,
         swarmPublicKey: String?,
+        timeout: TimeInterval,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         return getOrCreateNetwork()
@@ -218,6 +223,7 @@ public extension LibSession {
                                     cPayloadBytes,
                                     cPayloadBytes.count,
                                     cSwarmPublicKey,
+                                    Int64(floor(timeout * 1000)),
                                     { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                         Unmanaged<CWrapper<NetworkCallback>>.fromOpaque(ctx!).takeRetainedValue()
@@ -282,6 +288,7 @@ public extension LibSession {
                                     cServerDestination,
                                     cPayloadBytes,
                                     cPayloadBytes.count,
+                                    Int64(floor(timeout * 1000)),
                                     { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
                                         Unmanaged<CWrapper<NetworkCallback>>.fromOpaque(ctx!).takeRetainedValue()
@@ -349,6 +356,7 @@ public extension LibSession {
     private static func updateNetworkStatus(cStatus: CONNECTION_STATUS) {
         let status: NetworkStatus = NetworkStatus(status: cStatus)
         
+        SNLog("Network status changed to: \(status)")
         lastNetworkStatus.mutate { lastNetworkStatus in
             lastNetworkStatus = status
             
@@ -381,8 +389,8 @@ public extension LibSession {
         lastPaths.mutate { lastPaths in
             lastPaths = paths
             
-            pathsChangedCallbacks.wrappedValue.forEach { _, callback in
-                callback(paths)
+            pathsChangedCallbacks.wrappedValue.forEach { id, callback in
+                callback(paths, id)
             }
         }
     }
@@ -417,9 +425,52 @@ public extension LibSession {
             
             case (421, _): return SnodeAPIError.unassociatedPubkey
             case (429, _): return SnodeAPIError.rateLimited
-            case (500, _), (502, _), (503, _): return SnodeAPIError.unreachable
+            case (500, _), (502, _), (503, _): return SnodeAPIError.internalServerError
             case (_, .none): return NetworkError.unknown
-            case (_, .some(let responseString)): return NetworkError.requestFailed(error: responseString, rawData: data)
+            case (_, .some(let responseString)):
+                // An internal server error could return HTML data, this is an attempt to intercept that case
+                guard !responseString.starts(with: "500 Internal Server Error") else {
+                    return SnodeAPIError.internalServerError
+                }
+                
+                return NetworkError.requestFailed(error: responseString, rawData: data)
+        }
+    }
+}
+
+// MARK: - NetworkStatus
+
+extension LibSession {
+    public enum NetworkStatus {
+        case unknown
+        case connecting
+        case connected
+        case disconnected
+        
+        init(status: CONNECTION_STATUS) {
+            switch status {
+                case CONNECTION_STATUS_CONNECTING: self = .connecting
+                case CONNECTION_STATUS_CONNECTED: self = .connected
+                case CONNECTION_STATUS_DISCONNECTED: self = .disconnected
+                default: self = .unknown
+            }
+        }
+    }
+}
+
+// MARK: - LogCategory
+
+extension LibSession {
+    enum LogCategory: String {
+        case quic
+        case network
+        case unknown
+        
+        init(_ namePtr: UnsafePointer<CChar>?, _ nameLen: Int) {
+            switch String(pointer: namePtr, length: nameLen, encoding: .utf8).map({ LogCategory(rawValue: $0) }) {
+                case .some(let cat): self = cat
+                case .none: self = .unknown
+            }
         }
     }
 }

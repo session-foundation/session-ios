@@ -49,7 +49,7 @@ public enum IP2Country {
             pathsChangedCallbackId.mutate { pathsChangedCallbackId in
                 guard pathsChangedCallbackId == nil else { return }
                 
-                pathsChangedCallbackId = LibSession.onPathsChanged(callback: { paths in
+                pathsChangedCallbackId = LibSession.onPathsChanged(callback: { paths, _ in
                     self.populateCacheIfNeeded(paths: paths)
                 })
             }

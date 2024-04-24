@@ -32,7 +32,7 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
     case invalidNetwork
     case invalidPayload
     case missingSecretKey
-    case unreachable
+    case internalServerError
     case unassociatedPubkey
     case unableToRetrieveSwarm
 
@@ -70,7 +70,7 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             case .invalidNetwork: return "Unable to create network (SnodeAPIError.invalidNetwork)."
             case .invalidPayload: return "Invalid payload (SnodeAPIError.invalidPayload)."
             case .missingSecretKey: return "Missing secret key (SnodeAPIError.missingSecretKey)."
-            case .unreachable: return "The service node is unreachable (SnodeAPIError.unreachable)."
+            case .internalServerError: return "The service node is unreachable (SnodeAPIError.internalServerError)."
             case .unassociatedPubkey: return "The service node is no longer associated with the public key (SnodeAPIError.unassociatedPubkey)."
             case .unableToRetrieveSwarm: return "Unable to retrieve the swarm for the given public key (SnodeAPIError.unableToRetrieveSwarm)."
         }

@@ -20,7 +20,6 @@ public protocol JobRunnerType {
     func appDidFinishLaunching(using dependencies: Dependencies)
     func appDidBecomeActive(using dependencies: Dependencies)
     func startNonBlockingQueues(using dependencies: Dependencies)
-    func enableNewSingleExecutionJobsOnly(using dependencies: Dependencies)
     func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, using dependencies: Dependencies, onComplete: (() -> ())?)
     
     // MARK: - Job Scheduling
@@ -205,7 +204,6 @@ public final class JobRunner: JobRunnerType {
     
     internal var appReadyToStartQueues: Atomic<Bool> = Atomic(false)
     internal var appHasBecomeActive: Atomic<Bool> = Atomic(false)
-    internal var forceAllowSingleExecutionJobs: Atomic<Bool> = Atomic(false)
     internal var perSessionJobsCompleted: Atomic<Set<Int64>> = Atomic([])
     internal var hasCompletedInitialBecomeActive: Atomic<Bool> = Atomic(false)
     internal var shutdownBackgroundTask: Atomic<OWSBackgroundTask?> = Atomic(nil)
@@ -230,6 +228,7 @@ public final class JobRunner: JobRunnerType {
         self.allowToExecuteJobs = (
             isTestingJobRunner || (
                 Singleton.hasAppContext &&
+                Singleton.appContext.isMainApp &&
                 !SNUtilitiesKit.isRunningTests
             )
         )
@@ -322,7 +321,6 @@ public final class JobRunner: JobRunnerType {
         // Now that we've finished setting up the JobRunner, update the queue closures
         self.blockingQueue.mutate {
             $0?.canStart = { [weak self] queue -> Bool in (self?.canStart(queue: queue) == true) }
-            $0?.canStartPendingJobs = { [weak self] queue -> Bool in (self?.canStartPendingJobs(queue: queue) == true) }
             $0?.onQueueDrained = { [weak self] in
                 // Once all blocking jobs have been completed we want to start running
                 // the remaining job queues
@@ -338,9 +336,6 @@ public final class JobRunner: JobRunnerType {
         self.queues.mutate {
             $0.values.forEach { queue in
                 queue.canStart = { [weak self] targetQueue -> Bool in (self?.canStart(queue: targetQueue) == true) }
-                queue.canStartPendingJobs = { [weak self] targetQueue -> Bool in
-                    (self?.canStartPendingJobs(queue: targetQueue) == true)
-                }
             }
         }
     }
@@ -353,19 +348,6 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func canStart(queue: JobQueue?) -> Bool {
-        return (
-            allowToExecuteJobs && (
-                forceAllowSingleExecutionJobs.wrappedValue || (
-                    appReadyToStartQueues.wrappedValue && (
-                        queue?.type == .blocking ||
-                        canStartNonBlockingQueue
-                    )
-                )
-            )
-        )
-    }
-    
-    public func canStartPendingJobs(queue: JobQueue?) -> Bool {
         return (
             allowToExecuteJobs &&
             appReadyToStartQueues.wrappedValue && (
@@ -465,17 +447,6 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func appDidFinishLaunching(using dependencies: Dependencies) {
-        // Clear any 'runOnceTransient' entries in the database (they should only ever be run during
-        // the app session that they were scheduled in)
-        //
-        // Note: If we are already in "single-execution mode" then don't do this as there could be running
-        // jobs (this case occurs during Onboarding when trying to retrieve the existing profile name)
-        if !forceAllowSingleExecutionJobs.wrappedValue {
-            dependencies.storage.writeAsync { db in
-                try Job.filter(Job.Columns.behaviour == Job.Behaviour.runOnceTransient).deleteAll(db)
-            }
-        }
-        
         // Flag that the JobRunner can start it's queues
         appReadyToStartQueues.mutate { $0 = true }
         
@@ -539,7 +510,6 @@ public final class JobRunner: JobRunnerType {
         // Flag that the JobRunner can start it's queues and start queueing non-launch jobs
         appReadyToStartQueues.mutate { $0 = true }
         appHasBecomeActive.mutate { $0 = true }
-        forceAllowSingleExecutionJobs.mutate { $0 = false }
         
         // If we have a running "sutdownBackgroundTask" then we want to cancel it as otherwise it
         // can result in the database being suspended and us being unable to interact with it at all
@@ -601,27 +571,6 @@ public final class JobRunner: JobRunnerType {
         queues.wrappedValue.map { _, queue in queue }.asSet().forEach { queue in
             queue.start(using: dependencies)
         }
-    }
-    
-    public func enableNewSingleExecutionJobsOnly(using dependencies: Dependencies) {
-        // If we have already fully started the JobRunner then don't bother doing this (this shouldn't
-        // currently be possible but might be in the future and swapping this flag while the JobRunner
-        // is in it's "normal" mode could result in unexpected behaviour)
-        guard !appReadyToStartQueues.wrappedValue else { return }
-        
-        // Clear any 'runOnceTransient' entries in the database (they should only ever be run during
-        // the app session that they were scheduled in)
-        dependencies.storage.writeAsync { db in
-            try Job.filter(Job.Columns.behaviour == Job.Behaviour.runOnceTransient).deleteAll(db)
-        }
-        
-        // This function is called by the app extensions to allow them to run jobs directly without
-        // triggering any recurring or pending jobs
-        //
-        // Note: This will only allow jobs to run if they are directly added to a job queue as if
-        // `canStartPendingJobs` returns `false` then any persisted jobs **WILL NOT** be fetched and
-        // added to the queue
-        forceAllowSingleExecutionJobs.mutate { $0 = true }
     }
     
     public func stopAndClearPendingJobs(
@@ -859,10 +808,6 @@ public final class JobRunner: JobRunnerType {
         return (
             job.behaviour == .runOnceNextLaunch ||
             job.behaviour == .recurringOnLaunch ||
-            (
-                job.behaviour == .runOnceTransient &&
-                forceAllowSingleExecutionJobs.wrappedValue
-            ) ||
             appHasBecomeActive.wrappedValue
         )
     }
@@ -1014,7 +959,6 @@ public final class JobQueue: Hashable {
     
     private var executorMap: Atomic<[Job.Variant: JobExecutor.Type]> = Atomic([:])
     fileprivate var canStart: ((JobQueue?) -> Bool)?
-    fileprivate var canStartPendingJobs: ((JobQueue?) -> Bool)?
     fileprivate var onQueueDrained: (() -> ())?
     fileprivate var hasStartedAtLeastOnce: Atomic<Bool> = Atomic(false)
     fileprivate var isRunning: Atomic<Bool> = Atomic(false)
@@ -1319,25 +1263,22 @@ public final class JobQueue: Hashable {
         hasStartedAtLeastOnce.mutate { $0 = true }
         
         // Get any pending jobs
-        var jobsToRun: [Job] = []
-        let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue
         
-        if canStartPendingJobs?(self) == true {
-            let jobVariants: [Job.Variant] = self.jobVariants
-            let jobsAlreadyInQueue: Set<Int64> = pendingJobsQueue.wrappedValue.compactMap { $0.id }.asSet()
-            jobsToRun = dependencies.storage.read(using: dependencies) { db in
-                try Job
-                    .filterPendingJobs(
-                        variants: jobVariants,
-                        excludeFutureJobs: true,
-                        includeJobsWithDependencies: false
-                    )
-                    .filter(!jobIdsAlreadyRunning.contains(Job.Columns.id)) // Exclude jobs already running
-                    .filter(!jobsAlreadyInQueue.contains(Job.Columns.id))   // Exclude jobs already in the queue
-                    .fetchAll(db)
-            }
-            .defaulting(to: [])
+        let jobVariants: [Job.Variant] = self.jobVariants
+        let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue
+        let jobsAlreadyInQueue: Set<Int64> = pendingJobsQueue.wrappedValue.compactMap { $0.id }.asSet()
+        let jobsToRun: [Job] = dependencies.storage.read(using: dependencies) { db in
+            try Job
+                .filterPendingJobs(
+                    variants: jobVariants,
+                    excludeFutureJobs: true,
+                    includeJobsWithDependencies: false
+                )
+                .filter(!jobIdsAlreadyRunning.contains(Job.Columns.id)) // Exclude jobs already running
+                .filter(!jobsAlreadyInQueue.contains(Job.Columns.id))   // Exclude jobs already in the queue
+                .fetchAll(db)
         }
+        .defaulting(to: [])
         
         // Determine the number of jobs to run
         var jobCount: Int = 0
@@ -1524,14 +1465,6 @@ public final class JobQueue: Hashable {
     }
     
     private func scheduleNextSoonestJob(using dependencies: Dependencies) {
-        // If we can't schedule pending jobs then complete the queue
-        guard canStartPendingJobs?(self) == true else {
-            if executionType != .concurrent || currentlyRunningJobIds.wrappedValue.isEmpty {
-                self.onQueueDrained?()
-            }
-            return
-        }
-        
         // Retrieve any pending jobs from the database
         let jobVariants: [Job.Variant] = self.jobVariants
         let jobIdsAlreadyRunning: Set<Int64> = currentlyRunningJobIds.wrappedValue
@@ -1912,10 +1845,6 @@ public extension JobRunner {
     
     static func appDidBecomeActive(using dependencies: Dependencies = Dependencies()) {
         instance.appDidBecomeActive(using: dependencies)
-    }
-    
-    static func enableNewSingleExecutionJobsOnly(using dependencies: Dependencies = Dependencies()) {
-        instance.enableNewSingleExecutionJobsOnly(using: dependencies)
     }
     
     static func afterBlockingQueue(callback: @escaping () -> ()) {

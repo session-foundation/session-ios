@@ -236,7 +236,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             for: .contact,
             id: threadId,
             name: threadContactNameInternal,
-            nickname: nil,  // Folded into 'threadContactNameInternal' within the Query
+            nickname: nil,      // Folded into 'threadContactNameInternal' within the Query
+            suppressId: true,   // Don't include the account id in the name in the conversation list
             customFallback: "Anonymous"
         )
     }
@@ -251,7 +252,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             for: threadVariant,
             id: (authorId ?? threadId),
             name: authorNameInternal,
-            nickname: nil,  // Folded into 'authorName' within the Query
+            nickname: nil,      // Folded into 'authorName' within the Query
+            suppressId: true,   // Don't include the account id in the name in the conversation list
             customFallback: (threadVariant == .contact ?
                 "Anonymous" :
                 nil
