@@ -754,7 +754,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                         .localized()
                 } else {
                     return "conversationsEmpty"
-                        .put(key: "conversationname", value: threadData.displayName)
+                        .put(key: "conversation_name", value: threadData.displayName)
                         .localized()
                 }
             default:

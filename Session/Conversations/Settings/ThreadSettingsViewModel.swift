@@ -454,13 +454,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     }
                                     guard Features.useNewDisappearingMessagesConfig else {
                                         return "disappearingMessagesDisappear"
-                                            .put(key: "disappearingmessagestype", value: "")
+                                            .put(key: "disappearing_messages_type", value: "")
                                             .put(key: "time", value: current.disappearingMessagesConfig.durationString)
                                             .localized()
                                     }
                                     
                                     return "disappearingMessagesDisappear"
-                                        .put(key: "disappearingmessagestype", value: (current.disappearingMessagesConfig.type?.localizedName ?? ""))
+                                        .put(key: "disappearing_messages_type", value: (current.disappearingMessagesConfig.type?.localizedName ?? ""))
                                         .put(key: "time", value: current.disappearingMessagesConfig.durationString)
                                         .localized()
                                 }(),
@@ -524,12 +524,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     body: .attributedText({
                                         if currentUserIsClosedGroupAdmin {
                                             return "groupOnlyAdmin"
-                                                .put(key: "groupname", value: threadViewModel.displayName)
+                                                .put(key: "group_name", value: threadViewModel.displayName)
                                                 .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                         }
                                         
                                         return "communityLeaveDescription"
-                                            .put(key: "communityname", value: threadViewModel.displayName)
+                                            .put(key: "community_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                     }()),
                                     confirmTitle: "leave".localized(),

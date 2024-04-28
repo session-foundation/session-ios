@@ -905,7 +905,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
         let landscapeHeaderText = "attachmentsMedia"
             .put(key: "name", value: name)
-            .put(key: "datetime", value: formattedDate)
+            .put(key: "date_time", value: formattedDate)
             .localized()
         self.title = landscapeHeaderText
         self.navigationItem.title = landscapeHeaderText

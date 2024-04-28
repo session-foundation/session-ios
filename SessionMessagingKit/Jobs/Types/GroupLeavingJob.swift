@@ -66,7 +66,7 @@ public enum GroupLeavingJob: JobExecutor {
                                 .set(to: Interaction.Variant.infoClosedGroupCurrentUserErrorLeaving),
                             Interaction.Columns.body
                                 .set(to: "groupLeaveErrorFailed"
-                                    .put(key: "groupname", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
+                                    .put(key: "group_name", value: ((try? ClosedGroup.fetchOne(db, id: threadId))?.name ?? ""))
                                     .localized()
                                 )
                         ]

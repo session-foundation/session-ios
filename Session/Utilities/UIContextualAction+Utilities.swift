@@ -387,12 +387,12 @@ public extension UIContextualAction {
                             let confirmationModalExplanation: NSAttributedString = {
                                 if threadViewModel.currentUserIsClosedGroupAdmin == true {
                                     return "groupOnlyAdmin"
-                                        .put(key: "groupname", value: threadViewModel.displayName)
+                                        .put(key: "group_name", value: threadViewModel.displayName)
                                         .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
                                 
                                 return "communityLeaveDescription"
-                                    .put(key: "communityname", value: threadViewModel.displayName)
+                                    .put(key: "community_name", value: threadViewModel.displayName)
                                     .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                             }()
                             
@@ -423,12 +423,12 @@ public extension UIContextualAction {
                                                         switch threadViewModel.threadVariant {
                                                             case .legacyGroup, .group:
                                                                 return "groupLeaveErrorFailed"
-                                                                    .put(key: "groupname", value: threadViewModel.displayName)
+                                                                    .put(key: "group_name", value: threadViewModel.displayName)
                                                                     .localized()
                                                                 
                                                             default:
                                                                 return "communityLeaveError"
-                                                                    .put(key: "communityname", value: threadViewModel.displayName)
+                                                                    .put(key: "community_name", value: threadViewModel.displayName)
                                                                     .localized()
                                                         }
                                                     }()
@@ -486,7 +486,7 @@ public extension UIContextualAction {
                                 }
                                 guard threadViewModel.currentUserIsClosedGroupAdmin == false else {
                                     return "groupOnlyAdmin"
-                                        .put(key: "groupname", value: threadViewModel.displayName)
+                                        .put(key: "group_name", value: threadViewModel.displayName)
                                         .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
                                 
@@ -498,12 +498,12 @@ public extension UIContextualAction {
                                         
                                     case .legacyGroup, .group:
                                         return "groupDeleteDescription"
-                                            .put(key: "groupname", value: threadViewModel.displayName)
+                                            .put(key: "group_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                         
                                     case .community:
                                         return "communityLeaveDescription"
-                                            .put(key: "communityname", value: threadViewModel.displayName)
+                                            .put(key: "community_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: .boldSystemFont(ofSize: Values.smallFontSize))
                                 }
                             }()

@@ -338,7 +338,7 @@ public final class SearchResultsBar: UIView {
                 // Keyboard toolbar label when exactly 1 message matches the search string
                 label.text = "searchMatches"
                     .put(key: "count", value: 1)
-                    .put(key: "totalcount", value: results.count)
+                    .put(key: "total_count", value: results.count)
                     .localized()
         
             default:
@@ -350,7 +350,7 @@ public final class SearchResultsBar: UIView {
                 
                 label.text = "searchMatches"
                     .put(key: "count", value: currentIndex + 1)
-                    .put(key: "totalcount", value: results.count)
+                    .put(key: "total_count", value: results.count)
                     .localized()
             }
 

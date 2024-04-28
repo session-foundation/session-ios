@@ -365,7 +365,7 @@ public extension ClosedGroupControlMessage.Kind {
         switch self {
             case .nameChange(let name):
                 return "groupNameNew"
-                .put(key: "groupname", value: name)
+                .put(key: "group_name", value: name)
                 .localized()
                 
             case .membersAdded(let membersAsData):
@@ -412,7 +412,7 @@ public extension ClosedGroupControlMessage.Kind {
                     infoMessage = infoMessage
                         .appending(
                             "groupRemovedYou"
-                                .put(key: "groupname", value: "")
+                                .put(key: "group_name", value: "")
                                 .localized()
                         )
                 }

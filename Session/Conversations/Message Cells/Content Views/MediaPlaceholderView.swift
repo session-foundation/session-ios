@@ -63,7 +63,7 @@ final class MediaPlaceholderView: UIView {
         let titleLabel = UILabel()
         titleLabel.font = .systemFont(ofSize: Values.mediumFontSize)
         titleLabel.text = "attachmentsTapToDownload"
-            .put(key: "filetype", value: attachmentDescription)
+            .put(key: "file_type", value: attachmentDescription)
             .localized()
         titleLabel.themeTextColor = textColor
         titleLabel.lineBreakMode = .byTruncatingTail

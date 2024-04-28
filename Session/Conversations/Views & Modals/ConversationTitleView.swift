@@ -234,7 +234,7 @@ final class ConversationTitleView: UIView {
                             .appending(string: " ")
                             .appending(
                                 string: "disappearingMessagesDisappear"
-                                    .put(key: "disappearingmessagestype", value: "")
+                                    .put(key: "disappearing_messages_type", value: "")
                                     .put(key: "time", value: floor(config.durationSeconds).formatted(format: .short))
                                     .localized()
                             )
@@ -244,7 +244,7 @@ final class ConversationTitleView: UIView {
                         .appending(string: " ")
                         .appending(
                             string: "disappearingMessagesDisappear"
-                                .put(key: "disappearingmessagestype", value: (config.type?.localizedName ?? ""))
+                                .put(key: "disappearing_messages_type", value: (config.type?.localizedName ?? ""))
                                 .put(key: "time", value: floor(config.durationSeconds).formatted(format: .short))
                                 .localized()
                         )

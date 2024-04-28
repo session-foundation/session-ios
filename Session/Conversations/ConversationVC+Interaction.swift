@@ -888,7 +888,7 @@ extension ConversationVC:
                 if messageDisappearingConfig.isEnabled {
                     return "disappearingMessagesFollowSettingOn"
                         .put(key: "time", value: expirationTimerString)
-                        .put(key: "disappearingmessagestype", value: expirationTypeString)
+                        .put(key: "disappearing_messages_type", value: expirationTypeString)
                         .localized()
                 } else {
                     return "disappearingMessagesFollowSettingOff"
@@ -927,7 +927,7 @@ extension ConversationVC:
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
             let message: String = "attachmentsAutoDownloadModalDescription"
-                .put(key: "conversationname", value: cellViewModel.authorName)
+                .put(key: "conversation_name", value: cellViewModel.authorName)
                 .localized()
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -1700,7 +1700,7 @@ extension ConversationVC:
         // Open groups can be unsafe, so always ask the user whether they want to join one
         let finalName: String = (name ?? "communityUnknown".localized())
         let message: String = "communityJoinDescription"
-            .put(key: "communityname", value: finalName)
+            .put(key: "community_name", value: finalName)
             .localized()
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(

@@ -35,7 +35,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             
             notificationTitle = "notificationsIosGroup"
                 .put(key: "name", value: senderName)
-                .put(key: "conversationname", value: groupName)
+                .put(key: "conversation_name", value: groupName)
                 .localized()
         }
         
