@@ -27,10 +27,9 @@ public enum Permissions {
                     info: ConfirmationModal.Info(
                         title: "permissionsRequired".localized(),
                         body: .text(
-                            String(
-                                format: "modal_permission_explanation".localized(),
-                                "contentDescriptionCamera".localized()
-                            )
+                            "cameraGrantAccessDenied"
+                                .put(key: "app_name", value: Singleton.appContext.appName)
+                                .localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false
@@ -70,10 +69,7 @@ public enum Permissions {
                     info: ConfirmationModal.Info(
                         title: "permissionsRequired".localized(),
                         body: .text(
-                            String(
-                                format: "modal_permission_explanation".localized(),
-                                "permissionsMicrophoneAccessRequired".localized()
-                            )
+                            "permissionsMicrophoneAccessRequired".localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false,
@@ -144,10 +140,9 @@ public enum Permissions {
                     info: ConfirmationModal.Info(
                         title: "permissionsRequired".localized(),
                         body: .text(
-                            String(
-                                format: "modal_permission_explanation".localized(),
-                                "modal_permission_library".localized()
-                            )
+                            "permissionsLibrary"
+                                .put(key: "app_name", value: Singleton.appContext.appName)
+                                .localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),
                         dismissOnConfirm: false
