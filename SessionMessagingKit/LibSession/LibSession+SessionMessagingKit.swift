@@ -23,10 +23,30 @@ public extension LibSession {
         var result: ConfResult { ConfResult(needsPush: needsPush, needsDump: needsDump) }
     }
     
-    struct OutgoingConfResult {
-        let message: SharedConfigMessage
-        let namespace: SnodeAPI.Namespace
-        let obsoleteHashes: [String]
+    // MARK: - PendingChanges
+    
+    struct PendingChanges {
+        public struct PushData {
+            let data: Data
+            let seqNo: Int64
+            let variant: ConfigDump.Variant
+        }
+        
+        var pushData: [PushData]
+        var obsoleteHashes: Set<String>
+        
+        init(pushData: [PushData] = [], obsoleteHashes: Set<String> = []) {
+            self.pushData = pushData
+            self.obsoleteHashes = obsoleteHashes
+        }
+        
+        mutating func append(data: PushData? = nil, hashes: [String] = []) {
+            if let data: PushData = data {
+                pushData.append(data)
+            }
+            
+            obsoleteHashes.insert(contentsOf: Set(hashes))
+        }
     }
     
     // MARK: - Configs
@@ -148,8 +168,12 @@ public extension LibSession {
         
         // Try to create the object
         var secretKey: [UInt8] = ed25519SecretKey
-        let result: Int32 = {
+        let result: Int32 = try {
             switch variant {
+                case .invalid:
+                    SNLog("[LibSession Error] Unable to create \(variant.rawValue) config object")
+                    throw LibSessionError.unableToCreateConfigObject
+                    
                 case .userProfile:
                     return user_profile_init(&conf, &secretKey, cachedDump?.data, (cachedDump?.length ?? 0), &error)
 
@@ -207,7 +231,7 @@ public extension LibSession {
     static func pendingChanges(
         _ db: Database,
         publicKey: String
-    ) throws -> [OutgoingConfResult] {
+    ) throws -> PendingChanges {
         guard Identity.userExists(db) else { throw LibSessionError.userDoesNotExist }
         
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
@@ -226,13 +250,30 @@ public extension LibSession {
         // Ensure we always check the required user config types for changes even if there is no dump
         // data yet (to deal with first launch cases)
         return try existingDumpVariants
-            .compactMap { variant -> OutgoingConfResult? in
+            .reduce(into: PendingChanges()) { result, variant in
                 try LibSession
                     .config(for: variant, publicKey: publicKey)
                     .wrappedValue
                     .map { conf in
                         // Check if the config needs to be pushed
-                        guard config_needs_push(conf) else { return nil }
+                        guard config_needs_push(conf) else {
+                            // If not then try retrieve any obsolete hashes to be removed
+                            guard let cObsoletePtr: UnsafeMutablePointer<config_string_list> = config_old_hashes(conf) else {
+                                return
+                            }
+                            
+                            let obsoleteHashes: [String] = [String](
+                                pointer: cObsoletePtr.pointee.value,
+                                count: cObsoletePtr.pointee.len,
+                                defaultValue: []
+                            )
+                            
+                            // If there are no obsolete hashes then no need to return anything
+                            guard !obsoleteHashes.isEmpty else { return }
+                            
+                            result.append(hashes: obsoleteHashes)
+                            return
+                        }
                         
                         var cPushData: UnsafeMutablePointer<config_push_data>!
                         let configCountInfo: String = {
@@ -244,6 +285,7 @@ public extension LibSession {
                                     case .contacts: result = "\(contacts_size(conf)) contacts"
                                     case .userGroups: result = "\(user_groups_size(conf)) group conversations"
                                     case .convoInfoVolatile: result = "\(convo_info_volatile_size(conf)) volatile conversations"
+                                    case .invalid: break
                                 }
                             }
                             
@@ -272,41 +314,42 @@ public extension LibSession {
                         let seqNo: Int64 = cPushData.pointee.seqno
                         cPushData.deallocate()
                         
-                        return OutgoingConfResult(
-                            message: SharedConfigMessage(
-                                kind: variant.configMessageKind,
+                        result.append(
+                            data: PendingChanges.PushData(
+                                data: pushData,
                                 seqNo: seqNo,
-                                data: pushData
+                                variant: variant
                             ),
-                            namespace: variant.namespace,
-                            obsoleteHashes: obsoleteHashes
+                            hashes: obsoleteHashes
                         )
                     }
             }
     }
     
     static func markingAsPushed(
-        message: SharedConfigMessage,
+        seqNo: Int64,
         serverHash: String,
+        sentTimestamp: Int64,
+        variant: ConfigDump.Variant,
         publicKey: String
     ) -> ConfigDump? {
         return LibSession
-            .config(for: message.kind.configDumpVariant, publicKey: publicKey)
+            .config(for: variant, publicKey: publicKey)
             .mutate { conf in
                 guard conf != nil else { return nil }
                 
                 // Mark the config as pushed
                 var cHash: [CChar] = serverHash.cArray.nullTerminated()
-                config_confirm_pushed(conf, message.seqNo, &cHash)
+                config_confirm_pushed(conf, seqNo, &cHash)
                 
                 // Update the result to indicate whether the config needs to be dumped
                 guard config_needs_dump(conf) else { return nil }
                 
                 return try? LibSession.createDump(
                     conf: conf,
-                    for: message.kind.configDumpVariant,
+                    for: variant,
                     publicKey: publicKey,
-                    timestampMs: (message.sentTimestamp.map { Int64($0) } ?? 0)
+                    timestampMs: sentTimestamp
                 )
             }
     }
@@ -348,30 +391,29 @@ public extension LibSession {
     
     static func handleConfigMessages(
         _ db: Database,
-        messages: [SharedConfigMessage],
+        messages: [ConfigMessageReceiveJob.Details.MessageInfo],
         publicKey: String
     ) throws {
         guard !messages.isEmpty else { return }
         guard !publicKey.isEmpty else { throw MessageReceiverError.noThread }
         
-        let groupedMessages: [ConfigDump.Variant: [SharedConfigMessage]] = messages
-            .sorted { lhs, rhs in lhs.seqNo < rhs.seqNo }
-            .grouped(by: \.kind.configDumpVariant)
+        let groupedMessages: [ConfigDump.Variant: [ConfigMessageReceiveJob.Details.MessageInfo]] = messages
+            .grouped(by: { ConfigDump.Variant(namespace: $0.namespace) })
         
-        let needsPush: Bool = try groupedMessages
-            .sorted { lhs, rhs in lhs.key.processingOrder < rhs.key.processingOrder }
-            .reduce(false) { prevNeedsPush, next -> Bool in
-                let needsPush: Bool = try LibSession
-                    .config(for: next.key, publicKey: publicKey)
+        try groupedMessages
+            .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
+            .forEach { key, value in
+                try LibSession
+                    .config(for: key, publicKey: publicKey)
                     .mutate { conf in
                         // Merge the messages
-                        var mergeHashes: [UnsafePointer<CChar>?] = next.value
-                            .map { message in (message.serverHash ?? "").cArray.nullTerminated() }
+                        var mergeHashes: [UnsafePointer<CChar>?] = value
+                            .map { message in message.serverHash.cArray.nullTerminated() }
                             .unsafeCopy()
-                        var mergeData: [UnsafePointer<UInt8>?] = next.value
+                        var mergeData: [UnsafePointer<UInt8>?] = value
                             .map { message -> [UInt8] in message.data.bytes }
                             .unsafeCopy()
-                        var mergeSize: [Int] = next.value.map { $0.data.count }
+                        var mergeSize: [Int] = value.map { $0.data.count }
                         var mergedHashesPtr: UnsafeMutablePointer<config_string_list>?
                         try CExceptionHelper.performSafely {
                             mergedHashesPtr = config_merge(
@@ -379,7 +421,7 @@ public extension LibSession {
                                 &mergeHashes,
                                 &mergeData,
                                 &mergeSize,
-                                next.value.count
+                                value.count
                             )
                         }
                         mergeHashes.forEach { $0?.deallocate() }
@@ -395,21 +437,21 @@ public extension LibSession {
                                 )
                             }
                             .defaulting(to: [])
-                        let maybeLatestConfigSentTimestampMs: Int64? = next.value
-                            .filter { mergedHashes.contains($0.serverHash ?? "") }
-                            .compactMap { $0.sentTimestamp.map { Int64($0) } }
+                        let maybeLatestConfigSentTimestampMs: Int64? = value
+                            .filter { mergedHashes.contains($0.serverHash) }
+                            .compactMap { $0.serverTimestampMs }
                             .sorted()
                             .last
                         mergedHashesPtr?.deallocate()
                         
                         // If no messages were merged then no need to do anything
                         guard let latestConfigSentTimestampMs: Int64 = maybeLatestConfigSentTimestampMs else {
-                            return config_needs_push(conf)
+                            return
                         }
                         
                         // Apply the updated states to the database
                         do {
-                            switch next.key {
+                            switch key {
                                 case .userProfile:
                                     try LibSession.handleUserProfileUpdate(
                                         db,
@@ -440,10 +482,12 @@ public extension LibSession {
                                         mergeNeedsDump: config_needs_dump(conf),
                                         latestConfigSentTimestampMs: latestConfigSentTimestampMs
                                     )
+                                    
+                                case .invalid: SNLog("[libSession] Failed to process merge of invalid config namespace")
                             }
                         }
                         catch {
-                            SNLog("[LibSession] Failed to process merge of \(next.key) config data")
+                            SNLog("[LibSession] Failed to process merge of \(key) config data")
                             throw error
                         }
                         
@@ -452,7 +496,7 @@ public extension LibSession {
                         guard config_needs_dump(conf) else {
                             try ConfigDump
                                 .filter(
-                                    ConfigDump.Columns.variant == next.key &&
+                                    ConfigDump.Columns.variant == key &&
                                     ConfigDump.Columns.publicKey == publicKey
                                 )
                                 .updateAll(
@@ -460,27 +504,20 @@ public extension LibSession {
                                     ConfigDump.Columns.timestampMs.set(to: latestConfigSentTimestampMs)
                                 )
                             
-                            return config_needs_push(conf)
+                            return
                         }
                         
                         try LibSession.createDump(
                             conf: conf,
-                            for: next.key,
+                            for: key,
                             publicKey: publicKey,
                             timestampMs: latestConfigSentTimestampMs
                         )?.save(db)
-                
-                        return config_needs_push(conf)
                     }
-                
-                // Update the 'needsPush' state as needed
-                return (prevNeedsPush || needsPush)
             }
         
-        // Now that the local state has been updated, schedule a config sync if needed (this will
-        // push any pending updates and properly update the state)
-        guard needsPush else { return }
-        
+        // Now that the local state has been updated, schedule a config sync (we want to always
+        // do this in case there are obsolete hashes we want to clear)
         db.afterNextTransactionNestedOnce(dedupeId: LibSession.syncDedupeId(publicKey)) { db in
             ConfigurationSyncJob.enqueue(db, publicKey: publicKey)
         }

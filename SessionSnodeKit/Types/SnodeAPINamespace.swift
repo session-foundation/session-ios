@@ -68,6 +68,44 @@ public extension SnodeAPI {
             }
         }
         
+        public var isConfigNamespace: Bool {
+            switch self {
+                case .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups,
+                    .configClosedGroupInfo:
+                    return true
+                    
+                case .`default`, .legacyClosedGroup, .unknown, .all:
+                    return false
+            }
+        }
+        
+        /// This value defines the order that the SharedConfigMessages should be processed in, while we re-process config
+        /// messages every time we poll this will prevent an edge-case where data/logic between different config messages
+        /// could be dependant on each other (eg. there could be `convoInfoVolatile` data related to a new conversation
+        /// which hasn't been created yet because it's associated `contacts`/`userGroups` message hasn't yet been
+        /// processed (without this we would have to wait until the next poll for it to be processed correctly)
+        public var processingOrder: Int {
+            switch self {
+                case .configUserProfile, .configContacts: return 0
+                case .configUserGroups, .configClosedGroupInfo: return 1
+                case .configConvoInfoVolatile: return 2
+                    
+                case .`default`, .legacyClosedGroup, .unknown, .all:
+                    return 3
+            }
+        }
+        
+        /// Flag which indicates whether messages from this namespace should be handled synchronously as part of the polling process
+        /// or whether they can be scheduled to be handled asynchronously
+        public var shouldHandleSynchronously: Bool {
+            switch self {
+                case .`default`, .legacyClosedGroup, .configUserProfile, .configContacts,
+                    .configConvoInfoVolatile, .configUserGroups, .configClosedGroupInfo,
+                    .unknown, .all:
+                    return false
+            }
+        }
+        
         /// When performing a batch request we want to try to use the amount of data available in the response as effectively as possible
         /// this priority allows us to split the response effectively between the number of namespaces we are requesting from where
         /// namespaces with the same priority will be given the same response size divider, for example:

@@ -12,6 +12,7 @@ enum _005_AddSnodeReveivedMessageInfoPrimaryKey: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.2
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [SnodeReceivedMessageInfo.self]
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         // SQLite doesn't support adding a new primary key after creation so we need to create a new table with

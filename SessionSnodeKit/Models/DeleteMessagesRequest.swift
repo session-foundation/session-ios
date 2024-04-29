@@ -17,7 +17,7 @@ extension SnodeAPI {
         public init(
             messageHashes: [String],
             requireSuccessfulDeletion: Bool,
-            pubkey: String,
+            swarmPublicKey: String,
             ed25519PublicKey: [UInt8],
             ed25519SecretKey: [UInt8]
         ) {
@@ -25,7 +25,7 @@ extension SnodeAPI {
             self.requireSuccessfulDeletion = requireSuccessfulDeletion
             
             super.init(
-                pubkey: pubkey,
+                pubkey: swarmPublicKey,
                 ed25519PublicKey: ed25519PublicKey,
                 ed25519SecretKey: ed25519SecretKey
             )

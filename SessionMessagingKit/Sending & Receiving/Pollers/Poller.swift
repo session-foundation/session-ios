@@ -158,7 +158,7 @@ public class Poller {
         isBackgroundPollValid: @escaping (() -> Bool) = { true },
         drainBehaviour: Atomic<SwarmDrainBehaviour>,
         using dependencies: Dependencies
-    ) -> AnyPublisher<[Message], Error> {
+    ) -> AnyPublisher<[ProcessedMessage], Error> {
         // If the polling has been cancelled then don't continue
         guard
             (calledFromBackgroundPoller && isBackgroundPollValid()) ||
@@ -184,7 +184,7 @@ public class Poller {
                     using: dependencies
                 )
             }
-            .flatMap { [weak self] namespacedResults -> AnyPublisher<[Message], Error> in
+            .flatMap { [weak self] namespacedResults -> AnyPublisher<[ProcessedMessage], Error> in
                 guard
                     (calledFromBackgroundPoller && isBackgroundPollValid()) ||
                     self?.isPolling.wrappedValue[swarmPublicKey] == true
@@ -194,12 +194,14 @@ public class Poller {
                         .eraseToAnyPublisher()
                 }
                 
-                let allMessages: [SnodeReceivedMessage] = namespacedResults
-                    .compactMap { _, result -> [SnodeReceivedMessage]? in result.data?.messages }
-                    .flatMap { $0 }
+                // Get all of the messages and sort them by their required 'processingOrder'
+                let sortedMessages: [(namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage])] = namespacedResults
+                    .compactMap { namespace, result in (result.data?.messages).map { (namespace, $0) } }
+                    .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
+                let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
                 
                 // No need to do anything if there are no messages
-                guard !allMessages.isEmpty else {
+                guard rawMessageCount > 0 else {
                     if !calledFromBackgroundPoller { SNLog("Received no new messages in \(pollerName)") }
                     
                     return Just([])
@@ -215,62 +217,113 @@ public class Poller {
                     .compactMap { $0.value.data?.messages.map { $0.info.hash } }
                     .reduce([], +)
                 var messageCount: Int = 0
-                var processedMessages: [Message] = []
+                var processedMessages: [ProcessedMessage] = []
                 var hadValidHashUpdate: Bool = false
                 var configMessageJobsToRun: [Job] = []
                 var standardMessageJobsToRun: [Job] = []
-                var pollerLogOutput: String = "\(pollerName) failed to process any messages"
+                var pollerLogOutput: String = "\(pollerName) failed to process any messages"  // stringlint:disable
                 
                 dependencies.storage.write { db in
-                    let allProcessedMessages: [ProcessedMessage] = allMessages
-                        .compactMap { message -> ProcessedMessage? in
-                            do {
-                                return try Message.processRawReceivedMessage(db, rawMessage: message)
-                            }
-                            catch {
-                                switch error {
-                                    // Ignore duplicate & selfSend message errors (and don't bother logging
-                                    // them as there will be a lot since we each service node duplicates messages)
-                                    case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
-                                        DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
-                                        MessageReceiverError.duplicateMessage,
-                                        MessageReceiverError.duplicateControlMessage,
-                                        MessageReceiverError.selfSend:
-                                        break
-                                        
-                                    case MessageReceiverError.duplicateMessageNewSnode:
-                                        hadValidHashUpdate = true
-                                        break
-                                        
-                                    case DatabaseError.SQLITE_ABORT:
-                                        // In the background ignore 'SQLITE_ABORT' (it generally means
-                                        // the BackgroundPoller has timed out
-                                        if !calledFromBackgroundPoller {
-                                            SNLog("Failed to the database being suspended (running in background with no background task).")
+                    let allProcessedMessages: [ProcessedMessage] = sortedMessages
+                        .compactMap { namespace, messages -> [ProcessedMessage]? in
+                            let processedMessages: [ProcessedMessage] = messages
+                                .compactMap { message -> ProcessedMessage? in
+                                    do {
+                                        return try Message.processRawReceivedMessage(
+                                            db,
+                                            rawMessage: message,
+                                            publicKey: swarmPublicKey,
+                                            using: dependencies
+                                        )
+                                    }
+                                    catch {
+                                        switch error {
+                                                /// Ignore duplicate & selfSend message errors (and don't bother logging them as there
+                                                /// will be a lot since we each service node duplicates messages)
+                                            case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                                                DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
+                                                MessageReceiverError.duplicateMessage,
+                                                MessageReceiverError.duplicateControlMessage,
+                                                MessageReceiverError.selfSend:
+                                                break
+                                                
+                                            case MessageReceiverError.duplicateMessageNewSnode:
+                                                hadValidHashUpdate = true
+                                                break
+                                                
+                                            case DatabaseError.SQLITE_ABORT:
+                                                /// In the background ignore 'SQLITE_ABORT' (it generally means the
+                                                /// BackgroundPoller has timed out
+                                                if !calledFromBackgroundPoller {
+                                                    SNLog("Failed to the database being suspended (running in background with no background task).")
+                                                }
+                                                break
+                                                
+                                            default: SNLog("Failed to deserialize envelope due to error: \(error).")
                                         }
-                                        break
                                         
-                                    default: SNLog("Failed to deserialize envelope due to error: \(error).")
+                                        return nil
+                                    }
                                 }
-                                
-                                return nil
+                            
+                            /// If this message should be handled synchronously then do so here before processing the next namespace
+                            guard namespace.shouldHandleSynchronously else { return processedMessages }
+                            
+                            if namespace.isConfigNamespace {
+                                do {
+                                    /// Process config messages all at once in case they are multi-part messages
+                                    try LibSession.handleConfigMessages(
+                                        db,
+                                        messages: ConfigMessageReceiveJob
+                                            .Details(
+                                                messages: processedMessages,
+                                                calledFromBackgroundPoller: false
+                                            )
+                                            .messages,
+                                        publicKey: swarmPublicKey
+                                    )
+                                }
+                                catch { SNLog("Failed to handle processed message to error: \(error).") }
                             }
+                            else {
+                                /// Individually process non-config messages
+                                processedMessages.forEach { processedMessage in
+                                    guard case .standard(let threadId, let threadVariant, let proto, let messageInfo) = processedMessage else {
+                                        return
+                                    }
+                                    
+                                    do {
+                                        try MessageReceiver.handle(
+                                            db,
+                                            threadId: threadId,
+                                            threadVariant: threadVariant,
+                                            message: messageInfo.message,
+                                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                            associatedWithProto: proto
+                                        )
+                                    }
+                                    catch { SNLog("Failed to handle processed message to error: \(error).") }
+                                }
+                            }
+                            
+                            return nil
                         }
+                        .flatMap { $0 }
                     
                     // Add a job to process the config messages first
                     let configJobIds: [Int64] = allProcessedMessages
-                        .filter { $0.messageInfo.variant == .sharedConfigMessage }
-                        .grouped { threadId, _, _, _ in threadId }
+                        .filter { $0.isConfigMessage && !$0.namespace.shouldHandleSynchronously }
+                        .grouped { $0.threadId }
                         .compactMap { threadId, threadMessages in
                             messageCount += threadMessages.count
-                            processedMessages += threadMessages.map { $0.messageInfo.message }
+                            processedMessages += threadMessages
                             
                             let jobToRun: Job? = Job(
                                 variant: .configMessageReceive,
                                 behaviour: .runOnce,
                                 threadId: threadId,
                                 details: ConfigMessageReceiveJob.Details(
-                                    messages: threadMessages.map { $0.messageInfo },
+                                    messages: threadMessages,
                                     calledFromBackgroundPoller: calledFromBackgroundPoller
                                 )
                             )
@@ -293,18 +346,18 @@ public class Poller {
                     // Add jobs for processing non-config messages which are dependant on the config message
                     // processing jobs
                     allProcessedMessages
-                        .filter { $0.messageInfo.variant != .sharedConfigMessage }
-                        .grouped { threadId, _, _, _ in threadId }
+                        .filter { !$0.isConfigMessage && !$0.namespace.shouldHandleSynchronously }
+                        .grouped { $0.threadId }
                         .forEach { threadId, threadMessages in
                             messageCount += threadMessages.count
-                            processedMessages += threadMessages.map { $0.messageInfo.message }
+                            processedMessages += threadMessages
                             
                             let jobToRun: Job? = Job(
                                 variant: .messageReceive,
                                 behaviour: .runOnce,
                                 threadId: threadId,
                                 details: MessageReceiveJob.Details(
-                                    messages: threadMessages.map { $0.messageInfo },
+                                    messages: threadMessages,
                                     calledFromBackgroundPoller: calledFromBackgroundPoller
                                 )
                             )
@@ -339,11 +392,11 @@ public class Poller {
                         }
                     
                     // Set the output for logging
-                    pollerLogOutput = "Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(allMessages.count - messageCount))"
+                    pollerLogOutput = "Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(rawMessageCount - messageCount))"  // stringlint:disable
                     
                     // Clean up message hashes and add some logs about the poll results
-                    if allMessages.isEmpty && !hadValidHashUpdate {
-                        pollerLogOutput = "Received \(allMessages.count) new message\(allMessages.count == 1 ? "" : "s") in \(pollerName), all duplicates - marking the hash we polled with as invalid"
+                    if sortedMessages.isEmpty && !hadValidHashUpdate {
+                        pollerLogOutput = "Received \(rawMessageCount) new message\(rawMessageCount == 1 ? "" : "s") in \(pollerName), all duplicates - marking the hash we polled with as invalid" // stringlint:disable
                         
                         // Update the cached validity of the messages
                         try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(

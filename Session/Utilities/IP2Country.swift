@@ -56,13 +56,13 @@ public enum IP2Country {
         }
     }
 
-    private static func populateCacheIfNeeded(paths: [Set<LibSession.CSNode>]) {
+    private static func populateCacheIfNeeded(paths: [Set<LibSession.Snode>]) {
         guard !paths.isEmpty else { return }
         
         countryNamesCache.mutate { cache in
             paths.forEach { path in
                 path.forEach { snode in
-                    self.cacheCountry(for: snode.ipString, inCache: &cache)
+                    self.cacheCountry(for: snode.ip, inCache: &cache)
                 }
             }
         }

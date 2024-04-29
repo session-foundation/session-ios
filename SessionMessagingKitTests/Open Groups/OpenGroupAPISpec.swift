@@ -453,7 +453,7 @@ class OpenGroupAPISpec: QuickSpec {
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
@@ -482,7 +482,7 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                             .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
@@ -508,7 +508,7 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomResponse)?
@@ -560,7 +560,7 @@ class OpenGroupAPISpec: QuickSpec {
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
@@ -588,7 +588,7 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                             .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
@@ -613,7 +613,7 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomsResponse)
                         
                         var response: (info: ResponseInfoType, data: OpenGroupAPI.CapabilitiesAndRoomsResponse)?
@@ -1872,7 +1872,7 @@ class OpenGroupAPISpec: QuickSpec {
             context("when sending") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                         .thenReturn(MockNetwork.response(type: [OpenGroupAPI.Room].self))
                 }
                 

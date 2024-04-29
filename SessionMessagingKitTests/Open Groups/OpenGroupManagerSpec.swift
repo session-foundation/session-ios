@@ -747,7 +747,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
                     
@@ -893,7 +893,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("with an invalid response") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                             .thenReturn(MockNetwork.response(data: Data()))
                         
                         mockUserDefaults
@@ -1602,7 +1602,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     it("restarts the poller if there already is one") {
                         mockOGMCache.when { $0.pollers }.thenReturn(["testserver": OpenGroupAPI.Poller(for: "testserver")])
                         mockNetwork
-                            .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                            .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                             .thenReturn(Network.BatchResponse.mockBlindedPollResponse)
                         
                         mockStorage.write { db in
@@ -3038,7 +3038,7 @@ class OpenGroupManagerSpec: QuickSpec {
             context("when getting the default rooms if needed") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     mockStorage.write { db in
@@ -3143,7 +3143,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 // MARK: ---- will retry fetching rooms 8 times before it fails
                 it("will retry fetching rooms 8 times before it fails") {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                         .thenReturn(MockNetwork.nullResponse())
                     
                     var error: Error?
@@ -3155,14 +3155,14 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(error).to(matchError(NetworkError.parsingFailed))
                     expect(mockNetwork)   // First attempt + 8 retries
                         .to(call(.exactly(times: 9)) {
-                            $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies)
+                            $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies)
                         })
                 }
                 
                 // MARK: ---- removes the cache publisher if all retries fail
                 it("removes the cache publisher if all retries fail") {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                         .thenReturn(MockNetwork.nullResponse())
                     
                     var error: Error?
@@ -3186,7 +3186,6 @@ class OpenGroupManagerSpec: QuickSpec {
                             $0.send(.onionRequest(
                                 URLRequest(url: URL(string: "https://open.getsession.org/sequence")!),
                                 to: OpenGroupAPI.defaultServer,
-                                endpoint: OpenGroupAPI.Endpoint.sequence,
                                 with: OpenGroupAPI.defaultServerPublicKey
                             ), using: dependencies)
                         }
@@ -3214,7 +3213,6 @@ class OpenGroupManagerSpec: QuickSpec {
                                 .onionRequest(
                                     URLRequest(url: URL(string: "https://open.getsession.org/room/test2/file/12")!),
                                     to: OpenGroupAPI.defaultServer,
-                                    endpoint: OpenGroupAPI.Endpoint.roomFileIndividual("test2", "12"),
                                     with: OpenGroupAPI.defaultServerPublicKey,
                                     timeout: FileServerAPI.fileDownloadTimeout
                                 ),
@@ -3253,7 +3251,7 @@ class OpenGroupManagerSpec: QuickSpec {
             context("when getting a room image") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), endpoint: MockEndpoint.mock, with: any()), using: dependencies) }
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
                         .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
                     
                     mockUserDefaults

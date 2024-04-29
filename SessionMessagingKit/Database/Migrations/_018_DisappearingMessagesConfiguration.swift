@@ -16,6 +16,7 @@ enum _018_DisappearingMessagesConfiguration: Migration {
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
         DisappearingMessagesConfiguration.self, Contact.self
     ]
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: GRDB.Database) throws {
         try db.alter(table: DisappearingMessagesConfiguration.self) { t in

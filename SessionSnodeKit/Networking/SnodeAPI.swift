@@ -49,7 +49,7 @@ public final class SnodeAPI {
     public static func poll(
         namespaces: [SnodeAPI.Namespace],
         refreshingConfigHashes: [String] = [],
-        from snode: LibSession.CSNode,
+        from snode: LibSession.Snode,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) -> AnyPublisher<[SnodeAPI.Namespace: (info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?)], Error> {
@@ -242,12 +242,31 @@ public final class SnodeAPI {
         .eraseToAnyPublisher()
     }
     
+    public static func preparedSequence(
+        requests: [any ErasedPreparedRequest],
+        requireAllBatchResponses: Bool,
+        swarmPublicKey: String,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<Network.BatchResponse> {
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .sequence,
+                    swarmPublicKey: swarmPublicKey,
+                    body: Network.BatchRequest(requestsKey: .requests, requests: requests)
+                ),
+                responseType: Network.BatchResponse.self,
+                requireAllBatchResponses: requireAllBatchResponses,
+                using: dependencies
+            )
+    }
+    
     /// **Note:** This is the direct request to retrieve messages so should be retrieved automatically from the `poll()` method, in order to call
     /// this directly remove the `@available` line
     @available(*, unavailable, message: "Avoid using this directly, use the pre-built `poll()` method instead")
     public static func getMessages(
         in namespace: SnodeAPI.Namespace,
-        from snode: LibSession.CSNode,
+        from snode: LibSession.Snode,
         swarmPublicKey: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(info: ResponseInfoType, data: (messages: [SnodeReceivedMessage], lastHash: String?)?), Error> {
@@ -452,6 +471,65 @@ public final class SnodeAPI {
     
     // MARK: - Store
     
+    public static func preparedSendMessage(
+        _ db: Database,
+        message: SnodeMessage,
+        in namespace: Namespace,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<SendMessagesResponse> {
+        let swarmPublicKey: String = message.recipient
+        let userX25519PublicKey: String = getUserHexEncodedPublicKey()
+        
+        let request: Network.PreparedRequest<SendMessagesResponse> = try {
+            // Check if this namespace requires authentication
+            guard namespace.requiresWriteAuthentication else {
+                return try SnodeAPI.prepareRequest(
+                    request: Request(
+                        endpoint: .sendMessage,
+                        swarmPublicKey: swarmPublicKey,
+                        body: LegacySendMessagesRequest(
+                            message: message,
+                            namespace: namespace
+                        )
+                    ),
+                    responseType: SendMessagesResponse.self,
+                    using: dependencies
+                )
+            }
+            
+            guard let userED25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+                throw SnodeAPIError.noKeyPair
+            }
+            
+            return try SnodeAPI.prepareRequest(
+                request: Request(
+                    endpoint: .sendMessage,
+                    swarmPublicKey: swarmPublicKey,
+                    body: SendMessageRequest(
+                        message: message,
+                        namespace: namespace,
+                        subkey: nil,
+                        timestampMs: UInt64(SnodeAPI.currentOffsetTimestampMs()),
+                        ed25519PublicKey: userED25519KeyPair.publicKey,
+                        ed25519SecretKey: userED25519KeyPair.secretKey
+                    )
+                ),
+                responseType: SendMessagesResponse.self,
+                using: dependencies
+            )
+        }()
+        
+        return request
+            .tryMap { _, response -> SendMessagesResponse in
+                try response.validateResultMap(
+                    sodium: sodium.wrappedValue,
+                    userX25519PublicKey: userX25519PublicKey
+                )
+                
+                return response
+            }
+    }
+    
     public static func sendMessage(
         _ message: SnodeMessage,
         in namespace: Namespace,
@@ -517,12 +595,10 @@ public final class SnodeAPI {
     public static func sendConfigMessages(
         _ messages: [(message: SnodeMessage, namespace: Namespace)],
         allObsoleteHashes: [String],
+        swarmPublicKey: String,
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<Network.BatchResponse, Error> {
-        guard
-            !messages.isEmpty,
-            let recipient: String = messages.first?.message.recipient
-        else {
+        guard !messages.isEmpty || !allObsoleteHashes.isEmpty else {
             return Fail(error: NetworkError.invalidPreparedRequest)
                 .eraseToAnyPublisher()
         }
@@ -534,7 +610,6 @@ public final class SnodeAPI {
         
         do {
             let userX25519PublicKey: String = getUserHexEncodedPublicKey()
-            let swarmPublicKey: String = recipient
             var requests: [any ErasedPreparedRequest] = try messages
                 .map { message, namespace in
                     // Check if this namespace requires authentication
@@ -581,7 +656,7 @@ public final class SnodeAPI {
                             body: DeleteMessagesRequest(
                                 messageHashes: allObsoleteHashes,
                                 requireSuccessfulDeletion: false,
-                                pubkey: userX25519PublicKey,
+                                swarmPublicKey: userX25519PublicKey,
                                 ed25519PublicKey: userED25519KeyPair.publicKey,
                                 ed25519SecretKey: userED25519KeyPair.secretKey
                             )
@@ -710,6 +785,53 @@ public final class SnodeAPI {
     
     // MARK: Delete
     
+    public static func preparedDeleteMessages(
+        _ db: Database,
+        swarmPublicKey: String,
+        serverHashes: [String],
+        requireSuccessfulDeletion: Bool,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<[String: Bool]> {
+        guard let userED25519KeyPair = Identity.fetchUserEd25519KeyPair(db) else { throw SnodeAPIError.noKeyPair }
+        
+        return try SnodeAPI
+            .prepareRequest(
+                request: Request(
+                    endpoint: .deleteMessages,
+                    swarmPublicKey: swarmPublicKey,
+                    body: DeleteMessagesRequest(
+                        messageHashes: serverHashes,
+                        requireSuccessfulDeletion: requireSuccessfulDeletion,
+                        swarmPublicKey: swarmPublicKey,
+                        ed25519PublicKey: userED25519KeyPair.publicKey,
+                        ed25519SecretKey: userED25519KeyPair.secretKey
+                    )
+                ),
+                responseType: DeleteMessagesResponse.self,
+                using: dependencies
+            )
+            .tryMap { _, response -> [String: Bool] in
+                let validResultMap: [String: Bool] = try response.validResultMap(
+                    sodium: sodium.wrappedValue,
+                    userX25519PublicKey: swarmPublicKey,
+                    validationData: serverHashes
+                )
+                
+                // If `validResultMap` didn't throw then at least one service node
+                // deleted successfully so we should mark the hash as invalid so we
+                // don't try to fetch updates using that hash going forward (if we
+                // do we would end up re-fetching all old messages)
+                Storage.shared.writeAsync { db in
+                    try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                        db,
+                        potentiallyInvalidHashes: serverHashes
+                    )
+                }
+                
+                return validResultMap
+            }
+    }
+    
     public static func deleteMessages(
         swarmPublicKey: String,
         serverHashes: [String],
@@ -731,7 +853,7 @@ public final class SnodeAPI {
                         body: DeleteMessagesRequest(
                             messageHashes: serverHashes,
                             requireSuccessfulDeletion: false,
-                            pubkey: userX25519PublicKey,
+                            swarmPublicKey: userX25519PublicKey,
                             ed25519PublicKey: userED25519KeyPair.publicKey,
                             ed25519SecretKey: userED25519KeyPair.secretKey
                         )
@@ -860,7 +982,7 @@ public final class SnodeAPI {
     // MARK: - Internal API
     
     public static func getNetworkTime(
-        from snode: LibSession.CSNode,
+        from snode: LibSession.Snode,
         using dependencies: Dependencies
     ) -> AnyPublisher<UInt64, Error> {
         do {
@@ -909,8 +1031,13 @@ public final class SnodeAPI {
         .handleEvents(
             receiveOutput: { _, response in
                 switch response {
-                    // Extract and store hard fork information if returned
                     case let snodeResponse as SnodeResponse:
+                        // Update the network offset based on the response so subsequent requests have
+                        // the correct network offset time
+                        let offset = (Int64(snodeResponse.timeOffset) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
+                        SnodeAPI.clockOffsetMs.mutate { $0 = offset }
+                        
+                        // Extract and store hard fork information if returned
                         guard snodeResponse.hardFork.count > 1 else { break }
                         
                         if snodeResponse.hardFork[1] > softfork {
@@ -934,20 +1061,20 @@ public final class SnodeAPI {
 
 // MARK: - Publisher Convenience
 
-public extension Publisher where Output == Set<LibSession.CSNode> {
+public extension Publisher where Output == Set<LibSession.Snode> {
     func tryFlatMapWithRandomSnode<T, P>(
         maxPublishers: Subscribers.Demand = .unlimited,
         retry retries: Int = 0,
         drainBehaviour: Atomic<SwarmDrainBehaviour> = .alwaysRandom,
         using dependencies: Dependencies,
-        _ transform: @escaping (LibSession.CSNode) throws -> P
+        _ transform: @escaping (LibSession.Snode) throws -> P
     ) -> AnyPublisher<T, Error> where T == P.Output, P: Publisher, P.Failure == Error {
         return self
             .mapError { $0 }
             .flatMap(maxPublishers: maxPublishers) { swarm -> AnyPublisher<T, Error> in
                 // If we don't want to reuse a specific snode multiple times then just grab a
                 // random one from the swarm every time
-                var remainingSnodes: Set<LibSession.CSNode> = {
+                var remainingSnodes: Set<LibSession.Snode> = {
                     switch drainBehaviour.wrappedValue {
                         case .alwaysRandom: return swarm
                         case .limitedReuse(_, let targetSnode, _, let usedSnodes, let swarmHash):
@@ -965,7 +1092,7 @@ public extension Publisher where Output == Set<LibSession.CSNode> {
                 return Just(())
                     .setFailureType(to: Error.self)
                     .tryFlatMap(maxPublishers: maxPublishers) { _ -> AnyPublisher<T, Error> in
-                        let snode: LibSession.CSNode = try {
+                        let snode: LibSession.Snode = try {
                             switch drainBehaviour.wrappedValue {
                                 case .limitedReuse(_, .some(let targetSnode), _, _, _): return targetSnode
                                 default: break
@@ -1020,7 +1147,7 @@ private extension Request {
     
     init<B: Encodable>(
         endpoint: SnodeAPI.Endpoint,
-        snode: LibSession.CSNode,
+        snode: LibSession.Snode,
         swarmPublicKey: String? = nil,
         body: B,
         retryCount: Int = SnodeAPI.maxRetryCount

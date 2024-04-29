@@ -866,9 +866,9 @@ private enum LifecycleMethod: Equatable {
     
     var timingName: String {
         switch self {
-            case .finishLaunching: return "Launch"
-            case .enterForeground: return "EnterForeground"
-            case .didBecomeActive: return "BecomeActive"
+            case .finishLaunching: return "Launch"              // stringlint:disable
+            case .enterForeground: return "EnterForeground"     // stringlint:disable
+            case .didBecomeActive: return "BecomeActive"        // stringlint:disable
         }
     }
     

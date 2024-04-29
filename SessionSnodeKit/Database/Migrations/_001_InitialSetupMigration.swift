@@ -15,6 +15,7 @@ enum _001_InitialSetupMigration: Migration {
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
         LegacySnode.self, LegacySnodeSet.self, SnodeReceivedMessageInfo.self
     ]
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         try db.create(table: LegacySnode.self) { t in

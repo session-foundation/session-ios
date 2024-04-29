@@ -15,6 +15,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
         Identity.self, Setting.self
     ]
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Profile.self]
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         // Add the new 'Profile' properties

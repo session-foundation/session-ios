@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 public extension Network.RequestType {
     static func onionRequest(
         _ payload: Data,
-        to snode: LibSession.CSNode,
+        to snode: LibSession.Snode,
         swarmPublicKey: String?,
         timeout: TimeInterval = Network.defaultTimeout
     ) -> Network.RequestType<Data?> {

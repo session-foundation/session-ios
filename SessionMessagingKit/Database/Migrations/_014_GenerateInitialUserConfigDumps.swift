@@ -16,6 +16,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         OpenGroup.self, DisappearingMessagesConfiguration.self, GroupMember.self, ConfigDump.self
     ]
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         // If we have no ed25519 key then there is no need to create cached dump data

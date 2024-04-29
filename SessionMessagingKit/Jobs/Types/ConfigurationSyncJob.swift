@@ -54,7 +54,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         // fresh install due to the migrations getting run)
         guard
             let publicKey: String = job.threadId,
-            let pendingConfigChanges: [LibSession.OutgoingConfResult] = dependencies.storage
+            let pendingChanges: LibSession.PendingChanges = dependencies.storage
                 .read(using: dependencies, { db in try LibSession.pendingChanges(db, publicKey: publicKey) })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
@@ -63,58 +63,57 @@ public enum ConfigurationSyncJob: JobExecutor {
         
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
-        guard !pendingConfigChanges.isEmpty else {
+        guard !pendingChanges.pushData.isEmpty || !pendingChanges.obsoleteHashes.isEmpty else {
             SNLog("[ConfigurationSyncJob] For \(publicKey) completed with no pending changes")
             return success(job, true, dependencies)
         }
         
-        // Identify the destination and merge all obsolete hashes into a single set
-        let destination: Message.Destination = (publicKey == getUserHexEncodedPublicKey() ?
-            Message.Destination.contact(publicKey: publicKey) :
-            Message.Destination.closedGroup(groupPublicKey: publicKey)
-        )
-        let allObsoleteHashes: Set<String> = pendingConfigChanges
-            .map { $0.obsoleteHashes }
-            .reduce([], +)
-            .asSet()
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        SNLog("[ConfigurationSyncJob] For \(publicKey) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
+        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
+        SNLog("[ConfigurationSyncJob] For \(publicKey) started with \(pendingChanges.pushData.count) change\( pendingChanges.pushData.count == 1 ? "" : "s"), \(pendingChanges.obsoleteHashes.count) old hash\(pendingChanges.obsoleteHashes.count == 1 ? "" : "es")")
         
         dependencies.storage
             .readPublisher { db in
-                try pendingConfigChanges.map { change -> MessageSender.PreparedSendData in
-                    try MessageSender.preparedSendData(
-                        db,
-                        message: change.message,
-                        to: destination,
-                        namespace: change.namespace,
-                        interactionId: nil
-                    )
-                }
-            }
-            .flatMap { (changes: [MessageSender.PreparedSendData]) -> AnyPublisher<Network.BatchResponse, Error> in
-                SnodeAPI
-                    .sendConfigMessages(
-                        changes.compactMap { change in
-                            guard
-                                let namespace: SnodeAPI.Namespace = change.namespace,
-                                let snodeMessage: SnodeMessage = change.snodeMessage
-                            else { return nil }
+                try SnodeAPI.preparedSequence(
+                    requests: try pendingChanges.pushData
+                        .map { pushData -> ErasedPreparedRequest in
+                            try SnodeAPI.preparedSendMessage(
+                                db,
+                                message: SnodeMessage(
+                                    recipient: publicKey,
+                                    data: pushData.data.base64EncodedString(),
+                                    ttl: pushData.variant.ttl,
+                                    timestampMs: UInt64(messageSendTimestamp)
+                                ),
+                                in: pushData.variant.namespace,
+                                using: dependencies
+                            )
+                        }
+                        .appending(try {
+                            guard !pendingChanges.obsoleteHashes.isEmpty else { return nil }
                             
-                            return (snodeMessage, namespace)
-                        },
-                        allObsoleteHashes: Array(allObsoleteHashes),
-                        using: dependencies
-                    )
+                            return try SnodeAPI.preparedDeleteMessages(
+                                db,
+                                swarmPublicKey: publicKey,
+                                serverHashes: Array(pendingChanges.obsoleteHashes),
+                                requireSuccessfulDeletion: false,
+                                using: dependencies
+                            )
+                        }()),
+                    requireAllBatchResponses: false,
+                    swarmPublicKey: publicKey,
+                    using: dependencies
+                )
             }
+            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue)
             .receive(on: queue)
-            .map { (response: Network.BatchResponse) -> [ConfigDump] in
+            .map { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
-                zip(response, pendingConfigChanges)
-                    .compactMap { (subResponse: Any, change: LibSession.OutgoingConfResult) in
+                zip(response, pendingChanges.pushData)
+                    .compactMap { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
@@ -127,8 +126,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                         /// Since this change was successful we need to mark it as pushed and generate any config dumps
                         /// which need to be stored
                         return LibSession.markingAsPushed(
-                            message: change.message,
+                            seqNo: pushData.seqNo,
                             serverHash: sendMessageResponse.hash,
+                            sentTimestamp: messageSendTimestamp,
+                            variant: pushData.variant,
                             publicKey: publicKey
                         )
                     }

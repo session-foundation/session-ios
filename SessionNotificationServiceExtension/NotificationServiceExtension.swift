@@ -94,101 +94,104 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             // is added to notification center
             Storage.shared.write { db in
                 do {
-                    guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, data: data) else {
+                    guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, data: data, metadata: metadata) else {
                         self.handleFailure(for: notificationContent, error: .messageProcessing)
                         return
                     }
                     
-                    /// Due to the way the `CallMessage` and `SharedConfigMessage` work we need to custom
-                    /// handle their behaviours, for all other message types we want to just use standard messages
-                    switch processedMessage.messageInfo.message {
-                        case is CallMessage, is SharedConfigMessage: break
-                        default:
-                            try MessageReceiver.handle(
-                                db,
-                                threadId: processedMessage.threadId,
-                                threadVariant: processedMessage.threadVariant,
-                                message: processedMessage.messageInfo.message,
-                                serverExpirationTimestamp: processedMessage.messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: processedMessage.proto
-                            )
-                            return
-                    }
-                    
-                    // Throw if the message is outdated and shouldn't be processed
-                    try MessageReceiver.throwIfMessageOutdated(
-                        db,
-                        message: processedMessage.messageInfo.message,
-                        threadId: processedMessage.threadId,
-                        threadVariant: processedMessage.threadVariant
-                    )
-                    
-                    switch processedMessage.messageInfo.message {
-                        case let callMessage as CallMessage:
-                            try MessageReceiver.handleCallMessage(
-                                db,
-                                threadId: processedMessage.threadId,
-                                threadVariant: processedMessage.threadVariant,
-                                message: callMessage
-                            )
-                            
-                            guard case .preOffer = callMessage.kind else { return self.completeSilenty() }
-                            
-                            if !db[.areCallsEnabled] {
-                                if
-                                    let sender: String = callMessage.sender,
-                                    let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
-                                        db,
-                                        for: callMessage,
-                                        state: .permissionDenied
-                                    )
-                                {
-                                    let thread: SessionThread = try SessionThread
-                                        .fetchOrCreate(
-                                            db,
-                                            id: sender,
-                                            variant: .contact,
-                                            shouldBeVisible: nil
-                                        )
-
-                                    // Notify the user if the call message wasn't already read
-                                    if !interaction.wasRead {
-                                        SessionEnvironment.shared?.notificationsManager.wrappedValue?
-                                            .notifyUser(
-                                                db,
-                                                forIncomingCall: interaction,
-                                                in: thread,
-                                                applicationState: .background
-                                            )
-                                    }
-                                }
-                                break
-                            }
-                            
-                            if isCallOngoing {
-                                try MessageReceiver.handleIncomingCallOfferInBusyState(db, message: callMessage)
-                                break
-                            }
-                            
-                            try MessageReceiver.insertCallInfoMessage(db, for: callMessage)
-                            self.handleSuccessForIncomingCall(db, for: callMessage)
-                            
-                        case let sharedConfigMessage as SharedConfigMessage:
+                    switch processedMessage {
+                        /// Custom handle config messages (as they don't get handled by the normal `MessageReceiver.handle` call
+                        case .config(let publicKey, let namespace, let serverHash, let serverTimestampMs, let data):
                             try LibSession.handleConfigMessages(
                                 db,
-                                messages: [sharedConfigMessage],
-                                publicKey: processedMessage.threadId
+                                messages: [
+                                    ConfigMessageReceiveJob.Details.MessageInfo(
+                                        namespace: namespace,
+                                        serverHash: serverHash,
+                                        serverTimestampMs: serverTimestampMs,
+                                        data: data
+                                    )
+                                ],
+                                publicKey: publicKey
                             )
                             
-                        default: break
+                        /// Due to the way the `CallMessage` works we need to custom handle it's behaviour within the notification
+                        /// extension, for all other message types we want to just use the standard `MessageReceiver.handle` call
+                        case .standard(let threadId, let threadVariant, _, let messageInfo) where messageInfo.message is CallMessage:
+                            guard let callMessage = messageInfo.message as? CallMessage else {
+                                return self.completeSilenty()
+                            }
+                            
+                            // Throw if the message is outdated and shouldn't be processed
+                            try MessageReceiver.throwIfMessageOutdated(
+                                db,
+                                message: messageInfo.message,
+                                threadId: threadId,
+                                threadVariant: threadVariant
+                            )
+                            
+                            guard case .preOffer = callMessage.kind else {
+                                return self.completeSilenty()
+                            }
+                            
+                            switch (db[.areCallsEnabled], isCallOngoing) {
+                                case (false, _):
+                                    if
+                                        let sender: String = callMessage.sender,
+                                        let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(
+                                            db,
+                                            for: callMessage,
+                                            state: .permissionDenied
+                                        )
+                                    {
+                                        let thread: SessionThread = try SessionThread
+                                            .fetchOrCreate(
+                                                db,
+                                                id: sender,
+                                                variant: .contact,
+                                                shouldBeVisible: nil
+                                            )
+
+                                        // Notify the user if the call message wasn't already read
+                                        if !interaction.wasRead {
+                                            SessionEnvironment.shared?.notificationsManager.wrappedValue?
+                                                .notifyUser(
+                                                    db,
+                                                    forIncomingCall: interaction,
+                                                    in: thread,
+                                                    applicationState: .background
+                                                )
+                                        }
+                                    }
+                                    
+                                case (true, true):
+                                    try MessageReceiver.handleIncomingCallOfferInBusyState(
+                                        db,
+                                        message: callMessage
+                                    )
+                                    
+                                case (true, false):
+                                    try MessageReceiver.insertCallInfoMessage(db, for: callMessage)
+                                    self.handleSuccessForIncomingCall(db, for: callMessage)
+                            }
+                            
+                            // Perform any required post-handling logic
+                            try MessageReceiver.postHandleMessage(
+                                db,
+                                threadId: threadId,
+                                message: messageInfo.message
+                            )
+                            
+                        case .standard(let threadId, let threadVariant, let proto, let messageInfo):
+                            try MessageReceiver.handle(
+                                db,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                message: messageInfo.message,
+                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                associatedWithProto: proto
+                            )
                     }
-                    
-                    // Perform any required post-handling logic
-                    try MessageReceiver.postHandleMessage(
-                        db,
-                        threadId: processedMessage.threadId,
-                        message: processedMessage.messageInfo.message
-                    )
                 }
                 catch {
                     if let error = error as? MessageReceiverError, error.isRetryable {

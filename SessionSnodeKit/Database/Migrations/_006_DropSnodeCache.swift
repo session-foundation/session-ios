@@ -11,7 +11,8 @@ enum _006_DropSnodeCache: Migration {
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
-    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
+    static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = []
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = [
         _001_InitialSetupMigration.LegacySnode.self, _001_InitialSetupMigration.LegacySnodeSet.self
     ]
     

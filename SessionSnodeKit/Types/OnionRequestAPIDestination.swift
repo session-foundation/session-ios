@@ -6,7 +6,7 @@ import Foundation
 import SessionUtilitiesKit
 
 public enum OnionRequestAPIDestination: CustomStringConvertible {
-    case snode(LibSession.CSNode)
+    case snode(LibSession.Snode)
     case server(
         method: String?,
         scheme: String?,

@@ -14,7 +14,7 @@ final class PathVC: BaseVC {
     
     private var pathUpdateId: UUID?
     private var cacheUpdateId: UUID?
-    private var lastPath: Set<LibSession.CSNode> = []
+    private var lastPath: Set<LibSession.Snode> = []
 
     // MARK: - Components
     
@@ -136,8 +136,8 @@ final class PathVC: BaseVC {
 
     // MARK: - Updating
     
-    private func update(paths: [Set<LibSession.CSNode>], force: Bool) {
-        guard let pathToDisplay: Set<LibSession.CSNode> = paths.first else {
+    private func update(paths: [Set<LibSession.Snode>], force: Bool) {
+        guard let pathToDisplay: Set<LibSession.Snode> = paths.first else {
             pathStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
             spinner.startAnimating()
             
@@ -225,9 +225,9 @@ final class PathVC: BaseVC {
         return stackView
     }
 
-    private func getPathRow(snode: LibSession.CSNode, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, isGuardSnode: Bool) -> UIStackView {
+    private func getPathRow(snode: LibSession.Snode, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, isGuardSnode: Bool) -> UIStackView {
         let country: String = (IP2Country.isInitialized.wrappedValue ?
-            IP2Country.countryNamesCache.wrappedValue[snode.ipString].defaulting(to: "Resolving...") :
+            IP2Country.countryNamesCache.wrappedValue[snode.ip].defaulting(to: "Resolving...") :
             "Resolving..."
         )
         

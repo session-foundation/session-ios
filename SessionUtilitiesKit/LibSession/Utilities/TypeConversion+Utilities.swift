@@ -73,6 +73,10 @@ public extension String {
     }
 }
 
+public extension Substring {
+    var cArray: [CChar] { [UInt8](self.utf8).map { CChar(bitPattern: $0) } }
+}
+
 public extension Optional<String> {
     func toLibSession<T>() -> T {
         switch self {

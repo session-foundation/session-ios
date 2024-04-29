@@ -11,21 +11,19 @@ import SignalCoreKit
 // MARK: - LibSession
 
 public extension LibSession {
-    typealias CSNode = network_service_node
-    
     private static let desiredLogCategories: [LogCategory] = [.network]
     
     private static var networkCache: Atomic<UnsafeMutablePointer<network_object>?> = Atomic(nil)
     private static var snodeCachePath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/snodeCache" }
-    private static var lastPaths: Atomic<[Set<CSNode>]> = Atomic([])
+    private static var lastPaths: Atomic<[Set<Snode>]> = Atomic([])
     private static var lastNetworkStatus: Atomic<NetworkStatus> = Atomic(.unknown)
-    private static var pathsChangedCallbacks: Atomic<[UUID: ([Set<CSNode>], UUID) -> ()]> = Atomic([:])
+    private static var pathsChangedCallbacks: Atomic<[UUID: ([Set<Snode>], UUID) -> ()]> = Atomic([:])
     private static var networkStatusCallbacks: Atomic<[UUID: (NetworkStatus) -> ()]> = Atomic([:])
     
     static var hasPaths: Bool { !lastPaths.wrappedValue.isEmpty }
     static var pathsDescription: String { lastPaths.wrappedValue.prettifiedDescription }
     
-    typealias NodesCallback = (UnsafeMutablePointer<CSNode>?, Int) -> Void
+    typealias NodesCallback = (UnsafeMutablePointer<network_service_node>?, Int) -> Void
     typealias NetworkCallback = (Bool, Bool, Int16, Data?) -> Void
     private class CWrapper<Callback> {
         let callback: Callback
@@ -68,12 +66,12 @@ public extension LibSession {
         networkStatusCallbacks.mutate { $0.removeValue(forKey: callbackId) }
     }
     
-    static func onPathsChanged(skipInitialCallbackIfEmpty: Bool = false, callback: @escaping ([Set<CSNode>], UUID) -> ()) -> UUID {
+    static func onPathsChanged(skipInitialCallbackIfEmpty: Bool = false, callback: @escaping ([Set<Snode>], UUID) -> ()) -> UUID {
         let callbackId: UUID = UUID()
         pathsChangedCallbacks.mutate { $0[callbackId] = callback }
         
         // Trigger the callback immediately with the most recent status
-        let lastPaths: [Set<CSNode>] = self.lastPaths.wrappedValue
+        let lastPaths: [Set<Snode>] = self.lastPaths.wrappedValue
         if !lastPaths.isEmpty || !skipInitialCallbackIfEmpty {
             callback(lastPaths, callbackId)
         }
@@ -120,20 +118,23 @@ public extension LibSession {
         network_clear_cache(network)
     }
     
-    static func getSwarm(swarmPublicKey: String) -> AnyPublisher<Set<CSNode>, Error> {
+    static func getSwarm(swarmPublicKey: String) -> AnyPublisher<Set<Snode>, Error> {
         return getOrCreateNetwork()
             .flatMap { network in
                 Deferred {
-                    Future<Set<CSNode>, Error> { resolver in
-                        let cSwarmPublicKey: [CChar] = swarmPublicKey.cArray.nullTerminated()
+                    Future<Set<Snode>, Error> { resolver in
+                        let cSwarmPublicKey: [CChar] = swarmPublicKey
+                            .suffix(64) // Quick way to drop '05' prefix if present
+                            .cArray
+                            .nullTerminated()
                         let callbackWrapper: CWrapper<NodesCallback> = CWrapper { swarmPtr, swarmSize in
                             guard
                                 swarmSize > 0,
-                                let cSwarm: UnsafeMutablePointer<CSNode> = swarmPtr
+                                let cSwarm: UnsafeMutablePointer<network_service_node> = swarmPtr
                             else { return resolver(Result.failure(SnodeAPIError.unableToRetrieveSwarm)) }
                             
-                            var nodes: Set<CSNode> = []
-                            (0..<swarmSize).forEach { index in nodes.insert(cSwarm[index]) }
+                            var nodes: Set<Snode> = []
+                            (0..<swarmSize).forEach { index in nodes.insert(Snode(cSwarm[index])) }
                             resolver(Result.success(nodes))
                         }
                         let cWrapperPtr: UnsafeMutableRawPointer = Unmanaged.passRetained(callbackWrapper).toOpaque()
@@ -148,19 +149,19 @@ public extension LibSession {
             .eraseToAnyPublisher()
     }
     
-    static func getRandomNodes(count: Int) -> AnyPublisher<Set<CSNode>, Error> {
+    static func getRandomNodes(count: Int) -> AnyPublisher<Set<Snode>, Error> {
         return getOrCreateNetwork()
             .flatMap { network in
                 Deferred {
-                    Future<Set<CSNode>, Error> { resolver in
+                    Future<Set<Snode>, Error> { resolver in
                         let callbackWrapper: CWrapper<NodesCallback> = CWrapper { nodesPtr, nodesSize in
                             guard
                                 nodesSize >= count,
-                                let cSwarm: UnsafeMutablePointer<CSNode> = nodesPtr
+                                let cSwarm: UnsafeMutablePointer<network_service_node> = nodesPtr
                             else { return resolver(Result.failure(SnodeAPIError.unableToRetrieveSwarm)) }
                             
-                            var nodes: Set<CSNode> = []
-                            (0..<nodesSize).forEach { index in nodes.insert(cSwarm[index]) }
+                            var nodes: Set<Snode> = []
+                            (0..<nodesSize).forEach { index in nodes.insert(Snode(cSwarm[index])) }
                             resolver(Result.success(nodes))
                         }
                         let cWrapperPtr: UnsafeMutableRawPointer = Unmanaged.passRetained(callbackWrapper).toOpaque()
@@ -213,13 +214,14 @@ public extension LibSession {
                         switch destination {
                             case .snode(let snode):
                                 let cSwarmPublicKey: UnsafePointer<CChar>? = swarmPublicKey.map {
-                                    $0.cArray.nullTerminated().unsafeCopy()
+                                    // Quick way to drop '05' prefix if present
+                                    $0.suffix(64).cArray.nullTerminated().unsafeCopy()
                                 }
                                 callbackWrapper.addUnsafePointerToCleanup(cSwarmPublicKey)
                                 
                                 network_send_onion_request_to_snode_destination(
                                     network,
-                                    snode,
+                                    snode.cSnode,
                                     cPayloadBytes,
                                     cPayloadBytes.count,
                                     cSwarmPublicKey,
@@ -246,7 +248,9 @@ public extension LibSession {
                                 let cEndpoint: UnsafePointer<CChar>? = endpoint.cArray
                                     .nullTerminated()
                                     .unsafeCopy()
-                                let cX25519Pubkey: UnsafePointer<CChar>? = x25519PublicKey.cArray
+                                let cX25519Pubkey: UnsafePointer<CChar>? = x25519PublicKey
+                                    .suffix(64) // Quick way to drop '05' prefix if present
+                                    .cArray
                                     .nullTerminated()
                                     .unsafeCopy()
                                 let headerInfo: [(key: String, value: String)]? = headers?.map { ($0.key, $0.value) }
@@ -367,7 +371,7 @@ public extension LibSession {
     }
     
     private static func updatePaths(cPathsPtr: UnsafeMutablePointer<onion_request_path>?, pathsLen: Int) {
-        var paths: [Set<CSNode>] = []
+        var paths: [Set<Snode>] = []
         
         if let cPathsPtr: UnsafeMutablePointer<onion_request_path> = cPathsPtr {
             var cPaths: [onion_request_path] = []
@@ -378,9 +382,9 @@ public extension LibSession {
             
             // Copy the nodes over as the memory will be freed after the callback is run
             paths = cPaths.map { cPath in
-                var nodes: Set<CSNode> = []
+                var nodes: Set<Snode> = []
                 (0..<cPath.nodes_count).forEach { index in
-                    nodes.insert(cPath.nodes[index].copy())
+                    nodes.insert(Snode(cPath.nodes[index]))
                 }
                 return nodes
             }
@@ -475,47 +479,43 @@ extension LibSession {
     }
 }
 
-// MARK: - CSNode Conformance and Convenience
+// MARK: - Snode
 
-extension LibSession.CSNode: Hashable, CustomStringConvertible {
-    public var ipString: String { "\(ip.0).\(ip.1).\(ip.2).\(ip.3)" }
-    public var address: String { "\(ipString):\(quic_port)" }
-    public var x25519PubkeyHex: String { String(libSessionVal: x25519_pubkey_hex) }
-    public var ed25519PubkeyHex: String { String(libSessionVal: ed25519_pubkey_hex) }
-    
-    public var description: String { address }
-    
-    public func copy() -> LibSession.CSNode {
-        return LibSession.CSNode(
-            ip: ip,
-            quic_port: quic_port,
-            x25519_pubkey_hex: x25519_pubkey_hex,
-            ed25519_pubkey_hex: ed25519_pubkey_hex,
-            failure_count: failure_count,
-            invalid: invalid
-        )
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        ip.0.hash(into: &hasher)
-        ip.1.hash(into: &hasher)
-        ip.2.hash(into: &hasher)
-        ip.3.hash(into: &hasher)
-        quic_port.hash(into: &hasher)
-        x25519PubkeyHex.hash(into: &hasher)
-        ed25519PubkeyHex.hash(into: &hasher)
-        failure_count.hash(into: &hasher)
-        invalid.hash(into: &hasher)
-    }
-    
-    public static func == (lhs: LibSession.CSNode, rhs: LibSession.CSNode) -> Bool {
-        return (
-            lhs.ip == rhs.ip &&
-            lhs.quic_port == rhs.quic_port &&
-            lhs.x25519PubkeyHex == rhs.x25519PubkeyHex &&
-            lhs.ed25519PubkeyHex == rhs.ed25519PubkeyHex &&
-            lhs.failure_count == rhs.failure_count &&
-            lhs.invalid == rhs.invalid
-        )
+extension LibSession {
+    public struct Snode: Hashable, CustomStringConvertible {
+        public let ip: String
+        public let quicPort: UInt16
+        public let ed25519PubkeyHex: String
+        
+        public var address: String { "\(ip):\(quicPort)" }
+        public var description: String { address }
+        
+        public var cSnode: network_service_node {
+            return network_service_node(
+                ip: ip.toLibSession(),
+                quic_port: quicPort,
+                ed25519_pubkey_hex: ed25519PubkeyHex.toLibSession()
+            )
+        }
+        
+        init(_ cSnode: network_service_node) {
+            ip = "\(cSnode.ip.0).\(cSnode.ip.1).\(cSnode.ip.2).\(cSnode.ip.3)"
+            quicPort = cSnode.quic_port
+            ed25519PubkeyHex = String(libSessionVal: cSnode.ed25519_pubkey_hex)
+        }
+        
+        public func hash(into hasher: inout Hasher) {
+            ip.hash(into: &hasher)
+            quicPort.hash(into: &hasher)
+            ed25519PubkeyHex.hash(into: &hasher)
+        }
+        
+        public static func == (lhs: Snode, rhs: Snode) -> Bool {
+            return (
+                lhs.ip == rhs.ip &&
+                lhs.quicPort == rhs.quicPort &&
+                lhs.ed25519PubkeyHex == rhs.ed25519PubkeyHex
+            )
+        }
     }
 }

@@ -369,7 +369,7 @@ internal extension LibSession {
         loopCounter += 1
         
         guard loopCounter < maxLoopCount else {
-            SNLog("[LibSession] Got stuck in infinite loop processing '\(variant.configMessageKind.description)' data")
+            SNLog("[LibSession] Got stuck in infinite loop processing '\(variant)' data")
             throw LibSessionError.processingLoopLimitReached
         }
     }

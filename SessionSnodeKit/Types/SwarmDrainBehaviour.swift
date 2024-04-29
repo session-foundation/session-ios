@@ -7,9 +7,9 @@ public enum SwarmDrainBehaviour {
     case alwaysRandom
     case limitedReuse(
         count: UInt,
-        targetSnode: LibSession.CSNode?,
+        targetSnode: LibSession.Snode?,
         targetUseCount: Int,
-        usedSnodes: Set<LibSession.CSNode>,
+        usedSnodes: Set<LibSession.Snode>,
         swarmHash: Int
     )
     
@@ -21,7 +21,7 @@ public enum SwarmDrainBehaviour {
     
     // MARK: - Convenience
     
-    func use(snode: LibSession.CSNode, from swarm: Set<LibSession.CSNode>) -> SwarmDrainBehaviour {
+    func use(snode: LibSession.Snode, from swarm: Set<LibSession.Snode>) -> SwarmDrainBehaviour {
         switch self {
             case .alwaysRandom: return .alwaysRandom
             case .limitedReuse(let count, let targetSnode, let targetUseCount, let usedSnodes, _):

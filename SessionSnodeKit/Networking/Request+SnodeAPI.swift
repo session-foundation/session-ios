@@ -9,10 +9,10 @@ import SessionUtilitiesKit
 
 internal extension Network {
     struct SnodeTarget: RequestTarget, Equatable {
-        let snode: LibSession.CSNode
+        let snode: LibSession.Snode
         let swarmPublicKey: String?
         
-        var url: URL? { URL(string: "snode:\(snode.x25519PubkeyHex)") }
+        var url: URL? { URL(string: "snode:\(snode.address)") }
         var urlPathAndParamsString: String { return "" }
     }
 }
@@ -52,7 +52,7 @@ public extension Request {
     init(
         method: HTTPMethod = .get,
         endpoint: Endpoint,
-        snode: LibSession.CSNode,
+        snode: LibSession.Snode,
         headers: [HTTPHeader: String] = [:],
         body: T? = nil,
         swarmPublicKey: String?,
