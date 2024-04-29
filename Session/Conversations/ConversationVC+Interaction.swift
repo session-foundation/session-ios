@@ -252,7 +252,11 @@ extension ConversationVC:
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "giphyWarning".localized(),
-                    body: .text("giphyWarningDescription".localized()),
+                    body: .text(
+                        "giphyWarningDescription"
+                            .put(key: "app_name", value: Singleton.appContext.appName)
+                            .localized()
+                    ),
                     confirmTitle: "theContinue".localized()
                 ) { [weak self] _ in
                     Storage.shared.writeAsync(

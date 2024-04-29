@@ -897,7 +897,10 @@ private enum StartupError: Error {
             case .databaseError(StorageError.migrationNoLongerSupported):
                 return "databaseErrorUpdate".localized()
             
-            case .startupTimeout: return "databaseErrorTimeout".localized()
+            case .startupTimeout: 
+                return "databaseErrorTimeout"
+                    .put(key: "app_name", value: Singleton.appContext.appName)
+                    .localized()
         }
     }
 }
