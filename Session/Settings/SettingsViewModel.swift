@@ -158,9 +158,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             image: UIImage(named: "QRCode")?
                                 .withRenderingMode(.alwaysTemplate),
                             style: .plain,
-                            accessibilityIdentifier: "Show QR code button",
+                            accessibilityIdentifier: "View QR code",
                             action: { [weak self] in
-                                self?.transitionToScreen(QRCodeVC())
+                                let viewController: SessionHostingViewController = SessionHostingViewController(rootView: QRCodeScreen())
+                                viewController.setNavBarTitle("vc_qr_code_title".localized())
+                                self?.transitionToScreen(viewController)
                             }
                         )
                     ]
@@ -215,14 +217,21 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             .eraseToAnyPublisher()
     
     // MARK: - Content
+    private struct State: Equatable {
+        let profile: Profile
+        let hideRecoveryPasswordPermanently: Bool
+    }
     
     let title: String = "sessionSettings".localized()
     
     lazy var observation: TargetObservation = ObservationBuilder
-        .databaseObservation(self) { [weak self, dependencies] db -> Profile in
-            Profile.fetchOrCreateCurrentUser(db, using: dependencies)
+        .databaseObservation(self) { [weak self, dependencies] db -> State in
+            State(
+                profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
+                hideRecoveryPasswordPermanently: db[.hideRecoveryPasswordPermanently]
+            )
         }
-        .map { [weak self] profile -> [SectionModel] in
+        .map { [weak self] state -> [SectionModel] in
             return [
                 SectionModel(
                     model: .profileInfo,
@@ -230,9 +239,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         SessionCell.Info(
                             id: .avatar,
                             accessory: .profile(
-                                id: profile.id,
+                                id: state.profile.id,
                                 size: .hero,
-                                profile: profile
+                                profile: state.profile
                             ),
                             styling: SessionCell.StyleInfo(
                                 alignment: .centerHugging,
@@ -240,16 +249,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 backgroundStyle: .noBackground
                             ),
                             accessibility: Accessibility(
+                                identifier: "User settings",
                                 label: "Profile picture"
                             ),
                             onTap: {
-                                self?.updateProfilePicture(currentFileName: profile.profilePictureFileName)
+                                self?.updateProfilePicture(currentFileName: state.profile.profilePictureFileName)
                             }
                         ),
                         SessionCell.Info(
                             id: .profileName,
                             title: SessionCell.TextInfo(
-                                profile.displayName(),
+                                state.profile.displayName(),
                                 font: .titleLarge,
                                 alignment: .center,
                                 interaction: .editable
@@ -261,7 +271,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             ),
                             accessibility: Accessibility(
                                 identifier: "Username",
-                                label: profile.displayName()
+                                label: state.profile.displayName()
                             ),
                             onTap: { self?.setIsEditing(true) }
                         )
@@ -273,7 +283,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         SessionCell.Info(
                             id: .sessionId,
                             title: SessionCell.TextInfo(
-                                profile.id,
+                                state.profile.id,
                                 font: .monoLarge,
                                 alignment: .center,
                                 interaction: .copy
@@ -284,23 +294,31 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             ),
                             accessibility: Accessibility(
                                 identifier: "Session ID",
-                                label: profile.id
+                                label: state.profile.id
                             )
                         ),
                         SessionCell.Info(
                             id: .idActions,
                             leftAccessory: .button(
                                 style: .bordered,
-                                title: "copy".localized(),
-                                run: { button in
-                                    self?.copySessionId(profile.id, button: button)
+                                title: "share".localized(),
+                                accessibility: Accessibility(
+                                    identifier: "Share button",
+                                    label: "Share button"
+                                ),
+                                run: { _ in
+                                    self?.shareSessionId(state.profile.id)
                                 }
                             ),
                             rightAccessory: .button(
                                 style: .bordered,
-                                title: "share".localized(),
-                                run: { _ in
-                                    self?.shareSessionId(profile.id)
+                                title: "copy".localized(),
+                                accessibility: Accessibility(
+                                    identifier: "Copy button",
+                                    label: "Copy button"
+                                ),
+                                run: { button in
+                                    self?.copySessionId(state.profile.id, button: button)
                                 }
                             ),
                             styling: SessionCell.StyleInfo(
@@ -420,21 +438,27 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     transitionType: .present
                                 )
                             }
-                        ),
+                        )
+                    ].appending(
+                        state.hideRecoveryPasswordPermanently ? nil :
                         SessionCell.Info(
                             id: .recoveryPhrase,
                             leftAccessory: .icon(
-                                UIImage(named: "icon_recovery")?
+                                UIImage(named: "SessionShield")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
                             title: "sessionRecoveryPassword".localized(),
+                            accessibility: Accessibility(
+                                identifier: "Recovery password menu item",
+                                label: "Recovery password menu item"
+                            ),
                             onTap: {
-                                let targetViewController: UIViewController = {
-                                    if let modal: SeedModal = try? SeedModal() {
-                                        return modal
-                                    }
-                                    
-                                    return ConfirmationModal(
+                                if let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
+                                    let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
+                                    viewController.setNavBarTitle("sessionRecoveryPassword".localized())
+                                    self?.transitionToScreen(viewController)
+                                } else {
+                                    let targetViewController: UIViewController = ConfirmationModal(
                                         info: ConfirmationModal.Info(
                                             title: "theError".localized(),
                                             body: .text("LOAD_RECOVERY_PASSWORD_ERROR".localized()),

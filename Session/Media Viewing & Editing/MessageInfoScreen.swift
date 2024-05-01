@@ -97,6 +97,7 @@ struct MessageInfoScreen: View {
                                 MediaView_SwiftUI(
                                     attachment: attachments[0],
                                     isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                    shouldSupressControls: true, 
                                     cornerRadius: 0
                                 )
                                 .frame(
@@ -195,7 +196,7 @@ struct MessageInfoScreen: View {
                             .padding(.all, Values.largeSpacing)
                         }
                         .frame(maxHeight: .infinity)
-                        .background(themeColor: .backgroundSecondary)
+                        .backgroundColor(themeColor: .backgroundSecondary)
                         .cornerRadius(Self.cornerRadius)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.vertical, Values.verySmallSpacing)
@@ -282,7 +283,7 @@ struct MessageInfoScreen: View {
                         .padding(.all, Values.largeSpacing)
                     }
                     .frame(maxHeight: .infinity)
-                    .background(themeColor: .backgroundSecondary)
+                    .backgroundColor(themeColor: .backgroundSecondary)
                     .cornerRadius(Self.cornerRadius)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, Values.verySmallSpacing)
@@ -336,7 +337,7 @@ struct MessageInfoScreen: View {
                             .padding(.horizontal, Values.largeSpacing)
                         }
                         .frame(maxHeight: .infinity)
-                        .background(themeColor: .backgroundSecondary)
+                        .backgroundColor(themeColor: .backgroundSecondary)
                         .cornerRadius(Self.cornerRadius)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.vertical, Values.verySmallSpacing)
@@ -345,7 +346,7 @@ struct MessageInfoScreen: View {
                 }
             }
         }
-        .background(themeColor: .backgroundPrimary)
+        .backgroundColor(themeColor: .backgroundPrimary)
     }
     
     private func showMediaFullScreen(attachment: Attachment) {

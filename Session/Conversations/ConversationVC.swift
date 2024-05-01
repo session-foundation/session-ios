@@ -95,7 +95,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         return margin <= ConversationVC.scrollToBottomMargin
     }
 
-    lazy var mnemonic: String = { ((try? SeedVC.mnemonic()) ?? "") }()
+    lazy var mnemonic: String = { ((try? Identity.mnemonic()) ?? "") }()
 
     // FIXME: Would be good to create a Swift-based cache and replace this
     lazy var mediaCache: NSCache<NSString, AnyObject> = {
@@ -342,6 +342,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.numberOfLines = 0
+        result.accessibilityIdentifier = "Control message"
+        result.isAccessibilityElement = true
 
         return result
     }()
