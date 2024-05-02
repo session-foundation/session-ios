@@ -161,7 +161,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             accessibilityIdentifier: "View QR code",
                             action: { [weak self] in
                                 let viewController: SessionHostingViewController = SessionHostingViewController(rootView: QRCodeScreen())
-                                viewController.setNavBarTitle("vc_qr_code_title".localized())
+                                viewController.setNavBarTitle("qrCode".localized())
                                 self?.transitionToScreen(viewController)
                             }
                         )
@@ -426,7 +426,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             onTap: {
                                 let invitation: String = "accountIdShare"
                                     .put(key: "app_name", value: Singleton.appContext.appName)
-                                    .put(key: "account_id", value: profile.id)
+                                    .put(key: "account_id", value: state.profile.id)
                                     .put(key: "download_url", value: "https://getsession.org/")
                                     .localized()
                                 
@@ -466,9 +466,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                             cancelStyle: .alert_text
                                         )
                                     )
-                                }()
-                                
-                                self?.transitionToScreen(targetViewController, transitionType: .present)
+                                    self?.transitionToScreen(targetViewController, transitionType: .present)
+                                }
                             }
                         ),
                         SessionCell.Info(
@@ -496,7 +495,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 self?.transitionToScreen(NukeDataModal(), transitionType: .present)
                             }
                         )
-                    ]
+                    )
                 )
             ]
         }

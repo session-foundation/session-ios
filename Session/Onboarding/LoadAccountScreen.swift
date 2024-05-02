@@ -28,7 +28,7 @@ struct LoadAccountScreen: View {
                     tabIndex: $tabIndex,
                     tabTitles: [
                         "sessionRecoveryPassword".localized(),
-                        "vc_qr_code_view_scan_qr_code_tab_title".localized()
+                        "qrScan".localized()
                     ]
                 ).frame(maxWidth: .infinity)
                     
@@ -151,7 +151,7 @@ struct EnterRecoveryPasswordScreen: View{
                 Spacer(minLength: 0)
                     .frame(maxHeight: 2 * Values.mediumSpacing)
                 
-                Text("onboarding_recovery_password_tab_explanation".localized())
+                Text("onboardingRecoveryPassword".localized())
                     .font(.system(size: Values.smallFontSize))
                     .foregroundColor(themeColor: .textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -183,7 +183,7 @@ struct EnterRecoveryPasswordScreen: View{
                 Button {
                     continueWithMnemonic?()
                 } label: {
-                    Text("continue_2".localized())
+                    Text("theContinue".localized())
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .sessionButton_text)

@@ -680,6 +680,19 @@
 "accountIdShare" = "Hey, I've been using {app_name} to chat with complete privacy and security. Come join me! My Account ID is<br/><br/>{account_id}<br/><br/>Download it at {download_url}";
 "onboardingRecoveryPassword" = "Enter your recovery password to load your account. If you haven't saved it, you can find it in your app settings.";
 "attachmentsNotification" = "{emoji} Attachment";
+"onsErrorNotRecognized" = "We couldn't recognize this ONS. Please check it and try again.";
+
+// ADDED BY ONBOARDING
+"start_conversation_screen_title" = "Start Conversation";
+"invite_a_friend_explanation" = "Invite your friend to chat with you on Session by sharing your Account ID with them.";
+"onboarding_recovery_password_title" = "Save your recovery password";
+"onboarding_recovery_password_subtitle" = "Save your recovery password to make sure you don't lose access to your account.";
+"onboarding_recovery_password_explanation" = "Use your password to load your account on new devices. Make sure it is stored in a safe place — and don't share it with anyone.";
+"onboarding_load_account_title" = "Load Account";
+"terms_of_service" = "Terms of Service";
+"privacy_policy" = "Privacy Policy";
+"settings_scan_qr_code_tab_title" = "Scan";
+"settings_view_my_qr_code_explanation" = "This is your Account ID. Other users can scan it to start a conversation with you.";
 
 // NOT IN THE LIST YET
 "GROUP_CREATION_PLEASE_WAIT" = "Please wait while the group is created...";
@@ -698,13 +711,7 @@
 "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION" = "Original version of disappearing messages."; // TODO: Delete
 "TXT_BLOCK_USER_TITLE" = "Block User";
 "DM_ERROR_DIRECT_BLINDED_ID" = "You can only send messages to Blinded IDs from within a Community";
-"vc_enter_public_key_explanation" = "Start a new conversation by entering someone's {app_name} ID or share your {app_name} ID with them."; // TODO: Delete
 "LOADING_CONVERSATIONS" = "Loading Conversations...";
-"view_fake_chat_bubble_1" = "What's Session?"; // TODO: Delete
-"view_fake_chat_bubble_2" = "It's a decentralized, encrypted messaging app"; // TODO: Delete
-"view_fake_chat_bubble_3" = "So it doesn't collect my personal information or my conversation metadata? How does it work?"; // TODO: Delete
-"view_fake_chat_bubble_4" = "Using a combination of advanced anonymous routing and end-to-end encryption technologies."; // TODO: Delete
-"view_fake_chat_bubble_5" = "Friends don't let friends use compromised messengers. You're welcome."; // TODO: Delete
 "TIME_AMOUNT_SECONDS" = "%@ seconds";
 "TIME_AMOUNT_SINGLE_MINUTE" = "%@ minute";
 "TIME_AMOUNT_MINUTES" = "%@ minutes";
@@ -729,26 +736,12 @@
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "and %@?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "and %d others?";
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (default)";
-"vc_qr_code_view_scan_qr_code_explanation" = "Scan someone's QR code to start a conversation with them"; // TODO: Delete
-"invalid_session_id" = "Invalid {app_name} ID"; // TODO: Delete
-"INVALID_SESSION_ID_MESSAGE" = "Please check the {app_name} ID and try again."; // TODO: Delete
 "COMMUNITY_ERROR_GENERIC" = "Couldn't Join";
 "LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
 "update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";
 "update_profile_modal_error_title" = "Couldn't Update Profile";
-"vc_register_title" = "Say hello to your {app_name} ID"; // TODO: Delete
-"vc_register_explanation" = "Your {app_name} ID is the unique address people can use to contact you on Session. With no connection to your real identity, your {app_name} ID is totally anonymous and private by design."; // TODO: Delete
-"vc_enter_recovery_phrase_explanation" = "To link your device, enter the recovery phrase that was given to you when you signed up."; // TODO: Delete
-"vc_link_device_scan_qr_code_explanation" = "Navigate to Settings → Recovery Phrase on your other device to show your QR code."; // TODO: Delete
 "IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Failed to select attachment.";
-"view_seed_reminder_subtitle_2" = "Tap and hold the redacted words to reveal your recovery phrase, then store it safely to secure your {app_name} ID."; // TODO: Delete
-"vc_seed_title_2" = "Meet your recovery phrase"; // TODO: Delete
-"vc_seed_explanation" = "Your recovery phrase is the master key to your {app_name} ID — you can use it to restore your {app_name} ID if you lose access to your device. Store your recovery phrase in a safe place, and don’t give it to anyone."; // TODO: Delete
-"vc_seed_reveal_button_title" = "Hold to reveal"; // TODO: Delete
-"view_seed_reminder_subtitle_3" = "Make sure to store your recovery phrase in a safe place"; // TODO: Delete
-"view_seed_reminder_subtitle_1" = "Secure your account by saving your recovery phrase"; // TODO: Delete
-"vc_home_empty_state_button_title" = "Start a Session"; // TODO: Delete
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Failed to choose document.";
 "CONFIRM_BUTTON_TITLE" = "Confirm";
 "MESSAGE_DELIVERY_FAILED_SYNC_TITLE" = "Failed to sync message to your other devices";

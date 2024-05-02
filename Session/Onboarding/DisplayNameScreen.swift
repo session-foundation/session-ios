@@ -73,7 +73,7 @@ struct DisplayNameScreen: View {
                 Button {
                     register()
                 } label: {
-                    Text("continue_2".localized())
+                    Text("theContinue".localized())
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .sessionButton_text)
@@ -102,11 +102,11 @@ struct DisplayNameScreen: View {
     private func register() {
         let displayName = self.displayName.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         guard !displayName.isEmpty else {
-            error = "vc_display_name_display_name_missing_error".localized()
+            error = "displayNameErrorDescription".localized()
             return
         }
         guard !ProfileManager.isToLong(profileName: displayName) else {
-            error = "vc_display_name_display_name_too_long_error".localized()
+            error = "displayNameErrorDescriptionShorter".localized()
             return
         }
         

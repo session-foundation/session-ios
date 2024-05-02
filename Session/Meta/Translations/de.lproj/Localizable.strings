@@ -674,3 +674,10 @@
 "callsErrorStart" = "Failed to start call";
 "callsErrorAnswer" = "Failed to answer call";
 "image" = "Image";
+"errorConnection" = "Please check your internet connection and try again.";
+"sent" = "Sent:";
+"communityUnknown" = "Unknown Community";
+"accountIdShare" = "Hey, I've been using {app_name} to chat with complete privacy and security. Come join me! My Account ID is<br/><br/>{account_id}<br/><br/>Download it at {download_url}";
+"onboardingRecoveryPassword" = "Enter your recovery password to load your account. If you haven't saved it, you can find it in your app settings.";
+"attachmentsNotification" = "{emoji} Attachment";
+"onsErrorNotRecognized" = "We couldn't recognize this ONS. Please check it and try again.";

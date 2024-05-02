@@ -26,8 +26,8 @@ struct PNModeScreen: View {
     let options: [PNOptionView.Info] = [
         PNOptionView.Info(
             mode: .fast,
-            title: "fast_mode".localized(),
-            explanation: "fast_mode_explanation".localized(),
+            title: "notificationsFastMode".localized(),
+            explanation: "notificationsFastModeDescriptionIos".localized(),
             isRecommended: true,
             accessibility: Accessibility(
                 identifier: "Fast mode notifications button",
@@ -36,8 +36,10 @@ struct PNModeScreen: View {
         ),
         PNOptionView.Info(
             mode: .slow,
-            title: "slow_mode".localized(),
-            explanation: "slow_mode_explanation".localized(),
+            title: "notificationsSlowMode".localized(),
+            explanation: "notificationsSlowModeDescription"
+                .put(key: "app_name", value: Singleton.appContext.appName)
+                .localized(),
             isRecommended: false,
             accessibility: Accessibility(
                 identifier: "Slow mode notifications button",
@@ -60,7 +62,7 @@ struct PNModeScreen: View {
             ) {
                 Spacer()
                 
-                Text("vc_pn_mode_title".localized())
+                Text("notificationsMessage".localized())
                     .bold()
                     .font(.system(size: Values.veryLargeFontSize))
                     .foregroundColor(themeColor: .textPrimary)
@@ -97,7 +99,7 @@ struct PNModeScreen: View {
                 Button {
                     register()
                 } label: {
-                    Text("continue_2".localized())
+                    Text("theContinue".localized())
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .sessionButton_text)
@@ -208,7 +210,7 @@ struct PNOptionView: View {
                     )
                 
                 if info.isRecommended {
-                    Text("vc_pn_mode_recommended_option_tag".localized())
+                    Text("recommended".localized())
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: .primary)

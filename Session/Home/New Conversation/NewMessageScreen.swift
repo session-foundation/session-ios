@@ -27,7 +27,7 @@ struct NewMessageScreen: View {
                     tabIndex: $tabIndex,
                     tabTitles: [
                         "accountIdEnter".localized(),
-                        "vc_create_private_chat_scan_qr_code_tab_title".localized()
+                        "qrScan".localized()
                     ]
                 ).frame(maxWidth: .infinity)
                     
@@ -109,7 +109,7 @@ struct NewMessageScreen: View {
                                         
                                         return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
                                             "accountIdErrorInvalid".localized() :
-                                            "new_message_screen_error_msg_unrecognized_ons".localized()
+                                            "onsErrorNotRecognized".localized()
                                         )
                                     }()
                                     
@@ -158,12 +158,12 @@ struct EnterAccountIdScreen: View {
             ) {
                 ZStack {
                     if #available(iOS 14.0, *) {
-                        Text("\("new_message_screen_enter_account_id_explanation".localized())\(Image(systemName: "questionmark.circle"))")
+                        Text("\("messageNewDescription".localized())\(Image(systemName: "questionmark.circle"))")
                             .font(.system(size: Values.verySmallFontSize))
                             .foregroundColor(themeColor: .textSecondary)
                             .multilineTextAlignment(.center)
                     } else {
-                        Text("new_message_screen_enter_account_id_explanation".localized())
+                        Text("messageNewDescription".localized())
                             .font(.system(size: Values.verySmallFontSize))
                             .foregroundColor(themeColor: .textSecondary)
                             .multilineTextAlignment(.center)

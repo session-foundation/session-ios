@@ -3,6 +3,7 @@
 import SwiftUI
 import SessionUIKit
 import AVFoundation
+import SessionUtilitiesKit
 
 struct ScanQRCodeScreen: View {
     @Binding var result: String
@@ -41,15 +42,19 @@ struct ScanQRCodeScreen: View {
                 ) {
                     Spacer()
                     
-                    Text("vc_scan_qr_code_camera_access_explanation".localized())
-                        .font(.system(size: Values.smallFontSize))
-                        .foregroundColor(themeColor: .textPrimary)
-                        .multilineTextAlignment(.center)
+                    Text(
+                        "cameraGrantAccessQr"
+                            .put(key: "app_name", value: Singleton.appContext.appName)
+                            .localized()
+                    )
+                    .font(.system(size: Values.smallFontSize))
+                    .foregroundColor(themeColor: .textPrimary)
+                    .multilineTextAlignment(.center)
                     
                     Button {
                         requestCameraAccess()
                     } label: {
-                        Text("continue_2".localized())
+                        Text("theContinue".localized())
                             .bold()
                             .font(.system(size: Values.mediumFontSize))
                             .foregroundColor(themeColor: .primary)
