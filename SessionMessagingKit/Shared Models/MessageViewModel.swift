@@ -557,7 +557,7 @@ public extension MessageViewModel {
     struct ReactionInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, Comparable, Hashable, Differentiable, ColumnExpressible {
         public typealias Columns = CodingKeys
         public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case rowId = "rowid"
+            case rowId
             case reaction
             case profile
         }

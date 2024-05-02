@@ -1389,7 +1389,8 @@ public class AssociatedRecord<T, PagedType>: ErasedAssociatedRecord where T: Fet
         guard !rowIds.isEmpty else { return hasOtherChanges }
         
         // Fetch the inserted/updated rows
-        let additionalFilters: SQL = SQL(rowIds.contains(Column.rowID))
+        let alias: TableAlias = TableAlias(name: databaseTableName)
+        let additionalFilters: SQL = SQL(rowIds.contains(alias[Column.rowID]))
         
         do {
             let updatedItems: [T] = try dataQuery(additionalFilters)
