@@ -96,7 +96,7 @@ local update_cocoapods_cache(depends_on) = {
 local boot_simulator(device_type) = {
   name: 'Boot Test Simulator',
   commands: [
-    'devname="Test-iPhone14-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}"',
+    'devname="Test-iPhone-${DRONE_COMMIT:0:9}-${DRONE_BUILD_EVENT}"',
     'xcrun simctl create "$devname" ' + device_type,
     'sim_uuid=$(xcrun simctl list devices -je | jq -re \'[.devices[][] | select(.name == "\'$devname\'").udid][0]\')',
     'xcrun simctl boot $sim_uuid',
@@ -131,7 +131,7 @@ local sim_delete_cmd = 'if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$U
       load_cocoapods_cache,
       install_cocoapods,
 
-      boot_simulator('com.apple.CoreSimulator.SimDeviceType.iPhone-14'),
+      boot_simulator('com.apple.CoreSimulator.SimDeviceType.iPhone-15'),
       sim_keepalive,
       {
         name: 'Build and Run Tests',

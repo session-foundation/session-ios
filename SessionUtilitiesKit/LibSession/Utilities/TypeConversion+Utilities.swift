@@ -138,11 +138,15 @@ public extension Array where Element == String {
         pointer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?,
         count: Int?
     ) {
-        guard
-            let count: Int = count,
-            count > 0,
-            let pointee: UnsafeMutablePointer<CChar> = pointer?.pointee
-        else { return nil }
+        guard let count: Int = count else { return nil }
+        
+        // If we were given a count but it's 0 then trying to access the pointer could
+        // crash (as it could be bad memory) so just return an empty array
+        guard count > 0 else {
+            self = []
+            return
+        }
+        guard let pointee: UnsafeMutablePointer<CChar> = pointer?.pointee else { return nil }
         
         self = (0..<count)
             .reduce(into: []) { result, index in
