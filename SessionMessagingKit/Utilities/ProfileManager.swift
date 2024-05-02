@@ -425,9 +425,9 @@ public struct ProfileManager {
                 newProfileKey = try Randomness.generateRandomBytes(numberBytes: ProfileManager.avatarAES256KeyByteLength)
                 fileExtension = {
                     switch guessedFormat {
-                        case .gif: return "gif"
-                        case .webp: return "webp"
-                        default: return "jpg"
+                        case .gif: return "gif"     // stringlint:disable
+                        case .webp: return "webp"   // stringlint:disable
+                        default: return "jpg"       // stringlint:disable
                     }
                 }()
             }
