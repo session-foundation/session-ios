@@ -11,7 +11,7 @@ PODS:
   - DifferenceKit/Core (1.3.0)
   - DifferenceKit/UIKitExtension (1.3.0):
     - DifferenceKit/Core
-  - GRDB.swift/SQLCipher (6.13.0):
+  - GRDB.swift/SQLCipher (6.24.1):
     - SQLCipher (>= 3.4.2)
   - libwebp (1.3.2):
     - libwebp/demux (= 1.3.2)
@@ -37,10 +37,10 @@ PODS:
     - CocoaLumberjack
     - OpenSSL-Universal
   - Sodium (0.9.1)
-  - SQLCipher (4.5.3):
-    - SQLCipher/standard (= 4.5.3)
-  - SQLCipher/common (4.5.3)
-  - SQLCipher/standard (4.5.3):
+  - SQLCipher (4.5.7):
+    - SQLCipher/standard (= 4.5.7)
+  - SQLCipher/common (4.5.7)
+  - SQLCipher/standard (4.5.7):
     - SQLCipher/common
   - SwiftProtobuf (1.5.0)
   - WebRTC-lib (114.0.0)
@@ -60,7 +60,7 @@ DEPENDENCIES:
   - SAMKeychain
   - SignalCoreKit (from `https://github.com/oxen-io/session-ios-core-kit`, commit `3acbfe5`)
   - Sodium (from `https://github.com/oxen-io/session-ios-swift-sodium.git`, commit `310c343`)
-  - SQLCipher (~> 4.5.3)
+  - SQLCipher (~> 4.5.7)
   - SwiftProtobuf (~> 1.5.0)
   - WebRTC-lib
   - YYImage/libwebp (from `https://github.com/signalapp/YYImage`)
@@ -112,7 +112,7 @@ SPEC CHECKSUMS:
   CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
   Curve25519Kit: e63f9859ede02438ae3defc5e1a87e09d1ec7ee6
   DifferenceKit: ab185c4d7f9cef8af3fcf593e5b387fb81e999ca
-  GRDB.swift: fe420b1af49ec519c7e96e07887ee44f5dfa2b78
+  GRDB.swift: 136dcb5d8dddca50aae3ba7d77475f79e7232cd8
   libwebp: 1786c9f4ff8a279e4dac1e8f385004d5fc253009
   Nimble: f8a8219d16f176429b951e8f7e72df5c23ceddc0
   NVActivityIndicatorView: 1f6c5687f1171810aa27a3296814dc2d7dec3667
@@ -122,11 +122,11 @@ SPEC CHECKSUMS:
   SAMKeychain: 483e1c9f32984d50ca961e26818a534283b4cd5c
   SignalCoreKit: 1fbd8732163ef76de16cd1107d1fa3684b607e5d
   Sodium: a7d42cb46e789d2630fa552d35870b416ed055ae
-  SQLCipher: 57fa9f863fa4a3ed9dd3c90ace52315db8c0fdca
+  SQLCipher: 5e6bfb47323635c8b657b1b27d25c5f1baf63bf5
   SwiftProtobuf: 241400280f912735c1e1b9fe675fdd2c6c4d42e2
   WebRTC-lib: d83df8976fa608b980f1d85796b3de66d60a1953
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
 
-PODFILE CHECKSUM: 92bc475070c02411caf98ca5e543dbcb188098e2
+PODFILE CHECKSUM: 6d85dee189f35e1e9a49cf8e95799a7087cfbdd5
 
 COCOAPODS: 1.15.2

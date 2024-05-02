@@ -204,6 +204,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) {
             if !self.hasCallOngoing() {
                 Storage.suspendDatabaseAccess()
+                LibSession.closeNetworkConnections()
             }
         }
     }
@@ -284,6 +285,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 Storage.suspendDatabaseAccess()
+                LibSession.closeNetworkConnections()
             }
             
             SNLog("Background poll failed due to manual timeout")
@@ -310,6 +312,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
                 if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                     Storage.suspendDatabaseAccess()
+                    LibSession.closeNetworkConnections()
                 }
                 
                 cancelTimer.invalidate()

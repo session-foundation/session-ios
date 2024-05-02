@@ -139,8 +139,9 @@ public extension Array where Element == String {
         count: Int?
     ) {
         guard
-            let pointee: UnsafeMutablePointer<CChar> = pointer?.pointee,
-            let count: Int = count
+            let count: Int = count,
+            count > 0,
+            let pointee: UnsafeMutablePointer<CChar> = pointer?.pointee
         else { return nil }
         
         self = (0..<count)

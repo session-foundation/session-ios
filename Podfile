@@ -12,7 +12,7 @@ abstract_target 'GlobalDependencies' do
   pod 'GRDB.swift/SQLCipher'
   
   # FIXME: Would be nice to migrate from CocoaPods to SwiftPackageManager (should allow us to speed up build time), haven't gone through all of the dependencies but currently unfortunately SQLCipher doesn't support SPM (for more info see: https://github.com/sqlcipher/sqlcipher/issues/371)
-  pod 'SQLCipher', '~> 4.5.3'
+  pod 'SQLCipher', '~> 4.5.7'
   pod 'WebRTC-lib'
   
   target 'Session' do

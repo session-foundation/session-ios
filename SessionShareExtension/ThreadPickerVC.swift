@@ -310,6 +310,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     receiveCompletion: { [weak self] result in
                         DDLog.flushLog()
                         Storage.suspendDatabaseAccess()
+                        LibSession.closeNetworkConnections()
                         activityIndicator.dismiss { }
                         
                         switch result {

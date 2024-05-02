@@ -112,8 +112,8 @@ public extension Profile {
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
         if
-            let profileKeyData: Data = try? container.decode(Data.self, forKey: .profileEncryptionKey),
-            let profilePictureUrlValue: String = try? container.decode(String.self, forKey: .profilePictureUrl)
+            let profileKeyData: Data = try? container.decode(Data?.self, forKey: .profileEncryptionKey),
+            let profilePictureUrlValue: String = try? container.decode(String?.self, forKey: .profilePictureUrl)
         {
             profileKey = profileKeyData
             profilePictureUrl = profilePictureUrlValue
@@ -122,14 +122,14 @@ public extension Profile {
         self = Profile(
             id: try container.decode(String.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
-            lastNameUpdate: try? container.decode(TimeInterval.self, forKey: .lastNameUpdate),
-            nickname: try? container.decode(String.self, forKey: .nickname),
+            lastNameUpdate: try? container.decode(TimeInterval?.self, forKey: .lastNameUpdate),
+            nickname: try? container.decode(String?.self, forKey: .nickname),
             profilePictureUrl: profilePictureUrl,
-            profilePictureFileName: try? container.decode(String.self, forKey: .profilePictureFileName),
+            profilePictureFileName: try? container.decode(String?.self, forKey: .profilePictureFileName),
             profileEncryptionKey: profileKey,
-            lastProfilePictureUpdate: try? container.decode(TimeInterval.self, forKey: .lastProfilePictureUpdate),
-            blocksCommunityMessageRequests: try? container.decode(Bool.self, forKey: .blocksCommunityMessageRequests),
-            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval.self, forKey: .lastBlocksCommunityMessageRequests)
+            lastProfilePictureUpdate: try? container.decode(TimeInterval?.self, forKey: .lastProfilePictureUpdate),
+            blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests),
+            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval?.self, forKey: .lastBlocksCommunityMessageRequests)
         )
     }
     

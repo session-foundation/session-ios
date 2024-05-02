@@ -319,6 +319,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         Storage.suspendDatabaseAccess()
+        LibSession.closeNetworkConnections()
         
         self.contentHandler!(silentContent)
     }
@@ -385,6 +386,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         SNLog("[NotificationServiceExtension] Show generic failure message due to error: \(error)", forceNSLog: true)
         DDLog.flushLog()
         Storage.suspendDatabaseAccess()
+        LibSession.closeNetworkConnections()
         
         content.title = "Session"
         content.body = "APN_Message".localized()

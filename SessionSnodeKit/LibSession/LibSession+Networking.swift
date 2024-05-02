@@ -112,6 +112,12 @@ public extension LibSession {
         })
     }
     
+    static func closeNetworkConnections() {
+        guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
+        
+        network_close_connections(network)
+    }
+    
     static func clearSnodeCache() {
         guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
         
@@ -388,7 +394,15 @@ public extension LibSession {
                 }
                 return nodes
             }
+            
+            // Need to free the nodes within the path as we are the owner
+            cPaths.forEach { cPath in
+                cPath.nodes.deallocate()
+            }
         }
+        
+        // Need to free the cPathsPtr as we are the owner
+        cPathsPtr?.deallocate()
         
         lastPaths.mutate { lastPaths in
             lastPaths = paths
