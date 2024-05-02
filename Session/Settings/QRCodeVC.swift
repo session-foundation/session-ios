@@ -42,8 +42,7 @@ final class QRCodeVC : BaseVC, UIPageViewControllerDataSource, UIPageViewControl
     }()
     
     private lazy var scanQRCodeWrapperVC: ScanQRCodeWrapperVC = {
-        let message = "vc_qr_code_view_scan_qr_code_explanation".localized()
-        let result = ScanQRCodeWrapperVC(message: message)
+        let result = ScanQRCodeWrapperVC()
         result.delegate = self
         
         return result

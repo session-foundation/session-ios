@@ -469,7 +469,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     self?.transitionToScreen(targetViewController, transitionType: .present)
                                 }
                             }
-                        ),
+                        )
+                    ).appending(contentsOf: [
                         SessionCell.Info(
                             id: .help,
                             leftAccessory: .icon(
@@ -495,7 +496,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 self?.transitionToScreen(NukeDataModal(), transitionType: .present)
                             }
                         )
-                    )
+                    ])
                 )
             ]
         }

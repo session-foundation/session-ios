@@ -50,7 +50,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     }()
 
     private lazy var scanQRCodeWrapperVC: ScanQRCodeWrapperVC = {
-        let result: ScanQRCodeWrapperVC = ScanQRCodeWrapperVC(message: nil)
+        let result: ScanQRCodeWrapperVC = ScanQRCodeWrapperVC()
         result.delegate = self
         
         return result
