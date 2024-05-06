@@ -5,7 +5,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -33,7 +32,7 @@ public enum OpenGroupAPI {
         server: String,
         hasPerformedInitialPoll: Bool,
         timeSinceLastPoll: TimeInterval,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<HTTP.BatchResponseMap<Endpoint>> {
         let lastInboxMessageId: Int64 = (try? OpenGroup
             .select(.inboxLatestMessageId)
@@ -149,7 +148,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         requests: [any ErasedPreparedRequest],
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<HTTP.BatchResponseMap<Endpoint>> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -180,7 +179,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         requests: [any ErasedPreparedRequest],
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<HTTP.BatchResponseMap<Endpoint>> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -210,7 +209,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         server: String,
         forceBlinded: Bool = false,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<Capabilities> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -234,7 +233,7 @@ public enum OpenGroupAPI {
     public static func preparedRooms(
         _ db: Database,
         server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[Room]> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -254,7 +253,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         for roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<Room> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -278,7 +277,7 @@ public enum OpenGroupAPI {
         lastUpdated: Int64,
         for roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<RoomPollInfo> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -304,7 +303,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         for roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<CapabilitiesAndRoomResponse> {
         return try OpenGroupAPI
             .preparedSequence(
@@ -355,7 +354,7 @@ public enum OpenGroupAPI {
     public static func preparedCapabilitiesAndRooms(
         _ db: Database,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<CapabilitiesAndRoomsResponse> {
         return try OpenGroupAPI
             .preparedSequence(
@@ -406,9 +405,9 @@ public enum OpenGroupAPI {
         whisperTo: String?,
         whisperMods: Bool,
         fileIds: [String]?,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<Message> {
-        let signResult: (publicKey: String, signature: Bytes) = try sign(
+        let signResult: (publicKey: String, signature: [UInt8]) = try sign(
             db,
             messageBytes: plaintext.bytes,
             for: server,
@@ -443,7 +442,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<Message> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -468,9 +467,9 @@ public enum OpenGroupAPI {
         fileIds: [Int64]?,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
-        let signResult: (publicKey: String, signature: Bytes) = try sign(
+        let signResult: (publicKey: String, signature: [UInt8]) = try sign(
             db,
             messageBytes: plaintext.bytes,
             for: server,
@@ -503,7 +502,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -528,7 +527,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -558,7 +557,7 @@ public enum OpenGroupAPI {
         messageId: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -588,7 +587,7 @@ public enum OpenGroupAPI {
         seqNo: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[Failable<Message>]> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -625,7 +624,7 @@ public enum OpenGroupAPI {
         sessionId: String,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -650,7 +649,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -682,7 +681,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<ReactionAddResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -712,7 +711,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<ReactionRemoveResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -743,7 +742,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<ReactionRemoveAllResponse> {
         /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
         /// The raw emoji will come back when calling url.path
@@ -782,7 +781,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -806,7 +805,7 @@ public enum OpenGroupAPI {
         id: Int64,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -829,7 +828,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -859,7 +858,7 @@ public enum OpenGroupAPI {
         fileName: String? = nil,
         to roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<FileUploadResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -892,7 +891,7 @@ public enum OpenGroupAPI {
         fileId: String,
         from roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<Data> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -916,7 +915,7 @@ public enum OpenGroupAPI {
     public static func preparedInbox(
         _ db: Database,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -938,7 +937,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         id: Int64,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -957,7 +956,7 @@ public enum OpenGroupAPI {
     public static func preparedClearInbox(
         _ db: Database,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<DeleteInboxResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -1006,7 +1005,7 @@ public enum OpenGroupAPI {
     public static func preparedOutbox(
         _ db: Database,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -1028,7 +1027,7 @@ public enum OpenGroupAPI {
         _ db: Database,
         id: Int64,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<[DirectMessage]?> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -1082,7 +1081,7 @@ public enum OpenGroupAPI {
         for timeout: TimeInterval? = nil,
         from roomTokens: [String]? = nil,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -1132,7 +1131,7 @@ public enum OpenGroupAPI {
         sessionId: String,
         from roomTokens: [String]?,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         return try OpenGroupAPI
             .prepareRequest(
@@ -1211,7 +1210,7 @@ public enum OpenGroupAPI {
         visible: Bool,
         for roomTokens: [String]?,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<NoResponse> {
         guard (moderator != nil && admin == nil) || (moderator == nil && admin != nil) else {
             throw HTTPError.generic
@@ -1245,7 +1244,7 @@ public enum OpenGroupAPI {
         sessionId: String,
         in roomToken: String,
         on server: String,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> HTTP.PreparedRequest<HTTP.BatchResponseMap<Endpoint>> {
         return try OpenGroupAPI
             .preparedSequence(
@@ -1277,12 +1276,12 @@ public enum OpenGroupAPI {
     /// Sign a message to be sent to SOGS (handles both un-blinded and blinded signing based on the server capabilities)
     private static func sign(
         _ db: Database,
-        messageBytes: Bytes,
+        messageBytes: [UInt8],
         for serverName: String,
         fallbackSigningType signingType: SessionId.Prefix,
         forceBlinded: Bool = false,
         using dependencies: Dependencies
-    ) throws -> (publicKey: String, signature: Bytes) {
+    ) throws -> (publicKey: String, signature: [UInt8]) {
         guard
             let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies),
             let serverPublicKey: String = try? OpenGroup
@@ -1302,16 +1301,18 @@ public enum OpenGroupAPI {
         // If we have no capabilities or if the server supports blinded keys then sign using the blinded key
         if forceBlinded || capabilities.isEmpty || capabilities.contains(.blind) {
             guard
-                let blindedKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blindedKeyPair(serverPublicKey: serverPublicKey, edKeyPair: userEdKeyPair, using: dependencies)
+                let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                    .blinded15KeyPair(serverPublicKey: serverPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
                 ),
-                let signatureResult: Bytes = dependencies[singleton: .crypto].generate(
-                    .signatureSOGS(message: messageBytes, secretKey: userEdKeyPair.secretKey, blindedSecretKey: blindedKeyPair.secretKey, blindedPublicKey: blindedKeyPair.publicKey)
+                let signatureResult: [UInt8] = dependencies[singleton: .crypto].generate(
+                    .signatureBlind15(message: messageBytes, serverPublicKey: serverPublicKey, ed25519SecretKey: userEdKeyPair.secretKey)
                 )
-            else { throw OpenGroupAPIError.signingFailed }
+            else {
+                throw OpenGroupAPIError.signingFailed
+            }
 
             return (
-                publicKey: SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString,
+                publicKey: SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString,
                 signature: signatureResult
             )
         }
@@ -1321,7 +1322,7 @@ public enum OpenGroupAPI {
             case .unblinded:
                 guard
                     let signature: Authentication.Signature = dependencies[singleton: .crypto].generate(
-                        .signature(message: messageBytes, secretKey: userEdKeyPair.secretKey)
+                        .signature(message: messageBytes, ed25519SecretKey: userEdKeyPair.secretKey)
                     ),
                     case .standard(let signatureResult) = signature
                 else { throw OpenGroupAPIError.signingFailed }
@@ -1335,8 +1336,8 @@ public enum OpenGroupAPI {
             default:
                 guard
                     let userKeyPair: KeyPair = Identity.fetchUserKeyPair(db, using: dependencies),
-                    let signatureResult: Bytes = dependencies[singleton: .crypto].generate(
-                        .signatureEd25519(data: messageBytes, keyPair: userKeyPair)
+                    let signatureResult: [UInt8] = dependencies[singleton: .crypto].generate(
+                        .signatureXed25519(data: messageBytes, curve25519PrivateKey: userKeyPair.secretKey)
                     )
                 else { throw OpenGroupAPIError.signingFailed }
                 
@@ -1351,7 +1352,7 @@ public enum OpenGroupAPI {
     private static func signRequest<R>(
         _ db: Database,
         preparedRequest: HTTP.PreparedRequest<R>,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> URLRequest {
         guard
             let url: URL = preparedRequest.request.url,
@@ -1367,15 +1368,15 @@ public enum OpenGroupAPI {
         
         guard
             !serverPublicKeyData.isEmpty,
-            let nonce: Data = dependencies[singleton: .crypto].generate(.nonce16()).map({ Data($0) }),
-            let timestampBytes: Bytes = "\(timestamp)".data(using: .ascii)?.bytes
+            let nonce: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(16)),
+            let timestampBytes: [UInt8] = "\(timestamp)".data(using: .ascii).map({ Array($0) })
         else { throw OpenGroupAPIError.signingFailed }
         
         /// Get a hash of any body content
-        let bodyHash: Bytes? = {
+        let bodyHash: [UInt8]? = {
             guard let body: Data = preparedRequest.request.httpBody else { return nil }
             
-            return dependencies[singleton: .crypto].generate(.hash(message: body.bytes, outputLength: 64))
+            return dependencies[singleton: .crypto].generate(.hash(message: body.bytes, length: 64))
         }()
         
         /// Generate the signature message
@@ -1386,15 +1387,15 @@ public enum OpenGroupAPI {
         ///     `Method`
         ///     `Path`
         ///     `Body` is a Blake2b hash of the data (if there is a body)
-        let messageBytes: Bytes = serverPublicKeyData.bytes
-            .appending(contentsOf: nonce.bytes)
+        let messageBytes: [UInt8] = serverPublicKeyData.bytes
+            .appending(contentsOf: nonce)
             .appending(contentsOf: timestampBytes)
             .appending(contentsOf: method.bytes)
             .appending(contentsOf: path.bytes)
             .appending(contentsOf: bodyHash ?? [])
         
         /// Sign the above message
-        let signResult: (publicKey: String, signature: Bytes) = try sign(
+        let signResult: (publicKey: String, signature: [UInt8]) = try sign(
             db,
             messageBytes: messageBytes,
             for: target.server,
@@ -1407,7 +1408,7 @@ public enum OpenGroupAPI {
             .updated(with: [
                 HTTPHeader.sogsPubKey: signResult.publicKey,
                 HTTPHeader.sogsTimestamp: "\(timestamp)",
-                HTTPHeader.sogsNonce: nonce.base64EncodedString(),
+                HTTPHeader.sogsNonce: Data(nonce).base64EncodedString(),
                 HTTPHeader.sogsSignature: signResult.signature.toBase64()
             ])
         

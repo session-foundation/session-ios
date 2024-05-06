@@ -23,30 +23,6 @@ class IdentitySpec: QuickSpec {
         
         // MARK: - an Identity
         describe("an Identity") {
-            // MARK: -- correctly retrieves the user user public key
-            it("correctly retrieves the user user public key") {
-                mockStorage.write { db in
-                    try Identity(variant: .x25519PublicKey, data: "Test1".data(using: .utf8)!).insert(db)
-                }
-                
-                mockStorage.read { db in
-                    expect(Identity.fetchUserPublicKey(db))
-                        .to(equal("Test1".data(using: .utf8)))
-                }
-            }
-            
-            // MARK: -- correctly retrieves the user private key
-            it("correctly retrieves the user private key") {
-                mockStorage.write { db in
-                    try Identity(variant: .x25519PrivateKey, data: "Test2".data(using: .utf8)!).insert(db)
-                }
-                
-                mockStorage.read { db in
-                    expect(Identity.fetchUserPrivateKey(db))
-                        .to(equal("Test2".data(using: .utf8)))
-                }
-            }
-            
             // MARK: -- correctly retrieves the user key pair
             it("correctly retrieves the user key pair") {
                 mockStorage.write { db in
@@ -61,19 +37,6 @@ class IdentitySpec: QuickSpec {
                         .to(equal("Test3".data(using: .utf8)?.bytes))
                     expect(keyPair?.secretKey)
                         .to(equal("Test4".data(using: .utf8)?.bytes))
-                }
-            }
-            
-            // MARK: -- correctly determines if the user exists
-            it("correctly determines if the user exists") {
-                mockStorage.write { db in
-                    try Identity(variant: .x25519PublicKey, data: "Test3".data(using: .utf8)!).insert(db)
-                    try Identity(variant: .x25519PrivateKey, data: "Test4".data(using: .utf8)!).insert(db)
-                }
-                
-                mockStorage.read { db in
-                    expect(Identity.userExists(db))
-                        .to(equal(true))
                 }
             }
             
@@ -94,15 +57,16 @@ class IdentitySpec: QuickSpec {
                 }
             }
             
-            // MARK: -- correctly retrieves the hex encoded seed
-            it("correctly retrieves the hex encoded seed") {
+            // MARK: -- correctly determines if the user exists
+            it("correctly determines if the user exists") {
                 mockStorage.write { db in
-                    try Identity(variant: .seed, data: "Test7".data(using: .utf8)!).insert(db)
+                    try Identity(variant: .ed25519PublicKey, data: "Test3".data(using: .utf8)!).insert(db)
+                    try Identity(variant: .ed25519SecretKey, data: "Test4".data(using: .utf8)!).insert(db)
                 }
-                
+
                 mockStorage.read { db in
-                    expect(Identity.fetchHexEncodedSeed(db, using: dependencies))
-                        .to(equal("5465737437"))
+                    expect(Identity.userExists(db))
+                        .to(equal(true))
                 }
             }
         }

@@ -4,6 +4,7 @@ import Foundation
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class MediaGalleryViewModel {
@@ -534,7 +535,8 @@ public class MediaGalleryViewModel {
         threadVariant: SessionThread.Variant,
         interactionId: Int64,
         selectedAttachmentId: String,
-        options: [MediaGalleryOption]
+        options: [MediaGalleryOption],
+        using dependencies: Dependencies
     ) -> UIViewController? {
         // Load the data for the album immediately (needed before pushing to the screen so
         // transitions work nicely)
@@ -557,7 +559,8 @@ public class MediaGalleryViewModel {
         let pageViewController: MediaPageViewController = MediaPageViewController(
             viewModel: viewModel,
             initialItem: initialItem,
-            options: options
+            options: options,
+            using: dependencies
         )
         let navController: MediaGalleryNavigationController = MediaGalleryNavigationController()
         navController.viewControllers = [pageViewController]
@@ -571,7 +574,8 @@ public class MediaGalleryViewModel {
         threadId: String,
         threadVariant: SessionThread.Variant,
         focusedAttachmentId: String?,
-        performInitialQuerySync: Bool = false
+        performInitialQuerySync: Bool = false,
+        using dependencies: Dependencies
     ) -> MediaTileViewController {
         let viewModel: MediaGalleryViewModel = MediaGalleryViewModel(
             threadId: threadId,
@@ -584,7 +588,8 @@ public class MediaGalleryViewModel {
         )
         
         return MediaTileViewController(
-            viewModel: viewModel
+            viewModel: viewModel,
+            using: dependencies
         )
     }
     
@@ -592,7 +597,8 @@ public class MediaGalleryViewModel {
         threadId: String,
         threadVariant: SessionThread.Variant,
         focusedAttachmentId: String?,
-        performInitialQuerySync: Bool = false
+        performInitialQuerySync: Bool = false,
+        using dependencies: Dependencies
     ) -> DocumentTileViewController {
         let viewModel: MediaGalleryViewModel = MediaGalleryViewModel(
             threadId: threadId,
@@ -605,7 +611,8 @@ public class MediaGalleryViewModel {
         )
         
         return DocumentTileViewController(
-            viewModel: viewModel
+            viewModel: viewModel,
+            using: dependencies
         )
     }
     
@@ -613,25 +620,29 @@ public class MediaGalleryViewModel {
         threadId: String,
         threadVariant: SessionThread.Variant,
         focusedAttachmentId: String?,
-        performInitialQuerySync: Bool = false
+        performInitialQuerySync: Bool = false,
+        using dependencies: Dependencies
     ) -> AllMediaViewController {
         let mediaTitleViewController = createMediaTileViewController(
             threadId: threadId,
             threadVariant: threadVariant,
             focusedAttachmentId: focusedAttachmentId,
-            performInitialQuerySync: performInitialQuerySync
+            performInitialQuerySync: performInitialQuerySync,
+            using: dependencies
         )
         
         let documentTitleViewController = createDocumentTitleViewController(
             threadId: threadId,
             threadVariant: threadVariant,
             focusedAttachmentId: focusedAttachmentId,
-            performInitialQuerySync: performInitialQuerySync
+            performInitialQuerySync: performInitialQuerySync,
+            using: dependencies
         )
         
         return AllMediaViewController(
             mediaTitleViewController: mediaTitleViewController,
-            documentTitleViewController: documentTitleViewController
+            documentTitleViewController: documentTitleViewController,
+            using: dependencies
         )
     }
 }

@@ -17,7 +17,7 @@ class MessageSenderGroupsSpec: QuickSpec {
         // MARK: Configuration
         
         let groupSeed: Data = Data(hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210")
-        let groupKeyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: groupSeed))!
+        let groupKeyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: Array(groupSeed)))!
         @TestState var groupId: SessionId! = SessionId(.group, hex: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")
         @TestState var groupSecretKey: Data! = Data(hex:
             "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
@@ -75,7 +75,7 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
+                    .when { $0.generate(.ed25519KeyPair()) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data(hex: groupId.hexString).bytes,
@@ -83,7 +83,15 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                     )
                 crypto
-                    .when { $0.generate(.signature(message: .any, secretKey: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Data(hex: groupId.hexString).bytes,
+                            secretKey: groupSecretKey.bytes
+                        )
+                    )
+                crypto
+                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
                 crypto
                     .when { $0.generate(.memberAuthData(config: .any, groupSessionId: .any, memberId: .any)) }
@@ -95,7 +103,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .when { $0.generate(.tokenSubaccount(config: .any, groupSessionId: .any, memberId: .any)) }
                     .thenReturn(Array("TestSubAccountToken".data(using: .utf8)!))
                 crypto
-                    .when { try $0.tryGenerate(.randomBytes(numberBytes: .any)) }
+                    .when { try $0.tryGenerate(.randomBytes(.any)) }
                     .thenReturn(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 }))
                 crypto
                     .when { $0.generate(.uuid()) }
@@ -193,8 +201,9 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
             initialSetup: { cache in
                 cache.when { $0.clockOffsetMs }.thenReturn(0)
-                cache.when { $0.loadedSwarms }.thenReturn([groupId.hexString])
-                cache.when { $0.swarmCache }.thenReturn([groupId.hexString: mockSwarmCache])
+                cache.when { $0.hasLoadedSwarm(for: .any) }.thenReturn(true)
+                cache.when { $0.swarmCache(publicKey: .any) }.thenReturn(mockSwarmCache)
+                cache.when { $0.setSwarmCache(publicKey: .any, cache: .any) }.thenReturn(nil)
             }
         )
         @TestState(singleton: .groupsPoller, in: dependencies) var mockGroupsPoller: MockPoller! = MockPoller(

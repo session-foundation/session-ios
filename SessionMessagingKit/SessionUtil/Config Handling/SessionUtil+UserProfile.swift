@@ -24,8 +24,6 @@ internal extension SessionUtil {
         serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws {
-        typealias ProfileData = (profileName: String, profilePictureUrl: String?, profilePictureKey: Data?)
-        
         guard config.needsDump(using: dependencies) else { return }
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         

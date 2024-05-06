@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import SessionUtil
 import SessionUtilitiesKit
 
@@ -19,8 +18,8 @@ class LibSessionSpec: QuickSpec {
     static let seed: Data = Data(
         hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210"
     )
-    static let identity: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) = try! Identity.generate(from: userSeed)
-    static let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: seed))!
+    static let identity: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) = try! Identity.generate(from: userSeed, using: TestDependencies())
+    static let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: Array(seed)))!
     static let userEdSK: [UInt8] = identity.ed25519KeyPair.secretKey
     static let edPK: [UInt8] = keyPair.publicKey
     static let edSK: [UInt8] = keyPair.secretKey
@@ -1368,8 +1367,8 @@ fileprivate extension LibSessionSpec {
                 
                 // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
                 let groupSeed: Data = Data(hex: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff")
-                let groupEd25519KeyPair = Sodium().sign.keyPair(seed: groupSeed.bytes)!
-                let groupX25519PublicKey = Sodium().sign.toX25519(ed25519PublicKey: groupEd25519KeyPair.publicKey)!
+                let groupEd25519KeyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: Array(groupSeed)))!
+                let groupX25519PublicKey: [UInt8] = Crypto().generate(.x25519(ed25519Pubkey: groupEd25519KeyPair.publicKey))!
                 
                 // Note: this isn't exactly what Session actually does here for legacy closed
                 // groups (rather it uses X25519 keys) but for this test the distinction doesn't matter.
@@ -2759,8 +2758,8 @@ fileprivate extension LibSessionSpec {
                 )
                 
                 // FIXME: Would be good to move these into the libSession-util instead of using Sodium separately
-                let identity = try! Identity.generate(from: userSeed)
-                let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: seed))!
+                let identity = try! Identity.generate(from: userSeed, using: TestDependencies())
+                let keyPair: KeyPair = Crypto().generate(.ed25519KeyPair(seed: Array(seed)))!
                 let userEdSK: [UInt8] = identity.ed25519KeyPair.secretKey
                 var edPK: [UInt8] = keyPair.publicKey
                 var edSK: [UInt8] = keyPair.secretKey

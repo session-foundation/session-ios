@@ -10,6 +10,7 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate {
+    private let dependencies: Dependencies
     private let pageVC = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
     private var pages: [UIViewController] = []
     private var isJoining = false
@@ -40,7 +41,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
     }()
 
     private lazy var scanQRCodePlaceholderVC: ScanQRCodePlaceholderVC = {
-        let result: ScanQRCodePlaceholderVC = ScanQRCodePlaceholderVC()
+        let result: ScanQRCodePlaceholderVC = ScanQRCodePlaceholderVC(using: dependencies)
         result.joinOpenGroupVC = self
         
         return result
@@ -53,6 +54,18 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         return result
     }()
 
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -207,7 +220,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                 // the next launch so remove it (the user will be left on the previous
                                 // screen so can re-trigger the join)
                                 dependencies[singleton: .storage].writeAsync { db in
-                                    OpenGroupManager.shared.delete(
+                                    try OpenGroupManager.shared.delete(
                                         db,
                                         openGroupId: OpenGroup.idFor(roomToken: roomToken, server: server),
                                         calledFromConfig: nil,
@@ -233,7 +246,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                                         for: OpenGroup.idFor(roomToken: roomToken, server: server),
                                         variant: .community,
                                         dismissing: nil,
-                                        animated: false
+                                        animated: false,
+                                        using: dependencies
                                     )
                                 }
                         }
@@ -500,10 +514,23 @@ private final class EnterURLVC: UIViewController, UIGestureRecognizerDelegate, O
 }
 
 private final class ScanQRCodePlaceholderVC: UIViewController {
+    private let dependencies: Dependencies
     weak var joinOpenGroupVC: JoinOpenGroupVC?
     
     private var viewWidth: NSLayoutConstraint?
     private var viewHeight: NSLayoutConstraint?
+    
+    // MARK: - Initialization
+
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - Lifecycle
 
@@ -557,7 +584,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
     }
 
     @objc private func requestCameraAccess() {
-        Permissions.requestCameraPermissionIfNeeded { [weak self] in
+        Permissions.requestCameraPermissionIfNeeded(using: dependencies) { [weak self] in
             self?.joinOpenGroupVC?.handleCameraAccessGranted()
         }
     }

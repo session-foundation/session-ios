@@ -5,7 +5,7 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 public extension Message {
-    enum Origin: Codable, Hashable {
+    enum Origin: Hashable {
         case swarm(
             publicKey: String,
             namespace: SnodeAPI.Namespace,
@@ -23,8 +23,8 @@ public extension Message {
             timestamp: TimeInterval,
             messageServerId: Int64,
             serverPublicKey: String,
-            blindedPublicKey: String,
-            isOutgoing: Bool
+            senderId: String,
+            recipientId: String
         )
         
         public var isConfigNamespace: Bool {

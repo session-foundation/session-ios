@@ -266,8 +266,11 @@ public enum PushRegistrationError: Error {
     
     // NOTE: This function MUST report an incoming call.
     public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
+        
         SNLog("[Calls] Receive new voip notification.")
-        owsAssertDebug(Singleton.hasAppContext && Singleton.appContext.isMainApp)
+        owsAssertDebug(dependencies.hasInitialised(singleton: .appContext) && dependencies[singleton: .appContext].isMainApp)
         owsAssertDebug(type == .voIP)
         let payload = payload.dictionaryPayload
         
@@ -280,9 +283,7 @@ public enum PushRegistrationError: Error {
             return
         }
         
-        // Called via the OS so create a default 'Dependencies' instance
-        let dependencies: Dependencies = Dependencies()
-        Storage.resumeDatabaseAccess()
+        Storage.resumeDatabaseAccess(using: dependencies)
         
         let maybeCall: SessionCall? = dependencies[singleton: .storage].write { db in
             let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(
@@ -300,7 +301,7 @@ public enum PushRegistrationError: Error {
                 }
             }()
             
-            let call: SessionCall = SessionCall(db, for: caller, uuid: uuid, mode: .answer)
+            let call: SessionCall = SessionCall(db, for: caller, uuid: uuid, mode: .answer, using: dependencies)
             let thread: SessionThread = try SessionThread.fetchOrCreate(
                 db,
                 id: caller,
@@ -331,7 +332,7 @@ public enum PushRegistrationError: Error {
         }
         
         // NOTE: Just start 1-1 poller so that it won't wait for polling group messages
-        (UIApplication.shared.delegate as? AppDelegate)?.startPollersIfNeeded(shouldStartGroupPollers: false, using: dependencies)
+        (UIApplication.shared.delegate as? AppDelegate)?.startPollersIfNeeded(shouldStartGroupPollers: false)
         
         call.reportIncomingCallIfNeeded { error in
             if let error = error {

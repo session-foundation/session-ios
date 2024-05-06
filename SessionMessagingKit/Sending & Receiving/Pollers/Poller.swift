@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -436,11 +435,11 @@ public class Poller: PollerType {
                         }
                     
                     // Set the output for logging
-                    pollerLogOutput = "Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(rawMessageCount - messageCount))"  // stringlint:disable
+                    pollerLogOutput = "Received \(messageCount) new message\(plural: messageCount) in \(pollerName) (duplicates: \(rawMessageCount - messageCount))"  // stringlint:disable
                     
                     // Clean up message hashes and add some logs about the poll results
                     if sortedMessages.isEmpty && !hadValidHashUpdate {
-                        pollerLogOutput = "Received \(rawMessageCount) new message\(rawMessageCount == 1 ? "" : "s") in \(pollerName), all duplicates - marking the hash we polled with as invalid" // stringlint:disable
+                        pollerLogOutput = "Received \(rawMessageCount) new message\(plural: rawMessageCount) in \(pollerName), all duplicates - marking the hash we polled with as invalid" // stringlint:disable
                         
                         // Update the cached validity of the messages
                         try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(

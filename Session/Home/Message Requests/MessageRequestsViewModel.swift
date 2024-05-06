@@ -5,6 +5,7 @@ import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 

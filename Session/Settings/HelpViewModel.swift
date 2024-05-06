@@ -50,7 +50,9 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     trailingAccessory: .highlightingBackgroundLabel(
                         title: "HELP_REPORT_BUG_ACTION_TITLE".localized()
                     ),
-                    onTapView: { HelpViewModel.shareLogs(targetView: $0) }
+                    onTapView: { [dependencies] view in
+                        HelpViewModel.shareLogs(targetView: view, using: dependencies)
+                    }
                 )
             ]
         ),
@@ -146,6 +148,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         viewControllerToDismiss: UIViewController? = nil,
         targetView: UIView? = nil,
         animated: Bool = true,
+        using dependencies: Dependencies,
         onShareComplete: (() -> ())? = nil
     ) {
         OWSLogger.info("[Version] \(SessionApp.versionInfo)")
@@ -155,8 +158,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
         
         guard
             let latestLogFilePath: String = logFilePaths.first,
-            Singleton.hasAppContext,
-            let viewController: UIViewController = Singleton.appContext.frontmostViewController
+            dependencies.hasInitialised(singleton: .appContext),
+            let viewController: UIViewController = dependencies[singleton: .appContext].frontmostViewController
         else { return }
         
         let showShareSheet: () -> () = {

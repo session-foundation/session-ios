@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import UIKit.UIFont
 
 public extension NSAttributedString {
     enum FormattedValue {

@@ -4,7 +4,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import DifferenceKit
 import SessionUtilitiesKit
 
@@ -181,7 +180,7 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
     
     // UI specific logic
     
-    public var emptyStateText: String {
+    public func emptyStateText(using dependencies: Dependencies) -> String {
         return String(
             format: {
                 switch (threadVariant, threadIsNoteToSelf, canWrite, profile?.blocksCommunityMessageRequests) {

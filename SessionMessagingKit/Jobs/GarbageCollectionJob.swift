@@ -444,7 +444,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             catch { deletionErrors.append(error) }
                         }
                         
-                        SNLog("[GarbageCollectionJob] Removed \(orphanedAttachmentFiles.count) orphaned attachment\(orphanedAttachmentFiles.count == 1 ? "" : "s")")
+                        SNLog("[GarbageCollectionJob] Removed \(orphanedAttachmentFiles.count) orphaned attachment\(plural: orphanedAttachmentFiles.count)")
                     }
                     
                     // Orphaned display picture files (actual deletion)
@@ -467,7 +467,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             catch { deletionErrors.append(error) }
                         }
                         
-                        SNLog("[GarbageCollectionJob] Removed \(orphanedFiles.count) orphaned display picture\(orphanedFiles.count == 1 ? "" : "s")")
+                        SNLog("[GarbageCollectionJob] Removed \(orphanedFiles.count) orphaned display picture\(plural: orphanedFiles.count)")
                     }
                     
                     // Report a single file deletion as a job failure (even if other content was successfully removed)

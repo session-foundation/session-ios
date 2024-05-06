@@ -10,9 +10,13 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 final class NukeDataModal: Modal {
+    private let dependencies: Dependencies
+    
     // MARK: - Initialization
     
-    override init(targetView: UIView? = nil, dismissType: DismissType = .recursive, afterClosed: (() -> ())? = nil) {
+    init(targetView: UIView? = nil, dismissType: DismissType = .recursive, using dependencies: Dependencies, afterClosed: (() -> ())? = nil) {
+        self.dependencies = dependencies
+        
         super.init(targetView: targetView, dismissType: dismissType, afterClosed: afterClosed)
         
         self.modalPresentationStyle = .overFullScreen
@@ -164,17 +168,14 @@ final class NukeDataModal: Modal {
         }
     }
     
-    private func clearEntireAccount(
-        presentedViewController: UIViewController,
-        using dependencies: Dependencies = Dependencies()
-    ) {
+    private func clearEntireAccount(presentedViewController: UIViewController) {
         typealias PreparedClearRequests = (
             deleteAll: HTTP.PreparedRequest<[String: Bool]>,
             inboxRequestInfo: [HTTP.PreparedRequest<String>]
         )
         
         ModalActivityIndicatorViewController
-            .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
+            .present(fromViewController: presentedViewController, canCancel: false) { [weak self, dependencies] _ in
                 dependencies[singleton: .storage]
                     .readPublisher { db -> PreparedClearRequests in
                         (
@@ -194,7 +195,7 @@ final class NukeDataModal: Modal {
                                 .asRequest(of: String.self)
                                 .fetchSet(db)
                                 .map { server in
-                                    try OpenGroupAPI.preparedClearInbox(db, on: server)
+                                    try OpenGroupAPI.preparedClearInbox(db, on: server, using: dependencies)
                                         .map { _, _ in server }
                                 }
                         )
@@ -269,7 +270,7 @@ final class NukeDataModal: Modal {
             }
     }
     
-    private func deleteAllLocalData(using dependencies: Dependencies = Dependencies()) {
+    private func deleteAllLocalData() {
         // Unregister push notifications if needed
         let isUsingFullAPNs: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
         let maybeDeviceToken: String? = dependencies[defaults: .standard, key: .deviceToken]
@@ -284,7 +285,7 @@ final class NukeDataModal: Modal {
         ///
         /// **Note:** This is file as long as this process kills the app, if it doesn't then we need an alternate mechanism to flag that
         /// the `JobRunner` is allowed to start it's queues again
-        dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
+        dependencies[singleton: .jobRunner].stopAndClearPendingJobs(using: dependencies)
         
         // Clear the app badge and notifications
         dependencies[singleton: .notificationsManager].clearAllNotifications()
@@ -303,13 +304,13 @@ final class NukeDataModal: Modal {
         SnodeAPI.clearSnodePool(using: dependencies)
         
         // Stop any pollers
-        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers(using: dependencies)
+        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
         
         // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
         // profile storage
         let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
         
-        SessionApp.resetAppData {
+        SessionApp.resetAppData(using: dependencies) { [dependencies] in
             // Resetting the data clears the old user defaults. We need to restore the unlink default.
             dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
         }

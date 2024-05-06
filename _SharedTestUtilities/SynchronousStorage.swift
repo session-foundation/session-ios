@@ -13,7 +13,7 @@ class SynchronousStorage: Storage {
         using dependencies: Dependencies,
         initialData: ((Database) throws -> ())? = nil
     ) {
-        super.init(customWriter: customWriter)
+        super.init(customWriter: customWriter, using: dependencies)
         
         // Process any migration targets first
         if let migrationTargets: [MigratableTarget.Type] = migrationTargets {

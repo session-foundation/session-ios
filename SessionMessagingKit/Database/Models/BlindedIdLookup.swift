@@ -98,8 +98,7 @@ public extension BlindedIdLookup {
                 .sessionId(
                     sessionId,
                     matchesBlindedId: blindedId,
-                    serverPublicKey: openGroupPublicKey,
-                    using: dependencies
+                    serverPublicKey: openGroupPublicKey
                 )
             )
         {
@@ -121,8 +120,7 @@ public extension BlindedIdLookup {
                     .sessionId(
                         contact.id,
                         matchesBlindedId: blindedId,
-                        serverPublicKey: openGroupPublicKey,
-                        using: dependencies
+                        serverPublicKey: openGroupPublicKey
                     )
                 )
             else { continue }
@@ -168,8 +166,7 @@ public extension BlindedIdLookup {
                     .sessionId(
                         sessionId,
                         matchesBlindedId: blindedId,
-                        serverPublicKey: openGroupPublicKey,
-                        using: dependencies
+                        serverPublicKey: openGroupPublicKey
                     )
                 )
             else { continue }

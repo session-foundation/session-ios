@@ -12,14 +12,14 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         // Only support calls from contact threads
         guard threadVariant == .contact else { return }
         
         switch message.kind {
             case .preOffer: try MessageReceiver.handleNewCallMessage(db, message: message, using: dependencies)
-            case .offer: MessageReceiver.handleOfferCallMessage(db, message: message)
+            case .offer: MessageReceiver.handleOfferCallMessage(db, message: message, using: dependencies)
             case .answer: MessageReceiver.handleAnswerCallMessage(db, message: message, using: dependencies)
             case .provisionalAnswer: break // TODO: Implement
                 
@@ -58,8 +58,8 @@ extension MessageReceiver {
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance
         guard
-            Singleton.hasAppContext,
-            Singleton.appContext.isMainApp,
+            dependencies.hasInitialised(singleton: .appContext),
+            dependencies[singleton: .appContext].isMainApp,
             let sender: String = message.sender,
             (try? Contact
                 .filter(id: sender)
@@ -120,15 +120,12 @@ extension MessageReceiver {
             return
         }
         
-        // Ensure we have a call manager before continuing
-        guard let callManager: CallManagerProtocol = Environment.shared?.callManager.wrappedValue else { return }
-        
         // Ignore pre offer message after the same call instance has been generated
-        if let currentCall: CurrentCallProtocol = callManager.currentCall, currentCall.uuid == message.uuid {
+        if let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall, currentCall.uuid == message.uuid {
             return
         }
         
-        guard callManager.currentCall == nil else {
+        guard dependencies[singleton: .callManager].currentCall == nil else {
             try MessageReceiver.handleIncomingCallOfferInBusyState(db, message: message)
             return
         }
@@ -136,7 +133,7 @@ extension MessageReceiver {
         let interaction: Interaction? = try MessageReceiver.insertCallInfoMessage(db, for: message)
         
         // Handle UI
-        callManager.showCallUIForCall(
+        dependencies[singleton: .callManager].showCallUIForCall(
             caller: sender,
             uuid: message.uuid,
             mode: .answer,
@@ -144,13 +141,12 @@ extension MessageReceiver {
         )
     }
     
-    private static func handleOfferCallMessage(_ db: Database, message: CallMessage) {
+    private static func handleOfferCallMessage(_ db: Database, message: CallMessage, using dependencies: Dependencies) {
         SNLog("[Calls] Received offer message.")
         
         // Ensure we have a call manager before continuing
         guard
-            let callManager: CallManagerProtocol = Environment.shared?.callManager.wrappedValue,
-            let currentCall: CurrentCallProtocol = callManager.currentCall,
+            let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sdp: String = message.sdps.first
         else { return }
@@ -169,8 +165,7 @@ extension MessageReceiver {
         guard
             let currentWebRTCSession: WebRTCSession = WebRTCSession.current,
             currentWebRTCSession.uuid == message.uuid,
-            let callManager: CallManagerProtocol = Environment.shared?.callManager.wrappedValue,
-            var currentCall: CurrentCallProtocol = callManager.currentCall,
+            var currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
         else { return }
@@ -178,8 +173,8 @@ extension MessageReceiver {
         guard sender != getUserSessionId(db, using: dependencies).hexString else {
             guard !currentCall.hasStartedConnecting else { return }
             
-            callManager.dismissAllCallUI()
-            callManager.reportCurrentCallEnded(reason: .answeredElsewhere, using: dependencies)
+            dependencies[singleton: .callManager].dismissAllCallUI()
+            dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .answeredElsewhere)
             return
         }
         guard let sdp: String = message.sdps.first else { return }
@@ -187,7 +182,7 @@ extension MessageReceiver {
         let sdpDescription: RTCSessionDescription = RTCSessionDescription(type: .answer, sdp: sdp)
         currentCall.hasStartedConnecting = true
         currentCall.didReceiveRemoteSDP(sdp: sdpDescription)
-        callManager.handleAnswerMessage(message)
+        dependencies[singleton: .callManager].handleAnswerMessage(message)
     }
     
     private static func handleEndCallMessage(
@@ -199,19 +194,17 @@ extension MessageReceiver {
         
         guard
             WebRTCSession.current?.uuid == message.uuid,
-            let callManager: CallManagerProtocol = Environment.shared?.callManager.wrappedValue,
-            let currentCall: CurrentCallProtocol = callManager.currentCall,
+            let currentCall: CurrentCallProtocol = dependencies[singleton: .callManager].currentCall,
             currentCall.uuid == message.uuid,
             let sender: String = message.sender
         else { return }
         
-        callManager.dismissAllCallUI()
-        callManager.reportCurrentCallEnded(
+        dependencies[singleton: .callManager].dismissAllCallUI()
+        dependencies[singleton: .callManager].reportCurrentCallEnded(
             reason: (sender == getUserSessionId(db, using: dependencies).hexString ?
                 .declinedElsewhere :
                 .remoteEnded
-            ),
-            using: dependencies
+            )
         )
     }
     

@@ -469,29 +469,16 @@ public enum PushNotificationAPI {
             return (nil, .invalid, .failureNoContent)
         }
         
+        // Decrypt and decode the payload
         guard
-            let encData: Data = Data(base64Encoded: base64EncodedEncString),
+            let encryptedData: Data = Data(base64Encoded: base64EncodedEncString),
             let notificationsEncryptionKey: Data = try? getOrGenerateEncryptionKey(using: dependencies),
-            encData.count > dependencies[singleton: .crypto].size(.aeadXChaCha20NonceBytes)
-        else { return (nil, .invalid, .failure) }
-        
-        let nonce: Data = encData[0..<dependencies[singleton: .crypto].size(.aeadXChaCha20NonceBytes)]
-        let payload: Data = encData[dependencies[singleton: .crypto].size(.aeadXChaCha20NonceBytes)...]
-        
-        guard
-            let paddedData: [UInt8] = dependencies[singleton: .crypto].generate(
-                .decryptedBytesAeadXChaCha20(
-                    authenticatedCipherText: payload.bytes,
-                    secretKey: notificationsEncryptionKey.bytes,
-                    nonce: nonce.bytes
+            let decryptedData: Data = dependencies[singleton: .crypto].generate(
+                .plaintextWithPushNotificationPayload(
+                    payload: encryptedData,
+                    encKey: notificationsEncryptionKey
                 )
-            )
-        else { return (nil, .invalid, .failure) }
-        
-        let decryptedData: Data = Data(paddedData.reversed().drop(while: { $0 == 0 }).reversed())
-        
-        // Decode the decrypted data
-        guard
+            ),
             let notification: BencodeResponse<NotificationMetadata> = try? BencodeDecoder(using: dependencies)
                 .decode(BencodeResponse<NotificationMetadata>.self, from: decryptedData)
         else { return (nil, .invalid, .failure) }
@@ -529,8 +516,8 @@ public enum PushNotificationAPI {
                 case (StorageError.invalidKeySpec, _), (_, errSecItemNotFound):
                     // No keySpec was found so we need to generate a new one
                     do {
-                        var keySpec: Data = try Data(dependencies[singleton: .crypto]
-                            .tryGenerate(.randomBytes(numberBytes: encryptionKeyLength)))
+                        var keySpec: Data = try dependencies[singleton: .crypto]
+                            .tryGenerate(.randomBytes(encryptionKeyLength))
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
                         try dependencies[singleton: .keychain].set(
@@ -550,8 +537,8 @@ public enum PushNotificationAPI {
                     // after device restart until device is unlocked for the first time. If the app receives a push
                     // notification, we won't be able to access the keychain to process that notification, so we should
                     // just terminate by throwing an uncaught exception
-                    if Singleton.hasAppContext && (Singleton.appContext.isMainApp || Singleton.appContext.isInBackground) {
-                        let appState: UIApplication.State = Singleton.appContext.reportedApplicationState
+                    if dependencies.hasInitialised(singleton: .appContext) && (dependencies[singleton: .appContext].isMainApp || dependencies[singleton: .appContext].isInBackground) {
+                        let appState: UIApplication.State = dependencies[singleton: .appContext].reportedApplicationState
                         SNLog("CipherKeySpec inaccessible. New install or no unlock since device restart?, ApplicationState: \(appState.name)")
                         throw StorageError.keySpecInaccessible
                     }

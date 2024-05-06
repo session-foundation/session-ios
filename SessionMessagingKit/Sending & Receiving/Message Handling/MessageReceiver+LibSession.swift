@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -31,12 +30,13 @@ extension MessageReceiver {
             .map { domain -> (domain: SessionUtil.Crypto.Domain, plaintext: Data) in
                 (
                     domain,
-                    try SessionUtil.decrypt(
-                        ciphertext: message.ciphertext,
-                        senderSessionId: senderSessionId,
-                        ed25519KeyPair: userEd25519KeyPair,
-                        domain: domain,
-                        using: dependencies
+                    try dependencies[singleton: .crypto].tryGenerate(
+                        .plaintextWithMultiEncrypt(
+                            ciphertext: message.ciphertext,
+                            senderSessionId: senderSessionId,
+                            ed25519PrivateKey: userEd25519KeyPair.secretKey,
+                            domain: domain
+                        )
                     )
                 )
             }

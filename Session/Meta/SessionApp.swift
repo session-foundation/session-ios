@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtilitiesKit
@@ -41,7 +43,7 @@ public struct SessionApp {
         action: ConversationViewModel.Action = .none,
         dismissing presentingViewController: UIViewController?,
         animated: Bool,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         let threadInfo: (threadExists: Bool, isMessageRequest: Bool)? = dependencies[singleton: .storage].read { db in
             let isMessageRequest: Bool = {
@@ -113,8 +115,8 @@ public struct SessionApp {
     // MARK: - Functions
     
     public static func resetAppData(
-        onReset: (() -> ())? = nil,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies,
+        onReset: (() -> ())? = nil
     ) {
         // This _should_ be wiped out below.
         Logger.error("")

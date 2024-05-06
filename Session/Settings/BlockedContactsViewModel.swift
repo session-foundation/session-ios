@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource, PagedObservationSource {
@@ -198,7 +199,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         lastName
                     )
                 ]
-                .reversed(if: Singleton.hasAppContext && Singleton.appContext.isRTL)
+                .reversed(if: Dependencies.isRTL)
                 .joined(separator: " ")
             }
             
@@ -217,7 +218,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                     (contactNames.count - numNamesToShow)
                 )
             ]
-            .reversed(if: Singleton.hasAppContext && Singleton.appContext.isRTL)
+            .reversed(if: Dependencies.isRTL)
             .joined(separator: " ")
         }()
         let confirmationModal: ConfirmationModal = ConfirmationModal(

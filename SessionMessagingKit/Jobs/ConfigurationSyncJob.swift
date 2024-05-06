@@ -79,7 +79,7 @@ public enum ConfigurationSyncJob: JobExecutor {
             .asSet()
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
-        SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) started with \(pendingConfigChanges.count) change\(pendingConfigChanges.count == 1 ? "" : "s")")
+        SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) started with \(pendingConfigChanges.count) change\(plural: pendingConfigChanges.count)")
         // TODO: Seems like the conversatino list will randomly not get the last message (Lokinet updates???)
         dependencies[singleton: .storage]
             .readPublisher { db -> HTTP.PreparedRequest<HTTP.BatchResponse> in

@@ -29,46 +29,45 @@ public class Mock<T> {
     // MARK: - MockFunctionHandler
     
     @discardableResult internal func mock<Output>(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) -> Output {
-        return mock(funcName: funcName, checkArgs: args, actionArgs: args, untrackedArgs: untrackedArgs)
-    }
-    
-    @discardableResult internal func mock<Output>(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?], untrackedArgs: [Any?]) -> Output {
         return functionHandler.mock(
             funcName,
-            parameterCount: checkArgs.count,
-            parameterSummary: summary(for: checkArgs),
-            allParameterSummaryCombinations: summaries(for: checkArgs),
-            actionArgs: actionArgs,
+            parameterCount: args.count,
+            parameterSummary: summary(for: args),
+            allParameterSummaryCombinations: summaries(for: args),
+            args: args,
             untrackedArgs: untrackedArgs
         )
     }
     
     internal func mockNoReturn(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) {
-        mockNoReturn(funcName: funcName, checkArgs: args, actionArgs: args, untrackedArgs: untrackedArgs)
-    }
-    
-    internal func mockNoReturn(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?], untrackedArgs: [Any?]) {
         functionHandler.mockNoReturn(
             funcName,
-            parameterCount: checkArgs.count,
-            parameterSummary: summary(for: checkArgs),
-            allParameterSummaryCombinations: summaries(for: checkArgs),
-            actionArgs: actionArgs,
+            parameterCount: args.count,
+            parameterSummary: summary(for: args),
+            allParameterSummaryCombinations: summaries(for: args),
+            args: args,
             untrackedArgs: untrackedArgs
         )
     }
     
     @discardableResult internal func mockThrowing<Output>(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) throws -> Output {
-        return try mockThrowing(funcName: funcName, checkArgs: args, actionArgs: args, untrackedArgs: untrackedArgs)
-    }
-    
-    @discardableResult internal func mockThrowing<Output>(funcName: String = #function, checkArgs: [Any?], actionArgs: [Any?], untrackedArgs: [Any?]) throws -> Output {
         return try functionHandler.mockThrowing(
             funcName,
-            parameterCount: checkArgs.count,
-            parameterSummary: summary(for: checkArgs),
-            allParameterSummaryCombinations: summaries(for: checkArgs),
-            actionArgs: actionArgs,
+            parameterCount: args.count,
+            parameterSummary: summary(for: args),
+            allParameterSummaryCombinations: summaries(for: args),
+            args: args,
+            untrackedArgs: untrackedArgs
+        )
+    }
+    
+    @discardableResult internal func mockThrowingNoReturn(funcName: String = #function, args: [Any?] = [], untrackedArgs: [Any?] = []) throws {
+        try functionHandler.mockThrowingNoReturn(
+            funcName,
+            parameterCount: args.count,
+            parameterSummary: summary(for: args),
+            allParameterSummaryCombinations: summaries(for: args),
+            args: args,
             untrackedArgs: untrackedArgs
         )
     }
@@ -129,7 +128,7 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) -> Output
     
@@ -138,7 +137,7 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     )
     
@@ -147,9 +146,18 @@ protocol MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) throws -> Output
+    
+    func mockThrowingNoReturn(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        args: [Any?],
+        untrackedArgs: [Any?]
+    ) throws
 }
 
 // MARK: - CallDetails
@@ -246,7 +254,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) -> Output {
         self.functionName = functionName
@@ -267,7 +275,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) {
         self.functionName = functionName
@@ -281,7 +289,7 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) throws -> Output {
         self.functionName = functionName
@@ -300,6 +308,22 @@ internal class MockFunctionBuilder<T, R>: MockFunctionHandler {
             case let value as Output: return value
             default: throw MockError.mockedData
         }
+    }
+    
+    func mockThrowingNoReturn(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        args: [Any?],
+        untrackedArgs: [Any?]
+    ) throws {
+        self.functionName = functionName
+        self.parameterCount = parameterCount
+        self.parameterSummary = parameterSummary
+        self.allParameterSummaryCombinations = allParameterSummaryCombinations
+        
+        if let returnError: Error = returnError { throw returnError }
     }
     
     // MARK: - Build
@@ -345,7 +369,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) -> MockFunction {
         let key: Key = Key(name: functionName, paramCount: parameterCount)
@@ -390,7 +414,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         }
         
         for action in expectation.actions {
-            action(actionArgs, untrackedArgs)
+            action(args, untrackedArgs)
         }
         
         return expectation
@@ -401,7 +425,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) -> Output {
         let expectation: MockFunction = getExpectation(
@@ -409,7 +433,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
-            actionArgs: actionArgs,
+            args: args,
             untrackedArgs: untrackedArgs
         )
         
@@ -421,7 +445,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) {
         _ = getExpectation(
@@ -429,7 +453,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
-            actionArgs: actionArgs,
+            args: args,
             untrackedArgs: untrackedArgs
         )
     }
@@ -439,7 +463,7 @@ internal class FunctionConsumer: MockFunctionHandler {
         parameterCount: Int,
         parameterSummary: String,
         allParameterSummaryCombinations: [ParameterCombination],
-        actionArgs: [Any?],
+        args: [Any?],
         untrackedArgs: [Any?]
     ) throws -> Output {
         let expectation: MockFunction = getExpectation(
@@ -447,7 +471,7 @@ internal class FunctionConsumer: MockFunctionHandler {
             parameterCount: parameterCount,
             parameterSummary: parameterSummary,
             allParameterSummaryCombinations: allParameterSummaryCombinations,
-            actionArgs: actionArgs,
+            args: args,
             untrackedArgs: untrackedArgs
         )
 
@@ -455,6 +479,29 @@ internal class FunctionConsumer: MockFunctionHandler {
             case (.some(let error), _): throw error
             case (_, .some(let value as Output)): return value
             default: throw MockError.mockedData
+        }
+    }
+    
+    func mockThrowingNoReturn(
+        _ functionName: String,
+        parameterCount: Int,
+        parameterSummary: String,
+        allParameterSummaryCombinations: [ParameterCombination],
+        args: [Any?],
+        untrackedArgs: [Any?]
+    ) throws {
+        let expectation: MockFunction = getExpectation(
+            functionName,
+            parameterCount: parameterCount,
+            parameterSummary: parameterSummary,
+            allParameterSummaryCombinations: allParameterSummaryCombinations,
+            args: args,
+            untrackedArgs: untrackedArgs
+        )
+
+        switch expectation.returnError {
+            case .some(let error): throw error
+            default: return
         }
     }
     

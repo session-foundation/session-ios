@@ -119,7 +119,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                                 created: allThreads[data.contact.id]?.creationDateTimestamp
                             )
                         },
-                    in: config
+                    in: config,
+                    using: dependencies
                 )
                 
                 if config.needsDump(using: dependencies) {
@@ -145,7 +146,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 
                 try SessionUtil.upsert(
                     convoInfoVolatileChanges: volatileThreadInfo,
-                    in: config
+                    in: config,
+                    using: dependencies
                 )
                 
                 if config.needsDump(using: dependencies) {
@@ -172,7 +174,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                 
                 try SessionUtil.upsert(
                     legacyGroups: legacyGroupData,
-                    in: config
+                    in: config,
+                    using: dependencies
                 )
                 try SessionUtil.upsert(
                     communities: communityData
@@ -182,7 +185,8 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                                 priority: Int32(allThreads[urlInfo.threadId]?.pinnedPriority ?? 0)
                             )
                         },
-                    in: config
+                    in: config,
+                    using: dependencies
                 )
                 
                 if config.needsDump(using: dependencies) {

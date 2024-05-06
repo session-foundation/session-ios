@@ -33,7 +33,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         currentUserIsClosedGroupMember: Bool?,
         currentUserIsClosedGroupAdmin: Bool?,
         config: DisappearingMessagesConfiguration,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.threadId = threadId

@@ -184,7 +184,8 @@ internal extension SessionUtil {
                                         }()
                                     )
                                 },
-                            in: config
+                            in: config,
+                            using: dependencies
                         )
                     }
                     
@@ -207,7 +208,8 @@ internal extension SessionUtil {
                                         )
                                     }
                                 },
-                            in: config
+                            in: config,
+                            using: dependencies
                         )
                     }
                     
@@ -228,7 +230,8 @@ internal extension SessionUtil {
                                             .defaulting(to: SessionUtil.visiblePriority)
                                     )
                                 },
-                            in: config
+                            in: config,
+                            using: dependencies
                         )
                     }
                 
@@ -249,7 +252,8 @@ internal extension SessionUtil {
                                             .defaulting(to: SessionUtil.visiblePriority)
                                     )
                                 },
-                            in: config
+                            in: config,
+                            using: dependencies
                         )
                     }
             }
@@ -307,15 +311,15 @@ internal extension SessionUtil {
         }
     }
     
-    static func kickFromConversationUIIfNeeded(removedThreadIds: [String]) {
+    static func kickFromConversationUIIfNeeded(removedThreadIds: [String], using dependencies: Dependencies) {
         guard !removedThreadIds.isEmpty else { return }
         
         // If the user is currently navigating somewhere within the view hierarchy of a conversation
         // we just deleted then return to the home screen
         DispatchQueue.main.async {
             guard
-                Singleton.hasAppContext,
-                let rootViewController: UIViewController = Singleton.appContext.mainWindow?.rootViewController,
+                dependencies.hasInitialised(singleton: .appContext),
+                let rootViewController: UIViewController = dependencies[singleton: .appContext].mainWindow?.rootViewController,
                 let topBannerController: TopBannerController = (rootViewController as? TopBannerController),
                 !topBannerController.children.isEmpty,
                 let navController: UINavigationController = topBannerController.children[0] as? UINavigationController

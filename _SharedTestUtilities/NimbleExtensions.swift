@@ -17,10 +17,6 @@ public enum ParameterMatchType {
 }
 
 fileprivate extension String.StringInterpolation {
-    mutating func appendInterpolation(plural value: Int) {
-        appendInterpolation(value == 1 ? "" : "s")
-    }
-    
     mutating func appendInterpolation(times: Int) {
         appendInterpolation("\(times) time\(plural: times)")
     }

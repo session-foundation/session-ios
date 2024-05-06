@@ -149,6 +149,59 @@ public enum GroupInviteMemberJob: JobExecutor {
             )
     }
     
+    public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> NSAttributedString {
+        switch memberIds.count {
+            case 1:
+                return NSAttributedString(
+                    format: "GROUP_ACTION_INVITE_FAILED_ONE".localized(),
+                    .font(
+                        (
+                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
+                            Profile.truncated(id: memberIds[0], truncating: .middle)
+                        ),
+                        ToastController.boldFont
+                    ),
+                    .font(groupName, ToastController.boldFont)
+                )
+
+            case 2:
+                return NSAttributedString(
+                    format: "GROUP_ACTION_INVITE_FAILED_TWO".localized(),
+                    .font(
+                        (
+                            profileInfo[memberIds[0]]?.displayName(for: .group) ??
+                            Profile.truncated(id: memberIds[0], truncating: .middle)
+                        ),
+                        ToastController.boldFont
+                    ),
+                    .font(
+                        (
+                            profileInfo[memberIds[1]]?.displayName(for: .group) ??
+                            Profile.truncated(id: memberIds[1], truncating: .middle)
+                        ),
+                        ToastController.boldFont
+                    ),
+                    .font(groupName, ToastController.boldFont)
+                )
+
+            default:
+                let targetProfile: Profile? = profileInfo.values.first
+
+                return NSAttributedString(
+                    format: "GROUP_ACTION_INVITE_FAILED_MULTIPLE".localized(),
+                    .font(
+                        (
+                            targetProfile?.displayName(for: .group) ??
+                            Profile.truncated(id: memberIds[0], truncating: .middle)
+                        ),
+                        ToastController.boldFont
+                    ),
+                    .plain("\(memberIds.count - 1)"),
+                    .font(groupName, ToastController.boldFont)
+                )
+        }
+    }
+    
     private static func notifyOfFailure(groupId: String, memberId: String, using dependencies: Dependencies) {
         dependencies.mutate(cache: .groupInviteMemberJob) { cache in
             cache.failedMemberIds.insert(memberId)
@@ -170,8 +223,8 @@ public enum GroupInviteMemberJob: JobExecutor {
                         // Don't do anything if there are no 'failedIds' values or we can't get a window
                         guard
                             !failedIds.isEmpty,
-                            Singleton.hasAppContext,
-                            let mainWindow: UIWindow = Singleton.appContext.mainWindow
+                            dependencies.hasInitialised(singleton: .appContext),
+                            let mainWindow: UIWindow = dependencies[singleton: .appContext].mainWindow
                         else { return }
                         
                         typealias FetchedData = (groupName: String, profileInfo: [String: Profile])
@@ -194,59 +247,11 @@ public enum GroupInviteMemberJob: JobExecutor {
                                 )
                             }
                             .defaulting(to: ("GROUP_TITLE_FALLBACK".localized(), [:]))
-                        
-                        let message: NSAttributedString = {
-                            switch failedIds.count {
-                                case 1:
-                                    return NSAttributedString(
-                                        format: "GROUP_ACTION_INVITE_FAILED_ONE".localized(),
-                                        .font(
-                                            (
-                                                data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
-                                                Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            ),
-                                            ToastController.boldFont
-                                        ),
-                                        .font(data.groupName, ToastController.boldFont)
-                                    )
-                                    
-                                case 2:
-                                    return NSAttributedString(
-                                        format: "GROUP_ACTION_INVITE_FAILED_TWO".localized(),
-                                        .font(
-                                            (
-                                                data.profileInfo[failedIds[0]]?.displayName(for: .group) ??
-                                                Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            ),
-                                            ToastController.boldFont
-                                        ),
-                                        .font(
-                                            (
-                                                data.profileInfo[failedIds[1]]?.displayName(for: .group) ??
-                                                Profile.truncated(id: failedIds[1], truncating: .middle)
-                                            ),
-                                            ToastController.boldFont
-                                        ),
-                                        .font(data.groupName, ToastController.boldFont)
-                                    )
-                                    
-                                default:
-                                    let targetProfile: Profile? = data.profileInfo.values.first
-                                    
-                                    return NSAttributedString(
-                                        format: "GROUP_ACTION_INVITE_FAILED_MULTIPLE".localized(),
-                                        .font(
-                                            (
-                                                targetProfile?.displayName(for: .group) ??
-                                                Profile.truncated(id: failedIds[0], truncating: .middle)
-                                            ),
-                                            ToastController.boldFont
-                                        ),
-                                        .plain("\(failedIds.count - 1)"),
-                                        .font(data.groupName, ToastController.boldFont)
-                                    )
-                            }
-                        }()
+                        let message: NSAttributedString = failureMessage(
+                            groupName: data.groupName,
+                            memberIds: failedIds,
+                            profileInfo: data.profileInfo
+                        )
                         
                         DispatchQueue.main.async {
                             let toastController: ToastController = ToastController(

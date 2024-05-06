@@ -227,7 +227,7 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
     }
     
     @objc func createNewDM() {
-        let newDMVC = NewDMVC()
+        let newDMVC = NewDMVC(using: viewModel.dependencies)
         self.navigationController?.pushViewController(newDMVC, animated: true)
     }
     
@@ -237,7 +237,7 @@ final class NewConversationVC: BaseVC, ThemedNavigation, UITableViewDelegate, UI
     }
     
     @objc func joinOpenGroup() {
-        let joinOpenGroupVC: JoinOpenGroupVC = JoinOpenGroupVC()
+        let joinOpenGroupVC: JoinOpenGroupVC = JoinOpenGroupVC(using: viewModel.dependencies)
         self.navigationController?.pushViewController(joinOpenGroupVC, animated: true)
     }
 }

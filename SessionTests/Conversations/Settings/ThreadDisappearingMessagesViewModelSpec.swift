@@ -6,6 +6,7 @@ import Quick
 import Nimble
 import SessionUIKit
 import SessionSnodeKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 @testable import Session
@@ -33,6 +34,13 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: QuickSpec {
                     id: "TestId",
                     variant: .contact
                 ).insert(db)
+            }
+        )
+        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
+            initialSetup: { jobRunner in
+                jobRunner
+                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any, using: .any) }
+                    .thenReturn(nil)
             }
         )
         @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel! = ThreadDisappearingMessagesSettingsViewModel(

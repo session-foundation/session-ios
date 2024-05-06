@@ -27,12 +27,16 @@ public protocol FileManagerType: AnyObject {
 
     
     func fileExists(atPath: String) -> Bool
+    func fileExists(atPath: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool
     func contents(atPath: String) -> Data?
 
     func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey: Any]?) -> Bool
     func createDirectory(atPath: String, withIntermediateDirectories: Bool, attributes: [FileAttributeKey: Any]?) throws
     func copyItem(at fromUrl: URL, to toUrl: URL) throws
     func removeItem(atPath: String) throws
+    
+    func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any]
+    func setAttributes(_ attributes: [FileAttributeKey: Any], ofItemAtPath path: String) throws
 }
 
 public extension FileManagerType {

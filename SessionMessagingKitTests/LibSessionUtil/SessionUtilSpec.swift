@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import SessionUtil
 import SessionUtilitiesKit
 
@@ -43,7 +42,7 @@ class SessionUtilSpec: QuickSpec {
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
+                    .when { $0.generate(.ed25519KeyPair()) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data.data(
@@ -56,7 +55,20 @@ class SessionUtilSpec: QuickSpec {
                         )
                     )
                 crypto
-                    .when { try $0.tryGenerate(.signature(message: .any, secretKey: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Data.data(
+                                fromHex: "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                            )!.bytes,
+                            secretKey: Data.data(
+                                fromHex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
+                                "cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+                            )!.bytes
+                        )
+                    )
+                crypto
+                    .when { try $0.tryGenerate(.signature(message: .any, ed25519SecretKey: .any)) }
                     .thenReturn(
                         Authentication.Signature.standard(signature: Array("TestSignature".data(using: .utf8)!))
                     )
@@ -119,8 +131,9 @@ class SessionUtilSpec: QuickSpec {
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
             initialSetup: { cache in
                 cache.when { $0.clockOffsetMs }.thenReturn(0)
-                cache.when { $0.loadedSwarms }.thenReturn([createGroupOutput.groupSessionId.hexString])
-                cache.when { $0.swarmCache }.thenReturn([createGroupOutput.groupSessionId.hexString: mockSwarmCache])
+                cache.when { $0.hasLoadedSwarm(for: .any) }.thenReturn(true)
+                cache.when { $0.swarmCache(publicKey: .any) }.thenReturn(mockSwarmCache)
+                cache.when { $0.setSwarmCache(publicKey: .any, cache: .any) }.thenReturn(nil)
             }
         )
         @TestState(cache: .sessionUtil, in: dependencies) var mockSessionUtilCache: MockSessionUtilCache! = MockSessionUtilCache(
@@ -388,9 +401,7 @@ class SessionUtilSpec: QuickSpec {
                 it("throws when it fails to generate a new identity ed25519 keyPair") {
                     var resultError: Error? = nil
                     
-                    mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
-                        .thenReturn(nil)
+                    mockCrypto.when { $0.generate(.ed25519KeyPair()) }.thenReturn(nil)
                     
                     mockStorage.write { db in
                         do {

@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -306,9 +305,12 @@ extension MessageReceiver {
         
         let plaintext: Data
         do {
-            plaintext = try MessageReceiver.decryptWithSessionProtocol(
-                ciphertext: encryptedKeyPair,
-                using: userKeyPair
+            plaintext = try dependencies[singleton: .crypto].tryGenerate(
+                .plaintextWithSessionProtocolLegacyGroup(
+                    ciphertext: encryptedKeyPair,
+                    keyPair: userKeyPair,
+                    using: dependencies
+                )
             ).plaintext
         }
         catch {

@@ -90,8 +90,8 @@ public class SessionCell: UITableViewCell {
         result.axis = .vertical
         result.distribution = .equalSpacing
         result.alignment = .fill
-        result.setCompressionResistanceHorizontalLow()
-        result.setContentHuggingLow()
+        result.setContentHugging(to: .defaultLow)
+        result.setCompressionResistance(to: .defaultLow)
         
         return result
     }()
@@ -102,8 +102,8 @@ public class SessionCell: UITableViewCell {
         result.isUserInteractionEnabled = false
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
-        result.setCompressionResistanceHorizontalLow()
-        result.setContentHuggingLow()
+        result.setContentHugging(to: .defaultLow)
+        result.setCompressionResistance(to: .defaultLow)
         
         return result
     }()
@@ -127,8 +127,8 @@ public class SessionCell: UITableViewCell {
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
         result.isHidden = true
-        result.setCompressionResistanceHorizontalLow()
-        result.setContentHuggingLow()
+        result.setContentHugging(to: .defaultLow)
+        result.setCompressionResistance(to: .defaultLow)
         
         return result
     }()

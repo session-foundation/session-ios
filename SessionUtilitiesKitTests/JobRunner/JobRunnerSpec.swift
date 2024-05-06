@@ -69,7 +69,7 @@ class JobRunnerSpec: QuickSpec {
             afterEach {
                 /// We **must** set `fixedTime` to ensure we break any loops within the `TestJob` executor
                 dependencies.fixedTime = Int.max
-                jobRunner.stopAndClearPendingJobs()
+                jobRunner.stopAndClearPendingJobs(using: dependencies)
             }
             
             // MARK: -- when configuring
@@ -1413,7 +1413,7 @@ class JobRunnerSpec: QuickSpec {
                             .to(beEmpty())
                         
                         // Stop the queues so it doesn't run out of retry attempts
-                        jobRunner.stopAndClearPendingJobs(exceptForVariant: nil, onComplete: nil)
+                        jobRunner.stopAndClearPendingJobs(exceptForVariant: nil, using: dependencies, onComplete: nil)
                         
                         // Make sure the jobs still exist
                         expect(mockStorage.read { db in try Job.fetchCount(db) }).to(equal(2))

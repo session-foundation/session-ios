@@ -10,6 +10,7 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
     internal static let mediaSize: CGFloat = UIScreen.main.bounds.width - 2 * Values.veryLargeSpacing
     internal static let arrowSize: CGSize = CGSize(width: 20, height: 30)
     
+    private let dependencies: Dependencies
     private let attachments: [Attachment]
     private let isOutgoing: Bool
     private let threadId: String
@@ -77,8 +78,10 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
         isOutgoing: Bool,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        interactionId: Int64
+        interactionId: Int64,
+        using dependencies: Dependencies
     ) {
+        self.dependencies = dependencies
         self.threadId = threadId
         self.threadVariant = threadVariant
         self.interactionId = interactionId
@@ -134,7 +137,8 @@ final class MediaInfoVC: BaseVC, SessionCarouselViewDelegate {
             threadVariant: self.threadVariant,
             interactionId: self.interactionId,
             selectedAttachmentId: attachment.id,
-            options: [ .sliderEnabled ]
+            options: [ .sliderEnabled ],
+            using: dependencies
         )
         if let viewController: UIViewController = viewController {
             viewController.transitioningDelegate = nil

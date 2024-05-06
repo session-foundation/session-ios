@@ -226,11 +226,6 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Note: This is a hack to ensure `isRTL` is initially gets run on the main thread so the value
-        // is cached (it gets called on background threads and if it hasn't cached the value then it can
-        // cause odd performance issues since it accesses UIKit)
-        if Singleton.hasAppContext { _ = Singleton.appContext.isRTL }
-        
         // Preparation
         SessionApp.homeViewController.mutate { $0 = self }
         
@@ -290,7 +285,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         
         // Start polling if needed (i.e. if the user just created or restored their Session ID)
         if Identity.userExists(), let appDelegate: AppDelegate = UIApplication.shared.delegate as? AppDelegate {
-            appDelegate.startPollersIfNeeded(using: Dependencies())
+            appDelegate.startPollersIfNeeded()
         }
         
         // Onion request path countries cache
@@ -531,7 +526,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
         // Container view
         let profilePictureViewContainer = UIView()
         profilePictureViewContainer.addSubview(profilePictureView)
-        profilePictureView.autoPinEdgesToSuperviewEdges()
+        profilePictureView.pin(to: profilePictureViewContainer)
         profilePictureViewContainer.addSubview(pathStatusView)
         pathStatusView.pin(.trailing, to: .trailing, of: profilePictureViewContainer)
         pathStatusView.pin(.bottom, to: .bottom, of: profilePictureViewContainer)
@@ -769,7 +764,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     
     func handleContinueButtonTapped(from seedReminderView: SeedReminderView) {
         let targetViewController: UIViewController = {
-            if let seedVC: SeedVC = try? SeedVC() {
+            if let seedVC: SeedVC = try? SeedVC(using: dependencies) {
                 return StyledNavigationController(rootViewController: seedVC)
             }
             
@@ -842,7 +837,7 @@ final class HomeVC: BaseVC, SessionUtilRespondingViewController, UITableViewData
     }
     
     func createNewDMFromDeepLink(sessionId: String) {
-        let newDMVC = NewDMVC(sessionId: sessionId, shouldShowBackButton: false)
+        let newDMVC = NewDMVC(sessionId: sessionId, shouldShowBackButton: false, using: dependencies)
         let navigationController = StyledNavigationController(rootViewController: newDMVC)
         if UIDevice.current.isIPad {
             navigationController.modalPresentationStyle = .fullScreen

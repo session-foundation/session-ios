@@ -43,28 +43,28 @@ public enum AppSetup {
         
         AppSetup.hasRun.mutate { $0 = true }
         
-        var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(labelStr: #function)
+        var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
         
         DispatchQueue.global(qos: .userInitiated).async {
             // Order matters here.
             //
             // All of these "singletons" should have any dependencies used in their
             // initializers injected.
-            OWSBackgroundTaskManager.shared().observeNotifications()
+            dependencies[singleton: .backgroundTaskManager].startObservingNotifications()
             
             // Attachments can be stored to NSTemporaryDirectory()
             // If you receive a media message while the device is locked, the download will fail if
             // the temporary directory is NSFileProtectionComplete
-            let success: Bool = OWSFileSystem.protectFileOrFolder(
-                atPath: NSTemporaryDirectory(),
-                fileProtectionType: .completeUntilFirstUserAuthentication
+            try? FileSystem.protectFileOrFolder(
+                at: NSTemporaryDirectory(),
+                fileProtectionType: .completeUntilFirstUserAuthentication,
+                using: dependencies
             )
-            assert(success)
 
             Environment.shared = Environment(
                 reachabilityManager: SSKReachabilityManagerImpl(),
                 audioSession: OWSAudioSession(),
-                proximityMonitoringManager: OWSProximityMonitoringManagerImpl(),
+                proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),
                 windowManager: OWSWindowManager(default: ())
             )
             appSpecificBlock?()
@@ -85,12 +85,12 @@ public enum AppSetup {
     }
     
     public static func runPostSetupMigrations(
-        backgroundTask: OWSBackgroundTask? = nil,
+        backgroundTask: SessionBackgroundTask? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
         using dependencies: Dependencies
     ) {
-        var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
+        var backgroundTask: SessionBackgroundTask? = (backgroundTask ?? SessionBackgroundTask(label: #function, using: dependencies))
         
         dependencies[singleton: .storage].perform(
             migrationTargets: [

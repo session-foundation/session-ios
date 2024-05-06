@@ -20,6 +20,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         using dependencies: Dependencies
     ) {
         guard
+            dependencies.hasInitialised(singleton: .appContext),
             let threadId: String = job.threadId,
             let detailsData: Data = job.details,
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData),
@@ -83,7 +84,7 @@ public enum AttachmentDownloadJob: JobExecutor {
         }
         
         let temporaryFileUrl: URL = URL(
-            fileURLWithPath: Singleton.appContext.temporaryDirectoryAccessibleAfterFirstAuth + UUID().uuidString
+            fileURLWithPath: dependencies[singleton: .appContext].temporaryDirectoryAccessibleAfterFirstAuth + UUID().uuidString
         )
         
         Just(attachment.downloadUrl)
@@ -103,7 +104,8 @@ public enum AttachmentDownloadJob: JobExecutor {
                                         db,
                                         fileId: fileId,
                                         from: openGroup.roomToken,
-                                        on: openGroup.server
+                                        on: openGroup.server,
+                                        using: dependencies
                                     )
                                 
                             case .none:
@@ -153,7 +155,7 @@ public enum AttachmentDownloadJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     // Remove the temporary file
-                    OWSFileSystem.deleteFile(temporaryFileUrl.path)
+                    try? FileSystem.deleteFile(at: temporaryFileUrl.path)
 
                     switch result {
                         case .finished:

@@ -193,7 +193,7 @@ internal extension SessionUtil {
                 .deleteAll(db)
             
             if deletionCount > 0 {
-                SNLog("[SessionUtil] Deleted \(deletionCount) message\(deletionCount == 1 ? "" : "s") from \(groupSessionId.hexString) due to 'delete_before' value.")
+                SNLog("[SessionUtil] Deleted \(deletionCount) message\(plural: deletionCount) from \(groupSessionId.hexString) due to 'delete_before' value.")
             }
         }
         
@@ -221,7 +221,7 @@ internal extension SessionUtil {
                 .deleteAll(db)
             
             if deletionCount > 0 {
-                SNLog("[SessionUtil] Deleted \(deletionCount) message\(deletionCount == 1 ? "" : "s") with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")
+                SNLog("[SessionUtil] Deleted \(deletionCount) message\(plural: deletionCount) with attachments from \(groupSessionId.hexString) due to 'attach_delete_before' value.")
                 
                 // Schedule a grabage collection job to clean up any now-orphaned attachment files
                 dependencies[singleton: .jobRunner].add(
@@ -381,7 +381,7 @@ public extension SessionUtil {
         _ db: Database,
         groupSessionId: SessionId,
         timestamp: TimeInterval,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
             db,
@@ -402,7 +402,7 @@ public extension SessionUtil {
         _ db: Database,
         groupSessionId: SessionId,
         timestamp: TimeInterval,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
             db,
@@ -422,7 +422,7 @@ public extension SessionUtil {
     static func deleteGroupForEveryone(
         _ db: Database,
         groupSessionId: SessionId,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws {
         try SessionUtil.performAndPushChange(
             db,

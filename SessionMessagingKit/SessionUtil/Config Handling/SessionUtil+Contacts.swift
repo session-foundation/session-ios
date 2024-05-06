@@ -147,7 +147,7 @@ internal extension SessionUtil {
 
                 /// If we are hiding the conversation then kick the user from it if it's currently open
                 if !updatedShouldBeVisible {
-                    SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId])
+                    SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: [sessionId], using: dependencies)
                 }
                 
                 /// Create the thread if it doesn't exist, otherwise just update it's state
@@ -241,7 +241,7 @@ internal extension SessionUtil {
             .filter { !draftConversationIds.contains($0) }
         
         if !combinedIds.isEmpty {
-            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: combinedIds)
+            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: combinedIds, using: dependencies)
             
             try Contact
                 .filter(ids: combinedIds)
@@ -276,13 +276,14 @@ internal extension SessionUtil {
     
     static func upsert(
         contactData: [SyncedContactInfo],
-        in config: Config?
+        in config: Config?,
+        using dependencies: Dependencies
     ) throws {
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
         // The current users contact data doesn't need to sync so exclude it, we also don't want to sync
         // blinded message requests so exclude those as well
-        let userSessionId: SessionId = getUserSessionId()
+        let userSessionId: SessionId = getUserSessionId(using: dependencies)
         let targetContacts: [SyncedContactInfo] = contactData
             .filter {
                 $0.id != userSessionId.hexString &&
@@ -423,7 +424,8 @@ internal extension SessionUtil {
                                 profile: newProfiles[contact.id]
                             )
                         },
-                    in: config
+                    in: config,
+                    using: dependencies
                 )
         }
         
@@ -485,7 +487,8 @@ internal extension SessionUtil {
                 .upsert(
                     contactData: targetProfiles
                         .map { SyncedContactInfo(id: $0.id, profile: $0) },
-                    in: config
+                    in: config,
+                    using: dependencies
                 )
         }
         
@@ -551,7 +554,8 @@ internal extension SessionUtil {
                 .upsert(
                     contactData: targetDisappearingConfigs
                         .map { SyncedContactInfo(id: $0.id, disappearingMessagesConfig: $0) },
-                    in: config
+                    in: config,
+                    using: dependencies
                 )
         }
         
@@ -582,7 +586,8 @@ public extension SessionUtil {
                             priority: SessionUtil.hiddenPriority
                         )
                     },
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }
@@ -648,7 +653,8 @@ public extension SessionUtil {
                                     disappearingMessagesConfig: disappearingMessagesConfig
                                 )
                             ],
-                            in: config
+                            in: config,
+                            using: dependencies
                         )
                 }
         }

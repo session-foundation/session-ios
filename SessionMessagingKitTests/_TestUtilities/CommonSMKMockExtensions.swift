@@ -2,8 +2,13 @@
 
 import Foundation
 import SessionUtil
+import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
+
+extension Message.Destination: Mocked {
+    static var mock: Message.Destination = .contact(publicKey: "")
+}
 
 extension SessionUtil.Config: Mocked {
     static var mock: SessionUtil.Config = .invalid

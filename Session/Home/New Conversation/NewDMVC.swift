@@ -10,6 +10,7 @@ import SignalUtilitiesKit
 import SessionSnodeKit
 
 final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControllerDelegate, QRScannerDelegate {
+    private let dependencies: Dependencies
     private var shouldShowBackButton: Bool = true
     private let pageVC = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
     private var pages: [UIViewController] = []
@@ -40,7 +41,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     }()
     
     private lazy var scanQRCodePlaceholderVC: ScanQRCodePlaceholderVC = {
-        let result: ScanQRCodePlaceholderVC = ScanQRCodePlaceholderVC()
+        let result: ScanQRCodePlaceholderVC = ScanQRCodePlaceholderVC(using: dependencies)
         result.newDMVC = self
         
         return result
@@ -55,7 +56,8 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     
     // MARK: - Initialization
     
-    init(sessionId: String? = nil, shouldShowBackButton: Bool = true) {
+    init(sessionId: String? = nil, shouldShowBackButton: Bool = true, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.shouldShowBackButton = shouldShowBackButton
         
         super.init(nibName: nil, bundle: nil)
@@ -66,11 +68,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
     }
     
     required init?(coder: NSCoder) {
-        super.init(coder: coder)
-    }
-    
-    override init(nibName: String?, bundle: Bundle?) {
-        super.init(nibName: nibName, bundle: bundle)
+        fatalError("init(coder:) has not been implemented")
     }
     
     // MARK: - Lifecycle
@@ -253,7 +251,8 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
             for: sessionId,
             variant: .contact,
             dismissing: presentingViewController,
-            animated: false
+            animated: false,
+            using: dependencies
         )
     }
 }
@@ -659,10 +658,25 @@ private final class EnterPublicKeyVC: UIViewController {
 // MARK: - ScanQRCodePlaceholderVC
 
 private final class ScanQRCodePlaceholderVC: UIViewController {
+    private let dependencies: Dependencies
     weak var newDMVC: NewDMVC!
     
     private var viewWidth: NSLayoutConstraint?
     private var viewHeight: NSLayoutConstraint?
+    
+    // MARK: - Initialization
+
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - Lifecycle
     
     override func viewDidLoad() {
         // Remove background color
@@ -715,7 +729,7 @@ private final class ScanQRCodePlaceholderVC: UIViewController {
 
     
     @objc private func requestCameraAccess() {
-        Permissions.requestCameraPermissionIfNeeded { [weak self] in
+        Permissions.requestCameraPermissionIfNeeded(using: dependencies) { [weak self] in
             self?.newDMVC.handleCameraAccessGranted()
         }
     }

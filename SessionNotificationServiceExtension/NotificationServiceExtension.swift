@@ -42,8 +42,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         /// Create the context if we don't have it (needed before _any_ interaction with the database)
-        if !Singleton.hasAppContext {
-            Singleton.setup(appContext: NotificationServiceExtensionContext())
+        if !dependencies.hasInitialised(singleton: .appContext) {
+            dependencies.set(singleton: .appContext, to: NotificationServiceExtensionContext())
+            Dependencies.setIsRTLRetriever(requiresMainThread: false) {
+                NotificationServiceExtensionContext.determineDeviceRTL()
+            }
         }
         
         let isCallOngoing: Bool = dependencies[defaults: .appGroup, key: .isCallOngoing]
@@ -54,7 +57,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         DispatchQueue.main.sync { self.setUpIfNecessary(using: dependencies) }
 
         // Handle the push notification
-        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
+        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
             let openGroupPollingPublishers: [AnyPublisher<Void, Error>] = self.pollForOpenGroups(using: dependencies)
             defer {
                 self.openGroupPollCancellable = Publishers
@@ -80,7 +83,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     // If we got an explicit failure, or we got a success but no content then show
                     // the fallback notification
                     case .success, .legacySuccess, .failure, .legacyFailure:
-                        return self.handleFailure(for: notificationContent, error: .processing(result))
+                        return self.handleFailure(for: notificationContent, error: .processing(result), using: dependencies)
                         
                     case .successTooLong:
                         /// If the notification is too long and there is an ongoing call or a recent call pre-offer then we assume the notification
@@ -89,7 +92,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         guard
                             isCallOngoing ||
                             (lastCallPreOffer ?? Date.distantPast).timeIntervalSinceNow < NotificationServiceExtension.callPreOfferLargeNotificationSupressionDuration
-                        else { return self.handleFailure(for: notificationContent, error: .processing(result)) }
+                        else { return self.handleFailure(for: notificationContent, error: .processing(result), using: dependencies) }
                         
                         NSLog("[NotificationServiceExtension] Suppressing large notification too close to a call.")
                         return
@@ -104,7 +107,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             dependencies[singleton: .storage].write { db in
                 do {
                     guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, data: data, metadata: metadata, using: dependencies) else {
-                        self.handleFailure(for: notificationContent, error: .messageProcessing)
+                        self.handleFailure(for: notificationContent, error: .messageProcessing, using: dependencies)
                         return
                     }
                     
@@ -143,7 +146,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 db,
                                 threadId: threadId,
                                 threadVariant: threadVariant,
-                                message: callMessage
+                                message: callMessage,
+                                using: dependencies
                             )
                             
                             guard case .preOffer = callMessage.kind else {
@@ -217,7 +221,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             case .invalidGroupPublicKey, .noGroupKeyPair, .outdatedMessage:
                                 self.completeSilenty(using: dependencies)
                             
-                            default: self.handleFailure(for: notificationContent, error: .messageHandling(error))
+                            default: self.handleFailure(for: notificationContent, error: .messageHandling(error), using: dependencies)
                         }
                     }
                 }
@@ -310,7 +314,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         AssertIsOnMainThread()
 
         // Only mark the app as ready once.
-        guard !Singleton.appReadiness.isAppReady else { return }
+        guard !dependencies[singleton: .appReadiness].isAppReady else { return }
 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard dependencies[singleton: .storage].isValid && migrationsCompleted else {
@@ -322,7 +326,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         SignalUtilitiesKit.Configuration.performMainSetup(using: dependencies)
 
         // Note that this does much more than set a flag; it will also run all deferred blocks.
-        Singleton.appReadiness.setAppReady()
+        dependencies[singleton: .appReadiness].setAppReady()
     }
     
     // MARK: Handle completion
@@ -345,7 +349,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             .read { db in try Interaction.fetchUnreadCount(db, using: dependencies) }
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
-        Storage.suspendDatabaseAccess()
+        Storage.suspendDatabaseAccess(using: dependencies)
         
         self.contentHandler!(silentContent)
     }
@@ -411,9 +415,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         NSLog("[NotificationServiceExtension] Add remote notification request")
     }
 
-    private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
+    private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError, using dependencies: Dependencies) {
         NSLog("[NotificationServiceExtension] Show generic failure message due to error: \(error)")
-        Storage.suspendDatabaseAccess()
+        Storage.suspendDatabaseAccess(using: dependencies)
         
         content.title = "Session"
         content.body = "APN_Message".localized()

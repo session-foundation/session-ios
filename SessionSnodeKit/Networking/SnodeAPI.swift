@@ -4,7 +4,6 @@
 
 import Foundation
 import Combine
-import Sodium
 import GRDB
 import SessionUtilitiesKit
 
@@ -88,15 +87,14 @@ public final class SnodeAPI {
         for publicKey: String,
         using dependencies: Dependencies
     ) {
-        guard !dependencies[cache: .snodeAPI].loadedSwarms.contains(publicKey) else { return }
+        guard !dependencies[cache: .snodeAPI].hasLoadedSwarm(for: publicKey) else { return }
         
         let updatedCacheForKey: Set<Snode> = dependencies[singleton: .storage]
            .read { db in try Snode.fetchSet(db, publicKey: publicKey) }
            .defaulting(to: [])
         
         dependencies.mutate(cache: .snodeAPI) {
-            $0.swarmCache[publicKey] = updatedCacheForKey
-            $0.loadedSwarms.insert(publicKey)
+            $0.setSwarmCache(publicKey: publicKey, cache: updatedCacheForKey)
         }
     }
     
@@ -106,7 +104,7 @@ public final class SnodeAPI {
         persist: Bool = true,
         using dependencies: Dependencies
     ) {
-        dependencies.mutate(cache: .snodeAPI) { $0.swarmCache[publicKey] = newValue }
+        dependencies.mutate(cache: .snodeAPI) { $0.setSwarmCache(publicKey: publicKey, cache: newValue) }
         
         guard persist else { return }
         
@@ -120,7 +118,7 @@ public final class SnodeAPI {
         publicKey: String,
         using dependencies: Dependencies
     ) {
-        let swarmOrNil: Set<Snode>? = dependencies[cache: .snodeAPI].swarmCache[publicKey]
+        let swarmOrNil: Set<Snode>? = dependencies[cache: .snodeAPI].swarmCache(publicKey: publicKey)
         guard var swarm = swarmOrNil, let index = swarm.firstIndex(of: snode) else { return }
         swarm.remove(at: index)
         setSwarm(to: swarm, for: publicKey, using: dependencies)
@@ -208,7 +206,7 @@ public final class SnodeAPI {
     ) -> AnyPublisher<Set<Snode>, Error> {
         loadSwarmIfNeeded(for: publicKey, using: dependencies)
         
-        if let cachedSwarm = dependencies[cache: .snodeAPI].swarmCache[publicKey], cachedSwarm.count >= minSwarmSnodeCount {
+        if let cachedSwarm = dependencies[cache: .snodeAPI].swarmCache(publicKey: publicKey), cachedSwarm.count >= minSwarmSnodeCount {
             return Just(cachedSwarm)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
@@ -523,10 +521,8 @@ public final class SnodeAPI {
                                     )
                                     .decoded(as: ONSResolveResponse.self)
                                     .tryMap { _, response -> String in
-                                        try response.sessionId(
-                                            nameBytes: nameAsData,
-                                            nameHashBytes: nameHash,
-                                            using: dependencies
+                                        try dependencies[singleton: .crypto].tryGenerate(
+                                            .sessionId(name: onsName, response: response)
                                         )
                                     }
                                     .retry(4)
@@ -1325,22 +1321,31 @@ private extension Request {
 public extension SnodeAPI {
     class Cache: SnodeAPICacheType {
         public var hasLoadedSnodePool: Bool = false
-        public var loadedSwarms: Set<String> = []
-        
-        /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
         public var snodeFailureCount: [Snode: UInt] = [:]
-        /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
         public var snodePool: Set<Snode> = []
-
+        public var hasInsufficientSnodes: Bool { snodePool.count < SnodeAPI.minSnodePoolCount }
+        
         /// The offset between the user's clock and the Service Node's clock. Used in cases where the
         /// user's clock is incorrect.
-        ///
-        /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
         public var clockOffsetMs: Int64 = 0
-        /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-        public var swarmCache: [String: Set<Snode>] = [:]
         
-        public var hasInsufficientSnodes: Bool { snodePool.count < SnodeAPI.minSnodePoolCount }
+        private var swarmCache: [String: Set<Snode>] = [:]
+        
+        public func hasLoadedSwarm(for publicKey: String) -> Bool {
+            return (swarmCache[publicKey] != nil)
+        }
+        
+        public func swarmCache(publicKey: String) -> Set<Snode>? {
+            return swarmCache[publicKey]
+        }
+        
+        public func setSwarmCache(publicKey: String, cache: Set<Snode>) {
+            swarmCache[publicKey] = cache
+        }
+        
+        public func clearSwarmCache() {
+            swarmCache = [:]
+        }
     }
     
     class GetPoolCache: GetSnodePoolCacheType {
@@ -1369,42 +1374,30 @@ public extension Cache {
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol SnodeAPIImmutableCacheType: ImmutableCacheType {
     var hasLoadedSnodePool: Bool { get }
-    var loadedSwarms: Set<String> { get }
-    
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     var snodeFailureCount: [Snode: UInt] { get }
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     var snodePool: Set<Snode> { get }
+    var hasInsufficientSnodes: Bool { get }
 
     /// The offset between the user's clock and the Service Node's clock. Used in cases where the
     /// user's clock is incorrect.
-    ///
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     var clockOffsetMs: Int64 { get }
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    var swarmCache: [String: Set<Snode>] { get }
     
-    var hasInsufficientSnodes: Bool { get }
+    func hasLoadedSwarm(for publicKey: String) -> Bool
+    func swarmCache(publicKey: String) -> Set<Snode>?
 }
 
 public protocol SnodeAPICacheType: SnodeAPIImmutableCacheType, MutableCacheType {
     var hasLoadedSnodePool: Bool { get set }
-    var loadedSwarms: Set<String> { get set }
-    
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     var snodeFailureCount: [Snode: UInt] { get set }
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     var snodePool: Set<Snode> { get set }
+    var hasInsufficientSnodes: Bool { get }
 
     /// The offset between the user's clock and the Service Node's clock. Used in cases where the
     /// user's clock is incorrect.
-    ///
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
     var clockOffsetMs: Int64 { get set }
-    /// - Note: Should only be accessed from `Threading.workQueue` to avoid race conditions.
-    var swarmCache: [String: Set<Snode>] { get set }
     
-    var hasInsufficientSnodes: Bool { get }
+    func setSwarmCache(publicKey: String, cache: Set<Snode>)
+    func clearSwarmCache()
 }
 
 // MARK: - GetSnodePoolCacheType

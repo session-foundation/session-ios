@@ -102,8 +102,8 @@ extension SessionCell {
             result.isUserInteractionEnabled = false // Triggered by didSelectCell instead
             result.themeOnTintColor = .primary
             result.isHidden = true
-            result.setContentHuggingHigh()
-            result.setCompressionResistanceHigh()
+            result.setContentHugging(to: .required)
+            result.setCompressionResistance(to: .required)
             
             return result
         }()
@@ -135,8 +135,8 @@ extension SessionCell {
             result.translatesAutoresizingMaskIntoConstraints = false
             result.font = .systemFont(ofSize: Values.smallFontSize, weight: .medium)
             result.themeTextColor = .textPrimary
-            result.setContentHuggingHigh()
-            result.setCompressionResistanceHigh()
+            result.setContentHugging(to: .required)
+            result.setCompressionResistance(to: .required)
             
             return result
         }()

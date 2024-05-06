@@ -1,12 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import Sodium
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 final class RegisterVC : BaseVC {
+    private let dependencies: Dependencies
     private var seed: Data! { didSet { updateKeyPair() } }
     private var ed25519KeyPair: KeyPair!
     private var x25519KeyPair: KeyPair! { didSet { updatePublicKeyLabel() } }
@@ -51,6 +51,18 @@ final class RegisterVC : BaseVC {
         
         return result
     }()
+    
+    // MARK: - Initialization
+
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - Lifecycle
     
@@ -149,13 +161,13 @@ final class RegisterVC : BaseVC {
         topSpacer.heightAnchor.constraint(equalTo: bottomSpacer.heightAnchor, multiplier: 1).isActive = true
         
         // Peform initial seed update
-        updateSeed()
+        try? updateSeed()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        Onboarding.Flow.register.unregister()
+        Onboarding.Flow.register.unregister(using: dependencies)
     }
     
     // MARK: General
@@ -168,12 +180,12 @@ final class RegisterVC : BaseVC {
     
     // MARK: Updating
     
-    private func updateSeed(using dependencies: Dependencies = Dependencies()) {
-        seed = try! dependencies[singleton: .crypto].tryGenerate(.randomBytes(numberBytes: 16))
+    private func updateSeed() throws {
+        seed = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(16))
     }
     
     private func updateKeyPair() {
-        (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
+        (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed, using: dependencies)
     }
     
     private func updatePublicKeyLabel() {
@@ -211,7 +223,6 @@ final class RegisterVC : BaseVC {
     @objc private func register() {
         Onboarding.Flow.register
             .preregister(
-                with: seed,
                 ed25519KeyPair: ed25519KeyPair,
                 x25519KeyPair: x25519KeyPair
             )

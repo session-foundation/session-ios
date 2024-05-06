@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import Sodium
 import SessionUtil
 import SessionUtilitiesKit
 import SessionSnodeKit
@@ -230,7 +229,7 @@ internal extension SessionUtil {
             .subtracting(communities.map { $0.data.threadId })
         
         if !communityIdsToRemove.isEmpty {
-            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove))
+            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(communityIdsToRemove), using: dependencies)
             
             try SessionThread
                 .deleteOrLeave(
@@ -413,7 +412,7 @@ internal extension SessionUtil {
             .subtracting(legacyGroups.map { $0.id })
         
         if !legacyGroupIdsToRemove.isEmpty {
-            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove))
+            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(legacyGroupIdsToRemove), using: dependencies)
             
             try SessionThread
                 .deleteOrLeave(
@@ -531,7 +530,7 @@ internal extension SessionUtil {
             .subtracting(groups.map { $0.groupSessionId })
         
         if !groupSessionIdsToRemove.isEmpty {
-            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(groupSessionIdsToRemove))
+            SessionUtil.kickFromConversationUIIfNeeded(removedThreadIds: Array(groupSessionIdsToRemove), using: dependencies)
             
             try SessionThread
                 .deleteOrLeave(
@@ -573,7 +572,8 @@ internal extension SessionUtil {
     
     static func upsert(
         legacyGroups: [LegacyGroupInfo],
-        in config: Config?
+        in config: Config?,
+        using dependencies: Dependencies
     ) throws {
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         guard !legacyGroups.isEmpty else { return }
@@ -680,7 +680,8 @@ internal extension SessionUtil {
     
     static func upsert(
         groups: [GroupInfo],
-        in config: Config?
+        in config: Config?,
+        using dependencies: Dependencies
     ) throws {
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         guard !groups.isEmpty else { return }
@@ -733,7 +734,8 @@ internal extension SessionUtil {
     
     static func upsert(
         communities: [CommunityInfo],
-        in config: Config?
+        in config: Config?,
+        using dependencies: Dependencies
     ) throws {
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         guard !communities.isEmpty else { return }
@@ -788,7 +790,8 @@ internal extension SessionUtil {
                         authData: group.authData
                     )
                 },
-                in: config
+                in: config,
+                using: dependencies
             )
         }
         
@@ -826,7 +829,8 @@ public extension SessionUtil {
                         )
                     )
                 ],
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }
@@ -936,7 +940,8 @@ public extension SessionUtil {
                         joinedAt: formationTimestamp
                     )
                 ],
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }
@@ -986,7 +991,8 @@ public extension SessionUtil {
                             }
                     )
                 ],
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }
@@ -1009,7 +1015,8 @@ public extension SessionUtil {
                         disappearingConfig: $0
                     )
                 },
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }
@@ -1070,7 +1077,8 @@ public extension SessionUtil {
                         invited: invited
                     )
                 ],
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }
@@ -1100,7 +1108,8 @@ public extension SessionUtil {
                         invited: invited
                     )
                 ],
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }

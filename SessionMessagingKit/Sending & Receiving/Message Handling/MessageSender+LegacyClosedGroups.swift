@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -216,11 +215,13 @@ extension MessageSender {
                                 wrappers: targetMembers.map { memberPublicKey in
                                     ClosedGroupControlMessage.KeyPairWrapper(
                                         publicKey: memberPublicKey,
-                                        encryptedKeyPair: try MessageSender.encryptWithSessionProtocol(
-                                            db,
-                                            plaintext: plaintext,
-                                            for: memberPublicKey,
-                                            using: dependencies
+                                        encryptedKeyPair: try dependencies[singleton: .crypto].tryGenerate(
+                                            .ciphertextWithSessionProtocol(
+                                                db,
+                                                plaintext: plaintext,
+                                                destination: .contact(publicKey: memberPublicKey),
+                                                using: dependencies
+                                            )
                                         )
                                     )
                                 }
@@ -644,11 +645,13 @@ extension MessageSender {
                 calledFromConfig: nil,
                 using: dependencies
             )
-            let ciphertext = try MessageSender.encryptWithSessionProtocol(
-                db,
-                plaintext: plaintext,
-                for: publicKey,
-                using: dependencies
+            let ciphertext = try dependencies[singleton: .crypto].tryGenerate(
+                .ciphertextWithSessionProtocol(
+                    db,
+                    plaintext: plaintext,
+                    destination: .contact(publicKey: publicKey),
+                    using: dependencies
+                )
             )
             
             SNLog("Sending latest encryption key pair to: \(publicKey).")

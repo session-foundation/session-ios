@@ -95,7 +95,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         return margin <= ConversationVC.scrollToBottomMargin
     }
 
-    lazy var mnemonic: String = { ((try? SeedVC.mnemonic()) ?? "") }()
+    lazy var mnemonic: String = { ((try? SeedVC.mnemonic(using: viewModel.dependencies)) ?? "") }()
 
     // FIXME: Would be good to create a Swift-based cache and replace this
     lazy var mediaCache: NSCache<NSString, AnyObject> = {
@@ -167,7 +167,8 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
 
     lazy var snInputView: InputView = InputView(
         threadVariant: self.viewModel.initialThreadVariant,
-        delegate: self
+        delegate: self,
+        using: self.viewModel.dependencies
     )
 
     lazy var unreadCountView: UIView = {
@@ -286,7 +287,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     }()
     
     private lazy var emptyStateLabel: UILabel = {
-        let text: String = viewModel.threadData.emptyStateText
+        let text: String = viewModel.threadData.emptyStateText(using: viewModel.dependencies)
         let result: UILabel = UILabel()
         result.isAccessibilityElement = true
         result.accessibilityIdentifier = "Control message"
@@ -715,10 +716,10 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
     private func startObservingChanges(didReturnFromBackground: Bool = false) {
         guard dataChangeObservable == nil else { return }
         
-        dataChangeObservable = Dependencies()[singleton: .storage].start(
+        dataChangeObservable = viewModel.dependencies[singleton: .storage].start(
             viewModel.observableThreadData,
             onError:  { _ in },
-            onChange: { [weak self] maybeThreadData in
+            onChange: { [weak self, dependencies = viewModel.dependencies] maybeThreadData in
                 guard let threadData: SessionThreadViewModel = maybeThreadData else {
                     // If the thread data is null and the id was blinded then we just unblinded the thread
                     // and need to swap over to the new one
@@ -728,7 +729,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                             (try? SessionId.Prefix(from: sessionId)) == .blinded15 ||
                             (try? SessionId.Prefix(from: sessionId)) == .blinded25
                         ),
-                        let blindedLookup: BlindedIdLookup = Dependencies()[singleton: .storage].read({ db in
+                        let blindedLookup: BlindedIdLookup = dependencies[singleton: .storage].read({ db in
                             try BlindedIdLookup
                                 .filter(id: sessionId)
                                 .fetchOne(db)
@@ -752,14 +753,14 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
                     
                     // Stop observing changes
                     self?.stopObservingChanges()
-                    Dependencies()[singleton: .storage].removeObserver(self?.viewModel.pagedDataObserver)
+                    dependencies[singleton: .storage].removeObserver(self?.viewModel.pagedDataObserver)
                     
                     // Swap the observing to the updated thread
                     let newestVisibleMessageId: Int64? = self?.fullyVisibleCellViewModels()?.last?.id
                     self?.viewModel.swapToThread(updatedThreadId: unblindedId, focussedMessageId: newestVisibleMessageId)
                     
                     // Start observing changes again
-                    Dependencies()[singleton: .storage].addObserver(self?.viewModel.pagedDataObserver)
+                    dependencies[singleton: .storage].addObserver(self?.viewModel.pagedDataObserver)
                     self?.startObservingChanges()
                     return
                 }
@@ -835,7 +836,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             )
             
             // Update the empty state
-            let text: String = updatedThreadData.emptyStateText
+            let text: String = updatedThreadData.emptyStateText(using: viewModel.dependencies)
             emptyStateLabel.attributedText = NSAttributedString(string: text)
                 .adding(
                     attributes: [.font: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize)],
@@ -1940,12 +1941,14 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             ipadCancelButton.setThemeTitleColor(.textPrimary, for: .normal)
             searchBarContainer.addSubview(ipadCancelButton)
             ipadCancelButton.pin(.trailing, to: .trailing, of: searchBarContainer)
-            ipadCancelButton.autoVCenterInSuperview()
-            searchBar.autoPinEdgesToSuperviewEdges(with: UIEdgeInsets.zero, excludingEdge: .trailing)
+            ipadCancelButton.center(.vertical, in: searchBarContainer)
+            searchBar.pin(.top, to: .top, of: searchBar)
+            searchBar.pin(.leading, to: .leading, of: searchBar)
             searchBar.pin(.trailing, to: .leading, of: ipadCancelButton, withInset: -Values.smallSpacing)
+            searchBar.pin(.bottom, to: .bottom, of: searchBar)
         }
         else {
-            searchBar.autoPinEdgesToSuperviewMargins()
+            searchBar.pin(toMarginsOf: searchBarContainer)
         }
         
         // Nav bar buttons
@@ -2005,6 +2008,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         hideSearchUI()
     }
     
+    func conversationSearchControllerDependencies() -> Dependencies { return viewModel.dependencies }
     func currentVisibleIds() -> [Int64] { return (fullyVisibleCellViewModels() ?? []).map { $0.id } }
     
     func conversationSearchController(_ conversationSearchController: ConversationSearchController, didUpdateSearchResults results: [Interaction.TimestampInfo]?, searchText: String?) {

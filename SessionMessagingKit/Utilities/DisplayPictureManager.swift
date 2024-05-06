@@ -33,7 +33,7 @@ public struct DisplayPictureManager {
         let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
             .appendingPathComponent("ProfileAvatars")   // stringlint:disable
             .path
-        OWSFileSystem.ensureDirectoryExists(path)
+        try? FileSystem.ensureDirectoryExists(at: path, using: dependencies)
         
         return path
     }
@@ -245,7 +245,7 @@ public struct DisplayPictureManager {
                         // To help ensure the user is being shown the same cropping of their avatar as
                         // everyone else will see, we want to be sure that the image was resized before this point.
                         SNLog("Avatar image should have been resized before trying to upload")
-                        image = image.resizedImage(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
+                        image = image.resized(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
                     }
                     
                     guard let data: Data = image.jpegData(compressionQuality: 0.95) else {
@@ -266,7 +266,7 @@ public struct DisplayPictureManager {
                 }()
                 
                 newEncryptionKey = try dependencies[singleton: .crypto]
-                    .tryGenerate(.randomBytes(numberBytes: DisplayPictureManager.aes256KeyByteLength))
+                    .tryGenerate(.randomBytes(DisplayPictureManager.aes256KeyByteLength))
                 fileExtension = {
                     switch guessedFormat {
                         case .gif: return "gif"     // stringlint:disable

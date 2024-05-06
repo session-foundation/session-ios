@@ -25,3 +25,11 @@ extension Timer {
         return timer
     }
 }
+
+// MARK: - Objective-C Extensions
+
+public extension Timer {
+    @objc static func weakScheduledTimer(timeInterval: TimeInterval, repeats: Bool, onFire: @escaping (Timer) -> ()) -> Timer {
+        return Timer.scheduledTimerOnMainThread(withTimeInterval: timeInterval, repeats: repeats, block: onFire)
+    }
+}

@@ -22,12 +22,10 @@ public class AppEnvironment {
         }
     }
 
-    public var callManager: SessionCallManager
     public var pushRegistrationManager: PushRegistrationManager
     public var fileLogger: DDFileLogger
 
     private init() {
-        self.callManager = SessionCallManager()
         self.pushRegistrationManager = PushRegistrationManager()
         self.fileLogger = DDFileLogger()
         
@@ -35,10 +33,6 @@ public class AppEnvironment {
     }
 
     public func setup() {
-        // Hang certain singletons on Environment too.
-        Environment.shared?.callManager.mutate {
-            $0 = callManager
-        }
         setupLogFiles()
     }
     

@@ -50,7 +50,11 @@ public enum OnionRequestAPI {
     
     // MARK: - Onion Building Result
     
-    private typealias OnionBuildingResult = (guardSnode: Snode, finalEncryptionResult: AES.GCM.EncryptionResult, destinationSymmetricKey: Data)
+    internal typealias PreparedOnionRequest = (
+        guardSnode: Snode,
+        payload: Data,
+        finalX25519KeyPair: KeyPair
+    )
 
     // MARK: - Private API
     
@@ -380,51 +384,24 @@ public enum OnionRequestAPI {
         around payload: Data,
         targetedAt destination: OnionRequestAPIDestination,
         using dependencies: Dependencies
-    ) -> AnyPublisher<OnionBuildingResult, Error> {
-        var guardSnode: Snode!
-        var targetSnodeSymmetricKey: Data! // Needed by invoke(_:on:with:) to decrypt the response sent back by the destination
-        var encryptionResult: AES.GCM.EncryptionResult!
-        var snodeToExclude: Snode?
-        
-        if case .snode(let snode) = destination { snodeToExclude = snode }
+    ) -> AnyPublisher<PreparedOnionRequest, Error> {
+        let snodeToExclude: Snode? = {
+            switch destination {
+                case .snode(let snode): return snode
+                default: return nil
+            }
+        }()
         
         return getPath(excluding: snodeToExclude, using: dependencies)
-            .flatMap { path -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
-                guardSnode = path.first!
-                
-                // Encrypt in reverse order, i.e. the destination first
-                return encrypt(payload, for: destination, using: dependencies)
-                    .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
-                        targetSnodeSymmetricKey = r.symmetricKey
-                        
-                        // Recursively encrypt the layers of the onion (again in reverse order)
-                        encryptionResult = r
-                        var path = path
-                        var rhs = destination
-                        
-                        func addLayer() -> AnyPublisher<AES.GCM.EncryptionResult, Error> {
-                            guard !path.isEmpty else {
-                                return Just(encryptionResult)
-                                    .setFailureType(to: Error.self)
-                                    .eraseToAnyPublisher()
-                            }
-                            
-                            let lhs = OnionRequestAPIDestination.snode(path.removeLast())
-                            return OnionRequestAPI
-                                .encryptHop(from: lhs, to: rhs, using: encryptionResult, using: dependencies)
-                                .flatMap { r -> AnyPublisher<AES.GCM.EncryptionResult, Error> in
-                                    encryptionResult = r
-                                    rhs = lhs
-                                    return addLayer()
-                                }
-                                .eraseToAnyPublisher()
-                        }
-                        
-                        return addLayer()
-                    }
-                    .eraseToAnyPublisher()
+            .tryMap { path -> PreparedOnionRequest in
+                try dependencies[singleton: .crypto].tryGenerate(
+                    .onionRequestPayload(
+                        payload: payload,
+                        destination: destination,
+                        path: path
+                    )
+                )
             }
-            .map { _ in (guardSnode, encryptionResult, targetSnodeSymmetricKey) }
             .eraseToAnyPublisher()
     }
 
@@ -500,26 +477,15 @@ public enum OnionRequestAPI {
         var guardSnode: Snode?
         
         return buildOnion(around: payload, targetedAt: destination, using: dependencies)
-            .flatMap { intermediate -> AnyPublisher<(ResponseInfoType, Data?), Error> in
-                guardSnode = intermediate.guardSnode
-                let url = "\(guardSnode!.address):\(guardSnode!.port)/onion_req/v2"
-                let finalEncryptionResult = intermediate.finalEncryptionResult
-                let onion = finalEncryptionResult.ciphertext
-                if case OnionRequestAPIDestination.server = destination, Double(onion.count) > 0.75 * Double(maxRequestSize) {
-                    SNLog("Approaching request size limit: ~\(onion.count) bytes.")
-                }
-                let parameters: JSON = [
-                    "ephemeral_key" : finalEncryptionResult.ephemeralPublicKey.toHexString()
-                ]
-                let destinationSymmetricKey = intermediate.destinationSymmetricKey
+            .tryFlatMap { preparedRequest -> AnyPublisher<(ResponseInfoType, Data?), Error> in
+                let url: String = "\(preparedRequest.guardSnode.address):\(preparedRequest.guardSnode.port)/onion_req/v2"
+                guardSnode = preparedRequest.guardSnode
                 
-                // TODO: Replace 'json' with a codable typed
-                return encode(ciphertext: onion, json: parameters)
-                    .flatMap { body in HTTP.execute(.post, url, body: body, timeout: timeout) }
+                return HTTP.execute(.post, url, body: preparedRequest.payload, timeout: timeout)
                     .flatMap { responseData in
                         handleResponse(
                             responseData: responseData,
-                            destinationSymmetricKey: destinationSymmetricKey,
+                            finalX25519KeyPair: preparedRequest.finalX25519KeyPair,
                             version: version,
                             destination: destination,
                             using: dependencies
@@ -665,7 +631,7 @@ public enum OnionRequestAPI {
     
     private static func handleResponse(
         responseData: Data,
-        destinationSymmetricKey: Data,
+        finalX25519KeyPair: KeyPair,
         version: OnionRequestAPIVersion,
         destination: OnionRequestAPIDestination,
         using dependencies: Dependencies
@@ -686,13 +652,22 @@ public enum OnionRequestAPI {
                         .eraseToAnyPublisher()
                 }
                 
-                guard let base64EncodedIVAndCiphertext = json["result"] as? String, let ivAndCiphertext = Data(base64Encoded: base64EncodedIVAndCiphertext), ivAndCiphertext.count >= AES.GCM.ivSize else {
+                guard
+                    let base64EncodedIVAndCiphertext = json["result"] as? String,
+                    let ivAndCiphertext = Data(base64Encoded: base64EncodedIVAndCiphertext)
+                else {
                     return Fail(error: HTTPError.invalidJSON)
                         .eraseToAnyPublisher()
                 }
                 
                 do {
-                    let data = try AES.GCM.decrypt(ivAndCiphertext, with: destinationSymmetricKey)
+                    let data: Data = try dependencies[singleton: .crypto].tryGenerate(
+                        .onionRequestResponse(
+                            responseData: ivAndCiphertext,
+                            destination: destination,
+                            finalX25519KeyPair: finalX25519KeyPair
+                        )
+                    )
                     
                     guard let json = try JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON, let statusCode = json["status_code"] as? Int ?? json["status"] as? Int else {
                         return Fail(error: HTTPError.invalidJSON)
@@ -767,13 +742,14 @@ public enum OnionRequestAPI {
                 
             // V4 Onion Requests have a very different structure for responses
             case .v4:
-                guard responseData.count >= AES.GCM.ivSize else {
-                    return Fail(error: HTTPError.invalidResponse)
-                        .eraseToAnyPublisher()
-                }
-                
                 do {
-                    let data: Data = try AES.GCM.decrypt(responseData, with: destinationSymmetricKey)
+                    let data: Data = try dependencies[singleton: .crypto].tryGenerate(
+                        .onionRequestResponse(
+                            responseData: responseData,
+                            destination: destination,
+                            finalX25519KeyPair: finalX25519KeyPair
+                        )
+                    )
                     
                     // Process the bencoded response
                     guard let processedResponse: (info: ResponseInfoType, body: Data?) = process(bencodedData: data, using: dependencies) else {

@@ -75,13 +75,13 @@ final class CallMessageCell: MessageCell {
             withInset: -((CallMessageCell.inset * 2) + infoImageView.bounds.size.width)
         )
         label.pin(.bottom, to: .bottom, of: result, withInset: -CallMessageCell.inset)
+        
         result.addSubview(iconImageView)
-        
-        iconImageView.autoVCenterInSuperview()
+        iconImageView.center(.vertical, in: result)
         iconImageView.pin(.left, to: .left, of: result, withInset: CallMessageCell.inset)
-        result.addSubview(infoImageView)
         
-        infoImageView.autoVCenterInSuperview()
+        result.addSubview(infoImageView)
+        infoImageView.center(.vertical, in: result)
         infoImageView.pin(.right, to: .right, of: result, withInset: -CallMessageCell.inset)
         
         return result
@@ -163,7 +163,7 @@ final class CallMessageCell: MessageCell {
         
         let shouldShowInfoIcon: Bool = (
             messageInfo.state == .permissionDenied &&
-            !Dependencies()[singleton: .storage, key: .areCallsEnabled]
+            !dependencies[singleton: .storage, key: .areCallsEnabled]
         )
         infoImageViewWidthConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
         infoImageViewHeightConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
@@ -207,6 +207,7 @@ final class CallMessageCell: MessageCell {
     
     @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard
+            let dependencies: Dependencies = self.dependencies,
             let cellViewModel: MessageViewModel = self.viewModel,
             cellViewModel.variant == .infoCall,
             let infoMessageData: Data = (cellViewModel.rawBody ?? "").data(using: .utf8),
@@ -217,7 +218,7 @@ final class CallMessageCell: MessageCell {
         else { return }
         
         // Should only be tappable if the info icon is visible
-        guard messageInfo.state == .permissionDenied && !Dependencies()[singleton: .storage, key: .areCallsEnabled] else { return }
+        guard messageInfo.state == .permissionDenied && !dependencies[singleton: .storage, key: .areCallsEnabled] else { return }
         
         self.delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
     }

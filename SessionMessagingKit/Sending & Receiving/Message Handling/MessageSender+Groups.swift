@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -362,176 +361,186 @@ extension MessageSender {
         members: [(id: String, profile: Profile?)],
         allowAccessToHistoricMessages: Bool,
         using dependencies: Dependencies
-    ) {
-        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else { return }
+    ) -> AnyPublisher<Void, Error> {
+        guard let sessionId: SessionId = try? SessionId(from: groupSessionId), sessionId.prefix == .group else {
+            return Fail(error: MessageSenderError.invalidClosedGroupUpdate).eraseToAnyPublisher()
+        }
         
-        dependencies[singleton: .storage].writeAsync(using: dependencies) { db in
-            guard
-                let groupIdentityPrivateKey: Data = try? ClosedGroup
-                    .filter(id: sessionId.hexString)
-                    .select(.groupIdentityPrivateKey)
-                    .asRequest(of: Data.self)
-                    .fetchOne(db)
-            else { throw MessageSenderError.invalidClosedGroupUpdate }
-            
-            let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-            let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
-            
-            /// Add the members to the `GROUP_MEMBERS` config
-            try SessionUtil.addMembers(
-                db,
-                groupSessionId: sessionId,
-                members: members,
-                allowAccessToHistoricMessages: allowAccessToHistoricMessages,
-                using: dependencies
-            )
-            
-            /// We need to update the group keys when adding new members, this should be done by either supplementing the
-            /// current keys (which allows access to existing messages) or by doing a full `rekey` which means new messages
-            /// will be encrypted using new keys
-            ///
-            /// **Note:** This **MUST** be called _after_ the new members have been added to the group, otherwise the
-            /// keys may not be generated correctly for the newly added members
-            if allowAccessToHistoricMessages {
-                /// Since our state doesn't care about the `GROUP_KEYS` needed for other members triggering a `keySupplement`
-                /// change won't result in the `GROUP_KEYS` config changing or the `ConfigurationSyncJob` getting triggered
-                /// we need to push the change directly
-                let supplementData: Data = try SessionUtil.keySupplement(
+        return dependencies[singleton: .storage]
+            .writePublisher(using: dependencies) { db in
+                guard
+                    let groupIdentityPrivateKey: Data = try? ClosedGroup
+                        .filter(id: sessionId.hexString)
+                        .select(.groupIdentityPrivateKey)
+                        .asRequest(of: Data.self)
+                        .fetchOne(db)
+                else { throw MessageSenderError.invalidClosedGroupUpdate }
+                
+                let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+                let changeTimestampMs: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
+                
+                /// Add the members to the `GROUP_MEMBERS` config
+                try SessionUtil.addMembers(
                     db,
                     groupSessionId: sessionId,
-                    memberIds: members.map { $0.id }.asSet(),
+                    members: members,
+                    allowAccessToHistoricMessages: allowAccessToHistoricMessages,
                     using: dependencies
                 )
                 
-                try SnodeAPI
-                    .preparedSendMessage(
-                        message: SnodeMessage(
-                            recipient: sessionId.hexString,
-                            data: supplementData.base64EncodedString(),
-                            ttl: ConfigDump.Variant.groupKeys.ttl,
-                            timestampMs: UInt64(changeTimestampMs)
-                        ),
-                        in: .configGroupKeys,
-                        authMethod: Authentication.groupAdmin(
-                            groupSessionId: sessionId,
-                            ed25519SecretKey: Array(groupIdentityPrivateKey)
-                        ),
-                        using: dependencies
-                    )
-                    .send(using: dependencies)
-                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                    .sinkUntilComplete()
-            }
-            else {
-                try SessionUtil.rekey(
-                    db,
-                    groupSessionId: sessionId,
-                    using: dependencies
-                )
-            }
-            
-            /// Generate the data needed to send the new members invitations to the group
-            let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details, subaccountToken: [UInt8])] = try members
-                .map { id, profile in
-                    // Generate authData for the newly added member
-                    let subaccountToken: [UInt8] = try SessionUtil.generateSubaccountToken(
+                /// We need to update the group keys when adding new members, this should be done by either supplementing the
+                /// current keys (which allows access to existing messages) or by doing a full `rekey` which means new messages
+                /// will be encrypted using new keys
+                ///
+                /// **Note:** This **MUST** be called _after_ the new members have been added to the group, otherwise the
+                /// keys may not be generated correctly for the newly added members
+                if allowAccessToHistoricMessages {
+                    /// Since our state doesn't care about the `GROUP_KEYS` needed for other members triggering a `keySupplement`
+                    /// change won't result in the `GROUP_KEYS` config changing or the `ConfigurationSyncJob` getting triggered
+                    /// we need to push the change directly
+                    let supplementData: Data = try SessionUtil.keySupplement(
+                        db,
                         groupSessionId: sessionId,
-                        memberId: id,
+                        memberIds: members.map { $0.id }.asSet(),
                         using: dependencies
-                    )
-                    let memberAuthInfo: Authentication.Info = try SessionUtil.generateAuthData(
-                        groupSessionId: sessionId,
-                        memberId: id,
-                        using: dependencies
-                    )
-                    let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
-                        memberSessionIdHexString: id,
-                        authInfo: memberAuthInfo
                     )
                     
-                    return (id, profile, inviteDetails, subaccountToken)
+                    try SnodeAPI
+                        .preparedSendMessage(
+                            message: SnodeMessage(
+                                recipient: sessionId.hexString,
+                                data: supplementData.base64EncodedString(),
+                                ttl: ConfigDump.Variant.groupKeys.ttl,
+                                timestampMs: UInt64(changeTimestampMs)
+                            ),
+                            in: .configGroupKeys,
+                            authMethod: Authentication.groupAdmin(
+                                groupSessionId: sessionId,
+                                ed25519SecretKey: Array(groupIdentityPrivateKey)
+                            ),
+                            using: dependencies
+                        )
+                        .send(using: dependencies)
+                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                        .sinkUntilComplete()
                 }
-            
-            /// Unrevoke the newly added members just in case they had previously gotten their access to the group
-            /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
-            /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
-            try SnodeAPI.preparedUnrevokeSubaccounts(
-                subaccountsToUnrevoke: memberJobData.map { _, _, _, subaccountToken in subaccountToken },
-                authMethod: Authentication.groupAdmin(
-                    groupSessionId: sessionId,
-                    ed25519SecretKey: Array(groupIdentityPrivateKey)
-                ),
-                using: dependencies
-            )
-            .send(using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .sinkUntilComplete()
-            
-            /// Make the required changes for each added member
-            try memberJobData.forEach { id, profile, inviteJobDetails, _ in
-                /// Add the member to the database
-                try GroupMember(
-                    groupId: sessionId.hexString,
-                    profileId: id,
-                    role: .standard,
-                    roleStatus: .sending,
-                    isHidden: false
-                ).upsert(db)
+                else {
+                    try SessionUtil.rekey(
+                        db,
+                        groupSessionId: sessionId,
+                        using: dependencies
+                    )
+                }
                 
-                /// Schedule a job to send an invitation to the newly added member
-                dependencies[singleton: .jobRunner].add(
-                    db,
-                    job: Job(
-                        variant: .groupInviteMember,
-                        threadId: sessionId.hexString,
-                        details: inviteJobDetails
+                /// **Note:** We don't care if any of the remaining processes fail as the local group should have been updated already and the
+                /// user can manually retry sending if needed
+                ///
+                /// Generate the data needed to send the new members invitations to the group
+                let memberJobData: [(id: String, profile: Profile?, jobDetails: GroupInviteMemberJob.Details, subaccountToken: [UInt8])] = (try? members
+                    .map { id, profile in
+                        // Generate authData for the newly added member
+                        let subaccountToken: [UInt8] = try SessionUtil.generateSubaccountToken(
+                            groupSessionId: sessionId,
+                            memberId: id,
+                            using: dependencies
+                        )
+                        let memberAuthInfo: Authentication.Info = try SessionUtil.generateAuthData(
+                            groupSessionId: sessionId,
+                            memberId: id,
+                            using: dependencies
+                        )
+                        let inviteDetails: GroupInviteMemberJob.Details = try GroupInviteMemberJob.Details(
+                            memberSessionIdHexString: id,
+                            authInfo: memberAuthInfo
+                        )
+                        
+                        return (id, profile, inviteDetails, subaccountToken)
+                    })
+                    .defaulting(to: [])
+                    
+                /// Unrevoke the newly added members just in case they had previously gotten their access to the group
+                /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
+                /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
+                try? SnodeAPI.preparedUnrevokeSubaccounts(
+                    subaccountsToUnrevoke: memberJobData.map { _, _, _, subaccountToken in subaccountToken },
+                    authMethod: Authentication.groupAdmin(
+                        groupSessionId: sessionId,
+                        ed25519SecretKey: Array(groupIdentityPrivateKey)
                     ),
-                    canStartJob: true,
                     using: dependencies
                 )
-            }
-            
-            /// Add a record of the change to the conversation
-            _ = try Interaction(
-                threadId: groupSessionId,
-                authorId: userSessionId.hexString,
-                variant: .infoGroupMembersUpdated,
-                body: ClosedGroup.MessageInfo
-                    .addedUsers(
-                        hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
-                        names: members
-                            .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
-                            .map { id, profile in
-                                profile?.displayName(for: .group) ??
-                                Profile.truncated(id: id, truncating: .middle)
-                            },
-                        historyShared: allowAccessToHistoricMessages
-                    )
-                    .infoString(using: dependencies),
-                timestampMs: changeTimestampMs
-            ).inserted(db)
-            
-            /// Schedule the control message to be sent to the group
-            try MessageSender.send(
-                db,
-                message: GroupUpdateMemberChangeMessage(
-                    changeType: .added,
-                    memberSessionIds: members.map { $0.id },
-                    historyShared: allowAccessToHistoricMessages,
-                    sentTimestamp: UInt64(changeTimestampMs),
-                    authMethod: try Authentication.with(
+                .send(using: dependencies)
+                .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                .sinkUntilComplete()
+                
+                /// Make the required changes for each added member
+                memberJobData.forEach { id, profile, inviteJobDetails, _ in
+                    /// Add the member to the database
+                    try? GroupMember(
+                        groupId: sessionId.hexString,
+                        profileId: id,
+                        role: .standard,
+                        roleStatus: .sending,
+                        isHidden: false
+                    ).upsert(db)
+                    
+                    /// Schedule a job to send an invitation to the newly added member
+                    dependencies[singleton: .jobRunner].add(
                         db,
-                        sessionIdHexString: groupSessionId,
+                        job: Job(
+                            variant: .groupInviteMember,
+                            threadId: sessionId.hexString,
+                            details: inviteJobDetails
+                        ),
+                        canStartJob: true,
                         using: dependencies
-                    ),
+                    )
+                }
+                
+                /// Add a record of the change to the conversation
+                _ = try? Interaction(
+                    threadId: groupSessionId,
+                    authorId: userSessionId.hexString,
+                    variant: .infoGroupMembersUpdated,
+                    body: ClosedGroup.MessageInfo
+                        .addedUsers(
+                            hasCurrentUser: members.map { $0.id }.contains(userSessionId.hexString),
+                            names: members
+                                .sorted { lhs, rhs in lhs.id == userSessionId.hexString }
+                                .map { id, profile in
+                                    profile?.displayName(for: .group) ??
+                                    Profile.truncated(id: id, truncating: .middle)
+                                },
+                            historyShared: allowAccessToHistoricMessages
+                        )
+                        .infoString(using: dependencies),
+                    timestampMs: changeTimestampMs
+                ).inserted(db)
+                
+                /// Schedule the control message to be sent to the group
+                (try? Authentication.with(
+                    db,
+                    sessionIdHexString: groupSessionId,
                     using: dependencies
-                ),
-                interactionId: nil,
-                threadId: sessionId.hexString,
-                threadVariant: .group,
-                using: dependencies
-            )
-        }
+                )).map { authMethod in
+                    try? MessageSender.send(
+                        db,
+                        message: GroupUpdateMemberChangeMessage(
+                            changeType: .added,
+                            memberSessionIds: members.map { $0.id },
+                            historyShared: allowAccessToHistoricMessages,
+                            sentTimestamp: UInt64(changeTimestampMs),
+                            authMethod: authMethod,
+                            using: dependencies
+                        ),
+                        interactionId: nil,
+                        threadId: sessionId.hexString,
+                        threadVariant: .group,
+                        using: dependencies
+                    )
+                }
+            }
+            .eraseToAnyPublisher()
     }
     
     public static func resendInvitation(

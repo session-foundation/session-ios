@@ -113,13 +113,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         result.image = UIImage(named: "ic_reply")?.withRenderingMode(.alwaysTemplate)
         result.themeTintColor = .textPrimary
         
-        // Flip horizontally for RTL languages
-        result.transform = CGAffineTransform.identity
-            .scaledBy(
-                x: (Singleton.hasAppContext && Singleton.appContext.isRTL ? -1 : 1),
-                y: 1
-            )
-        
         return result
     }()
 
@@ -364,6 +357,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let authorLabelAvailableSpace = CGSize(width: authorLabelAvailableWidth, height: .greatestFiniteMagnitude)
         let authorLabelSize = authorLabel.sizeThatFits(authorLabelAvailableSpace)
         authorLabelHeightConstraint.constant = (cellViewModel.senderName != nil ? authorLabelSize.height : 0)
+        
+        // Flip horizontally for RTL languages
+        replyIconImageView.transform = CGAffineTransform.identity
+            .scaledBy(
+                x: (Dependencies.isRTL ? -1 : 1),
+                y: 1
+            )
 
         // Swipe to reply
         if ContextMenuVC.viewModelCanReply(cellViewModel) {
@@ -801,10 +801,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             let v = panGestureRecognizer.velocity(in: self)
             // Only allow swipes to the left; allowing swipes to the right gets in the way of
             // the default iOS swipe to go back gesture
-            guard
-                (Singleton.hasAppContext && Singleton.appContext.isRTL && v.x > 0) ||
-                (!Singleton.hasAppContext || !Singleton.appContext.isRTL && v.x < 0)
-            else { return false }
+            guard (Dependencies.isRTL && v.x > 0) || (!Dependencies.isRTL && v.x < 0) else { return false }
             
             return abs(v.x) > abs(v.y) // It has to be more horizontal than vertical
         }
@@ -926,7 +923,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             }
         }
         else if snContentView.bounds.contains(snContentView.convert(location, from: self)) {
-            delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location, using: dependencies)
+            delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location)
         }
     }
 
@@ -943,8 +940,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             .translation(in: self)
             .x
             .clamp(
-                (Singleton.hasAppContext && Singleton.appContext.isRTL ? 0 : -CGFloat.greatestFiniteMagnitude),
-                (Singleton.hasAppContext && Singleton.appContext.isRTL ? CGFloat.greatestFiniteMagnitude : 0)
+                (Dependencies.isRTL ? 0 : -CGFloat.greatestFiniteMagnitude),
+                (Dependencies.isRTL ? CGFloat.greatestFiniteMagnitude : 0)
             )
         
         switch gestureRecognizer.state {
@@ -953,7 +950,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case .changed:
                 // The idea here is to asymptotically approach a maximum drag distance
                 let damping: CGFloat = 20
-                let sign: CGFloat = (Singleton.hasAppContext && Singleton.appContext.isRTL ? 1 : -1)
+                let sign: CGFloat = (Dependencies.isRTL ? 1 : -1)
                 let x = (damping * (sqrt(abs(translationX)) / sqrt(damping))) * sign
                 viewsToMoveForReply.forEach { $0.transform = CGAffineTransform(translationX: x, y: 0) }
                 
@@ -1213,7 +1210,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         // we only highlight those cases)
                         normalizedBody
                             .ranges(
-                                of: (Singleton.hasAppContext && Singleton.appContext.isRTL ?
+                                of: (Dependencies.isRTL ?
                                      "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
                                      "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
                                 ),

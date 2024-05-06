@@ -13,6 +13,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private static let linkPreviewViewInset: CGFloat = 6
 
     private var disposables: Set<AnyCancellable> = Set()
+    private let dependencies: Dependencies
     private let threadVariant: SessionThread.Variant
     private weak var delegate: InputViewDelegate?
     
@@ -144,7 +145,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     // MARK: - Initialization
     
-    init(threadVariant: SessionThread.Variant, delegate: InputViewDelegate) {
+    init(threadVariant: SessionThread.Variant, delegate: InputViewDelegate, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.threadVariant = threadVariant
         self.delegate = delegate
         
@@ -282,9 +284,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         quoteView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -6)
     }
 
-    private func autoGenerateLinkPreviewIfPossible(
-        using dependencies: Dependencies = Dependencies()
-    ) {
+    private func autoGenerateLinkPreviewIfPossible() {
         // Don't allow link previews on 'none' or 'textOnly' input
         guard enabledMessageTypes == .all else { return }
 
@@ -334,7 +334,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         linkPreviewView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -4)
         
         // Build the link preview
-        LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL)
+        LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL, using: dependencies)
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(

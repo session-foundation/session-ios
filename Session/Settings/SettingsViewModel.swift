@@ -148,7 +148,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         .eraseToAnyPublisher()
     
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = navState
-        .map { [weak self] navState -> [SessionNavItem<NavItem>] in
+        .map { [weak self, dependencies] navState -> [SessionNavItem<NavItem>] in
             switch navState {
                 case .standard:
                     return [
@@ -159,7 +159,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             style: .plain,
                             accessibilityIdentifier: "Show QR code button",
                             action: { [weak self] in
-                                self?.transitionToScreen(QRCodeVC())
+                                self?.transitionToScreen(QRCodeVC(using: dependencies))
                             }
                         )
                     ]
@@ -437,9 +437,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 .withRenderingMode(.alwaysTemplate)
                         ),
                         title: "vc_settings_recovery_phrase_button_title".localized(),
-                        onTap: { [weak self] in
+                        onTap: { [weak self, dependencies] in
                             let targetViewController: UIViewController = {
-                                if let modal: SeedModal = try? SeedModal() {
+                                if let modal: SeedModal = try? SeedModal(using: dependencies) {
                                     return modal
                                 }
                                 
@@ -493,8 +493,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         ),
                         title: "vc_settings_clear_all_data_button_title".localized(),
                         styling: SessionCell.StyleInfo(tintColor: .danger),
-                        onTap: { [weak self] in
-                            self?.transitionToScreen(NukeDataModal(), transitionType: .present)
+                        onTap: { [weak self, dependencies] in
+                            self?.transitionToScreen(NukeDataModal(using: dependencies), transitionType: .present)
                         }
                     )
                 ].compactMap { $0 }
@@ -597,7 +597,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     private func showPhotoLibraryForAvatar() {
-        Permissions.requestLibraryPermissionIfNeeded { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(using: dependencies) { [weak self] in
             DispatchQueue.main.async {
                 let picker: UIImagePickerController = UIImagePickerController()
                 picker.sourceType = .photoLibrary

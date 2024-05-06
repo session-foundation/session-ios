@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SessionUtilitiesKit
+import SessionMessagingKit
 import SignalUtilitiesKit
 
 protocol SessionViewModelAccessible {

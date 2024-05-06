@@ -1,5 +1,6 @@
 // stringlint:disable
 
+import Foundation
 import SessionSnodeKit
 import SessionUtilitiesKit
 

@@ -471,7 +471,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     private func updateServiceNetwork(to updatedNetwork: ServiceNetwork?) {
         struct IdentityData {
-            let seed: Data
             let ed25519KeyPair: KeyPair
             let x25519KeyPair: KeyPair
         }
@@ -481,10 +480,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             updatedNetwork != dependencies[feature: .serviceNetwork],
             let identityData: IdentityData = dependencies[singleton: .storage].read(using: dependencies, { db in
                 IdentityData(
-                    seed: try Identity
-                        .filter(Identity.Columns.variant == Identity.Variant.seed)
-                        .fetchOne(db, orThrow: StorageError.objectNotFound)
-                        .data,
                     ed25519KeyPair: KeyPair(
                         publicKey: Array(try Identity
                             .filter(Identity.Columns.variant == Identity.Variant.ed25519PublicKey)
@@ -514,7 +509,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Stop all pollers
         dependencies[singleton: .currentUserPoller].stopAllPollers()
         dependencies[singleton: .groupsPoller].stopAllPollers()
-        OpenGroupManager.shared.stopPolling()
+        OpenGroupManager.shared.stopPolling(using: dependencies)
         
         /// Cancel and remove all current network requests
         dependencies.mutate(cache: .network) { networkCache in
@@ -532,8 +527,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Clear the snodeAPI and getSnodePool caches
         dependencies.mutate(cache: .snodeAPI) {
             $0.snodePool = []
-            $0.swarmCache = [:]
-            $0.loadedSwarms = []
+            $0.clearSwarmCache()
             $0.snodeFailureCount = [:]
             $0.hasLoadedSnodePool = false
         }
@@ -589,7 +583,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
         Onboarding.Flow.recover.preregister(
-            with: identityData.seed,
             ed25519KeyPair: identityData.ed25519KeyPair,
             x25519KeyPair: identityData.x25519KeyPair,
             using: dependencies
@@ -646,8 +639,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         /// Clear the snodeAPI and getSnodePool caches
                         dependencies.mutate(cache: .snodeAPI) {
                             $0.snodePool = []
-                            $0.swarmCache = [:]
-                            $0.loadedSwarms = []
+                            $0.clearSwarmCache()
                             $0.snodeFailureCount = [:]
                             $0.hasLoadedSnodePool = false
                         }

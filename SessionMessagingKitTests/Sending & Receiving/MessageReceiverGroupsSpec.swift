@@ -17,7 +17,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         // MARK: Configuration
         
         let groupSeed: Data = Data(hex: "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210")
-        @TestState var groupKeyPair: KeyPair! = Crypto().generate(.ed25519KeyPair(seed: groupSeed))
+        @TestState var groupKeyPair: KeyPair! = Crypto().generate(.ed25519KeyPair(seed: Array(groupSeed)))
         @TestState var groupId: SessionId! = SessionId(.group, hex: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece")
         @TestState var groupSecretKey: Data! = Data(hex:
             "0123456789abcdef0123456789abcdeffedcba9876543210fedcba9876543210" +
@@ -83,14 +83,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { try $0.tryGenerate(.signature(message: .any, secretKey: .any)) }
+                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
                 crypto
-                    .when {
-                        try $0.tryGenerate(
-                            .signatureSubaccount(config: .any, verificationBytes: .any, memberAuthData: .any)
-                        )
-                    }
+                    .when { $0.generate(.signatureSubaccount(config: .any, verificationBytes: .any, memberAuthData: .any)) }
                     .thenReturn(Authentication.Signature.subaccount(
                         subaccount: "TestSubAccount".bytes,
                         subaccountSig: "TestSubAccountSignature".bytes,
@@ -99,14 +95,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 crypto
                     .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                     .thenReturn(true)
+                crypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(groupKeyPair)
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
-                    .thenReturn(groupKeyPair)
-                
-                crypto.when {
-                    $0.verify(.memberAuthData(groupSessionId: .any, ed25519SecretKey: .any, memberAuthData: .any))
-                }
-                .thenReturn(true)
+                    .when { $0.verify(.memberAuthData(groupSessionId: .any, ed25519SecretKey: .any, memberAuthData: .any)) }
+                    .thenReturn(true)
             }
         )
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
@@ -208,8 +200,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
             initialSetup: { cache in
                 cache.when { $0.clockOffsetMs }.thenReturn(0)
-                cache.when { $0.loadedSwarms }.thenReturn([groupId.hexString])
-                cache.when { $0.swarmCache }.thenReturn([groupId.hexString: mockSwarmCache])
+                cache.when { $0.hasLoadedSwarm(for: .any) }.thenReturn(true)
+                cache.when { $0.swarmCache(publicKey: .any) }.thenReturn(mockSwarmCache)
+                cache.when { $0.setSwarmCache(publicKey: .any, cache: .any) }.thenReturn(nil)
             }
         )
         @TestState(singleton: .groupsPoller, in: dependencies) var mockGroupsPoller: MockPoller! = MockPoller(
@@ -238,19 +231,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
         
         // MARK: -- Messages
         @TestState var inviteMessage: GroupUpdateInviteMessage! = {
-            let result: GroupUpdateInviteMessage? = try? GroupUpdateInviteMessage(
+            let result: GroupUpdateInviteMessage = GroupUpdateInviteMessage(
                 inviteeSessionIdHexString: "TestId",
                 groupSessionId: groupId,
                 groupName: "TestGroup",
                 memberAuthData: Data([1, 2, 3]),
-                sentTimestamp: 1234567890000,
-                authMethod: Authentication.groupAdmin(
-                    groupSessionId: groupId,
-                    ed25519SecretKey: []
-                ),
-                using: dependencies
+                profile: nil,
+                adminSignature: .standard(signature: "TestSignature".bytes)
             )
-            result?.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+            result.sender = "051111111111111111111111111111111111111111111111111111111111111111"
+            result.sentTimestamp = 1234567890000
             
             return result
         }()
@@ -885,9 +875,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- promotes the user to admin within the group
                 it("promotes the user to admin within the group") {
-                    mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
-                        .thenReturn(nil)
+                    mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
                     
                     mockStorage.write { db in
                         result = Result(catching: {
@@ -906,9 +894,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- updates the GROUP_KEYS state correctly
                 it("updates the GROUP_KEYS state correctly") {
-                    mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: .any, using: .any)) }
-                        .thenReturn(nil)
+                    mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
                     
                     mockStorage.write { db in
                         try MessageReceiver.handleGroupUpdateMessage(

@@ -10,7 +10,7 @@ import GRDB
 public extension Singleton {
     static let jobRunner: SingletonConfig<JobRunnerType> = Dependencies.create(
         identifier: "jobRunner",
-        createInstance: { _ in JobRunner() }
+        createInstance: { dependencies in JobRunner(using: dependencies) }
     )
 }
 
@@ -30,7 +30,7 @@ public protocol JobRunnerType {
     func appDidFinishLaunching(using dependencies: Dependencies)
     func appDidBecomeActive(using dependencies: Dependencies)
     func startNonBlockingQueues(using dependencies: Dependencies)
-    func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, onComplete: (() -> ())?)
+    func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, using dependencies: Dependencies, onComplete: (() -> ())?)
     
     // MARK: - Job Scheduling
     
@@ -90,8 +90,8 @@ public extension JobRunnerType {
             .contains(where: { $0.detailsData == detailsData })
     }
     
-    func stopAndClearPendingJobs(exceptForVariant: Job.Variant? = nil, onComplete: (() -> ())? = nil) {
-        stopAndClearPendingJobs(exceptForVariant: exceptForVariant, onComplete: onComplete)
+    func stopAndClearPendingJobs(exceptForVariant: Job.Variant? = nil, using dependencies: Dependencies, onComplete: (() -> ())? = nil) {
+        stopAndClearPendingJobs(exceptForVariant: exceptForVariant, using: dependencies, onComplete: onComplete)
     }
     
     // MARK: -- Job Scheduling
@@ -218,7 +218,7 @@ public final class JobRunner: JobRunnerType {
     internal var appHasBecomeActive: Atomic<Bool> = Atomic(false)
     internal var perSessionJobsCompleted: Atomic<Set<Int64>> = Atomic([])
     internal var hasCompletedInitialBecomeActive: Atomic<Bool> = Atomic(false)
-    internal var shutdownBackgroundTask: Atomic<OWSBackgroundTask?> = Atomic(nil)
+    internal var shutdownBackgroundTask: Atomic<SessionBackgroundTask?> = Atomic(nil)
     
     private var canStartNonBlockingQueue: Bool {
         blockingQueue.wrappedValue?.hasStartedAtLeastOnce.wrappedValue == true &&
@@ -231,7 +231,7 @@ public final class JobRunner: JobRunnerType {
     init(
         isTestingJobRunner: Bool = false,
         variantsToExclude: [Job.Variant] = [],
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         var jobVariants: Set<Job.Variant> = Job.Variant.allCases
             .filter { !variantsToExclude.contains($0) }
@@ -239,8 +239,8 @@ public final class JobRunner: JobRunnerType {
         
         self.allowToExecuteJobs = (
             isTestingJobRunner || (
-                Singleton.hasAppContext &&
-                Singleton.appContext.isMainApp &&
+                dependencies.hasInitialised(singleton: .appContext) &&
+                dependencies[singleton: .appContext].isMainApp &&
                 !SNUtilitiesKit.isRunningTests
             )
         )
@@ -604,6 +604,7 @@ public final class JobRunner: JobRunnerType {
     
     public func stopAndClearPendingJobs(
         exceptForVariant: Job.Variant?,
+        using dependencies: Dependencies,
         onComplete: (() -> ())?
     ) {
         // Inform the JobRunner that it can't start any queues (this is to prevent queues from
@@ -637,7 +638,7 @@ public final class JobRunner: JobRunnerType {
         
         // Create a backgroundTask to give the queue the chance to properly be drained
         shutdownBackgroundTask.mutate {
-            $0 = OWSBackgroundTask(labelStr: #function) { [weak queue] state in
+            $0 = SessionBackgroundTask(label: #function, using: dependencies) { [weak queue] state in
                 // If the background task didn't succeed then trigger the onComplete (and hope we have
                 // enough time to complete it's logic)
                 guard state != .cancelled else {
@@ -1527,7 +1528,7 @@ public final class JobQueue: Hashable {
             if executionType != .concurrent || currentlyRunningJobIds.wrappedValue.isEmpty {
                 let timingString: String = (nextJobTimestamp == 0 ?
                     "that should be in the queue" :
-                    "scheduled \(Int(ceil(abs(secondsUntilNextJob)))) second\(Int(ceil(abs(secondsUntilNextJob))) == 1 ? "" : "s") ago"
+                    "scheduled \(Int(ceil(abs(secondsUntilNextJob)))) second\(plural: Int(ceil(abs(secondsUntilNextJob)))) ago"
                 )
                 SNLog("[JobRunner] Restarting \(queueContext) immediately for job \(timingString)")
             }
@@ -1545,7 +1546,7 @@ public final class JobQueue: Hashable {
         guard executionType != .concurrent || currentlyRunningJobIds.wrappedValue.isEmpty else { return }
         
         // Setup a trigger
-        SNLog("[JobRunner] Stopping \(queueContext) until next job in \(Int(ceil(abs(secondsUntilNextJob)))) second\(Int(ceil(abs(secondsUntilNextJob))) == 1 ? "" : "s")")
+        SNLog("[JobRunner] Stopping \(queueContext) until next job in \(Int(ceil(abs(secondsUntilNextJob)))) second\(plural: Int(ceil(abs(secondsUntilNextJob))))")
         nextTrigger.mutate { trigger in
             trigger?.invalidate()   // Need to invalidate the old trigger to prevent a memory leak
             trigger = Trigger.create(queue: self, timestamp: nextJobTimestamp, using: dependencies)

@@ -5,7 +5,6 @@ import Combine
 import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
-import Sodium
 
 public final class MessageSender {
     // MARK: - Message Preparation
@@ -166,26 +165,6 @@ public final class MessageSender {
         }()
         let base64EncodedData: String = try {
             switch (destination, namespace) {
-                // Standard one-to-one messages
-                case (.contact(let publicKey), .default):
-                    let ciphertext: Data = try encryptWithSessionProtocol(
-                        db,
-                        plaintext: plaintext,
-                        for: publicKey,
-                        using: dependencies
-                    )
-                    
-                    return try Result(catching: {
-                        try MessageWrapper.wrap(
-                            type: .sessionMessage,
-                            timestamp: sentTimestamp,
-                            base64EncodedContent: ciphertext.base64EncodedString()
-                        )
-                    })
-                    .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
-                    .successOrThrow()
-                    .base64EncodedString()
-                    
                 // Updated group messages should be wrapped _before_ encrypting
                 case (.closedGroup(let groupId), .groupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
                     return try SessionUtil
@@ -210,28 +189,36 @@ public final class MessageSender {
                     return plaintext.base64EncodedString()
                     
                 // Config messages should be sent directly rather than via this method
-                case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
                 case (.closedGroup(let groupId), _) where (try? SessionId.Prefix(from: groupId)) == .group:
                     throw MessageSenderError.invalidConfigMessageHandling
                     
-                // Legacy groups used a `05` prefix
-                case (.closedGroup(let groupPublicKey), _):
-                    guard let encryptionKeyPair: ClosedGroupKeyPair = try? ClosedGroupKeyPair.fetchLatestKeyPair(db, threadId: groupPublicKey) else {
-                        throw MessageSenderError.noKeyPair
-                    }
-                    
-                    let ciphertext: Data = try encryptWithSessionProtocol(
-                        db,
-                        plaintext: plaintext,
-                        for: SessionId(.standard, publicKey: encryptionKeyPair.publicKey.bytes).hexString,
-                        using: dependencies
+                // Standard one-to-one messages and legacy groups (which used a `05` prefix)
+                case (.contact(let publicKey), .default), (.closedGroup(let publicKey), _):
+                    let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
+                        .ciphertextWithSessionProtocol(
+                            db,
+                            plaintext: plaintext,
+                            destination: destination,
+                            using: dependencies
+                        )
                     )
                     
                     return try Result(catching: {
                         try MessageWrapper.wrap(
-                            type: .closedGroupMessage,
+                            type: try {
+                                switch destination {
+                                    case .contact: return .sessionMessage
+                                    case .closedGroup: return .closedGroupMessage
+                                    default: throw MessageSenderError.invalidMessage
+                                }
+                            }(),
                             timestamp: sentTimestamp,
-                            senderPublicKey: groupPublicKey,    // Needed for Android
+                            senderPublicKey: {
+                                switch destination {
+                                    case .closedGroup: return publicKey // Needed for Android
+                                    default: return ""                  // Empty for all other cases
+                                }
+                            }(),
                             base64EncodedContent: ciphertext.base64EncodedString()
                         )
                     })
@@ -239,6 +226,8 @@ public final class MessageSender {
                     .successOrThrow()
                     .base64EncodedString()
                     
+                // Config messages should be sent directly rather than via this method
+                case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
                 case (.openGroup, _), (.openGroupInbox, _): preconditionFailure()
             }
         }()
@@ -404,12 +393,12 @@ public final class MessageSender {
                 return SessionId(.unblinded, publicKey: userEdKeyPair.publicKey).hexString
             }
             guard
-                let blindedKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                    .blindedKeyPair(serverPublicKey: openGroup.publicKey, edKeyPair: userEdKeyPair, using: dependencies)
+                let blinded15KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                    .blinded15KeyPair(serverPublicKey: openGroup.publicKey, ed25519SecretKey: userEdKeyPair.secretKey)
                 )
             else { throw MessageSenderError.signingFailed }
             
-            return SessionId(.blinded15, publicKey: blindedKeyPair.publicKey).hexString
+            return SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString
         }()
         
         // Ensure the message is valid
@@ -445,7 +434,8 @@ public final class MessageSender {
                 on: server,
                 whisperTo: whisperTo,
                 whisperMods: whisperMods,
-                fileIds: fileIds
+                fileIds: fileIds,
+                using: dependencies
             )
             .handleEvents(
                 receiveOutput: { _, response in
@@ -536,18 +526,17 @@ public final class MessageSender {
         catch { throw MessageSenderError.other("Couldn't serialize proto", error) }
         
         // Encrypt the serialized protobuf
-        let ciphertext: Data
-        
-        do {
-            ciphertext = try encryptWithSessionBlindingProtocol(
+        let ciphertext: Data = try dependencies[singleton: .crypto].generateResult(
+            .ciphertextWithSessionBlindingProtocol(
                 db,
                 plaintext: plaintext,
-                for: recipientBlindedPublicKey,
-                openGroupPublicKey: openGroupPublicKey,
+                recipientBlindedId: recipientBlindedPublicKey,
+                serverPublicKey: openGroupPublicKey,
                 using: dependencies
             )
-        }
-        catch { throw MessageSenderError.other("Couldn't encrypt message for destination: \(destination)", error) }
+        )
+        .mapError { MessageSenderError.other("Couldn't encrypt message for destination: \(destination)", $0) }
+        .successOrThrow()
         
         return try OpenGroupAPI
             .preparedSend(

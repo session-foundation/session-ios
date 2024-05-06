@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import Sodium
 import SessionUtilitiesKit
 
 public class RevokeSubaccountResponse: SnodeRecursiveResponse<SnodeSwarmItem> {}

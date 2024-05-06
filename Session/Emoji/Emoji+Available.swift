@@ -10,10 +10,13 @@ extension Emoji {
         .appendingPathComponent("Caches")
         .appendingPathComponent("emoji.plist")
 
-    static func warmAvailableCache() {
+    static func warmAvailableCache(using dependencies: Dependencies) {
         owsAssertDebug(!Thread.isMainThread)
 
-        guard Singleton.hasAppContext && Singleton.appContext.isMainAppAndActive else { return }
+        guard
+            dependencies.hasInitialised(singleton: .appContext) &&
+            dependencies[singleton: .appContext].isMainAppAndActive
+        else { return }
 
         var availableCache = [Emoji: Bool]()
         var uncachedEmoji = [Emoji]()
@@ -55,7 +58,7 @@ extension Emoji {
 
             availableMap[iosVersionKey] = iosVersion
             do {
-                // Use FileManager.createDirectory directly because OWSFileSystem.ensureDirectoryExists
+                // Use FileManager.createDirectory directly because FileSystem.ensureDirectoryExists
                 // can modify the protection, and this is a system-managed directory.
                 try FileManager.default.createDirectory(at: Self.cacheUrl.deletingLastPathComponent(),
                                                         withIntermediateDirectories: true)

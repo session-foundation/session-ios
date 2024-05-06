@@ -4,7 +4,6 @@
 
 import Foundation
 import GRDB
-import Curve25519Kit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -14,7 +13,7 @@ enum MockDataGenerator {
     static var printProgress: Bool = true
     static var hasStartedGenerationThisRun: Bool = false
     
-    static func generateMockData(_ db: Database) {
+    static func generateMockData(_ db: Database, using dependencies: Dependencies) {
         // Don't re-generate the mock data if it already exists
         guard !hasStartedGenerationThisRun && !(try! SessionThread.exists(db, id: "MockDatabaseThread")) else {
             hasStartedGenerationThisRun = true
@@ -73,7 +72,7 @@ enum MockDataGenerator {
                 logProgress("DM Thread \(threadIndex)", "Start")
             
                 let data: Data = Data(dmThreadRandomGenerator.nextBytes(count: 16))
-                let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: data).x25519KeyPair.publicKey).hexString
+                let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: data, using: dependencies).x25519KeyPair.publicKey).hexString
                 let isMessageRequest: Bool = Bool.random(using: &dmThreadRandomGenerator)
                 let contactNameLength: Int = ((5..<20).randomElement(using: &dmThreadRandomGenerator) ?? 0)
                 let numMessages: Int = (messageRangePerThread[threadIndex % messageRangePerThread.count]
@@ -154,7 +153,7 @@ enum MockDataGenerator {
                 logProgress("Closed Group Thread \(threadIndex)", "Start")
                 
                 let data: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
-                let randomLegacyGroupPublicKey: String = SessionId(.standard, publicKey: try! Identity.generate(from: data).x25519KeyPair.publicKey).hexString
+                let randomLegacyGroupPublicKey: String = SessionId(.standard, publicKey: try! Identity.generate(from: data, using: dependencies).x25519KeyPair.publicKey).hexString
                 let groupNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                 let groupName: String = (0..<groupNameLength)
                     .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
@@ -169,7 +168,7 @@ enum MockDataGenerator {
                 
                 (0..<numGroupMembers).forEach { _ in
                     let contactData: Data = Data(cgThreadRandomGenerator.nextBytes(count: 16))
-                    let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData).x25519KeyPair.publicKey).hexString
+                    let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData, using: dependencies).x25519KeyPair.publicKey).hexString
                     let contactNameLength: Int = ((5..<20).randomElement(using: &cgThreadRandomGenerator) ?? 0)
                     
                     try! Contact(
@@ -231,11 +230,11 @@ enum MockDataGenerator {
                 }
                 
                 // Add the group to the user's set of public keys to poll for and store the key pair
-                let encryptionKeyPair = Curve25519.generateKeyPair()
+                let encryptionKeyPair = dependencies[singleton: .crypto].generate(.x25519KeyPair())!
                 try! ClosedGroupKeyPair(
                     threadId: randomLegacyGroupPublicKey,
-                    publicKey: encryptionKeyPair.publicKey,
-                    secretKey: encryptionKeyPair.privateKey,
+                    publicKey: Data(encryptionKeyPair.publicKey),
+                    secretKey: Data(encryptionKeyPair.secretKey),
                     receivedTimestamp: timestampNow
                 )
                 .upsert(db)
@@ -303,7 +302,7 @@ enum MockDataGenerator {
 
                 (0..<numGroupMembers).forEach { _ in
                     let contactData: Data = Data(ogThreadRandomGenerator.nextBytes(count: 16))
-                    let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData).x25519KeyPair.publicKey).hexString
+                    let randomSessionId: String = SessionId(.standard, publicKey: try! Identity.generate(from: contactData, using: dependencies).x25519KeyPair.publicKey).hexString
                     let contactNameLength: Int = ((5..<20).randomElement(using: &ogThreadRandomGenerator) ?? 0)
                     try! Contact(
                         id: randomSessionId,

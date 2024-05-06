@@ -153,12 +153,14 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
             searchBarContainer.addSubview(ipadCancelButton)
             
             ipadCancelButton.pin(.trailing, to: .trailing, of: searchBarContainer)
-            ipadCancelButton.autoVCenterInSuperview()
-            searchBar.autoPinEdgesToSuperviewEdges(with: UIEdgeInsets.zero, excludingEdge: .trailing)
+            ipadCancelButton.center(.vertical, in: searchBarContainer)
+            searchBar.pin(.top, to: .top, of: searchBar)
+            searchBar.pin(.leading, to: .leading, of: searchBar)
             searchBar.pin(.trailing, to: .leading, of: ipadCancelButton, withInset: -Values.smallSpacing)
+            searchBar.pin(.bottom, to: .bottom, of: searchBar)
         }
         else {
-            searchBar.autoPinEdgesToSuperviewMargins()
+            searchBar.pin(toMarginsOf: searchBarContainer)
         }
     }
 
@@ -166,7 +168,7 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
 
     private func refreshSearchResults() {
         refreshTimer?.invalidate()
-        refreshTimer = WeakTimer.scheduledTimer(timeInterval: 0.1, target: self, userInfo: nil, repeats: false) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimerOnMainThread(withTimeInterval: 0.1) { [weak self] _ in
             self?.updateSearchResults(searchText: (self?.searchText ?? ""))
         }
     }

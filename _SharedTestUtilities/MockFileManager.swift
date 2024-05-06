@@ -24,6 +24,10 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     }
     
     func fileExists(atPath: String) -> Bool { return mock(args: [atPath]) }
+    func fileExists(atPath: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool {
+        return mock(args: [atPath, isDirectory])
+    }
+    
     func contents(atPath: String) -> Data? { return mock(args: [atPath]) }
     
     func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey : Any]?) -> Bool {
@@ -31,9 +35,17 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     }
     
     func createDirectory(atPath: String, withIntermediateDirectories: Bool, attributes: [FileAttributeKey : Any]?) throws {
-        return try mockThrowing(args: [atPath, withIntermediateDirectories, attributes])
+        try mockThrowingNoReturn(args: [atPath, withIntermediateDirectories, attributes])
     }
     
     func copyItem(at fromUrl: URL, to toUrl: URL) throws { return try mockThrowing(args: [fromUrl, toUrl]) }
     func removeItem(atPath: String) throws { return try mockThrowing(args: [atPath]) }
+    
+    func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
+        return try mockThrowing(args: [path])
+    }
+    
+    func setAttributes(_ attributes: [FileAttributeKey: Any], ofItemAtPath path: String) throws {
+        try mockThrowingNoReturn(args: [attributes, path])
+    }
 }

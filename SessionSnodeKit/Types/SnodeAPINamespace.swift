@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SessionUtil
 import SessionUtilitiesKit
 
 public extension SnodeAPI {

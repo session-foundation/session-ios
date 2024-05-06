@@ -260,7 +260,7 @@ extension OpenGroupAPI {
                                             .map { $0.id }
                                         
                                         prunedIds.forEach { id in
-                                            OpenGroupManager.shared.delete(
+                                            try? OpenGroupManager.shared.delete(
                                                 db,
                                                 openGroupId: id,
                                                 /// **Note:** We pass `calledFromConfig` as `userGroups`
@@ -415,7 +415,7 @@ extension OpenGroupAPI {
                             if successfulMessages.count != responseBody.count {
                                 let droppedCount: Int = (responseBody.count - successfulMessages.count)
                                 
-                                SNLog("Dropped \(droppedCount) invalid open group message\(droppedCount == 1 ? "" : "s").")
+                                SNLog("Dropped \(droppedCount) invalid open group message\(plural: droppedCount).")
                             }
                             
                             return !successfulMessages.isEmpty

@@ -112,13 +112,15 @@ internal extension SessionUtil {
         
         try upsert(
             convoInfoVolatileChanges: newerLocalChanges,
-            in: config
+            in: config,
+            using: dependencies
         )
     }
     
     static func upsert(
         convoInfoVolatileChanges: [VolatileThreadInfo],
-        in config: Config?
+        in config: Config?,
+        using dependencies: Dependencies
     ) throws {
         guard case .object(let conf) = config else { throw SessionUtilError.invalidConfigObject }
         
@@ -272,7 +274,8 @@ internal extension SessionUtil {
         ) { config in
             try upsert(
                 convoInfoVolatileChanges: changes,
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }
@@ -394,7 +397,8 @@ public extension SessionUtil {
                         changes: [.lastReadTimestampMs(lastReadTimestampMs)]
                     )
                 ],
-                in: config
+                in: config,
+                using: dependencies
             )
         }
     }

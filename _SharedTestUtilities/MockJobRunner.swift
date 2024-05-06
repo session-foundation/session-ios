@@ -20,6 +20,8 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
         mockNoReturn()
     }
     
+    func queue(for variant: Job.Variant) -> DispatchQueue? { DispatchQueue.main }
+    
     // MARK: - State Management
     
     func jobInfoFor(jobs: [Job]?, state: JobRunner.JobState, variant: Job.Variant?) -> [Int64: JobRunner.JobInfo] {
@@ -30,8 +32,8 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     func appDidBecomeActive(using dependencies: Dependencies) {}
     func startNonBlockingQueues(using dependencies: Dependencies) {}
     
-    func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, onComplete: (() -> ())?) {
-        mockNoReturn(args: [exceptForVariant, onComplete])
+    func stopAndClearPendingJobs(exceptForVariant: Job.Variant?, using dependencies: Dependencies, onComplete: (() -> ())?) {
+        mockNoReturn(args: [exceptForVariant, onComplete], untrackedArgs: [dependencies])
         onComplete?()
     }
     

@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUtilitiesKit
 
 // FIXME: Refactor as part of the Groups Rebuild
 public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {

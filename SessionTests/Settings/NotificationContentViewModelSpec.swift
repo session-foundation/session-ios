@@ -6,6 +6,7 @@ import Quick
 import Nimble
 import SessionUIKit
 import SessionSnodeKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 @testable import Session

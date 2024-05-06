@@ -3,7 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
 import SessionSnodeKit
 import SessionUtilitiesKit
 
@@ -304,7 +303,7 @@ extension MessageReceiver {
     ) throws {
         guard
             let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                .ed25519KeyPair(seed: message.groupIdentitySeed, using: dependencies)
+                .ed25519KeyPair(seed: Array(message.groupIdentitySeed))
             )
         else { throw MessageReceiverError.invalidMessage }
         
@@ -729,8 +728,8 @@ extension MessageReceiver {
     
     // MARK: - LibSession Encrypted Messages
     
-    /// Logic for handling the `GroupUpdateDeleteMessage`, this message should only be processed if it was sent
-    /// after the user joined the group (while unlikely, it's possible to receive this message when re-joining a group after
+    /// Logic for handling the `groupKicked` `LibSessionMessage`, this message should only be processed if it was
+    /// sent after the user joined the group (while unlikely, it's possible to receive this message when re-joining a group after
     /// previously being kicked in which case we don't want to delete the data)
     ///
     /// **Note:** Admins can't be removed from a group so this only clears the `authData`

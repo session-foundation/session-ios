@@ -8,6 +8,7 @@ import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionSnodeKit
+import SessionUtilitiesKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel
@@ -131,15 +132,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     
     // MARK: - Updating
     
-    private func startObservingChanges(
-        using dependencies: Dependencies = Dependencies()
-    ) {
+    private func startObservingChanges() {
         guard dataChangeObservable == nil else { return }
         
         // Start observing for data changes
-        dataChangeObservable = dependencies[singleton: .storage].start(
+        dataChangeObservable = self.viewModel.dependencies[singleton: .storage].start(
             viewModel.observableViewData,
-            onError:  { [weak self] _ in
+            onError:  { [weak self, dependencies = self.viewModel.dependencies] _ in
                 self?.databaseErrorLabel.isHidden = dependencies[singleton: .storage].isValid
             },
             onChange: { [weak self] viewData in
@@ -194,16 +193,19 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sinkUntilComplete(
-                receiveValue: { [weak self] attachments in
-                    guard let strongSelf = self else { return }
+                receiveValue: { [weak self, dependencies = self.viewModel.dependencies] attachments in
+                    guard
+                        let strongSelf = self,
+                        let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
+                            threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
+                            threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
+                            attachments: attachments,
+                            approvalDelegate: strongSelf,
+                            using: dependencies
+                        )
+                    else { return }
                     
-                    let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
-                        threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
-                        threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
-                        attachments: attachments,
-                        approvalDelegate: strongSelf
-                    )
-                    strongSelf.navigationController?.present(approvalVC, animated: true, completion: nil)
+                    self?.navigationController?.present(approvalVC, animated: true, completion: nil)
                 }
             )
     }
@@ -307,7 +309,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                                 attachmentId: LinkPreview
                                     .generateAttachmentIfPossible(
                                         imageData: linkPreviewDraft.jpegImageData,
-                                        mimeType: OWSMimeTypeImageJpeg
+                                        mimeType: MimeTypeUtil.MimeType.imageJpeg
                                     )?
                                     .inserted(db)
                                     .id

@@ -51,7 +51,7 @@ public class NotificationActionHandler {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         AssertIsOnMainThread()
-        assert(Singleton.appReadiness.isAppReady)
+        assert(dependencies[singleton: .appReadiness].isAppReady)
 
         let userInfo: [AnyHashable: Any] = response.notification.request.content.userInfo
         let applicationState: UIApplication.State = UIApplication.shared.applicationState

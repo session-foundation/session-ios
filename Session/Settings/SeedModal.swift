@@ -9,8 +9,8 @@ final class SeedModal: Modal {
     
     // MARK: - Initialization
     
-    init() throws {
-        self.mnemonic = try SeedVC.mnemonic()
+    init(using dependencies: Dependencies) throws {
+        self.mnemonic = try SeedVC.mnemonic(using: dependencies)
         
         super.init(targetView: nil, dismissType: .recursive, afterClosed: nil)
         

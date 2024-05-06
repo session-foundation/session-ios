@@ -88,7 +88,7 @@ extension OpenGroupAPI.Message {
                 case (.some(let sessionId), .standard), (.some(let sessionId), .unblinded):
                     guard
                         decoder.dependencies[singleton: .crypto].verify(
-                            .signatureEd25519(signature, publicKey: Data(sessionId.publicKey), data: data)
+                            .signatureXed25519(signature, curve25519PublicKey: sessionId.publicKey, data: data)
                         )
                     else {
                         SNLog("Ignoring message with invalid signature.")

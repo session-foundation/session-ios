@@ -1,9 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import Sodium
-import Clibsodium
-import Curve25519Kit
+import SessionUtil
 
 // MARK: - Randomness
 
@@ -12,58 +10,94 @@ public extension Crypto.Generator {
         return Crypto.Generator(id: "uuid") { UUID() }
     }
     
-    /// Returns `size` bytes of random data generated using the default secure random number generator. See
-    /// [SecRandomCopyBytes](https://developer.apple.com/documentation/security/1399291-secrandomcopybytes) for more information.
-    static func randomBytes(numberBytes: Int) -> Crypto.Generator<Data> {
-        return Crypto.Generator(id: "randomBytes", args: [numberBytes]) {
-            var randomBytes: Data = Data(count: numberBytes)
-            let result = randomBytes.withUnsafeMutableBytes {
-                SecRandomCopyBytes(kSecRandomDefault, numberBytes, $0.baseAddress!)
-            }
-            
-            guard result == errSecSuccess, randomBytes.count == numberBytes else {
-                SNLog(.warn, "Problem generating random bytes")
-                throw GeneralError.randomGenerationFailed
-            }
-            
-            return randomBytes
+    static func randomBytes(_ count: Int) -> Crypto.Generator<Data> {
+        return Crypto.Generator(id: "randomBytes_Data", args: [count]) { () -> Data in
+            Data(bytes: session_random(count), count: count)
+        }
+    }
+    
+    static func randomBytes(_ count: Int) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(id: "randomBytes_[UInt8]", args: [count]) { () -> [UInt8] in
+            Array(Data(bytes: session_random(count), count: count))
         }
     }
 }
 
-// MARK: - Box
-
-public extension Crypto.Size {
-    static let publicKey: Crypto.Size = Crypto.Size(id: "publicKey") { $0.sign.PublicKeyBytes }
-    static let secretKey: Crypto.Size = Crypto.Size(id: "secretKey") { $0.sign.SecretKeyBytes }
-}
-
-// MARK: - Sign
+// MARK: - Hash
 
 public extension Crypto.Generator {
-    static func x25519(ed25519PublicKey: Bytes) -> Crypto.Generator<[UInt8]> {
-        return Crypto.Generator(id: "x25519Ed25519PublicKey", args: [ed25519PublicKey]) { sodium in
-            sodium.sign.toX25519(ed25519PublicKey: ed25519PublicKey)
-        }
-    }
-    
-    static func x25519(ed25519SecretKey: Bytes) -> Crypto.Generator<[UInt8]> {
-        return Crypto.Generator(id: "x25519Ed25519SecretKey", args: [ed25519SecretKey]) { sodium in
-            sodium.sign.toX25519(ed25519SecretKey: ed25519SecretKey)
-        }
-    }
-    
-    static func signature(message: Bytes, secretKey: Bytes) -> Crypto.Generator<Authentication.Signature> {
-        return Crypto.Generator(id: "signature", args: [message, secretKey]) { sodium in
-            sodium.sign.signature(message: message, secretKey: secretKey).map { .standard(signature: $0) }
+    static func hash(message: [UInt8], key: [UInt8]? = nil, length: Int = 32) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(id: "hash", args: [message, key]) {
+            var cMessage: [UInt8] = message
+            var cHash: [UInt8] = [UInt8](repeating: 0, count: length)
+            
+            switch key {
+                case .some(let finalKey):
+                    var cKey: [UInt8] = finalKey
+                    guard session_hash(length, &cMessage, cMessage.count, &cKey, cKey.count, &cHash) else {
+                        throw CryptoError.failedToGenerateOutput
+                    }
+                    
+                case .none:
+                    guard session_hash(length, &cMessage, cMessage.count, nil, 0, &cHash) else {
+                        throw CryptoError.failedToGenerateOutput
+                    }
+            }
+     
+            return cHash
         }
     }
 }
 
-public extension Crypto.Verification {
-    static func signature(message: Bytes, publicKey: Bytes, signature: Bytes) -> Crypto.Verification {
-        return Crypto.Verification(id: "signature", args: [message, publicKey, signature]) { sodium in
-            sodium.sign.verify(message: message, publicKey: publicKey, signature: signature)
+// MARK: - curve25519
+
+public extension Crypto.Generator {
+    static func x25519KeyPair() -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator<KeyPair>(id: "x25519KeyPair") { () -> KeyPair in
+            var pubkey: [UInt8] = [UInt8](repeating: 0, count: 32)
+            var seckey: [UInt8] = [UInt8](repeating: 0, count: 64)
+            
+            guard session_curve25519_key_pair(&pubkey, &seckey) else { throw CryptoError.keyGenerationFailed }
+            
+            return KeyPair(publicKey: pubkey, secretKey: seckey)
+        }
+    }
+    
+    static func x25519(
+        ed25519Pubkey: [UInt8]
+    ) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(
+            id: "ed25519Pubkey_to_x25519Pubkey",
+            args: [ed25519Pubkey]
+        ) {
+            var cEd25519Pubkey: [UInt8] = ed25519Pubkey
+            var pubkey: [UInt8] = [UInt8](repeating: 0, count: 32)
+            
+            guard
+                cEd25519Pubkey.count == 32,
+                session_to_curve25519_pubkey(&cEd25519Pubkey, &pubkey)
+            else { throw CryptoError.keyGenerationFailed }
+            
+            return pubkey
+        }
+    }
+    
+    static func x25519(
+        ed25519Seckey: [UInt8]
+    ) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(
+            id: "ed25519Seckey_to_x25519Seckey",
+            args: [ed25519Seckey]
+        ) {
+            var cEd25519SecretKey: [UInt8] = ed25519Seckey
+            var seckey: [UInt8] = [UInt8](repeating: 0, count: 32)
+            
+            guard
+                cEd25519SecretKey.count == 64,
+                session_to_curve25519_seckey(&cEd25519SecretKey, &seckey)
+            else { throw CryptoError.keyGenerationFailed }
+            
+            return seckey
         }
     }
 }
@@ -71,53 +105,116 @@ public extension Crypto.Verification {
 // MARK: - Ed25519
 
 public extension Crypto.Generator {
-    static func x25519KeyPair() -> Crypto.Generator<KeyPair> {
-        return Crypto.Generator<KeyPair>(id: "x25519KeyPair") { () -> KeyPair in
-            let keyPair: ECKeyPair = Curve25519.generateKeyPair()
+    static func ed25519KeyPair() -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator(id: "ed25519KeyPair") {
+            var pubkey: [UInt8] = [UInt8](repeating: 0, count: 32)
+            var seckey: [UInt8] = [UInt8](repeating: 0, count: 64)
             
-            return KeyPair(publicKey: Array(keyPair.publicKey), secretKey: Array(keyPair.privateKey))
+            guard session_ed25519_key_pair(&pubkey, &seckey) else { throw CryptoError.keyGenerationFailed }
+            
+            return KeyPair(publicKey: pubkey, secretKey: seckey)
         }
     }
     
-    static func ed25519KeyPair(
-        seed: Data? = nil,
-        using dependencies: Dependencies = Dependencies()
-    ) -> Crypto.Generator<KeyPair> {
-        return Crypto.Generator<KeyPair>(id: "ed25519KeyPair") {
-            let pkSize: Int = dependencies[singleton: .crypto].size(.publicKey)
-            let skSize: Int = dependencies[singleton: .crypto].size(.secretKey)
-            var edPK: [UInt8] = [UInt8](repeating: 0, count: pkSize)
-            var edSK: [UInt8] = [UInt8](repeating: 0, count: skSize)
-            var targetSeed: [UInt8] = ((seed ?? dependencies[singleton: .crypto]
-                .generate(.randomBytes(numberBytes: skSize)))
-                .map { Array($0) })
-                .defaulting(to: [])
+    static func ed25519KeyPair(seed: [UInt8]) -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator(id: "ed25519KeyPair_Seed", args: [seed]) {
+            var cSeed: [UInt8] = seed
+            var pubkey: [UInt8] = [UInt8](repeating: 0, count: 32)
+            var seckey: [UInt8] = [UInt8](repeating: 0, count: 64)
             
-            // Generate the key
-            guard Sodium.lib_crypto_sign_ed25519_seed_keypair(&edPK, &edSK, &targetSeed) == 0 else {
-                return nil
-            }
+            guard
+                cSeed.count == 32,
+                session_ed25519_key_pair_seed(&cSeed, &pubkey, &seckey)
+            else { throw CryptoError.invalidSeed }
             
-            return KeyPair(publicKey: edPK, secretKey: edSK)
+            return KeyPair(publicKey: pubkey, secretKey: seckey)
         }
     }
     
-    static func signatureEd25519(data: Bytes, keyPair: KeyPair) -> Crypto.Generator<[UInt8]> {
-        return Crypto.Generator(id: "signatureEd25519", args: [data, keyPair]) {
-            let ecKeyPair: ECKeyPair = try ECKeyPair(
-                publicKeyData: Data(keyPair.publicKey),
-                privateKeyData: Data(keyPair.secretKey)
-            )
+    static func ed25519Seed(ed25519SecretKey: [UInt8]) -> Crypto.Generator<Data> {
+        return Crypto.Generator(id: "ed25519Seed", args: [ed25519SecretKey]) {
+            var cEd25519SecretKey: [UInt8] = ed25519SecretKey
+            var seed: [UInt8] = [UInt8](repeating: 0, count: 32)
             
-            return try Ed25519.sign(Data(data), with: ecKeyPair).bytes
+            guard
+                cEd25519SecretKey.count == 64,
+                session_seed_for_ed_privkey(&cEd25519SecretKey, &seed)
+            else { throw CryptoError.invalidSeed }
+            
+            return Data(seed)
+        }
+    }
+    
+    static func signature(message: [UInt8], ed25519SecretKey: [UInt8]) -> Crypto.Generator<Authentication.Signature> {
+        return Crypto.Generator(id: "signature", args: [message, ed25519SecretKey]) {
+            var cEd25519SecretKey: [UInt8] = ed25519SecretKey
+            var cMessage: [UInt8] = message
+            var cSignature: [UInt8] = [UInt8](repeating: 0, count: 64)
+            
+            guard
+                cEd25519SecretKey.count == 64,
+                session_ed25519_sign(&cEd25519SecretKey, &cMessage, cMessage.count, &cSignature)
+            else { throw CryptoError.signatureGenerationFailed }
+            
+            return Authentication.Signature.standard(signature: cSignature)
         }
     }
 }
 
 public extension Crypto.Verification {
-    static func signatureEd25519(_ signature: Data, publicKey: Data, data: Data) -> Crypto.Verification {
-        return Crypto.Verification(id: "signatureEd25519", args: [signature, publicKey, data]) {
-            return ((try? Ed25519.verifySignature(signature, publicKey: publicKey, data: data)) == true)
+    static func signature(message: [UInt8], publicKey: [UInt8], signature: [UInt8]) -> Crypto.Verification {
+        return Crypto.Verification(id: "signature", args: [message, publicKey, signature]) {
+            var cSignature: [UInt8] = signature
+            var cPublicKey: [UInt8] = publicKey
+            var cMessage: [UInt8] = message
+            
+            return session_ed25519_verify(
+                &cSignature,
+                &cPublicKey,
+                &cMessage,
+                cMessage.count
+            )
+        }
+    }
+}
+
+// MARK: - Xed25519
+
+public extension Crypto.Generator {
+    static func signatureXed25519(data: [UInt8], curve25519PrivateKey: [UInt8]) -> Crypto.Generator<[UInt8]> {
+        return Crypto.Generator(id: "signatureXed25519", args: [data, curve25519PrivateKey]) {
+            var cSignature: [UInt8] = [UInt8](repeating: 0, count: 64)
+            var cCurve25519PrivateKey: [UInt8] = curve25519PrivateKey
+            var cData: [UInt8] = data
+            
+            guard
+                cCurve25519PrivateKey.count == 32,
+                session_xed25519_sign(
+                    &cSignature,
+                    &cCurve25519PrivateKey,
+                    &cData,
+                    cData.count
+                )
+            else { throw CryptoError.signatureGenerationFailed }
+            
+            return cSignature
+        }
+    }
+}
+
+public extension Crypto.Verification {
+    static func signatureXed25519(_ signature: Data, curve25519PublicKey: [UInt8], data: Data) -> Crypto.Verification {
+        return Crypto.Verification(id: "signatureXed25519", args: [signature, curve25519PublicKey, data]) {
+            var cSignature: [UInt8] = Array(signature)
+            var cCurve25519PublicKey: [UInt8] = curve25519PublicKey
+            var cData: [UInt8] = Array(data)
+            
+            return session_xed25519_verify(
+                &cSignature,
+                &cCurve25519PublicKey,
+                &cData,
+                cData.count
+            )
         }
     }
 }

@@ -19,7 +19,7 @@ public extension Authentication {
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
             return try dependencies[singleton: .crypto].tryGenerate(
-                .signature(message: verificationBytes, secretKey: ed25519KeyPair.secretKey)
+                .signature(message: verificationBytes, ed25519SecretKey: ed25519KeyPair.secretKey)
             )
         }
     }
@@ -40,7 +40,7 @@ public extension Authentication {
         
         public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
             return try dependencies[singleton: .crypto].tryGenerate(
-                .signature(message: verificationBytes, secretKey: ed25519SecretKey)
+                .signature(message: verificationBytes, ed25519SecretKey: ed25519SecretKey)
             )
         }
     }

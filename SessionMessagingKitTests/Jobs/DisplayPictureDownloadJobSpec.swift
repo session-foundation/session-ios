@@ -58,9 +58,17 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         )
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { fileManager in
+                fileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                fileManager
+                    .when { $0.fileExists(atPath: .any, isDirectory: .any) }
+                    .thenReturn(false)
+                
                 fileManager
                     .when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }
                     .thenReturn(true)
+                fileManager
+                    .when { try $0.createDirectory(atPath: .any, withIntermediateDirectories: .any, attributes: .any) }
+                    .thenReturn(())
                 
                 fileManager
                     .when { $0.containerURL(forSecurityApplicationGroupIdentifier: .any) }
@@ -73,13 +81,9 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 crypto
                     .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any, using: .any)) }
                     .thenReturn(imageData)
+                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
                 crypto
-                    .when { $0.generate(.hash(message: .any, outputLength: .any)) }
-                    .thenReturn([])
-                crypto
-                    .when { crypto in
-                        crypto.generate(.blindedKeyPair(serverPublicKey: .any, edKeyPair: .any, using: .any))
-                    }
+                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data(hex: TestConstants.publicKey).bytes,
@@ -87,19 +91,10 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         )
                     )
                 crypto
-                    .when { $0.generate(.nonce16()) }
+                    .when { $0.generate(.randomBytes(16)) }
                     .thenReturn(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!.bytes)
                 crypto
-                    .when {
-                        $0.generate(
-                            .signatureSOGS(
-                                message: .any,
-                                secretKey: .any,
-                                blindedSecretKey: .any,
-                                blindedPublicKey: .any
-                            )
-                        )
-                    }
+                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                     .thenReturn("TestSogsSignature".bytes)
             }
         )

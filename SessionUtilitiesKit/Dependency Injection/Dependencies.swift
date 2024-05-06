@@ -8,6 +8,7 @@ import GRDB
 public class Dependencies {
     static let userInfoKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "io.oxen.dependencies.codingOptions")!
     
+    private static var _isRTLRetriever: Atomic<(Bool, () -> Bool)> = Atomic((false, { false }))
     private static var singletonInstances: Atomic<[String: Any]> = Atomic([:])
     private static var cacheInstances: Atomic<[String: Atomic<MutableCacheType>]> = Atomic([:])
     private static var userDefaultsInstances: Atomic<[String: (any UserDefaultsType)]> = Atomic([:])
@@ -50,7 +51,17 @@ public class Dependencies {
         return value.currentValue(using: self)
     }
     
-    // MARK: - Timing and Async Handling
+    // MARK: - Global Values, Timing and Async Handling
+    
+    public static var isRTL: Bool {
+        let (requiresMainThread, retriever): (Bool, () -> Bool) = _isRTLRetriever.wrappedValue
+        
+        /// Determining `isRTL` might require running on the main thread (it may need to accesses UIKit), if it requires the main thread but
+        /// we are on a different thread then just default to `false` to prevent the background thread from potentially lagging and/or crashing
+        guard !requiresMainThread || Thread.isMainThread else { return false }
+        
+        return retriever()
+    }
     
     public var dateNow: Date { Date() }
     public var fixedTime: Int { 0 }
@@ -143,10 +154,18 @@ public class Dependencies {
     
     // MARK: - Instance replacing
     
+    public func hasInitialised<S>(singleton: SingletonConfig<S>) -> Bool {
+        return (Dependencies.singletonInstances.wrappedValue[singleton.identifier] != nil)
+    }
+    
     public func set<S>(singleton: SingletonConfig<S>, to instance: S) {
         Dependencies.singletonInstances.mutate {
             $0[singleton.identifier] = instance
         }
+    }
+    
+    public static func setIsRTLRetriever(requiresMainThread: Bool, isRTLRetriever: @escaping () -> Bool) {
+        _isRTLRetriever.mutate { $0 = (requiresMainThread, isRTLRetriever) }
     }
 }
 

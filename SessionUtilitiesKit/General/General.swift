@@ -21,22 +21,14 @@ public extension Cache {
     )
 }
 
-// MARK: - GeneralError
-
-public enum GeneralError: Error {
-    case invalidSeed
-    case keyGenerationFailed
-    case randomGenerationFailed
-}
-
 // MARK: - Convenience
 
 public func getUserSessionId(_ db: Database? = nil, using dependencies: Dependencies = Dependencies()) -> SessionId {
     if let cachedSessionId: SessionId = dependencies[cache: .general].sessionId { return cachedSessionId }
     
     // Can be nil under some circumstances
-    if let publicKey: Data = Identity.fetchUserPublicKey(db, using: dependencies) {
-        let sessionId: SessionId = SessionId(.standard, publicKey: publicKey.bytes)
+    if let keyPair: KeyPair = Identity.fetchUserKeyPair(db, using: dependencies) {
+        let sessionId: SessionId = SessionId(.standard, publicKey: keyPair.publicKey)
         
         dependencies.mutate(cache: .general) { $0.sessionId = sessionId }
         return sessionId

@@ -14,11 +14,6 @@ class MockSnodeAPICache: Mock<SnodeAPICacheType>, SnodeAPICacheType {
         set { mockNoReturn(args: [newValue]) }
     }
     
-    var loadedSwarms: Set<String> {
-        get { return mock() }
-        set { mockNoReturn(args: [newValue]) }
-    }
-    
     var getSnodePoolPublisher: AnyPublisher<Set<Snode>, Error>? {
         get { return mock() }
         set { mockNoReturn(args: [newValue]) }
@@ -39,13 +34,24 @@ class MockSnodeAPICache: Mock<SnodeAPICacheType>, SnodeAPICacheType {
         set { mockNoReturn(args: [newValue]) }
     }
     
-    var swarmCache: [String: Set<Snode>] {
+    var hasInsufficientSnodes: Bool {
         get { return mock() }
         set { mockNoReturn(args: [newValue]) }
     }
     
-    var hasInsufficientSnodes: Bool {
-        get { return mock() }
-        set { mockNoReturn(args: [newValue]) }
+    func hasLoadedSwarm(for publicKey: String) -> Bool {
+        return mock(args: [publicKey])
+    }
+    
+    func swarmCache(publicKey: String) -> Set<Snode>? {
+        return mock(args: [publicKey])
+    }
+    
+    func setSwarmCache(publicKey: String, cache: Set<Snode>) {
+        mockNoReturn(args: [publicKey, cache])
+    }
+    
+    func clearSwarmCache() {
+        mockNoReturn()
     }
 }

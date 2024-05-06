@@ -223,7 +223,7 @@ final class ConversationTitleView: UIView {
                         labelInfos.append(
                             SessionLabelCarouselView.LabelInfo(
                                 attributedText: NSAttributedString(
-                                    string: "\(userCount) member\(userCount == 1 ? "" : "s")"
+                                    string: "\(userCount) member\(plural: userCount)"
                                 ),
                                 accessibility: nil, // TODO: Add accessibility
                                 type: .userCount
@@ -234,7 +234,7 @@ final class ConversationTitleView: UIView {
                         labelInfos.append(
                             SessionLabelCarouselView.LabelInfo(
                                 attributedText: NSAttributedString(
-                                    string: "\(userCount) active member\(userCount == 1 ? "" : "s")"
+                                    string: "\(userCount) active member\(plural: userCount)"
                                 ),
                                 accessibility: nil, // TODO: Add accessibility
                                 type: .userCount

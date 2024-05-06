@@ -53,7 +53,7 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         )
     }
     
-    public init(
+    internal init(
         changeType: ChangeType,
         updatedName: String? = nil,
         updatedExpiration: UInt32? = nil,

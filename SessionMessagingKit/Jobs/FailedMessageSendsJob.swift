@@ -34,7 +34,7 @@ public enum FailedMessageSendsJob: JobExecutor {
             changeCount = (sendChangeCount + syncChangeCount)
         }
         
-        SNLog("[FailedMessageSendsJob] Marked \(changeCount) message\(changeCount == 1 ? "" : "s") as failed (\(attachmentChangeCount) upload\(attachmentChangeCount == 1 ? "" : "s") cancelled)")
+        SNLog("[FailedMessageSendsJob] Marked \(changeCount) message\(plural: changeCount) as failed (\(attachmentChangeCount) upload\(plural: attachmentChangeCount) cancelled)")
         success(job, false, dependencies)
     }
 }

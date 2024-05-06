@@ -13,7 +13,6 @@ public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecor
     }
     
     public enum Variant: String, Codable, CaseIterable, DatabaseValueConvertible {
-        case seed
         case ed25519SecretKey
         case ed25519PublicKey
         case x25519PrivateKey
@@ -41,23 +40,23 @@ public struct Identity: Codable, Identifiable, FetchableRecord, PersistableRecor
 public extension Identity {
     static func generate(
         from seed: Data,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) throws -> (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) {
-        guard (seed.count == 16) else { throw GeneralError.invalidSeed }
+        guard (seed.count == 16) else { throw CryptoError.invalidSeed }
 
         let padding = Data(repeating: 0, count: 16)
         
         guard
             let ed25519KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                .ed25519KeyPair(seed: (seed + padding), using: dependencies)
+                .ed25519KeyPair(seed: Array(seed + padding))
             ),
             let x25519PublicKey: [UInt8] = dependencies[singleton: .crypto].generate(
-                .x25519(ed25519PublicKey: ed25519KeyPair.publicKey)
+                .x25519(ed25519Pubkey: ed25519KeyPair.publicKey)
             ),
             let x25519SecretKey: [UInt8] = dependencies[singleton: .crypto].generate(
-                .x25519(ed25519SecretKey: ed25519KeyPair.secretKey)
+                .x25519(ed25519Seckey: ed25519KeyPair.secretKey)
             )
-        else { throw GeneralError.keyGenerationFailed }
+        else { throw CryptoError.keyGenerationFailed }
         
         return (
             ed25519KeyPair: KeyPair(
@@ -71,8 +70,7 @@ public extension Identity {
         )
     }
 
-    static func store(_ db: Database, seed: Data, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) throws {
-        try Identity(variant: .seed, data: seed).upsert(db)
+    static func store(_ db: Database, ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) throws {
         try Identity(variant: .ed25519SecretKey, data: Data(ed25519KeyPair.secretKey)).upsert(db)
         try Identity(variant: .ed25519PublicKey, data: Data(ed25519KeyPair.publicKey)).upsert(db)
         try Identity(variant: .x25519PrivateKey, data: Data(x25519KeyPair.secretKey)).upsert(db)
@@ -83,29 +81,7 @@ public extension Identity {
         _ db: Database? = nil,
         using dependencies: Dependencies = Dependencies()
     ) -> Bool {
-        return (fetchUserKeyPair(db, using: dependencies) != nil)
-    }
-    
-    static func fetchUserPublicKey(
-        _ db: Database? = nil,
-        using dependencies: Dependencies = Dependencies()
-    ) -> Data? {
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in fetchUserPublicKey(db, using: dependencies) }
-        }
-        
-        return try? Identity.fetchOne(db, id: .x25519PublicKey)?.data
-    }
-    
-    static func fetchUserPrivateKey(
-        _ db: Database? = nil,
-        using dependencies: Dependencies = Dependencies()
-    ) -> Data? {
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in fetchUserPrivateKey(db, using: dependencies) }
-        }
-        
-        return try? Identity.fetchOne(db, id: .x25519PrivateKey)?.data
+        return (fetchUserEd25519KeyPair(db, using: dependencies) != nil)
     }
     
     static func fetchUserKeyPair(
@@ -116,13 +92,13 @@ public extension Identity {
             return dependencies[singleton: .storage].read { db in fetchUserKeyPair(db, using: dependencies) }
         }
         guard
-            let publicKey: Data = fetchUserPublicKey(db, using: dependencies),
-            let privateKey: Data = fetchUserPrivateKey(db, using: dependencies)
+            let publicKey: Data = try? Identity.fetchOne(db, id: .x25519PublicKey)?.data,
+            let secretKey: Data = try? Identity.fetchOne(db, id: .x25519PrivateKey)?.data
         else { return nil }
         
         return KeyPair(
             publicKey: publicKey.bytes,
-            secretKey: privateKey.bytes
+            secretKey: secretKey.bytes
         )
     }
     
@@ -142,23 +118,6 @@ public extension Identity {
             publicKey: publicKey.bytes,
             secretKey: secretKey.bytes
         )
-    }
-    
-    static func fetchHexEncodedSeed(
-        _ db: Database? = nil,
-        using dependencies: Dependencies
-    ) -> String? {
-        guard let db: Database = db else {
-            return dependencies[singleton: .storage].read { db in
-                fetchHexEncodedSeed(db, using: dependencies)
-            }
-        }
-        
-        guard let data: Data = try? Identity.fetchOne(db, id: .seed)?.data else {
-            return nil
-        }
-        
-        return data.toHexString()
     }
 }
 
