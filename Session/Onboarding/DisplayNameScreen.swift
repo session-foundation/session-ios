@@ -31,7 +31,7 @@ struct DisplayNameScreen: View {
             ) {
                 Spacer(minLength: 0)
                 
-                let title: String = (self.flow == .register) ? "vc_display_name_title_2".localized() : "displayNameNew".localized()
+                let title: String = (self.flow == .register) ? "displayNamePick".localized() : "displayNameNew".localized()
                 Text(title)
                     .bold()
                     .font(.system(size: Values.veryLargeFontSize))
