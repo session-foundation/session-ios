@@ -47,7 +47,7 @@ final class PathStatusView: UIView {
     
     private let size: Size
     private let dependencies: Dependencies
-    private let reachability: Reachability? = Environment.shared?.reachabilityManager.reachability
+    private let reachability: Reachability? = SessionEnvironment.shared?.reachabilityManager.reachability
     
     init(
         size: Size = .small,

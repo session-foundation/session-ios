@@ -5,7 +5,7 @@
 import Foundation
 import SessionUtilitiesKit
 
-public enum OnionRequestAPIError: LocalizedError {
+public enum OnionRequestAPIError: Error, CustomStringConvertible {
     case httpRequestFailedAtDestination(statusCode: UInt, data: Data, destination: OnionRequestAPIDestination)
     case insufficientSnodes
     case invalidURL
@@ -15,26 +15,26 @@ public enum OnionRequestAPIError: LocalizedError {
     case invalidRequestInfo
     case pathEncryptionFailed
 
-    public var errorDescription: String? {
+    public var description: String {
         switch self {
             case .httpRequestFailedAtDestination(let statusCode, let data, let destination):
-                if statusCode == 429 { return "Rate limited." }
+                if statusCode == 429 { return "Rate limited (OnionRequestAPIError.httpRequestFailedAtDestination)." }
                 if let processedResponseBodyData: Data = OnionRequestAPI.process(bencodedData: data)?.body, let errorResponse: String = String(data: processedResponseBodyData, encoding: .utf8) {
-                    return "HTTP request failed at destination (\(destination)) with status code: \(statusCode), error body: \(errorResponse)."
+                    return "HTTP request failed at destination (\(destination)) with status code: \(statusCode), error body: \(errorResponse) (OnionRequestAPIError.httpRequestFailedAtDestination)."
                 }
                 if let errorResponse: String = String(data: data, encoding: .utf8) {
-                    return "HTTP request failed at destination (\(destination)) with status code: \(statusCode), error body: \(errorResponse)."
+                    return "HTTP request failed at destination (\(destination)) with status code: \(statusCode), error body: \(errorResponse) (OnionRequestAPIError.httpRequestFailedAtDestination)."
                 }
                 
-                return "HTTP request failed at destination (\(destination)) with status code: \(statusCode)."
-                
-            case .insufficientSnodes: return "Couldn't find enough Service Nodes to build a path."
-            case .invalidURL: return "Invalid URL"
-            case .missingSnodeVersion: return "Missing Service Node version."
-            case .snodePublicKeySetMissing: return "Missing Service Node public key set."
-            case .unsupportedSnodeVersion(let version): return "Unsupported Service Node version: \(version)."
-            case .invalidRequestInfo: return "Invalid Request Info"
-            case .pathEncryptionFailed: return "Path Encryption Failed"
+                return "HTTP request failed at destination (\(destination)) with status code: \(statusCode) (OnionRequestAPIError.httpRequestFailedAtDestination)."
+            
+            case .insufficientSnodes: return "Couldn't find enough Service Nodes to build a path (OnionRequestAPIError.insufficientSnodes)."
+            case .invalidURL: return "Invalid URL (OnionRequestAPIError.invalidURL)."
+            case .missingSnodeVersion: return "Missing Service Node version (OnionRequestAPIError.missingSnodeVersion)."
+            case .snodePublicKeySetMissing: return "Missing Service Node public key set (OnionRequestAPIError.snodePublicKeySetMissing)."
+            case .unsupportedSnodeVersion(let version): return "Unsupported Service Node version: \(version) (OnionRequestAPIError.unsupportedSnodeVersion)."
+            case .invalidRequestInfo: return "Invalid Request Info (OnionRequestAPIError.invalidRequestInfo)."
+            case .pathEncryptionFailed: return "Path Encryption Failed (OnionRequestAPIError.pathEncryptionFailed)."
         }
     }
 }

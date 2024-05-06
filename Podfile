@@ -29,7 +29,7 @@ abstract_target 'GlobalDependencies' do
   
   # Dependencies to be included only in all extensions/frameworks
   abstract_target 'FrameworkAndExtensionDependencies' do
-    pod 'SignalCoreKit', git: 'https://github.com/oxen-io/session-ios-core-kit', branch: 'session-version'
+    pod 'SignalCoreKit', git: 'https://github.com/oxen-io/session-ios-core-kit', :commit => '3acbfe5'
     
     target 'SessionNotificationServiceExtension'
     

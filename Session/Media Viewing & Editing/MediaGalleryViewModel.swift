@@ -6,6 +6,7 @@ import DifferenceKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import SwiftUI
 
 public class MediaGalleryViewModel {
     public typealias SectionModel = ArraySection<Section, Item>
@@ -536,6 +537,7 @@ public class MediaGalleryViewModel {
         interactionId: Int64,
         selectedAttachmentId: String,
         options: [MediaGalleryOption],
+        useTransitioningDelegate: Bool = true,
         using dependencies: Dependencies
     ) -> UIViewController? {
         // Load the data for the album immediately (needed before pushing to the screen so
@@ -565,11 +567,14 @@ public class MediaGalleryViewModel {
         let navController: MediaGalleryNavigationController = MediaGalleryNavigationController()
         navController.viewControllers = [pageViewController]
         navController.modalPresentationStyle = .fullScreen
-        navController.transitioningDelegate = pageViewController
+        
+        if useTransitioningDelegate {
+            navController.transitioningDelegate = pageViewController
+        }
         
         return navController
     }
-    
+
     public static func createMediaTileViewController(
         threadId: String,
         threadVariant: SessionThread.Variant,

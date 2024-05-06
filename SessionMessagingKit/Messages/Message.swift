@@ -335,7 +335,7 @@ public extension Message {
     
     static func threadId(forMessage message: Message, destination: Message.Destination) -> String {
         switch destination {
-            case .contact(let publicKey):
+            case .contact(let publicKey), .syncMessage(let publicKey):
                 // Extract the 'syncTarget' value if there is one
                 let maybeSyncTarget: String?
                 
@@ -685,30 +685,24 @@ public extension Message {
     
     internal static func getSpecifiedTTL(
         message: Message,
-        isGroupMessage: Bool,
-        isSyncMessage: Bool,
-        using dependencies: Dependencies
+        destination: Message.Destination
     ) -> UInt64 {
         guard dependencies[feature: .updatedDisappearingMessages] else { return message.ttl }
-        // Not disappearing messages
-        guard let expiresInSeconds = message.expiresInSeconds else { return message.ttl }
         
-        // Sync message should be read already, it is the same for disappear after read and disappear after sent
-        guard !isSyncMessage else { return UInt64(expiresInSeconds * 1000) }
-        
-        // Disappear after read messages that have not be read
-        guard let expiresStartedAtMs = message.expiresStartedAtMs else { return message.ttl }
-        
-        // Disappear after read messages that have already be read
-        guard message.sentTimestamp == UInt64(expiresStartedAtMs) else { return message.ttl }
-        
-        // Disappear after sent messages with exceptions
-        switch message {
-            case is ClosedGroupControlMessage, is UnsendRequest:
+        switch (destination, message) {
+            // Disappear after sent messages with exceptions
+            case (_, is UnsendRequest): return message.ttl
+            case (.closedGroup, is ClosedGroupControlMessage), (.closedGroup, is ExpirationTimerUpdate):
                 return message.ttl
-            case is ExpirationTimerUpdate:
-                return isGroupMessage ? message.ttl : UInt64(expiresInSeconds * 1000)
+
             default:
+                guard
+                    let expiresInSeconds = message.expiresInSeconds,     // Not disappearing messages
+                    expiresInSeconds > 0,                                // Not disappearing messages (0 == disabled)
+                    let expiresStartedAtMs = message.expiresStartedAtMs, // Unread disappear after read message
+                    message.sentTimestamp == UInt64(expiresStartedAtMs)  // Already read disappearing messages
+                else { return message.ttl }
+                
                 return UInt64(expiresInSeconds * 1000)
         }
     }

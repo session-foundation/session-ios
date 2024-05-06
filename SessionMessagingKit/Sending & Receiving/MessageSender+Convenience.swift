@@ -74,7 +74,6 @@ extension MessageSender {
                 destination: destination,
                 threadId: threadId,
                 interactionId: interactionId,
-                isAlreadySyncMessage: false,
                 after: blockingJob,
                 using: dependencies
             )
@@ -89,8 +88,7 @@ extension MessageSender {
                 interactionId: interactionId,
                 details: MessageSendJob.Details(
                     destination: destination,
-                    message: message,
-                    isSyncMessage: isSyncMessage
+                    message: message
                 )
             ),
             dependantJob: blockingJob,

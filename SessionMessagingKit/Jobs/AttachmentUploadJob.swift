@@ -58,8 +58,8 @@ public enum AttachmentUploadJob: JobExecutor {
             MessageSender.handleMessageWillSend(
                 db,
                 message: details.message,
-                interactionId: interactionId,
-                isSyncMessage: details.isSyncMessage
+                destination: details.destination,
+                interactionId: interactionId
             )
         }
         
@@ -93,9 +93,9 @@ public enum AttachmentUploadJob: JobExecutor {
                                 MessageSender.handleFailedMessageSend(
                                     db,
                                     message: details.message,
-                                    with: MessageSenderError.other("[AttachmentUploadJob] Failed", error),
+                                    destination: nil,
+                                    with: .other("[AttachmentUploadJob] Failed", error),
                                     interactionId: interactionId,
-                                    isSyncMessage: details.isSyncMessage,
                                     using: dependencies
                                 )
                                 didLogError = true

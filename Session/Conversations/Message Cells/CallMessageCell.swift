@@ -140,6 +140,8 @@ final class CallMessageCell: MessageCell {
         else { return }
         
         self.dependencies = dependencies
+        self.accessibilityIdentifier = "Control message"
+        self.isAccessibilityElement = true
         self.viewModel = cellViewModel
         self.topConstraint.constant = (cellViewModel.shouldShowDateHeader ? 0 : CallMessageCell.inset)
         

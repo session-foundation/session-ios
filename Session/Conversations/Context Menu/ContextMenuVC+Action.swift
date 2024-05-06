@@ -169,7 +169,9 @@ extension ContextMenuVC {
         currentUserBlinded25SessionId: String?,
         currentUserIsOpenGroupModerator: Bool,
         currentThreadIsMessageRequest: Bool,
-        delegate: ContextMenuActionDelegate?
+        forMessageInfoScreen: Bool,
+        delegate: ContextMenuActionDelegate?,
+        using dependencies: Dependencies
     ) -> [Action]? {
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall, .infoScreenshotNotification, .infoMediaSavedNotification,
@@ -240,10 +242,8 @@ extension ContextMenuVC {
                     on: cellViewModel.threadOpenGroupServer
                 )
             }
-            return !currentThreadIsMessageRequest
+            return !currentThreadIsMessageRequest && !forMessageInfoScreen
         }()
-        
-        let shouldShowInfo: Bool = (cellViewModel.attachments?.isEmpty == false)
         
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
@@ -251,21 +251,21 @@ extension ContextMenuVC {
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
             (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),
-            (canDelete ? Action.delete(cellViewModel, delegate) : nil),
-            (canBan ? Action.ban(cellViewModel, delegate) : nil),
-            (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
-            (shouldShowInfo ? Action.info(cellViewModel, delegate) : nil),
+            (canDelete ? Action.delete(cellViewModel, delegate, using: dependencies) : nil),
+            (canBan ? Action.ban(cellViewModel, delegate, using: dependencies) : nil),
+            (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate, using: dependencies) : nil),
+            (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate, using: dependencies)),
         ]
         .appending(
             contentsOf: (shouldShowEmojiActions ? recentEmojis : [])
                 .map { Action.react(cellViewModel, $0, delegate) }
         )
-        .appending(Action.emojiPlusButton(cellViewModel, delegate))
+        .appending(forMessageInfoScreen ? nil : Action.emojiPlusButton(cellViewModel, delegate, using: dependencies))
         .compactMap { $0 }
         
         guard !generatedActions.isEmpty else { return [] }
         
-        return generatedActions.appending(Action.dismiss(delegate))
+        return generatedActions.appending(forMessageInfoScreen ? nil : Action.dismiss(delegate))
     }
 }
 

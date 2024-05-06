@@ -61,7 +61,7 @@ public enum AppSetup {
                 using: dependencies
             )
 
-            Environment.shared = Environment(
+            SessionEnvironment.shared = SessionEnvironment(
                 reachabilityManager: SSKReachabilityManagerImpl(),
                 audioSession: OWSAudioSession(),
                 proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),

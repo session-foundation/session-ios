@@ -3,6 +3,7 @@
 import UIKit
 import CallKit
 import GRDB
+import SessionUIKit
 import SessionMessagingKit
 import SignalCoreKit
 import SignalUtilitiesKit
@@ -234,8 +235,11 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                     let presentingVC: UIViewController = dependencies[singleton: .appContext].frontmostViewController
                 else { return }
                 
-                if let conversationVC: ConversationVC = presentingVC as? ConversationVC, conversationVC.viewModel.threadData.threadId == call.sessionId {
-                    let callVC = CallVC(for: call, using: dependencies)
+                if
+                    let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
+                    conversationVC.viewModel.threadData.threadId == call.sessionId
+                {
+                    let callVC = CallVC(for: call)
                     callVC.conversationVC = conversationVC
                     conversationVC.inputAccessoryView?.isHidden = true
                     conversationVC.inputAccessoryView?.alpha = 0

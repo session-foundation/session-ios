@@ -33,6 +33,10 @@ public class AppEnvironment {
     }
 
     public func setup() {
+        // Hang certain singletons on Environment too.
+        SessionEnvironment.shared?.notificationsManager.mutate {
+            $0 = notificationPresenter
+        }
         setupLogFiles()
     }
     

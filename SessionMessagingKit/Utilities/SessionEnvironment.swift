@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-public class Environment {
-    public static var shared: Environment?
+public class SessionEnvironment {
+    public static var shared: SessionEnvironment?
     
     public let reachabilityManager: SSKReachabilityManager
     
@@ -27,8 +27,8 @@ public class Environment {
         self.windowManager = windowManager
         self.isRequestingPermission = false
         
-        if Environment.shared == nil {
-            Environment.shared = self
+        if SessionEnvironment.shared == nil {
+            SessionEnvironment.shared = self
         }
     }
     
@@ -45,6 +45,6 @@ public class Environment {
 public class SMKEnvironment: NSObject {
     @objc public static let shared: SMKEnvironment = SMKEnvironment()
     
-    @objc public var audioSession: OWSAudioSession? { Environment.shared?.audioSession }
-    @objc public var windowManager: OWSWindowManager? { Environment.shared?.windowManager }
+    @objc public var audioSession: OWSAudioSession? { SessionEnvironment.shared?.audioSession }
+    @objc public var windowManager: OWSWindowManager? { SessionEnvironment.shared?.windowManager }
 }

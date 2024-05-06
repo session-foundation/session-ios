@@ -711,6 +711,7 @@ public extension MessageViewModel {
         body: String?,
         expiresStartedAtMs: Double?,
         expiresInSeconds: TimeInterval?,
+        state: RecipientState.State = .sending,
         isSenderOpenGroupModerator: Bool,
         currentUserProfile: Profile,
         quote: Quote?,
@@ -743,7 +744,7 @@ public extension MessageViewModel {
         self.expiresStartedAtMs = expiresStartedAtMs
         self.expiresInSeconds = expiresInSeconds
         
-        self.state = .sending
+        self.state = state
         self.hasAtLeastOneReadReceipt = false
         self.mostRecentFailureText = nil
         self.isSenderOpenGroupModerator = isSenderOpenGroupModerator

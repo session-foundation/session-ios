@@ -259,8 +259,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         guard let quoteDraftInfo = quoteDraftInfo else { return }
         
         let hInset: CGFloat = 6 // Slight visual adjustment
-        let maxWidth = additionalContentContainer.bounds.width
-        
+
         let quoteView: QuoteView = QuoteView(
             for: .draft,
             authorId: quoteDraftInfo.model.authorId,
@@ -270,9 +269,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             currentUserBlinded15SessionId: quoteDraftInfo.model.currentUserBlinded15SessionId,
             currentUserBlinded25SessionId: quoteDraftInfo.model.currentUserBlinded25SessionId,
             direction: (quoteDraftInfo.isOutgoing ? .outgoing : .incoming),
-            attachment: quoteDraftInfo.model.attachment,
-            hInset: hInset,
-            maxWidth: maxWidth
+            attachment: quoteDraftInfo.model.attachment
         ) { [weak self] in
             self?.quoteDraftInfo = nil
         }

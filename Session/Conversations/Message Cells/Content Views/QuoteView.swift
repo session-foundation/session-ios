@@ -34,8 +34,6 @@ final class QuoteView: UIView {
         currentUserBlinded25SessionId: String?,
         direction: Direction,
         attachment: Attachment?,
-        hInset: CGFloat,
-        maxWidth: CGFloat,
         onCancel: (() -> ())? = nil
     ) {
         self.onCancel = onCancel
@@ -51,9 +49,7 @@ final class QuoteView: UIView {
             currentUserBlinded15SessionId: currentUserBlinded15SessionId,
             currentUserBlinded25SessionId: currentUserBlinded25SessionId,
             direction: direction,
-            attachment: attachment,
-            hInset: hInset,
-            maxWidth: maxWidth
+            attachment: attachment
         )
     }
 
@@ -74,9 +70,7 @@ final class QuoteView: UIView {
         currentUserBlinded15SessionId: String?,
         currentUserBlinded25SessionId: String?,
         direction: Direction,
-        attachment: Attachment?,
-        hInset: CGFloat,
-        maxWidth: CGFloat
+        attachment: Attachment?
     ) {
         // There's quite a bit of calculation going on here. It's a bit complex so don't make changes
         // if you don't need to. If you do then test:
@@ -90,21 +84,6 @@ final class QuoteView: UIView {
         let labelStackViewVMargin = QuoteView.labelStackViewVMargin
         let smallSpacing = Values.smallSpacing
         let cancelButtonSize = QuoteView.cancelButtonSize
-        var availableWidth: CGFloat
-        
-        // Subtract smallSpacing twice; once for the spacing in between the stack view elements and
-        // once for the trailing margin.
-        if attachment == nil {
-            availableWidth = maxWidth - 2 * hInset - Values.accentLineThickness - 2 * smallSpacing
-        }
-        else {
-            availableWidth = maxWidth - 2 * hInset - thumbnailSize - 2 * smallSpacing
-        }
-        
-        if case .draft = mode {
-            availableWidth -= cancelButtonSize
-        }
-        
         var body: String? = quotedText
         
         // Main stack view
