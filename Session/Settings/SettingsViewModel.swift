@@ -619,11 +619,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         modalActivityIndicator.dismiss {
                             let title: String = {
                                 switch (avatarUpdate, error) {
-                                    case (.remove, _): return "update_profile_modal_remove_error_title".localized()
+                                    case (.remove, _): return "profileDisplayPictureRemoveError".localized()
                                     case (_, .avatarUploadMaxFileSizeExceeded):
                                         return "update_profile_modal_max_size_error_title".localized()
                                     
-                                    default: return "update_profile_modal_error_title".localized()
+                                    default: return "profileErrorUpdate".localized()
                                 }
                             }()
                             let message: String? = {

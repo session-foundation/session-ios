@@ -828,7 +828,9 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
             )
             
             messageRequestDescriptionLabel.text = (updatedThreadData.threadRequiresApproval == false ?
-                "messageRequestsAcceptDescription".localized() :
+                "messageRequestsAcceptDescription"
+                    .put(key: "app_name", value: Singleton.appName)
+                    .localized() :
                 "messageRequestPendingDescription".localized()
             )
             

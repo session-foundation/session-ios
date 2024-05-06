@@ -682,3 +682,5 @@
 "attachmentsNotification" = "{emoji} Attachment";
 "onsErrorNotRecognized" = "We couldn't recognize this ONS. Please check it and try again.";
 "communityJoinError" = "Failed to join {community_name}";
+"profileErrorUpdate" = "Failed to update profile.";
+"profileDisplayPictureRemoveError" = "Failed to remove display picture.";
