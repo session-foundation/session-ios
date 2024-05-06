@@ -40,8 +40,8 @@ class SessionThreadViewModelSpec: QuickSpec {
                 // MARK: ---- standardises odd quote characters
                 it("standardises odd quote characters") {
                     expect(SessionThreadViewModel.standardQuotes("\"")).to(equal("\""))
-                    expect(SessionThreadViewModel.standardQuotes(""")).to(equal("\""))
-                    expect(SessionThreadViewModel.standardQuotes(""")).to(equal("\""))
+                    expect(SessionThreadViewModel.standardQuotes("”")).to(equal("\""))
+                    expect(SessionThreadViewModel.standardQuotes("“")).to(equal("\""))
                 }
                 
                 // MARK: ---- splits on the space character
@@ -100,7 +100,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 
                 // MARK: ---- keeps words within weird quotes together
                 it("keeps words within weird quotes together") {
-                    expect(SessionThreadViewModel.searchTermParts("This "is a Test" Message"))
+                    expect(SessionThreadViewModel.searchTermParts("This \"is a Test\" Message"))
                         .to(equal([
                             "\"This\"",
                             "\"is a Test\"",
