@@ -164,6 +164,22 @@ final class NukeDataModal: Modal {
         }
     }
     
+    private func unknownErrorOccured() {
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "clearDataAll".localized(),
+                body: .text("clearDataErrorDescriptionGeneric".localized()),
+                confirmTitle: "clear".localized(),
+                confirmStyle: .danger,
+                cancelStyle: .alert_text,
+                dismissOnConfirm: false
+            ) { [weak self] confirmationModal in
+                self?.clearDeviceOnly()
+            }
+        )
+        present(modal, animated: true)
+    }
+    
     private func clearEntireAccount(presentedViewController: UIViewController) {
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self] _ in
@@ -222,7 +238,7 @@ final class NukeDataModal: Modal {
                                 .compactMap { ($0.value == false ? $0.key : nil) }
 
                             guard !potentiallyMaliciousSnodes.isEmpty else {
-                                self?.deleteAllLocalData()
+                                self?.unknownErrorOccured()
                                 return
                             }
 
