@@ -1924,8 +1924,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                                     ed25519SecretKey: Array(groupSecretKey)
                                                 ),
                                                 using: dependencies
-                                            ),
-                                            isSyncMessage: false
+                                            )
                                         )
                                     ),
                                     canStartJob: true,

@@ -11,7 +11,9 @@ abstract_target 'GlobalDependencies' do
   
   # FIXME: Would be nice to migrate from CocoaPods to SwiftPackageManager (should allow us to speed up build time), haven't gone through all of the dependencies but currently unfortunately SQLCipher doesn't support SPM (for more info see: https://github.com/sqlcipher/sqlcipher/issues/371)
   pod 'SQLCipher', '~> 4.5.3'
-  pod 'WebRTC-lib'
+  
+  # FIXME: We are currently stuck at version '116.0.0' due to a linker issue described here: https://github.com/stasel/WebRTC/issues/83
+  pod 'WebRTC-lib', '116.0.0'
   
   target 'Session' do
     pod 'Reachability'

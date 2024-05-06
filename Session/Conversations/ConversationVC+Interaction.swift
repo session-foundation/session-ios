@@ -1883,27 +1883,28 @@ extension ConversationVC:
     
     // MARK: - ContextMenuActionDelegate
     
-    func info(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) {
+    func info(_ cellViewModel: MessageViewModel) {
         let actions: [ContextMenuVC.Action] = ContextMenuVC.actions(
             for: cellViewModel,
             recentEmojis: [],
-            currentUserPublicKey: self.viewModel.threadData.currentUserPublicKey,
-            currentUserBlinded15PublicKey: self.viewModel.threadData.currentUserBlinded15PublicKey,
-            currentUserBlinded25PublicKey: self.viewModel.threadData.currentUserBlinded25PublicKey,
+            currentUserSessionId: self.viewModel.threadData.currentUserSessionId,
+            currentUserBlinded15SessionId: self.viewModel.threadData.currentUserBlinded15SessionId,
+            currentUserBlinded25SessionId: self.viewModel.threadData.currentUserBlinded25SessionId,
             currentUserIsOpenGroupModerator: OpenGroupManager.isUserModeratorOrAdmin(
-                self.viewModel.threadData.currentUserPublicKey,
+                publicKey: self.viewModel.threadData.currentUserSessionId,
                 for: self.viewModel.threadData.openGroupRoomToken,
-                on: self.viewModel.threadData.openGroupServer
+                on: self.viewModel.threadData.openGroupServer,
+                using: viewModel.dependencies
             ),
             currentThreadIsMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
             forMessageInfoScreen: true,
-            delegate: self,
-            using: viewModel.dependencies
+            delegate: self
         ) ?? []
         
         let messageInfoViewController = MessageInfoViewController(
             actions: actions,
-            messageViewModel: cellViewModel
+            messageViewModel: cellViewModel,
+            using: viewModel.dependencies
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.navigationController?.pushViewController(messageInfoViewController, animated: true)

@@ -1162,8 +1162,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                                     ed25519SecretKey: Array(groupSecretKey)
                                                 ),
                                                 using: dependencies
-                                            ),
-                                            isSyncMessage: false
+                                            )
                                         )
                                     ),
                                     dependantJob: nil,

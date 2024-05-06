@@ -1001,7 +1001,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                                 to: .contact(publicKey: cellViewModel.threadId),
                                                 namespace: .default,
                                                 interactionId: nil,
-                                                fileIds: []
+                                                fileIds: [],
+                                                using: dependencies
                                             )),
                                         .preparedRequest(try SnodeAPI
                                             .preparedDeleteMessages(
@@ -1046,7 +1047,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                             to: .contact(publicKey: cellViewModel.threadId),
                                             namespace: .default,
                                             interactionId: nil,
-                                            fileIds: []
+                                            fileIds: [],
+                                            using: dependencies
                                         )),
                                     .preparedRequest(try SnodeAPI
                                         .preparedDeleteMessages(
@@ -1096,7 +1098,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                             to: .closedGroup(groupPublicKey: cellViewModel.threadId),
                                             namespace: .legacyClosedGroup,
                                             interactionId: nil,
-                                            fileIds: []
+                                            fileIds: [],
+                                            using: dependencies
                                         )),
                                     .deleteFromDatabase(cellViewModel.id)
                                 ]
@@ -1136,7 +1139,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                             to: .closedGroup(groupPublicKey: cellViewModel.threadId),
                                             namespace: .groupMessages,
                                             interactionId: nil,
-                                            fileIds: []
+                                            fileIds: [],
+                                            using: dependencies
                                         )),
                                     .deleteFromDatabase(cellViewModel.id)
                                 ]
@@ -1179,7 +1183,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                                             to: .closedGroup(groupPublicKey: cellViewModel.threadId),
                                             namespace: .groupMessages,
                                             interactionId: nil,
-                                            fileIds: []
+                                            fileIds: [],
+                                            using: dependencies
                                         )),
                                     .preparedRequest(try SnodeAPI
                                         .preparedDeleteMessages(

@@ -2,6 +2,7 @@
 
 import Foundation
 import Nimble
+import CwlPreconditionTesting
 import SessionUtilitiesKit
 
 public enum CallAmount {
@@ -41,8 +42,8 @@ public func call<M, T, R>(
     matchingParameters: ParameterMatchType = .none,
     exclusive: Bool = false,
     functionBlock: @escaping (inout T) throws -> R
-) -> Nimble.Predicate<M> where M: Mock<T> {
-    return Predicate.define { actualExpression in
+) -> Matcher<M> where M: Mock<T> {
+    return Matcher.define { actualExpression in
         /// First generate the call info
         let callInfo: CallInfo = generateCallInfo(actualExpression, functionBlock)
         let expectedDescription: String = {
@@ -74,7 +75,7 @@ public func call<M, T, R>(
         
         /// If an exception was thrown when generating call info then fail (mock value likely invalid)
         guard callInfo.caughtException == nil else {
-            return PredicateResult(
+            return MatcherResult(
                 bool: false,
                 message: .expectedCustomValueTo(
                     expectedDescription,
@@ -85,7 +86,7 @@ public func call<M, T, R>(
         
         /// If there is no function within the 'callInfo' then we can't provide more useful info
         guard let targetFunction: MockFunction = callInfo.targetFunction else {
-            return PredicateResult(
+            return MatcherResult(
                 bool: false,
                 message: .expectedCustomValueTo(
                     expectedDescription,
@@ -96,7 +97,7 @@ public func call<M, T, R>(
         
         /// If the mock wasn't called at all then no other data will be useful
         guard !callInfo.allFunctionsCalled.isEmpty else {
-            return PredicateResult(
+            return MatcherResult(
                 bool: false,
                 message: .expectedCustomValueTo(
                     expectedDescription,
@@ -118,7 +119,7 @@ public func call<M, T, R>(
                 .map { "\($0.name) (params: \($0.paramCount))" }
                 .filter { $0 != "\(callInfo.functionName) (params: \(callInfo.parameterCount))" }
             
-            return PredicateResult(
+            return MatcherResult(
                 bool: false,
                 message: .expectedCustomValueTo(
                     expectedDescription,
@@ -181,7 +182,7 @@ public func call<M, T, R>(
         switch (exclusive, metCallCountRequirement, allCallsMetParamRequirements, totalUniqueParamCount) {
             /// No calls with the matching parameter requirements but only one parameter combination so include the param info
             case (_, false, false, 1):
-                return PredicateResult(
+                return MatcherResult(
                     bool: false,
                     message: .expectedCustomValueTo(
                         expectedDescription,
@@ -191,7 +192,7 @@ public func call<M, T, R>(
                 
             /// The calls were made with the correct parameters, but didn't call enough times
             case (_, false, true, _):
-                return PredicateResult(
+                return MatcherResult(
                     bool: false,
                     message: .expectedCustomValueTo(
                         expectedDescription,
@@ -212,7 +213,7 @@ public func call<M, T, R>(
                     .max()
                     .defaulting(to: 0)
                 
-                return PredicateResult(
+                return MatcherResult(
                     bool: false,
                     message: .expectedCustomValueTo(
                         expectedDescription,
@@ -233,7 +234,7 @@ public func call<M, T, R>(
                 )
 
             default:
-                return PredicateResult(
+                return MatcherResult(
                     bool: true,
                     message: .expectedCustomValueTo(
                         expectedDescription,

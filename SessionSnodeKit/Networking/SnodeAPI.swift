@@ -1248,15 +1248,6 @@ public extension Publisher where Output == Set<Snode> {
                         return try transform(snode)
                             .eraseToAnyPublisher()
                     }
-                    .mapError { error in
-                        // Prevent nesting the 'ranOutOfRandomSnodes' errors
-                        switch error {
-                            case SnodeAPIError.ranOutOfRandomSnodes: break
-                            default: lastError = error
-                        }
-                        
-                        return error
-                    }
                     .retry(retries)
                     .eraseToAnyPublisher()
             }

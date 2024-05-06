@@ -170,8 +170,7 @@ extension ContextMenuVC {
         currentUserIsOpenGroupModerator: Bool,
         currentThreadIsMessageRequest: Bool,
         forMessageInfoScreen: Bool,
-        delegate: ContextMenuActionDelegate?,
-        using dependencies: Dependencies
+        delegate: ContextMenuActionDelegate?
     ) -> [Action]? {
         switch cellViewModel.variant {
             case .standardIncomingDeleted, .infoCall, .infoScreenshotNotification, .infoMediaSavedNotification,
@@ -251,16 +250,16 @@ extension ContextMenuVC {
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
             (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),
-            (canDelete ? Action.delete(cellViewModel, delegate, using: dependencies) : nil),
-            (canBan ? Action.ban(cellViewModel, delegate, using: dependencies) : nil),
-            (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate, using: dependencies) : nil),
-            (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate, using: dependencies)),
+            (canDelete ? Action.delete(cellViewModel, delegate) : nil),
+            (canBan ? Action.ban(cellViewModel, delegate) : nil),
+            (canBan ? Action.banAndDeleteAllMessages(cellViewModel, delegate) : nil),
+            (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate)),
         ]
         .appending(
             contentsOf: (shouldShowEmojiActions ? recentEmojis : [])
                 .map { Action.react(cellViewModel, $0, delegate) }
         )
-        .appending(forMessageInfoScreen ? nil : Action.emojiPlusButton(cellViewModel, delegate, using: dependencies))
+        .appending(forMessageInfoScreen ? nil : Action.emojiPlusButton(cellViewModel, delegate))
         .compactMap { $0 }
         
         guard !generatedActions.isEmpty else { return [] }

@@ -239,7 +239,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                     let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
                     conversationVC.viewModel.threadData.threadId == call.sessionId
                 {
-                    let callVC = CallVC(for: call)
+                    let callVC = CallVC(for: call, using: dependencies)
                     callVC.conversationVC = conversationVC
                     conversationVC.inputAccessoryView?.isHidden = true
                     conversationVC.inputAccessoryView?.alpha = 0

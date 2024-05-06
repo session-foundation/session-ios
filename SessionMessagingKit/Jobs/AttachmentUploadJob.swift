@@ -94,7 +94,7 @@ public enum AttachmentUploadJob: JobExecutor {
                                     db,
                                     message: details.message,
                                     destination: nil,
-                                    with: .other("[AttachmentUploadJob] Failed", error),
+                                    error: .other("[AttachmentUploadJob] Failed", error),
                                     interactionId: interactionId,
                                     using: dependencies
                                 )

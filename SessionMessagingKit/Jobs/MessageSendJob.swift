@@ -198,12 +198,12 @@ public enum MessageSendJob: JobExecutor {
                                     
                                     // In this case the `MessageSender` process gets cancelled so we need to
                                     // call `handleFailedMessageSend` to update the statuses correctly
-                                    dependencies.storage.read(using: dependencies) { db in
+                                    dependencies[singleton: .storage].read(using: dependencies) { db in
                                         MessageSender.handleFailedMessageSend(
                                             db,
                                             message: details.message,
                                             destination: details.destination,
-                                            with: .sendJobTimeout,
+                                            error: .sendJobTimeout,
                                             interactionId: job.interactionId,
                                             using: dependencies
                                         )

@@ -2,6 +2,7 @@
 
 import UIKit
 import SignalCoreKit
+import SessionUIKit
 import SessionUtilitiesKit
 
 final class MainAppContext: AppContext {
@@ -143,6 +144,9 @@ final class MainAppContext: AppContext {
     
     func setMainWindow(_ mainWindow: UIWindow) {
         self.mainWindow = mainWindow
+        
+        // Store in SessionUIKit to avoid needing the SessionUtilitiesKit dependency
+        SNUIKit.setMainWindow(mainWindow)
     }
     
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier {

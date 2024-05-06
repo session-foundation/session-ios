@@ -132,8 +132,8 @@ public extension Profile {
         
         // If we have both a `profileKey` and a `profilePicture` then the key MUST be valid
         if
-            let profileKeyData: Data = try? container.decode(Data.self, forKey: .profileEncryptionKey),
-            let profilePictureUrlValue: String = try? container.decode(String.self, forKey: .profilePictureUrl)
+            let profileKeyData: Data = try? container.decode(Data?.self, forKey: .profileEncryptionKey),
+            let profilePictureUrlValue: String = try? container.decode(String?.self, forKey: .profilePictureUrl)
         {
             profileKey = profileKeyData
             profilePictureUrl = profilePictureUrlValue

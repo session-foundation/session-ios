@@ -59,7 +59,6 @@ public enum GroupPromoteMemberJob: JobExecutor {
                     namespace: .default,
                     interactionId: nil,
                     fileIds: [],
-                    isSyncMessage: false,
                     using: dependencies
                 )
             }

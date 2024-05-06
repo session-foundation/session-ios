@@ -64,7 +64,6 @@ class MessageSenderSpec: QuickSpec {
                             namespace: .default,
                             interactionId: nil,
                             fileIds: [],
-                            isSyncMessage: false,
                             using: dependencies
                         )
                     }

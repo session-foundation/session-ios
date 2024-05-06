@@ -52,11 +52,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case .noKeyPair: return "Couldn't find a private key associated with the given group public key (MessageSenderError.noKeyPair)."
             case .invalidClosedGroupUpdate: return "Invalid group update (MessageSenderError.invalidClosedGroupUpdate)."
             case .invalidConfigMessageHandling: return "Invalid handling of a config message (MessageSenderError.invalidConfigMessageHandling)."
-            case .other(let error):
-                switch error {
-                    case is CustomStringConvertible: return "\(error)"
-                    default: return error.localizedDescription
-                }
+            case .other(_, let error): return "\(error)"
         }
     }
     

@@ -73,7 +73,6 @@ public enum GroupLeavingJob: JobExecutor {
                                 namespace: destination.defaultNamespace,
                                 interactionId: job.interactionId,
                                 fileIds: [],
-                                isSyncMessage: false,
                                 using: dependencies
                             )
                         )
@@ -87,7 +86,6 @@ public enum GroupLeavingJob: JobExecutor {
                                 namespace: destination.defaultNamespace,
                                 interactionId: job.interactionId,
                                 fileIds: [],
-                                isSyncMessage: false,
                                 using: dependencies
                             )
                         )

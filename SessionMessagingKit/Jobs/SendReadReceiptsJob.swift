@@ -43,7 +43,9 @@ public enum SendReadReceiptsJob: JobExecutor {
                     ),
                     to: details.destination,
                     namespace: details.destination.defaultNamespace,
-                    interactionId: nil
+                    interactionId: nil,
+                    fileIds: [],
+                    using: dependencies
                 )
             }
             .flatMap { $0.send(using: dependencies) }

@@ -73,7 +73,6 @@ public enum GroupInviteMemberJob: JobExecutor {
                     namespace: .default,
                     interactionId: nil,
                     fileIds: [],
-                    isSyncMessage: false,
                     using: dependencies
                 )
             }
