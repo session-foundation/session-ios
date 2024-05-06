@@ -38,7 +38,7 @@ struct PNModeScreen: View {
             mode: .slow,
             title: "notificationsSlowMode".localized(),
             explanation: "notificationsSlowModeDescription"
-                .put(key: "app_name", value: Singleton.appContext.appName)
+                .put(key: "app_name", value: Singleton.appName)
                 .localized(),
             isRecommended: false,
             accessibility: Accessibility(

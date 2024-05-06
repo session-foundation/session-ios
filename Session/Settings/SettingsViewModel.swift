@@ -425,7 +425,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             title: "sessionInviteAFriend".localized(),
                             onTap: {
                                 let invitation: String = "accountIdShare"
-                                    .put(key: "app_name", value: Singleton.appContext.appName)
+                                    .put(key: "app_name", value: Singleton.appName)
                                     .put(key: "account_id", value: state.profile.id)
                                     .put(key: "download_url", value: "https://getsession.org/")
                                     .localized()

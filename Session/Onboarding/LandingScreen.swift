@@ -196,10 +196,26 @@ struct FakeChat: View {
     @State var numberOfBubblesShown: Int = 0
     
     let chatBubbles: [ChatBubble] = [
-        ChatBubble(text: "onboardingBubbleWelcomeToSession".localized() + " 👋", outgoing: false),
-        ChatBubble(text: "onboardingBubbleSessionIsEngineered".localized(), outgoing: true),
-        ChatBubble(text: "onboardingBubbleNoPhoneNumber".localized(), outgoing: false),
-        ChatBubble(text: "onboardingBubbleCreatingAnAccountIsEasy".localized() + " 👇", outgoing: true),
+        ChatBubble(
+            text: "onboardingBubbleWelcomeToSession"
+                .put(key: "app_name", value: Singleton.appName)
+                .localized() + " 👋",
+            outgoing: false
+        ),
+        ChatBubble(
+            text: "onboardingBubbleSessionIsEngineered"
+                .put(key: "app_name", value: Singleton.appName)
+                .localized(),
+            outgoing: true
+        ),
+        ChatBubble(
+            text: "onboardingBubbleNoPhoneNumber".localized(),
+            outgoing: false
+        ),
+        ChatBubble(
+            text: "onboardingBubbleCreatingAnAccountIsEasy".localized() + " 👇",
+            outgoing: true
+        )
     ]
     
     var body: some View {

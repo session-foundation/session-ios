@@ -73,14 +73,14 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
                 notificationContent.body = "messageNewYouveGotA".localized()
                 
             case .noNameNoPreview:
-                notificationContent.title = Singleton.appContext.appName
+                notificationContent.title = Singleton.appName
                 notificationContent.body = "messageNewYouveGotA".localized()
         }
         
         // If it's a message request then overwrite the body to be something generic (only show a notification
         // when receiving a new message request if there aren't any others or the user had hidden them)
         if isMessageRequest {
-            notificationContent.title = Singleton.appContext.appName
+            notificationContent.title = Singleton.appName
             notificationContent.body = "messageRequestsNew".localized()
         }
         
@@ -159,7 +159,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
-        notificationContent.title = Singleton.appContext.appName
+        notificationContent.title = Singleton.appName
         notificationContent.body = ""
         
         let senderName: String = Profile.displayName(db, id: interaction.authorId, threadVariant: thread.variant)
@@ -190,7 +190,7 @@ public class NSENotificationPresenter: NSObject, NotificationsProtocol {
         guard !isMessageRequest else { return }
         
         let senderName: String = Profile.displayName(db, id: reaction.authorId, threadVariant: thread.variant)
-        let notificationTitle = Singleton.appContext.appName
+        let notificationTitle = Singleton.appName
         var notificationBody = "emojiReactsHoverName"
             .put(key: "name", value: senderName)
             .put(key: "emoji", value: reaction.emoji)

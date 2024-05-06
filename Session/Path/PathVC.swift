@@ -68,7 +68,7 @@ final class PathVC: BaseVC {
         let explanationLabel = UILabel()
         explanationLabel.font = .systemFont(ofSize: Values.smallFontSize)
         explanationLabel.text = "onionRoutingPathDescription"
-            .put(key: "app_name", value: Singleton.appContext.appName)
+            .put(key: "app_name", value: Singleton.appName)
             .localized()
         explanationLabel.themeTextColor = .textSecondary
         explanationLabel.textAlignment = .center

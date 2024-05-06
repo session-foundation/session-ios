@@ -254,7 +254,7 @@ extension ConversationVC:
                     title: "giphyWarning".localized(),
                     body: .text(
                         "giphyWarningDescription"
-                            .put(key: "app_name", value: Singleton.appContext.appName)
+                            .put(key: "app_name", value: Singleton.appName)
                             .localized()
                     ),
                     confirmTitle: "theContinue".localized()
@@ -642,7 +642,7 @@ extension ConversationVC:
                 title: "linkPreviewsEnable".localized(),
                 body: .text(
                     "linkPreviewsFirstDescription"
-                        .put(key: "app_name", value: Singleton.appContext.appName)
+                        .put(key: "app_name", value: Singleton.appName)
                         .localized()
                 ),
                 confirmTitle: "enable".localized()
@@ -2295,7 +2295,7 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: Singleton.appContext.appName,
+                title: Singleton.appName,
                 body: .text("This will ban the selected user from this room. It won't ban them from other rooms."),
                 confirmTitle: "okay".localized(),
                 cancelStyle: .alert_text,
@@ -2349,7 +2349,7 @@ extension ConversationVC:
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
             info: ConfirmationModal.Info(
-                title: Singleton.appContext.appName,
+                title: Singleton.appName,
                 body: .text("This will ban the selected user from this room and delete all messages sent by them. It won't ban them from other rooms or delete the messages they sent there."),
                 confirmTitle: "okay".localized(),
                 cancelStyle: .alert_text,

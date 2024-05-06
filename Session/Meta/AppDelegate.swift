@@ -404,7 +404,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
         /// have access to the database when displaying this so can't extract theme information for styling purposes
         let alert: UIAlertController = UIAlertController(
-            title: Singleton.appContext.appName,
+            title: Singleton.appName,
             message: error.message,
             preferredStyle: .alert
         )
@@ -901,7 +901,7 @@ private enum StartupError: Error {
             
             case .startupTimeout: 
                 return "databaseErrorTimeout"
-                    .put(key: "app_name", value: Singleton.appContext.appName)
+                    .put(key: "app_name", value: Singleton.appName)
                     .localized()
         }
     }

@@ -12,6 +12,8 @@ public extension Singleton {
     static var hasAppContext: Bool { _appContext.wrappedValue != nil }
     
     static func setup(appContext: AppContext) { _appContext.mutate { $0 = appContext } }
+    
+    static var appName: String { "Session" } // stringlint:disable
 }
 
 // MARK: - AppContext
@@ -24,7 +26,6 @@ public protocol AppContext: AnyObject {
     var reportedApplicationState: UIApplication.State { get }
     var mainWindow: UIWindow? { get }
     var isRTL: Bool { get }
-    var appName: String { get }
     var frontmostViewController: UIViewController? { get }
     
     func setMainWindow(_ mainWindow: UIWindow)
@@ -48,8 +49,6 @@ public extension AppContext {
     
     var isInBackground: Bool { reportedApplicationState == .background }
     var isAppForegroundAndActive: Bool { reportedApplicationState == .active }
-    
-    var appName: String { "Session" }
     
     // MARK: - Paths
     

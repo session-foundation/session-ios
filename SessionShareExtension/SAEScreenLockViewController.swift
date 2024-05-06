@@ -36,7 +36,7 @@ final class SAEScreenLockViewController: ScreenLockViewController {
         let titleLabel: UILabel = UILabel()
         titleLabel.font = UIFont.boldSystemFont(ofSize: Values.veryLargeFontSize)
         titleLabel.text = "shareToSession"
-            .put(key: "app_name", value: Singleton.appContext.appName)
+            .put(key: "app_name", value: Singleton.appName)
             .localized()
         titleLabel.themeTextColor = .textPrimary
         

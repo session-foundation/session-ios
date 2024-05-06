@@ -335,7 +335,7 @@ final class ConversationVC: BaseVC, SessionUtilRespondingViewController, Convers
         result.font = UIFont.systemFont(ofSize: 12)
         result.text = (self.viewModel.threadData.threadRequiresApproval == false ?
             "messageRequestsAcceptDescription"
-                .put(key: "app_name", value: Singleton.appContext.appName)
+                .put(key: "app_name", value: Singleton.appName)
                 .localized() :
             "messageRequestPendingDescription".localized()
         )
