@@ -681,6 +681,7 @@
 "onboardingRecoveryPassword" = "Enter your recovery password to load your account. If you haven't saved it, you can find it in your app settings.";
 "attachmentsNotification" = "{emoji} Attachment";
 "onsErrorNotRecognized" = "We couldn't recognize this ONS. Please check it and try again.";
+"communityJoinError" = "Failed to join {community_name}";
 
 // ADDED BY ONBOARDING
 "start_conversation_screen_title" = "Start Conversation";
@@ -736,7 +737,6 @@
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_2_SINGLE" = "and %@?";
 "CONVERSATION_SETTINGS_BLOCKED_CONTACTS_UNBLOCK_CONFIRMATION_TITLE_MULTIPLE_3" = "and %d others?";
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (default)";
-"COMMUNITY_ERROR_GENERIC" = "Couldn't Join";
 "LOAD_RECOVERY_PASSWORD_ERROR" = "An error occurred when trying to load your recovery password.\n\nPlease export your logs, then upload the file though Session's Help Desk to help resolve this issue.";
 "update_profile_modal_remove_error_title" = "Unable to remove avatar image";
 "update_profile_modal_max_size_error_title" = "Maximum File Size Exceeded";

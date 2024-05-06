@@ -1725,7 +1725,9 @@ extension ConversationVC:
                     guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: url) else {
                         let errorModal: ConfirmationModal = ConfirmationModal(
                             info: ConfirmationModal.Info(
-                                title: "COMMUNITY_ERROR_GENERIC".localized(),
+                                title: "communityJoinError"
+                                    .put(key: "community_name", value: finalName)
+                                    .localized(),
                                 cancelTitle: "okay".localized(),
                                 cancelStyle: .alert_text
                             )
@@ -1774,7 +1776,9 @@ extension ConversationVC:
                                         // Show the user an error indicating they failed to properly join the group
                                         let errorModal: ConfirmationModal = ConfirmationModal(
                                             info: ConfirmationModal.Info(
-                                                title: "COMMUNITY_ERROR_GENERIC".localized(),
+                                                title: "communityJoinError"
+                                                    .put(key: "community_name", value: finalName)
+                                                    .localized(),
                                                 body: .text(error.localizedDescription),
                                                 cancelTitle: "okay".localized(),
                                                 cancelStyle: .alert_text
