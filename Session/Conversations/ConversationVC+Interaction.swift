@@ -132,6 +132,7 @@ extension ConversationVC:
         let callVC = CallVC(for: call)
         callVC.conversationVC = self
         hideInputAccessoryView()
+        resignFirstResponder()
         
         present(callVC, animated: true, completion: nil)
     }

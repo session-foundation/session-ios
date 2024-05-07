@@ -122,8 +122,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         let adjustment = (InputViewButton.expandedSize - InputViewButton.size) / 2
         let maxWidth = UIScreen.main.bounds.width - 2 * InputViewButton.expandedSize - 2 * Values.smallSpacing - 2 * (Values.mediumSpacing - adjustment)
         let result = InputTextView(delegate: self, maxWidth: maxWidth)
-        result.accessibilityLabel = "Message input box"
-        result.accessibilityIdentifier = "Message input box"
+        result.accessibilityLabel = "Text input box"
+        result.accessibilityIdentifier = "Text input box"
         result.isAccessibilityElement = true
         
         return result

@@ -37,6 +37,8 @@ class MessageRequestFooterView: UIView {
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.numberOfLines = 0
+        result.accessibilityIdentifier = "Control message"
+        result.isAccessibilityElement = true
 
         return result
     }()

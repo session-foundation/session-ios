@@ -57,6 +57,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     /// from trying to animate (as the animations can cause buggy transitions)
     var viewIsDisappearing = false
     var viewIsAppearing = false
+    var lastPresentedViewController: UIViewController?
     
     // Reaction
     var currentReactionListSheet: ReactionListSheet?
@@ -294,6 +295,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             self?.scrollToBottom(isAnimated: true)
         }
         result.alpha = 0
+        result.accessibilityIdentifier = "Scroll button"
+        result.isAccessibilityElement = true
         
         return result
     }()
@@ -472,9 +475,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 )?.becomeFirstResponder()
             }
         }
-        else if !self.isFirstResponder && hasLoadedInitialThreadData {
+        else if !self.isFirstResponder && hasLoadedInitialThreadData && lastPresentedViewController == nil {
             // After we have loaded the initial data if the user starts and cancels the interactive pop
-            // gesture the input view will disappear
+            // gesture the input view will disappear (but if we are returning from a presented view controller
+            // the keyboard will automatically reappear and calling this will break the first responder state
+            // so don't do it in that case)
             self.becomeFirstResponder()
         }
         
@@ -483,6 +488,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             // of different behaviours)
             self?.didFinishInitialLayout = true
             self?.viewIsAppearing = false
+            self?.lastPresentedViewController = nil
         }
     }
 
@@ -500,6 +506,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         viewIsDisappearing = true
+        lastPresentedViewController = self.presentedViewController
         
         // Don't set the draft or resign the first responder if we are replacing the thread (want the keyboard
         // to appear to remain focussed)
