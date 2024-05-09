@@ -321,6 +321,8 @@ public extension LibSession {
                         LibSession.updatePaths(cPathsPtr: pathsPtr, pathsLen: pathsLen)
                     }, nil)
                     
+                    session_manual_log("Log after network init".cArray.nullTerminated())
+                    
                     cachedNetwork = network
                     return network
                 }

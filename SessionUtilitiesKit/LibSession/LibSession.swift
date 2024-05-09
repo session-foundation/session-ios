@@ -19,12 +19,15 @@ public enum LibSession {
 
 extension LibSession {
     public static func addLogger() {
-        // Set the desired log levels first
+        // Set the default log level first (in case something has a warning or error)
+        session_logger_set_level_default(LOG_LEVEL_WARN)
+        
+        // Then set any explicit category log levels we have
         logLevels.forEach { cat, level in
             session_logger_set_level(cat.rawValue.cArray, level)
         }
         
-        // Add the logger
+        // Finally register the actual logger callback
         session_add_logger_full({ msgPtr, msgLen, _, _, lvl in
             guard let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8) else { return }
             
@@ -44,6 +47,7 @@ extension LibSession {
             print(trimmedLog)
             #endif
         })
+        session_manual_log("Test after logger added".cArray.nullTerminated())
     }
     
     // MARK: - Internal
