@@ -103,6 +103,7 @@ echo "Checking for changes to source"
 
 NEW_SOURCE_HASH=$(find "${SRCROOT}/LibSession-Util/src" -type f -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
 NEW_HEADER_HASH=$(find "${SRCROOT}/LibSession-Util/include" -type f -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
+NEW_EXTERNAL_HASH=$(find "${SRCROOT}/LibSession-Util/external" -type f -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
 
 if [ -f "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_source_hash.log" ]; then
     read -r OLD_SOURCE_HASH < "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_source_hash.log"
@@ -112,12 +113,16 @@ if [ -f "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_header_hash.log" ]; 
     read -r OLD_HEADER_HASH < "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_header_hash.log"
 fi
 
+if [ -f "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_external_hash.log" ]; then
+    read -r OLD_EXTERNAL_HASH < "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_external_hash.log"
+fi
+
 if [ -f "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_archs.log" ]; then
     read -r OLD_ARCHS < "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_archs.log"
 fi
 
 # If all of the hashes match, the archs match and there is a library file then we can just stop here
-if [ "${NEW_SOURCE_HASH}" == "${OLD_SOURCE_HASH}" ] && [ "${NEW_HEADER_HASH}" == "${OLD_HEADER_HASH}" ] && [ "${ARCHS[*]}" == "${OLD_ARCHS}" ] && [ -f "${TARGET_BUILD_DIR}/libSessionUtil/libSessionUtil.a" ]; then
+if [ "${NEW_SOURCE_HASH}" == "${OLD_SOURCE_HASH}" ] && [ "${NEW_HEADER_HASH}" == "${OLD_HEADER_HASH}" ] && [ "${NEW_EXTERNAL_HASH}" == "${OLD_EXTERNAL_HASH}" ] && [ "${ARCHS[*]}" == "${OLD_ARCHS}" ] && [ -f "${TARGET_BUILD_DIR}/libSessionUtil/libSessionUtil.a" ]; then
   echo "Build is up-to-date"
   exit 0
 fi

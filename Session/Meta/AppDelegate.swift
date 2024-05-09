@@ -52,8 +52,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             appSpecificBlock: {
                 // Create AppEnvironment
                 AppEnvironment.shared.setup()
+                LibSession.addLogger()
                 LibSession.createNetworkIfNeeded()
-                LibSession.addNetworkLogger()
                 
                 // Note: Intentionally dispatching sync as we want to wait for these to complete before
                 // continuing

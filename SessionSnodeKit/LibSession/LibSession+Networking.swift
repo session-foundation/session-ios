@@ -6,13 +6,10 @@ import Foundation
 import Combine
 import SessionUtil
 import SessionUtilitiesKit
-import SignalCoreKit
 
 // MARK: - LibSession
 
 public extension LibSession {
-    private static let desiredLogCategories: [LogCategory] = [.network]
-    
     private static var networkCache: Atomic<UnsafeMutablePointer<network_object>?> = Atomic(nil)
     private static var snodeCachePath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/snodeCache" }
     private static var lastPaths: Atomic<[Set<Snode>]> = Atomic([])
@@ -83,33 +80,6 @@ public extension LibSession {
         guard let callbackId: UUID = callbackId else { return }
         
         pathsChangedCallbacks.mutate { $0.removeValue(forKey: callbackId) }
-    }
-    
-    static func addNetworkLogger() {
-        getOrCreateNetwork().first().sinkUntilComplete(receiveValue: { network in
-            network_add_logger(network, { lvl, namePtr, nameLen, msgPtr, msgLen in
-                guard
-                    LibSession.desiredLogCategories.contains(LogCategory(namePtr, nameLen)),
-                    let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8)
-                else { return }
-                
-                let trimmedLog: String = msg.trimmingCharacters(in: .whitespacesAndNewlines)
-                switch lvl {
-                    case LOG_LEVEL_TRACE: OWSLogger.verbose(trimmedLog)
-                    case LOG_LEVEL_DEBUG: OWSLogger.debug(trimmedLog)
-                    case LOG_LEVEL_INFO: OWSLogger.info(trimmedLog)
-                    case LOG_LEVEL_WARN: OWSLogger.warn(trimmedLog)
-                    case LOG_LEVEL_ERROR: OWSLogger.error(trimmedLog)
-                    case LOG_LEVEL_CRITICAL: OWSLogger.error(trimmedLog)
-                    case LOG_LEVEL_OFF: break
-                    default: break
-                }
-                
-                #if DEBUG
-                print(trimmedLog)
-                #endif
-            })
-        })
     }
     
     static func closeNetworkConnections() {
@@ -471,23 +441,6 @@ extension LibSession {
                 case CONNECTION_STATUS_CONNECTED: self = .connected
                 case CONNECTION_STATUS_DISCONNECTED: self = .disconnected
                 default: self = .unknown
-            }
-        }
-    }
-}
-
-// MARK: - LogCategory
-
-extension LibSession {
-    enum LogCategory: String {
-        case quic
-        case network
-        case unknown
-        
-        init(_ namePtr: UnsafePointer<CChar>?, _ nameLen: Int) {
-            switch String(pointer: namePtr, length: nameLen, encoding: .utf8).map({ LogCategory(rawValue: $0) }) {
-                case .some(let cat): self = cat
-                case .none: self = .unknown
             }
         }
     }
