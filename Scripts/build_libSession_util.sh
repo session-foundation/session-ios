@@ -175,14 +175,21 @@ fi
 # Remove any old build logs (since we are doing a new build)
 rm -rf "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log"
 
+submodule_check=ON
+
+if [ "$CONFIGURATION" == "Debug" ]; then
+    submodule_check=OFF
+fi
+
 # Build the individual architectures
 for i in "${!TARGET_ARCHS[@]}"; do
     build="${TARGET_BUILD_DIR}/libSessionUtil/${TARGET_ARCHS[$i]}"
     platform="${TARGET_PLATFORMS[$i]}"
+    log_file="${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log"
     echo "Building ${TARGET_ARCHS[$i]} for $platform in $build"
     
     # Redirect the build output to a log file and only include the progress lines in the XCode output
-    exec > >(tee "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log" | grep --line-buffered '^\[.*%\]') 2>&1
+    exec > >(tee "$log_file" | grep --line-buffered '^\[.*%\]') 2>&1
 
     cd "${SRCROOT}/LibSession-Util"
     env -i PATH="$PATH" SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" \
@@ -192,8 +199,9 @@ for i in "${!TARGET_ARCHS[@]}"; do
         -DDEPLOYMENT_TARGET=$IPHONEOS_DEPLOYMENT_TARGET \
         -DENABLE_BITCODE=$ENABLE_BITCODE \
         -DBUILD_TESTS=OFF \
-        -DBUILD_STATIC_DEPS=ON
-        
+        -DBUILD_STATIC_DEPS=ON \
+        -DSUBMODULE_CHECK=$submodule_check
+
     # Capture the exit status of the ./utils/static-bundle.sh command
     EXIT_STATUS=$?
         
@@ -203,16 +211,25 @@ for i in "${!TARGET_ARCHS[@]}"; do
     exec 1>&3
 
     if [ $EXIT_STATUS -ne 0 ]; then
-      ALL_ERROR_LINES=($(grep -n "error:" "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log" | cut -d ":" -f 1))
+      ALL_SUBMODULE_ERROR_LINES=($(grep -nE "\s*Submodule '([^']+)' is not up-to-date" "$log_file" | cut -d ":" -f 1))
+      ALL_ERROR_LINES=($(grep -n "error:" "$log_file" | cut -d ":" -f 1))
+      
+      # Log any submodule errors
+      for e in "${!ALL_SUBMODULE_ERROR_LINES[@]}"; do
+        error_line="${ALL_SUBMODULE_ERROR_LINES[$e]}"
+        error=$(sed "${error_line}q;d" "$log_file" | sed -E "s/.*Submodule '([^']+)'.*/Submodule '\1' is not up-to-date./")
+        echo "error: $error"
+      done
 
+      # Log any other errors
       for e in "${!ALL_ERROR_LINES[@]}"; do
         error_line="${ALL_ERROR_LINES[$e]}"
-        error=$(sed "${error_line}q;d" "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log")
+        error=$(sed "${error_line}q;d" "$log_file")
 
         # If it was a CMake Error then the actual error will be on the next line so we want to append that info
         if [[ $error == *'CMake Error'* ]]; then
             actual_error_line=$((error_line + 1))
-            error="${error}$(sed "${actual_error_line}q;d" "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_output.log")"
+            error="${error}$(sed "${actual_error_line}q;d" "$log_file")"
         fi
 
         # Exclude the 'ALL_ERROR_LINES' line and the 'grep' line
@@ -221,6 +238,15 @@ for i in "${!TARGET_ARCHS[@]}"; do
         fi
       done
       exit 1
+    else
+      ALL_SUBMODULE_WARNING_LINES=($(grep -nE "\s*Submodule '([^']+)' is not up-to-date" "$log_file" | cut -d ":" -f 1))
+      
+      # Log any submodule warnings
+      for e in "${!ALL_SUBMODULE_WARNING_LINES[@]}"; do
+        warning_line="${ALL_SUBMODULE_WARNING_LINES[$w]}"
+        warning=$(sed "${warning_line}q;d" "$log_file" | sed -E "s/.*Submodule '([^']+)'.*/Submodule '\1' is not up-to-date./")
+        echo "warning: $warning"
+      done
     fi
 done
 
