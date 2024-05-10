@@ -210,16 +210,26 @@ for i in "${!TARGET_ARCHS[@]}"; do
     echo ""
     exec 1>&3
 
-    if [ $EXIT_STATUS -ne 0 ]; then
-      ALL_SUBMODULE_ERROR_LINES=($(grep -nE "\s*Submodule '([^']+)' is not up-to-date" "$log_file" | cut -d ":" -f 1))
-      ALL_ERROR_LINES=($(grep -n "error:" "$log_file" | cut -d ":" -f 1))
+    # Retrieve and log any submodule errors/warnings
+    ALL_CMAKE_ERROR_LINES=($(grep -nE "CMake Error" "$log_file" | cut -d ":" -f 1))
+    ALL_SUBMODULE_ISSUE_LINES=($(grep -nE "\s*Submodule '([^']+)' is not up-to-date" "$log_file" | cut -d ":" -f 1))
+    ALL_CMAKE_ERROR_LINES_STR=" ${ALL_CMAKE_ERROR_LINES[*]} "
+    ALL_SUBMODULE_ISSUE_LINES_STR=" ${ALL_SUBMODULE_ISSUE_LINES[*]} "
+
+    for i in "${!ALL_SUBMODULE_ISSUE_LINES[@]}"; do
+      line="${ALL_SUBMODULE_ISSUE_LINES[$i]}"
+      prev_line=$((line - 1))
+      value=$(sed "${line}q;d" "$log_file" | sed -E "s/.*Submodule '([^']+)'.*/Submodule '\1' is not up-to-date./")
       
-      # Log any submodule errors
-      for e in "${!ALL_SUBMODULE_ERROR_LINES[@]}"; do
-        error_line="${ALL_SUBMODULE_ERROR_LINES[$e]}"
-        error=$(sed "${error_line}q;d" "$log_file" | sed -E "s/.*Submodule '([^']+)'.*/Submodule '\1' is not up-to-date./")
-        echo "error: $error"
-      done
+      if [[ "$ALL_CMAKE_ERROR_LINES_STR" == *" $prev_line "* ]]; then
+        echo "error: $value"
+      else
+        echo "warning: $value"
+      fi
+    done
+
+    if [ $EXIT_STATUS -ne 0 ]; then
+      ALL_ERROR_LINES=($(grep -n "error:" "$log_file" | cut -d ":" -f 1))
 
       # Log any other errors
       for e in "${!ALL_ERROR_LINES[@]}"; do
@@ -238,15 +248,6 @@ for i in "${!TARGET_ARCHS[@]}"; do
         fi
       done
       exit 1
-    else
-      ALL_SUBMODULE_WARNING_LINES=($(grep -nE "\s*Submodule '([^']+)' is not up-to-date" "$log_file" | cut -d ":" -f 1))
-      
-      # Log any submodule warnings
-      for e in "${!ALL_SUBMODULE_WARNING_LINES[@]}"; do
-        warning_line="${ALL_SUBMODULE_WARNING_LINES[$w]}"
-        warning=$(sed "${warning_line}q;d" "$log_file" | sed -E "s/.*Submodule '([^']+)'.*/Submodule '\1' is not up-to-date./")
-        echo "warning: $warning"
-      done
     fi
 done
 
