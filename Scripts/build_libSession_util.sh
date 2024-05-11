@@ -200,6 +200,7 @@ for i in "${!TARGET_ARCHS[@]}"; do
         -DENABLE_BITCODE=$ENABLE_BITCODE \
         -DBUILD_TESTS=OFF \
         -DBUILD_STATIC_DEPS=ON \
+        -DENABLE_VISIBILITY=ON \
         -DSUBMODULE_CHECK=$submodule_check
 
     # Capture the exit status of the ./utils/static-bundle.sh command
