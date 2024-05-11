@@ -48,7 +48,6 @@ extension LibSession {
             print(trimmedLog)
             #endif
         })
-        session_manual_log("Test after logger added".cArray.nullTerminated())
     }
     
     // MARK: - Internal
