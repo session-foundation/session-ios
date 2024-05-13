@@ -94,17 +94,12 @@ struct NewMessageScreen: View {
                             case .finished: break
                             case .failure(let error):
                                 modalActivityIndicator.dismiss {
-                                    var messageOrNil: String?
-                                    if let error = error as? SnodeAPIError {
-                                        switch error {
-                                            case .generic, .decryptionFailed, .hashingFailed, .validationFailed:
-                                                messageOrNil = "onsErrorUnableToSearch".localized()
-                                            default: break
-                                        }
-                                    }
                                     let message: String = {
-                                        if let messageOrNil: String = messageOrNil {
-                                            return messageOrNil
+                                        switch error {
+                                            case SnodeAPIError.onsDecryptionFailed, SnodeAPIError.onsHashingFailed,
+                                                SnodeAPIError.onsValidationFailed:
+                                                return "onsErrorUnableToSearch".localized()
+                                            default: break
                                         }
                                         
                                         return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
