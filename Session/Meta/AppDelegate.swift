@@ -52,6 +52,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             appSpecificBlock: {
                 // Create AppEnvironment
                 AppEnvironment.shared.setup()
+                LibSession.addLogger()
+                LibSession.createNetworkIfNeeded()
                 
                 // Note: Intentionally dispatching sync as we want to wait for these to complete before
                 // continuing
@@ -88,7 +90,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         )
         
-        if Environment.shared?.callManager.wrappedValue?.currentCall == nil {
+        if SessionEnvironment.shared?.callManager.wrappedValue?.currentCall == nil {
             UserDefaults.sharedLokiProject?[.isCallOngoing] = false
             UserDefaults.sharedLokiProject?[.lastCallPreOffer] = nil
         }
@@ -195,10 +197,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // but answers the call on another device
         stopPollers(shouldStopUserPoller: !self.hasCallOngoing())
         
+        // FIXME: Move this to be initialised as part of `AppDelegate`
+        let dependencies: Dependencies = Dependencies()
+        
         // Stop all jobs except for message sending and when completed suspend the database
-        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend) {
+        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) {
             if !self.hasCallOngoing() {
                 Storage.suspendDatabaseAccess()
+                LibSession.closeNetworkConnections()
             }
         }
     }
@@ -279,6 +285,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 Storage.suspendDatabaseAccess()
+                LibSession.closeNetworkConnections()
             }
             
             SNLog("Background poll failed due to manual timeout")
@@ -305,6 +312,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
                 if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                     Storage.suspendDatabaseAccess()
+                    LibSession.closeNetworkConnections()
                 }
                 
                 cancelTimer.invalidate()
@@ -391,8 +399,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // May as well run these on the background thread
-        Environment.shared?.audioSession.setup()
-        Environment.shared?.reachabilityManager.setup()
+        SessionEnvironment.shared?.audioSession.setup()
     }
     
     private func showFailedStartupAlert(
@@ -429,18 +436,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
                 alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
-                    if SUKLegacy.hasLegacyDatabaseFile {
-                        // Remove the legacy database and any message hashes that have been migrated to the new DB
-                        try? SUKLegacy.deleteLegacyDatabaseFilesAndKey()
-                        
-                        Storage.shared.write { db in
-                            try SnodeReceivedMessageInfo.deleteAll(db)
-                        }
-                    }
-                    else {
-                        // If we don't have a legacy database then reset the current database for a clean migration
-                        Storage.resetForCleanMigration()
-                    }
+                    // Reset the current database for a clean migration
+                    Storage.resetForCleanMigration()
                     
                     // Hide the top banner if there was one
                     TopBannerController.hide()
@@ -520,18 +517,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// There is a _fun_ behaviour here where if the user launches the app, sends it to the background at the right time and then
         /// opens it again the `AppReadiness` closures can be triggered before `applicationDidBecomeActive` has been
         /// called again - this can result in odd behaviours so hold off on running this logic until it's properly called again
-        guard
-            Identity.userExists() &&
-            UserDefaults.sharedLokiProject?[.isMainAppActive] == true
-        else { return }
+        guard UserDefaults.sharedLokiProject?[.isMainAppActive] == true else { return }
         
-        enableBackgroundRefreshIfNecessary()
-        JobRunner.appDidBecomeActive()
-        
-        startPollersIfNeeded()
-        
-        if Singleton.hasAppContext && Singleton.appContext.isMainApp {
-            handleAppActivatedWithOngoingCallIfNeeded()
+        /// There is a warning which can happen on launch because the Database read can be blocked by another database operation
+        /// which could result in this blocking the main thread, as a result we want to check the identity exists on a background thread
+        /// and then return to the main thread only when required
+        DispatchQueue.global(qos: .default).async { [weak self] in
+            guard Identity.userExists() else { return }
+            
+            self?.enableBackgroundRefreshIfNecessary()
+            JobRunner.appDidBecomeActive()
+            
+            self?.startPollersIfNeeded()
+            
+            if Singleton.hasAppContext && Singleton.appContext.isMainApp {
+                DispatchQueue.main.async {
+                    self?.handleAppActivatedWithOngoingCallIfNeeded()
+                }
+            }
         }
     }
     
@@ -844,7 +847,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         let callVC: CallVC = CallVC(for: call)
         
-        if let conversationVC: ConversationVC = presentingVC as? ConversationVC, conversationVC.viewModel.threadData.threadId == call.sessionId {
+        if
+            let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
+            conversationVC.viewModel.threadData.threadId == call.sessionId
+        {
             callVC.conversationVC = conversationVC
             conversationVC.inputAccessoryView?.isHidden = true
             conversationVC.inputAccessoryView?.alpha = 0
@@ -863,9 +869,9 @@ private enum LifecycleMethod: Equatable {
     
     var timingName: String {
         switch self {
-            case .finishLaunching: return "Launch"
-            case .enterForeground: return "EnterForeground"
-            case .didBecomeActive: return "BecomeActive"
+            case .finishLaunching: return "Launch"              // stringlint:disable
+            case .enterForeground: return "EnterForeground"     // stringlint:disable
+            case .didBecomeActive: return "BecomeActive"        // stringlint:disable
         }
     }
     
@@ -890,7 +896,8 @@ private enum StartupError: Error {
         switch self {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
                 return "Database startup failed"
-                
+            
+            case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version"
             case .failedToRestore: return "Failed to restore"
             case .databaseError: return "Database error"
             case .startupTimeout: return "Startup timeout"
@@ -901,7 +908,10 @@ private enum StartupError: Error {
         switch self {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED):
                 return "DATABASE_STARTUP_FAILED".localized()
-                
+
+            case .databaseError(StorageError.migrationNoLongerSupported):
+                return "DATABASE_UNSUPPORTED_MIGRATION".localized()
+            
             case .failedToRestore: return "DATABASE_RESTORE_FAILED".localized()
             case .databaseError: return "DATABASE_MIGRATION_FAILED".localized()
             case .startupTimeout: return "APP_STARTUP_TIMEOUT".localized()

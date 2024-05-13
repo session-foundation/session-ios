@@ -118,7 +118,7 @@ extension MessageReceiver {
                     
                 case .group:
                     SNLog("Ignoring message with invalid sender.")
-                    throw HTTPError.parsingFailed
+                    throw NetworkError.parsingFailed
             }
         }()
         
@@ -143,7 +143,7 @@ extension MessageReceiver {
         // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
         let wasRead: Bool = (
             variant == .standardOutgoing ||
-            SessionUtil.timestampAlreadyRead(
+            LibSession.timestampAlreadyRead(
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 timestampMs: Int64(messageSentTimestamp * 1000),
@@ -362,7 +362,7 @@ extension MessageReceiver {
         guard variant == .standardIncoming && !interaction.wasRead else { return interactionId }
         
         // Use the same identifier for notifications when in backgroud polling to prevent spam
-        Environment.shared?.notificationsManager.wrappedValue?
+        SessionEnvironment.shared?.notificationsManager.wrappedValue?
             .notifyUser(
                 db,
                 for: interaction,
@@ -422,7 +422,7 @@ extension MessageReceiver {
                     count: 1,
                     sortId: sortId
                 ).inserted(db)
-                let timestampAlreadyRead: Bool = SessionUtil.timestampAlreadyRead(
+                let timestampAlreadyRead: Bool = LibSession.timestampAlreadyRead(
                     threadId: thread.id,
                     threadVariant: thread.variant,
                     timestampMs: timestampMs,
@@ -433,7 +433,7 @@ extension MessageReceiver {
                 // Don't notify if the reaction was added before the lastest read timestamp for
                 // the conversation
                 if sender != currentUserPublicKey && !timestampAlreadyRead {
-                    Environment.shared?.notificationsManager.wrappedValue?
+                    SessionEnvironment.shared?.notificationsManager.wrappedValue?
                         .notifyUser(
                             db,
                             forReaction: reaction,

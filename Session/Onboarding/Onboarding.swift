@@ -32,82 +32,19 @@ enum Onboarding {
     ) -> AnyPublisher<String?, Error> {
         let userPublicKey: String = getUserHexEncodedPublicKey(using: dependencies)
         
-        return SnodeAPI.getSwarm(for: userPublicKey)
-            .tryFlatMapWithRandomSnode { snode -> AnyPublisher<Void, Error> in
-                CurrentUserPoller
-                    .poll(
-                        namespaces: [.configUserProfile],
-                        from: snode,
-                        for: userPublicKey,
-                        // Note: These values mean the received messages will be
-                        // processed immediately rather than async as part of a Job
-                        calledFromBackgroundPoller: true,
-                        isBackgroundPollValid: { true }
-                    )
-                    .tryFlatMap { receivedMessageTypes -> AnyPublisher<Void, Error> in
-                        // FIXME: Remove this entire 'tryFlatMap' once the updated user config has been released for long enough
-                        guard
-                            receivedMessageTypes.isEmpty,
-                            requestId == profileNameRetrievalIdentifier.wrappedValue
-                        else {
-                            return Just(())
-                                .setFailureType(to: Error.self)
-                                .eraseToAnyPublisher()
-                        }
-                        
-                        SNLog("Onboarding failed to retrieve user config, checking for legacy config")
-                        
-                        return CurrentUserPoller
-                            .poll(
-                                namespaces: [.default],
-                                from: snode,
-                                for: userPublicKey,
-                                // Note: These values mean the received messages will be
-                                // processed immediately rather than async as part of a Job
-                                calledFromBackgroundPoller: true,
-                                isBackgroundPollValid: { true }
-                            )
-                            .tryMap { receivedMessageTypes -> Void in
-                                guard
-                                    let message: ConfigurationMessage = receivedMessageTypes
-                                        .last(where: { $0 is ConfigurationMessage })
-                                        .asType(ConfigurationMessage.self),
-                                    let displayName: String = message.displayName,
-                                    requestId == profileNameRetrievalIdentifier.wrappedValue
-                                else { return () }
-                                
-                                // Handle user profile changes
-                                Storage.shared.write { db in
-                                    try ProfileManager.updateProfileIfNeeded(
-                                        db,
-                                        publicKey: userPublicKey,
-                                        name: displayName,
-                                        avatarUpdate: {
-                                            guard
-                                                let profilePictureUrl: String = message.profilePictureUrl,
-                                                let profileKey: Data = message.profileKey
-                                            else { return .none }
-                                            
-                                            return .updateTo(
-                                                url: profilePictureUrl,
-                                                key: profileKey,
-                                                fileName: nil
-                                            )
-                                        }(),
-                                        sentTimestamp: TimeInterval((message.sentTimestamp ?? 0) / 1000),
-                                        calledFromConfigHandling: false,
-                                        using: dependencies
-                                    )
-                                }
-                                return ()
-                            }
-                            .eraseToAnyPublisher()
-                    }
-            }
+        return CurrentUserPoller()
+            .poll(
+                namespaces: [.configUserProfile],
+                for: userPublicKey,
+                // Note: These values mean the received messages will be
+                // processed immediately rather than async as part of a Job
+                calledFromBackgroundPoller: true,
+                isBackgroundPollValid: { true },
+                drainBehaviour: .alwaysRandom,
+                using: dependencies
+            )
             .map { _ -> String? in
-                guard requestId == profileNameRetrievalIdentifier.wrappedValue else {
-                    return nil
-                }
+                guard requestId == profileNameRetrievalIdentifier.wrappedValue else { return nil }
                 
                 return Storage.shared.read { db in
                     try Profile
@@ -154,8 +91,8 @@ enum Onboarding {
         /// If the user returns to an earlier screen during Onboarding we might need to clear out a partially created
         /// account (eg. returning from the PN setting screen to the seed entry screen when linking a device)
         func unregister(using dependencies: Dependencies = Dependencies()) {
-            // Clear the in-memory state from SessionUtil
-            SessionUtil.clearMemoryState()
+            // Clear the in-memory state from LibSession
+            LibSession.clearMemoryState()
             
             // Clear any data which gets set during Onboarding
             Storage.shared.write { db in
@@ -184,7 +121,7 @@ enum Onboarding {
             
             // Create the initial shared util state (won't have been created on
             // launch due to lack of ed25519 key)
-            SessionUtil.loadState(
+            LibSession.loadState(
                 userPublicKey: x25519PublicKey,
                 ed25519SecretKey: ed25519KeyPair.secretKey
             )
@@ -239,7 +176,7 @@ enum Onboarding {
             // Only continue if this isn't a new account
             guard self != .register else { return }
             
-            // Fetch the
+            // Fetch any existing profile name
             Onboarding.profileNamePublisher
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .sinkUntilComplete()
@@ -261,10 +198,6 @@ enum Onboarding {
             
             // Notify the app that registration is complete
             Identity.didRegister()
-            
-            // Now that we have registered get the Snode pool (just in case) - other non-blocking
-            // launch jobs will automatically be run because the app activation was triggered
-            GetSnodePoolJob.run()
         }
     }
 }

@@ -725,7 +725,7 @@ public extension Interaction {
         
         // Update the last read timestamp if needed
         if !calledFromConfigHandling {
-            try SessionUtil.syncThreadLastReadIfNeeded(
+            try LibSession.syncThreadLastReadIfNeeded(
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,
@@ -753,7 +753,7 @@ public extension Interaction {
         }
         
         // Clear out any notifications for the interactions we mark as read
-        Environment.shared?.notificationsManager.wrappedValue?.cancelNotifications(
+        SessionEnvironment.shared?.notificationsManager.wrappedValue?.cancelNotifications(
             identifiers: interactionInfo
                 .map { interactionInfo in
                     Interaction.notificationIdentifier(

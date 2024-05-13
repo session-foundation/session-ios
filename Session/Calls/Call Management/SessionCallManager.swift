@@ -3,6 +3,7 @@
 import UIKit
 import CallKit
 import GRDB
+import SessionUIKit
 import SessionMessagingKit
 import SignalCoreKit
 import SignalUtilitiesKit
@@ -191,9 +192,13 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public static func suspendDatabaseIfCallEndedInBackground() {
         if Singleton.hasAppContext && Singleton.appContext.isInBackground {
+            // FIXME: Initialise the `SessionCallManager` with a dependencies instance
+            let dependencies: Dependencies = Dependencies()
+            
             // Stop all jobs except for message sending and when completed suspend the database
-            JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend) {
+            JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) {
                 Storage.suspendDatabaseAccess()
+                LibSession.closeNetworkConnections()
             }
         }
     }
@@ -219,7 +224,10 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                     preconditionFailure()   // FIXME: Handle more gracefully
                 }
                 
-                if let conversationVC: ConversationVC = presentingVC as? ConversationVC, conversationVC.viewModel.threadData.threadId == call.sessionId {
+                if
+                    let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
+                    conversationVC.viewModel.threadData.threadId == call.sessionId
+                {
                     let callVC = CallVC(for: call)
                     callVC.conversationVC = conversationVC
                     conversationVC.inputAccessoryView?.isHidden = true

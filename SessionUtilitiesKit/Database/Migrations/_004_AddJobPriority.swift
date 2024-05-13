@@ -2,7 +2,6 @@
 
 import Foundation
 import GRDB
-import YapDatabase
 
 enum _004_AddJobPriority: Migration {
     static let target: TargetMigrations.Identifier = .utilitiesKit
@@ -11,6 +10,7 @@ enum _004_AddJobPriority: Migration {
     static let minExpectedRunDuration: TimeInterval = 0.1
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = []
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Job.self]
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database) throws {
         // Add `priority` to the job table
@@ -23,7 +23,7 @@ enum _004_AddJobPriority: Migration {
         let variantPriorities: [Int: [Job.Variant]] = [
             7: [Job.Variant.disappearingMessages],
             6: [Job.Variant.failedMessageSends, Job.Variant.failedAttachmentDownloads],
-            5: [Job.Variant.getSnodePool],
+            5: [Job.Variant._legacy_getSnodePool],
             4: [Job.Variant.syncPushTokens],
             3: [Job.Variant.retrieveDefaultOpenGroupRooms],
             2: [Job.Variant.updateProfilePicture],
