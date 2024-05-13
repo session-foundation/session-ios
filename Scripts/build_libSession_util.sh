@@ -121,14 +121,21 @@ if [ -f "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_archs.log" ]; then
     read -r OLD_ARCHS < "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_archs.log"
 fi
 
-# If all of the hashes match, the archs match and there is a library file then we can just stop here
-if [ "${NEW_SOURCE_HASH}" == "${OLD_SOURCE_HASH}" ] && [ "${NEW_HEADER_HASH}" == "${OLD_HEADER_HASH}" ] && [ "${NEW_EXTERNAL_HASH}" == "${OLD_EXTERNAL_HASH}" ] && [ "${ARCHS[*]}" == "${OLD_ARCHS}" ] && [ -f "${TARGET_BUILD_DIR}/libSessionUtil/libSessionUtil.a" ]; then
-  echo "Build is up-to-date"
-  exit 0
+# Check the current state of the build (comparing hashes to determine if there was a source change)
+if [ "${NEW_SOURCE_HASH}" != "${OLD_SOURCE_HASH}" ]; then
+    echo "Build is not up-to-date (source change) - creating new build"
+elif [ "${NEW_HEADER_HASH}" != "${OLD_HEADER_HASH}" ]; then
+    echo "Build is not up-to-date (header change) - creating new build"
+elif [ "${NEW_EXTERNAL_HASH}" != "${OLD_EXTERNAL_HASH}" ]; then
+    echo "Build is not up-to-date (external lib change) - creating new build"
+elif [ "${ARCHS[*]}" != "${OLD_ARCHS}" ]; then
+    echo "Build is not up-to-date (build architectures changed) - creating new build"
+elif [ ! -f "${TARGET_BUILD_DIR}/libSessionUtil/libSessionUtil.a" ]; then
+    echo "Build is not up-to-date (no static lib) - creating new build"
+else
+    echo "Build is up-to-date"
+    exit 0
 fi
-
-# If any of the above differ then we need to rebuild
-echo "Build is not up-to-date - creating new build"
 
 # Import settings from XCode (defaulting values if not present)
 VALID_SIM_ARCHS=(arm64 x86_64)
@@ -278,6 +285,7 @@ fi
 # Save the updated hashes to disk to prevent rebuilds when there were no changes
 echo "${NEW_SOURCE_HASH}" > "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_source_hash.log"
 echo "${NEW_HEADER_HASH}" > "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_header_hash.log"
+echo "${NEW_EXTERNAL_HASH}" > "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_external_hash.log"
 echo "${ARCHS[*]}" > "${TARGET_BUILD_DIR}/libSessionUtil/libsession_util_archs.log"
 echo "Build complete"
 
