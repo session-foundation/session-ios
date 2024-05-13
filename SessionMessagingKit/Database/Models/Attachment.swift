@@ -1084,7 +1084,7 @@ extension Attachment {
         let attachmentId: String = self.id
         
         return Storage.shared
-            .writePublisher { db -> (OpenGroupAPI.PreparedSendData<FileUploadResponse>?, String?, Data?, Data?) in
+            .writePublisher { db -> (Network.PreparedRequest<FileUploadResponse>?, String?, Data?, Data?) in
                 // If the attachment is a downloaded attachment, check if it came from
                 // the server and if so just succeed immediately (no use re-uploading
                 // an attachment that is already present on the server) - or if we want
@@ -1122,7 +1122,7 @@ extension Attachment {
                 
                 // Check the file size
                 SNLog("File size: \(data.count) bytes.")
-                if data.count > FileServerAPI.maxFileSize { throw HTTPError.maxFileSizeExceeded }
+                if data.count > FileServerAPI.maxFileSize { throw NetworkError.maxFileSizeExceeded }
                 
                 // Update the attachment to the 'uploading' state
                 _ = try? Attachment
@@ -1130,7 +1130,7 @@ extension Attachment {
                     .updateAll(db, Attachment.Columns.state.set(to: Attachment.State.uploading))
                 
                 // We need database access for OpenGroup uploads so generate prepared data
-                let preparedSendData: OpenGroupAPI.PreparedSendData<FileUploadResponse>? = try {
+                let preparedSendData: Network.PreparedRequest<FileUploadResponse>? = try {
                     switch destination {
                         case .openGroup(let openGroup):
                             return try OpenGroupAPI
@@ -1138,7 +1138,8 @@ extension Attachment {
                                     db,
                                     bytes: data.bytes,
                                     to: openGroup.roomToken,
-                                    on: openGroup.server
+                                    on: openGroup.server,
+                                    using: dependencies
                                 )
                         
                         default: return nil
@@ -1152,7 +1153,7 @@ extension Attachment {
                     (destination.shouldEncrypt ? digest as Data : nil)
                 )
             }
-            .flatMap { preparedSendData, existingFileId, encryptionKey, digest -> AnyPublisher<(String?, Data?, Data?), Error> in
+            .flatMap { preparedRequest, existingFileId, encryptionKey, digest -> AnyPublisher<(String?, Data?, Data?), Error> in
                 // No need to upload if the file was already uploaded
                 if let fileId: String = existingFileId {
                     return Just((fileId, encryptionKey, digest))
@@ -1162,7 +1163,7 @@ extension Attachment {
                 
                 switch destination {
                     case .openGroup:
-                        return OpenGroupAPI.send(data: preparedSendData)
+                        return preparedRequest.send(using: dependencies)
                             .map { _, response -> (String, Data?, Data?) in (response.id, encryptionKey, digest) }
                             .eraseToAnyPublisher()
                         

@@ -278,13 +278,13 @@ public final class OpenGroupManager {
                         using: dependencies
                     )
             }
-            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .flatMap { info, response -> Future<Void, Error> in
                 Future<Void, Error> { resolver in
                     dependencies.storage.write { db in
                         // Add the new open group to libSession
                         if !calledFromConfigHandling {
-                            try SessionUtil.add(
+                            try LibSession.add(
                                 db,
                                 server: server,
                                 rootToken: roomToken,
@@ -383,7 +383,7 @@ public final class OpenGroupManager {
         }
         
         if !calledFromConfigHandling, let server: String = server, let roomToken: String = roomToken {
-            try? SessionUtil.remove(db, server: server, roomToken: roomToken)
+            try? LibSession.remove(db, server: server, roomToken: roomToken)
         }
     }
     
@@ -515,13 +515,13 @@ public final class OpenGroupManager {
             // Dispatch async to the workQueue to prevent holding up the DBWrite thread from the
             // above transaction
             OpenGroupAPI.workQueue.async(using: dependencies) {
-                // Start the poller if needed
-                if dependencies.caches[.openGroupManager].pollers[server.lowercased()] == nil {
-                    dependencies.caches.mutate(cache: .openGroupManager) {
-                        $0.pollers[server.lowercased()]?.stop()
-                        $0.pollers[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
-                    }
-                    
+                // (Re)start the poller if needed (want to force it to poll immediately in the next
+                // run loop to avoid a big delay before the next poll)
+                dependencies.caches.mutate(cache: .openGroupManager) {
+                    $0.pollers[server.lowercased()]?.stop()
+                    $0.pollers[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
+                }
+                OpenGroupAPI.workQueue.async(using: dependencies) {
                     dependencies.caches[.openGroupManager].pollers[server.lowercased()]?
                         .startIfNeeded(using: dependencies)
                 }
@@ -617,17 +617,19 @@ public final class OpenGroupManager {
                         using: dependencies
                     )
                     
-                    if let messageInfo: MessageReceiveJob.Details.MessageInfo = processedMessage?.messageInfo {
-                        try MessageReceiver.handle(
-                            db,
-                            threadId: openGroup.id,
-                            threadVariant: .community,
-                            message: messageInfo.message,
-                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                            associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
-                            using: dependencies
-                        )
-                        largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
+                    switch processedMessage {
+                        case .config, .none: break
+                        case .standard(_, _, _, let messageInfo):
+                            try MessageReceiver.handle(
+                                db,
+                                threadId: openGroup.id,
+                                threadVariant: .community,
+                                message: messageInfo.message,
+                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
+                                using: dependencies
+                            )
+                            largestValidSeqNo = max(largestValidSeqNo, message.seqNo)
                     }
                 }
                 catch {
@@ -635,6 +637,7 @@ public final class OpenGroupManager {
                         // Ignore duplicate & selfSend message errors (and don't bother logging
                         // them as there will be a lot since we each service node duplicates messages)
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                            DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                             MessageReceiverError.duplicateMessage,
                             MessageReceiverError.duplicateControlMessage,
                             MessageReceiverError.selfSend:
@@ -756,60 +759,62 @@ public final class OpenGroupManager {
                     using: dependencies
                 )
                 
-                // We want to update the BlindedIdLookup cache with the message info so we can avoid using the
-                // "expensive" lookup when possible
-                let lookup: BlindedIdLookup = try {
-                    // Minor optimisation to avoid processing the same sender multiple times in the same
-                    // 'handleMessages' call (since the 'mapping' call is done within a transaction we
-                    // will never have a mapping come through part-way through processing these messages)
-                    if let result: BlindedIdLookup = lookupCache[message.recipient] {
-                        return result
-                    }
-                    
-                    return try BlindedIdLookup.fetchOrCreate(
-                        db,
-                        blindedId: (fromOutbox ?
-                            message.recipient :
-                            message.sender
-                        ),
-                        sessionId: (fromOutbox ?
-                            nil :
-                            processedMessage?.threadId
-                        ),
-                        openGroupServer: server.lowercased(),
-                        openGroupPublicKey: openGroup.publicKey,
-                        isCheckingForOutbox: fromOutbox,
-                        using: dependencies
-                    )
-                }()
-                lookupCache[message.recipient] = lookup
-                    
-                // We also need to set the 'syncTarget' for outgoing messages to be consistent with
-                // standard messages
-                if fromOutbox {
-                    let syncTarget: String = (lookup.sessionId ?? message.recipient)
-                    
-                    switch processedMessage?.messageInfo.variant {
-                        case .visibleMessage:
-                            (processedMessage?.messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
+                switch processedMessage {
+                    case .config, .none: break
+                    case .standard(let threadId, _, let proto, let messageInfo):
+                        // We want to update the BlindedIdLookup cache with the message info so we can avoid using the
+                        // "expensive" lookup when possible
+                        let lookup: BlindedIdLookup = try {
+                            // Minor optimisation to avoid processing the same sender multiple times in the same
+                            // 'handleMessages' call (since the 'mapping' call is done within a transaction we
+                            // will never have a mapping come through part-way through processing these messages)
+                            if let result: BlindedIdLookup = lookupCache[message.recipient] {
+                                return result
+                            }
                             
-                        case .expirationTimerUpdate:
-                            (processedMessage?.messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
+                            return try BlindedIdLookup.fetchOrCreate(
+                                db,
+                                blindedId: (fromOutbox ?
+                                    message.recipient :
+                                    message.sender
+                                ),
+                                sessionId: (fromOutbox ?
+                                    nil :
+                                    processedMessage?.threadId
+                                ),
+                                openGroupServer: server.lowercased(),
+                                openGroupPublicKey: openGroup.publicKey,
+                                isCheckingForOutbox: fromOutbox,
+                                using: dependencies
+                            )
+                        }()
+                        lookupCache[message.recipient] = lookup
+                        
+                        // We also need to set the 'syncTarget' for outgoing messages to be consistent with
+                        // standard messages
+                        if fromOutbox {
+                            let syncTarget: String = (lookup.sessionId ?? message.recipient)
                             
-                        default: break
-                    }
-                }
-                
-                if let messageInfo: MessageReceiveJob.Details.MessageInfo = processedMessage?.messageInfo, let proto: SNProtoContent = processedMessage?.proto {
-                    try MessageReceiver.handle(
-                        db,
-                        threadId: (lookup.sessionId ?? lookup.blindedId),
-                        threadVariant: .contact,    // Technically not open group messages
-                        message: messageInfo.message,
-                        serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                        associatedWithProto: proto,
-                        using: dependencies
-                    )
+                            switch messageInfo.variant {
+                                case .visibleMessage:
+                                    (messageInfo.message as? VisibleMessage)?.syncTarget = syncTarget
+                                    
+                                case .expirationTimerUpdate:
+                                    (messageInfo.message as? ExpirationTimerUpdate)?.syncTarget = syncTarget
+                                    
+                                default: break
+                            }
+                        }
+                        
+                        try MessageReceiver.handle(
+                            db,
+                            threadId: (lookup.sessionId ?? lookup.blindedId),
+                            threadVariant: .contact,    // Technically not open group messages
+                            message: messageInfo.message,
+                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                            associatedWithProto: proto,
+                            using: dependencies
+                        )
                 }
             }
             catch {
@@ -817,6 +822,7 @@ public final class OpenGroupManager {
                     // Ignore duplicate and self-send errors (we will always receive a duplicate message back
                     // whenever we send a message so this ends up being spam otherwise)
                     case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                        DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                         MessageReceiverError.duplicateMessage,
                         MessageReceiverError.duplicateControlMessage,
                         MessageReceiverError.selfSend:
@@ -1007,14 +1013,14 @@ public final class OpenGroupManager {
         
         // Try to retrieve the default rooms 8 times
         let publisher: AnyPublisher<[DefaultRoomInfo], Error> = dependencies.storage
-            .readPublisher { db -> OpenGroupAPI.PreparedSendData<OpenGroupAPI.CapabilitiesAndRoomsResponse> in
+            .readPublisher { db -> Network.PreparedRequest<OpenGroupAPI.CapabilitiesAndRoomsResponse> in
                 try OpenGroupAPI.preparedCapabilitiesAndRooms(
                     db,
                     on: OpenGroupAPI.defaultServer,
                     using: dependencies
                 )
             }
-            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .subscribe(on: OpenGroupAPI.workQueue, using: dependencies)
             .receive(on: OpenGroupAPI.workQueue, using: dependencies)
             .retry(8, using: dependencies)
@@ -1143,7 +1149,7 @@ public final class OpenGroupManager {
                 DispatchQueue.global(qos: .background).async(using: dependencies) {
                     // Hold on to the publisher until it has completed at least once
                     dependencies.storage
-                        .readPublisher { db -> (Data?, OpenGroupAPI.PreparedSendData<Data>?) in
+                        .readPublisher { db -> (Data?, Network.PreparedRequest<Data>?) in
                             if canUseExistingImage {
                                 let maybeExistingData: Data? = try? OpenGroup
                                     .select(.imageData)
@@ -1175,13 +1181,13 @@ public final class OpenGroupManager {
                                         .setFailureType(to: Error.self)
                                         .eraseToAnyPublisher()
                                     
-                                case (_, .some(let sendData)):
-                                    return OpenGroupAPI.send(data: sendData, using: dependencies)
+                                case (_, .some(let preparedRequest)):
+                                    return preparedRequest.send(using: dependencies)
                                         .map { _, imageData in imageData }
                                         .eraseToAnyPublisher()
                                     
                                 default:
-                                    return Fail(error: HTTPError.generic)
+                                    return Fail(error: NetworkError.invalidPreparedRequest)
                                         .eraseToAnyPublisher()
                             }
                         }

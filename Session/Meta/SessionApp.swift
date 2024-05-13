@@ -24,9 +24,9 @@ public struct SessionApp {
         #endif
         
         let versionInfo: [String] = [
-            "iOS \(UIDevice.current.systemVersion)", // stringlint:disable
+            "iOS \(UIDevice.current.systemVersion)",        // stringlint:disable
             appVersion,
-            "libSession: \(SessionUtil.libSessionVersion)", // stringlint:disable
+            "libSession: \(LibSession.libSessionVersion)",  // stringlint:disable
             commitInfo
         ].compactMap { $0 }
         
@@ -116,7 +116,7 @@ public struct SessionApp {
         Logger.error("")
         DDLog.flushLog()
         
-        SessionUtil.clearMemoryState()
+        LibSession.clearMemoryState()
         Storage.resetAllStorage()
         ProfileManager.resetProfileStorage()
         Attachment.resetAttachmentStorage()

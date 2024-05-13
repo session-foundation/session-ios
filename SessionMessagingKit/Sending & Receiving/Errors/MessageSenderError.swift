@@ -50,11 +50,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case .noThread: return "Couldn't find a thread associated with the given group public key (MessageSenderError.noThread)."
             case .noKeyPair: return "Couldn't find a private key associated with the given group public key (MessageSenderError.noKeyPair)."
             case .invalidClosedGroupUpdate: return "Invalid group update (MessageSenderError.invalidClosedGroupUpdate)."
-            case .other(let error):
-                switch error {
-                    case is CustomStringConvertible: return "\(error)"
-                    default: return error.localizedDescription
-                }
+            case .other(let error): return "\(error)"
         }
     }
     
