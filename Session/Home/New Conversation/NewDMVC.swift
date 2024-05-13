@@ -224,7 +224,7 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                     let message: String = {
                                         if let error = error as? SnodeAPIError {
                                             switch error {
-                                                case .decryptionFailed, .hashingFailed, .validationFailed:
+                                                case .onsDecryptionFailed, .onsHashingFailed, .onsValidationFailed:
                                                     return "\(error)"
                                                     
                                                 default: break
