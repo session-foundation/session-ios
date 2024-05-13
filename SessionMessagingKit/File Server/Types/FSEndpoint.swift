@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 // stringlint:disable
 
@@ -10,6 +12,8 @@ extension FileServerAPI {
         case file
         case fileIndividual(fileId: String)
         case sessionVersion
+        
+        public static var name: String { "FileServerAPI.Endpoint" }
         
         public var path: String {
             switch self {

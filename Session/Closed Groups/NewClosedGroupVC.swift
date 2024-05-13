@@ -5,6 +5,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 private protocol TableViewTouchDelegate {
@@ -320,7 +321,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         else {
             return showError(title: "groupNameEnterPlease".localized())
         }
-        guard name.utf8CString.count < SessionUtil.libSessionMaxGroupNameByteLength else {
+        guard name.utf8CString.count < LibSession.libSessionMaxGroupNameByteLength else {
             return showError(title: "groupNameEnterShorter".localized())
         }
         guard selectedContacts.count >= 1 else {

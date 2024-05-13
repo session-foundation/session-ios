@@ -666,7 +666,7 @@ public final class MessageSender {
         }
         
         return dependencies.network
-            .send(.message(snodeMessage, in: namespace, using: dependencies))
+            .send(.message(snodeMessage, in: namespace), using: dependencies)
             .flatMap { info, response -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.serverHash = response.hash
@@ -798,7 +798,7 @@ public final class MessageSender {
                         using: dependencies
                     )
             }
-            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let serverTimestampMs: UInt64? = responseData.posted.map { UInt64(floor($0 * 1000)) }
                 let updatedMessage: Message = message
@@ -864,7 +864,7 @@ public final class MessageSender {
                         using: dependencies
                     )
             }
-            .flatMap { OpenGroupAPI.send(data: $0, using: dependencies) }
+            .flatMap { $0.send(using: dependencies) }
             .flatMap { (responseInfo, responseData) -> AnyPublisher<Void, Error> in
                 let updatedMessage: Message = message
                 updatedMessage.openGroupServerMessageId = UInt64(responseData.id)
@@ -1057,9 +1057,15 @@ public final class MessageSender {
         interactionId: Int64?,
         using dependencies: Dependencies
     ) -> Error {
-        // If the message was a reaction then we don't want to do anything to the original
-        // interaciton (which the 'interactionId' is pointing to
-        guard (message as? VisibleMessage)?.reaction == nil else { return error }
+        // Only 'VisibleMessage' messages can show a status so don't bother updating
+        // the other cases (if the VisibleMessage was a reaction then we also don't
+        // want to do anything as the `interactionId` points to the original message
+        // which has it's own status)
+        switch message {
+            case let message as VisibleMessage where message.reaction != nil: return error
+            case is VisibleMessage: break
+            default: return error
+        }
         
         // Check if we need to mark any "sending" recipients as "failed"
         //
