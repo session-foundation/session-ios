@@ -183,7 +183,7 @@ public enum MessageSendJob: JobExecutor {
             .flatMap { MessageSender.sendImmediate(data: $0, using: dependencies) }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
-            .timeout(.milliseconds(Int(HTTP.defaultTimeout * 2 * 1000)), scheduler: queue, customError: {
+            .timeout(.milliseconds(Int(Network.defaultTimeout * 2 * 1000)), scheduler: queue, customError: {
                 MessageSenderError.sendJobTimeout
             })
             .sinkUntilComplete(
@@ -193,23 +193,42 @@ public enum MessageSendJob: JobExecutor {
                         case .failure(let error):
                             switch error {
                                 case MessageSenderError.sendJobTimeout:
-                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error) (paths: \(OnionRequestAPI.paths.prettifiedDescription)).")
+                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error) (paths: \(LibSession.pathsDescription)).")
+                                    
+                                    // In this case the `MessageSender` process gets cancelled so we need to
+                                    // call `handleFailedMessageSend` to update the statuses correctly
+                                    dependencies.storage.write(using: dependencies) { db in
+                                        MessageSender.handleFailedMessageSend(
+                                            db,
+                                            message: details.message,
+                                            destination: details.destination,
+                                            with: .other(error),
+                                            interactionId: job.interactionId,
+                                            using: dependencies
+                                        )
+                                    }
                                     
                                 default:
                                     SNLog("[MessageSendJob] Couldn't send message due to error: \(error)")
                             }
                             
                             // Actual error handling
-                            switch error {
-                                case let senderError as MessageSenderError where !senderError.isRetryable:
+                            switch (error, details.message) {
+                                case (let senderError as MessageSenderError, _) where !senderError.isRetryable:
                                     failure(job, error, true, dependencies)
                                     
-                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 429: // Rate limited
+                                case (SnodeAPIError.rateLimited, _):
                                     failure(job, error, true, dependencies)
                                     
-                                case SnodeAPIError.clockOutOfSync:
+                                case (SnodeAPIError.clockOutOfSync, _):
                                     SNLog("[MessageSendJob] \(originalSentTimestamp != nil ? "Permanently Failing" : "Failing") to send \(type(of: details.message)) due to clock out of sync issue.")
                                     failure(job, error, (originalSentTimestamp != nil), dependencies)
+                                    
+                                // Don't bother retrying (it can just send a new one later but allowing retries
+                                // can result in a large number of `MessageSendJobs` backing up)
+                                case (_, is TypingIndicator):
+                                    SNLog("[MessageSendJob] Failed to send \(type(of: details.message)).")
+                                    failure(job, error, true, dependencies)
                                     
                                 default:
                                     SNLog("[MessageSendJob] Failed to send \(type(of: details.message)).")

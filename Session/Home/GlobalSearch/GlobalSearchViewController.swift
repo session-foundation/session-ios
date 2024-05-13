@@ -9,7 +9,7 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 import SignalCoreKit
 
-class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, UITableViewDelegate, UITableViewDataSource {
+class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
     
     fileprivate struct SearchResultData {
@@ -30,7 +30,7 @@ class GlobalSearchViewController: BaseVC, SessionUtilRespondingViewController, U
         case groupedContacts(title: String)
     }
     
-    // MARK: - SessionUtilRespondingViewController
+    // MARK: - LibSessionRespondingViewController
     
     let isConversationList: Bool = true
     
