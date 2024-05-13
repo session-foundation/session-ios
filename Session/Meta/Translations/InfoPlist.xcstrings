@@ -48,6 +48,12 @@
             "state" : "translated",
             "value" : "Session needs to use Apple Music to play media attachments."
           }
+        },
+        "zh_CN" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session需要Apple Music的访问权限用以播放媒体附件。"
+          }
         }
       }
     },

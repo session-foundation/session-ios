@@ -2,10 +2,13 @@
 
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 //
-// This script is based on https://github.com/ginowu7/CleanSwiftLocalizableExample the main difference
-// is canges to the localized usage regex
-//
 // stringlint:disable
+//
+/// This script is based on https://github.com/ginowu7/CleanSwiftLocalizableExample
+/// The main differences are:
+/// 1. Changes to the localised usage regex
+/// 2. Addition to excluded unlocalised cases
+/// 3. Functionality to update and copy localised permission requirement strings to infoPlist.xcstrings
 
 import Foundation
 
@@ -119,6 +122,7 @@ targetActions.forEach { $0.perform(projectState: projectState) }
 enum ScriptAction: String {
     case validateFilesCopied = "validate"
     case lintStrings = "lint"
+    case updatePermissionStrings = "update"
     
     func perform(projectState: ProjectState) {
         // Perform the action
@@ -218,6 +222,9 @@ enum ScriptAction: String {
                     }
                 }
                 break
+            case .updatePermissionStrings:
+                print("------------ Updating permission strings ------------")
+                
         }
         
         print("------------ Complete ------------")
@@ -283,6 +290,7 @@ struct ProjectState {
     let primaryLocalizationFile: LocalizationStringsFile
     let localizationFiles: [LocalizationStringsFile]
     let sourceFiles: [SourceFile]
+    let infoPlistLocalizationFile: XCStringsFile
     
     init(path: String, loadSourceFiles: Bool) {
         guard
@@ -334,6 +342,37 @@ protocol KeyedLocatable: Locatable {
 }
 
 extension ProjectState {
+    // MARK: - XCStringsFile
+    struct XCStringsFile: Locatable {
+        struct Phrase {
+            
+        }
+        let name: String
+        let path: String
+        let keyPhrase: [String: JSON]
+        
+        var location: String { path }
+        
+        init(path: String) {
+            let result = LocalizationStringsFile.parse(path)
+            
+            self.name = (path
+                .replacingOccurrences(of: ".xcstrings", with: "")
+                .components(separatedBy: "/")
+                .last ?? "Unknown")
+            self.path = path
+        }
+        
+        static func parse(_ path: String) -> [String: JSON] {
+            guard
+                let data: Data = FileManager.default.contents(atPath: path),
+                let content: String = String(data: data, encoding: .utf8)
+            else { fatalError("Could not read from path: \(path)") }
+            
+            return
+        }
+    }
+    
     // MARK: - LocalizationStringsFile
     
     struct LocalizationStringsFile: Locatable {
