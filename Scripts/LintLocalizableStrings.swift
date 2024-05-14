@@ -12,12 +12,22 @@
 
 import Foundation
 
+typealias JSON = [String:Any]
+
 extension ProjectState {
     /// Adding `// stringlint:disable` to the top of a source file (before imports) or after a string will mean that file/line gets
     /// ignored by this script (good for some things like the auto-generated emoji strings or debug strings)
     static let lintSuppression: String = "stringlint:disable"
     static let primaryLocalisationFile: String = "en"
     static let validLocalisationSuffixes: Set<String> = ["Localizable.strings"]
+    static let permissionStrings: Set<String> = [
+        "NSAppleMusicUsageDescription",
+        "NSCameraUsageDescription",
+        "NSFaceIDUsageDescription",
+        "NSMicrophoneUsageDescription",
+        "NSPhotoLibraryAddUsageDescription",
+        "NSPhotoLibraryUsageDescription"
+    ]
     static let validSourceSuffixes: Set<String> = [".swift", ".m"]
     static let excludedPaths: Set<String> = [
         "build/",                   // Files under the build folder (CI)
@@ -224,7 +234,40 @@ enum ScriptAction: String {
                 break
             case .updatePermissionStrings:
                 print("------------ Updating permission strings ------------")
+                var updatedInfoPlistJSON: JSON = projectState.infoPlistLocalizationFile.json
+                var strings: JSON = updatedInfoPlistJSON["strings"] as! JSON
+                projectState.localizationFiles.forEach { file in
+                    ProjectState.permissionStrings.forEach { key in
+                        var keyPhrases: JSON = strings[key] as! JSON
+                        var localizations: JSON = keyPhrases["localizations"] as! JSON
+                        if let phrase: String = file.keyPhrase[key]?.value {
+                            if let translations: JSON = localizations[file.name] as? JSON {
+                                var stringUnit: JSON = translations["stringUnit"] as! JSON
+                                if (stringUnit["value"] as! String) != phrase {
+                                    stringUnit["state"] = "translated"
+                                    stringUnit["value"] = phrase
+                                }
+                            } else {
+                                let stringUnit: JSON = [
+                                    "state": "translated",
+                                    "value": phrase.replacingOccurrences(of: "\"", with: "")
+                                ]
+                                localizations[file.name] = ["stringUnit": stringUnit]
+                            }
+                        }
+                        keyPhrases["localizations"] = localizations
+                        strings[key] = keyPhrases
+                    }
+                }
+                updatedInfoPlistJSON["strings"] = strings
                 
+            if let data: Data = try? JSONSerialization.data(withJSONObject: updatedInfoPlistJSON, options: [ .fragmentsAllowed ]) {
+                do {
+                    try data.write(to: URL(fileURLWithPath: projectState.infoPlistLocalizationFile.path), options: [.atomic])
+                } catch {
+                    fatalError("Could not write to InfoPlist.xcstrings, error: \(error)")
+                }
+            }
         }
         
         print("------------ Complete ------------")
@@ -320,6 +363,11 @@ struct ProjectState {
         }
         self.primaryLocalizationFile = primaryLocalizationFile
         
+        self.infoPlistLocalizationFile = validFileUrls
+            .filter { fileUrl in fileUrl.path.contains("InfoPlist.xcstrings") }
+            .map { XCStringsFile(path: $0.path) }
+            .last!
+        
         guard loadSourceFiles else {
             self.sourceFiles = []
             return
@@ -344,32 +392,28 @@ protocol KeyedLocatable: Locatable {
 extension ProjectState {
     // MARK: - XCStringsFile
     struct XCStringsFile: Locatable {
-        struct Phrase {
-            
-        }
         let name: String
         let path: String
-        let keyPhrase: [String: JSON]
+        var json: JSON
         
         var location: String { path }
         
         init(path: String) {
-            let result = LocalizationStringsFile.parse(path)
-            
             self.name = (path
                 .replacingOccurrences(of: ".xcstrings", with: "")
                 .components(separatedBy: "/")
                 .last ?? "Unknown")
             self.path = path
+            self.json = XCStringsFile.parse(path)
         }
         
-        static func parse(_ path: String) -> [String: JSON] {
+        static func parse(_ path: String) -> JSON {
             guard
                 let data: Data = FileManager.default.contents(atPath: path),
-                let content: String = String(data: data, encoding: .utf8)
+                let json: JSON = try? JSONSerialization.jsonObject(with: data, options: [ .fragmentsAllowed ]) as? JSON
             else { fatalError("Could not read from path: \(path)") }
             
-            return
+            return json
         }
     }
     
