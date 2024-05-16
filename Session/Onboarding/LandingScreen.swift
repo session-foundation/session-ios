@@ -157,6 +157,7 @@ struct LandingScreen: View {
                     label: "Privacy policy button"
                 ),
                 cancelStyle: .textPrimary,
+                hasCloseButton: true,
                 onConfirm: { _ in
                     if let url: URL = URL(string: "https://getsession.org/terms-of-service") {
                         UIApplication.shared.open(url)
