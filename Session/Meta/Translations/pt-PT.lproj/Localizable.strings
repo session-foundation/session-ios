@@ -1117,7 +1117,6 @@ The point that a message will disappear in a disappearing message update message
 "accountIDCopy" = "Copy Account ID";
 
 //Start Conversation
-"accountIdYours" = "Your Account ID";
 "qrYoursDescription" = "Friends can message you by scanning your QR code.";
 "start_conversation_screen_title" = "Start Conversation";
 "invite_a_friend_explanation" = "Invite your friend to chat with you on Session by sharing your Account ID with them";
