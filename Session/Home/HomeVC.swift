@@ -215,7 +215,11 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         sessionLogoImage.contentMode = .scaleAspectFit
         sessionLogoImage.set(.height, to: 103)
         
-        let sessionTitleImage: UIImageView = UIImageView(image: UIImage(named: "SessionHeading"))
+        let sessionTitleImage: UIImageView = UIImageView(
+            image: UIImage(named: "SessionHeading")?
+                .withRenderingMode(.alwaysTemplate)
+        )
+        sessionTitleImage.themeTintColor = .textPrimary
         sessionTitleImage.contentMode = .scaleAspectFit
         sessionTitleImage.set(.height, to: 22)
         
@@ -247,7 +251,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         let welcomeLabel = UILabel()
         welcomeLabel.font = .systemFont(ofSize: Values.smallFontSize)
         welcomeLabel.text = "onboardingBubbleWelcomeToSession".localized()
-        welcomeLabel.themeTextColor = .primary
+        welcomeLabel.themeTextColor = .sessionButton_text
         welcomeLabel.textAlignment = .center
 
         let result = UIStackView(arrangedSubviews: [
