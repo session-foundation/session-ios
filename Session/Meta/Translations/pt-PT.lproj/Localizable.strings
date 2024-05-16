@@ -1113,6 +1113,8 @@ The point that a message will disappear in a disappearing message update message
 "settings_view_my_qr_code_explanation" = "This is your Account ID. Other users can scan it to start a conversation with you.";
 "qrNotAccountId" = "This QR code does not contain an Account ID.";
 "lockApp" = "Lock App";
+"accountIdYours" = "Your Account ID";
+"accountIDCopy" = "Copy Account ID";
 
 //Start Conversation
 "accountIdYours" = "Your Account ID";
@@ -1129,3 +1131,4 @@ The point that a message will disappear in a disappearing message update message
 //General
 "attachmentsNa" = "N/A";
 "search" = "Search";
+"messageRequestsAcceptDescription" = "Sending a message to this user will automatically accept their message request and reveal your Account ID.";

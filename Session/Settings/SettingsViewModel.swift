@@ -64,7 +64,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         
         var title: String? {
             switch self {
-                case .sessionId: return "your_session_id".localized()
+                case .sessionId: return "accountIdYours".localized()
                 default: return nil
             }
         }
