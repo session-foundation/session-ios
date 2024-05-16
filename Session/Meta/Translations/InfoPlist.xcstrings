@@ -1,1 +1,129 @@
-{"sourceLanguage":"en","version":"1.0","strings":{"NSAppleMusicUsageDescription":{"localizations":{"zh_CN":{"stringUnit":{"state":"translated","value":"Session需要Apple Music的访问权限用以播放媒体附件。"}},"en":{"stringUnit":{"state":"translated","value":"Session needs to use Apple Music to play media attachments."}}},"extractionState":"manual"},"NSHumanReadableCopyright":{"comment":"Copyright (human-readable)","localizations":{"en":{"stringUnit":{"state":"new","value":"com.loki-project.loki-messenger"}}},"extractionState":"extracted_with_value"},"New Message":{},"NSPhotoLibraryUsageDescription":{"localizations":{"en":{"stringUnit":{"state":"translated","value":"Session needs access to your library to update your avatar and send photos."}}},"extractionState":"manual"},"NSFaceIDUsageDescription":{"localizations":{"en":{"stringUnit":{"state":"translated","value":"Session's Screen Lock feature uses Face ID."}}},"extractionState":"manual"},"CFBundleName":{"comment":"Bundle name","localizations":{"en":{"stringUnit":{"state":"new","value":"Session"}}},"extractionState":"extracted_with_value"},"CFBundleDisplayName":{"comment":"Bundle display name","localizations":{"en":{"stringUnit":{"state":"new","value":"Session"}}},"extractionState":"extracted_with_value"},"NSPhotoLibraryAddUsageDescription":{"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Session needs access to your library to save photos."}}}},"NSCameraUsageDescription":{"localizations":{"en":{"stringUnit":{"state":"translated","value":"Session needs camera access to take pictures and scan QR codes."}}},"extractionState":"manual"},"CFBundleGetInfoString":{"comment":"Get Info string","localizations":{"en":{"stringUnit":{"state":"new","value":""}}},"extractionState":"extracted_with_value"},"NSMicrophoneUsageDescription":{"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Session needs access to your microphone for calls and to send to audio messages."}}}}}}
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "Bundle display name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Session"
+          }
+        }
+      }
+    },
+    "CFBundleGetInfoString" : {
+      "comment" : "Get Info string",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : ""
+          }
+        }
+      }
+    },
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Session"
+          }
+        }
+      }
+    },
+    "New Message" : {
+
+    },
+    "NSAppleMusicUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session needs to use Apple Music to play media attachments."
+          }
+        },
+        "zh_CN" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session需要Apple Music的访问权限用以播放媒体附件。"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session needs camera access to take pictures and scan QR codes."
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session's Screen Lock feature uses Face ID."
+          }
+        }
+      }
+    },
+    "NSHumanReadableCopyright" : {
+      "comment" : "Copyright (human-readable)",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "com.loki-project.loki-messenger"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session needs access to your microphone for calls and to send to audio messages."
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryAddUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session needs access to your library to save photos."
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session needs access to your library to update your avatar and send photos."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
