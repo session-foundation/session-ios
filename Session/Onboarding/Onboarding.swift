@@ -58,6 +58,20 @@ enum Onboarding {
             .eraseToAnyPublisher()
     }
     
+    enum SeedSource {
+        case qrCode
+        case mnemonic
+        
+        var genericErrorMessage: String {
+            switch self {
+                case .qrCode:
+                    "qrNotRecoveryPassword".localized()
+                case .mnemonic:
+                    "recoveryPasswordErrorMessageGeneric".localized()
+            }
+        }
+    }
+    
     enum State: CustomStringConvertible {
         case newUser
         case missingName

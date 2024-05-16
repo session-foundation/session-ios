@@ -1099,6 +1099,7 @@ The point that a message will disappear in a disappearing message update message
 "qrView" = "View QR";
 "recoveryPasswordView" = "View Password";
 "yes" = "Yes";
+"qrNotRecoveryPassword" = "This QR code does not contain a Recovery Password";
 
 //Settings
 "view" = "View";

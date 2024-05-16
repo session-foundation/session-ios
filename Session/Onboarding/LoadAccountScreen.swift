@@ -50,9 +50,9 @@ struct LoadAccountScreen: View {
         }
     }
     
-    private func continueWithSeed(seed: Data, onError: (() -> ())?) {
+    private func continueWithSeed(seed: Data, from source: Onboarding.SeedSource, onError: (() -> ())?) {
         if (seed.count != 16) {
-            errorString = "recoveryPasswordErrorMessageGeneric".localized()
+            errorString =  source.genericErrorMessage
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 onError?()
             }
@@ -75,7 +75,7 @@ struct LoadAccountScreen: View {
     
     func continueWithhexEncodedSeed(onError: (() -> ())?) {
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed, onError: onError)
+        continueWithSeed(seed: seed, from: .qrCode, onError: onError)
     }
     
     func continueWithMnemonic() {
@@ -85,21 +85,14 @@ struct LoadAccountScreen: View {
             hexEncodedSeed = try Mnemonic.decode(mnemonic: mnemonic)
         } catch {
             if let decodingError = error as? Mnemonic.DecodingError {
-                switch decodingError {
-                    case .inputTooShort:
-                        errorString = "recoveryPasswordErrorMessageShort".localized()
-                    case .invalidWord:
-                        errorString = "recoveryPasswordErrorMessageIncorrect".localized()
-                    default:
-                        errorString = "recoveryPasswordErrorMessageGeneric".localized()
-                }
+                errorString = decodingError.errorDescription
             } else {
                 errorString = "recoveryPasswordErrorMessageGeneric".localized()
             }
             return
         }
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed, onError: nil)
+        continueWithSeed(seed: seed, from: .mnemonic, onError: nil)
     }
 }
 

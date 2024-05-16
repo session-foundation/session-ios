@@ -68,13 +68,14 @@ public enum Mnemonic {
     public enum DecodingError : LocalizedError {
         case generic, inputTooShort, missingLastWord, invalidWord, verificationFailed
         
-        public var errorDescription: String? {
+        public var errorDescription: String {
             switch self {
-                case .generic: return "RECOVERY_PHASE_ERROR_GENERIC".localized()
-                case .inputTooShort: return "RECOVERY_PHASE_ERROR_LENGTH".localized()
-                case .missingLastWord: return "RECOVERY_PHASE_ERROR_LAST_WORD".localized()
-                case .invalidWord: return "RECOVERY_PHASE_ERROR_INVALID_WORD".localized()
-                case .verificationFailed: return "RECOVERY_PHASE_ERROR_FAILED".localized()
+                case .inputTooShort:
+                    return "recoveryPasswordErrorMessageShort".localized()
+                case .invalidWord:
+                    return "recoveryPasswordErrorMessageIncorrect".localized()
+                default:
+                    return "recoveryPasswordErrorMessageGeneric".localized()
             }
         }
     }
