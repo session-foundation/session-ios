@@ -86,6 +86,7 @@
 "groupLeaveDescriptionAdmin" = "Are you sure you want to leave {group_name}? This will deactivate the group for all members.";
 "urlOpenDescription" = "Are you sure you want to open this URL in your browser?<br/><br/>{url}";
 "recoveryPasswordHidePermanentlyDescription2" = "Are you sure you want to permanently hide your recovery password on this device? This cannot be undone.";
+<<<<<<< HEAD
 "blockUnblockDescription" = "Are you sure you want to unblock {name}?";
 "attachment" = "Attachment";
 "attachmentsExpired" = "Attachment expired";
@@ -196,6 +197,26 @@
 "callsVoiceAndVideoToggleDescription" = "Enables voice and video calls to and from other users";
 "displayNameEnter" = "Enter your display name";
 "groupDescriptionEnter" = "Enter a group description";
+=======
+"qrView" = "View QR";
+"recoveryPasswordView" = "View Password";
+"yes" = "Yes";
+"qrNotRecoveryPassword" = "This QR code does not contain a Recovery Password";
+
+//Settings
+"view" = "View";
+"settings_scan_qr_code_tab_title" = "Scan";
+"settings_view_my_qr_code_explanation" = "This is your Account ID. Other users can scan it to start a conversation with you.";
+"qrNotAccountId" = "This QR code does not contain an Account ID.";
+"lockApp" = "Lock App";
+"accountIdYours" = "Your Account ID";
+"accountIDCopy" = "Copy Account ID";
+
+//Start Conversation
+"qrYoursDescription" = "Friends can message you by scanning your QR code.";
+"start_conversation_screen_title" = "Start Conversation";
+"invite_a_friend_explanation" = "Invite your friend to chat with you on Session by sharing your Account ID with them";
+>>>>>>> onboarding
 "accountIdEnter" = "Enter Account ID";
 "accountIdOrOnsEnter" = "Enter Account ID or ONS";
 "communityEnterUrl" = "Enter Community URL";
@@ -420,6 +441,7 @@
 "screenSecurity" = "Screen Security";
 "screenshotNotifications" = "Screenshot Notifications";
 "search" = "Search";
+<<<<<<< HEAD
 "searchContacts" = "Search Contacts";
 "searchConversation" = "Search Conversation";
 "searchMembers" = "Search Members";
@@ -434,7 +456,7 @@
 "conversationsSendWithEnterKey" = "Send with Enter Key";
 "sending" = "Sending";
 "messageRequestGroupInviteDescription" = "Sending a message to this group will automatically accept the group invite.";
-"messageRequestsAcceptDescription" = "Sending a message to this user will automatically accept their message request and reveal your {app_name} ID.";
+"messageRequestsAcceptDescription" = "Sending a message to this user will automatically accept their message request and reveal your Account ID.";
 "adminSendingPromotion" = "Sending admin promotion";
 "groupInviteSending" = "Sending invite";
 "disappearingMessagesSent" = "Sent";

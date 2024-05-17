@@ -163,9 +163,7 @@ class MessageRequestFooterView: UIView {
         )
         self.descriptionLabel.text = (threadRequiresApproval ?
             "messageRequestPendingDescription".localized() :
-            "messageRequestsAcceptDescription"
-                .put(key: "app_name", value: Singleton.appName)
-                .localized()
+            "messageRequestsAcceptDescription".localized()
         )
         self.actionStackView.isHidden = threadRequiresApproval
         self.messageRequestDescriptionLabelBottomConstraint?.constant = (threadRequiresApproval ? -4 : -20)

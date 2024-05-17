@@ -249,6 +249,7 @@ struct PNOptionView: View {
                         )
                 }
             }
+            .accessibility(info.accessibility)
         }
         .frame(
             maxWidth: .infinity

@@ -434,7 +434,7 @@
 "conversationsSendWithEnterKey" = "Send with Enter Key";
 "sending" = "Sending";
 "messageRequestGroupInviteDescription" = "Sending a message to this group will automatically accept the group invite.";
-"messageRequestsAcceptDescription" = "Sending a message to this user will automatically accept their message request and reveal your {app_name} ID.";
+"messageRequestsAcceptDescription" = "Sending a message to this user will automatically accept their message request and reveal your Account ID.";
 "adminSendingPromotion" = "Sending admin promotion";
 "groupInviteSending" = "Sending invite";
 "disappearingMessagesSent" = "Sent";

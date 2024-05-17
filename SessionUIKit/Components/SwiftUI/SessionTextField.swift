@@ -8,13 +8,11 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
     @Binding var text: String
     @Binding var error: String?
     @State var previousError: String = ""
+    @State var textThemeColor: ThemeValue = .textPrimary
     
     let explanationView: () -> ExplanationView
     let placeholder: String
     let accessibility: Accessibility
-    var textThemeColor: ThemeValue {
-        (error?.isEmpty == false) ? .danger : .textPrimary
-    }
     var isErrorMode: Bool {
         guard previousError.isEmpty else { return true }
         if error?.isEmpty == false { return true }
@@ -46,6 +44,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
             alignment: .center,
             spacing: Values.smallSpacing
         ) {
+            // Text input
             ZStack(alignment: .leading) {
                 if text.isEmpty {
                     Text(placeholder)
@@ -122,6 +121,11 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                 )
                 .stroke(themeColor: isErrorMode ? .danger : .borderSeparator)
             )
+            .onReceive(Just(error)) { newValue in
+                textThemeColor = (newValue?.isEmpty == false) ? .danger : .textPrimary
+            }
+            
+            // Error message
             ZStack {
                 if isErrorMode {
                     Text(error ?? previousError)

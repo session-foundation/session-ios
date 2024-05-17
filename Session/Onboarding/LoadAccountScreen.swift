@@ -50,9 +50,9 @@ struct LoadAccountScreen: View {
         }
     }
     
-    private func continueWithSeed(seed: Data, onError: (() -> ())?) {
+    private func continueWithSeed(seed: Data, from source: Onboarding.SeedSource, onError: (() -> ())?) {
         if (seed.count != 16) {
-            errorString = "recoveryPasswordErrorMessageGeneric".localized()
+            errorString =  source.genericErrorMessage
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 onError?()
             }
@@ -75,7 +75,7 @@ struct LoadAccountScreen: View {
     
     func continueWithhexEncodedSeed(onError: (() -> ())?) {
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed, onError: onError)
+        continueWithSeed(seed: seed, from: .qrCode, onError: onError)
     }
     
     func continueWithMnemonic() {
@@ -86,9 +86,9 @@ struct LoadAccountScreen: View {
         } catch {
             if let decodingError = error as? Mnemonic.DecodingError {
                 switch decodingError {
-                    case .inputTooShort:
+                    case .inputTooShort, .missingLastWord:
                         errorString = "recoveryPasswordErrorMessageShort".localized()
-                    case .invalidWord:
+                    case .invalidWord, .verificationFailed:
                         errorString = "recoveryPasswordErrorMessageIncorrect".localized()
                     default:
                         errorString = "recoveryPasswordErrorMessageGeneric".localized()
@@ -99,7 +99,7 @@ struct LoadAccountScreen: View {
             return
         }
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed, onError: nil)
+        continueWithSeed(seed: seed, from: .mnemonic, onError: nil)
     }
 }
 
@@ -163,10 +163,7 @@ struct EnterRecoveryPasswordScreen: View{
                     $recoveryPassword,
                     placeholder: "recoveryPasswordEnter".localized(),
                     error: $error, 
-                    accessibility: Accessibility(
-                        identifier: "Recovery password input",
-                        label: "Recovery password input"
-                    )
+                    accessibility: Accessibility(identifier: "Recovery password input")
                 )
                 
                 Spacer(minLength: 0)
