@@ -17,7 +17,7 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         return ThemeManager.currentTheme.statusBarStyle
     }
     
-    public var navigationBackground: ThemeValue { customizedNavigationBackground ?? .backgroundPrimary }
+    public var navigationBackground: ThemeValue? { customizedNavigationBackground }
     private let customizedNavigationBackground: ThemeValue?
     private let shouldHideNavigationBar: Bool
 

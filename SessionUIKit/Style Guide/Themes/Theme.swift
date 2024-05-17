@@ -101,7 +101,7 @@ public protocol ThemeColors {
 // MARK: - ThemedNavigation
 
 public protocol ThemedNavigation {
-    var navigationBackground: ThemeValue { get }
+    var navigationBackground: ThemeValue? { get }
 }
 
 // MARK: - ThemeValue
