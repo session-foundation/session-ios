@@ -112,6 +112,11 @@ struct LandingScreen: View {
                     AttributedText(attributedText)
                         .foregroundColor(themeColor: .textPrimary)
                 }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Open URL"
+                    )
+                )
                 .padding(.horizontal, Values.massiveSpacing)
             }
         }

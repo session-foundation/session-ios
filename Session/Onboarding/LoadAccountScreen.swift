@@ -163,10 +163,7 @@ struct EnterRecoveryPasswordScreen: View{
                     $recoveryPassword,
                     placeholder: "recoveryPasswordEnter".localized(),
                     error: $error, 
-                    accessibility: Accessibility(
-                        identifier: "Recovery password input",
-                        label: "Recovery password input"
-                    )
+                    accessibility: Accessibility(identifier: "Recovery password input")
                 )
                 
                 Spacer(minLength: 0)
