@@ -497,18 +497,17 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         
         // Show the empty state if there is no data
         if self.flow == .register {
-            accountCreatedView.isHidden = (
-                !updatedData.isEmpty &&
-                updatedData.contains(where: { !$0.elements.isEmpty })
-            )
+            accountCreatedView.isHidden = false
             emptyStateLogoView.isHidden = true
         } else {
+            accountCreatedView.isHidden = true
             emptyStateLogoView.isHidden = false
-            emptyStateView.isHidden = (
-                !updatedData.isEmpty &&
-                updatedData.contains(where: { !$0.elements.isEmpty })
-            )
         }
+        
+        emptyStateStackView.isHidden = (
+            !updatedData.isEmpty &&
+            updatedData.contains(where: { !$0.elements.isEmpty })
+        )
         
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
