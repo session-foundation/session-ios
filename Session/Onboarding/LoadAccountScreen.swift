@@ -85,7 +85,14 @@ struct LoadAccountScreen: View {
             hexEncodedSeed = try Mnemonic.decode(mnemonic: mnemonic)
         } catch {
             if let decodingError = error as? Mnemonic.DecodingError {
-                errorString = decodingError.errorDescription
+                switch decodingError {
+                    case .inputTooShort, .missingLastWord:
+                        errorString = "recoveryPasswordErrorMessageShort".localized()
+                    case .invalidWord, .verificationFailed:
+                        errorString = "recoveryPasswordErrorMessageIncorrect".localized()
+                    default:
+                        errorString = "recoveryPasswordErrorMessageGeneric".localized()
+                }
             } else {
                 errorString = "recoveryPasswordErrorMessageGeneric".localized()
             }

@@ -67,17 +67,6 @@ public enum Mnemonic {
     
     public enum DecodingError : LocalizedError {
         case generic, inputTooShort, missingLastWord, invalidWord, verificationFailed
-        
-        public var errorDescription: String {
-            switch self {
-                case .inputTooShort:
-                    return "recoveryPasswordErrorMessageShort".localized()
-                case .invalidWord:
-                    return "recoveryPasswordErrorMessageIncorrect".localized()
-                default:
-                    return "recoveryPasswordErrorMessageGeneric".localized()
-            }
-        }
     }
     
     public static func hash(hexEncodedString string: String, language: Language = .english) -> String {
