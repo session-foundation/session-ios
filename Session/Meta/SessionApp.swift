@@ -112,10 +112,7 @@ public struct SessionApp {
     // MARK: - Functions
     
     public static func resetAppData(onReset: (() -> ())? = nil) {
-        // This _should_ be wiped out below.
-        Logger.error("")
-        DDLog.flushLog()
-        
+        Log.flush()
         LibSession.clearMemoryState()
         Storage.resetAllStorage()
         ProfileManager.resetProfileStorage()

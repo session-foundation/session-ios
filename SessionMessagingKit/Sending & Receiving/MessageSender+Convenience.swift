@@ -142,7 +142,7 @@ extension MessageSender {
         return dependencies.storage
             .readPublisher { db -> (attachments: [Attachment], openGroup: OpenGroup?) in
                 let attachmentStateInfo: [Attachment.StateInfo] = (try? Attachment
-                    .stateInfo(interactionId: interactionId, state: .uploading)
+                    .stateInfo(interactionId: interactionId)
                     .fetchAll(db))
                     .defaulting(to: [])
                 

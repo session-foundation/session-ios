@@ -97,6 +97,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         super.viewWillDisappear(animated)
         
         stopObservingChanges()
+        
+        // When the thread picker disappears it means the user has left the screen (this will be called
+        // whether the user has sent the message or cancelled sending)
+        Log.flush()
+        Storage.suspendDatabaseAccess()
+        LibSession.closeNetworkConnections()
     }
     
     @objc func applicationDidBecomeActive(_ notification: Notification) {
@@ -308,7 +314,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
-                        DDLog.flushLog()
+                        Log.flush()
                         Storage.suspendDatabaseAccess()
                         LibSession.closeNetworkConnections()
                         activityIndicator.dismiss { }

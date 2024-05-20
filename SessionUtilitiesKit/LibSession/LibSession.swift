@@ -25,28 +25,21 @@ extension LibSession {
         
         /// Then set any explicit category log levels we have
         logLevels.forEach { cat, level in
-            session_logger_set_level(cat.rawValue.cArray, level)
+            guard let cCat: [CChar] = cat.rawValue.cString(using: .utf8) else { return }
+            
+            session_logger_set_level(cCat, level)
         }
         
         /// Finally register the actual logger callback
         session_add_logger_full({ msgPtr, msgLen, _, _, lvl in
             guard let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8) else { return }
             
-            let trimmedLog: String = msg.trimmingCharacters(in: .whitespacesAndNewlines)
-            switch lvl {
-                case LOG_LEVEL_TRACE: OWSLogger.verbose(trimmedLog)
-                case LOG_LEVEL_DEBUG: OWSLogger.debug(trimmedLog)
-                case LOG_LEVEL_INFO: OWSLogger.info(trimmedLog)
-                case LOG_LEVEL_WARN: OWSLogger.warn(trimmedLog)
-                case LOG_LEVEL_ERROR: OWSLogger.error(trimmedLog)
-                case LOG_LEVEL_CRITICAL: OWSLogger.error(trimmedLog)
-                case LOG_LEVEL_OFF: break
-                default: break
-            }
-            
-            #if DEBUG
-            print(trimmedLog)
-            #endif
+            Log.custom(
+                Log.Level(lvl),
+                msg.trimmingCharacters(in: .whitespacesAndNewlines),
+                withPrefixes: false,
+                silenceForTests: false
+            )
         })
     }
     
@@ -63,6 +56,22 @@ extension LibSession {
                 case .some(let cat): self = cat
                 case .none: return nil
             }
+        }
+    }
+}
+
+// MARK: - Convenience
+
+fileprivate extension Log.Level {
+    init(_ level: LOG_LEVEL) {
+        switch level {
+            case LOG_LEVEL_TRACE: self = .trace
+            case LOG_LEVEL_DEBUG: self = .debug
+            case LOG_LEVEL_INFO: self = .info
+            case LOG_LEVEL_WARN: self = .warn
+            case LOG_LEVEL_ERROR: self = .error
+            case LOG_LEVEL_CRITICAL: self = .critical
+            default: self = .off
         }
     }
 }

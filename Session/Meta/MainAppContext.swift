@@ -62,12 +62,6 @@ final class MainAppContext: AppContext {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationWillTerminate(notification:)),
-            name: UIApplication.willTerminateNotification,
-            object: nil
-        )
     }
     
     deinit {
@@ -93,9 +87,6 @@ final class MainAppContext: AppContext {
         
         self.reportedApplicationState = .background
 
-        OWSLogger.info("")
-        DDLog.flushLog()
-        
         NotificationCenter.default.post(
             name: .sessionDidEnterBackground,
             object: nil
@@ -106,9 +97,6 @@ final class MainAppContext: AppContext {
         AssertIsOnMainThread()
 
         self.reportedApplicationState = .inactive
-
-        OWSLogger.info("")
-        DDLog.flushLog()
 
         NotificationCenter.default.post(
             name: .sessionWillResignActive,
@@ -121,19 +109,10 @@ final class MainAppContext: AppContext {
 
         self.reportedApplicationState = .active
 
-        OWSLogger.info("")
-
         NotificationCenter.default.post(
             name: .sessionDidBecomeActive,
             object: nil
         )
-    }
-
-    @objc private func applicationWillTerminate(notification: NSNotification) {
-        AssertIsOnMainThread()
-
-        OWSLogger.info("")
-        DDLog.flushLog()
     }
     
     // MARK: - AppContext Functions

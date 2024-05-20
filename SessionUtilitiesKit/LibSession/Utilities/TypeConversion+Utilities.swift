@@ -5,9 +5,7 @@ import SessionUtil
 
 // MARK: - String
 
-public extension String {
-    var cArray: [CChar] { [UInt8](self.utf8).map { CChar(bitPattern: $0) } }
-    
+public extension String {    
     /// Initialize with an optional pointer and a specific length
     init?(pointer: UnsafeRawPointer?, length: Int, encoding: String.Encoding = .utf8) {
         guard
@@ -89,8 +87,6 @@ public extension Optional<String> {
 // MARK: - Data
 
 public extension Data {
-    var cArray: [UInt8] { [UInt8](self) }
-    
     init<T>(libSessionVal: T, count: Int) {
         let result: Data = Swift.withUnsafePointer(to: libSessionVal) {
             Data(bytes: $0, count: count)

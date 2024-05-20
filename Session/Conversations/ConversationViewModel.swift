@@ -200,6 +200,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         }
     }
     
+    deinit {
+        // Stop any audio playing when leaving the screen
+        audioPlayer.wrappedValue?.stop()
+    }
+    
     // MARK: - Thread Data
     
     private var _threadData: Atomic<SessionThreadViewModel>
@@ -1014,6 +1019,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         
         playbackInfo.mutate { $0[viewModel.id] = updatedPlaybackInfo }
         updatedPlaybackInfo?.updateCallback(updatedPlaybackInfo, nil)
+    }
+    
+    public func stopAudioIfNeeded(for viewModel: MessageViewModel) {
+        guard viewModel.id == currentPlayingInteraction.wrappedValue else { return  }
+        
+        audioPlayer.wrappedValue?.stop()
     }
     
     public func stopAudio() {

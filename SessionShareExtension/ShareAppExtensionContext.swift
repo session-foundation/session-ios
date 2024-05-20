@@ -74,7 +74,6 @@ final class ShareAppExtensionContext: AppContext {
     
     @objc private func extensionHostDidBecomeActive(notification: NSNotification) {
         AssertIsOnMainThread()
-        OWSLogger.info("")
 
         self.reportedApplicationState = .active
         
@@ -89,9 +88,6 @@ final class ShareAppExtensionContext: AppContext {
 
         self.reportedApplicationState = .inactive
         
-        OWSLogger.info("")
-        DDLog.flushLog()
-
         NotificationCenter.default.post(
             name: .sessionWillResignActive,
             object: nil
@@ -100,9 +96,6 @@ final class ShareAppExtensionContext: AppContext {
 
     @objc private func extensionHostDidEnterBackground(notification: NSNotification) {
         AssertIsOnMainThread()
-        
-        OWSLogger.info("")
-        DDLog.flushLog()
 
         self.reportedApplicationState = .background
 
@@ -114,8 +107,6 @@ final class ShareAppExtensionContext: AppContext {
 
     @objc private func extensionHostWillEnterForeground(notification: NSNotification) {
         AssertIsOnMainThread()
-        
-        OWSLogger.info("")
 
         self.reportedApplicationState = .inactive
 

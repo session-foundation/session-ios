@@ -12,9 +12,9 @@ import SessionUtilitiesKit
 public extension LibSession {
     private static var networkCache: Atomic<UnsafeMutablePointer<network_object>?> = Atomic(nil)
     private static var snodeCachePath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/snodeCache" }
-    private static var lastPaths: Atomic<[Set<Snode>]> = Atomic([])
+    private static var lastPaths: Atomic<[[Snode]]> = Atomic([])
     private static var lastNetworkStatus: Atomic<NetworkStatus> = Atomic(.unknown)
-    private static var pathsChangedCallbacks: Atomic<[UUID: ([Set<Snode>], UUID) -> ()]> = Atomic([:])
+    private static var pathsChangedCallbacks: Atomic<[UUID: ([[Snode]], UUID) -> ()]> = Atomic([:])
     private static var networkStatusCallbacks: Atomic<[UUID: (NetworkStatus) -> ()]> = Atomic([:])
     
     static var hasPaths: Bool { !lastPaths.wrappedValue.isEmpty }
@@ -63,12 +63,12 @@ public extension LibSession {
         networkStatusCallbacks.mutate { $0.removeValue(forKey: callbackId) }
     }
     
-    static func onPathsChanged(skipInitialCallbackIfEmpty: Bool = false, callback: @escaping ([Set<Snode>], UUID) -> ()) -> UUID {
+    static func onPathsChanged(skipInitialCallbackIfEmpty: Bool = false, callback: @escaping ([[Snode]], UUID) -> ()) -> UUID {
         let callbackId: UUID = UUID()
         pathsChangedCallbacks.mutate { $0[callbackId] = callback }
         
         // Trigger the callback immediately with the most recent status
-        let lastPaths: [Set<Snode>] = self.lastPaths.wrappedValue
+        let lastPaths: [[Snode]] = self.lastPaths.wrappedValue
         if !lastPaths.isEmpty || !skipInitialCallbackIfEmpty {
             callback(lastPaths, callbackId)
         }
@@ -347,7 +347,7 @@ public extension LibSession {
     }
     
     private static func updatePaths(cPathsPtr: UnsafeMutablePointer<onion_request_path>?, pathsLen: Int) {
-        var paths: [Set<Snode>] = []
+        var paths: [[Snode]] = []
         
         if let cPathsPtr: UnsafeMutablePointer<onion_request_path> = cPathsPtr {
             var cPaths: [onion_request_path] = []
@@ -358,9 +358,9 @@ public extension LibSession {
             
             // Copy the nodes over as the memory will be freed after the callback is run
             paths = cPaths.map { cPath in
-                var nodes: Set<Snode> = []
+                var nodes: [Snode] = []
                 (0..<cPath.nodes_count).forEach { index in
-                    nodes.insert(Snode(cPath.nodes[index]))
+                    nodes.append(Snode(cPath.nodes[index]))
                 }
                 return nodes
             }

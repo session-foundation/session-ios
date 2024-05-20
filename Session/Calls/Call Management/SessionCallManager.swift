@@ -146,7 +146,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-                DDLog.flushLog()
+                Log.flush()
             }
         }
         

@@ -1300,7 +1300,7 @@ public final class JobQueue: Hashable {
         
         // Run the first job in the pendingJobsQueue
         if !wasAlreadyRunning {
-            SNLogNotTests("[JobRunner] Starting \(queueContext) with (\(jobCount) job\(jobCount != 1 ? "s" : ""))")
+            Log.info("[JobRunner] Starting \(queueContext) with (\(jobCount) job\(jobCount != 1 ? "s" : ""))", silenceForTests: true)
         }
         runNextJob(using: dependencies)
     }
