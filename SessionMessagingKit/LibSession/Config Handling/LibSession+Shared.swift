@@ -396,7 +396,7 @@ public extension LibSession {
             .config(for: configVariant, publicKey: userPublicKey)
             .wrappedValue
             .map { conf in
-                var cThreadId: [CChar] = threadId.cArray.nullTerminated()
+                guard var cThreadId: [CChar] = threadId.cString(using: .utf8) else { return false }
                 
                 switch threadVariant {
                     case .contact:
@@ -422,10 +422,12 @@ public extension LibSession {
                             .read { db in try OpenGroupUrlInfo.fetchAll(db, ids: [threadId]) }?
                             .first
                         
-                        guard let urlInfo: OpenGroupUrlInfo = maybeUrlInfo else { return false }
+                        guard
+                            let urlInfo: OpenGroupUrlInfo = maybeUrlInfo,
+                            var cBaseUrl: [CChar] = urlInfo.server.cString(using: .utf8),
+                            var cRoom: [CChar] = urlInfo.roomToken.cString(using: .utf8)
+                        else { return false }
                         
-                        var cBaseUrl: [CChar] = urlInfo.server.cArray.nullTerminated()
-                        var cRoom: [CChar] = urlInfo.roomToken.cArray.nullTerminated()
                         var community: ugroups_community_info = ugroups_community_info()
                         
                         /// Not handling the `hidden` behaviour for communities so just indicate the existence

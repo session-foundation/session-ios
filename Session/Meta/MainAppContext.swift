@@ -74,7 +74,6 @@ final class MainAppContext: AppContext {
         AssertIsOnMainThread()
 
         self.reportedApplicationState = .inactive
-        OWSLogger.info("")
 
         NotificationCenter.default.post(
             name: .sessionWillEnterForeground,
@@ -149,10 +148,10 @@ final class MainAppContext: AppContext {
                 if blockingObjects.count > 1 {
                     logString = "\(logString) (and \(blockingObjects.count - 1) others)"
                 }
-                OWSLogger.info(logString)
+                Log.info(logString)
             }
             else {
-                OWSLogger.info("Unblocking Sleep.")
+                Log.info("Unblocking Sleep.")
             }
         }
         UIApplication.shared.isIdleTimerDisabled = shouldBeBlocking

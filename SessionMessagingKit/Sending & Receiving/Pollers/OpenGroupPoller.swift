@@ -275,7 +275,7 @@ extension OpenGroupAPI {
                                         }
                                     }
                                     
-                                    SNLog("Open group polling to \(server) failed due to error: \(error). Setting failure count to \(pollFailureCount).")
+                                    SNLog("Open group polling to \(server) failed due to error: \(error). Setting failure count to \(pollFailureCount + 1).")
                                     
                                     // Add a note to the logs that this happened
                                     if !prunedIds.isEmpty {

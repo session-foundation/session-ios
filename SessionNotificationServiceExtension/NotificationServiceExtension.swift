@@ -258,7 +258,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 switch result {
-                    // Only 'NSLog' works in the extension - viewable via Console.app
                     case .failure(let error):
                         Log.error("Failed to complete migrations: \(error).")
                         self?.completeSilenty()

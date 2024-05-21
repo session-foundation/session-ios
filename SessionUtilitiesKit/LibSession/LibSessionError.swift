@@ -11,6 +11,7 @@ public enum LibSessionError: LocalizedError {
     case userDoesNotExist
     case getOrConstructFailedUnexpectedly
     case processingLoopLimitReached
+    case invalidCConversion
     
     case libSessionError(String)
     case unknown
@@ -32,6 +33,7 @@ public enum LibSessionError: LocalizedError {
             case .userDoesNotExist: return "User does not exist."
             case .getOrConstructFailedUnexpectedly: return "'getOrConstruct' failed unexpectedly."
             case .processingLoopLimitReached: return "Processing loop limit reached."
+            case .invalidCConversion: return "Invalid conversation to C type."
             
             case .libSessionError(let error): return "\(error)\(error.hasSuffix(".") ? "" : ".")"
             case .unknown: return "An unknown error occurred."

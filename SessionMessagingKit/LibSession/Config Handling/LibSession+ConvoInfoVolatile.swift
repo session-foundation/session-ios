@@ -132,7 +132,10 @@ internal extension LibSession {
             }
         
         try validChanges.forEach { threadInfo in
-            var cThreadId: [CChar] = threadInfo.threadId.cArray.nullTerminated()
+            guard var cThreadId: [CChar] = threadInfo.threadId.cString(using: .utf8) else {
+                SNLog("Unable to upsert contact volatile info to LibSession: \(LibSessionError.invalidCConversion)")
+                throw LibSessionError.invalidCConversion
+            }
             
             switch threadInfo.variant {
                 case .contact:
@@ -179,9 +182,9 @@ internal extension LibSession {
                     
                 case .community:
                     guard
-                        var cBaseUrl: [CChar] = threadInfo.openGroupUrlInfo?.server.cArray.nullTerminated(),
-                        var cRoomToken: [CChar] = threadInfo.openGroupUrlInfo?.roomToken.cArray.nullTerminated(),
-                        var cPubkey: [UInt8] = threadInfo.openGroupUrlInfo?.publicKey.bytes
+                        var cBaseUrl: [CChar] = threadInfo.openGroupUrlInfo?.server.cString(using: .utf8),
+                        var cRoomToken: [CChar] = threadInfo.openGroupUrlInfo?.roomToken.cString(using: .utf8),
+                        var cPubkey: [UInt8] = threadInfo.openGroupUrlInfo.map({ Array(Data(hex: $0.publicKey)) })
                     else {
                         SNLog("Unable to create community conversation when updating last read timestamp due to missing URL info")
                         return
@@ -248,8 +251,8 @@ internal extension LibSession {
             for: .convoInfoVolatile,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            volatileContactIds.forEach { contactId in
-                var cSessionId: [CChar] = contactId.cArray.nullTerminated()
+            try volatileContactIds.forEach { contactId in
+                var cSessionId: [CChar] = try contactId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 
                 // Don't care if the data doesn't exist
                 convo_info_volatile_erase_1to1(conf, &cSessionId)
@@ -263,8 +266,8 @@ internal extension LibSession {
             for: .convoInfoVolatile,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            volatileLegacyGroupIds.forEach { legacyGroupId in
-                var cLegacyGroupId: [CChar] = legacyGroupId.cArray.nullTerminated()
+            try volatileLegacyGroupIds.forEach { legacyGroupId in
+                var cLegacyGroupId: [CChar] = try legacyGroupId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 
                 // Don't care if the data doesn't exist
                 convo_info_volatile_erase_legacy_group(conf, &cLegacyGroupId)
@@ -278,9 +281,9 @@ internal extension LibSession {
             for: .convoInfoVolatile,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            volatileCommunityInfo.forEach { urlInfo in
-                var cBaseUrl: [CChar] = urlInfo.server.cArray.nullTerminated()
-                var cRoom: [CChar] = urlInfo.roomToken.cArray.nullTerminated()
+            try volatileCommunityInfo.forEach { urlInfo in
+                var cBaseUrl: [CChar] = try urlInfo.server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+                var cRoom: [CChar] = try urlInfo.roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 
                 // Don't care if the data doesn't exist
                 convo_info_volatile_erase_community(conf, &cBaseUrl, &cRoom)
@@ -332,34 +335,34 @@ public extension LibSession {
             .map { conf in
                 switch threadVariant {
                     case .contact:
-                        var cThreadId: [CChar] = threadId.cArray.nullTerminated()
                         var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
-                        guard convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId) else {
-                            return false
-                        }
+                        guard
+                            var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                            convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId)
+                        else { return false }
                         
                         return (oneToOne.last_read >= timestampMs)
                         
                     case .legacyGroup:
-                        var cThreadId: [CChar] = threadId.cArray.nullTerminated()
                         var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
                         
-                        guard convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId) else {
-                            return false
-                        }
+                        guard
+                            var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                            convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId)
+                        else { return false }
                         
                         return (legacyGroup.last_read >= timestampMs)
                         
                     case .community:
                         guard let openGroup: OpenGroup = openGroup else { return false }
                         
-                        var cBaseUrl: [CChar] = openGroup.server.cArray.nullTerminated()
-                        var cRoomToken: [CChar] = openGroup.roomToken.cArray.nullTerminated()
                         var convoCommunity: convo_info_volatile_community = convo_info_volatile_community()
                         
-                        guard convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken) else {
-                            return false
-                        }
+                        guard
+                            var cBaseUrl: [CChar] = openGroup.server.cString(using: .utf8),
+                            var cRoomToken: [CChar] = openGroup.roomToken.cString(using: .utf8),
+                            convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken)
+                        else { return false }
                         
                         return (convoCommunity.last_read >= timestampMs)
                         

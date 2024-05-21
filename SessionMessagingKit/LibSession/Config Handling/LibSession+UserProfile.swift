@@ -178,7 +178,7 @@ internal extension LibSession {
         guard conf != nil else { throw LibSessionError.nilConfigObject }
         
         // Update the name
-        var updatedName: [CChar] = profile.name.cArray.nullTerminated()
+        var updatedName: [CChar] = try profile.name.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
         user_profile_set_name(conf, &updatedName)
         
         // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)

@@ -213,7 +213,7 @@ public struct ProfileManager {
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: funcName)
         
-        OWSLogger.verbose("downloading profile avatar: \(profile.id)")
+        Log.trace("downloading profile avatar: \(profile.id)")
         currentAvatarDownloads.mutate { $0.insert(profile.id) }
         
         let useOldServer: Bool = (profileUrlStringAtStart.contains(FileServerAPI.oldServer))
@@ -240,12 +240,12 @@ public struct ProfileManager {
                         !latestProfileKey.isEmpty,
                         latestProfileKey == profileKeyAtStart
                     else {
-                        OWSLogger.warn("Ignoring avatar download for obsolete user profile.")
+                        Log.warn("Ignoring avatar download for obsolete user profile.")
                         return
                     }
                     
                     guard profileUrlStringAtStart == latestProfile.profilePictureUrl else {
-                        OWSLogger.warn("Avatar url has changed during download.")
+                        Log.warn("Avatar url has changed during download.")
                         
                         if latestProfile.profilePictureUrl?.isEmpty == false {
                             self.downloadAvatar(for: latestProfile)
@@ -254,14 +254,14 @@ public struct ProfileManager {
                     }
                     
                     guard let decryptedData: Data = decryptData(data: data, key: profileKeyAtStart) else {
-                        OWSLogger.warn("Avatar data for \(profile.id) could not be decrypted.")
+                        Log.warn("Avatar data for \(profile.id) could not be decrypted.")
                         return
                     }
                     
                     try? decryptedData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
                     
                     guard UIImage(contentsOfFile: filePath) != nil else {
-                        OWSLogger.warn("Avatar image for \(profile.id) could not be loaded.")
+                        Log.warn("Avatar image for \(profile.id) could not be loaded.")
                         return
                     }
                     
@@ -317,7 +317,7 @@ public struct ProfileManager {
                             profileAvatarCache.mutate { $0[fileName] = nil }
                         }
                         
-                        OWSLogger.verbose(existingProfileUrl != nil ?
+                        Log.debug(existingProfileUrl != nil ?
                             "Updating local profile on service with cleared avatar." :
                             "Updating local profile on service with no avatar."
                         )
@@ -441,7 +441,7 @@ public struct ProfileManager {
             // * Encrypt it
             // * Upload it to asset service
             // * Send asset service info to Signal Service
-            OWSLogger.verbose("Updating local profile on service with new avatar.")
+            Log.debug("Updating local profile on service with new avatar.")
             
             let fileName: String = UUID().uuidString.appendingFileExtension(fileExtension)
             let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)

@@ -283,9 +283,11 @@ internal extension LibSession {
         // Update the name
         try targetContacts
             .forEach { info in
-                var sessionId: [CChar] = info.id.cArray.nullTerminated()
                 var contact: contacts_contact = contacts_contact()
-                guard contacts_get_or_construct(conf, &contact, &sessionId) else {
+                guard
+                    var sessionId: [CChar] = info.id.cString(using: .utf8),
+                    contacts_get_or_construct(conf, &contact, &sessionId)
+                else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
                     SNLog("Unable to upsert contact to LibSession: \(LibSession.lastError(conf))")
@@ -382,10 +384,10 @@ internal extension LibSession {
             // contacts are new/invalid, and if so, fetch any profile data we have for them
             let newContactIds: [String] = targetContacts
                 .compactMap { contactData -> String? in
-                    var cContactId: [CChar] = contactData.id.cArray.nullTerminated()
                     var contact: contacts_contact = contacts_contact()
                     
                     guard
+                        var cContactId: [CChar] = contactData.id.cString(using: .utf8),
                         contacts_get(conf, &contact, &cContactId),
                         String(libSessionVal: contact.name, nullIfEmpty: true) != nil
                     else { return contactData.id }
@@ -557,7 +559,7 @@ public extension LibSession {
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
             contactIds.forEach { sessionId in
-                var cSessionId: [CChar] = sessionId.cArray.nullTerminated()
+                guard var cSessionId: [CChar] = sessionId.cString(using: .utf8) else { return }
                 
                 // Don't care if the contact doesn't exist
                 contacts_erase(conf, &cSessionId)

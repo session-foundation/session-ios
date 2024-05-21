@@ -36,7 +36,6 @@ extension ProjectState {
         .contains("precondition(", caseSensitive: false),
         .contains("preconditionFailure(", caseSensitive: false),
         .contains("print(", caseSensitive: false),
-        .contains("NSLog(", caseSensitive: false),
         .contains("SNLog(", caseSensitive: false),
         .contains("Log.setup(", caseSensitive: false),
         .contains("Log.trace(", caseSensitive: false),
@@ -80,8 +79,6 @@ extension ProjectState {
         ),
         .contains("SQL(", caseSensitive: false),
         .regex(".*static var databaseTableName: String"),
-        .regex("Logger\\..*\\("),
-        .regex("OWSLogger\\..*\\("),
         .regex("case .* = "),
         .regex("Error.*\\(")
     ]

@@ -162,6 +162,7 @@ public enum MessageSendJob: JobExecutor {
         
         // Store the sentTimestamp from the message in case it fails due to a clockOutOfSync error
         let originalSentTimestamp: UInt64? = details.message.sentTimestamp
+        let startTime: CFTimeInterval = CACurrentMediaTime()
         
         /// Perform the actual message sending - this will timeout if the entire process takes longer than `HTTP.defaultTimeout * 2`
         /// which can occur if it needs to build a new onion path (which doesn't actually have any limits so can take forever in rare cases)
@@ -193,7 +194,7 @@ public enum MessageSendJob: JobExecutor {
                         case .failure(let error):
                             switch error {
                                 case MessageSenderError.sendJobTimeout:
-                                    SNLog("[MessageSendJob] Couldn't send message due to error: \(error) (paths: \(LibSession.pathsDescription)).")
+                                    SNLog("[MessageSendJob] Failed after \(CACurrentMediaTime() - startTime)s: \(error).")
                                     
                                     // In this case the `MessageSender` process gets cancelled so we need to
                                     // call `handleFailedMessageSend` to update the statuses correctly

@@ -44,7 +44,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case .noUsername: return "Missing username (MessageSenderError.noUsername)."
             case .attachmentsNotUploaded: return "Attachments for this message have not been uploaded (MessageSenderError.attachmentsNotUploaded)."
             case .blindingFailed: return "Couldn't blind the sender (MessageSenderError.blindingFailed)."
-            case .sendJobTimeout: return "Send job timeout (likely due to path building taking too long - MessageSenderError.sendJobTimeout)."
+            case .sendJobTimeout: return "Send job timeout (MessageSenderError.sendJobTimeout)."
             
             // Closed groups
             case .noThread: return "Couldn't find a thread associated with the given group public key (MessageSenderError.noThread)."

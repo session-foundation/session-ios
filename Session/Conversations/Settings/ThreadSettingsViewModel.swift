@@ -357,16 +357,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
 
                                     case .community:
                                         guard
-                                            let server: String = threadViewModel.openGroupServer,
-                                            let roomToken: String = threadViewModel.openGroupRoomToken,
-                                            let publicKey: String = threadViewModel.openGroupPublicKey
+                                            let urlString: String = LibSession.communityUrlFor(
+                                                server: threadViewModel.openGroupServer,
+                                                roomToken: threadViewModel.openGroupRoomToken,
+                                                publicKey: threadViewModel.openGroupPublicKey
+                                            )
                                         else { return }
 
-                                        UIPasteboard.general.string = LibSession.communityUrlFor(
-                                            server: server,
-                                            roomToken: roomToken,
-                                            publicKey: publicKey
-                                        )
+                                        UIPasteboard.general.string = urlString
                                 }
 
                                 self?.showToast(
@@ -765,16 +763,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     private func addUsersToOpenGoup(threadViewModel: SessionThreadViewModel, selectedUsers: Set<String>) {
         guard
             let name: String = threadViewModel.openGroupName,
-            let server: String = threadViewModel.openGroupServer,
-            let roomToken: String = threadViewModel.openGroupRoomToken,
-            let publicKey: String = threadViewModel.openGroupPublicKey
+            let communityUrl: String = LibSession.communityUrlFor(
+                server: threadViewModel.openGroupServer,
+                roomToken: threadViewModel.openGroupRoomToken,
+                publicKey: threadViewModel.openGroupPublicKey
+            )
         else { return }
-        
-        let communityUrl: String = LibSession.communityUrlFor(
-            server: server,
-            roomToken: roomToken,
-            publicKey: publicKey
-        )
         
         dependencies.storage.writeAsync { [dependencies] db in
             let currentUserSessionId: String = getUserHexEncodedPublicKey(db, using: dependencies)

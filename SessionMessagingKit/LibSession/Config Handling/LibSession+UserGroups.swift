@@ -405,7 +405,7 @@ internal extension LibSession {
         
         try legacyGroups
             .forEach { legacyGroup in
-                var cGroupId: [CChar] = legacyGroup.id.cArray.nullTerminated()
+                var cGroupId: [CChar] = try legacyGroup.id.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                 guard let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info> = user_groups_get_or_construct_legacy_group(conf, &cGroupId) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
@@ -460,13 +460,13 @@ internal extension LibSession {
                     let membersIdsToAdd: Set<String> = memberIds.subtracting(existingMemberIds)
                     let membersIdsToRemove: Set<String> = existingMemberIds.subtracting(memberIds)
                     
-                    membersIdsToAdd.forEach { memberId in
-                        var cProfileId: [CChar] = memberId.cArray.nullTerminated()
+                    try membersIdsToAdd.forEach { memberId in
+                        var cProfileId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                         ugroups_legacy_member_add(userGroup, &cProfileId, false)
                     }
                     
-                    membersIdsToRemove.forEach { memberId in
-                        var cProfileId: [CChar] = memberId.cArray.nullTerminated()
+                    try membersIdsToRemove.forEach { memberId in
+                        var cProfileId: [CChar] = try memberId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                         ugroups_legacy_member_remove(userGroup, &cProfileId)
                     }
                 }
@@ -480,13 +480,13 @@ internal extension LibSession {
                     let adminIdsToAdd: Set<String> = adminIds.subtracting(existingAdminIds)
                     let adminIdsToRemove: Set<String> = existingAdminIds.subtracting(adminIds)
                     
-                    adminIdsToAdd.forEach { adminId in
-                        var cProfileId: [CChar] = adminId.cArray.nullTerminated()
+                    try adminIdsToAdd.forEach { adminId in
+                        var cProfileId: [CChar] = try adminId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                         ugroups_legacy_member_add(userGroup, &cProfileId, true)
                     }
                     
-                    adminIdsToRemove.forEach { adminId in
-                        var cProfileId: [CChar] = adminId.cArray.nullTerminated()
+                    try adminIdsToRemove.forEach { adminId in
+                        var cProfileId: [CChar] = try adminId.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
                         ugroups_legacy_member_remove(userGroup, &cProfileId)
                     }
                 }
@@ -512,9 +512,15 @@ internal extension LibSession {
         
         try communities
             .forEach { community in
-                var cBaseUrl: [CChar] = community.urlInfo.server.cArray.nullTerminated()
-                var cRoom: [CChar] = community.urlInfo.roomToken.cArray.nullTerminated()
-                var cPubkey: [UInt8] = Data(hex: community.urlInfo.publicKey).cArray
+                guard
+                    var cBaseUrl: [CChar] = community.urlInfo.server.cString(using: .utf8),
+                    var cRoom: [CChar] = community.urlInfo.roomToken.cString(using: .utf8)
+                else {
+                    SNLog("Unable to upsert community conversation to LibSession: \(LibSessionError.invalidCConversion)")
+                    throw LibSessionError.invalidCConversion
+                }
+                
+                var cPubkey: [UInt8] = Array(Data(hex: community.urlInfo.publicKey))
                 var userCommunity: ugroups_community_info = ugroups_community_info()
                 
                 guard user_groups_get_or_construct_community(conf, &userCommunity, &cBaseUrl, &cRoom, &cPubkey) else {
@@ -569,8 +575,8 @@ public extension LibSession {
             for: .userGroups,
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
-            var cBaseUrl: [CChar] = server.cArray.nullTerminated()
-            var cRoom: [CChar] = roomToken.cArray.nullTerminated()
+            var cBaseUrl: [CChar] = try server.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            var cRoom: [CChar] = try roomToken.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
             
             // Don't care if the community doesn't exist
             user_groups_erase_community(conf, &cBaseUrl, &cRoom)
@@ -610,7 +616,7 @@ public extension LibSession {
         ) { conf in
             guard conf != nil else { throw LibSessionError.nilConfigObject }
             
-            var cGroupId: [CChar] = groupPublicKey.cArray.nullTerminated()
+            var cGroupId: [CChar] = try groupPublicKey.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
             let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cGroupId)
             
             // Need to make sure the group doesn't already exist (otherwise we will end up overriding the
@@ -734,7 +740,7 @@ public extension LibSession {
             publicKey: getUserHexEncodedPublicKey(db)
         ) { conf in
             legacyGroupIds.forEach { threadId in
-                var cGroupId: [CChar] = threadId.cArray.nullTerminated()
+                guard var cGroupId: [CChar] = threadId.cString(using: .utf8) else { return }
                 
                 // Don't care if the group doesn't exist
                 user_groups_erase_legacy_group(conf, &cGroupId)

@@ -123,7 +123,7 @@ final class ShareAppExtensionContext: AppContext {
     }
     
     func setStatusBarHidden(_ isHidden: Bool, animated isAnimated: Bool) {
-        OWSLogger.info("Ignoring request to show/hide status bar since we're in an app extension")
+        Log.info("Ignoring request to show/hide status bar since we're in an app extension")
     }
     
     func setNetworkActivityIndicatorVisible(_ value: Bool) {
