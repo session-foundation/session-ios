@@ -20,22 +20,54 @@ public extension LibSession {
     static var hasPaths: Bool { !lastPaths.wrappedValue.isEmpty }
     static var pathsDescription: String { lastPaths.wrappedValue.prettifiedDescription }
     
-    typealias NodesCallback = (UnsafeMutablePointer<network_service_node>?, Int) -> Void
-    typealias NetworkCallback = (Bool, Bool, Int16, Data?) -> Void
-    private class CWrapper<Callback> {
-        let callback: Callback
+    private class CallbackWrapper<Output> {
+        public let resultPublisher: CurrentValueSubject<Output?, Error> = CurrentValueSubject(nil)
         private var pointersToDeallocate: [UnsafeRawPointer?] = []
         
-        public init(_ callback: Callback) {
-            self.callback = callback
-        }
-        
-        public func addUnsafePointerToCleanup<T>(_ pointer: UnsafePointer<T>?) {
-            pointersToDeallocate.append(UnsafeRawPointer(pointer))
-        }
+        // MARK: - Initialization
         
         deinit {
             pointersToDeallocate.forEach { $0?.deallocate() }
+        }
+        
+        // MARK: - Functions
+        
+        public static func create(_ callback: @escaping (CallbackWrapper<Output>) throws -> Void) -> AnyPublisher<Output, Error> {
+            let wrapper: CallbackWrapper<Output> = CallbackWrapper()
+            
+            return Deferred {
+                Future<Void, Error> { resolver in
+                    do {
+                        try callback(wrapper)
+                        resolver(Result.success(()))
+                    }
+                    catch { resolver(Result.failure(error)) }
+                }
+            }
+            .flatMap { _ -> AnyPublisher<Output, Error> in
+                wrapper
+                    .resultPublisher
+                    .compactMap { $0 }
+                    .first()
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
+        }
+        
+        public static func run(_ ctx: UnsafeMutableRawPointer?, _ output: Output) {
+            guard let ctx: UnsafeMutableRawPointer = ctx else {
+                return Log.error("[LibSession] CallbackWrapper called with null context.")
+            }
+            
+            // Dispatch async so we don't block libSession's internals with Swift logic (which can block other requests)
+            let wrapper: CallbackWrapper<Output> = Unmanaged<CallbackWrapper<Output>>.fromOpaque(ctx).takeRetainedValue()
+            DispatchQueue.global(qos: .default).async { [wrapper] in wrapper.resultPublisher.send(output) }
+        }
+        
+        public func unsafePointer() -> UnsafeMutableRawPointer { Unmanaged.passRetained(self).toOpaque() }
+        
+        public func addUnsafePointerToCleanup<T>(_ pointer: UnsafePointer<T>?) {
+            pointersToDeallocate.append(UnsafeRawPointer(pointer))
         }
     }
     
@@ -95,79 +127,60 @@ public extension LibSession {
     }
     
     static func getSwarm(swarmPublicKey: String) -> AnyPublisher<Set<Snode>, Error> {
+        typealias Output = Result<Set<Snode>, Error>
+        
         return getOrCreateNetwork()
             .flatMap { network in
-                Deferred {
-                    Future<Set<Snode>, Error> { resolver in
+                CallbackWrapper<Output>
+                    .create { wrapper in
                         let cSwarmPublicKey: [CChar] = swarmPublicKey
                             .suffix(64) // Quick way to drop '05' prefix if present
                             .cArray
                             .nullTerminated()
-                        let callbackWrapper: CWrapper<NodesCallback> = CWrapper { swarmPtr, swarmSize in
+                        
+                        network_get_swarm(network, cSwarmPublicKey, { swarmPtr, swarmSize, ctx in
                             guard
                                 swarmSize > 0,
                                 let cSwarm: UnsafeMutablePointer<network_service_node> = swarmPtr
-                            else {
-                                // Dispatch async so we don't hold up the libSession thread (which can block other requests)
-                                DispatchQueue.global(qos: .default).async {
-                                    resolver(Result.failure(SnodeAPIError.unableToRetrieveSwarm))
-                                }
-                                return
-                            }
+                            else { return CallbackWrapper<Output>.run(ctx, .failure(SnodeAPIError.unableToRetrieveSwarm)) }
                             
                             var nodes: Set<Snode> = []
                             (0..<swarmSize).forEach { index in nodes.insert(Snode(cSwarm[index])) }
-                            
-                            // Dispatch async so we don't hold up the libSession thread (which can block other requests)
-                            DispatchQueue.global(qos: .default).async {
-                                resolver(Result.success(nodes))
-                            }
-                        }
-                        let cWrapperPtr: UnsafeMutableRawPointer = Unmanaged.passRetained(callbackWrapper).toOpaque()
-                        
-                        network_get_swarm(network, cSwarmPublicKey, { swarmPtr, swarmSize, ctx in
-                            Unmanaged<CWrapper<NodesCallback>>.fromOpaque(ctx!).takeRetainedValue()
-                                .callback(swarmPtr, swarmSize)
-                        }, cWrapperPtr);
+                            CallbackWrapper<Output>.run(ctx, .success(nodes))
+                        }, wrapper.unsafePointer());
                     }
-                }
+                    .tryMap { result in try result.successOrThrow() }
             }
             .eraseToAnyPublisher()
     }
     
     static func getRandomNodes(count: Int) -> AnyPublisher<Set<Snode>, Error> {
+        typealias Output = Result<Set<Snode>, Error>
+        
         return getOrCreateNetwork()
             .flatMap { network in
-                Deferred {
-                    Future<Set<Snode>, Error> { resolver in
-                        let callbackWrapper: CWrapper<NodesCallback> = CWrapper { nodesPtr, nodesSize in
+                CallbackWrapper<Output>
+                    .create { wrapper in
+                        network_get_random_nodes(network, UInt16(count), { nodesPtr, nodesSize, ctx in
                             guard
-                                nodesSize >= count,
+                                nodesSize > 0,
                                 let cSwarm: UnsafeMutablePointer<network_service_node> = nodesPtr
-                            else {
-                                // Dispatch async so we don't hold up the libSession thread (which can block other requests)
-                                DispatchQueue.global(qos: .default).async {
-                                    resolver(Result.failure(SnodeAPIError.unableToRetrieveSwarm))
-                                }
-                                return
-                            }
+                            else { return CallbackWrapper<Output>.run(ctx, .failure(SnodeAPIError.unableToRetrieveSwarm)) }
                             
                             var nodes: Set<Snode> = []
                             (0..<nodesSize).forEach { index in nodes.insert(Snode(cSwarm[index])) }
-                            
-                            // Dispatch async so we don't hold up the libSession thread (which can block other requests)
-                            DispatchQueue.global(qos: .default).async {
-                                resolver(Result.success(nodes))
-                            }
-                        }
-                        let cWrapperPtr: UnsafeMutableRawPointer = Unmanaged.passRetained(callbackWrapper).toOpaque()
-                        
-                        network_get_random_nodes(network, UInt16(count), { nodesPtr, nodesSize, ctx in
-                            Unmanaged<CWrapper<NodesCallback>>.fromOpaque(ctx!).takeRetainedValue()
-                                .callback(nodesPtr, nodesSize)
-                        }, cWrapperPtr);
+                            CallbackWrapper<Output>.run(ctx, .success(nodes))
+                        }, wrapper.unsafePointer());
                     }
-                }
+                    .tryMap { result in
+                        switch result {
+                            case .failure(let error): throw error
+                            case .success(let nodes):
+                                guard nodes.count > count else { throw SnodeAPIError.unableToRetrieveSwarm }
+                                
+                                return nodes
+                        }
+                    }
             }
             .eraseToAnyPublisher()
     }
@@ -179,6 +192,8 @@ public extension LibSession {
         timeout: TimeInterval,
         using dependencies: Dependencies
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
+        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
+        
         return getOrCreateNetwork()
             .tryFlatMap { network in
                 // Prepare the parameters
@@ -196,22 +211,8 @@ public extension LibSession {
                         cPayloadBytes = Array(encodedBody)
                 }
                 
-                return Deferred {
-                    Future<(ResponseInfoType, Data?), Error> { resolver in
-                        let callbackWrapper: CWrapper<NetworkCallback> = CWrapper { success, timeout, statusCode, data in
-                            let maybeError: Error? = processError(success, timeout, statusCode, data, using: dependencies)
-                            
-                            // Dispatch async so we don't hold up the libSession thread (which can block other requests)
-                            DispatchQueue.global(qos: .default).async {
-                                switch maybeError {
-                                    case .some(let error): resolver(Result.failure(error))
-                                    case .none:
-                                        resolver(Result.success((Network.ResponseInfo(code: Int(statusCode), headers: [:]), data)))
-                                }
-                            }
-                        }
-                        let cWrapperPtr: UnsafeMutableRawPointer = Unmanaged.passRetained(callbackWrapper).toOpaque()
-                        
+                return CallbackWrapper<Output>
+                    .create { wrapper in
                         // Trigger the request
                         switch destination {
                             case .snode(let snode):
@@ -219,7 +220,7 @@ public extension LibSession {
                                     // Quick way to drop '05' prefix if present
                                     $0.suffix(64).cString(using: .utf8)?.unsafeCopy()
                                 }
-                                callbackWrapper.addUnsafePointerToCleanup(cSwarmPublicKey)
+                                wrapper.addUnsafePointerToCleanup(cSwarmPublicKey)
                                 
                                 network_send_onion_request_to_snode_destination(
                                     network,
@@ -230,10 +231,9 @@ public extension LibSession {
                                     Int64(floor(timeout * 1000)),
                                     { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                        Unmanaged<CWrapper<NetworkCallback>>.fromOpaque(ctx!).takeRetainedValue()
-                                            .callback(success, timeout, statusCode, data)
+                                        CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
                                     },
-                                    cWrapperPtr
+                                    wrapper.unsafePointer()
                                 )
                                 
                             case .server(let method, let scheme, let host, let endpoint, let port, let headers, let x25519PublicKey):
@@ -256,8 +256,7 @@ public extension LibSession {
                                 else {
                                     cHeaderKeysContent.forEach { $0?.deallocate() }
                                     cHeaderValuesContent.forEach { $0?.deallocate() }
-                                    cWrapperPtr.deallocate()
-                                    return resolver(Result.failure(LibSessionError.invalidCConversion))
+                                    throw LibSessionError.invalidCConversion
                                 }
                                 
                                 // Convert the other types
@@ -295,15 +294,15 @@ public extension LibSession {
                                 )
                                 
                                 // Add a cleanup callback to deallocate the header arrays
-                                callbackWrapper.addUnsafePointerToCleanup(cMethod)
-                                callbackWrapper.addUnsafePointerToCleanup(cTargetScheme)
-                                callbackWrapper.addUnsafePointerToCleanup(cHost)
-                                callbackWrapper.addUnsafePointerToCleanup(cEndpoint)
-                                callbackWrapper.addUnsafePointerToCleanup(cX25519Pubkey)
-                                cHeaderKeysContent.forEach { callbackWrapper.addUnsafePointerToCleanup($0) }
-                                cHeaderValuesContent.forEach { callbackWrapper.addUnsafePointerToCleanup($0) }
-                                callbackWrapper.addUnsafePointerToCleanup(cHeaderKeys)
-                                callbackWrapper.addUnsafePointerToCleanup(cHeaderValues)
+                                wrapper.addUnsafePointerToCleanup(cMethod)
+                                wrapper.addUnsafePointerToCleanup(cTargetScheme)
+                                wrapper.addUnsafePointerToCleanup(cHost)
+                                wrapper.addUnsafePointerToCleanup(cEndpoint)
+                                wrapper.addUnsafePointerToCleanup(cX25519Pubkey)
+                                cHeaderKeysContent.forEach { wrapper.addUnsafePointerToCleanup($0) }
+                                cHeaderValuesContent.forEach { wrapper.addUnsafePointerToCleanup($0) }
+                                wrapper.addUnsafePointerToCleanup(cHeaderKeys)
+                                wrapper.addUnsafePointerToCleanup(cHeaderValues)
                                 
                                 network_send_onion_request_to_server_destination(
                                     network,
@@ -313,14 +312,16 @@ public extension LibSession {
                                     Int64(floor(timeout * 1000)),
                                     { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                         let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
-                                        Unmanaged<CWrapper<NetworkCallback>>.fromOpaque(ctx!).takeRetainedValue()
-                                            .callback(success, timeout, statusCode, data)
+                                        CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
                                     },
-                                    cWrapperPtr
+                                    wrapper.unsafePointer()
                                 )
                         }
                     }
-                }
+                    .tryMap { success, timeout, statusCode, data -> (any ResponseInfoType, Data?) in
+                        try throwErrorIfNeeded(success, timeout, statusCode, data, using: dependencies)
+                        return (Network.ResponseInfo(code: statusCode), data)
+                    }
             }
             .eraseToAnyPublisher()
     }
@@ -435,45 +436,39 @@ public extension LibSession {
         }
     }
     
-    private static func processError(
+    private static func throwErrorIfNeeded(
         _ success: Bool,
         _ timeout: Bool,
-        _ statusCode: Int16,
+        _ statusCode: Int,
         _ data: Data?,
         using dependencies: Dependencies
-    ) -> Error? {
-        guard !success || statusCode < 200 || statusCode > 299 else { return nil }
-        guard !timeout else { return NetworkError.timeout }
+    ) throws {
+        guard !success || statusCode < 200 || statusCode > 299 else { return }
+        guard !timeout else { throw NetworkError.timeout }
         
         /// Handle status codes with specific meanings
         switch (statusCode, data.map { String(data: $0, encoding: .ascii) }) {
             case (400, .none):
-                return NetworkError.badRequest(error: NetworkError.unknown.errorDescription ?? "Bad Request", rawData: data)
+                throw NetworkError.badRequest(error: NetworkError.unknown.errorDescription ?? "Bad Request", rawData: data)
                 
-            case (400, .some(let responseString)): return NetworkError.badRequest(error: responseString, rawData: data)
+            case (400, .some(let responseString)): throw NetworkError.badRequest(error: responseString, rawData: data)
                 
             case (401, _):
                 Log.warn("Unauthorised (Failed to verify the signature).")
-                return NetworkError.unauthorised
+                throw NetworkError.unauthorised
                 
-            case (404, _): return NetworkError.notFound
+            case (404, _): throw NetworkError.notFound
                 
             /// A snode will return a `406` but onion requests v4 seems to return `425` so handle both
             case (406, _), (425, _):
                 Log.warn("The user's clock is out of sync with the service node network.")
-                return SnodeAPIError.clockOutOfSync
+                throw SnodeAPIError.clockOutOfSync
             
-            case (421, _): return SnodeAPIError.unassociatedPubkey
-            case (429, _): return SnodeAPIError.rateLimited
-            case (500, _), (502, _), (503, _): return SnodeAPIError.internalServerError
-            case (_, .none): return NetworkError.unknown
-            case (_, .some(let responseString)):
-                // An internal server error could return HTML data, this is an attempt to intercept that case
-                guard !responseString.starts(with: "500 Internal Server Error") else {
-                    return SnodeAPIError.internalServerError
-                }
-                
-                return NetworkError.requestFailed(error: responseString, rawData: data)
+            case (421, _): throw SnodeAPIError.unassociatedPubkey
+            case (429, _): throw SnodeAPIError.rateLimited
+            case (500, _), (502, _), (503, _): throw SnodeAPIError.internalServerError
+            case (_, .none): throw NetworkError.unknown
+            case (_, .some(let responseString)): throw NetworkError.requestFailed(error: responseString, rawData: data)
         }
     }
 }
