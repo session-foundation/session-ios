@@ -384,6 +384,15 @@ public extension LibSession {
         threadVariant: SessionThread.Variant,
         visibleOnly: Bool
     ) -> Bool {
+        // Currently blinded conversations cannot be contained in the config, so there is no point checking (it'll always be
+        // false)
+        guard
+            threadVariant == .community || (
+                SessionId(from: threadId)?.prefix != .blinded15 &&
+                SessionId(from: threadId)?.prefix != .blinded25
+            )
+        else { return false }
+        
         let userPublicKey: String = getUserHexEncodedPublicKey(db)
         let configVariant: ConfigDump.Variant = {
             switch threadVariant {

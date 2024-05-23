@@ -405,8 +405,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             // Add a log to track the proper startup time of the app so we know whether we need to
             // improve it in the future from user logs
-            let endTime: CFTimeInterval = CACurrentMediaTime()
-            Log.info("\(lifecycleMethod.timingName) completed in \((self?.startTime).map { ceil((endTime - $0) * 1000) } ?? -1)ms")
+            let startupDuration: CFTimeInterval = ((self?.startTime).map { CACurrentMediaTime() - $0 } ?? -1)
+            Log.info("\(lifecycleMethod.timingName) completed in \(.seconds(startupDuration), unit: .ms).")
         }
         
         // May as well run these on the background thread

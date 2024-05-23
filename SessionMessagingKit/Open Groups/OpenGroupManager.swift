@@ -291,6 +291,26 @@ public final class OpenGroupManager {
                             on: targetServer,
                             using: dependencies
                         ) {
+                            // Dispatch async to the workQueue to prevent holding up the thread
+                            OpenGroupAPI.workQueue.async(using: dependencies) {
+                                // (Re)start the poller if needed (want to force it to poll immediately in the next
+                                // run loop to avoid a big delay before the next poll)
+                                let poller: OpenGroupAPI.Poller = dependencies.caches.mutate(cache: .openGroupManager) {
+                                    // Don't create a new poller instance if one already exists so we don't
+                                    // double up on pollers
+                                    guard let poller: OpenGroupAPI.Poller = $0.pollers[server.lowercased()] else {
+                                        let poller: OpenGroupAPI.Poller = OpenGroupAPI.Poller(for: server.lowercased())
+                                        $0.pollers[server.lowercased()] = poller
+                                        return poller
+                                    }
+                                    
+                                    return poller
+                                }
+                                
+                                poller.stop()
+                                poller.startIfNeeded(using: dependencies)
+                            }
+                            
                             resolver(Result.success(()))
                         }
                     }
@@ -498,17 +518,6 @@ public final class OpenGroupManager {
             // Dispatch async to the workQueue to prevent holding up the DBWrite thread from the
             // above transaction
             OpenGroupAPI.workQueue.async(using: dependencies) {
-                // (Re)start the poller if needed (want to force it to poll immediately in the next
-                // run loop to avoid a big delay before the next poll)
-                dependencies.caches.mutate(cache: .openGroupManager) {
-                    $0.pollers[server.lowercased()]?.stop()
-                    $0.pollers[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
-                }
-                OpenGroupAPI.workQueue.async(using: dependencies) {
-                    dependencies.caches[.openGroupManager].pollers[server.lowercased()]?
-                        .startIfNeeded(using: dependencies)
-                }
-                
                 /// Start downloading the room image (if we don't have one or it's been updated)
                 if
                     let imageId: String = (pollInfo.details?.imageId ?? openGroup.imageId),

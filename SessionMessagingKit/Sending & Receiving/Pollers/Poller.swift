@@ -98,7 +98,6 @@ public class Poller {
         let namespaces: [SnodeAPI.Namespace] = self.namespaces
         let pollerQueue: DispatchQueue = self.pollerQueue
         let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let lastPollInterval: TimeInterval = nextPollDelay(for: swarmPublicKey, using: dependencies)
         
         // Store the publisher intp the cancellables dictionary
         cancellables.mutate { [weak self] cancellables in
@@ -122,16 +121,15 @@ public class Poller {
                             case .finished: break
                         }
                         
-                        // Calculate the remaining poll delay
+                        // Calculate the remaining poll delay and schedule the next poll
                         let currentTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-                        let nextPollInterval: TimeInterval = (
-                            self?.nextPollDelay(for: swarmPublicKey, using: dependencies) ??
-                            lastPollInterval
-                        )
-                        let remainingInterval: TimeInterval = max(0, nextPollInterval - (currentTime - lastPollStart))
                         
-                        // Schedule the next poll
-                        guard remainingInterval > 0 else {
+                        guard
+                            self != nil,
+                            let remainingInterval: TimeInterval = (self?.nextPollDelay(for: swarmPublicKey, using: dependencies))
+                                .map({ nextPollInterval in max(0, nextPollInterval - (currentTime - lastPollStart)) }),
+                            remainingInterval > 0
+                        else {
                             return pollerQueue.async(using: dependencies) {
                                 self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
                             }
@@ -172,6 +170,7 @@ public class Poller {
         let pollerName: String = pollerName(for: swarmPublicKey)
         let pollerQueue: DispatchQueue = self.pollerQueue
         let configHashes: [String] = LibSession.configHashes(for: swarmPublicKey)
+        let pollStartTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
         // Fetch the messages
         return LibSession.getSwarm(swarmPublicKey: swarmPublicKey)
@@ -202,7 +201,10 @@ public class Poller {
                 
                 // No need to do anything if there are no messages
                 guard rawMessageCount > 0 else {
-                    if !calledFromBackgroundPoller { SNLog("Received no new messages in \(pollerName)") }
+                    if !calledFromBackgroundPoller {
+                        let pollEndTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                        SNLog("Received no new messages in \(pollerName) after \(.seconds(pollEndTime - pollStartTime), unit: .s).")
+                    }
                     
                     return Just([])
                         .setFailureType(to: Error.self)
@@ -392,11 +394,12 @@ public class Poller {
                         }
                     
                     // Set the output for logging
-                    pollerLogOutput = "Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) (duplicates: \(rawMessageCount - messageCount))"  // stringlint:disable
+                    let pollEndTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
+                    pollerLogOutput = "Received \(messageCount) new message\(messageCount == 1 ? "" : "s") in \(pollerName) after \(.seconds(pollEndTime - pollStartTime), unit: .s) (duplicates: \(rawMessageCount - messageCount))"  // stringlint:disable
                     
                     // Clean up message hashes and add some logs about the poll results
                     if sortedMessages.isEmpty && !hadValidHashUpdate {
-                        pollerLogOutput = "Received \(rawMessageCount) new message\(rawMessageCount == 1 ? "" : "s") in \(pollerName), all duplicates - marking the hash we polled with as invalid" // stringlint:disable
+                        pollerLogOutput = "Received \(rawMessageCount) new message\(rawMessageCount == 1 ? "" : "s") in \(pollerName) after \(.seconds(pollEndTime - pollStartTime), unit: .s), all duplicates - marking the hash we polled with as invalid" // stringlint:disable
                         
                         // Update the cached validity of the messages
                         try SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(

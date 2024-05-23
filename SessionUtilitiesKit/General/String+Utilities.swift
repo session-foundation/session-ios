@@ -77,7 +77,11 @@ public extension String {
 
 // MARK: - Formatting
 
-extension String.StringInterpolation {
+public extension String.StringInterpolation {
+    mutating func appendInterpolation(_ value: TimeUnit, unit: TimeUnit.Unit, resolution: Int = 2) {
+        appendLiteral("\(TimeUnit(value, unit: unit, resolution: resolution))")
+    }
+    
     mutating func appendInterpolation(_ value: Int, format: String) {
         let result: String = String(format: "%\(format)d", value)
         appendLiteral(result)

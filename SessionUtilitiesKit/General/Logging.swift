@@ -37,8 +37,8 @@ public enum Log {
     public static func enterForeground() {
         guard logger.wrappedValue != nil else { return }
         
-        OWSLogger.info("")
-        OWSLogger.info("")
+        Log.empty()
+        Log.empty()
     }
     
     public static func logFilePath() -> String? {
@@ -54,6 +54,24 @@ public enum Log {
     }
     
     // MARK: - Log Functions
+    
+    fileprivate static func empty() {
+        let emptyArguments: [CVarArg] = []
+        
+        withVaList(emptyArguments) { ptr in
+            DDLog.log(
+                asynchronous: true,
+                level: .info,
+                flag: .info,
+                context: 0,
+                file: "",
+                function: "",
+                line: 0,
+                tag: nil,
+                format: "",
+                arguments: ptr)
+        }
+    }
     
     public static func trace(
         _ message: String,
@@ -244,8 +262,8 @@ public class Logger {
         }
         
         // After creating a new logger we want to log two empty lines to make it easier to read
-        OWSLogger.info("")
-        OWSLogger.info("")
+        Log.empty()
+        Log.empty()
         
         // Add any logs that were pending during the startup process
         pendingLogs.forEach { level, message, withPrefixes, silenceForTests in
