@@ -41,23 +41,21 @@ public final class OpenGroupManager {
             // Update the cache state and re-create all of the pollers
             dependencies.caches.mutate(cache: .openGroupManager) { cache in
                 cache.isPolling = true
-                cache.pollers = servers
-                    .reduce(into: [:]) { result, server in
-                        result[server.lowercased()]?.stop() // Should never occur
-                        result[server.lowercased()] = OpenGroupAPI.Poller(for: server.lowercased())
+                
+                servers
+                    .map { server -> OpenGroupAPI.PollerType in cache.getOrCreatePoller(for: server.lowercased()) }
+                    .forEach { poller in
+                        // Now that the pollers have been created actually start them
+                        poller.stop() // Should never be an issue
+                        poller.startIfNeeded(using: dependencies)
                     }
             }
-            
-            // Now that the pollers have been created actually start them
-            dependencies.caches[.openGroupManager].pollers
-                .forEach { _, poller in poller.startIfNeeded(using: dependencies) }
         }
     }
 
     public func stopPolling(using dependencies: Dependencies = Dependencies()) {
         dependencies.caches.mutate(cache: .openGroupManager) {
-            $0.pollers.forEach { _, openGroupPoller in openGroupPoller.stop() }
-            $0.pollers.removeAll()
+            $0.stopAndRemoveAllPollers()
             $0.isPolling = false
         }
     }
@@ -142,7 +140,7 @@ public final class OpenGroupManager {
         }
         
         // First check if there is no poller for the specified server
-        if Set(dependencies.caches[.openGroupManager].pollers.keys).intersection(serverOptions).isEmpty {
+        if Set(dependencies.caches[.openGroupManager].serversBeingPolled).intersection(serverOptions).isEmpty {
             return false
         }
         
@@ -295,16 +293,8 @@ public final class OpenGroupManager {
                             OpenGroupAPI.workQueue.async(using: dependencies) {
                                 // (Re)start the poller if needed (want to force it to poll immediately in the next
                                 // run loop to avoid a big delay before the next poll)
-                                let poller: OpenGroupAPI.Poller = dependencies.caches.mutate(cache: .openGroupManager) {
-                                    // Don't create a new poller instance if one already exists so we don't
-                                    // double up on pollers
-                                    guard let poller: OpenGroupAPI.Poller = $0.pollers[server.lowercased()] else {
-                                        let poller: OpenGroupAPI.Poller = OpenGroupAPI.Poller(for: server.lowercased())
-                                        $0.pollers[server.lowercased()] = poller
-                                        return poller
-                                    }
-                                    
-                                    return poller
+                                let poller: OpenGroupAPI.PollerType = dependencies.caches.mutate(cache: .openGroupManager) {
+                                    $0.getOrCreatePoller(for: server.lowercased())
                                 }
                                 
                                 poller.stop()
@@ -356,9 +346,9 @@ public final class OpenGroupManager {
             .defaulting(to: 1)
         
         if numActiveRooms == 1, let server: String = server?.lowercased() {
-            let poller = dependencies.caches[.openGroupManager].pollers[server]
-            poller?.stop()
-            dependencies.caches.mutate(cache: .openGroupManager) { $0.pollers[server] = nil }
+            dependencies.caches.mutate(cache: .openGroupManager) {
+                $0.stopAndRemovePoller(for: server)
+            }
         }
         
         // Remove all the data (everything should cascade delete)
@@ -1230,12 +1220,31 @@ public extension OpenGroupManager {
         public var defaultRoomsPublisher: AnyPublisher<[DefaultRoomInfo], Error>?
         public var groupImagePublishers: [String: AnyPublisher<Data, Error>] = [:]
         
-        public var pollers: [String: OpenGroupAPI.Poller] = [:] // One for each server
         public var isPolling: Bool = false
+        public var serversBeingPolled: Set<String> { return Set(_pollers.keys) }
         
         /// Server URL to value
         public var hasPerformedInitialPoll: [String: Bool] = [:]
         public var timeSinceLastPoll: [String: TimeInterval] = [:]
+        
+        private var _pollers: [String: OpenGroupAPI.PollerType] = [:] // One for each server
+        public func getOrCreatePoller(for server: String) -> OpenGroupAPI.PollerType {
+            guard let poller: OpenGroupAPI.PollerType = _pollers[server.lowercased()] else {
+                let poller: OpenGroupAPI.Poller = OpenGroupAPI.Poller(for: server.lowercased())
+                _pollers[server.lowercased()] = poller
+                return poller
+            }
+            
+            return poller
+        }
+        public func stopAndRemovePoller(for server: String) {
+            _pollers[server.lowercased()]?.stop()
+            _pollers[server.lowercased()] = nil
+        }
+        public func stopAndRemoveAllPollers() {
+            _pollers.forEach { _, poller in poller.stop() }
+            _pollers.removeAll()
+        }
 
         fileprivate var _timeSinceLastOpen: TimeInterval?
         public func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval {
@@ -1272,8 +1281,8 @@ public protocol OGMImmutableCacheType: ImmutableCacheType {
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get }
     var groupImagePublishers: [String: AnyPublisher<Data, Error>] { get }
     
-    var pollers: [String: OpenGroupAPI.Poller] { get }
     var isPolling: Bool { get }
+    var serversBeingPolled: Set<String> { get }
     
     var hasPerformedInitialPoll: [String: Bool] { get }
     var timeSinceLastPoll: [String: TimeInterval] { get }
@@ -1285,13 +1294,17 @@ public protocol OGMCacheType: OGMImmutableCacheType, MutableCacheType {
     var defaultRoomsPublisher: AnyPublisher<[OpenGroupManager.DefaultRoomInfo], Error>? { get set }
     var groupImagePublishers: [String: AnyPublisher<Data, Error>] { get set }
     
-    var pollers: [String: OpenGroupAPI.Poller] { get set }
     var isPolling: Bool { get set }
+    var serversBeingPolled: Set<String> { get }
     
     var hasPerformedInitialPoll: [String: Bool] { get set }
     var timeSinceLastPoll: [String: TimeInterval] { get set }
     
     var pendingChanges: [OpenGroupAPI.PendingChange] { get set }
+    
+    func getOrCreatePoller(for server: String) -> OpenGroupAPI.PollerType
+    func stopAndRemovePoller(for server: String)
+    func stopAndRemoveAllPollers()
     
     func getTimeSinceLastOpen(using dependencies: Dependencies) -> TimeInterval
 }

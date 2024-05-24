@@ -114,6 +114,8 @@ public struct SessionApp {
     public static func resetAppData(onReset: (() -> ())? = nil) {
         Log.flush()
         LibSession.clearMemoryState()
+        LibSession.clearSnodeCache()
+        LibSession.closeNetworkConnections()
         Storage.resetAllStorage()
         ProfileManager.resetProfileStorage()
         Attachment.resetAttachmentStorage()

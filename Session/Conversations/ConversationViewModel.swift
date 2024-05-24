@@ -416,7 +416,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                         initialUnreadInteractionId: self?.initialUnreadInteractionId
                     ),
                     currentDataRetriever: { self?.interactionData },
-                    onDataChange: self?.onInteractionChange,
+                    onDataChangeRetriever: { self?.onInteractionChange },
                     onUnobservedDataChange: { updatedData, changeset in
                         self?.unobservedInteractionDataChanges = (changeset.isEmpty ?
                             nil :
@@ -671,6 +671,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
     }
     
     private func forceUpdateDataIfPossible() {
+        // Ensure this is on the main thread as we access properties that could be accessed on other threads
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.async { [weak self] in self?.forceUpdateDataIfPossible() }
+        }
+        
         // If we can't get the current page data then don't bother trying to update (it's not going to work)
         guard let currentPageInfo: PagedData.PageInfo = self.pagedDataObserver?.pageInfo.wrappedValue else { return }
         
@@ -685,7 +690,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 initialUnreadInteractionId: initialUnreadInteractionId
             ),
             currentDataRetriever: { [weak self] in self?.interactionData },
-            onDataChange: self.onInteractionChange,
+            onDataChangeRetriever: { [weak self] in self?.onInteractionChange },
             onUnobservedDataChange: { [weak self] updatedData, changeset in
                 self?.unobservedInteractionDataChanges = (changeset.isEmpty ?
                     nil :

@@ -809,6 +809,7 @@
 		FDBB25E32988B13800F1508E /* _004_AddJobPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */; };
 		FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */; };
 		FDC0F0042BFECE12002CBFB9 /* TimeUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */; };
+		FDC0F0082C00721A002CBFB9 /* MockOGPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC0F0072C00721A002CBFB9 /* MockOGPoller.swift */; };
 		FDC13D472A16E4CA007267C7 /* SubscribeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D462A16E4CA007267C7 /* SubscribeRequest.swift */; };
 		FDC13D492A16EC20007267C7 /* Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D482A16EC20007267C7 /* Service.swift */; };
 		FDC13D4B2A16ECBA007267C7 /* SubscribeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */; };
@@ -1996,6 +1997,7 @@
 		FDBB25E22988B13800F1508E /* _004_AddJobPriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _004_AddJobPriority.swift; sourceTree = "<group>"; };
 		FDBB25E62988BBBD00F1508E /* UIContextualAction+Theming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Theming.swift"; sourceTree = "<group>"; };
 		FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeUnit.swift; sourceTree = "<group>"; };
+		FDC0F0072C00721A002CBFB9 /* MockOGPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockOGPoller.swift; sourceTree = "<group>"; };
 		FDC13D462A16E4CA007267C7 /* SubscribeRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscribeRequest.swift; sourceTree = "<group>"; };
 		FDC13D482A16EC20007267C7 /* Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Service.swift; sourceTree = "<group>"; };
 		FDC13D4A2A16ECBA007267C7 /* SubscribeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscribeResponse.swift; sourceTree = "<group>"; };
@@ -4434,6 +4436,7 @@
 			children = (
 				FDC438BC27BB2AB400C60D73 /* Mockable.swift */,
 				FD078E4C27E17156000769AF /* MockOGMCache.swift */,
+				FDC0F0072C00721A002CBFB9 /* MockOGPoller.swift */,
 			);
 			path = _TestUtilities;
 			sourceTree = "<group>";
@@ -6614,6 +6617,7 @@
 				FDC2909827D7129B005DAE71 /* PersonalizationSpec.swift in Sources */,
 				FD078E4D27E17156000769AF /* MockOGMCache.swift in Sources */,
 				FD9DD2722A72516D00ECB68E /* TestExtensions.swift in Sources */,
+				FDC0F0082C00721A002CBFB9 /* MockOGPoller.swift in Sources */,
 				FDC290A627D860CE005DAE71 /* Mock.swift in Sources */,
 				FDA1E83D29AC71A800C5C3BD /* LibSessionSpec.swift in Sources */,
 				FD83B9C027CF2294005E1583 /* TestConstants.swift in Sources */,
@@ -7981,7 +7985,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 446;
+				CURRENT_PROJECT_VERSION = 447;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8059,7 +8063,7 @@
 				CLANG_WARN__ARC_BRIDGE_CAST_NONARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CURRENT_PROJECT_VERSION = 446;
+				CURRENT_PROJECT_VERSION = 447;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;

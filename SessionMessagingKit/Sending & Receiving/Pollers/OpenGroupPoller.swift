@@ -7,7 +7,12 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 extension OpenGroupAPI {
-    public final class Poller {
+    public protocol PollerType {
+        func startIfNeeded(using dependencies: Dependencies)
+        func stop()
+    }
+    
+    public final class Poller: PollerType {
         typealias PollResponse = (info: ResponseInfoType, data: [OpenGroupAPI.Endpoint: Decodable])
         
         private let server: String

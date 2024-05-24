@@ -493,7 +493,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         guard !Storage.isDatabasePasswordAccessible else { return }    // All good
         
-        Logger.info("Exiting because we are in the background and the database password is not accessible.")
+        Log.info("Exiting because we are in the background and the database password is not accessible.")
         
         let notificationContent: UNMutableNotificationContent = UNMutableNotificationContent()
         notificationContent.body = String(
