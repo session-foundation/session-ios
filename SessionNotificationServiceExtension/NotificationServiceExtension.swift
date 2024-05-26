@@ -130,6 +130,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 threadVariant: threadVariant
                             )
                             
+                            try MessageReceiver.handleCallMessage(
+                                db,
+                                threadId: threadId,
+                                threadVariant: threadVariant,
+                                message: callMessage
+                            )
+                            
                             guard case .preOffer = callMessage.kind else {
                                 return self.completeSilenty()
                             }
