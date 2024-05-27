@@ -79,7 +79,7 @@ class JobRunnerSpec: QuickSpec {
                     job1 = Job(
                         id: 101,
                         failureCount: 0,
-                        variant: .getSnodePool,
+                        variant: .disappearingMessages,
                         behaviour: .runOnce,
                         shouldBlock: false,
                         shouldBeUnique: false,
@@ -113,7 +113,7 @@ class JobRunnerSpec: QuickSpec {
                     expect(mockStorage.read { db in try Job.fetchCount(db) }).to(equal(0))
                     
                     // Add the executor and start the job again
-                    jobRunner.setExecutor(TestJob.self, for: .getSnodePool)
+                    jobRunner.setExecutor(TestJob.self, for: .disappearingMessages)
                     
                     mockStorage.write { db in
                         jobRunner.add(
@@ -1735,7 +1735,7 @@ fileprivate struct TestDetails: Codable {
 }
 
 fileprivate struct InvalidDetails: Codable {
-    func encode(to encoder: Encoder) throws { throw HTTPError.parsingFailed }
+    func encode(to encoder: Encoder) throws { throw NetworkError.parsingFailed }
 }
 
 fileprivate enum TestJob: JobExecutor {

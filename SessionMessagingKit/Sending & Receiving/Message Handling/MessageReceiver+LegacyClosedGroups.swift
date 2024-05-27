@@ -80,7 +80,7 @@ extension MessageReceiver {
         }
         guard
             let sentTimestamp: UInt64 = message.sentTimestamp,
-            SessionUtil.canPerformChange(
+            LibSession.canPerformChange(
                 db,
                 threadId: publicKeyAsData.toHexString(),
                 targetConfig: .userGroups,
@@ -229,7 +229,7 @@ extension MessageReceiver {
         
         if configTriggeringChange != .userGroups {
             // Update libSession
-            try? SessionUtil.add(
+            try? LibSession.add(
                 db,
                 legacyGroupSessionId: legacyGroupSessionId,
                 name: name,
@@ -336,7 +336,7 @@ extension MessageReceiver {
             try keyPair.insert(db)
             
             // Update libSession
-            try? SessionUtil.update(
+            try? LibSession.update(
                 db,
                 legacyGroupSessionId: legacyGroupId,
                 latestKeyPair: keyPair,
@@ -375,7 +375,7 @@ extension MessageReceiver {
             infoMessageVariant: .infoLegacyGroupUpdated,
             legacyGroupChanges: { sender, closedGroup, allMembers in
                 // Update libSession
-                try? SessionUtil.update(
+                try? LibSession.update(
                     db,
                     legacyGroupSessionId: threadId,
                     name: name,
@@ -420,7 +420,7 @@ extension MessageReceiver {
                     .asSet()
                 
                 // Update libSession
-                try? SessionUtil.update(
+                try? LibSession.update(
                     db,
                     legacyGroupSessionId: threadId,
                     members: allMembers
@@ -530,7 +530,7 @@ extension MessageReceiver {
                 else { return SNLog("Ignoring invalid closed group update.") }
                 
                 // Update libSession
-                try? SessionUtil.update(
+                try? LibSession.update(
                     db,
                     legacyGroupSessionId: threadId,
                     members: allMembers
@@ -610,7 +610,7 @@ extension MessageReceiver {
                     .map { $0.profileId }
                 
                 // Update libSession
-                try? SessionUtil.update(
+                try? LibSession.update(
                     db,
                     legacyGroupSessionId: threadId,
                     members: allMembers
@@ -677,9 +677,9 @@ extension MessageReceiver {
             SnodeAPI.currentOffsetTimestampMs()
         )
         
-        // Only actually make the change if SessionUtil says we can (we always want to insert the info
+        // Only actually make the change if LibSession says we can (we always want to insert the info
         // message though)
-        if SessionUtil.canPerformChange(db, threadId: threadId, targetConfig: .userGroups, changeTimestampMs: timestampMs) {
+        if LibSession.canPerformChange(db, threadId: threadId, targetConfig: .userGroups, changeTimestampMs: timestampMs) {
             // Legacy groups used these control messages for making changes, new groups only use them
             // for information purposes
             switch threadVariant {

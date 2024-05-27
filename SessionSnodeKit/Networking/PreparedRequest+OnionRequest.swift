@@ -4,11 +4,11 @@ import Foundation
 import Combine
 import SessionUtilitiesKit
 
-public extension HTTP.PreparedRequest {
+public extension Network.PreparedRequest {
     /// Send an onion request for the prepared data
     func send(using dependencies: Dependencies) -> AnyPublisher<(ResponseInfoType, R), Error> {
         // If we have a cached response then user that directly
-        if let cachedResponse: HTTP.PreparedRequest<R>.CachedResponse = self.cachedResponse {
+        if let cachedResponse: Network.PreparedRequest<R>.CachedResponse = self.cachedResponse {
             return Just(cachedResponse)
                 .setFailureType(to: Error.self)
                 .handleEvents(
@@ -37,39 +37,41 @@ public extension HTTP.PreparedRequest {
                                 )
                             )
                         
-                    case let snodeTarget as HTTP.SnodeTarget:
-                        guard let payload: Data = request.httpBody else { throw HTTPError.invalidPreparedRequest }
+                    case let snodeTarget as Network.SnodeTarget:
+                        guard let payload: Data = request.httpBody else { throw NetworkError.invalidPreparedRequest }
 
                         return dependencies[singleton: .network]
                             .send(
                                 .selectedNetworkRequest(
                                     payload,
                                     to: snodeTarget.snode,
+                                    swarmPublicKey: snodeTarget.swarmPublicKey,
                                     timeout: timeout,
                                     using: dependencies
                                 )
                             )
                         
-                    case let randomSnode as HTTP.RandomSnodeTarget:
-                        guard let payload: Data = request.httpBody else { throw HTTPError.invalidPreparedRequest }
+                    case let randomSnode as Network.RandomSnodeTarget:
+                        guard let payload: Data = request.httpBody else { throw NetworkError.invalidPreparedRequest }
 
-                        return SnodeAPI.getSwarm(for: randomSnode.publicKey, using: dependencies)
+                        return LibSession.getSwarm(swarmPublicKey: randomTarget.swarmPublicKey)
                             .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount, using: dependencies) { snode in
                                 dependencies[singleton: .network]
                                     .send(
                                         .selectedNetworkRequest(
                                             payload,
                                             to: snode,
+                                            swarmPublicKey: randomTarget.swarmPublicKey,
                                             timeout: timeout,
                                             using: dependencies
                                         )
                                     )
                             }
                         
-                    case let randomSnode as HTTP.RandomSnodeLatestNetworkTimeTarget:
-                        guard request.httpBody != nil else { throw HTTPError.invalidPreparedRequest }
+                    case let randomSnode as Network.RandomSnodeLatestNetworkTimeTarget:
+                        guard request.httpBody != nil else { throw NetworkError.invalidPreparedRequest }
                         
-                        return SnodeAPI.getSwarm(for: randomSnode.publicKey, using: dependencies)
+                        return LibSession.getSwarm(swarmPublicKey: randomTarget.swarmPublicKey)
                             .tryFlatMapWithRandomSnode(retry: SnodeAPI.maxRetryCount, using: dependencies) { snode in
                                 try SnodeAPI
                                     .preparedGetNetworkTime(from: snode, using: dependencies)
@@ -86,6 +88,7 @@ public extension HTTP.PreparedRequest {
                                                 .selectedNetworkRequest(
                                                     payload,
                                                     to: snode,
+                                                    swarmPublicKey: randomTarget.swarmPublicKey,
                                                     timeout: timeout,
                                                     using: dependencies
                                                 )
@@ -102,8 +105,8 @@ public extension HTTP.PreparedRequest {
                                             }
                                     }
                             }
-                        
-                    default: throw HTTPError.invalidPreparedRequest
+                    
+                    default: throw NetworkError.invalidPreparedRequest
                 }
             }
             .decoded(with: self, using: dependencies)
@@ -121,9 +124,9 @@ public extension HTTP.PreparedRequest {
 public extension Optional {
     func send<R>(
         using dependencies: Dependencies
-    ) -> AnyPublisher<(ResponseInfoType, R), Error> where Wrapped == HTTP.PreparedRequest<R> {
+    ) -> AnyPublisher<(ResponseInfoType, R), Error> where Wrapped == Network.PreparedRequest<R> {
         guard let instance: Wrapped = self else {
-            return Fail(error: HTTPError.invalidPreparedRequest)
+            return Fail(error: NetworkError.invalidPreparedRequest)
                 .eraseToAnyPublisher()
         }
         

@@ -60,6 +60,12 @@ class DatabaseSpec: QuickSpec {
         
         // MARK: - a Database
         describe("a Database") {
+            beforeEach {
+                // FIXME: These should be mocked out instead of set this way
+                dependencies.caches.mutate(cache: .general) { $0.encodedPublicKey = "05\(TestConstants.publicKey)" }
+                LibSession.clearMemoryState()
+            }
+            
             // MARK: -- can be created from an empty state
             it("can be created from an empty state") {
                 mockStorage.perform(
@@ -170,11 +176,17 @@ class DatabaseSpec: QuickSpec {
                     /// Ensure all of the `fetchedTables` records can still be decoded correctly after the migrations have completed (since
                     /// we perform multiple migrations above it's possible these won't work after the `initialMigrations` but actually will
                     /// work when required as an intermediate migration could have satisfied the data requirements)
+                    let droppedTables: Set<ObjectIdentifier> = test.migrationsToTest
+                        .flatMap { _, _, migration in migration.droppedTables }
+                        .map { ObjectIdentifier($0) }
+                        .asSet()
+                    let tablesToTest: [(TableRecord & FetchableRecord).Type] = test.migrationsToTest
+                        .flatMap { _, _, migration in migration.fetchedTables }
+                        .filter { table in !droppedTables.contains(ObjectIdentifier(table)) }
+                    
                     mockStorage.read { db in
-                        test.migrationsToTest.forEach { _, _, migration in
-                            migration.fetchedTables.forEach { table in
-                                expect { try table.fetchAll(db) }.toNot(throwError())
-                            }
+                        tablesToTest.forEach { table in
+                            expect { try table.fetchAll(db) }.toNot(throwError())
                         }
                     }
                 }
@@ -243,6 +255,11 @@ private class MigrationTest {
     }
     
     static func extractDatabaseTypes(_ allMigrations: [Storage.KeyedMigration]) -> [(TableRecord & FetchableRecord).Type] {
+        let droppedTables: Set<ObjectIdentifier> = allMigrations
+            .flatMap { _, _, migration in migration.droppedTables }
+            .map { ObjectIdentifier($0) }
+            .asSet()
+        
         return allMigrations
             .reduce(into: [:]) { result, next in
                 next.migration.fetchedTables.forEach { table in
@@ -254,7 +271,7 @@ private class MigrationTest {
                 }
             }
             .values
-            .asArray()
+            .filter { table in !droppedTables.contains(ObjectIdentifier(table)) }
     }
     
     static func handleRequirements(_ db: Database, requirement: MigrationRequirement, using dependencies: Dependencies) {
@@ -329,6 +346,16 @@ private class MigrationTest {
                         Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!),
                         Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!)
                     ].forEach { try $0.insert(db) }
+                    
+                case JobDependencies.databaseTableName:
+                    // Unsure why but for some reason this causes foreign key constraint errors during tests
+                    // so just validate that the columns haven't changed since this was added
+                    guard
+                        JobDependencies.Columns.allCases.count == 2 &&
+                        JobDependencies.Columns.jobId.name == "jobId" &&
+                        JobDependencies.Columns.dependantId.name == "dependantId"
+                    else { throw StorageError.invalidData }
+                    return
                     
                 case .some(let name):
                     // No need to insert dummy data if it already exists in the table

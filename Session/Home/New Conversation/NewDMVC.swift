@@ -214,7 +214,8 @@ final class NewDMVC: BaseVC, UIPageViewControllerDataSource, UIPageViewControlle
                                         modalActivityIndicator.dismiss {
                                             var message: String = {
                                                 switch error as? SnodeAPIError {
-                                                    case .decryptionFailed, .hashingFailed, .validationFailed: return "\(error)"
+                                                    case .onsDecryptionFailed, .onsHashingFailed, .onsValidationFailed:
+                                                        return "\(error)"
                                                     default: return "DM_ERROR_INVALID".localized()
                                                 }
                                             }()

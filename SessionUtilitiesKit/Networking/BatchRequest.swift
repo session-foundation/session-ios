@@ -3,10 +3,10 @@
 import Foundation
 
 public protocol BatchRequestChildRetrievable {
-    var requests: [HTTP.BatchRequest.Child] { get }
+    var requests: [Network.BatchRequest.Child] { get }
 }
 
-public extension HTTP {
+public extension Network {
     struct BatchRequest: Encodable, BatchRequestChildRetrievable {
         /// The servers currently have a limit for the number of requests a `BatchRequest` can have, when using this we should avoid
         /// trying to make calls that exceed this limit as they will fail
@@ -25,7 +25,7 @@ public extension HTTP {
             self.requests = requests.map { Child(request: $0) }
             
             if requests.count > BatchRequest.childRequestLimit {
-                SNLog(.warn, "[BatchRequest] Constructed request with \(requests.count) subrequests when the limit is \(BatchRequest.childRequestLimit)")
+                SNLog("[BatchRequest] Constructed request with \(requests.count) subrequests when the limit is \(BatchRequest.childRequestLimit)")
             }
         }
         

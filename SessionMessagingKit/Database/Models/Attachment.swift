@@ -1064,7 +1064,7 @@ extension Attachment {
             if state == .uploaded, let fileId: String = Attachment.fileId(for: downloadUrl) {
                 return (
                     self,
-                    HTTP.PreparedRequest.cached(
+                    Network.PreparedRequest<FileUploadResponse>.cached(
                         FileUploadResponse(id: fileId),
                         endpoint: FileServerAPI.Endpoint.file
                     ),
@@ -1092,7 +1092,7 @@ extension Attachment {
             {
                 return (
                     self,
-                    HTTP.PreparedRequest.cached(
+                    Network.PreparedRequest.cached(
                         FileUploadResponse(id: fileId),
                         endpoint: FileServerAPI.Endpoint.file
                     ),
@@ -1130,7 +1130,7 @@ extension Attachment {
             
             // Ensure the file size is smaller than our upload limit
             SNLog("File size: \(finalData.count) bytes.")
-            guard finalData.count <= FileSystem.maxFileSize else { throw HTTPError.maxFileSizeExceeded }
+            guard finalData.count <= FileSystem.maxFileSize else { throw NetworkError.maxFileSizeExceeded }
             
             // Generate the request
             switch destination {

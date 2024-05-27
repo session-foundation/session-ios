@@ -89,8 +89,8 @@ enum Onboarding {
         /// If the user returns to an earlier screen during Onboarding we might need to clear out a partially created
         /// account (eg. returning from the PN setting screen to the seed entry screen when linking a device)
         func unregister(using dependencies: Dependencies) {
-            // Clear the in-memory state from SessionUtil
-            SessionUtil.clearMemoryState(using: dependencies)
+            // Clear the in-memory state from LibSession
+            LibSession.clearMemoryState(using: dependencies)
             
             // Clear any data which gets set during Onboarding
             dependencies[singleton: .storage].write { db in
@@ -132,9 +132,13 @@ enum Onboarding {
                     x25519KeyPair: x25519KeyPair
                 )
                 
-                // Create the initial shared util state (won't have been created on
+                // Create the initial libSession state (won't have been created on
                 // launch due to lack of ed25519 key)
-                SessionUtil.loadState(db, using: dependencies)
+                LibSession.loadState(
+                    db,
+                    userPublicKey: x25519KeyPair.publicKey,
+                    ed25519SecretKey: ed25519KeyPair.secretKey
+                )
 
                 // No need to show the seed again if the user is restoring or linking
                 db[.hasViewedSeed] = (self == .recover || self == .link)
@@ -187,7 +191,7 @@ enum Onboarding {
             // Only continue if this isn't a new account
             guard self != .register else { return }
             
-            // Fetch the profile name
+            // Fetch any existing profile name
             Onboarding.profileNamePublisher
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .sinkUntilComplete()
@@ -217,10 +221,6 @@ enum Onboarding {
             if !suppressDidRegisterNotification {
                 Identity.didRegister()
             }
-            
-            // Now that we have registered get the Snode pool (just in case) - other non-blocking
-            // launch jobs will automatically be run because the app activation was triggered
-            GetSnodePoolJob.run(onComplete: onComplete, using: dependencies)
         }
     }
 }

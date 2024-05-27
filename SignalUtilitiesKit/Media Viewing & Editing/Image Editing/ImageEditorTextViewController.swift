@@ -43,7 +43,7 @@ private class VAlignTextView: UITextView {
 
         super.init(frame: .zero, textContainer: nil)
 
-        self.addObserver(self, forKeyPath: "contentSize", options: .new, context: nil)
+        self.addObserver(self, forKeyPath: "contentSize", options: .new, context: nil)  // stringlint:disable
     }
 
     @available(*, unavailable, message: "use other init() instead.")
@@ -52,7 +52,7 @@ private class VAlignTextView: UITextView {
     }
 
     deinit {
-        self.removeObserver(self, forKeyPath: "contentSize")
+        self.removeObserver(self, forKeyPath: "contentSize")    // stringlint:disable
     }
 
     private func updateInsets() {

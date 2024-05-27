@@ -15,9 +15,9 @@ class PreparedRequestSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies()
         
         @TestState var urlRequest: URLRequest?
-        @TestState var preparedRequest: HTTP.PreparedRequest<TestType>!
+        @TestState var preparedRequest: Network.PreparedRequest<TestType>!
         @TestState var request: Request<NoBody, TestEndpoint>!
-        @TestState var responseInfo: ResponseInfoType! = HTTP.ResponseInfo(code: 200, headers: [:])
+        @TestState var responseInfo: ResponseInfoType! = Network.ResponseInfo(code: 200, headers: [:])
         
         // MARK: - a PreparedRequest
         describe("a PreparedRequest") {
@@ -37,7 +37,7 @@ class PreparedRequestSpec: QuickSpec {
                         x25519PublicKey: "",
                         body: nil
                     )
-                    preparedRequest = HTTP.PreparedRequest(
+                    preparedRequest = Network.PreparedRequest(
                         request: request,
                         urlRequest: try! request.generateUrlRequest(using: dependencies),
                         responseType: TestType.self,
@@ -66,7 +66,7 @@ class PreparedRequestSpec: QuickSpec {
                         x25519PublicKey: "",
                         body: nil
                     )
-                    preparedRequest = HTTP.PreparedRequest(
+                    preparedRequest = Network.PreparedRequest(
                         request: request,
                         urlRequest: try! request.generateUrlRequest(using: dependencies),
                         responseType: TestType.self,
@@ -99,7 +99,7 @@ class PreparedRequestSpec: QuickSpec {
                 Just((responseInfo, jsonData))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
-                    .decoded(as: TestType.self)
+                    .decoded(as: TestType.self, using: dependencies)
                     .sinkUntilComplete(
                         receiveValue: { result = $0 }
                     )
@@ -114,11 +114,11 @@ class PreparedRequestSpec: QuickSpec {
                 Just((responseInfo, nil))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
-                    .decoded(as: [Int].self)
+                    .decoded(as: [Int].self, using: dependencies)
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error).to(matchError(HTTPError.parsingFailed))
+                expect(error).to(matchError(NetworkError.parsingFailed))
             }
             
             // MARK: -- fails if the data is not JSON
@@ -127,11 +127,11 @@ class PreparedRequestSpec: QuickSpec {
                 Just((responseInfo, Data([1, 2, 3])))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
-                    .decoded(as: [Int].self)
+                    .decoded(as: [Int].self, using: dependencies)
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error).to(matchError(HTTPError.parsingFailed))
+                expect(error).to(matchError(NetworkError.parsingFailed))
             }
             
             // MARK: -- fails if the data is not a JSON array
@@ -140,11 +140,11 @@ class PreparedRequestSpec: QuickSpec {
                 Just((responseInfo, "{}".data(using: .utf8)))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
-                    .decoded(as: [Int].self)
+                    .decoded(as: [Int].self, using: dependencies)
                     .mapError { error.setting(to: $0) }
                     .sinkUntilComplete()
                 
-                expect(error).to(matchError(HTTPError.parsingFailed))
+                expect(error).to(matchError(NetworkError.parsingFailed))
             }
         }
     }
@@ -160,7 +160,7 @@ fileprivate enum TestEndpoint: EndpointType {
     case endpoint
     
     static var name: String { "TestEndpoint" }
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }
     static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
     
     var path: String { return "endpoint" }

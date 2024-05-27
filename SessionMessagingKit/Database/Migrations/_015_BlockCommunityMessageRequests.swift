@@ -10,11 +10,12 @@ enum _015_BlockCommunityMessageRequests: Migration {
     static let identifier: String = "BlockCommunityMessageRequests" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.01
-    static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
+    static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
         Identity.self, Setting.self
     ]
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [Profile.self]
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         // Add the new 'Profile' properties
@@ -31,7 +32,7 @@ enum _015_BlockCommunityMessageRequests: Migration {
             let rawBlindedMessageRequestValue: Int32 = try dependencies[cache: .sessionUtil]
                 .config(for: .userProfile, sessionId: getUserSessionId(db, using: dependencies))
                 .wrappedValue
-                .map { config -> Int32 in try SessionUtil.rawBlindedMessageRequestValue(in: config) }
+                .map { config -> Int32 in try LibSession.rawBlindedMessageRequestValue(in: config) }
                 .defaulting(to: -1)
             
             // Use the value in the config if we happen to have one, otherwise use the default

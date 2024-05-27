@@ -244,6 +244,6 @@ public class ImageEditorTransform: NSObject {
     }
 
     open override var description: String {
-        return "[outputSizePixels: \(outputSizePixels), unitTranslation: \(unitTranslation), rotationRadians: \(rotationRadians), scaling: \(scaling), isFlipped: \(isFlipped)]"
+        return "[outputSizePixels: \(outputSizePixels), unitTranslation: \(unitTranslation), rotationRadians: \(rotationRadians), scaling: \(scaling), isFlipped: \(isFlipped)]"    // stringlint:disable
     }
 }

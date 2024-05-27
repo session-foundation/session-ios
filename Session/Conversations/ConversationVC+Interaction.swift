@@ -176,6 +176,7 @@ extension ConversationVC:
         let callVC = CallVC(for: call, using: viewModel.dependencies)
         callVC.conversationVC = self
         hideInputAccessoryView()
+        resignFirstResponder()
         
         present(callVC, animated: true, completion: nil)
     }
@@ -991,7 +992,7 @@ extension ConversationVC:
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies[singleton: .storage].writeAsync { db in
                         try messageDisappearingConfig.save(db)
-                        try SessionUtil
+                        try LibSession
                             .update(
                                 db,
                                 sessionId: cellViewModel.threadId,
@@ -1433,7 +1434,7 @@ extension ConversationVC:
         guard cellViewModel.threadVariant == .community else { return }
         
         viewModel.dependencies[singleton: .storage]
-            .readPublisher { [dependencies = viewModel.dependencies] db -> (HTTP.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
+            .readPublisher { [dependencies = viewModel.dependencies] db -> (Network.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse>, OpenGroupAPI.PendingChange) in
                 guard
                     let openGroup: OpenGroup = try? OpenGroup
                         .fetchOne(db, id: cellViewModel.threadId),
@@ -1444,7 +1445,7 @@ extension ConversationVC:
                         .fetchOne(db)
                 else { throw StorageError.objectNotFound }
                 
-                let preparedRequest: HTTP.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
+                let preparedRequest: Network.PreparedRequest<OpenGroupAPI.ReactionRemoveAllResponse> = try OpenGroupAPI
                     .preparedReactionDeleteAll(
                         db,
                         emoji: emoji,
@@ -1529,7 +1530,7 @@ extension ConversationVC:
         typealias OpenGroupInfo = (
             pendingReaction: Reaction?,
             pendingChange: OpenGroupAPI.PendingChange,
-            preparedRequest: HTTP.PreparedRequest<Int64?>
+            preparedRequest: Network.PreparedRequest<Int64?>
         )
         
         /// Perform the sending logic, we generate the pending reaction first in a deferred future closure to prevent the OpenGroup
@@ -1621,7 +1622,7 @@ extension ConversationVC:
                             OpenGroupManager.doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
                         else { throw MessageSenderError.invalidMessage }
                         
-                        let preparedRequest: HTTP.PreparedRequest<Int64?> = try {
+                        let preparedRequest: Network.PreparedRequest<Int64?> = try {
                             guard !remove else {
                                 return try OpenGroupAPI
                                     .preparedReactionDelete(
@@ -1808,7 +1809,7 @@ extension ConversationVC:
                         return
                     }
                     
-                    guard let (room, server, publicKey) = SessionUtil.parseCommunity(url: url) else {
+                    guard let (room, server, publicKey) = LibSession.parseCommunity(url: url) else {
                         let errorModal: ConfirmationModal = ConfirmationModal(
                             info: ConfirmationModal.Info(
                                 title: "COMMUNITY_ERROR_GENERIC".localized(),
@@ -2119,6 +2120,20 @@ extension ConversationVC:
                     /// If we are just doing a local deletion then just trigger it (no need to show a loading indicator
                     guard !deletionBehaviours.isOnlyDeleteFromDatabase(at: selectedIndex) else {
                         dependencies[singleton: .storage].writeAsync { db in
+                            /// Cancel any `messageSend` jobs related to the message we are deleting
+                            let jobs: [Job] = (try? Job
+                                .filter(Job.Columns.variant == Job.Variant.messageSend)
+                                .filter(Job.Columns.interactionId == cellViewModel.id)
+                                .fetchAll(db))
+                                .defaulting(to: [])
+                            
+                            jobs.forEach { JobRunner.removePendingJob($0) }
+                            
+                            _ = try? Job
+                                .filter(Job.Columns.variant == Job.Variant.messageSend)
+                                .filter(Job.Columns.interactionId == cellViewModel.id)
+                                .deleteAll(db)
+                            
                             _ = try Interaction
                                 .filter(id: cellViewModel.id)
                                 .deleteAll(db)
@@ -2128,7 +2143,7 @@ extension ConversationVC:
                         }
                         return
                     }
-                    
+
                     /// Otherwise show the loading indicator and trigger the publisher
                     ModalActivityIndicatorViewController
                         .present(fromViewController: modal, canCancel: false) { viewController in
@@ -2219,7 +2234,7 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies[singleton: .storage]
-                        .readPublisher(using: dependencies) { db -> HTTP.PreparedRequest<NoResponse> in
+                        .readPublisher(using: dependencies) { db -> Network.PreparedRequest<NoResponse> in
                             guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
                                 throw StorageError.objectNotFound
                             }
@@ -2684,7 +2699,7 @@ extension ConversationVC {
         return nil
     }
 
-    @objc func acceptMessageRequest() {
+    func acceptMessageRequest() {
         self.approveMessageRequestIfNeeded(
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
@@ -2693,7 +2708,7 @@ extension ConversationVC {
         )
     }
 
-    @objc func deleteMessageRequest() {
+    func declineMessageRequest() {
         let actions: [UIContextualAction]? = UIContextualAction.generateSwipeActions(
             [.delete],
             for: .trailing,
@@ -2716,7 +2731,7 @@ extension ConversationVC {
         })
     }
     
-    @objc func blockMessageRequest() {
+    func blockMessageRequest() {
         let actions: [UIContextualAction]? = UIContextualAction.generateSwipeActions(
             [.block],
             for: .trailing,

@@ -14,18 +14,18 @@ class SnodeRequestSpec: QuickSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState var batchRequest: HTTP.BatchRequest!
+        @TestState var batchRequest: Network.BatchRequest!
         
         // MARK: - a SnodeRequest
         describe("a SnodeRequest") {
-            // MARK: -- when encoding a HTTP.BatchRequest storage server type endpoint
-            context("when encoding a HTTP.BatchRequest storage server type endpoint") {
+            // MARK: -- when encoding a Network.BatchRequest storage server type endpoint
+            context("when encoding a Network.BatchRequest storage server type endpoint") {
                 // MARK: ---- successfully encodes a SnodeRequest body
                 it("successfully encodes a SnodeRequest body") {
-                    batchRequest = HTTP.BatchRequest(
+                    batchRequest = Network.BatchRequest(
                         requestsKey: .requests,
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: Request<SnodeRequest<TestType>, TestEndpoint>(
                                     method: .post,
                                     server: "testServer",
@@ -63,7 +63,7 @@ fileprivate enum TestEndpoint: EndpointType {
     case endpoint
     
     static var name: String { "TestEndpoint" }
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }
     static var excludedSubRequestHeaders: [HTTPHeader] { [] }
     
     var path: String { return "endpoint" }

@@ -96,7 +96,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 else { throw AttachmentDownloadError.invalidUrl }
                 
                 return dependencies[singleton: .storage]
-                    .readPublisher { db -> HTTP.PreparedRequest<Data> in
+                    .readPublisher { db -> Network.PreparedRequest<Data> in
                         switch try OpenGroup.fetchOne(db, id: threadId) {
                             case .some(let openGroup):
                                 return try OpenGroupAPI
@@ -188,13 +188,14 @@ public enum AttachmentDownloadJob: JobExecutor {
                                 /// If we get a 404 then we got a successful response from the server but the attachment doesn't
                                 /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
                                 /// a retry download loop
-                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 404:
+                                case NetworkError.notFound:
                                     targetState = .invalid
                                     permanentFailure = true
                                     
-                                case OnionRequestAPIError.httpRequestFailedAtDestination(let statusCode, _, _) where statusCode == 400 || statusCode == 401:
-                                    /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
-                                    /// likely something else is going on that caused the failure
+                                /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
+                                /// likely something else is going on that caused the failure
+                                case NetworkError.badRequest, NetworkError.unauthorised,
+                                    SnodeAPIError.signatureVerificationFailed:
                                     targetState = .failedDownload
                                     permanentFailure = true
                                 

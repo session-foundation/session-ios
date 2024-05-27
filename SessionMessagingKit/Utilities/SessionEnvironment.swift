@@ -6,8 +6,6 @@ import SessionUtilitiesKit
 public class SessionEnvironment {
     public static var shared: SessionEnvironment?
     
-    public let reachabilityManager: SSKReachabilityManager
-    
     public let audioSession: OWSAudioSession
     public let proximityMonitoringManager: OWSProximityMonitoringManager
     public let windowManager: OWSWindowManager
@@ -16,12 +14,10 @@ public class SessionEnvironment {
     // MARK: - Initialization
     
     public init(
-        reachabilityManager: SSKReachabilityManager,
         audioSession: OWSAudioSession,
         proximityMonitoringManager: OWSProximityMonitoringManager,
         windowManager: OWSWindowManager
     ) {
-        self.reachabilityManager = reachabilityManager
         self.audioSession = audioSession
         self.proximityMonitoringManager = proximityMonitoringManager
         self.windowManager = windowManager

@@ -9,6 +9,7 @@ import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionSnodeKit
 import SessionUtilitiesKit
+import SignalCoreKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate {
     private let viewModel: ThreadPickerViewModel
@@ -232,10 +233,11 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             ) :
             messageText
         )
-        let publicKey: String = {
+        let userSessionId: SessionId = getUserSessionId(using: viewModel.dependencies)
+        let swarmPublicKey: String = {
             switch threadVariant {
                 case .contact, .legacyGroup, .group: return threadId
-                case .community: return getUserSessionId(using: viewModel.dependencies).hexString
+                case .community: return userSessionId.hexString
             }
         }()
         
@@ -247,47 +249,24 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             /// When we prepare the message we set the timestamp to be the `SnodeAPI.currentOffsetTimestampMs()`
             /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
             /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
-            Just(())
-                .setFailureType(to: Error.self)
-                .flatMap { _ in
-                    // We may not have sufficient snodes, so rather than failing we try to load/fetch
-                    // them if needed
-                    guard !SnodeAPI.hasCachedSnodesIncludingExpired(using: dependencies) else {
-                        return Just(())
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    return SnodeAPI.getSnodePool(using: dependencies)
-                        .map { _ in () }
-                        .eraseToAnyPublisher()
+            LibSession
+                .getSwarm(swarmPublicKey: swarmPublicKey)
+                .tryFlatMapWithRandomSnode(using: dependencies) { snode in
+                    try SnodeAPI.preparedGetNetworkTime(from: snode, using: dependencies)
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMap { _ -> AnyPublisher<Void, Error> in
-                    SnodeAPI
-                        .getSwarm(for: publicKey, using: dependencies)
-                        .tryFlatMapWithRandomSnode(using: dependencies) { snode in
-                            Just(try SnodeAPI.preparedGetNetworkTime(from: snode, using: dependencies))
-                                .setFailureType(to: Error.self)
-                                .eraseToAnyPublisher()
-                        }
-                        .map { $0.send(using: dependencies) }
-                        .map { _ in () }
-                        .eraseToAnyPublisher()
-                }
-                .flatMap { _ -> AnyPublisher<(Interaction, [HTTP.PreparedRequest<String>]), Error> in
-                    dependencies[singleton: .storage].writePublisher { db -> (Interaction, [HTTP.PreparedRequest<String>]) in
-                        guard (try? SessionThread.exists(db, id: threadId)) == true else {
-                            throw MessageSenderError.noThread
-                        }
+                .flatMap { _ in
+                    dependencies[singleton: .storage].writePublisher { db -> (Interaction, [Network.PreparedRequest<String>]) in
+                    dependencies.storage.writePublisher { db -> MessageSender.PreparedSendData in
+                        guard (try? SessionThread.exists(db, id: threadId)) == true else { throw MessageSenderError.noThread }
                         
                         // Create the interaction
                         let interaction: Interaction = try Interaction(
                             threadId: threadId,
-                            authorId: getUserSessionId(db, using: dependencies).hexString,
+                            authorId: userSessionId.hexString,
                             variant: .standardOutgoing,
                             body: body,
-                            timestampMs: SnodeAPI.currentOffsetTimestampMs(),
+                            timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies),
                             hasMention: Interaction.isUserMentioned(db, threadId: threadId, body: body),
                             linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil)
                         ).inserted(db)
@@ -367,7 +346,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
+                        DDLog.flushLog()
                         Storage.suspendDatabaseAccess(using: dependencies)
+                        LibSession.closeNetworkConnections()
                         activityIndicator.dismiss { }
                         
                         switch result {

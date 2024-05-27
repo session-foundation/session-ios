@@ -41,22 +41,22 @@ public struct SnodeReceivedMessageInfo: Codable, FetchableRecord, MutablePersist
 // MARK: - Convenience
 
 public extension SnodeReceivedMessageInfo {
-    private static func key(for snode: Snode, publicKey: String, namespace: SnodeAPI.Namespace) -> String {
+    private static func key(for snode: LibSession.Snode, swarmPublicKey: String, namespace: SnodeAPI.Namespace) -> String {
         guard namespace != .default else {
-            return "\(snode.address):\(snode.port).\(publicKey)"
+            return "\(snode.address).\(swarmPublicKey)"
         }
         
-        return "\(snode.address):\(snode.port).\(publicKey).\(namespace.rawValue)"
+        return "\(snode.address).\(swarmPublicKey).\(namespace.rawValue)"
     }
     
     init(
-        snode: Snode,
-        publicKey: String,
+        snode: LibSession.Snode,
+        swarmPublicKey: String,
         namespace: SnodeAPI.Namespace,
         hash: String,
         expirationDateMs: Int64?
     ) {
-        self.key = SnodeReceivedMessageInfo.key(for: snode, publicKey: publicKey, namespace: namespace)
+        self.key = SnodeReceivedMessageInfo.key(for: snode, swarmPublicKey: swarmPublicKey, namespace: namespace)
         self.hash = hash
         self.expirationDateMs = (expirationDateMs ?? 0)
     }
@@ -68,14 +68,14 @@ public extension SnodeReceivedMessageInfo {
     /// Delete any expired SnodeReceivedMessageInfo values associated to a specific node
     static func pruneExpiredMessageHashInfo(
         _ db: Database,
-        for snode: Snode,
+        for snode: LibSession.Snode,
         namespace: SnodeAPI.Namespace,
-        associatedWith publicKey: String,
+        swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws {
         let rowIds: [Int64] = try SnodeReceivedMessageInfo
             .select(Column.rowID)
-            .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, publicKey: publicKey, namespace: namespace))
+            .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, swarmPublicKey: swarmPublicKey, namespace: namespace))
             .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs <= SnodeAPI.currentOffsetTimestampMs(using: dependencies))
             .asRequest(of: Int64.self)
             .fetchAll(db)
@@ -91,9 +91,9 @@ public extension SnodeReceivedMessageInfo {
     /// This method fetches the last non-expired hash from the database for message retrieval
     static func fetchLastNotExpired(
         _ db: Database,
-        for snode: Snode,
+        for snode: LibSession.Snode,
         namespace: SnodeAPI.Namespace,
-        associatedWith publicKey: String,
+        swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> SnodeReceivedMessageInfo? {
         return try SnodeReceivedMessageInfo
@@ -101,7 +101,7 @@ public extension SnodeReceivedMessageInfo {
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == nil ||
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == false
             )
-            .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, publicKey: publicKey, namespace: namespace))
+            .filter(SnodeReceivedMessageInfo.Columns.key == key(for: snode, swarmPublicKey: swarmPublicKey, namespace: namespace))
             .filter(SnodeReceivedMessageInfo.Columns.expirationDateMs > SnodeAPI.currentOffsetTimestampMs())
             .order(Column.rowID.desc)
             .fetchOne(db)

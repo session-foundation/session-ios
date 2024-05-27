@@ -80,10 +80,10 @@ fileprivate struct GroupAuthData: Codable, FetchableRecord {
 public extension Authentication {
     static func with(
         _ db: Database,
-        sessionIdHexString: String,
+        swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> AuthenticationMethod {
-        switch try? SessionId(from: sessionIdHexString) {
+        switch try? SessionId(from: swarmPublicKey) {
             case .some(let sessionId) where sessionId.prefix == .standard:
                 guard let keyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies) else {
                     throw SnodeAPIError.noKeyPair
@@ -93,7 +93,7 @@ public extension Authentication {
                 
             case .some(let sessionId) where sessionId.prefix == .group:
                 let authData: GroupAuthData? = try? ClosedGroup
-                    .filter(id: sessionIdHexString)
+                    .filter(id: swarmPublicKey)
                     .select(.authData, .groupIdentityPrivateKey)
                     .asRequest(of: GroupAuthData.self)
                     .fetchOne(db)

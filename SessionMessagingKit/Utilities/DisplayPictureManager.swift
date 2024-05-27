@@ -26,7 +26,7 @@ public struct DisplayPictureManager {
     private static let scheduleDownloadsTrigger: PassthroughSubject<(), Never> = PassthroughSubject()
     
     public static func isTooLong(profileUrl: String) -> Bool {
-        return (profileUrl.utf8CString.count > SessionUtil.sizeMaxProfileUrlBytes)
+        return (profileUrl.utf8CString.count > LibSession.sizeMaxProfileUrlBytes)
     }
     
     public static func sharedDataDisplayPictureDirPath(using dependencies: Dependencies) -> String {
@@ -43,7 +43,7 @@ public struct DisplayPictureManager {
     public static func displayPicture(
         _ db: Database,
         id: OwnerId,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Data? {
         let maybeOwner: Owner? = {
             switch id {
@@ -60,7 +60,7 @@ public struct DisplayPictureManager {
     
     @discardableResult public static func displayPicture(
         owner: Owner,
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) -> Data? {
         switch (owner.fileName, owner.canDownloadImage) {
             case (.some(let fileName), _):
@@ -329,7 +329,7 @@ public struct DisplayPictureManager {
                             case .failure(let error):
                                 SNLog("Updating service with profile failed.")
                                 
-                                let isMaxFileSizeExceeded: Bool = ((error as? HTTPError) == .maxFileSizeExceeded)
+                                let isMaxFileSizeExceeded: Bool = ((error as? NetworkError) == .maxFileSizeExceeded)
                                 failure?(isMaxFileSizeExceeded ? .uploadMaxFileSizeExceeded : .uploadFailed)
                         }
                     },

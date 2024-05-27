@@ -15,7 +15,7 @@ public enum MessageReceiver {
         origin: Message.Origin,
         using dependencies: Dependencies
     ) throws -> ProcessedMessage {
-        let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
+        let userSessionId: String = getUserHexEncodedPublicKey(db, using: dependencies)
         var plaintext: Data
         var customProto: SNProtoContent? = nil
         var customMessage: Message? = nil
@@ -205,7 +205,7 @@ public enum MessageReceiver {
         message.recipient = userSessionId.hexString
         message.serverHash = origin.serverHash
         message.sentTimestamp = sentTimestamp
-        message.receivedTimestamp = UInt64(SnodeAPI.currentOffsetTimestampMs(using: dependencies))
+        message.receivedTimestamp = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         message.openGroupServerMessageId = openGroupServerMessageId
         message.attachDisappearingMessagesConfiguration(from: proto)
         
@@ -217,6 +217,11 @@ public enum MessageReceiver {
         // Ignore self sends if needed
         guard message.isSelfSendValid || sender != userSessionId.hexString else {
             throw MessageReceiverError.selfSend
+        }
+        
+        // Guard against control messages in open groups
+        guard !origin.isCommunity || message is VisibleMessage else {
+            throw MessageReceiverError.invalidMessage
         }
         
         // Validate
@@ -256,7 +261,7 @@ public enum MessageReceiver {
         // the config then the message will be dropped)
         guard
             !Message.requiresExistingConversation(message: message, threadVariant: threadVariant) ||
-            SessionUtil.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false, using: dependencies)
+            LibSession.conversationInConfig(db, threadId: threadId, threadVariant: threadVariant, visibleOnly: false, using: dependencies)
         else { throw MessageReceiverError.requiredThreadNotInConfig }
         
         // Throw if the message is outdated and shouldn't be processed
@@ -380,7 +385,7 @@ public enum MessageReceiver {
                     associatedWithProto: proto,
                     using: dependencies
                 )
-                
+            
             case let message as LibSessionMessage:
                 try MessageReceiver.handleLibSessionMessage(
                     db,
@@ -389,7 +394,7 @@ public enum MessageReceiver {
                     message: message,
                     using: dependencies
                 )
-                
+            
             default: throw MessageReceiverError.unknownMessage
         }
         
@@ -443,11 +448,16 @@ public enum MessageReceiver {
         
         // Start the disappearing messages timer if needed
         // For disappear after send, this is necessary so the message will disappear even if it is not read
-        dependencies[singleton: .jobRunner].upsert(
-            db,
-            job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
-            canStartJob: true,
-            using: dependencies
+        db.afterNextTransactionNestedOnce(
+            dedupeId: "PostInsertDisappearingMessagesJob",  // stringlint:disable
+            onCommit: { db in
+                dependencies[singleton: .jobRunner].upsert(
+                    db,
+                    job: DisappearingMessagesJob.updateNextRunIfNeeded(db),
+                    canStartJob: true,
+                    using: dependencies
+                )
+            }
         )
         
         // Only check the current visibility state if we should become visible for this message type
@@ -469,7 +479,7 @@ public enum MessageReceiver {
             .updateAllAndConfig(
                 db,
                 SessionThread.Columns.shouldBeVisible.set(to: true),
-                SessionThread.Columns.pinnedPriority.set(to: SessionUtil.visiblePriority),
+                SessionThread.Columns.pinnedPriority.set(to: LibSession.visiblePriority),
                 calledFromConfig: nil,
                 using: dependencies
             )
@@ -515,14 +525,14 @@ public enum MessageReceiver {
         
         // Determine the state of the conversation and the validity of the message
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
-        let conversationVisibleInConfig: Bool = SessionUtil.conversationInConfig(
+        let conversationVisibleInConfig: Bool = LibSession.conversationInConfig(
             db,
             threadId: threadId,
             threadVariant: threadVariant,
             visibleOnly: true,
             using: dependencies
         )
-        let canPerformChange: Bool = SessionUtil.canPerformChange(
+        let canPerformChange: Bool = LibSession.canPerformChange(
             db,
             threadId: threadId,
             targetConfig: {
@@ -536,7 +546,7 @@ public enum MessageReceiver {
         let conversationIsDestroyed: Bool = {
             guard threadVariant == .group else { return false }
             
-            return SessionUtil.groupIsDestroyed(
+            return LibSession.groupIsDestroyed(
                 groupSessionId: SessionId(.group, hex: threadId),
                 using: dependencies
             )

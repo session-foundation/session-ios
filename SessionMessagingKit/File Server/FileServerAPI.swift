@@ -23,8 +23,8 @@ public enum FileServerAPI {
     
     public static func preparedUpload(
         _ file: Data,
-        using dependencies: Dependencies = Dependencies()
-    ) throws -> HTTP.PreparedRequest<FileUploadResponse> {
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<FileUploadResponse> {
         return try prepareRequest(
             request: Request(
                 method: .post,
@@ -46,8 +46,8 @@ public enum FileServerAPI {
     public static func preparedDownload(
         fileId: String,
         useOldServer: Bool,
-        using dependencies: Dependencies = Dependencies()
-    ) throws -> HTTP.PreparedRequest<Data> {
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<Data> {
         return try prepareRequest(
             request: Request<NoBody, Endpoint>(
                 server: (useOldServer ? oldServer : server),
@@ -62,8 +62,8 @@ public enum FileServerAPI {
 
     public static func preparedGetVersion(
         _ platform: String,
-        using dependencies: Dependencies = Dependencies()
-    ) throws -> HTTP.PreparedRequest<String> {
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<String> {
         return try prepareRequest(
             request: Request<NoBody, Endpoint>(
                 server: server,
@@ -74,7 +74,7 @@ public enum FileServerAPI {
                 x25519PublicKey: serverPublicKey
             ),
             responseType: VersionResponse.self,
-            timeout: HTTP.defaultTimeout,
+            timeout: Network.defaultTimeout,
             using: dependencies
         )
         .map { _, response in response.version }
@@ -88,8 +88,8 @@ public enum FileServerAPI {
         retryCount: Int = 0,
         timeout: TimeInterval,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<R> {
-        return HTTP.PreparedRequest<R>(
+    ) throws -> Network.PreparedRequest<R> {
+        return Network.PreparedRequest<R>(
             request: request,
             urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,

@@ -340,7 +340,7 @@ public extension SessionThread {
                     .filter(ids: remainingThreadIds)
                     .updateAllAndConfig(
                         db,
-                        SessionThread.Columns.pinnedPriority.set(to: SessionUtil.hiddenPriority),
+                        SessionThread.Columns.pinnedPriority.set(to: LibSession.hiddenPriority),
                         SessionThread.Columns.shouldBeVisible.set(to: false),
                         calledFromConfig: configTriggeringChange,
                         using: dependencies
@@ -349,7 +349,7 @@ public extension SessionThread {
             case (.contact, .forced):
                 // If this wasn't called from config handling then we need to hide the conversation
                 if configTriggeringChange != .contacts {
-                    try SessionUtil
+                    try LibSession
                         .hide(db, contactIds: threadIds, using: dependencies)
                 }
                 

@@ -101,11 +101,11 @@ extension AnyPublisher: MockedGeneric where Failure == Error {
     }
 }
 
-extension HTTP.BatchSubResponse: MockedGeneric where T: Mocked {
+extension Network.BatchSubResponse: MockedGeneric where T: Mocked {
     typealias Generic = T
     
-    static func mock(type: Generic.Type) -> HTTP.BatchSubResponse<Generic> {
-        return HTTP.BatchSubResponse(
+    static func mockValue(type: Generic.Type) -> Network.BatchSubResponse<Generic> {
+        return Network.BatchSubResponse(
             code: 200,
             headers: [:],
             body: Generic.mock,
@@ -114,9 +114,9 @@ extension HTTP.BatchSubResponse: MockedGeneric where T: Mocked {
     }
 }
 
-extension HTTP.BatchSubResponse {
-    static func mockArray<M: Mocked>(type: M.Type) -> HTTP.BatchSubResponse<Array<M>> {
-        return HTTP.BatchSubResponse(
+extension Network.BatchSubResponse {
+    static func mockArrayValue<M: Mocked>(type: M.Type) -> Network.BatchSubResponse<Array<M>> {
+        return Network.BatchSubResponse(
             code: 200,
             headers: [:],
             body: [M.mock],

@@ -170,8 +170,8 @@ final class NukeDataModal: Modal {
     
     private func clearEntireAccount(presentedViewController: UIViewController) {
         typealias PreparedClearRequests = (
-            deleteAll: HTTP.PreparedRequest<[String: Bool]>,
-            inboxRequestInfo: [HTTP.PreparedRequest<String>]
+            deleteAll: Network.PreparedRequest<[String: Bool]>,
+            inboxRequestInfo: [Network.PreparedRequest<String>]
         )
         
         ModalActivityIndicatorViewController
@@ -201,7 +201,7 @@ final class NukeDataModal: Modal {
                         )
                     }
                     .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .flatMap { preparedRequests -> AnyPublisher<(HTTP.PreparedRequest<[String: Bool]>, [String]), Error> in
+                    .flatMap { preparedRequests -> AnyPublisher<(Network.PreparedRequest<[String: Bool]>, [String]), Error> in
                         Publishers
                             .MergeMany(preparedRequests.inboxRequestInfo.map { $0.send(using: dependencies) })
                             .collect()
@@ -301,7 +301,7 @@ final class NukeDataModal: Modal {
         }
         
         // Clear the Snode pool
-        SnodeAPI.clearSnodePool(using: dependencies)
+        LibSession.clearSnodeCache()
         
         // Stop any pollers
         (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()

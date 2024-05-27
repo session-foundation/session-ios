@@ -16,6 +16,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
     private var openGroupPollCancellable: AnyCancellable?
+    private var fileLogger: DDFileLogger?
 
     public static let isFromRemoteKey = "remote"    // stringlint:disable
     public static let threadIdKey = "Signal.AppNotificationsUserInfoKey.threadId"    // stringlint:disable
@@ -85,17 +86,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case .success, .legacySuccess, .failure, .legacyFailure:
                         return self.handleFailure(for: notificationContent, error: .processing(result), using: dependencies)
                         
+                    // Just log if the notification was too long (a ~2k message should be able to fit so
+                    // these will most commonly be call or config messages)
                     case .successTooLong:
-                        /// If the notification is too long and there is an ongoing call or a recent call pre-offer then we assume the notification
-                        /// is a call `ICE_CANDIDATES` message and just complete silently (because the fallback would be annoying), if not
-                        /// then we do want to show the fallback notification
-                        guard
-                            isCallOngoing ||
-                            (lastCallPreOffer ?? Date.distantPast).timeIntervalSinceNow < NotificationServiceExtension.callPreOfferLargeNotificationSupressionDuration
-                        else { return self.handleFailure(for: notificationContent, error: .processing(result), using: dependencies) }
-                        
-                        NSLog("[NotificationServiceExtension] Suppressing large notification too close to a call.")
-                        return
+                        return SNLog("[NotificationServiceExtension] Received too long notification for namespace: \(metadata.namespace).", forceNSLog: true)
                         
                     case .legacyForceSilent, .failureNoContent: return
                 }
@@ -113,10 +107,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     
                     switch processedMessage {
                         /// Custom handle config messages (as they don't get handled by the normal `MessageReceiver.handle` call
-                        case .config(let publicKey, let namespace, let serverHash, let serverTimestampMs, let data):
-                            try SessionUtil.handleConfigMessages(
+                        case .config(let swarmPublicKey, let namespace, let serverHash, let serverTimestampMs, let data):
+                            try LibSession.handleConfigMessages(
                                 db,
-                                sessionIdHexString: publicKey,
                                 messages: [
                                     ConfigMessageReceiveJob.Details.MessageInfo(
                                         namespace: namespace,
@@ -124,9 +117,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                         serverTimestampMs: serverTimestampMs,
                                         data: data
                                     )
-                                ]
+                                ],
+                                swarmPublicKey: swarmPublicKey
                             )
-                            
+                        
                         /// Due to the way the `CallMessage` works we need to custom handle it's behaviour within the notification
                         /// extension, for all other message types we want to just use the standard `MessageReceiver.handle` call
                         case .standard(let threadId, let threadVariant, _, let messageInfo) where messageInfo.message is CallMessage:
@@ -242,7 +236,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // to process new messages.
         guard !didPerformSetup else { return }
 
-        NSLog("[NotificationServiceExtension] Performing setup")
+        SNLog("[NotificationServiceExtension] Performing setup", forceNSLog: true)
         didPerformSetup = true
 
         AppVersion.configure(using: dependencies)
@@ -250,15 +244,25 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         AppSetup.setupEnvironment(
             retrySetupIfDatabaseInvalid: true,
-            appSpecificBlock: {
+            appSpecificBlock: { [weak self] in
                 /// The `NotificationServiceExtension` needs custom behaviours for it's notification presenter so set it up here
                 dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter())
+                
+                // Add the file logger
+                let logFileManager: DDLogFileManagerDefault = DDLogFileManagerDefault(
+                    logsDirectory: "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/NotificationExtension" // stringlint:disable
+                )
+                let fileLogger: DDFileLogger = DDFileLogger(logFileManager: logFileManager)
+                fileLogger.rollingFrequency = kDayInterval // Refresh everyday
+                fileLogger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
+                DDLog.add(fileLogger)
+                self?.fileLogger = fileLogger
             },
             migrationsCompletion: { [weak self] result, needsConfigSync in
                 switch result {
                     // Only 'NSLog' works in the extension - viewable via Console.app
                     case .failure(let error):
-                        NSLog("[NotificationServiceExtension] Failed to complete migrations: \(error)")
+                        SNLog("[NotificationServiceExtension] Failed to complete migrations: \(error)", forceNSLog: true)
                         self?.completeSilenty(using: dependencies)
                         
                     case .success:
@@ -268,7 +272,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         // so it is possible that could change in the future. If it does, do nothing
                         // and don't disturb the user. Messages will be processed when they open the app.
                         guard dependencies[singleton: .storage, key: .isReadyForAppExtensions] else {
-                            NSLog("[NotificationServiceExtension] Not ready for extensions")
+                            SNLog("[NotificationServiceExtension] Not ready for extensions", forceNSLog: true)
                             self?.completeSilenty(using: dependencies)
                             return
                         }
@@ -318,7 +322,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard dependencies[singleton: .storage].isValid && migrationsCompleted else {
-            NSLog("[NotificationServiceExtension] Storage invalid")
+            SNLog("[NotificationServiceExtension] Storage invalid", forceNSLog: true)
             self.completeSilenty(using: dependencies)
             return
         }
@@ -337,19 +341,21 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         // Called just before the extension will be terminated by the system.
         // Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
-        NSLog("[NotificationServiceExtension] Execution time expired")
+        SNLog("[NotificationServiceExtension] Execution time expired", forceNSLog: true)
         openGroupPollCancellable?.cancel()
         completeSilenty(using: dependencies)
     }
     
     private func completeSilenty(using dependencies: Dependencies) {
-        NSLog("[NotificationServiceExtension] Complete silently")
+        SNLog("[NotificationServiceExtension] Complete silently", forceNSLog: true)
+        DDLog.flushLog()
         let silentContent: UNMutableNotificationContent = UNMutableNotificationContent()
         silentContent.badge = dependencies[singleton: .storage]
             .read { db in try Interaction.fetchUnreadCount(db, using: dependencies) }
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         Storage.suspendDatabaseAccess(using: dependencies)
+        LibSession.closeNetworkConnections()
         
         self.contentHandler!(silentContent)
     }
@@ -371,10 +377,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             CXProvider.reportNewIncomingVoIPPushPayload(payload) { error in
                 if let error = error {
                     self.handleFailureForVoIP(db, for: callMessage)
-                    NSLog("[NotificationServiceExtension] Failed to notify main app of call message: \(error)")
+                    SNLog("[NotificationServiceExtension] Failed to notify main app of call message: \(error)", forceNSLog: true)
                 }
                 else {
-                    NSLog("[NotificationServiceExtension] Successfully notified main app of call message.")
+                    SNLog("[NotificationServiceExtension] Successfully notified main app of call message.", forceNSLog: true)
                     dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
                     self.completeSilenty(using: dependencies)
                 }
@@ -407,17 +413,20 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                NSLog("[NotificationServiceExtension] Failed to add notification request due to error: \(error)")
+                SNLog("[NotificationServiceExtension] Failed to add notification request due to error: \(error)", forceNSLog: true)
             }
             semaphore.signal()
         }
         semaphore.wait()
-        NSLog("[NotificationServiceExtension] Add remote notification request")
+        SNLog("[NotificationServiceExtension] Add remote notification request", forceNSLog: true)
+        DDLog.flushLog()
     }
 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError, using dependencies: Dependencies) {
-        NSLog("[NotificationServiceExtension] Show generic failure message due to error: \(error)")
+        SNLog("[NotificationServiceExtension] Show generic failure message due to error: \(error)", forceNSLog: true)
+        DDLog.flushLog()
         Storage.suspendDatabaseAccess(using: dependencies)
+        LibSession.closeNetworkConnections()
         
         content.title = "Session"
         content.body = "APN_Message".localized()

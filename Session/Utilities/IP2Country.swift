@@ -1,15 +1,17 @@
+// Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
+
 import Foundation
 import GRDB
 import SessionSnodeKit
 import SessionUtilitiesKit
 
-final class IP2Country: Hashable {
-    static var isInitialized: Bool = false
-    static let shared: IP2Country = IP2Country()
-    
-    private let instanceIdentifier: UUID = UUID()
-    private let dependencies: Dependencies
-    public var countryNamesCache: Atomic<[String: String]> = Atomic([:])
+public enum IP2Country {
+    public static var isInitialized: Atomic<Bool> = Atomic(false)
+    public static var countryNamesCache: Atomic<[String: String]> = Atomic([:])
+    private static var cacheLoadedCallbacks: Atomic<[UUID: () -> ()]> = Atomic([:])
+    private static var pathsChangedCallbackId: Atomic<UUID?> = Atomic(nil)
     
     // MARK: - Tables
     /// This table has two columns: the "network" column and the "registered_country_geoname_id" column. The network column contains
@@ -33,29 +35,53 @@ final class IP2Country: Hashable {
         let data = try! Data(contentsOf: url)
         return try! NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as! [String: [String]]
     }()
-
-    // MARK: - Initialization
-
-    private init(using dependencies: Dependencies = Dependencies()) {
-        self.dependencies = dependencies
-        
-        dependencies.addFeatureObserver(self, for: .networkLayers, events: [.pathsBuilt]) { [weak self] _, _ in
-            self?.populateCacheIfNeededAsync()
-        }
-    }
-
-    deinit {
-        dependencies.removeFeatureObserver(self)
-    }
     
     // MARK: - Implementation
     
-    @discardableResult private func cacheCountry(for ip: String, inCache cache: inout [String: String]) -> String {
-        if let result: String = cache[ip] { return result }
+    static func onCacheLoaded(callback: @escaping () -> ()) -> UUID {
+        let id: UUID = UUID()
+        cacheLoadedCallbacks.mutate { $0[id] = callback }
+        return id
+    }
+    
+    static func removeCacheLoadedCallback(id: UUID?) {
+        guard let id: UUID = id else { return }
         
-        let ipAsInt: Int = IPv4.toInt(ip)
+        cacheLoadedCallbacks.mutate { $0.removeValue(forKey: id) }
+    }
+
+    static func populateCacheIfNeededAsync() {
+        DispatchQueue.global(qos: .utility).async {
+            pathsChangedCallbackId.mutate { pathsChangedCallbackId in
+                guard pathsChangedCallbackId == nil else { return }
+                
+                pathsChangedCallbackId = LibSession.onPathsChanged(callback: { paths, _ in
+                    self.populateCacheIfNeeded(paths: paths)
+                })
+            }
+        }
+    }
+
+    private static func populateCacheIfNeeded(paths: [Set<LibSession.Snode>]) {
+        guard !paths.isEmpty else { return }
+        
+        countryNamesCache.mutate { cache in
+            paths.forEach { path in
+                path.forEach { snode in
+                    self.cacheCountry(for: snode.ip, inCache: &cache)
+                }
+            }
+        }
+        
+        isInitialized.mutate { $0 = true }
+        SNLog("Updated onion request path countries.")
+    }
+    
+    private static func cacheCountry(for ip: String, inCache cache: inout [String: String]) {
+        guard cache[ip] == nil || cache[ip] == "Unknown Country" else { return }
         
         guard
+            let ipAsInt: Int = IPv4.toInt(ip),
             let ipv4TableIndex: Int = ipv4Table["network"]?                                     // stringlint:disable
                 .firstIndex(where: { $0 > ipAsInt })
                 .map({ $0 - 1 }),
@@ -64,34 +90,11 @@ final class IP2Country: Hashable {
                 .firstIndex(of: String(countryID)),
             let result: String = countryNamesTable["country_name"]?[countryNamesTableIndex]     // stringlint:disable
         else {
-            return "Unknown Country" // Relies on the array being sorted
+            cache[ip] = "Unknown Country" // Relies on the array being sorted
+            return
         }
         
         cache[ip] = result
-        return result
-    }
-
-    @objc func populateCacheIfNeededAsync() {
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            self?.populateCacheIfNeeded()
-        }
-    }
-
-    @discardableResult func populateCacheIfNeeded(using dependencies: Dependencies = Dependencies()) -> Bool {
-        guard let pathToDisplay: [Snode] = dependencies[cache: .onionRequestAPI].paths.first else { return false }
-        
-        countryNamesCache.mutate { [weak self] cache in
-            pathToDisplay.forEach { snode in
-                self?.cacheCountry(for: snode.ip, inCache: &cache) // Preload if needed
-            }
-        }
-        
-        DispatchQueue.main.async {
-            IP2Country.isInitialized = true
-            dependencies.notifyObservers(for: .networkLayers, with: .onionRequestPathCountriesLoaded)
-        }
-        SNLog("Finished preloading onion request path countries.")
-        return true
     }
     
     // MARK: - Conformance

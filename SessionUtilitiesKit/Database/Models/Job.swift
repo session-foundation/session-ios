@@ -5,6 +5,10 @@
 import Foundation
 import GRDB
 
+public protocol UniqueHashable {
+    var customHash: Int { get }
+}
+
 public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "job" }
     internal static let dependencyForeignKey = ForeignKey([Columns.id], to: [JobDependencies.Columns.dependantId])
@@ -44,19 +48,18 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     }
     
     public enum Variant: Int, Codable, DatabaseValueConvertible, CaseIterable {
+        // Deprecated Jobs
+        case _legacy_getSnodePool = 1
+        case _legacy_buildPaths = 3009
+        case _legacy_getSwarm = 3010
+        
         /// This is a recurring job that handles the removal of disappearing messages and is triggered
         /// at the timestamp of the next disappearing message
-        case disappearingMessages
-        
-        /// This is a recurring job that ensures the app retrieves a service node pool on become active
-        ///
-        /// **Note:** This is a blocking job so it will run before any other jobs and prevent them from
-        /// running until it's complete
-        case getSnodePool
+        case disappearingMessages = 0
         
         /// This is a recurring job that checks if the user needs to update their profile picture on launch, and if so
         /// attempt to download the latest
-        case updateProfilePicture
+        case updateProfilePicture = 2
         
         /// This is a recurring job that ensures the app fetches the default open group rooms on launch
         case retrieveDefaultOpenGroupRooms
@@ -131,7 +134,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// This is a job which downloads a display picture for a user, group or community (it's separate from the
         /// `attachmentDownloadJob` as these files are likely to be much smaller so we don't want them to be
         /// blocked by larger attachment downloads
-        case displayPictureDownload
+        case displayPictureDownload = 3011
         
         /// This is a job which sends an invitation to a member of a group asynchronously so the admin doesn't need to
         /// wait during group creation
@@ -283,6 +286,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         self.details = details
         self.uniqueHashValue = Job.createUniqueHash(
             shouldBeUnique: shouldBeUnique,
+            customHash: nil,
             variant: variant,
             threadId: threadId,
             interactionId: interactionId,
@@ -320,6 +324,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         self.details = nil
         self.uniqueHashValue = Job.createUniqueHash(
             shouldBeUnique: shouldBeUnique,
+            customHash: nil,
             variant: variant,
             threadId: threadId,
             interactionId: interactionId,
@@ -366,6 +371,7 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         self.details = detailsData
         self.uniqueHashValue = Job.createUniqueHash(
             shouldBeUnique: shouldBeUnique,
+            customHash: (details as? UniqueHashable)?.customHash,
             variant: variant,
             threadId: threadId,
             interactionId: interactionId,
@@ -380,14 +386,35 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
     ) {
         // Blocking jobs can only run on launch as we can't guarantee that any other behaviours will get added
         // to the JobRunner before any prior blocking jobs have completed (resulting in them being non-blocking)
-        precondition(
-            !shouldBlock || behaviour == .recurringOnLaunch || behaviour == .runOnceNextLaunch,
-            "[Job] Fatal error trying to create a blocking job which doesn't run on launch"
-        )
-        precondition(
-            !shouldSkipLaunchBecomeActive || behaviour == .recurringOnActive,
-            "[Job] Fatal error trying to create a job which skips on 'OnActive' triggered during launch with doesn't run on active"
-        )
+        let blockingValid: Bool = (!shouldBlock || behaviour == .recurringOnLaunch || behaviour == .runOnceNextLaunch)
+        let becomeActiveValid: Bool = (!shouldSkipLaunchBecomeActive || behaviour == .recurringOnActive)
+        precondition(blockingValid, "[Job] Fatal error trying to create a blocking job which doesn't run on launch")
+        precondition(becomeActiveValid, "[Job] Fatal error trying to create a job which skips on 'OnActive' triggered during launch with doesn't run on active")
+    }
+    
+    private static func createUniqueHash(
+        shouldBeUnique: Bool,
+        customHash: Int?,
+        variant: Variant,
+        threadId: String?,
+        interactionId: Int64?,
+        detailsData: Data?
+    ) -> Int? {
+        // Only generate a unique hash if the Job should actually be unique (we don't want to prevent
+        // all duplicate jobs, just the ones explicitly marked as unique)
+        guard shouldBeUnique else { return nil }
+        
+        switch customHash {
+            case .some(let customHash): return customHash
+            default:
+                var hasher: Hasher = Hasher()
+                variant.hash(into: &hasher)
+                threadId?.hash(into: &hasher)
+                interactionId?.hash(into: &hasher)
+                detailsData?.hash(into: &hasher)
+                
+                return hasher.finalize()
+        }
     }
     
     private static func createUniqueHash(

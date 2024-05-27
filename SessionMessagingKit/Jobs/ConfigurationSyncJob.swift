@@ -54,11 +54,9 @@ public enum ConfigurationSyncJob: JobExecutor {
         // as the user doesn't exist yet (this will get triggered on the first launch of a
         // fresh install due to the migrations getting run)
         guard
-            let sessionIdHexString: String = job.threadId,
-            let pendingConfigChanges: [SessionUtil.PushData] = dependencies[singleton: .storage]
-                .read(using: dependencies, { db in
-                    try SessionUtil.pendingChanges(db, sessionIdHexString: sessionIdHexString, using: dependencies)
-                })
+            let swarmPublicKey: String = job.threadId,
+            let pendingChanges: LibSession.PendingChanges = dependencies[singleton: .storage]
+                .read(using: dependencies, { db in try LibSession.pendingChanges(db, publicKey: publicKey) })
         else {
             SNLog("[ConfigurationSyncJob] For \(job.threadId ?? "UnknownId") failed due to invalid data")
             return failure(job, StorageError.generic, false, dependencies)
@@ -66,20 +64,15 @@ public enum ConfigurationSyncJob: JobExecutor {
         
         // If there are no pending changes then the job can just complete (next time something
         // is updated we want to try and run immediately so don't scuedule another run in this case)
-        guard !pendingConfigChanges.isEmpty else {
-            SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) completed with no pending changes")
+        guard !pendingChanges.pushData.isEmpty || !pendingChanges.obsoleteHashes.isEmpty else {
+            SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) completed with no pending changes")
             return success(job, true, dependencies)
         }
         
-        // Merge all obsolete hashes into a single set
-        let allObsoleteHashes: Set<String>? = pendingConfigChanges
-            .map { $0.obsoleteHashes }
-            .reduce([], +)
-            .nullIfEmpty()?
-            .asSet()
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
-        SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) started with \(pendingConfigChanges.count) change\(plural: pendingConfigChanges.count)")
+        let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs()
+        SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) started with \(pendingChanges.pushData.count) change\( plural: pendingChanges.pushData.count), \(pendingChanges.obsoleteHashes.count) old hash\(pluralES: pendingChanges.obsoleteHashes.count)")
+        
         // TODO: Seems like the conversatino list will randomly not get the last message (Lokinet updates???)
         dependencies[singleton: .storage]
             .readPublisher { db -> HTTP.PreparedRequest<HTTP.BatchResponse> in
@@ -89,7 +82,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             try SnodeAPI
                                 .preparedSendMessage(
                                     message: SnodeMessage(
-                                        recipient: sessionIdHexString,
+                                        recipient: swarmPublicKey,
                                         data: pushData.data.base64EncodedString(),
                                         ttl: pushData.variant.ttl,
                                         timestampMs: UInt64(messageSendTimestamp)
@@ -97,44 +90,44 @@ public enum ConfigurationSyncJob: JobExecutor {
                                     in: pushData.variant.namespace,
                                     authMethod: try Authentication.with(
                                         db,
-                                        sessionIdHexString: sessionIdHexString,
+                                        swarmPublicKey: swarmPublicKey,
                                         using: dependencies
                                     ),
                                     using: dependencies
                                 )
                         }
-                        .appending(
-                            try allObsoleteHashes.map { serverHashes -> ErasedPreparedRequest in
-                                try SnodeAPI.preparedDeleteMessages(
-                                    serverHashes: Array(serverHashes),
-                                    requireSuccessfulDeletion: false,
-                                    authMethod: try Authentication.with(
-                                        db,
-                                        sessionIdHexString: sessionIdHexString,
-                                        using: dependencies
-                                    ),
+                        .appending(try {
+                            guard !pendingChanges.obsoleteHashes.isEmpty else { return nil }
+                            
+                            return try SnodeAPI.preparedDeleteMessages(
+                                serverHashes: Array(pendingChanges.obsoleteHashes),
+                                requireSuccessfulDeletion: false,
+                                authMethod: try Authentication.with(
+                                    db,
+                                    swarmPublicKey: swarmPublicKey,
                                     using: dependencies
-                                )
-                            }
-                        ),
+                                ),
+                                using: dependencies
+                            )
+                        }()),
                     requireAllBatchResponses: false,
-                    associatedWith: sessionIdHexString,
+                    swarmPublicKey: swarmPublicKey,
                     using: dependencies
                 )
             }
             .flatMap { $0.send(using: dependencies) }
             .subscribe(on: queue, using: dependencies)
             .receive(on: queue, using: dependencies)
-            .map { (_: ResponseInfoType, response: HTTP.BatchResponse) -> [ConfigDump] in
+            .map { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
                 /// The number of responses returned might not match the number of changes sent but they will be returned
                 /// in the same order, this means we can just `zip` the two arrays as it will take the smaller of the two and
                 /// correctly align the response to the change
-                zip(response, pendingConfigChanges)
-                    .compactMap { (subResponse: Any, pushData: SessionUtil.PushData) -> ConfigDump? in
+                zip(response, pendingChanges.pushData)
+                    .compactMap { (subResponse: Any, pushData: LibSession.PendingChanges.PushData) in
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
-                            let typedResponse: HTTP.BatchSubResponse<SendMessagesResponse> = (subResponse as? HTTP.BatchSubResponse<SendMessagesResponse>),
+                            let typedResponse: Network.BatchSubResponse<SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<SendMessagesResponse>),
                             200...299 ~= typedResponse.code,
                             !typedResponse.failedToParseBody,
                             let sendMessageResponse: SendMessagesResponse = typedResponse.body
@@ -142,12 +135,12 @@ public enum ConfigurationSyncJob: JobExecutor {
                         
                         /// Since this change was successful we need to mark it as pushed and generate any config dumps
                         /// which need to be stored
-                        return SessionUtil.markingAsPushed(
+                        return LibSession.markingAsPushed(
                             seqNo: pushData.seqNo,
                             serverHash: sendMessageResponse.hash,
                             sentTimestamp: messageSendTimestamp,
                             variant: pushData.variant,
-                            sessionIdHexString: sessionIdHexString,
+                            swarmPublicKey: swarmPublicKey,
                             using: dependencies
                         )
                     }
@@ -155,9 +148,9 @@ public enum ConfigurationSyncJob: JobExecutor {
             .sinkUntilComplete(
                 receiveCompletion: { result in
                     switch result {
-                        case .finished: SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) completed")
+                        case .finished: SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) completed")
                         case .failure(let error):
-                            SNLog("[ConfigurationSyncJob] For \(sessionIdHexString) failed due to error: \(error)")
+                            SNLog("[ConfigurationSyncJob] For \(swarmPublicKey) failed due to error: \(error)")
                             failure(job, error, false, dependencies)
                     }
                 },
@@ -181,7 +174,7 @@ public enum ConfigurationSyncJob: JobExecutor {
                             let existingJob: Job = try? Job
                                 .filter(Job.Columns.id != job.id)
                                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
-                                .filter(Job.Columns.threadId == sessionIdHexString)
+                                .filter(Job.Columns.threadId == swarmPublicKey)
                                 .order(Job.Columns.nextRunTimestamp.asc)
                                 .fetchOne(db)
                         {
@@ -233,13 +226,13 @@ extension ConfigurationSyncJob {
 public extension ConfigurationSyncJob {
     static func enqueue(
         _ db: Database,
-        sessionIdHexString: String,
-        using dependencies: Dependencies = Dependencies()
+        swarmPublicKey: String,
+        using dependencies: Dependencies
     ) {
         // Upsert a config sync job if needed
         dependencies[singleton: .jobRunner].upsert(
             db,
-            job: ConfigurationSyncJob.createIfNeeded(db, sessionIdHexString: sessionIdHexString, using: dependencies),
+            job: ConfigurationSyncJob.createIfNeeded(db, swarmPublicKey: swarmPublicKey, using: dependencies),
             canStartJob: true,
             using: dependencies
         )
@@ -247,8 +240,8 @@ public extension ConfigurationSyncJob {
     
     @discardableResult static func createIfNeeded(
         _ db: Database,
-        sessionIdHexString: String,
-        using dependencies: Dependencies = Dependencies()
+        swarmPublicKey: String,
+        using dependencies: Dependencies
     ) -> Job? {
         /// The ConfigurationSyncJob will automatically reschedule itself to run again after 3 seconds so if there is an existing
         /// job then there is no need to create another instance
@@ -257,11 +250,11 @@ public extension ConfigurationSyncJob {
         guard
             dependencies[singleton: .jobRunner]
                 .jobInfoFor(state: .running, variant: .configurationSync)
-                .filter({ _, info in info.threadId == sessionIdHexString })
+                .filter({ _, info in info.threadId == swarmPublicKey })
                 .isEmpty,
             (try? Job
                 .filter(Job.Columns.variant == Job.Variant.configurationSync)
-                .filter(Job.Columns.threadId == sessionIdHexString)
+                .filter(Job.Columns.threadId == swarmPublicKey)
                 .isEmpty(db))
                 .defaulting(to: false)
         else { return nil }
@@ -270,7 +263,7 @@ public extension ConfigurationSyncJob {
         return Job(
             variant: .configurationSync,
             behaviour: .recurring,
-            threadId: sessionIdHexString
+            threadId: swarmPublicKey
         )
     }
     
@@ -279,31 +272,31 @@ public extension ConfigurationSyncJob {
     /// **Note:** The `ConfigurationSyncJob` can only have a single instance running at a time, as a result this call may not
     /// resolve until after the current job has completed
     static func run(
-        sessionIdHexString: String,
-        using dependencies: Dependencies = Dependencies()
+        swarmPublicKey: String,
+        using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return Deferred {
             Future { resolver in
                 guard
                     let job: Job = Job(
                         variant: .configurationSync,
-                        threadId: sessionIdHexString,
+                        threadId: swarmPublicKey,
                         details: OptionalDetails(wasManualTrigger: true)
                     )
-                else { return resolver(Result.failure(HTTPError.invalidJSON)) }
+                else { return resolver(Result.failure(NetworkError.invalidJSON)) }
                 
                 ConfigurationSyncJob.run(
                     job,
                     queue: .global(qos: .userInitiated),
                     success: { _, _, _ in resolver(Result.success(())) },
-                    failure: { _, error, _, _ in resolver(Result.failure(error ?? HTTPError.generic)) },
+                    failure: { _, error, _, _ in resolver(Result.failure(error ?? NetworkError.generic)) },
                     deferred: { job, _ in
                         dependencies[singleton: .jobRunner].afterJob(job) { result in
                             switch result {
                                 /// If it gets deferred a second time then we should probably just fail - no use waiting on something
                                 /// that may never run (also means we can avoid another potential defer loop)
-                                case .notFound, .deferred: resolver(Result.failure(HTTPError.generic))
-                                case .failed(let error, _): resolver(Result.failure(error ?? HTTPError.generic))
+                                case .notFound, .deferred: resolver(Result.failure(NetworkError.generic))
+                                case .failed(let error, _): resolver(Result.failure(error ?? NetworkError.generic))
                                 case .succeeded: resolver(Result.success(()))
                             }
                         }

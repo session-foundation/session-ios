@@ -63,9 +63,9 @@ extension MessageReceiver {
         
         let timestampMs: Int64 = Int64(message.sentTimestamp ?? 0) // Default to `0` if not set
         
-        // Only actually make the change if SessionUtil says we can (we always want to insert the info
+        // Only actually make the change if LibSession says we can (we always want to insert the info
         // message though)
-        let canPerformChange: Bool = SessionUtil.canPerformChange(
+        let canPerformChange: Bool = LibSession.canPerformChange(
             db,
             threadId: threadId,
             targetConfig: {
@@ -79,10 +79,10 @@ extension MessageReceiver {
         
         // Only update libSession if we can perform the change
         if canPerformChange {
-            // Contacts & legacy closed groups need to update the SessionUtil
+            // Contacts & legacy closed groups need to update the LibSession
             switch threadVariant {
                 case .contact:
-                    try SessionUtil
+                    try LibSession
                         .update(
                             db,
                             sessionId: threadId,
@@ -91,7 +91,7 @@ extension MessageReceiver {
                         )
                 
                 case .legacyGroup:
-                    try SessionUtil
+                    try LibSession
                         .update(
                             db,
                             legacyGroupSessionId: threadId,
@@ -122,7 +122,7 @@ extension MessageReceiver {
                 using: dependencies
             ),
             timestampMs: timestampMs,
-            wasRead: SessionUtil.timestampAlreadyRead(
+            wasRead: LibSession.timestampAlreadyRead(
                 threadId: threadId,
                 threadVariant: threadVariant,
                 timestampMs: (timestampMs * 1000),
@@ -202,53 +202,36 @@ extension MessageReceiver {
         
         // Contacts & legacy closed groups need to update the SessionUtil
         switch threadVariant {
-            case .contact:
-                // Handle Note to Self:
-                // We sync disappearing messages config through shared config message only.
-                // If the updated config from this message is different from local config,
-                // this control message should already be removed.
-                guard
-                    threadId != getUserSessionId(db, using: dependencies).hexString &&
-                    updatedConfig != localConfig
-                else { return }
-
-                try SessionUtil
-                    .update(
-                        db,
-                        sessionId: threadId,
-                        disappearingMessagesConfig: updatedConfig,
-                        using: dependencies
-                    )
-                
-                _ = try updatedConfig.insertControlMessage(
-                    db,
-                    threadVariant: threadVariant,
-                    authorId: sender,
-                    timestampMs: Int64(timestampMs),
-                    serverHash: message.serverHash,
-                    serverExpirationTimestamp: serverExpirationTimestamp,
-                    using: dependencies
-                )
-            
             case .legacyGroup:
-                guard
+                // Only change the config when it is changed from the admin
+                if
                     localConfig != updatedConfig &&
                     GroupMember
                         .filter(GroupMember.Columns.groupId == threadId)
                         .filter(GroupMember.Columns.profileId == sender)
                         .filter(GroupMember.Columns.role == GroupMember.Role.admin)
                         .isNotEmpty(db)
-                else { return }
+                {
+                    _ = try updatedConfig.upsert(db)
+                    
+                    try LibSession
+                        .update(
+                            db,
+                            legacyGroupSessionId: threadId,
+                            disappearingConfig: updatedConfig,
+                            using: dependencies
+                        )
+                }
+                fallthrough // Fallthrough to insert the control message
                 
-                _ = try updatedConfig.upsert(db)
-                
-                try SessionUtil
-                    .update(
-                        db,
-                        legacyGroupSessionId: threadId,
-                        disappearingConfig: updatedConfig,
-                        using: dependencies
-                    )
+            case .contact:
+                // Handle Note to Self:
+                // We sync disappearing messages config through shared config message only.
+                // If the updated config from this message is different from local config,
+                // this control message should already be removed.
+                if threadId == getUserSessionId(db, using: dependencies).hexString && updatedConfig != localConfig {
+                    return
+                }
                 
                 _ = try updatedConfig.insertControlMessage(
                     db,

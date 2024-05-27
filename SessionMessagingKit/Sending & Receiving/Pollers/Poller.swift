@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -49,6 +51,7 @@ public class Poller: PollerType {
     private var cancellables: Atomic<[String: AnyCancellable]> = Atomic([:])
     private var pollResultCallbacks: Atomic<[String: [([ProcessedMessage]) -> ()]]> = Atomic([:])
     internal var isPolling: Atomic<[String: Bool]> = Atomic([:])
+    internal var pollCount: Atomic<[String: Int]> = Atomic([:])
     internal var failureCount: Atomic<[String: Int]> = Atomic([:])
     internal var drainBehaviour: Atomic<[String: Atomic<SwarmDrainBehaviour>]> = Atomic([:])
     
@@ -56,6 +59,11 @@ public class Poller: PollerType {
     
     /// The namespaces which this poller queries
     internal func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] {
+        preconditionFailure("abstract class - override in subclass")
+    }
+    
+    /// The queue this poller should run on
+    internal var pollerQueue: DispatchQueue {
         preconditionFailure("abstract class - override in subclass")
     }
     
@@ -75,7 +83,7 @@ public class Poller: PollerType {
         // on startup
         let drainBehaviour: Atomic<SwarmDrainBehaviour> = Atomic(pollDrainBehaviour)
         
-        Threading.pollerQueue.async(using: dependencies) { [weak self] in
+        pollerQueue.async(using: dependencies) { [weak self] in
             guard self?.isPolling.wrappedValue[publicKey] != true else { return }
             
             // Might be a race condition that the setUpPolling finishes too soon,
@@ -122,33 +130,34 @@ public class Poller: PollerType {
     // MARK: - Private API
     
     private func pollRecursively(
-        for publicKey: String,
+        for swarmPublicKey: String,
         drainBehaviour: Atomic<SwarmDrainBehaviour>,
         using dependencies: Dependencies
     ) {
-        guard isPolling.wrappedValue[publicKey] == true else { return }
+        guard isPolling.wrappedValue[swarmPublicKey] == true else { return }
         
-        let namespaces: [SnodeAPI.Namespace] = self.namespaces(for: publicKey)
+        let namespaces: [SnodeAPI.Namespace] = self.namespaces(for: swarmPublicKey)
+        let pollerQueue: DispatchQueue = self.pollerQueue
         let lastPollStart: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let lastPollInterval: TimeInterval = nextPollDelay(for: publicKey, using: dependencies)
+        let lastPollInterval: TimeInterval = nextPollDelay(for: swarmPublicKey, using: dependencies)
         
         // Store the publisher intp the cancellables dictionary
         cancellables.mutate { [weak self] cancellables in
-            cancellables[publicKey] = self?
+            cancellables[swarmPublicKey] = self?
                 .poll(
                     namespaces: namespaces,
-                    for: publicKey,
+                    for: swarmPublicKey,
                     drainBehaviour: drainBehaviour,
                     using: dependencies
                 )
-                .subscribe(on: Threading.pollerQueue, using: dependencies)
-                .receive(on: Threading.pollerQueue, using: dependencies)
+                .subscribe(on: pollerQueue, using: dependencies)
+                .receive(on: pollerQueue, using: dependencies)
                 .sink(
                     receiveCompletion: { result in
                         switch result {
                             case .failure(let error):
                                 // Determine if the error should stop us from polling anymore
-                                guard self?.handlePollError(error, for: publicKey, using: dependencies) == true else {
+                                guard self?.handlePollError(error, for: swarmPublicKey, using: dependencies) == true else {
                                     return
                                 }
                                 
@@ -158,20 +167,20 @@ public class Poller: PollerType {
                         // Calculate the remaining poll delay
                         let currentTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         let nextPollInterval: TimeInterval = (
-                            self?.nextPollDelay(for: publicKey, using: dependencies) ??
+                            self?.nextPollDelay(for: swarmPublicKey, using: dependencies) ??
                             lastPollInterval
                         )
                         let remainingInterval: TimeInterval = max(0, nextPollInterval - (currentTime - lastPollStart))
                         
                         // Schedule the next poll
                         guard remainingInterval > 0 else {
-                            return Threading.pollerQueue.async(using: dependencies) {
-                                self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
+                            return pollerQueue.async(using: dependencies) {
+                                self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
                             }
                         }
                         
-                        Threading.pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
-                            self?.pollRecursively(for: publicKey, drainBehaviour: drainBehaviour, using: dependencies)
+                        pollerQueue.asyncAfter(deadline: .now() + .milliseconds(Int(remainingInterval * 1000)), qos: .default, using: dependencies) {
+                            self?.pollRecursively(for: swarmPublicKey, drainBehaviour: drainBehaviour, using: dependencies)
                         }
                     },
                     receiveValue: { _ in }
@@ -186,30 +195,31 @@ public class Poller: PollerType {
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(
         namespaces: [SnodeAPI.Namespace],
-        for publicKey: String,
-        calledFromBackgroundPoller: Bool,
-        isBackgroundPollValid: @escaping () -> Bool,
+        for swarmPublicKey: String,
+        calledFromBackgroundPoller: Bool = false,
+        isBackgroundPollValid: @escaping (() -> Bool) = { true },
         drainBehaviour: Atomic<SwarmDrainBehaviour>,
         using dependencies: Dependencies
     ) -> AnyPublisher<[ProcessedMessage], Error> {
         // If the polling has been cancelled then don't continue
         guard
             (calledFromBackgroundPoller && isBackgroundPollValid()) ||
-            isPolling.wrappedValue[publicKey] == true
+            isPolling.wrappedValue[swarmPublicKey] == true
         else {
             return Just([])
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
         
-        let pollerName: String = pollerName(for: publicKey)
-        let configHashes: [String] = SessionUtil.configHashes(for: publicKey, using: dependencies)
+        let pollerName: String = pollerName(for: swarmPublicKey)
+        let pollerQueue: DispatchQueue = self.pollerQueue
+        let configHashes: [String] = LibSession.configHashes(for: swarmPublicKey, using: dependencies)
         
         /// Fetch the messages
         ///
         /// **Note:**  We need a `writePublisher` here because we want to prune the `lastMessageHash` value when preparing
         /// the request
-        return SnodeAPI.getSwarm(for: publicKey, using: dependencies)
+        return LibSession.getSwarm(for: swarmPublicKey, using: dependencies)
             .tryFlatMapWithRandomSnode(drainBehaviour: drainBehaviour, using: dependencies) { snode -> AnyPublisher<HTTP.PreparedRequest<SnodeAPI.PollResponse>, Error> in
                 dependencies[singleton: .storage]
                     .writePublisher(using: dependencies) { db -> HTTP.PreparedRequest<SnodeAPI.PollResponse> in
@@ -220,7 +230,7 @@ public class Poller: PollerType {
                             from: snode,
                             authMethod: try Authentication.with(
                                 db,
-                                sessionIdHexString: publicKey,
+                                swarmPublicKey: swarmPublicKey,
                                 using: dependencies
                             ),
                             using: dependencies
@@ -231,7 +241,7 @@ public class Poller: PollerType {
             .flatMap { [weak self] (_: ResponseInfoType, namespacedResults: SnodeAPI.PollResponse) -> AnyPublisher<[ProcessedMessage], Error> in
                 guard
                     (calledFromBackgroundPoller && isBackgroundPollValid()) ||
-                    self?.isPolling.wrappedValue[publicKey] == true
+                    self?.isPolling.wrappedValue[swarmPublicKey] == true
                 else {
                     return Just([])
                         .setFailureType(to: Error.self)
@@ -276,7 +286,7 @@ public class Poller: PollerType {
                                         return try Message.processRawReceivedMessage(
                                             db,
                                             rawMessage: message,
-                                            publicKey: publicKey,
+                                            publicKey: swarmPublicKey,
                                             using: dependencies
                                         )
                                     }
@@ -285,6 +295,7 @@ public class Poller: PollerType {
                                             /// Ignore duplicate & selfSend message errors (and don't bother logging them as there
                                             /// will be a lot since we each service node duplicates messages)
                                             case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                                                DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
                                                 MessageReceiverError.duplicateMessage,
                                                 MessageReceiverError.duplicateControlMessage,
                                                 MessageReceiverError.selfSend:
@@ -302,7 +313,7 @@ public class Poller: PollerType {
                                                 }
                                                 break
                                                 
-                                            default: SNLog("Failed to process raw message due to error: \(error).")
+                                            default: SNLog("Failed to deserialize envelope due to error: \(error).")
                                         }
                                         
                                         return nil
@@ -315,15 +326,15 @@ public class Poller: PollerType {
                             if namespace.isConfigNamespace {
                                 do {
                                     /// Process config messages all at once in case they are multi-part messages
-                                    try SessionUtil.handleConfigMessages(
+                                    try LibSession.handleConfigMessages(
                                         db,
-                                        sessionIdHexString: publicKey,
                                         messages: ConfigMessageReceiveJob
                                             .Details(
                                                 messages: processedMessages,
                                                 calledFromBackgroundPoller: false
                                             )
-                                            .messages
+                                            .messages,
+                                        swarmPublicKey: swarmPublicKey
                                     )
                                 }
                                 catch { SNLog("Failed to handle processed message to error: \(error).") }
@@ -471,7 +482,7 @@ public class Poller: PollerType {
                                     // Note: In the background we just want jobs to fail silently
                                     ConfigMessageReceiveJob.run(
                                         job,
-                                        queue: Threading.pollerQueue,
+                                        queue: pollerQueue,
                                         success: { _, _, _ in resolver(Result.success(())) },
                                         failure: { _, _, _, _ in resolver(Result.success(())) },
                                         deferred: { _, _ in resolver(Result.success(())) },
@@ -492,7 +503,7 @@ public class Poller: PollerType {
                                             // Note: In the background we just want jobs to fail silently
                                             MessageReceiveJob.run(
                                                 job,
-                                                queue: Threading.pollerQueue,
+                                                queue: pollerQueue,
                                                 success: { _, _, _ in resolver(Result.success(())) },
                                                 failure: { _, _, _, _ in resolver(Result.success(())) },
                                                 deferred: { _, _ in resolver(Result.success(())) },
@@ -513,8 +524,8 @@ public class Poller: PollerType {
                     /// Run any poll result callbacks we registered
                     let callbacks: [([ProcessedMessage]) -> ()] = (self?.pollResultCallbacks
                         .mutate { callbacks in
-                            let result: [([ProcessedMessage]) -> ()] = (callbacks[publicKey] ?? [])
-                            callbacks.removeValue(forKey: publicKey)
+                            let result: [([ProcessedMessage]) -> ()] = (callbacks[swarmPublicKey] ?? [])
+                            callbacks.removeValue(forKey: swarmPublicKey)
                             return result
                         })
                         .defaulting(to: [])

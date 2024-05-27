@@ -5,7 +5,7 @@ import SessionSnodeKit
 import SessionUtilitiesKit
 
 public extension Message {
-    enum Origin: Hashable {
+    enum Origin: Codable, Hashable {
         case swarm(
             publicKey: String,
             namespace: SnodeAPI.Namespace,
@@ -30,6 +30,13 @@ public extension Message {
         public var isConfigNamespace: Bool {
             switch self {
                 case .swarm(_, let namespace, _, _, _): return namespace.isConfigNamespace
+                default: return false
+            }
+        }
+        
+        public var isCommunity: Bool {
+            switch self {
+                case .community: return true
                 default: return false
             }
         }

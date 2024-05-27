@@ -308,7 +308,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             for: self.threadVariant,
             id: self.authorId,
             name: self.authorNameInternal,
-            nickname: nil  // Folded into 'authorName' within the Query
+            nickname: nil,      // Folded into 'authorName' within the Query
+            suppressId: false   // Show the id next to the author name if desired
         )
         let shouldShowDateBeforeThisModel: Bool = {
             guard self.isTypingIndicator != true else { return false }
@@ -396,7 +397,32 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             receivedAtTimestampMs: self.receivedAtTimestampMs,
             authorId: self.authorId,
             authorNameInternal: self.authorNameInternal,
-            body: self.body,
+            body: (!self.variant.isInfoMessage ?
+                self.body :
+                // Info messages might not have a body so we should use the 'previewText' value instead
+                Interaction.previewText(
+                    variant: self.variant,
+                    body: self.body,
+                    threadContactDisplayName: Profile.displayName(
+                        for: self.threadVariant,
+                        id: self.threadId,
+                        name: self.threadContactNameInternal,
+                        nickname: nil,      // Folded into 'threadContactNameInternal' within the Query
+                        suppressId: false   // Show the id next to the author name if desired
+                    ),
+                    authorDisplayName: authorDisplayName,
+                    attachmentDescriptionInfo: self.attachments?.first.map { firstAttachment in
+                        Attachment.DescriptionInfo(
+                            id: firstAttachment.id,
+                            variant: firstAttachment.variant,
+                            contentType: firstAttachment.contentType,
+                            sourceFilename: firstAttachment.sourceFilename
+                        )
+                    },
+                    attachmentCount: self.attachments?.count,
+                    isOpenGroupInvitation: (self.linkPreview?.variant == .openGroupInvitation)
+                )
+            ),
             rawBody: self.body,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,

@@ -235,7 +235,7 @@ public extension Message {
         var isProtoConvetible: Bool {
             return !(self.messageType is NotProtoConvertible.Type)
         }
-
+        
         func decode<CodingKeys: CodingKey>(from container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys) throws -> Message {
             switch self {
                 case .readReceipt: return try container.decode(ReadReceipt.self, forKey: key)
@@ -248,12 +248,11 @@ public extension Message {
                     return try container.decode(DataExtractionNotification.self, forKey: key)
                     
                 case .expirationTimerUpdate: return try container.decode(ExpirationTimerUpdate.self, forKey: key)
-                
                 case .unsendRequest: return try container.decode(UnsendRequest.self, forKey: key)
                 case .messageRequestResponse: return try container.decode(MessageRequestResponse.self, forKey: key)
                 case .visibleMessage: return try container.decode(VisibleMessage.self, forKey: key)
                 case .callMessage: return try container.decode(CallMessage.self, forKey: key)
-                    
+                
                 case .groupUpdateInvite: return try container.decode(GroupUpdateInviteMessage.self, forKey: key)
                 case .groupUpdatePromote: return try container.decode(GroupUpdatePromoteMessage.self, forKey: key)
                 
@@ -424,8 +423,8 @@ public extension Message {
         data: Data,
         metadata: PushNotificationAPI.NotificationMetadata,
         using dependencies: Dependencies
-    ) throws -> ProcessedMessage? {
-        let processedMessage: ProcessedMessage? = try processRawReceivedMessage(
+    ) throws -> ProcessedMessage {
+        return try processRawReceivedMessage(
             db,
             data: data,
             from: .swarm(
@@ -440,8 +439,6 @@ public extension Message {
             ),
             using: dependencies
         )
-        
-        return processedMessage
     }
     
     static func processReceivedOpenGroupMessage(
@@ -450,10 +447,13 @@ public extension Message {
         openGroupServerPublicKey: String,
         message: OpenGroupAPI.Message,
         data: Data,
-        using dependencies: Dependencies = Dependencies()
-    ) throws -> ProcessedMessage? {
+        using dependencies: Dependencies
+    ) throws -> ProcessedMessage {
         // Need a sender in order to process the message
-        guard let sender: String = message.sender, let timestamp = message.posted else { return nil }
+        guard
+            let sender: String = message.sender,
+            let timestamp = message.posted
+        else { throw MessageReceiverError.invalidMessage }
         
         return try processRawReceivedMessage(
             db,
@@ -474,7 +474,7 @@ public extension Message {
         message: OpenGroupAPI.DirectMessage,
         data: Data,
         using dependencies: Dependencies
-    ) throws -> ProcessedMessage? {
+    ) throws -> ProcessedMessage {
         return try processRawReceivedMessage(
             db,
             data: data,
@@ -685,7 +685,8 @@ public extension Message {
     
     internal static func getSpecifiedTTL(
         message: Message,
-        destination: Message.Destination
+        destination: Message.Destination,
+        using dependencies: Dependencies
     ) -> UInt64 {
         guard dependencies[feature: .updatedDisappearingMessages] else { return message.ttl }
         

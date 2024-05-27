@@ -56,7 +56,6 @@ message Content {
     DELETE_AFTER_SEND = 2;
   }
     
-    
   // reserved 7, 11;
   // reserved "configurationMessage", "sharedConfigMessage";
 

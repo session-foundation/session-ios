@@ -1,7 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import Reachability
 import SessionUIKit
 import SessionSnodeKit
 import SessionMessagingKit
@@ -27,34 +26,13 @@ final class PathStatusView: UIView {
         }
     }
     
-    enum Status {
-        case unknown
-        case connecting
-        case connected
-        case error
-        
-        var themeColor: ThemeValue {
-            switch self {
-                case .unknown: return .path_unknown
-                case .connecting: return .path_connecting
-                case .connected: return .path_connected
-                case .error: return .path_error
-            }
-        }
-    }
-    
     // MARK: - Initialization
     
     private let size: Size
-    private let dependencies: Dependencies
-    private let reachability: Reachability? = SessionEnvironment.shared?.reachabilityManager.reachability
+    private var networkStatusCallbackId: UUID?
     
-    init(
-        size: Size = .small,
-        using dependencies: Dependencies = Dependencies()
-    ) {
+    init(size: Size = .small) {
         self.size = size
-        self.dependencies = dependencies
         
         super.init(frame: .zero)
         
@@ -64,7 +42,6 @@ final class PathStatusView: UIView {
 
     required init?(coder: NSCoder) {
         self.size = .small
-        self.dependencies = Dependencies()
         
         super.init(coder: coder)
         
@@ -73,8 +50,7 @@ final class PathStatusView: UIView {
     }
     
     deinit {
-        NotificationCenter.default.removeObserver(self)
-        dependencies.removeFeatureObserver(self)
+        LibSession.removeNetworkChangedCallback(callbackId: networkStatusCallbackId)
     }
     
     // MARK: - Layout
@@ -84,35 +60,20 @@ final class PathStatusView: UIView {
         layer.masksToBounds = false
         self.set(.width, to: self.size.pointSize)
         self.set(.height, to: self.size.pointSize)
-        
-        switch (reachability?.isReachable(), dependencies[cache: .onionRequestAPI].paths.isEmpty) {
-            case (.some(false), _), (nil, _): setStatus(to: .error)
-            case (.some(true), true): setStatus(to: .connecting)
-            case (.some(true), false): setStatus(to: .connected)
-        }
     }
     
     // MARK: - Functions
 
     private func registerObservers() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(reachabilityChanged),
-            name: .reachabilityChanged,
-            object: nil
-        )
-        
-        dependencies.addFeatureObserver(self, for: .networkLayers, events: [.resetPaths, .buildingPaths, .pathsBuilt]) { [weak self] _, event in
-            switch event {
-                case .resetPaths: self?.setStatus(to: .unknown)
-                case .buildingPaths: self?.handleBuildingPathsNotification()
-                case .pathsBuilt: self?.handlePathsBuiltNotification()
-                default: break
+        // Register for status updates (will be called immediately with current status)
+        networkStatusCallbackId = LibSession.onNetworkStatusChanged { [weak self] status in
+            DispatchQueue.main.async {
+                self?.setStatus(to: status)
             }
         }
     }
 
-    private func setStatus(to status: Status) {
+    private func setStatus(to status: LibSession.NetworkStatus) {
         themeBackgroundColor = status.themeColor
         layer.themeShadowColor = status.themeColor
         layer.shadowOffset = CGSize(width: 0, height: 0.8)
@@ -128,36 +89,15 @@ final class PathStatusView: UIView {
             self?.layer.shadowRadius = (self?.size.offset(for: theme.interfaceStyle) ?? 0)
         }
     }
+}
 
-    private func handleBuildingPathsNotification() {
-        guard reachability?.isReachable() == true else {
-            setStatus(to: .error)
-            return
+public extension LibSession.NetworkStatus {
+    var themeColor: ThemeValue {
+        switch self {
+            case .unknown: return .path_unknown
+            case .connecting: return .path_connecting
+            case .connected: return .path_connected
+            case .disconnected: return .path_error
         }
-        
-        setStatus(to: .connecting)
-    }
-
-    private func handlePathsBuiltNotification() {
-        guard reachability?.isReachable() == true  else {
-            setStatus(to: .error)
-            return
-        }
-        
-        setStatus(to: .connected)
-    }
-    
-    @objc private func reachabilityChanged() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in self?.reachabilityChanged() }
-            return
-        }
-        
-        guard reachability?.isReachable() == true else {
-            setStatus(to: .error)
-            return
-        }
-        
-        setStatus(to: (!dependencies[cache: .onionRequestAPI].paths.isEmpty ? .connected : .connecting))
     }
 }

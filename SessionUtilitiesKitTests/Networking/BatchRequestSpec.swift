@@ -13,7 +13,7 @@ class BatchRequestSpec: QuickSpec {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState var request: HTTP.BatchRequest!
+        @TestState var request: Network.BatchRequest!
         
         // MARK: - a BatchRequest.Child
         describe("a BatchRequest.Child") {
@@ -33,9 +33,9 @@ class BatchRequestSpec: QuickSpec {
                         x25519PublicKey: "05\(TestConstants.publicKey)",
                         body: nil
                     )
-                    request = HTTP.BatchRequest(
+                    request = Network.BatchRequest(
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: httpRequest,
                                 urlRequest: try! httpRequest.generateUrlRequest(using: dependencies),
                                 responseType: NoResponse.self,
@@ -67,9 +67,9 @@ class BatchRequestSpec: QuickSpec {
                         x25519PublicKey: "05\(TestConstants.publicKey)",
                         body: nil
                     )
-                    request = HTTP.BatchRequest(
+                    request = Network.BatchRequest(
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: httpRequest,
                                 urlRequest: try! httpRequest.generateUrlRequest(using: dependencies),
                                 responseType: NoResponse.self,
@@ -90,9 +90,9 @@ class BatchRequestSpec: QuickSpec {
             context("when encoding a sogs type endpoint") {
                 // MARK: ---- successfully encodes a string body
                 it("successfully encodes a string body") {
-                    request = HTTP.BatchRequest(
+                    request = Network.BatchRequest(
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: Request<String, TestEndpoint1>(
                                     method: .get,
                                     server: "testServer",
@@ -119,9 +119,9 @@ class BatchRequestSpec: QuickSpec {
                 
                 // MARK: ---- successfully encodes a byte body
                 it("successfully encodes a byte body") {
-                    request = HTTP.BatchRequest(
+                    request = Network.BatchRequest(
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: Request<[UInt8], TestEndpoint1>(
                                     method: .get,
                                     server: "testServer",
@@ -148,9 +148,9 @@ class BatchRequestSpec: QuickSpec {
                 
                 // MARK: ---- successfully encodes a JSON body
                 it("successfully encodes a JSON body") {
-                    request = HTTP.BatchRequest(
+                    request = Network.BatchRequest(
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: Request<TestType, TestEndpoint1>(
                                     method: .get,
                                     server: "testServer",
@@ -180,10 +180,10 @@ class BatchRequestSpec: QuickSpec {
             context("when encoding a storage server type endpoint") {
                 // MARK: ---- ignores a string body
                 it("ignores a string body") {
-                    request = HTTP.BatchRequest(
+                    request = Network.BatchRequest(
                         requestsKey: .requests,
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: Request<String, TestEndpoint2>(
                                     method: .get,
                                     server: "testServer",
@@ -210,10 +210,10 @@ class BatchRequestSpec: QuickSpec {
                 
                 // MARK: ---- ignores a byte body
                 it("ignores a byte body") {
-                    request = HTTP.BatchRequest(
+                    request = Network.BatchRequest(
                         requestsKey: .requests,
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: Request<[UInt8], TestEndpoint2>(
                                     method: .get,
                                     server: "testServer",
@@ -240,10 +240,10 @@ class BatchRequestSpec: QuickSpec {
                 
                 // MARK: ---- successfully encodes a JSON body
                 it("successfully encodes a JSON body") {
-                    request = HTTP.BatchRequest(
+                    request = Network.BatchRequest(
                         requestsKey: .requests,
                         requests: [
-                            HTTP.PreparedRequest<NoResponse>(
+                            Network.PreparedRequest<NoResponse>(
                                 request: Request<TestType, TestEndpoint2>(
                                     method: .get,
                                     server: "testServer",
@@ -283,7 +283,7 @@ fileprivate enum TestEndpoint1: EndpointType {
     case endpoint1
     
     static var name: String { "TestEndpoint1" }
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .sogs }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { .sogs }
     static var excludedSubRequestHeaders: [HTTPHeader] { [.testHeader] }
     
     var path: String { return "endpoint1" }
@@ -293,7 +293,7 @@ fileprivate enum TestEndpoint2: EndpointType {
     case endpoint2
     
     static var name: String { "TestEndpoint2" }
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }
     static var excludedSubRequestHeaders: [HTTPHeader] { [] }
     
     var path: String { return "endpoint2" }

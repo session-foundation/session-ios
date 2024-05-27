@@ -14,7 +14,7 @@ class RequestSpec: QuickSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState var urlRequest: URLRequest?
         @TestState var request: Request<NoBody, TestEndpoint>!
-        @TestState var responseInfo: ResponseInfoType! = HTTP.ResponseInfo(code: 200, headers: [:])
+        @TestState var responseInfo: ResponseInfoType! = Network.ResponseInfo(code: 200, headers: [:])
         
         // MARK: - a Request
         describe("a Request") {
@@ -22,9 +22,9 @@ class RequestSpec: QuickSpec {
             it("is initialized with the correct default values") {
                 let request: Request<NoBody, TestEndpoint> = Request(
                     endpoint: .test1,
-                    target:  HTTP.ServerTarget(
+                    target:  Network.ServerTarget(
                         server: "testServer",
-                        path: TestEndpoint.test1.path,
+                        endpoint: TestEndpoint.test1,
                         queryParameters: [:],
                         x25519PublicKey: ""
                     )
@@ -90,7 +90,7 @@ class RequestSpec: QuickSpec {
                     expect {
                         try request.generateUrlRequest(using: dependencies)
                     }
-                    .to(throwError(HTTPError.invalidURL))
+                    .to(throwError(NetworkError.invalidURL))
                 }
                 
                 // MARK: ---- with a base64 string body
@@ -123,7 +123,7 @@ class RequestSpec: QuickSpec {
                         expect {
                             try request.generateUrlRequest(using: dependencies)
                         }
-                        .to(throwError(HTTPError.parsingFailed))
+                        .to(throwError(NetworkError.parsingFailed))
                     }
                 }
                 
@@ -185,9 +185,9 @@ class RequestSpec: QuickSpec {
         describe("a HTTP ServerTarget") {
             // MARK: ---- adds a leading forward slash to the endpoint path
             it("adds a leading forward slash to the endpoint path") {
-                let target: HTTP.ServerTarget = HTTP.ServerTarget(
+                let target: Network.ServerTarget = Network.ServerTarget(
                     server: "testServer",
-                    path: TestEndpoint.test1.path,
+                    endpoint: TestEndpoint.test1,
                     queryParameters: [:],
                     x25519PublicKey: ""
                 )
@@ -197,9 +197,9 @@ class RequestSpec: QuickSpec {
             
             // MARK: ---- creates a valid URL with no query parameters
             it("creates a valid URL with no query parameters") {
-                let target: HTTP.ServerTarget = HTTP.ServerTarget(
+                let target: Network.ServerTarget = Network.ServerTarget(
                     server: "testServer",
-                    path: TestEndpoint.test1.path,
+                    endpoint: TestEndpoint.test1,
                     queryParameters: [:],
                     x25519PublicKey: ""
                 )
@@ -209,9 +209,9 @@ class RequestSpec: QuickSpec {
             
             // MARK: ---- creates a valid URL when query parameters are provided
             it("creates a valid URL when query parameters are provided") {
-                let target: HTTP.ServerTarget = HTTP.ServerTarget(
+                let target: Network.ServerTarget = Network.ServerTarget(
                     server: "testServer",
-                    path: TestEndpoint.test1.path,
+                    endpoint: TestEndpoint.test1,
                     queryParameters: [
                         .testParam: "123"
                     ],
@@ -239,7 +239,7 @@ fileprivate enum TestEndpoint: EndpointType {
     case testParams(String, Int)
     
     static var name: String { "TestEndpoint" }
-    static var batchRequestVariant: HTTP.BatchRequest.Child.Variant { .storageServer }
+    static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }
     static var excludedSubRequestHeaders: [HTTPHeader] { [] }
     
     var path: String {

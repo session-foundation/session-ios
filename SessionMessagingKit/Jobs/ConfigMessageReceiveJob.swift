@@ -49,8 +49,9 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         var lastError: Error?
         
         dependencies[singleton: .storage].write { db in
+            // Send any SharedConfigMessages to the LibSession to handle it
             do {
-                try SessionUtil.handleConfigMessages(
+                try LibSession.handleConfigMessages(
                     db,
                     sessionIdHexString: sessionIdHexString,
                     messages: details.messages,

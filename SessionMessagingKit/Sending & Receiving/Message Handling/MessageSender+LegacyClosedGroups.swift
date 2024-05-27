@@ -82,7 +82,7 @@ extension MessageSender {
                 }
                 
                 // Update libSession
-                try SessionUtil.add(
+                try LibSession.add(
                     db,
                     legacyGroupSessionId: legacyGroupSessionId,
                     name: name,
@@ -251,7 +251,7 @@ extension MessageSender {
                         try newKeyPair.insert(db)
                         
                         // Update libSession
-                        try? SessionUtil.update(
+                        try? LibSession.update(
                             db,
                             legacyGroupSessionId: closedGroup.threadId,
                             latestKeyPair: newKeyPair,
@@ -329,7 +329,7 @@ extension MessageSender {
                     )
                     
                     // Update libSession
-                    try? SessionUtil.update(
+                    try? LibSession.update(
                         db,
                         legacyGroupSessionId: closedGroup.threadId,
                         name: name,
@@ -434,7 +434,7 @@ extension MessageSender {
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
         
         // Update libSession
-        try? SessionUtil.update(
+        try? LibSession.update(
             db,
             legacyGroupSessionId: closedGroup.threadId,
             members: allGroupMembers

@@ -785,7 +785,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             let publicKey: String = threadViewModel.openGroupPublicKey
         else { return }
         
-        let communityUrl: String = SessionUtil.communityUrlFor(
+        let communityUrl: String = LibSession.communityUrlFor(
             server: server,
             roomToken: roomToken,
             publicKey: publicKey
@@ -826,7 +826,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         threadId: thread.id,
                                         authorId: userInfo.profileId,
                                         variant: .standardOutgoing,
-                                        timestampMs: SnodeAPI.currentOffsetTimestampMs(),
+                                        timestampMs: SnodeAPI.currentOffsetTimestampMs(using: dependencies),
                                         expiresInSeconds: try? DisappearingMessagesConfiguration
                                             .select(.durationSeconds)
                                             .filter(id: userInfo.profileId)

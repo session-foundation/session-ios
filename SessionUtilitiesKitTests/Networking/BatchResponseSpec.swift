@@ -12,13 +12,13 @@ class BatchResponseSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration
         
-        @TestState var responseInfo: ResponseInfoType! = HTTP.ResponseInfo(code: 200, headers: [:])
+        @TestState var responseInfo: ResponseInfoType! = Network.ResponseInfo(code: 200, headers: [:])
         @TestState var testType: TestType! = TestType(stringValue: "test1")
         @TestState var testType2: TestType2! = TestType2(intValue: 123, stringValue2: "test2")
         @TestState var data: Data! = """
             [\([
                 try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
-                    HTTP.BatchSubResponse(
+                    Network.BatchSubResponse(
                         code: 200,
                         headers: [:],
                         body: testType,
@@ -26,7 +26,7 @@ class BatchResponseSpec: QuickSpec {
                     )
                 ),
                 try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
-                    HTTP.BatchSubResponse(
+                    Network.BatchSubResponse(
                         code: 200,
                         headers: [:],
                         body: testType2,
@@ -38,8 +38,8 @@ class BatchResponseSpec: QuickSpec {
             .joined(separator: ","))]
             """.data(using: .utf8)!
         
-        // MARK: - an HTTP.BatchSubResponse<T>
-        describe("an HTTP.BatchSubResponse<T>") {
+        // MARK: - an Network.BatchSubResponse<T>
+        describe("an Network.BatchSubResponse<T>") {
             // MARK: -- when decoding
             context("when decoding") {
                 // MARK: ---- decodes correctly
@@ -55,8 +55,8 @@ class BatchResponseSpec: QuickSpec {
                         }
                     }
                     """
-                    let subResponse: HTTP.BatchSubResponse<TestType>? = try? JSONDecoder().decode(
-                        HTTP.BatchSubResponse<TestType>.self,
+                    let subResponse: Network.BatchSubResponse<TestType>? = try? JSONDecoder().decode(
+                        Network.BatchSubResponse<TestType>.self,
                         from: jsonString.data(using: .utf8)!
                     )
                     
@@ -75,8 +75,8 @@ class BatchResponseSpec: QuickSpec {
                         "body": "Hello!!!"
                     }
                     """
-                    let subResponse: HTTP.BatchSubResponse<TestType>? = try? JSONDecoder().decode(
-                        HTTP.BatchSubResponse<TestType>.self,
+                    let subResponse: Network.BatchSubResponse<TestType>? = try? JSONDecoder().decode(
+                        Network.BatchSubResponse<TestType>.self,
                         from: jsonString.data(using: .utf8)!
                     )
                     
@@ -94,8 +94,8 @@ class BatchResponseSpec: QuickSpec {
                         "body": "Hello!!!"
                     }
                     """
-                    let subResponse: HTTP.BatchSubResponse<TestType>? = try? JSONDecoder().decode(
-                        HTTP.BatchSubResponse<TestType>.self,
+                    let subResponse: Network.BatchSubResponse<TestType>? = try? JSONDecoder().decode(
+                        Network.BatchSubResponse<TestType>.self,
                         from: jsonString.data(using: .utf8)!
                     )
                     
@@ -114,8 +114,8 @@ class BatchResponseSpec: QuickSpec {
                         }
                     }
                     """
-                    let subResponse: HTTP.BatchSubResponse<TestType?>? = try? JSONDecoder().decode(
-                        HTTP.BatchSubResponse<TestType?>.self,
+                    let subResponse: Network.BatchSubResponse<TestType?>? = try? JSONDecoder().decode(
+                        Network.BatchSubResponse<TestType?>.self,
                         from: jsonString.data(using: .utf8)!
                     )
                     
@@ -134,8 +134,8 @@ class BatchResponseSpec: QuickSpec {
                         }
                     }
                     """
-                    let subResponse: HTTP.BatchSubResponse<NoResponse>? = try? JSONDecoder().decode(
-                        HTTP.BatchSubResponse<NoResponse>.self,
+                    let subResponse: Network.BatchSubResponse<NoResponse>? = try? JSONDecoder().decode(
+                        Network.BatchSubResponse<NoResponse>.self,
                         from: jsonString.data(using: .utf8)!
                     )
                     
@@ -146,25 +146,25 @@ class BatchResponseSpec: QuickSpec {
             }
         }
         
-        // MARK: - an HTTP.BatchResponse
-        describe("an HTTP.BatchResponse") {
+        // MARK: - an Network.BatchResponse
+        describe("an Network.BatchResponse") {
             // MARK: -- when decoding responses
             context("when decoding responses") {
                 // MARK: -- decodes valid data correctly
                 it("decodes valid data correctly") {
-                    let result: HTTP.BatchResponse? = try? HTTP.BatchResponse.decodingResponses(
+                    let result: Network.BatchResponse? = try? Network.BatchResponse.decodingResponses(
                         from: data,
                         as: [
-                            HTTP.BatchSubResponse<TestType>.self,
-                            HTTP.BatchSubResponse<TestType2>.self
+                            Network.BatchSubResponse<TestType>.self,
+                            Network.BatchSubResponse<TestType2>.self
                         ],
                         requireAllResults: true
                     )
                     
                     expect(result).toNot(beNil())
-                    expect((result?.data[0] as? HTTP.BatchSubResponse<TestType>)?.body)
+                    expect((result?.data[0] as? Network.BatchSubResponse<TestType>)?.body)
                         .to(equal(testType))
-                    expect((result?.data[1] as? HTTP.BatchSubResponse<TestType2>)?.body)
+                    expect((result?.data[1] as? Network.BatchSubResponse<TestType2>)?.body)
                         .to(equal(testType2))
                 }
             }
@@ -172,34 +172,34 @@ class BatchResponseSpec: QuickSpec {
             // MARK: -- fails if there is no data
             it("fails if there is no data") {
                 expect {
-                    try HTTP.BatchResponse.decodingResponses(
+                    try Network.BatchResponse.decodingResponses(
                         from: nil,
                         as: [Int.self],
                         requireAllResults: true
                     )
-                }.to(throwError(HTTPError.parsingFailed))
+                }.to(throwError(NetworkError.parsingFailed))
             }
             
             // MARK: -- fails if the data is not JSON
             it("fails if the data is not JSON") {
                 expect {
-                    try HTTP.BatchResponse.decodingResponses(
+                    try Network.BatchResponse.decodingResponses(
                         from: Data([1, 2, 3]),
                         as: [Int.self],
                         requireAllResults: true
                     )
-                }.to(throwError(HTTPError.parsingFailed))
+                }.to(throwError(NetworkError.parsingFailed))
             }
             
             // MARK: -- fails if the data is not a JSON array
             it("fails if the data is not a JSON array") {
                 expect {
-                    try HTTP.BatchResponse.decodingResponses(
+                    try Network.BatchResponse.decodingResponses(
                         from: "{}".data(using: .utf8),
                         as: [Int.self],
                         requireAllResults: true
                     )
-                }.to(throwError(HTTPError.parsingFailed))
+                }.to(throwError(NetworkError.parsingFailed))
             }
             
             // MARK: -- and requiring all responses
@@ -207,16 +207,16 @@ class BatchResponseSpec: QuickSpec {
                 // MARK: ---- fails if the JSON array does not have the same number of items as the expected types
                 it("fails if the JSON array does not have the same number of items as the expected types") {
                     expect {
-                        try HTTP.BatchResponse.decodingResponses(
+                        try Network.BatchResponse.decodingResponses(
                             from: data,
                             as: [
-                                HTTP.BatchSubResponse<TestType>.self,
-                                HTTP.BatchSubResponse<TestType2>.self,
-                                HTTP.BatchSubResponse<TestType2>.self
+                                Network.BatchSubResponse<TestType>.self,
+                                Network.BatchSubResponse<TestType2>.self,
+                                Network.BatchSubResponse<TestType2>.self
                             ],
                             requireAllResults: true
                         )
-                    }.to(throwError(HTTPError.parsingFailed))
+                    }.to(throwError(NetworkError.parsingFailed))
                 }
                 
                 // MARK: ---- fails if one of the JSON array values fails to decode
@@ -224,7 +224,7 @@ class BatchResponseSpec: QuickSpec {
                     data = """
                     [\([
                         try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
-                            HTTP.BatchSubResponse(
+                            Network.BatchSubResponse(
                                 code: 200,
                                 headers: [:],
                                 body: testType,
@@ -237,15 +237,15 @@ class BatchResponseSpec: QuickSpec {
                     """.data(using: .utf8)!
                     
                     expect {
-                        try HTTP.BatchResponse.decodingResponses(
+                        try Network.BatchResponse.decodingResponses(
                             from: data,
                             as: [
-                                HTTP.BatchSubResponse<TestType>.self,
-                                HTTP.BatchSubResponse<TestType2>.self
+                                Network.BatchSubResponse<TestType>.self,
+                                Network.BatchSubResponse<TestType2>.self
                             ],
                             requireAllResults: true
                         )
-                    }.to(throwError(HTTPError.parsingFailed))
+                    }.to(throwError(NetworkError.parsingFailed))
                 }
             }
             
@@ -254,16 +254,16 @@ class BatchResponseSpec: QuickSpec {
                 // MARK: ---- succeeds when the JSON array does not have the same number of items as the expected types
                 it("succeeds when the JSON array does not have the same number of items as the expected types") {
                     expect {
-                        try HTTP.BatchResponse.decodingResponses(
+                        try Network.BatchResponse.decodingResponses(
                             from: data,
                             as: [
-                                HTTP.BatchSubResponse<TestType>.self,
-                                HTTP.BatchSubResponse<TestType2>.self,
-                                HTTP.BatchSubResponse<TestType2>.self
+                                Network.BatchSubResponse<TestType>.self,
+                                Network.BatchSubResponse<TestType2>.self,
+                                Network.BatchSubResponse<TestType2>.self
                             ],
                             requireAllResults: false
                         )
-                    }.toNot(throwError(HTTPError.parsingFailed))
+                    }.toNot(throwError(NetworkError.parsingFailed))
                 }
             }
         }

@@ -42,8 +42,6 @@ public enum GetExpirationJob: JobExecutor {
             return
         }
         
-        let userSessionId: SessionId = getUserSessionId(using: dependencies)
-        
         return dependencies[singleton: .storage]
             .readPublisher(using: dependencies) { db in
                 try SnodeAPI
@@ -51,7 +49,7 @@ public enum GetExpirationJob: JobExecutor {
                         of: expirationInfo.map { $0.key },
                         authMethod: try Authentication.with(
                             db,
-                            sessionIdHexString: userSessionId.hexString,
+                            swarmPublicKey: getUserSessionId(db, using: dependencies).hexString,
                             using: dependencies
                         ),
                         using: dependencies

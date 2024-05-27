@@ -1,4 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 
@@ -8,14 +10,17 @@ public protocol RequestTarget: Equatable {
 }
 
 public protocol ServerRequestTarget: RequestTarget {
+    associatedtype Endpoint: EndpointType
+    
     var server: String { get }
+    var endpoint: Endpoint { get }
     var x25519PublicKey: String { get }
 }
 
 public extension ServerRequestTarget {
-    func pathFor(path: String, queryParams: [HTTPQueryParam: String]) -> String {
+    func pathFor<E: EndpointType>(endpoint: E, queryParams: [HTTPQueryParam: String]) -> String {
         return [
-            "/\(path)",
+            "/\(endpoint.path)",
             queryParams
                 .map { key, value in "\(key)=\(value)" }
                 .joined(separator: "&")
@@ -28,26 +33,28 @@ public extension ServerRequestTarget {
 
 // MARK: - ServerTarget
 
-public extension HTTP {
-    struct ServerTarget: ServerRequestTarget {
+public extension Network {
+    struct ServerTarget<E: EndpointType>: ServerRequestTarget {
+        public typealias Endpoint = E
+        
         public let server: String
-        let path: String
+        public let endpoint: Endpoint
         let queryParameters: [HTTPQueryParam: String]
         public let x25519PublicKey: String
         
         public var url: URL? { URL(string: "\(server)\(urlPathAndParamsString)") }
-        public var urlPathAndParamsString: String { pathFor(path: path, queryParams: queryParameters) }
+        public var urlPathAndParamsString: String { pathFor(endpoint: endpoint, queryParams: queryParameters) }
         
         // MARK: - Initialization
         
         public init(
             server: String,
-            path: String,
+            endpoint: E,
             queryParameters: [HTTPQueryParam: String],
             x25519PublicKey: String
         ) {
             self.server = server
-            self.path = path
+            self.endpoint = endpoint
             self.queryParameters = queryParameters
             self.x25519PublicKey = x25519PublicKey
         }
@@ -69,9 +76,9 @@ public extension Request {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.ServerTarget(
+            target: Network.ServerTarget(
                 server: server,
-                path: endpoint.path,
+                endpoint: endpoint,
                 queryParameters: queryParameters,
                 x25519PublicKey: x25519PublicKey
             ),

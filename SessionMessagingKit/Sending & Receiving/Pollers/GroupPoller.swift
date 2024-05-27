@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -33,6 +35,7 @@ public final class GroupPoller: Poller {
         return GroupPoller.namespaces
     }
     
+    override var pollerQueue: DispatchQueue { Threading.groupPollerQueue }
     override var pollDrainBehaviour: SwarmDrainBehaviour { .alwaysRandom }
     
     private static let minPollInterval: Double = 3
@@ -40,7 +43,7 @@ public final class GroupPoller: Poller {
 
     // MARK: - Public API
     
-    public override func start(using dependencies: Dependencies = Dependencies()) {
+    public override func start(using dependencies: Dependencies) {
         // Fetch all closed groups (excluding any don't contain the current user as a
         // GroupMemeber and any which are in the 'invited' state)
         dependencies[singleton: .storage]

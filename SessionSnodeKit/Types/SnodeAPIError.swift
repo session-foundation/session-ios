@@ -3,9 +3,9 @@
 // stringlint:disable
 
 import Foundation
+import SessionUtilitiesKit
 
 public enum SnodeAPIError: Error, CustomStringConvertible {
-    case generic
     case clockOutOfSync
     case snodePoolUpdatingFailed
     case inconsistentSnodePools
@@ -14,19 +14,32 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
     case signatureVerificationFailed
     case invalidAuthentication
     case invalidIP
-    case emptySnodePool
     case responseFailedValidation
     case unauthorised
+    case rateLimited
+    case missingSnodeVersion
+    case unsupportedSnodeVersion(String)
+    
+    // Onion Request Errors
+    case emptySnodePool
+    case insufficientSnodes
     case ranOutOfRandomSnodes(Error?)
     
     // ONS
-    case decryptionFailed
-    case hashingFailed
-    case validationFailed
+    case onsDecryptionFailed
+    case onsHashingFailed
+    case onsValidationFailed
+    
+    // Quic
+    case invalidNetwork
+    case invalidPayload
+    case missingSecretKey
+    case internalServerError
+    case unassociatedPubkey
+    case unableToRetrieveSwarm
 
     public var description: String {
         switch self {
-            case .generic: return "An error occurred (SnodeAPIError.generic)."
             case .clockOutOfSync: return "Your clock is out of sync with the Service Node network. Please check that your device's clock is set to automatic time (SnodeAPIError.clockOutOfSync)."
             case .snodePoolUpdatingFailed: return "Failed to update the Service Node pool (SnodeAPIError.snodePoolUpdatingFailed)."
             case .inconsistentSnodePools: return "Received inconsistent Service Node pool information from the Service Node network (SnodeAPIError.inconsistentSnodePools)."
@@ -35,9 +48,15 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
             case .signatureVerificationFailed: return "Failed to verify the signature (SnodeAPIError.signatureVerificationFailed)."
             case .invalidAuthentication: return "Invalid Authentication (SnodeAPIError.invalidAuthentication)."
             case .invalidIP: return "Invalid IP (SnodeAPIError.invalidIP)."
-            case .emptySnodePool: return "Service Node pool is empty (SnodeAPIError.emptySnodePool)."
             case .responseFailedValidation: return "Response failed validation (SnodeAPIError.responseFailedValidation)."
             case .unauthorised: return "Unauthorized (SnodeAPIError.unauthorised)."
+            case .rateLimited: return "Rate limited (SnodeAPIError.rateLimited)."
+            case .missingSnodeVersion: return "Missing Service Node version (SnodeAPIError.missingSnodeVersion)."
+            case .unsupportedSnodeVersion(let version): return "Unsupported Service Node version: \(version) (SnodeAPIError.unsupportedSnodeVersion)."
+                
+            // Onion Request Errors
+            case .emptySnodePool: return "Service Node pool is empty (SnodeAPIError.emptySnodePool)."
+            case .insufficientSnodes: return "Couldn't find enough Service Nodes to build a path (SnodeAPIError.insufficientSnodes)."
             case .ranOutOfRandomSnodes(let maybeError):
                 switch maybeError {
                     case .none: return "Ran out of random snodes (SnodeAPIError.ranOutOfRandomSnodes(nil))."
@@ -47,9 +66,17 @@ public enum SnodeAPIError: Error, CustomStringConvertible {
                 }
                 
             // ONS
-            case .decryptionFailed: return "Couldn't decrypt ONS name (SnodeAPIError.decryptionFailed)."
-            case .hashingFailed: return "Couldn't compute ONS name hash (SnodeAPIError.hashingFailed)."
-            case .validationFailed: return "ONS name validation failed (SnodeAPIError.validationFailed)."
+            case .onsDecryptionFailed: return "Couldn't decrypt ONS name (SnodeAPIError.onsDecryptionFailed)."
+            case .onsHashingFailed: return "Couldn't compute ONS name hash (SnodeAPIError.onsHashingFailed)."
+            case .onsValidationFailed: return "ONS name validation failed (SnodeAPIError.onsValidationFailed)."
+                
+            // Quic
+            case .invalidNetwork: return "Unable to create network (SnodeAPIError.invalidNetwork)."
+            case .invalidPayload: return "Invalid payload (SnodeAPIError.invalidPayload)."
+            case .missingSecretKey: return "Missing secret key (SnodeAPIError.missingSecretKey)."
+            case .internalServerError: return "The service node is unreachable (SnodeAPIError.internalServerError)."
+            case .unassociatedPubkey: return "The service node is no longer associated with the public key (SnodeAPIError.unassociatedPubkey)."
+            case .unableToRetrieveSwarm: return "Unable to retrieve the swarm for the given public key (SnodeAPIError.unableToRetrieveSwarm)."
         }
     }
 }

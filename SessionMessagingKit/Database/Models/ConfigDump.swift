@@ -95,7 +95,7 @@ public extension ConfigDump.Variant {
             case .configGroupInfo: self = .groupInfo
             case .configGroupMembers: self = .groupMembers
             case .configGroupKeys: self = .groupKeys
-                
+            
             default: self = .invalid
         }
     }
@@ -147,11 +147,11 @@ extension ConfigDump.Variant: CustomStringConvertible {
             case .contacts: return "contacts"
             case .convoInfoVolatile: return "convoInfoVolatile"
             case .userGroups: return "userGroups"
-                
+            
             case .groupInfo: return "groupInfo"
             case .groupMembers: return "groupMembers"
             case .groupKeys: return "groupKeys"
-                
+            
             case .invalid: return "invalid"
         }
     }

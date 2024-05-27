@@ -737,7 +737,7 @@ public extension Interaction {
         
         // Update the last read timestamp if needed
         if configTriggeringChange != .convoInfoVolatile {
-            try SessionUtil.syncThreadLastReadIfNeeded(
+            try LibSession.syncThreadLastReadIfNeeded(
                 db,
                 threadId: threadId,
                 threadVariant: threadVariant,

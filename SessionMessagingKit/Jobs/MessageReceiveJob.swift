@@ -65,6 +65,7 @@ public enum MessageReceiveJob: JobExecutor {
                         // for open group messages) we also don't bother logging as it results in
                         // excessive logging which isn't useful)
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                            DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
                             MessageReceiverError.duplicateMessage,
                             MessageReceiverError.duplicateControlMessage,
                             MessageReceiverError.selfSend:

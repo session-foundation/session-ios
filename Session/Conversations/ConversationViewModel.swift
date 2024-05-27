@@ -89,6 +89,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             threadIsBlocked: Bool,
             threadIsMessageRequest: Bool,
             currentUserIsClosedGroupMember: Bool?,
+            currentUserIsClosedGroupAdmin: Bool?,
             openGroupPermissions: OpenGroup.Permissions?,
             blinded15SessionId: SessionId?,
             blinded25SessionId: SessionId?
@@ -141,13 +142,23 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                     default: return false
                 }
             }()
-            let currentUserIsClosedGroupMember: Bool? = (![.legacyGroup, .group].contains(threadVariant) ? nil :
+            let currentUserIsClosedGroupAdmin: Bool? = (![.legacyGroup, .group].contains(threadVariant) ? nil :
                 GroupMember
                     .filter(groupMember[.groupId] == threadId)
                     .filter(groupMember[.profileId] == userSessionId.hexString)
-                    .filter(groupMember[.role] == GroupMember.Role.standard)
+                    .filter(groupMember[.role] == GroupMember.Role.admin)
                     .isNotEmpty(db)
             )
+            let currentUserIsClosedGroupMember: Bool? = {
+                guard [.legacyGroup, .group].contains(threadVariant) else { return nil }
+                guard currentUserIsClosedGroupAdmin != true else { return true }
+                
+                return GroupMember
+                    .filter(groupMember[.groupId] == threadId)
+                    .filter(groupMember[.profileId] == currentUserPublicKey)
+                    .filter(groupMember[.role] == GroupMember.Role.standard)
+                    .isNotEmpty(db)
+            }()
             let openGroupPermissions: OpenGroup.Permissions? = (threadVariant != .community ? nil :
                 try OpenGroup
                     .filter(id: threadId)
@@ -174,6 +185,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 threadIsBlocked,
                 threadIsMessageRequest,
                 currentUserIsClosedGroupMember,
+                currentUserIsClosedGroupAdmin,
                 openGroupPermissions,
                 blinded15SessionId,
                 blinded25SessionId
@@ -193,6 +205,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
                 threadIsMessageRequest: initialData?.threadIsMessageRequest,
                 threadIsBlocked: initialData?.threadIsBlocked,
                 currentUserIsClosedGroupMember: initialData?.currentUserIsClosedGroupMember,
+                currentUserIsClosedGroupAdmin: initialData?.currentUserIsClosedGroupAdmin,
                 openGroupPermissions: initialData?.openGroupPermissions
             ).populatingCurrentUserBlindedIds(
                 currentUserBlinded15SessionIdForThisThread: initialData?.blinded15SessionId?.hexString,

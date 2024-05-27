@@ -35,7 +35,7 @@ public struct SnodeRequest<T: Encodable>: Encodable {
 // MARK: - BatchRequestChildRetrievable
 
 extension SnodeRequest: BatchRequestChildRetrievable where T: BatchRequestChildRetrievable {
-    public var requests: [HTTP.BatchRequest.Child] { body.requests }
+    public var requests: [Network.BatchRequest.Child] { body.requests }
 }
 
 // MARK: - UpdatableTimestamp

@@ -274,7 +274,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             for: .contact,
             id: threadId,
             name: threadContactNameInternal,
-            nickname: nil,  // Folded into 'threadContactNameInternal' within the Query
+            nickname: nil,      // Folded into 'threadContactNameInternal' within the Query
+            suppressId: true,   // Don't include the account id in the name in the conversation list
             customFallback: "Anonymous"
         )
     }
@@ -289,7 +290,8 @@ public struct SessionThreadViewModel: FetchableRecordWithRowId, Decodable, Equat
             for: threadVariant,
             id: (authorId ?? threadId),
             name: authorNameInternal,
-            nickname: nil,  // Folded into 'authorName' within the Query
+            nickname: nil,      // Folded into 'authorName' within the Query
+            suppressId: true,   // Don't include the account id in the name in the conversation list
             customFallback: (threadVariant == .contact ?
                 "Anonymous" :
                 nil
@@ -407,6 +409,7 @@ public extension SessionThreadViewModel {
         threadIsBlocked: Bool? = nil,
         contactProfile: Profile? = nil,
         currentUserIsClosedGroupMember: Bool? = nil,
+        currentUserIsClosedGroupAdmin: Bool? = nil,
         openGroupPermissions: OpenGroup.Permissions? = nil,
         unreadCount: UInt = 0,
         hasUnreadMessagesOfAnyKind: Bool = false,
@@ -449,7 +452,7 @@ public extension SessionThreadViewModel {
         self.closedGroupDescription = nil
         self.closedGroupUserCount = nil
         self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
-        self.currentUserIsClosedGroupAdmin = nil
+        self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
         self.openGroupName = nil
         self.openGroupDescription = nil
         self.openGroupServer = nil

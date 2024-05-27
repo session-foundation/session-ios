@@ -17,7 +17,7 @@ public final class MessageSender {
         interactionId: Int64?,
         fileIds: [String],
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Void> {
+    ) throws -> Network.PreparedRequest<Void> {
         // Common logic for all destinations
         let userSessionId: SessionId = getUserSessionId(db, using: dependencies)
         let messageSendTimestamp: Int64 = SnodeAPI.currentOffsetTimestampMs(using: dependencies)
@@ -91,7 +91,7 @@ public final class MessageSender {
         userSessionId: SessionId,
         messageSendTimestamp: Int64,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<SendMessagesResponse> {
+    ) throws -> Network.PreparedRequest<SendMessagesResponse> {
         guard let namespace: SnodeAPI.Namespace = namespace else { throw MessageSenderError.invalidMessage }
         
         /// Set the sender/recipient info (needed to be valid)
@@ -176,7 +176,7 @@ public final class MessageSender {
                     .mapError { MessageSenderError.other("Couldn't wrap message", $0) }
                     .successOrThrow()
                     
-                    return try SessionUtil
+                    return try LibSession
                         .encrypt(
                             message: messageData,
                             groupSessionId: SessionId(.group, hex: groupId),
@@ -236,7 +236,7 @@ public final class MessageSender {
         let snodeMessage = SnodeMessage(
             recipient: recipient,
             data: base64EncodedData,
-            ttl: Message.getSpecifiedTTL(message: message, destination: destination),
+            ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
             timestampMs: UInt64(messageSendTimestamp)
         )
         
@@ -244,7 +244,7 @@ public final class MessageSender {
             .preparedSendMessage(
                 message: snodeMessage,
                 in: namespace,
-                authMethod: try Authentication.with(db, sessionIdHexString: threadId, using: dependencies),
+                authMethod: try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
                 using: dependencies
             )
             .handleEvents(
@@ -339,7 +339,7 @@ public final class MessageSender {
         fileIds: [String],
         messageSendTimestamp: Int64,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Void> {
+    ) throws -> Network.PreparedRequest<Void> {
         // Note: It's possible to send a message and then delete the open group you sent the message to
         // which would go into this case, so rather than handling it as an invalid state we just want to
         // error in a non-retryable way
@@ -468,7 +468,7 @@ public final class MessageSender {
         userSessionId: SessionId,
         messageSendTimestamp: Int64,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<Void> {
+    ) throws -> Network.PreparedRequest<Void> {
         // The `openGroupInbox` destination does not support attachments
         guard
             fileIds.isEmpty,
@@ -753,9 +753,15 @@ public final class MessageSender {
             default: break
         }
         
-        // If the message was a reaction then we don't want to do anything to the original
-        // interaciton (which the 'interactionId' is pointing to
-        guard (message as? VisibleMessage)?.reaction == nil else { return error }
+        // Only 'VisibleMessage' messages can show a status so don't bother updating
+        // the other cases (if the VisibleMessage was a reaction then we also don't
+        // want to do anything as the `interactionId` points to the original message
+        // which has it's own status)
+        switch message {
+            case let message as VisibleMessage where message.reaction != nil: return error
+            case is VisibleMessage: break
+            default: return error
+        }
         
         // Check if we need to mark any "sending" recipients as "failed"
         //

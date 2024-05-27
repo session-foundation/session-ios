@@ -126,6 +126,7 @@ public extension Network.RequestType {
     static func selectedNetworkRequest(
         _ payload: Data,
         to snode: Snode,
+        swarmPublicKey: String?,
         timeout: TimeInterval = HTTP.defaultTimeout,
         using dependencies: Dependencies
     ) -> Network.RequestType<Data?> {
@@ -145,13 +146,13 @@ public extension Network.RequestType {
                             switch layer {
                                 case .onionRequest:
                                     return Network.RequestType<Data?>
-                                        .onionRequest(payload, to: snode, timeout: timeout)
+                                        .onionRequest(payload, to: snode, swarmPublicKey: swarmPublicKey, timeout: timeout)
                                         .generatePublisher()
                                         .asResult()
                                     
                                 case .direct:
                                     return Network.RequestType<Data?>
-                                        .directRequest(payload, to: snode, timeout: timeout)
+                                        .directRequest(payload, to: snode, swarmPublicKey: swarmPublicKey, timeout: timeout)
                                         .generatePublisher()
                                         .asResult()
                                     
@@ -241,11 +242,7 @@ fileprivate extension Publishers.MergeMany where Upstream.Output == Result<(Resp
                             case .failure: return false
                         }
                     }),
-                    case .success(let response) = result,
-                    let data: Data = response.1,
-                    let json: [String: Any] = try? JSONSerialization
-                        .jsonObject(with: data, options: [ .fragmentsAllowed ]) as? [String: Any],
-                    let timestamp: Int64 = json["t"] as? Int64
+                    case .success(let response) = result
                 else {
                     switch results.first {
                         case .success(let value): return value
@@ -254,9 +251,6 @@ fileprivate extension Publishers.MergeMany where Upstream.Output == Result<(Resp
                     }
                 }
                 
-                let offset: Int64 = timestamp - Int64(floor(Date().timeIntervalSince1970 * 1000))
-                dependencies.mutate(cache: .snodeAPI) { $0.clockOffsetMs = offset }
-
                 return response
             }
             .eraseToAnyPublisher()

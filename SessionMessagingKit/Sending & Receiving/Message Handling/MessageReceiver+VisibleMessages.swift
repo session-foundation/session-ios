@@ -114,7 +114,7 @@ extension MessageReceiver {
                     
                 case .group:
                     SNLog("Ignoring message with invalid sender.")
-                    throw HTTPError.parsingFailed
+                    throw NetworkError.parsingFailed
             }
         }()
         
@@ -141,7 +141,7 @@ extension MessageReceiver {
         // Auto-mark sent messages or messages older than the 'lastReadTimestampMs' as read
         let wasRead: Bool = (
             variant == .standardOutgoing ||
-            SessionUtil.timestampAlreadyRead(
+            LibSession.timestampAlreadyRead(
                 threadId: thread.id,
                 threadVariant: thread.variant,
                 timestampMs: Int64(messageSentTimestamp * 1000),
@@ -439,7 +439,7 @@ extension MessageReceiver {
                     count: 1,
                     sortId: sortId
                 ).inserted(db)
-                let timestampAlreadyRead: Bool = SessionUtil.timestampAlreadyRead(
+                let timestampAlreadyRead: Bool = LibSession.timestampAlreadyRead(
                     threadId: thread.id,
                     threadVariant: thread.variant,
                     timestampMs: timestampMs,

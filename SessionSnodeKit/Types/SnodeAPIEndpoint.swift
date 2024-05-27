@@ -28,7 +28,7 @@ public extension SnodeAPI {
         
         // jsonRPCCall proxied calls
         
-        case jsonGetNServiceNodes
+        case jsonGetServiceNodes
         
         // oxenDaemonRPCCall proxied calls
         
@@ -36,7 +36,7 @@ public extension SnodeAPI {
         case daemonGetServiceNodes
         
         public static var name: String { "SnodeAPI.Endpoint" }
-        public static var batchRequestVariant: HTTP.BatchRequest.Child.Variant = .storageServer
+        public static var batchRequestVariant: Network.BatchRequest.Child.Variant = .storageServer
         
         public var path: String {
             switch self {
@@ -54,14 +54,14 @@ public extension SnodeAPI {
                 case .sequence: return "sequence"
                 
                 case .getInfo: return "info"
-                case .getSwarm: return "get_snodes_for_pubkey"
+                case .getSwarm: return "get_swarm"
                 
                 case .jsonRPCCall: return "json_rpc"
                 case .oxenDaemonRPCCall: return "oxend_request"
                 
                 // jsonRPCCall proxied calls
                 
-                case .jsonGetNServiceNodes: return "get_n_service_nodes"
+                case .jsonGetServiceNodes: return "get_service_nodes"
                 
                 // oxenDaemonRPCCall proxied calls
                 

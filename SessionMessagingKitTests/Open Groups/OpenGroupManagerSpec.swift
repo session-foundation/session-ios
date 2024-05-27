@@ -717,7 +717,7 @@ class OpenGroupManagerSpec: QuickSpec {
                     
                     mockNetwork
                         .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
-                        .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomResponse)
+                        .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
                     
                     mockUserDefaults
@@ -901,7 +901,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             .mapError { result -> Error in error.setting(to: result) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(HTTPError.parsingFailed))
+                        expect(error).to(matchError(NetworkError.parsingFailed))
                     }
                 }
             }
@@ -1142,6 +1142,14 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     mockOGMCache.when { $0.pollers }.thenReturn([:])
+                    mockOGMCache.when { $0.hasPerformedInitialPoll }.thenReturn([:])
+                    mockOGMCache.when { $0.timeSinceLastPoll }.thenReturn([:])
+                    mockOGMCache
+                        .when { [dependencies = dependencies!] cache in
+                            cache.getTimeSinceLastOpen(using: dependencies)
+                        }
+                        .thenReturn(0)
+                    mockOGMCache.when { $0.isPolling }.thenReturn(false)
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in
@@ -1588,9 +1596,12 @@ class OpenGroupManagerSpec: QuickSpec {
                             })
                     }
                     
-                    // MARK: ------ does not start a new poller when already polling
-                    it("does not start a new poller when already polling") {
+                    // MARK: ------ restarts the poller if there already is one
+                    it("restarts the poller if there already is one") {
                         mockOGMCache.when { $0.pollers }.thenReturn(["testserver": OpenGroupAPI.Poller(for: "testserver")])
+                        mockNetwork
+                            .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
+                            .thenReturn(Network.BatchResponse.mockBlindedPollResponse)
                         
                         mockStorage.write { db in
                             try OpenGroupManager.handlePollInfo(
@@ -1603,7 +1614,279 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(mockOGMCache).to(call(.exactly(times: 1)) { $0.pollers })
+                        expect(mockOGMCache)
+                            .to(call(matchingParameters: true) {
+                                $0.pollers = ["testserver": OpenGroupAPI.Poller(for: "testserver")]
+                            })
+                    }
+                }
+                
+                // MARK: ---- when trying to get the room image
+                context("when trying to get the room image") {
+                    beforeEach {
+                        let image: UIImage = UIImage(color: .red, size: CGSize(width: 1, height: 1))
+                        let imageData: Data = image.pngData()!
+                        
+                        mockStorage.write { db in
+                            try OpenGroup
+                                .updateAll(db, OpenGroup.Columns.imageData.set(to: nil))
+                        }
+                        
+                        mockOGMCache.when { $0.groupImagePublishers }
+                            .thenReturn([
+                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Just(imageData).setFailureType(to: Error.self).eraseToAnyPublisher()
+                            ])
+                    }
+                    
+                    // MARK: ------ uses the provided room image id if available
+                    it("uses the provided room image id if available") {
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: OpenGroupAPI.Room.mockValue.with(
+                                token: "test",
+                                name: "test",
+                                imageId: "10"
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try OpenGroupManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                publicKey: TestConstants.publicKey,
+                                for: "testRoom",
+                                on: "testServer",
+                                waitForImageToComplete: true,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.imageId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal("10"))
+                        expect(
+                            mockStorage.read { db -> Data? in
+                                try OpenGroup
+                                    .select(.imageData)
+                                    .asRequest(of: Data.self)
+                                    .fetchOne(db)
+                            }
+                        ).toNot(beNil())
+                    }
+                    
+                    // MARK: ------ uses the existing room image id if none is provided
+                    it("uses the existing room image id if none is provided") {
+                        mockStorage.write { db in
+                            try OpenGroup.deleteAll(db)
+                            try OpenGroup(
+                                server: "testServer",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey,
+                                isActive: true,
+                                name: "Test",
+                                imageId: "12",
+                                imageData: Data([1, 2, 3]),
+                                userCount: 0,
+                                infoUpdates: 10
+                            ).insert(db)
+                        }
+                        
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: nil
+                        )
+                        
+                        mockStorage.write { db in
+                            try OpenGroupManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                publicKey: TestConstants.publicKey,
+                                for: "testRoom",
+                                on: "testServer",
+                                waitForImageToComplete: true,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.imageId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal("12"))
+                        expect(
+                            mockStorage.read { db -> Data? in
+                                try OpenGroup
+                                    .select(.imageData)
+                                    .asRequest(of: Data.self)
+                                    .fetchOne(db)
+                            }
+                        ).toNot(beNil())
+                    }
+                    
+                    // MARK: ------ uses the new room image id if there is an existing one
+                    it("uses the new room image id if there is an existing one") {
+                        mockStorage.write { db in
+                            try OpenGroup.deleteAll(db)
+                            try OpenGroup(
+                                server: "testServer",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey,
+                                isActive: true,
+                                name: "Test",
+                                imageId: "12",
+                                imageData: UIImage(color: .blue, size: CGSize(width: 1, height: 1)).pngData(),
+                                userCount: 0,
+                                infoUpdates: 10
+                            ).insert(db)
+                        }
+                        
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: OpenGroupAPI.Room.mockValue.with(
+                                token: "test",
+                                name: "test",
+                                infoUpdates: 10,
+                                imageId: "10"
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try OpenGroupManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                publicKey: TestConstants.publicKey,
+                                for: "testRoom",
+                                on: "testServer",
+                                waitForImageToComplete: true,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.imageId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal("10"))
+                        expect(
+                            mockStorage.read { db -> Data? in
+                                try OpenGroup
+                                    .select(.imageData)
+                                    .asRequest(of: Data.self)
+                                    .fetchOne(db)
+                            }
+                        ).toNot(beNil())
+                        expect(mockOGMCache).to(call(.exactly(times: 1)) { $0.groupImagePublishers })
+                    }
+                    
+                    // MARK: ------ does nothing if there is no room image
+                    it("does nothing if there is no room image") {
+                        mockStorage.write { db in
+                            try OpenGroupManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                publicKey: TestConstants.publicKey,
+                                for: "testRoom",
+                                on: "testServer",
+                                waitForImageToComplete: true,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> Data? in
+                                try OpenGroup
+                                    .select(.imageData)
+                                    .asRequest(of: Data.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(beNil())
+                    }
+                    
+                    // MARK: ------ does nothing if it fails to retrieve the room image
+                    it("does nothing if it fails to retrieve the room image") {
+                        mockOGMCache.when { $0.groupImagePublishers }
+                            .thenReturn([
+                                OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): Fail(error: NetworkError.unknown).eraseToAnyPublisher()
+                            ])
+                        
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: OpenGroupAPI.Room.mockValue.with(
+                                token: "test",
+                                name: "test",
+                                imageId: "10"
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try OpenGroupManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                publicKey: TestConstants.publicKey,
+                                for: "testRoom",
+                                on: "testServer",
+                                waitForImageToComplete: true,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> Data? in
+                                try OpenGroup
+                                    .select(.imageData)
+                                    .asRequest(of: Data.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(beNil())
+                    }
+                    
+                    // MARK: ------ saves the retrieved room image
+                    it("saves the retrieved room image") {
+                        testPollInfo = OpenGroupAPI.RoomPollInfo.mockValue.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: OpenGroupAPI.Room.mockValue.with(
+                                token: "test",
+                                name: "test",
+                                infoUpdates: 10,
+                                imageId: "10"
+                            )
+                        )
+                        mockStorage.write { db in
+                            try OpenGroupManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                publicKey: TestConstants.publicKey,
+                                for: "testRoom",
+                                on: "testServer",
+                                waitForImageToComplete: true,
+                                using: dependencies
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> Data? in
+                                try OpenGroup
+                                    .select(.imageData)
+                                    .asRequest(of: Data.self)
+                                    .fetchOne(db)
+                            }
+                        ).toNot(beNil())
                     }
                 }
             }
@@ -2752,7 +3035,7 @@ class OpenGroupManagerSpec: QuickSpec {
                 beforeEach {
                     mockNetwork
                         .when { $0.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any)) }
-                        .thenReturn(HTTP.BatchResponse.mockCapabilitiesAndRoomsResponse)
+                        .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
@@ -2873,7 +3156,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .mapError { result -> Error in error.setting(to: result) }
                         .sinkAndStore(in: &disposables)
                     
-                    expect(error).to(matchError(HTTPError.parsingFailed))
+                    expect(error).to(matchError(NetworkError.parsingFailed))
                     expect(mockNetwork)   // First attempt + 8 retries
                         .to(call(.exactly(times: 9)) { network in
                             network.send(.selectedNetworkRequest(.any, to: .any, with: .any, using: .any))
@@ -2893,7 +3176,7 @@ class OpenGroupManagerSpec: QuickSpec {
                         .sinkAndStore(in: &disposables)
                     
                     expect(error)
-                        .to(matchError(HTTPError.parsingFailed))
+                        .to(matchError(NetworkError.parsingFailed))
                     expect(mockOGMCache)
                         .to(call(matchingParameters: .all) {
                             $0.defaultRoomsPublisher = nil
@@ -2955,6 +3238,205 @@ class OpenGroupManagerSpec: QuickSpec {
                                 using: dependencies
                             )
                         })
+                    expect(mockUserDefaults)
+                        .to(call(matchingParameters: true) {
+                            $0.set(
+                                testDate,
+                                forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
+                            )
+                        })
+                    expect(
+                        mockStorage.read { db -> Data? in
+                            try OpenGroup
+                                .select(.imageData)
+                                .filter(id: OpenGroup.idFor(roomToken: "test2", server: OpenGroupAPI.defaultServer))
+                                .asRequest(of: Data.self)
+                                .fetchOne(db)
+                        }
+                    ).to(equal(Data([1, 2, 3])))
+                }
+            }
+            
+            // MARK: -- when getting a room image
+            context("when getting a room image") {
+                beforeEach {
+                    mockNetwork
+                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
+                        .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+                    
+                    mockUserDefaults
+                        .when { (defaults: inout any UserDefaultsType) -> Any? in defaults.object(forKey: any()) }
+                        .thenReturn(nil)
+                    mockUserDefaults
+                        .when { (defaults: inout any UserDefaultsType) -> Any? in defaults.set(anyAny(), forKey: any()) }
+                        .thenReturn(())
+                    mockOGMCache.when { $0.groupImagePublishers }.thenReturn([:])
+                    
+                    mockStorage.write { db in
+                        _ = try OpenGroup(
+                            server: OpenGroupAPI.defaultServer,
+                            roomToken: "testRoom",
+                            publicKey: OpenGroupAPI.defaultServerPublicKey,
+                            isActive: false,
+                            name: "",
+                            userCount: 0,
+                            infoUpdates: 0
+                        )
+                        .insert(db)
+                    }
+                }
+                
+                // MARK: ---- retrieves the image retrieval publisher from the cache if it exists
+                it("retrieves the image retrieval publisher from the cache if it exists") {
+                    let publisher = Future<Data, Error> { resolver in
+                        resolver(Result.success(Data([5, 4, 3, 2, 1])))
+                    }
+                    .shareReplay(1)
+                    .eraseToAnyPublisher()
+                    mockOGMCache
+                        .when { $0.groupImagePublishers }
+                        .thenReturn([OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher])
+                    
+                    var result: Data?
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: "1",
+                            for: "testRoom",
+                            on: "testServer",
+                            existingData: nil,
+                            using: dependencies
+                        )
+                        .handleEvents(receiveOutput: { result = $0 })
+                        .sinkAndStore(in: &disposables)
+                    
+                    expect(result).to(equal(publisher.firstValue()))
+                }
+                
+                // MARK: ---- does not save the fetched image to storage
+                it("does not save the fetched image to storage") {
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: "1",
+                            for: "testRoom",
+                            on: "testServer",
+                            existingData: nil,
+                            using: dependencies
+                        )
+                        .sinkAndStore(in: &disposables)
+                    
+                    expect(
+                        mockStorage.read { db -> Data? in
+                            try OpenGroup
+                                .select(.imageData)
+                                .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"))
+                                .asRequest(of: Data.self)
+                                .fetchOne(db)
+                        }
+                    ).to(beNil())
+                }
+                
+                // MARK: ---- does not update the image update timestamp
+                it("does not update the image update timestamp") {
+                    OpenGroupManager
+                        .roomImage(
+                            fileId: "1",
+                            for: "testRoom",
+                            on: "testServer",
+                            existingData: nil,
+                            using: dependencies
+                        )
+                        .sinkAndStore(in: &disposables)
+                    
+                    expect(mockUserDefaults)
+                        .toNot(call(matchingParameters: true) {
+                            $0.set(
+                                dependencies.dateNow,
+                                forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
+                            )
+                        })
+                }
+                
+                // MARK: ---- adds the image retrieval publisher to the cache
+                it("adds the image retrieval publisher to the cache") {
+                    let publisher = OpenGroupManager
+                        .roomImage(
+                            fileId: "1",
+                            for: "testRoom",
+                            on: "testServer",
+                            existingData: nil,
+                            using: dependencies
+                        )
+                    publisher.sinkAndStore(in: &disposables)
+                    
+                    expect(mockOGMCache)
+                        .to(call(matchingParameters: true) {
+                            $0.groupImagePublishers = [OpenGroup.idFor(roomToken: "testRoom", server: "testServer"): publisher]
+                        })
+                }
+                
+                // MARK: ---- for the default server
+                context("for the default server") {
+                    // MARK: ------ fetches a new image if there is no cached one
+                    it("fetches a new image if there is no cached one") {
+                        var result: Data?
+                        
+                        OpenGroupManager
+                            .roomImage(
+                                fileId: "1",
+                                for: "testRoom",
+                                on: OpenGroupAPI.defaultServer,
+                                existingData: nil,
+                                using: dependencies
+                            )
+                            .handleEvents(receiveOutput: { (data: Data) in result = data })
+                            .sinkAndStore(in: &disposables)
+                        
+                        expect(result).to(equal(Data([1, 2, 3])))
+                    }
+                    
+                    // MARK: ------ saves the fetched image to storage
+                    it("saves the fetched image to storage") {
+                        OpenGroupManager
+                            .roomImage(
+                                fileId: "1",
+                                for: "testRoom",
+                                on: OpenGroupAPI.defaultServer,
+                                existingData: nil,
+                                using: dependencies
+                            )
+                            .sinkAndStore(in: &disposables)
+                        
+                        expect(
+                            mockStorage.read { db -> Data? in
+                                try OpenGroup
+                                    .select(.imageData)
+                                    .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: OpenGroupAPI.defaultServer))
+                                    .asRequest(of: Data.self)
+                                    .fetchOne(db)
+                            }
+                        ).toNot(beNil())
+                    }
+                    
+                    // MARK: ------ updates the image update timestamp
+                    it("updates the image update timestamp") {
+                        OpenGroupManager
+                            .roomImage(
+                                fileId: "1",
+                                for: "testRoom",
+                                on: OpenGroupAPI.defaultServer,
+                                existingData: nil,
+                                using: dependencies
+                            )
+                            .sinkAndStore(in: &disposables)
+                        
+                        expect(mockUserDefaults)
+                            .to(call(matchingParameters: true) {
+                                $0.set(
+                                    dependencies.dateNow,
+                                    forKey: SNUserDefaults.Date.lastOpenGroupImageUpdate.rawValue
+                                )
+                            })
+                    }
                 }
             }
         }
@@ -3122,7 +3604,7 @@ extension OpenGroupAPI.DirectMessage: Mocked {
     )
 }
                         
-extension HTTP.BatchResponse {
+extension Network.BatchResponse {
     static let mockUnblindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
             (OpenGroupAPI.Endpoint.capabilities, OpenGroupAPI.Capabilities.mockBatchSubResponse()),

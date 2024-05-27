@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import Combine
@@ -25,6 +27,7 @@ public final class CurrentUserPoller: Poller {
     // MARK: - Settings
     
     override func namespaces(for publicKey: String) -> [SnodeAPI.Namespace] { CurrentUserPoller.namespaces }
+    override var pollerQueue: DispatchQueue { Threading.pollerQueue }
     
     /// After polling a given snode 6 times we always switch to a new one.
     ///
@@ -78,9 +81,8 @@ public final class CurrentUserPoller: Poller {
             let drainBehaviour: Atomic<SwarmDrainBehaviour> = drainBehaviour.wrappedValue[publicKey],
             case .limitedReuse(_, .some(let targetSnode), _, _, _) = drainBehaviour.wrappedValue
         {
-            SNLog("Main Poller polling \(targetSnode) failed with error: \(error); dropping it and switching to next snode.")
+            SNLog("Main Poller polling \(targetSnode) failed with error: \(error); switching to next snode.")
             drainBehaviour.mutate { $0 = $0.clearTargetSnode() }
-            SnodeAPI.dropSnodeFromSwarmIfNeeded(targetSnode, publicKey: publicKey, using: dependencies)
         }
         else {
             SNLog("Polling failed due to having no target service node.")

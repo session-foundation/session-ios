@@ -15,7 +15,7 @@ public enum AppSetup {
         appSpecificBlock: (() -> ())? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> (),
-        using dependencies: Dependencies = Dependencies()
+        using dependencies: Dependencies
     ) {
         // If we've already run the app setup then only continue under certain circumstances
         guard !AppSetup.hasRun.wrappedValue else {
@@ -62,7 +62,6 @@ public enum AppSetup {
             )
 
             SessionEnvironment.shared = SessionEnvironment(
-                reachabilityManager: SSKReachabilityManagerImpl(),
                 audioSession: OWSAudioSession(),
                 proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),
                 windowManager: OWSWindowManager(default: ())
@@ -102,12 +101,16 @@ public enum AppSetup {
             onProgressUpdate: migrationProgressChanged,
             onMigrationRequirement: { db, requirement in
                 switch requirement {
-                    case .sessionUtilStateLoaded:
+                    case .libSessionStateLoaded:
                         guard Identity.userExists(db, using: dependencies) else { return }
                         
                         // After the migrations have run but before the migration completion we load the
                         // SessionUtil state
-                        SessionUtil.loadState(db, using: dependencies)
+                        LibSession.loadState(
+                            db,
+                            userPublicKey: getUserHexEncodedPublicKey(db),
+                            ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey
+                        )
                 }
             },
             onComplete: { result, needsConfigSync in

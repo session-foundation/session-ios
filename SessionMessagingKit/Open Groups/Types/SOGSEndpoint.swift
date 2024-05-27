@@ -62,7 +62,7 @@ extension OpenGroupAPI {
         case userModerator(String)
         
         public static var name: String { "OpenGroupAPI.Endpoint" }
-        public static var batchRequestVariant: HTTP.BatchRequest.Child.Variant = .sogs
+        public static var batchRequestVariant: Network.BatchRequest.Child.Variant = .sogs
         public static var excludedSubRequestHeaders: [HTTPHeader] = [
             .sogsPubKey, .sogsTimestamp, .sogsNonce, .sogsSignature
         ]

@@ -131,8 +131,8 @@ public enum PushNotificationAPI {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         typealias UnsubscribeAllPreparedRequests = (
-            HTTP.PreparedRequest<PushNotificationAPI.UnsubscribeResponse>,
-            [HTTP.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>]
+            Network.PreparedRequest<PushNotificationAPI.UnsubscribeResponse>,
+            [Network.PreparedRequest<PushNotificationAPI.LegacyPushServerResponse>]
         )
         
         return dependencies[singleton: .storage]
@@ -324,7 +324,7 @@ public enum PushNotificationAPI {
         with message: String,
         maxRetryCount: Int? = nil,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse> {
+    ) throws -> Network.PreparedRequest<LegacyPushServerResponse> {
         return try PushNotificationAPI
             .prepareRequest(
                 request: Request(
@@ -411,7 +411,7 @@ public enum PushNotificationAPI {
         legacyGroupId: String,
         userSessionId: SessionId,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<LegacyPushServerResponse> {
+    ) throws -> Network.PreparedRequest<LegacyPushServerResponse> {
         return try PushNotificationAPI
             .prepareRequest(
                 request: Request(
@@ -559,10 +559,10 @@ public enum PushNotificationAPI {
         request: Request<T, Endpoint>,
         responseType: R.Type,
         retryCount: Int = 0,
-        timeout: TimeInterval = HTTP.defaultTimeout,
+        timeout: TimeInterval = Network.defaultTimeout,
         using dependencies: Dependencies
-    ) throws -> HTTP.PreparedRequest<R> {
-        return HTTP.PreparedRequest<R>(
+    ) throws -> Network.PreparedRequest<R> {
+        return Network.PreparedRequest<R>(
             request: request,
             urlRequest: try request.generateUrlRequest(using: dependencies),
             responseType: responseType,

@@ -428,7 +428,7 @@ public extension ClosedGroup {
         
         // Ignore if called from the config handling
         if dataToRemove.contains(.userGroup) && configTriggeringChange != .userGroups {
-            try SessionUtil.remove(
+            try LibSession.remove(
                 db,
                 legacyGroupIds: threadVariants
                     .filter { $0.variant == .legacyGroup }
@@ -436,7 +436,7 @@ public extension ClosedGroup {
                 using: dependencies
             )
             
-            try SessionUtil.remove(
+            try LibSession.remove(
                 db,
                 groupSessionIds: threadVariants
                     .filter { $0.variant == .group }

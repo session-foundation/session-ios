@@ -30,7 +30,7 @@ public enum LogType {
     case error
 }
 
-public func SNLog(_ type: LogType, _ message: String) {
+public func SNLog(_ type: LogType, _ message: String, forceNSLog: Bool = false) {
     let logPrefixes: String = [
         "Session",
         (Thread.isMainThread ? "Main" : nil),
@@ -49,6 +49,10 @@ public func SNLog(_ type: LogType, _ message: String) {
         case .info: OWSLogger.info("[\(logPrefixes)] \(message)")
         case .warn: OWSLogger.warn("[\(logPrefixes)] \(message)")
         case .error: OWSLogger.error("[\(logPrefixes)] \(message)")
+    }
+    
+    if forceNSLog {
+        NSLog(message)
     }
 }
 

@@ -602,11 +602,11 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             }
         }
         
-        // Contacts & legacy closed groups need to update the SessionUtil
+        // Contacts & legacy closed groups need to update the LibSession
         dependencies[singleton: .storage].writeAsync(using: dependencies) { [threadId, threadVariant, dependencies] db in
             switch threadVariant {
                 case .contact:
-                    try SessionUtil
+                    try LibSession
                         .update(
                             db,
                             sessionId: threadId,
@@ -615,7 +615,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                         )
                 
                 case .legacyGroup:
-                    try SessionUtil
+                    try LibSession
                         .update(
                             db,
                             legacyGroupSessionId: threadId,

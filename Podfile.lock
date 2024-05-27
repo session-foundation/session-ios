@@ -38,7 +38,6 @@ PODS:
   - NVActivityIndicatorView/Base (5.2.0)
   - OpenSSL-Universal (3.1.5004)
   - Quick (7.5.0)
-  - Reachability (3.7.6)
   - SAMKeychain (1.5.3)
   - SignalCoreKit (1.0.0):
     - CocoaLumberjack
@@ -61,10 +60,9 @@ DEPENDENCIES:
   - Nimble
   - NVActivityIndicatorView
   - Quick
-  - Reachability
   - SAMKeychain
   - SignalCoreKit (from `https://github.com/oxen-io/session-ios-core-kit`, commit `3acbfe5`)
-  - SQLCipher (~> 4.5.3)
+  - SQLCipher (~> 4.5.7)
   - SwiftProtobuf (~> 1.5.0)
   - WebRTC-lib (= 116.0.0)
   - YYImage/libwebp (from `https://github.com/signalapp/YYImage`)
@@ -84,7 +82,6 @@ SPEC REPOS:
     - NVActivityIndicatorView
     - OpenSSL-Universal
     - Quick
-    - Reachability
     - SAMKeychain
     - SQLCipher
     - SwiftProtobuf
@@ -119,7 +116,6 @@ SPEC CHECKSUMS:
   NVActivityIndicatorView: fe52a6a68664c2df8991d7d9e3d86d8d19453c53
   OpenSSL-Universal: 0db2e81615ad95efc90ce13a638986858da38c0d
   Quick: 2b651168441479b949ba987f3cee41a9cc53aa32
-  Reachability: fd0ecd23705e2599e4cceeb943222ae02296cbc6
   SAMKeychain: 483e1c9f32984d50ca961e26818a534283b4cd5c
   SignalCoreKit: 1fbd8732163ef76de16cd1107d1fa3684b607e5d
   SQLCipher: 5e6bfb47323635c8b657b1b27d25c5f1baf63bf5
@@ -127,6 +123,6 @@ SPEC CHECKSUMS:
   WebRTC-lib: a7f14febc57a4bb334505ea33eb4f797ef9e3ac9
   YYImage: f1ddd15ac032a58b78bbed1e012b50302d318331
 
-PODFILE CHECKSUM: 05cf9cc64f43765bbe411901b641f1c66304993d
+PODFILE CHECKSUM: b17d7f377bd712294ca1b396b8e4107048ba43cd
 
 COCOAPODS: 1.15.2

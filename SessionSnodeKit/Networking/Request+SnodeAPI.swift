@@ -1,42 +1,47 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtilitiesKit
 
 // MARK: - SnodeTarget
 
-internal extension HTTP {
+internal extension Network {
     struct SnodeTarget: RequestTarget, Equatable {
-        let snode: Snode
+        let snode: LibSession.Snode
+        let swarmPublicKey: String?
         
-        var url: URL? { URL(string: "snode:\(snode.x25519PublicKey)") }
+        var url: URL? { URL(string: "snode:\(snode.address)") }
         var urlPathAndParamsString: String { return "" }
     }
 }
 
 // MARK: - RandomSnodeTarget
 
-internal extension HTTP {
+internal extension Network {
     struct RandomSnodeTarget: RequestTarget, Equatable {
-        let publicKey: String
+        let swarmPublicKey: String
+        let retryCount: Int
         
-        var url: URL? { URL(string: "snode:\(publicKey)") }
+        var url: URL? { URL(string: "snode:\(swarmPublicKey)") }
         var urlPathAndParamsString: String { return "" }
     }
 }
 
 // MARK: - RandomSnodeLatestNetworkTimeTarget
 
-internal extension HTTP {
+internal extension Network {
     struct RandomSnodeLatestNetworkTimeTarget: RequestTarget, Equatable {
-        let publicKey: String
+        let swarmPublicKey: String
+        let retryCount: Int
         let urlRequestWithUpdatedTimestampMs: ((UInt64, Dependencies) throws -> URLRequest)
         
-        var url: URL? { URL(string: "snode:\(publicKey)") }
+        var url: URL? { URL(string: "snode:\(swarmPublicKey)") }
         var urlPathAndParamsString: String { return "" }
         
-        static func == (lhs: HTTP.RandomSnodeLatestNetworkTimeTarget, rhs: HTTP.RandomSnodeLatestNetworkTimeTarget) -> Bool {
-            lhs.publicKey == rhs.publicKey
+        static func == (lhs: Network.RandomSnodeLatestNetworkTimeTarget, rhs: Network.RandomSnodeLatestNetworkTimeTarget) -> Bool {
+            lhs.swarmPublicKey == rhs.swarmPublicKey && lhs.retryCount == rhs.retryCount
         }
     }
 }
@@ -47,15 +52,18 @@ public extension Request {
     init(
         method: HTTPMethod = .get,
         endpoint: Endpoint,
-        snode: Snode,
+        snode: LibSession.Snode,
         headers: [HTTPHeader: String] = [:],
-        body: T? = nil
+        body: T? = nil,
+        swarmPublicKey: String?,
+        retryCount: Int
     ) {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.SnodeTarget(
-                snode: snode
+            target: Network.SnodeTarget(
+                snode: snode,
+                swarmPublicKey: swarmPublicKey
             ),
             headers: headers,
             body: body
@@ -69,15 +77,17 @@ public extension Request {
     init(
         method: HTTPMethod = .get,
         endpoint: Endpoint,
-        publicKey: String,
+        swarmPublicKey: String,
         headers: [HTTPHeader: String] = [:],
-        body: T? = nil
+        body: T? = nil,
+        retryCount: Int
     ) {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.RandomSnodeTarget(
-                publicKey: publicKey
+            target: Network.RandomSnodeTarget(
+                swarmPublicKey: swarmPublicKey,
+                retryCount: retryCount
             ),
             headers: headers,
             body: body
@@ -91,23 +101,26 @@ public extension Request {
     init(
         method: HTTPMethod = .get,
         endpoint: Endpoint,
-        publicKey: String,
+        swarmPublicKey: String,
         headers: [HTTPHeader: String] = [:],
         requiresLatestNetworkTime: Bool,
-        body: T? = nil
+        body: T? = nil,
+        retryCount: Int
     ) where T: UpdatableTimestamp {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.RandomSnodeLatestNetworkTimeTarget(
-                publicKey: publicKey,
+            target: Network.RandomSnodeLatestNetworkTimeTarget(
+                swarmPublicKey: swarmPublicKey,
+                retryCount: retryCount,
                 urlRequestWithUpdatedTimestampMs: { timestampMs, dependencies in
                     try Request(
                         method: method,
                         endpoint: endpoint,
-                        publicKey: publicKey,
+                        swarmPublicKey: swarmPublicKey,
                         headers: headers,
-                        body: body?.with(timestampMs: timestampMs)
+                        body: body?.with(timestampMs: timestampMs),
+                        retryCount: retryCount
                     ).generateUrlRequest(using: dependencies)
                 }
             ),

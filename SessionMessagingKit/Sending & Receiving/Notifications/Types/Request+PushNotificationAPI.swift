@@ -17,9 +17,9 @@ public extension Request where Endpoint == PushNotificationAPI.Endpoint {
         self = Request(
             method: method,
             endpoint: endpoint,
-            target: HTTP.ServerTarget(
+            target: Network.ServerTarget(
                 server: endpoint.server(using: dependencies),
-                path: endpoint.path,
+                endpoint: endpoint,
                 queryParameters: queryParameters,
                 x25519PublicKey: endpoint.serverPublicKey
             ),

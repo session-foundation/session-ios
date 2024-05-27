@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtilitiesKit
@@ -14,7 +16,7 @@ public struct SnodeReceivedMessage: CustomDebugStringConvertible {
     public let data: Data
     
     init?(
-        snode: Snode,
+        snode: LibSession.Snode,
         publicKey: String,
         namespace: SnodeAPI.Namespace,
         rawMessage: GetMessagesResponse.RawMessage

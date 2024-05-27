@@ -9,13 +9,14 @@ enum _018_DisappearingMessagesConfiguration: Migration {
     static let identifier: String = "DisappearingMessagesWithTypes" // stringlint:disable
     static let needsConfigSync: Bool = false
     static let minExpectedRunDuration: TimeInterval = 0.1
-    static var requirements: [MigrationRequirement] = [.sessionUtilStateLoaded]
+    static var requirements: [MigrationRequirement] = [.libSessionStateLoaded]
     static let fetchedTables: [(TableRecord & FetchableRecord).Type] = [
         Identity.self, DisappearingMessagesConfiguration.self
     ]
     static let createdOrAlteredTables: [(TableRecord & FetchableRecord).Type] = [
         DisappearingMessagesConfiguration.self, Contact.self
     ]
+    static let droppedTables: [(TableRecord & FetchableRecord).Type] = []
     
     static func migrate(_ db: Database, using dependencies: Dependencies) throws {
         try db.alter(table: DisappearingMessagesConfiguration.self) { t in
@@ -79,8 +80,8 @@ enum _018_DisappearingMessagesConfiguration: Migration {
             }
         
         // Update the configs so the settings are synced
-        _ = try SessionUtil.updatingDisappearingConfigsOneToOne(db, contactUpdate, using: dependencies)
-        _ = try SessionUtil.batchUpdate(db, disappearingConfigs: legacyGroupUpdate, using: dependencies)
+        _ = try LibSession.updatingDisappearingConfigsOneToOne(db, contactUpdate, using: dependencies)
+        _ = try LibSession.batchUpdate(db, disappearingConfigs: legacyGroupUpdate, using: dependencies)
         
         Storage.update(progress: 1, for: self, in: target, using: dependencies)
     }

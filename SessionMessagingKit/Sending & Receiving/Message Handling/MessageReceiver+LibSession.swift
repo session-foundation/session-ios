@@ -22,7 +22,7 @@ extension MessageReceiver {
             let userEd25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db, using: dependencies)
         else { throw MessageReceiverError.decryptionFailed }
         
-        let supportedEncryptionDomains: [SessionUtil.Crypto.Domain] = [
+        let supportedEncryptionDomains: [LibSession.Crypto.Domain] = [
             .kickedMessage
         ]
         

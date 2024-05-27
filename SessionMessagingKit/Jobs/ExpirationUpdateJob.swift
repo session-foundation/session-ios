@@ -37,7 +37,7 @@ public enum ExpirationUpdateJob: JobExecutor {
                         shortenOnly: true,
                         authMethod: try Authentication.with(
                             db,
-                            sessionIdHexString: getUserSessionId(db, using: dependencies).hexString,
+                            swarmPublicKey: getUserSessionId(db, using: dependencies).hexString,
                             using: dependencies
                         ),
                         using: dependencies

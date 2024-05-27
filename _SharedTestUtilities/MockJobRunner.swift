@@ -43,8 +43,8 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
         return mock(args: [job, dependantJob, canStartJob], untrackedArgs: [db, dependencies])
     }
     
-    func upsert(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) {
-        mockNoReturn(args: [job, canStartJob], untrackedArgs: [db, dependencies])
+    func upsert(_ db: Database, job: Job?, canStartJob: Bool, using dependencies: Dependencies) -> Job? {
+        return mock(args: [job, canStartJob], untrackedArgs: [db, dependencies])
     }
     
     func insert(_ db: Database, job: Job?, before otherJob: Job) -> (Int64, Job)? {
@@ -66,5 +66,18 @@ class MockJobRunner: Mock<JobRunnerType>, JobRunnerType {
     
     func removePendingJob(_ job: Job?) {
         mockNoReturn(args: [job])
+    }
+    
+    func enqueueDependenciesIfNeeded(_ jobs: [Job], using dependencies: Dependencies) {
+        accept(args: [jobs])
+    }
+    
+    func afterJob(_ job: Job?, state: JobRunner.JobState, callback: @escaping (JobRunner.JobResult) -> ()) {
+        accept(args: [job, state, callback])
+        callback(.succeeded)
+    }
+    
+    func removePendingJob(_ job: Job?) {
+        accept(args: [job])
     }
 }

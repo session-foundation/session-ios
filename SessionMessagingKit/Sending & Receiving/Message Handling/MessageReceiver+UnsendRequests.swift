@@ -54,7 +54,7 @@ extension MessageReceiver {
                             requireSuccessfulDeletion: false,
                             authMethod: try Authentication.with(
                                 db,
-                                sessionIdHexString: author,
+                                swarmPublicKey: author,
                                 using: dependencies
                             ),
                             using: dependencies

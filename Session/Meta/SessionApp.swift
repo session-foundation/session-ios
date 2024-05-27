@@ -28,7 +28,7 @@ public struct SessionApp {
         let versionInfo: [String] = [
             "iOS \(UIDevice.current.systemVersion)",
             appVersion,
-            "libSession: \(SessionUtil.libSessionVersion)",
+            "libSession: \(LibSession.libSessionVersion)",
             commitInfo
         ].compactMap { $0 }
         
@@ -122,7 +122,7 @@ public struct SessionApp {
         Logger.error("")
         DDLog.flushLog()
         
-        SessionUtil.clearMemoryState(using: dependencies)
+        LibSession.clearMemoryState(using: dependencies)
         Storage.resetAllStorage(using: dependencies)
         DisplayPictureManager.resetStorage(using: dependencies)
         Attachment.resetAttachmentStorage()

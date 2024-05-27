@@ -38,8 +38,7 @@ public class NotificationActionHandler {
                         case .finished: break
                         case .failure(let error):
                             completionHandler()
-                            owsFailDebug("error: \(error)")
-                            Logger.error("error: \(error)")
+                            SNLog(.error, "error: \(error)")
                     }
                 },
                 receiveValue: { _ in completionHandler() }
@@ -58,14 +57,14 @@ public class NotificationActionHandler {
 
         switch response.actionIdentifier {
             case UNNotificationDefaultActionIdentifier:
-                Logger.debug("default action")
+                SNLog(.debug, "default action")
                 return showThread(userInfo: userInfo, using: dependencies)
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
                 
             case UNNotificationDismissActionIdentifier:
                 // TODO - mark as read?
-                Logger.debug("dismissed notification")
+                SNLog(.debug, "dismissed notification")
                 return Just(())
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
