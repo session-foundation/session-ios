@@ -264,8 +264,8 @@
 "vc_display_name_title_2" = "Pick your display name";
 "vc_display_name_explanation" = "This will be your name when you use Session. It can be your real name, an alias, or anything else you like.";
 "vc_display_name_text_field_hint" = "Enter a display name";
-"vc_display_name_display_name_missing_error" = "Please pick a display name";
-"vc_display_name_display_name_too_long_error" = "Please pick a shorter display name";
+"vc_display_name_display_name_missing_error" = "Please enter a display name.";
+"vc_display_name_display_name_too_long_error" = "Please enter a shorter display name.";
 "vc_pn_mode_recommended_option_tag" = "Priporočeno";
 "vc_pn_mode_no_option_picked_modal_title" = "Izberite opcijo";
 "vc_home_empty_state_message" = "Nimate stikov";
