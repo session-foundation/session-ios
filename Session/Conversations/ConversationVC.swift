@@ -214,7 +214,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             messageLabelAccessibilityLabel: "Outdated client banner text",
             height: 40
         )
-        let result: InfoBanner = InfoBanner(info: info, dismiss: self.removeOutdatedClientBanner)
+        let result: InfoBanner = InfoBanner(info: info, dismiss: { [weak self] in
+            self?.removeOutdatedClientBanner()
+        })
         result.accessibilityLabel = "Outdated client banner"
         result.isAccessibilityElement = true
         
@@ -1532,8 +1534,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 cell.update(
                     with: cellViewModel,
                     mediaCache: mediaCache,
-                    playbackInfo: viewModel.playbackInfo(for: cellViewModel) { updatedInfo, error in
-                        DispatchQueue.main.async { [weak self] in
+                    playbackInfo: viewModel.playbackInfo(for: cellViewModel) { [weak self] updatedInfo, error in
+                        DispatchQueue.main.async {
                             guard error == nil else {
                                 let modal: ConfirmationModal = ConfirmationModal(
                                     targetView: self?.view,

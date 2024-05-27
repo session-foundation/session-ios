@@ -39,16 +39,17 @@ public final class OpenGroupManager {
                 .defaulting(to: [])
             
             // Update the cache state and re-create all of the pollers
-            dependencies.caches.mutate(cache: .openGroupManager) { cache in
+            let pollers: [OpenGroupAPI.PollerType] = dependencies.caches.mutate(cache: .openGroupManager) { cache in
                 cache.isPolling = true
                 
-                servers
-                    .map { server -> OpenGroupAPI.PollerType in cache.getOrCreatePoller(for: server.lowercased()) }
-                    .forEach { poller in
-                        // Now that the pollers have been created actually start them
-                        poller.stop() // Should never be an issue
-                        poller.startIfNeeded(using: dependencies)
-                    }
+                return servers.map { server -> OpenGroupAPI.PollerType in cache.getOrCreatePoller(for: server.lowercased()) }
+            }
+            
+            // Need to do this outside of the mutate as the poller will attempt to read from the
+            // 'openGroupManager' cache which is not allowed
+            pollers.forEach { poller in
+                poller.stop() // Should never be an issue
+                poller.startIfNeeded(using: dependencies)
             }
         }
     }
@@ -297,6 +298,8 @@ public final class OpenGroupManager {
                                     $0.getOrCreatePoller(for: server.lowercased())
                                 }
                                 
+                                // Need to do this outside of the mutate as the poller will attempt to read from the
+                                // 'openGroupManager' cache which is not allowed
                                 poller.stop()
                                 poller.startIfNeeded(using: dependencies)
                             }

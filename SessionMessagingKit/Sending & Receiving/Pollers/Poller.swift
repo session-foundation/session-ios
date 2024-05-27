@@ -76,7 +76,7 @@ public class Poller {
         // on startup
         let drainBehaviour: Atomic<SwarmDrainBehaviour> = Atomic(pollDrainBehaviour)
         
-        Threading.pollerQueue.async { [weak self] in
+        pollerQueue.async { [weak self] in
             guard self?.isPolling.wrappedValue[publicKey] != true else { return }
             
             // Might be a race condition that the setUpPolling finishes too soon,

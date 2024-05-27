@@ -34,7 +34,7 @@ extension ConversationVC:
         openSettingsFromTitleView()
     }
     
-    @objc func  openSettingsFromTitleView() {
+    @objc func openSettingsFromTitleView() {
         switch self.titleView.currentLabelType {
             case .userCount:
                 if self.viewModel.threadData.threadVariant == .group || self.viewModel.threadData.threadVariant == .legacyGroup {
