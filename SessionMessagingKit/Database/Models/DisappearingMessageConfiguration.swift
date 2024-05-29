@@ -188,11 +188,10 @@ public extension DisappearingMessagesConfiguration {
                     .localized()
             }
             
-            return String(
-                format: "disappearingMessagesSet".localized(),
-                senderName,
-                floor(durationSeconds).formatted(format: .long)
-            )
+            return "deleteAfterLegacyDisappearingMessagesTheyChangedTimer"
+                .put(key: "name", value: senderName)
+                .put(key: "time", value: floor(durationSeconds).formatted(format: .long))
+                .localized()
         }
     }
     

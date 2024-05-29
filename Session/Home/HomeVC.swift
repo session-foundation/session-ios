@@ -50,8 +50,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
         result.accessibilityLabel = "Recovery phrase reminder"
-        result.title = NSAttributedString(string: "onboarding_recovery_password_title".localized())
-        result.subtitle = "onboarding_recovery_password_subtitle".localized()
+        result.title = NSAttributedString(string: "recoveryPasswordBannerTittle".localized())
+        result.subtitle = "recoveryPasswordBannerDescription".localized()
         result.setProgress(1, animated: false)
         result.delegate = self
         result.isHidden = !self.viewModel.state.showViewedSeedBanner
@@ -63,7 +63,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.font = .systemFont(ofSize: Values.smallFontSize)
-        result.text = "LOADING_CONVERSATIONS".localized()
+        result.text = "loading".localized()
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.numberOfLines = 0
@@ -895,7 +895,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
             rootView: StartConversationScreen(),
             customizedNavigationBackground: .backgroundSecondary
         )
-        viewController.setNavBarTitle("start_conversation_screen_title".localized())
+        viewController.setNavBarTitle("conversationsStart".localized())
         viewController.setUpDismissingButton(on: .right)
         
         let navigationController = StyledNavigationController(rootViewController: viewController)

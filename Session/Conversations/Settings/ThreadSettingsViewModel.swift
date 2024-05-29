@@ -187,7 +187,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     var title: String {
         switch threadVariant {
             case .contact: return "sessionSettings".localized()
-            case .legacyGroup, .group, .community: return "vc_group_settings_title".localized()
+            case .legacyGroup, .group, .community: return "deleteAfterGroupPR1GroupSettings".localized()
         }
     }
     
@@ -559,7 +559,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "table_ic_notification_sound")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "SETTINGS_ITEM_NOTIFICATION_SOUND".localized(),
+                            title: "deleteAfterGroupPR1MessageSound".localized(),
                             rightAccessory: .dropDown(
                                 .dynamicString { current.notificationSound.displayName }
                             ),
@@ -580,8 +580,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "NotifyMentions")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "vc_conversation_settings_notify_for_mentions_only_title".localized(),
-                            subtitle: "vc_conversation_settings_notify_for_mentions_only_explanation".localized(),
+                            title: "deleteAfterGroupPR1MentionsOnly".localized(),
+                            subtitle: "deleteAfterGroupPR1MentionsOnlyDescription".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     threadViewModel.threadOnlyNotifyForMentions == true,
@@ -671,7 +671,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 UIImage(named: "table_ic_block")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: "CONVERSATION_SETTINGS_BLOCK_THIS_USER".localized(),
+                            title: "deleteAfterGroupPR1BlockThisUser".localized(),
                             rightAccessory: .toggle(
                                 .boolValue(
                                     threadViewModel.threadIsBlocked == true,

@@ -593,7 +593,10 @@ extension ReactionListSheet {
         func update(moreReactorCount: Int, emoji: String) {
             label.text = (moreReactorCount == 1 ?
                 String(format: "EMOJI_REACTS_MORE_REACTORS_ONE".localized(), "\(emoji)") :
-                String(format: "EMOJI_REACTS_MORE_REACTORS_MUTIPLE".localized(), "\(moreReactorCount)" ,"\(emoji)")
+                "emojiReactsCountOthers"
+                    .put(key: "count", value: moreReactorCount)
+                    .put(key: "emoji", value: emoji)
+                    .localized()
             )
         }
     }

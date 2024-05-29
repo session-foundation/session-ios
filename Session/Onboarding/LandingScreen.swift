@@ -99,13 +99,13 @@ struct LandingScreen: View {
                     openLegalUrl()
                 } label: {
                     let attributedText: NSAttributedString = {
-                        let text = String(format: "onboardingTosPrivacy".localized(), "terms_of_service".localized(), "privacy_policy".localized())
+                        let text = String(format: "onboardingTosPrivacy".localized(), "onboardingTos".localized(), "onboardingPrivacy".localized())
                         let result = NSMutableAttributedString(
                             string: text,
                             attributes: [ .font : UIFont.systemFont(ofSize: Values.verySmallFontSize)]
                         )
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "terms_of_service".localized()))
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "privacy_policy".localized()))
+                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "onboardingTos".localized()))
+                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "onboardingPrivacy".localized()))
                         
                         return result
                     }()
@@ -141,7 +141,7 @@ struct LandingScreen: View {
         Onboarding.Flow.register.unregister()
         
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: LoadAccountScreen())
-        viewController.setNavBarTitle("onboarding_load_account_title".localized())
+        viewController.setNavBarTitle("loadAccount".localized())
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     
@@ -150,13 +150,13 @@ struct LandingScreen: View {
             info: ConfirmationModal.Info(
                 title: "urlOpen".localized(),
                 body: .text("urlOpenBrowswer".localized()),
-                confirmTitle: "terms_of_service".localized(),
+                confirmTitle: "onboardingTos".localized(),
                 confirmAccessibility: Accessibility(
                     identifier: "Terms of service button",
                     label: "Terms of service button"
                 ),
                 confirmStyle: .textPrimary,
-                cancelTitle: "privacy_policy".localized(),
+                cancelTitle: "onboardingPrivacy".localized(),
                 cancelAccessibility: Accessibility(
                     identifier: "Privacy policy button",
                     label: "Privacy policy button"

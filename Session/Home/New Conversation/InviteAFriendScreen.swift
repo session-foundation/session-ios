@@ -45,7 +45,7 @@ struct InviteAFriendScreen: View {
                         .stroke(themeColor: .borderSeparator)
                     )
                 
-                Text("invite_a_friend_explanation".localized())
+                Text("shareAccountIdDescription".localized())
                     .font(.system(size: Values.verySmallFontSize))
                     .multilineTextAlignment(.center)
                     .foregroundColor(themeColor: .textSecondary)

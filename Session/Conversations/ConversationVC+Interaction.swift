@@ -2171,7 +2171,7 @@ extension ConversationVC:
                 
                 let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
                 actionSheet.addAction(UIAlertAction(
-                    title: "clearMessagesForMe".localized(),
+                    title: "deleteMessageDeviceOnly".localized(),
                     accessibilityIdentifier: "Delete for me",
                     style: .destructive
                 ) { [weak self] _ in
@@ -2198,7 +2198,7 @@ extension ConversationVC:
                         title: {
                             switch cellViewModel.threadVariant {
                                 case .legacyGroup, .group: return "clearMessagesForEveryone".localized()
-                                default: return "clearMessagesForEveryone".localized()
+                                default: return "deleteMessageEveryone".localized()
                             }
                         }(),
                         accessibilityIdentifier: "Delete for everyone",

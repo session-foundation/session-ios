@@ -151,9 +151,9 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                 ),
                                 (Features.useNewDisappearingMessagesConfig ? nil :
                                     SessionCell.Info(
-                                        id: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
-                                        title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
-                                        subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
+                                        id: "deleteAfterLegacyDisappearingMessagesLegacy".localized(),
+                                        title: "deleteAfterLegacyDisappearingMessagesLegacy".localized(),
+                                        subtitle: "deleteAfterLegacyDisappearingMessagesOriginal".localized(),
                                         rightAccessory: .radio(
                                             isSelected: {
                                                 (self?.currentSelection.value.isEnabled == true) &&
@@ -329,9 +329,9 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                         }
                                     ),
                                     SessionCell.Info(
-                                        id: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
-                                        title: "DISAPPEARING_MESSAGES_TYPE_LEGACY_TITLE".localized(),
-                                        subtitle: "DISAPPEARING_MESSAGES_TYPE_LEGACY_DESCRIPTION".localized(),
+                                        id: "deleteAfterLegacyDisappearingMessagesLegacy".localized(),
+                                        title: "deleteAfterLegacyDisappearingMessagesLegacy".localized(),
+                                        subtitle: "deleteAfterLegacyDisappearingMessagesOriginal".localized(),
                                         rightAccessory: .radio(
                                             isSelected: {
                                                 (self?.currentSelection.value.isEnabled == true) &&

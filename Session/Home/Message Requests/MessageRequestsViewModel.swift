@@ -133,7 +133,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
     // MARK: - Content
     
     public let title: String = "sessionMessageRequests".localized()
-    public let initialLoadMessage: String? = "LOADING_CONVERSATIONS".localized()
+    public let initialLoadMessage: String? = "loading".localized()
     public let emptyStateTextPublisher: AnyPublisher<String?, Never> = Just("messageRequestsNonePending".localized())
         .eraseToAnyPublisher()
     public let cellType: SessionTableViewCellType = .fullConversation

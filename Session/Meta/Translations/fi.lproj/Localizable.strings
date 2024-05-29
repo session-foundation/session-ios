@@ -86,7 +86,6 @@
 "groupLeaveDescriptionAdmin" = "Are you sure you want to leave {group_name}? This will deactivate the group for all members.";
 "urlOpenDescription" = "Are you sure you want to open this URL in your browser?<br/><br/>{url}";
 "recoveryPasswordHidePermanentlyDescription2" = "Are you sure you want to permanently hide your recovery password on this device? This cannot be undone.";
-<<<<<<< HEAD
 "blockUnblockDescription" = "Are you sure you want to unblock {name}?";
 "attachment" = "Attachment";
 "attachmentsExpired" = "Attachment expired";
@@ -197,26 +196,6 @@
 "callsVoiceAndVideoToggleDescription" = "Enables voice and video calls to and from other users";
 "displayNameEnter" = "Enter your display name";
 "groupDescriptionEnter" = "Enter a group description";
-=======
-"qrView" = "View QR";
-"recoveryPasswordView" = "View Password";
-"yes" = "Yes";
-"qrNotRecoveryPassword" = "This QR code does not contain a Recovery Password";
-
-//Settings
-"view" = "View";
-"settings_scan_qr_code_tab_title" = "Scan";
-"settings_view_my_qr_code_explanation" = "This is your Account ID. Other users can scan it to start a conversation with you.";
-"qrNotAccountId" = "This QR code does not contain an Account ID.";
-"lockApp" = "Lock App";
-"accountIdYours" = "Your Account ID";
-"accountIDCopy" = "Copy Account ID";
-
-//Start Conversation
-"qrYoursDescription" = "Friends can message you by scanning your QR code.";
-"start_conversation_screen_title" = "Start Conversation";
-"invite_a_friend_explanation" = "Invite your friend to chat with you on Session by sharing your Account ID with them";
->>>>>>> onboarding
 "accountIdEnter" = "Enter Account ID";
 "accountIdOrOnsEnter" = "Enter Account ID or ONS";
 "communityEnterUrl" = "Enter Community URL";
@@ -441,7 +420,6 @@
 "screenSecurity" = "Screen Security";
 "screenshotNotifications" = "Screenshot Notifications";
 "search" = "Search";
-<<<<<<< HEAD
 "searchContacts" = "Search Contacts";
 "searchConversation" = "Search Conversation";
 "searchMembers" = "Search Members";
@@ -470,7 +448,6 @@
 "lockAppUnlocked" = "{app_name} is unlocked";
 "cameraGrantAccessQr" = "{app_name} needs camera access to scan QR codes";
 "cameraGrantAccessDenied" = "{app_name} needs camera access to take photos and videos, but it has been permanently denied. Please continue to app settings, select \"Permissions\", and enable \"Camera\".";
-"cameraGrantAccessDescription" = "{app_name} needs camera access to take photos or videos.";
 "permissionsMicrophoneAccessRequiredAndroid" = "{app_name} needs microphone access to send audio messages, but it has been permanently denied. Please continue to app settings, select \"Permissions\", and enable \"Microphone\".";
 "cameraGrantAccessStorage" = "{app_name} needs storage access to send photos and videos.";
 "updateSession" = "{app_name} Update";
@@ -569,7 +546,7 @@
 "callsNotificationsRequired" = "Voice and Video Calls require notifications to be enabled in your device system settings. ";
 "messageVoice" = "Voice Message";
 "warning" = "Warning";
-"onsErrorNotRecognised" = "We couldn\'t recognise this ONS. Please check it and try again.";
+"onsErrorNotRecognized" = "We couldn\'t recognise this ONS. Please check and try again.";
 "displayNameErrorNew" = "We were unable to load your display name. Please enter a new display name to continue.";
 "onsErrorUnableToSearch" = "We were unable to search for this ONS. Please try again later.";
 "helpWedLoveYourFeedback" = "We\'d love your feedback";
@@ -702,7 +679,48 @@
 "accountIdShare" = "Hey, I've been using {app_name} to chat with complete privacy and security. Come join me! My Account ID is<br/><br/>{account_id}<br/><br/>Download it at {download_url}";
 "onboardingRecoveryPassword" = "Enter your recovery password to load your account. If you haven't saved it, you can find it in your app settings.";
 "attachmentsNotification" = "{emoji} Attachment";
-"onsErrorNotRecognized" = "We couldn't recognize this ONS. Please check it and try again.";
 "communityJoinError" = "Failed to join {community_name}";
 "profileErrorUpdate" = "Failed to update profile.";
 "profileDisplayPictureRemoveError" = "Failed to remove display picture.";
+"callsIncomingUnknown" = "Incoming call";
+"onboardingTos" = "Terms of Service";
+"onboardingPrivacy" = "Privacy Policy";
+"recoveryPasswordBannerTittle" = "Save your recovery password";
+"recoveryPasswordBannerDescription" = "Save your recovery password to make sure you don't lose access to your account.";
+"loadAccount" = "Load Account";
+"accountIdYoursDescription" = "This is your Account ID. Other users can scan it to start a conversation with you.";
+"conversationsStart" = "Start Conversation";
+"scan" = "Scan";
+"shareAccountIdDescription" = "Invite your friend to chat with you on Session by sharing your Account ID with them.";
+"blockUnblockNameTwo" = "Are you sure you want to unblock {name} and 1 other?";
+"blockUnblockNameMultiple" = "Are you sure you want to unblock {name} and {count} others?";
+"deleteAfterGroupPR3DeleteMessagesConfirmation" = "Permanently delete the messages in this conversation?"; // TODO: Delete after Groups Post Release Chunk 3
+"deleteAfterLegacyDisappearingMessagesTheyChangedTimer" = "<b>{name}</b> set the disappearing message timer to <b>{time}</b>"; // TODO: Delete after Legacy Disappearing Messages is removed
+"deleteAfterLegacyDisappearingMessagesOriginal" = "Original version of disappearing messages."; // TODO: Delete after Legacy Disappearing Messages is removed
+"deleteAfterLegacyDisappearingMessagesLegacy" = "Legacy"; // TODO: Delete after Legacy Disappearing Messages is removed
+"contentDescriptionStartConversation" = "Create a conversation with a new contact";
+"contentDescriptionChooseConversationType" = "Choose an action to start a conversation";
+"callsEnded" = "Call Ended";
+"deleteMessageConfirm" = "Are you sure you want to delete this message?";
+"deleteMessagesConfirm" = "Are you sure you want to delete these messages?";
+"deleteMessageDeviceOnly" = "Delete on this device only";
+"deleteMessageEveryone" = "Delete for everyone";
+"emojiReactsCountOthers" = "And {count} others have reacted {emoji} to this message.";
+"banDeleteAll" = "Ban and Delete All";
+"loading" = "Loading...";
+"deleteAfterGroupPR1GroupSettings" = "Group Settings"; // TODO: Delete after Groups Post Release Chunk 1
+"deleteAfterGroupPR1MessageSound" = "Message Sound"; // TODO: Delete after Groups Post Release Chunk 1
+"deleteAfterGroupPR1MentionsOnly" = "Notify for Mentions Only"; // TODO: Delete after Groups Post Release Chunk 1
+"deleteAfterGroupPR1MentionsOnlyDescription" = "When enabled, you'll only be notified for messages mentioning you."; // TODO: Delete after Groups Post Release Chunk 1
+"deleteAfterGroupPR1BlockThisUser" = "Block This User"; // TODO: Delete after Groups Post Release Chunk 1
+"deleteAfterGroupPR1BlockUser" = "Block User"; // TODO: Delete after Groups Post Release Chunk 1
+"deleteAfterGroupFirstReleaseConfigOutdated" = "Some of your devices are using outdated versions. Syncing may be unreliable until they are updated."; // TODO: Delete after Groups First Release
+"deleteAfterGroupPR3GroupErrorLeave" = "Can't leave while adding or removing other members."; // TODO: Delete after Groups Post Release Chunk 3
+"permissionsStorageSend" = "{app_name} needs storage access to send photos and videos."; // NSPhotoLibraryUsageDescription
+"permissionsFaceId" = "The screen lock feature on {app_name} uses Face ID."; // NSFaceIDUsageDescription
+"cameraGrantAccessDescription" = "{app_name} needs camera access to take photos and videos, or scan QR codes."; // NSCameraUsageDescription
+"permissionsAppleMusic" = "{app_name} needs to use Apple Music to play media attachments."; // NSAppleMusicUsageDescription
+"permissionsStorageSave" = "{app_name} needs storage access to save attachments and media."; // NSPhotoLibraryAddUsageDescription
+"permissionsMicrophoneAccessRequiredIos" = "{app_name} needs microphone access to make calls and record audio messages."; // NSMicrophoneUsageDescription
+"disappearingMessagesCountdownBigMobile" = "Auto-deletes in {time_large}";
+"disappearingMessagesCountdownBigSmallMobile" = "Auto-deletes in {time_large} {time_small}";

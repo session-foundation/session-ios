@@ -21,12 +21,20 @@ extension ProjectState {
     static let primaryLocalisationFile: String = "en"
     static let validLocalisationSuffixes: Set<String> = ["Localizable.strings"]
     static let permissionStrings: Set<String> = [
-        "NSAppleMusicUsageDescription",
-        "NSCameraUsageDescription",
-        "NSFaceIDUsageDescription",
-        "NSMicrophoneUsageDescription",
-        "NSPhotoLibraryAddUsageDescription",
-        "NSPhotoLibraryUsageDescription"
+        "permissionsStorageSend",
+        "permissionsFaceId",
+        "cameraGrantAccessDescription",
+        "permissionsAppleMusic",
+        "permissionsStorageSave",
+        "permissionsMicrophoneAccessRequiredIos"
+    ]
+    static let permissionStringsMap: [String: String] = [
+        "permissionsStorageSend": "NSPhotoLibraryUsageDescription",
+        "permissionsFaceId": "NSFaceIDUsageDescription",
+        "cameraGrantAccessDescription": "NSCameraUsageDescription",
+        "permissionsAppleMusic": "NSAppleMusicUsageDescription",
+        "permissionsStorageSave": "NSPhotoLibraryAddUsageDescription",
+        "permissionsMicrophoneAccessRequiredIos": "NSMicrophoneUsageDescription"
     ]
     static let validSourceSuffixes: Set<String> = [".swift", ".m"]
     static let excludedPaths: Set<String> = [
@@ -238,7 +246,8 @@ enum ScriptAction: String {
                 var strings: JSON = updatedInfoPlistJSON["strings"] as! JSON
                 projectState.localizationFiles.forEach { file in
                     ProjectState.permissionStrings.forEach { key in
-                        var keyPhrases: JSON = strings[key] as! JSON
+                        guard let nsKey: String = ProjectState.permissionStringsMap[key] else { return }
+                        var keyPhrases: JSON = strings[nsKey] as! JSON
                         var localizations: JSON = keyPhrases["localizations"] as! JSON
                         if let phrase: String = file.keyPhrase[key]?.value {
                             if let translations: JSON = localizations[file.name] as? JSON {
@@ -256,7 +265,7 @@ enum ScriptAction: String {
                             }
                         }
                         keyPhrases["localizations"] = localizations
-                        strings[key] = keyPhrases
+                        strings[nsKey] = keyPhrases
                     }
                 }
                 updatedInfoPlistJSON["strings"] = strings

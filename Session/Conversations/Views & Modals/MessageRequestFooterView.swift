@@ -62,7 +62,7 @@ class MessageRequestFooterView: UIView {
         result.translatesAutoresizingMaskIntoConstraints = false
         result.clipsToBounds = true
         result.titleLabel?.font = UIFont.boldSystemFont(ofSize: 16)
-        result.setTitle("TXT_BLOCK_USER_TITLE".localized(), for: .normal)
+        result.setTitle("deleteAfterGroupPR1BlockUser".localized(), for: .normal)
         result.setThemeTitleColor(.danger, for: .normal)
         result.addTarget(self, action: #selector(block), for: .touchUpInside)
 

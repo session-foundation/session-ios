@@ -22,7 +22,7 @@ struct QRCodeScreen: View {
                     tabIndex: $tabIndex,
                     tabTitles: [
                         "view".localized(),
-                        "settings_scan_qr_code_tab_title".localized()
+                        "scan".localized()
                     ]
                 ).frame(maxWidth: .infinity)
                     
@@ -80,7 +80,7 @@ struct MyQRCodeScreen: View {
             )
             .aspectRatio(1, contentMode: .fit)
             
-            Text("settings_view_my_qr_code_explanation".localized())
+            Text("accountIdYoursDescription".localized())
                 .font(.system(size: Values.verySmallFontSize))
                 .foregroundColor(themeColor: .textSecondary)
                 .multilineTextAlignment(.center)

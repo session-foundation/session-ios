@@ -457,7 +457,7 @@ final class EditClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegat
             guard self.originalMembersAndZombieIds.removing(userPublicKey) == updatedMemberIds else {
                 return showError(
                     title: "GROUP_UPDATE_ERROR_TITLE".localized(),
-                    message: "GROUP_UPDATE_ERROR_MESSAGE".localized()
+                    message: "deleteAfterGroupPR3GroupErrorLeave".localized()
                 )
             }
         }

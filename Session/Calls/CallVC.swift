@@ -588,7 +588,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate {
         SNLog("[Calls] Ending call.")
         self.callInfoLabel.isHidden = false
         self.callDurationLabel.isHidden = true
-        self.callInfoLabel.text = "Call Ended"
+        self.callInfoLabel.text = "callsEnded".localized()
         
         UIView.animate(withDuration: 0.25) {
             let remoteVideoView: RemoteVideoView = self.floatingViewVideoSource == .remote ? self.floatingRemoteVideoView : self.fullScreenRemoteVideoView
