@@ -208,11 +208,7 @@ struct QuoteView_SwiftUI: View {
 struct QuoteView_SwiftUI_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            if #available(iOS 14.0, *) {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-            } else {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-            }
+            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
             
             QuoteView_SwiftUI(
                 info: QuoteView_SwiftUI.Info(

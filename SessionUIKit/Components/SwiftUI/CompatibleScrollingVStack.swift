@@ -16,11 +16,7 @@ public struct CompatibleScrollingVStack<Content> : View where Content : View {
 
     public var body: some View {
         ScrollView {
-            if #available(iOS 14, *) {
-                LazyVStack(alignment: alignment, spacing: spacing, pinnedViews: [], content:content)
-            } else {
-                VStack(alignment: alignment, spacing: spacing, content:content)
-            }
+            LazyVStack(alignment: alignment, spacing: spacing, pinnedViews: [], content:content)
         }
     }
 }

@@ -46,11 +46,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         result.registerHeaderFooterView(view: SessionFooterView.self)
         result.dataSource = self
         result.delegate = self
-        
-        if #available(iOS 15.0, *) {
-            result.sectionHeaderTopPadding = 0
-        }
-        
+        result.sectionHeaderTopPadding = 0
+
         return result
     }()
     

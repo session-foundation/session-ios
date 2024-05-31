@@ -104,8 +104,7 @@ public class AppEnvironment {
                     defer { fileHandle.closeFile() }
                     
                     // Move to the end of the file to insert the logs
-                    if #available(iOS 13.4, *) { try fileHandle.seekToEnd() }
-                    else { fileHandle.seekToEndOfFile() }
+                    try fileHandle.seekToEnd()
                     
                     try extensionLogs
                         .grouped(by: \.type)
@@ -126,14 +125,12 @@ public class AppEnvironment {
                                 
                                 // Write the type start separator if needed
                                 if !hasWrittenStartLog {
-                                    if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: typeNameStartData) }
-                                    else { fileHandle.write(typeNameStartData) }
+                                    try fileHandle.write(contentsOf: typeNameStartData)
                                     hasWrittenStartLog = true
                                 }
                                 
                                 // Write the log data to the log file
-                                if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: logData) }
-                                else { fileHandle.write(logData) }
+                                try fileHandle.write(contentsOf: logData)
                                 
                                 // Extension logs have been writen to the app logs, remove them now
                                 try? FileManager.default.removeItem(atPath: path)
@@ -141,8 +138,7 @@ public class AppEnvironment {
                             
                             // Write the type end separator if needed
                             if hasWrittenStartLog {
-                                if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: typeNameEndData) }
-                                else { fileHandle.write(typeNameEndData) }
+                                try fileHandle.write(contentsOf: typeNameEndData)
                             }
                         }
                 }

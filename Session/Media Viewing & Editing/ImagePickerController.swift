@@ -91,18 +91,14 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         self.selectionPanGesture = selectionPanGesture
         collectionView.addGestureRecognizer(selectionPanGesture)
         
-        if #available(iOS 14, *) {
-            if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .limited {
-                let addSeletedPhotoButton = UIBarButtonItem.init(barButtonSystemItem: .add, target: self, action: #selector(addSelectedPhoto))
-                self.navigationItem.rightBarButtonItem = addSeletedPhotoButton
-            }
+        if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .limited {
+            let addSeletedPhotoButton = UIBarButtonItem.init(barButtonSystemItem: .add, target: self, action: #selector(addSelectedPhoto))
+            self.navigationItem.rightBarButtonItem = addSeletedPhotoButton
         }
     }
     
     @objc func addSelectedPhoto(_ sender: Any) {
-        if #available(iOS 14, *) {
-            PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: self)
-        }
+        PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: self)
     }
 
     var selectionPanGesture: UIPanGestureRecognizer?

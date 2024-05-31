@@ -16,11 +16,8 @@ struct LoadAccountScreen: View {
         
     var body: some View {
         ZStack(alignment: .topLeading) {
-            if #available(iOS 14.0, *) {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-            } else {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-            }
+            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
+            
             VStack(
                 spacing: 0
             ){

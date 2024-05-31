@@ -110,10 +110,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         result.touchDelegate = self
         result.dataSource = self
         result.delegate = self
-        
-        if #available(iOS 15.0, *) {
-            result.sectionHeaderTopPadding = 0
-        }
+        result.sectionHeaderTopPadding = 0
         
         return result
     }()

@@ -64,11 +64,8 @@ public class DocumentTileViewController: UIViewController, UITableViewDelegate, 
         result.dataSource = self
         // Feels a bit weird to have content smashed all the way to the bottom edge.
         result.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 20, right: 0)
-        
-        if #available(iOS 15.0, *) {
-            result.sectionHeaderTopPadding = 0
-        }
-        
+        result.sectionHeaderTopPadding = 0
+
         return result
     }()
     

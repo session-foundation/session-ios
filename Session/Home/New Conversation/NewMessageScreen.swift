@@ -152,17 +152,10 @@ struct EnterAccountIdScreen: View {
                 )
             ) {
                 ZStack {
-                    if #available(iOS 14.0, *) {
-                        Text("\("messageNewDescription".localized())\(Image(systemName: "questionmark.circle"))")
-                            .font(.system(size: Values.verySmallFontSize))
-                            .foregroundColor(themeColor: .textSecondary)
-                            .multilineTextAlignment(.center)
-                    } else {
-                        Text("messageNewDescription".localized())
-                            .font(.system(size: Values.verySmallFontSize))
-                            .foregroundColor(themeColor: .textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
+                    Text("\("messageNewDescription".localized())\(Image(systemName: "questionmark.circle"))")
+                        .font(.system(size: Values.verySmallFontSize))
+                        .foregroundColor(themeColor: .textSecondary)
+                        .multilineTextAlignment(.center)
                 }
                 .accessibility(
                     Accessibility(

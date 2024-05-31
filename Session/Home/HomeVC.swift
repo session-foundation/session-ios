@@ -91,11 +91,8 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         result.register(view: FullConversationCell.self)
         result.dataSource = self
         result.delegate = self
-        
-        if #available(iOS 15.0, *) {
-            result.sectionHeaderTopPadding = 0
-        }
-        
+        result.sectionHeaderTopPadding = 0
+
         return result
     }()
     

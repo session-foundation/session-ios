@@ -50,11 +50,7 @@ struct PNModeScreen: View {
     
     var body: some View {
         ZStack(alignment: .center) {
-            if #available(iOS 14.0, *) {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
-            } else {
-                ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary)
-            }
+            ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
             
             VStack(
                 alignment: .leading,
