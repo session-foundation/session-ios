@@ -343,15 +343,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }) == false
         else { return }
         
-        Log.info("Complete silently.")
-        Log.flush()
         let silentContent: UNMutableNotificationContent = UNMutableNotificationContent()
         silentContent.badge = Storage.shared
             .read { db in try Interaction.fetchUnreadCount(db) }
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
-        Storage.suspendDatabaseAccess()
+        Log.info("Complete silently.")
         LibSession.closeNetworkConnections()
+        Storage.suspendDatabaseAccess()
+        Log.flush()
         
         self.contentHandler!(silentContent)
     }
@@ -416,9 +416,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
         Log.error("Show generic failure message due to error: \(error).")
-        Log.flush()
-        Storage.suspendDatabaseAccess()
         LibSession.closeNetworkConnections()
+        Storage.suspendDatabaseAccess()
+        Log.flush()
         
         content.title = "Session"
         content.body = "APN_Message".localized()

@@ -211,8 +211,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Stop all jobs except for message sending and when completed suspend the database
         JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) {
             if !self.hasCallOngoing() {
-                Storage.suspendDatabaseAccess()
                 LibSession.closeNetworkConnections()
+                Storage.suspendDatabaseAccess()
+                Log.info("[AppDelegate] completed network and database shutdowns.")
+                Log.flush()
             }
         }
     }
@@ -292,14 +294,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             guard BackgroundPoller.isValid else { return }
             
+            Log.info("Background poll failed due to manual timeout")
             BackgroundPoller.isValid = false
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
-                Storage.suspendDatabaseAccess()
                 LibSession.closeNetworkConnections()
+                Storage.suspendDatabaseAccess()
+                Log.flush()
             }
             
-            Log.info("Background poll failed due to manual timeout")
             completionHandler(.failed)
         }
         
@@ -322,8 +325,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 BackgroundPoller.isValid = false
                 
                 if Singleton.hasAppContext && Singleton.appContext.isInBackground {
-                    Storage.suspendDatabaseAccess()
                     LibSession.closeNetworkConnections()
+                    Storage.suspendDatabaseAccess()
+                    Log.flush()
                 }
                 
                 cancelTimer.invalidate()

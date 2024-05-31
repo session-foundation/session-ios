@@ -112,7 +112,6 @@ public struct SessionApp {
     // MARK: - Functions
     
     public static func resetAppData(onReset: (() -> ())? = nil) {
-        Log.flush()
         LibSession.clearMemoryState()
         LibSession.clearSnodeCache()
         LibSession.closeNetworkConnections()
@@ -120,6 +119,7 @@ public struct SessionApp {
         ProfileManager.resetProfileStorage()
         Attachment.resetAttachmentStorage()
         AppEnvironment.shared.notificationPresenter.clearAllNotifications()
+        Log.flush()
 
         onReset?()
         exit(0)

@@ -442,16 +442,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
             .filter { !$0.cellType.isPostProcessed }                    // Remove headers and other
             .sorted { lhs, rhs -> Bool in lhs.timestampMs < rhs.timestampMs }
         
-        // If we are currently playing a voice message we should make sure it hasn't been deleted and, if
-        // it has, we should stop playing the audio (this is mostly to catch the case where a message is
-        // deleted due to a disappearing messages setting)
-        if
-            let audioPlayingInteractionId: Int64 = currentPlayingInteraction.wrappedValue,
-            !sortedData.contains(where: { $0.id == audioPlayingInteractionId })
-        {
-            self.stopAudio()
-        }
-        
         // We load messages from newest to oldest so having a pageOffset larger than zero means
         // there are newer pages to load
         return [
