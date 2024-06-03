@@ -395,6 +395,14 @@ public extension LibSession {
     private static func updateNetworkStatus(cStatus: CONNECTION_STATUS) {
         let status: NetworkStatus = NetworkStatus(status: cStatus)
         
+        guard status == .disconnected || !isSuspended.wrappedValue else {
+            Log.warn("[LibSession] Attempted to update network status to '\(status)' for suspended network, closing connections again.")
+            
+            guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
+            network_close_connections(network)
+            return
+        }
+        
         // Dispatch async so we don't hold up the libSession thread that triggered the update
         DispatchQueue.global(qos: .default).async {
             Log.info("Network status changed to: \(status)")
