@@ -59,10 +59,14 @@ public extension String {
     
     func toLibSession<T>() -> T {
         let targetSize: Int = MemoryLayout<T>.stride
+        
+        // Limit the string to be the destination size - 1 (for the null terminated character), this will
+        // mean instead of crashing by trying to set a value that is too large, we truncate the value)
+        let sizeLimitedString: String = String(self.substring(to: min(count, targetSize - 1)))
         var dataMatchingDestinationSize: [CChar] = [CChar](repeating: 0, count: targetSize)
         dataMatchingDestinationSize.replaceSubrange(
-            0..<Swift.min(targetSize, self.utf8CString.count),
-            with: self.utf8CString
+            0..<Swift.min(targetSize, sizeLimitedString.utf8CString.count),
+            with: sizeLimitedString.utf8CString
         )
         
         return dataMatchingDestinationSize.withUnsafeBytes { ptr in

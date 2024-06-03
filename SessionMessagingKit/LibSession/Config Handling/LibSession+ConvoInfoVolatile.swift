@@ -144,8 +144,11 @@ internal extension LibSession {
                     guard convo_info_volatile_get_or_construct_1to1(conf, &oneToOne, &cThreadId) else {
                         /// It looks like there are some situations where this object might not get created correctly (and
                         /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                        SNLog("Unable to upsert contact volatile info to LibSession: \(LibSession.lastError(conf))")
-                        throw LibSessionError.getOrConstructFailedUnexpectedly
+                        throw LibSessionError(
+                            conf,
+                            fallbackError: .getOrConstructFailedUnexpectedly,
+                            logMessage: "Unable to upsert contact volatile info to LibSession"
+                        )
                     }
                     
                     threadInfo.changes.forEach { change in
@@ -165,8 +168,11 @@ internal extension LibSession {
                     guard convo_info_volatile_get_or_construct_legacy_group(conf, &legacyGroup, &cThreadId) else {
                         /// It looks like there are some situations where this object might not get created correctly (and
                         /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                        SNLog("Unable to upsert legacy group volatile info to LibSession: \(LibSession.lastError(conf))")
-                        throw LibSessionError.getOrConstructFailedUnexpectedly
+                        throw LibSessionError(
+                            conf,
+                            fallbackError: .getOrConstructFailedUnexpectedly,
+                            logMessage: "Unable to upsert legacy group volatile info to LibSession"
+                        )
                     }
                     
                     threadInfo.changes.forEach { change in
@@ -195,8 +201,11 @@ internal extension LibSession {
                     guard convo_info_volatile_get_or_construct_community(conf, &community, &cBaseUrl, &cRoomToken, &cPubkey) else {
                         /// It looks like there are some situations where this object might not get created correctly (and
                         /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                        SNLog("Unable to upsert community volatile info to LibSession: \(LibSession.lastError(conf))")
-                        throw LibSessionError.getOrConstructFailedUnexpectedly
+                        throw LibSessionError(
+                            conf,
+                            fallbackError: .getOrConstructFailedUnexpectedly,
+                            logMessage: "Unable to upsert community volatile info to LibSession"
+                        )
                     }
                     
                     threadInfo.changes.forEach { change in
@@ -339,7 +348,10 @@ public extension LibSession {
                         guard
                             var cThreadId: [CChar] = threadId.cString(using: .utf8),
                             convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId)
-                        else { return false }
+                        else {
+                            LibSessionError.clear(conf)
+                            return false
+                        }
                         
                         return (oneToOne.last_read >= timestampMs)
                         
@@ -349,7 +361,10 @@ public extension LibSession {
                         guard
                             var cThreadId: [CChar] = threadId.cString(using: .utf8),
                             convo_info_volatile_get_legacy_group(conf, &legacyGroup, &cThreadId)
-                        else { return false }
+                        else {
+                            LibSessionError.clear(conf)
+                            return false
+                        }
                         
                         return (legacyGroup.last_read >= timestampMs)
                         
@@ -362,7 +377,10 @@ public extension LibSession {
                             var cBaseUrl: [CChar] = openGroup.server.cString(using: .utf8),
                             var cRoomToken: [CChar] = openGroup.roomToken.cString(using: .utf8),
                             convo_info_volatile_get_community(conf, &convoCommunity, &cBaseUrl, &cRoomToken)
-                        else { return false }
+                        else {
+                            LibSessionError.clear(conf)
+                            return false
+                        }
                         
                         return (convoCommunity.last_read >= timestampMs)
                         

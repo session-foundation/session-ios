@@ -143,12 +143,13 @@ class LibSessionTypeConversionUtilitiesSpec: QuickSpec {
                 
                 // MARK: ---- truncates when too long
                 it("truncates when too long") {
-                    let result: (CChar, CChar, CChar, CChar, CChar) = "TestTest".toLibSession()
+                    let result: (CChar, CChar, CChar, CChar, CChar, CChar) = "TestTest".toLibSession()
                     expect(result.0).to(equal(84))
                     expect(result.1).to(equal(101))
                     expect(result.2).to(equal(115))
                     expect(result.3).to(equal(116))
                     expect(result.4).to(equal(84))
+                    expect(result.5).to(equal(0)) // Last character will always be a null termination
                 }
                 
                 // MARK: ---- when optional

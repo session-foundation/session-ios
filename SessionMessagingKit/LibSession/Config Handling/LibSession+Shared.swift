@@ -419,7 +419,10 @@ public extension LibSession {
                         
                         var contact: contacts_contact = contacts_contact()
                         
-                        guard contacts_get(conf, &contact, &cThreadId) else { return false }
+                        guard contacts_get(conf, &contact, &cThreadId) else {
+                            LibSessionError.clear(conf)
+                            return false
+                        }
                         
                         /// If the user opens a conversation with an existing contact but doesn't send them a message
                         /// then the one-to-one conversation should remain hidden so we want to delete the `SessionThread`
@@ -440,10 +443,14 @@ public extension LibSession {
                         var community: ugroups_community_info = ugroups_community_info()
                         
                         /// Not handling the `hidden` behaviour for communities so just indicate the existence
-                        return user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                        let result: Bool = user_groups_get_community(conf, &community, &cBaseUrl, &cRoom)
+                        LibSessionError.clear(conf)
+                        
+                        return result
                         
                     case .legacyGroup:
                         let groupInfo: UnsafeMutablePointer<ugroups_legacy_group_info>? = user_groups_get_legacy_group(conf, &cThreadId)
+                        LibSessionError.clear(conf)
                         
                         /// Not handling the `hidden` behaviour for legacy groups so just indicate the existence
                         if groupInfo != nil {

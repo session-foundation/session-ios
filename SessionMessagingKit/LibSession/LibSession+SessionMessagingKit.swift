@@ -82,9 +82,6 @@ public extension LibSession {
     
     static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
     
-    internal static func lastError(_ conf: UnsafeMutablePointer<config_object>?) -> String {
-        return (conf?.pointee.last_error.map { String(cString: $0) } ?? "Unknown")  // stringlint:disable
-    }
     
     // MARK: - Loading
     
@@ -209,9 +206,10 @@ public extension LibSession {
         
         var dumpResult: UnsafeMutablePointer<UInt8>? = nil
         var dumpResultLen: Int = 0
-        try CExceptionHelper.performSafely {
-            config_dump(conf, &dumpResult, &dumpResultLen)
-        }
+        config_dump(conf, &dumpResult, &dumpResultLen)
+        
+        // If we got an error then throw it
+        try LibSessionError.throwIfNeeded(conf)
         
         guard let dumpResult: UnsafeMutablePointer<UInt8> = dumpResult else { return nil }
         
@@ -247,14 +245,17 @@ public extension LibSession {
             ConfigDump.Variant.userVariants.forEach { existingDumpVariants.insert($0) }
         }
         
-        // Ensure we always check the required user config types for changes even if there is no dump
-        // data yet (to deal with first launch cases)
+        /// Ensure we always check the required user config types for changes even if there is no dump data yet (to deal with first launch cases)
+        ///
+        /// **Note:** We `mutate` when retrieving the pending changes here because we want to ensure no other threads can modify the
+        /// config while we are reading (which could result in crashes)
         return try existingDumpVariants
             .reduce(into: PendingChanges()) { result, variant in
                 try LibSession
                     .config(for: variant, publicKey: publicKey)
-                    .wrappedValue
-                    .map { conf in
+                    .mutate { conf in
+                        guard conf != nil else { return }
+                        
                         // Check if the config needs to be pushed
                         guard config_needs_push(conf) else {
                             // If not then try retrieve any obsolete hashes to be removed
@@ -275,31 +276,22 @@ public extension LibSession {
                             return
                         }
                         
-                        var cPushData: UnsafeMutablePointer<config_push_data>!
-                        let configCountInfo: String = {
-                            var result: String = "Invalid"  // stringlint:disable
-                            
-                            try? CExceptionHelper.performSafely {
+                        guard let cPushData: UnsafeMutablePointer<config_push_data> = config_push(conf) else {
+                            let configCountInfo: String = {
                                 switch variant {
-                                    case .userProfile: result = "1 profile"
-                                    case .contacts: result = "\(contacts_size(conf)) contacts"
-                                    case .userGroups: result = "\(user_groups_size(conf)) group conversations"
-                                    case .convoInfoVolatile: result = "\(convo_info_volatile_size(conf)) volatile conversations"
-                                    case .invalid: break
+                                    case .userProfile: return "1 profile"  // stringlint:disable
+                                    case .contacts: return "\(contacts_size(conf)) contacts"  // stringlint:disable
+                                    case .userGroups: return "\(user_groups_size(conf)) group conversations"  // stringlint:disable
+                                    case .convoInfoVolatile: return "\(convo_info_volatile_size(conf)) volatile conversations"  // stringlint:disable
+                                    case .invalid: return "Invalid"  // stringlint:disable
                                 }
-                            }
+                            }()
                             
-                            return result
-                        }()
-                        
-                        do {
-                            try CExceptionHelper.performSafely {
-                                cPushData = config_push(conf)
-                            }
-                        }
-                        catch {
-                            SNLog("[LibSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error: \(error)")
-                            throw error
+                            throw LibSessionError(
+                                conf,
+                                fallbackError: .unableToGeneratePushData,
+                                logMessage: "[LibSession] Failed to generate push data for \(variant) config data, size: \(configCountInfo), error"
+                            )
                         }
                     
                         let pushData: Data = Data(
@@ -431,16 +423,16 @@ public extension LibSession {
                         else { return SNLog("[LibSession] Failed to correctly allocate merge data") }
 
                         var mergeSize: [size_t] = value.map { size_t($0.data.count) }
-                        var mergedHashesPtr: UnsafeMutablePointer<config_string_list>?
-                        try CExceptionHelper.performSafely {
-                            mergedHashesPtr = config_merge(
-                                conf,
-                                &mergeHashes,
-                                &mergeData,
-                                &mergeSize,
-                                value.count
-                            )
-                        }
+                        let mergedHashesPtr: UnsafeMutablePointer<config_string_list>? = config_merge(
+                            conf,
+                            &mergeHashes,
+                            &mergeData,
+                            &mergeSize,
+                            value.count
+                        )
+                        
+                        // If we got an error then throw it
+                        try LibSessionError.throwIfNeeded(conf)
                         
                         // Get the list of hashes from the config (to determine which were successful)
                         let mergedHashes: [String] = mergedHashesPtr

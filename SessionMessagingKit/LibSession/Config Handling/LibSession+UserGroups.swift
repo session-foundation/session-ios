@@ -409,8 +409,11 @@ internal extension LibSession {
                 guard let userGroup: UnsafeMutablePointer<ugroups_legacy_group_info> = user_groups_get_or_construct_legacy_group(conf, &cGroupId) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert legacy group conversation to LibSession: \(LibSession.lastError(conf))")
-                    throw LibSessionError.getOrConstructFailedUnexpectedly
+                    throw LibSessionError(
+                        conf,
+                        fallbackError: .getOrConstructFailedUnexpectedly,
+                        logMessage: "Unable to upsert legacy group conversation to LibSession"
+                    )
                 }
                 
                 // Assign all properties to match the updated group (if there is one)
@@ -419,6 +422,7 @@ internal extension LibSession {
                     
                     // Store the updated group (needs to happen before variables go out of scope)
                     user_groups_set_legacy_group(conf, userGroup)
+                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
                 }
                 
                 if let lastKeyPair: ClosedGroupKeyPair = legacyGroup.lastKeyPair {
@@ -428,6 +432,7 @@ internal extension LibSession {
                     
                     // Store the updated group (needs to happen before variables go out of scope)
                     user_groups_set_legacy_group(conf, userGroup)
+                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
                 }
                 
                 // Assign all properties to match the updated disappearing messages config (if there is one)
@@ -437,6 +442,7 @@ internal extension LibSession {
                     )
                     
                     user_groups_set_legacy_group(conf, userGroup)
+                    try LibSessionError.throwIfNeeded(conf) { ugroups_legacy_group_free(userGroup) }
                 }
                 
                 // Add/Remove the group members and admins
@@ -500,6 +506,7 @@ internal extension LibSession {
                 
                 // Note: Need to free the legacy group pointer
                 user_groups_set_free_legacy_group(conf, userGroup)
+                try LibSessionError.throwIfNeeded(conf)
             }
     }
     
@@ -526,8 +533,11 @@ internal extension LibSession {
                 guard user_groups_get_or_construct_community(conf, &userCommunity, &cBaseUrl, &cRoom, &cPubkey) else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert community conversation to LibSession: \(LibSession.lastError(conf))")
-                    throw LibSessionError.getOrConstructFailedUnexpectedly
+                    throw LibSessionError(
+                        conf,
+                        fallbackError: .getOrConstructFailedUnexpectedly,
+                        logMessage: "Unable to upsert community conversation to LibSession"
+                    )
                 }
                 
                 userCommunity.priority = (community.priority ?? userCommunity.priority)
@@ -624,6 +634,7 @@ public extension LibSession {
             // coming in from the legacy group swarm)
             guard userGroup == nil else {
                 ugroups_legacy_group_free(userGroup)
+                try LibSessionError.throwIfNeeded(conf)
                 return
             }
             

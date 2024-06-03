@@ -290,8 +290,11 @@ internal extension LibSession {
                 else {
                     /// It looks like there are some situations where this object might not get created correctly (and
                     /// will throw due to the implicit unwrapping) as a result we put it in a guard and throw instead
-                    SNLog("Unable to upsert contact to LibSession: \(LibSession.lastError(conf))")
-                    throw LibSessionError.getOrConstructFailedUnexpectedly
+                    throw LibSessionError(
+                        conf,
+                        fallbackError: .getOrConstructFailedUnexpectedly,
+                        logMessage: "Unable to upsert contact to LibSession"
+                    )
                 }
                 
                 // Assign all properties to match the updated contact (if there is one)
@@ -308,6 +311,7 @@ internal extension LibSession {
                     
                     // Store the updated contact (needs to happen before variables go out of scope)
                     contacts_set(conf, &contact)
+                    try LibSessionError.throwIfNeeded(conf)
                 }
                 
                 // Update the profile data (if there is one - users we have sent a message request to may
@@ -338,6 +342,7 @@ internal extension LibSession {
                     
                     // Store the updated contact (needs to happen before variables go out of scope)
                     contacts_set(conf, &contact)
+                    try LibSessionError.throwIfNeeded(conf)
                 }
                 
                 // Assign all properties to match the updated disappearing messages configuration (if there is one)
@@ -352,6 +357,7 @@ internal extension LibSession {
                 // Store the updated contact (can't be sure if we made any changes above)
                 contact.priority = (info.priority ?? contact.priority)
                 contacts_set(conf, &contact)
+                try LibSessionError.throwIfNeeded(conf)
             }
     }
 }
@@ -390,7 +396,10 @@ internal extension LibSession {
                         var cContactId: [CChar] = contactData.id.cString(using: .utf8),
                         contacts_get(conf, &contact, &cContactId),
                         String(libSessionVal: contact.name, nullIfEmpty: true) != nil
-                    else { return contactData.id }
+                    else {
+                        LibSessionError.clear(conf)
+                        return contactData.id
+                    }
                     
                     return nil
                 }

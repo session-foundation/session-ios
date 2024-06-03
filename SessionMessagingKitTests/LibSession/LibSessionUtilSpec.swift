@@ -154,9 +154,10 @@ fileprivate extension LibSessionUtilSpec {
                     expect(config_needs_dump(conf)).to(beTrue())
                     
                     expect {
-                        try CExceptionHelper.performSafely { config_push(conf).deallocate() }
+                        config_push(conf)?.deallocate()
+                        try LibSessionError.throwIfNeeded(conf)
                     }
-                    .to(throwError(NSError(domain: "cpp_exception", code: -2, userInfo: ["NSLocalizedDescription": "Config data is too large"])))
+                    .to(throwError(LibSessionError.libSessionError("Config data is too large.")))
                 }
             }
             
@@ -196,7 +197,10 @@ fileprivate extension LibSessionUtilSpec {
                         )
                         contacts_set(conf, &contact)
                         
-                        do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+                        do {
+                            config_push(conf)?.deallocate()
+                            try LibSessionError.throwIfNeeded(conf)
+                        }
                         catch { break }
                         
                         // We successfully inserted a contact and didn't hit the limit so increment the counter
@@ -220,7 +224,10 @@ fileprivate extension LibSessionUtilSpec {
                         )
                         contacts_set(conf, &contact)
                         
-                        do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+                        do {
+                            config_push(conf)?.deallocate()
+                            try LibSessionError.throwIfNeeded(conf)
+                        }
                         catch { break }
                         
                         // We successfully inserted a contact and didn't hit the limit so increment the counter
@@ -244,7 +251,10 @@ fileprivate extension LibSessionUtilSpec {
                         )
                         contacts_set(conf, &contact)
                         
-                        do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+                        do {
+                            config_push(conf)?.deallocate()
+                            try LibSessionError.throwIfNeeded(conf)
+                        }
                         catch { break }
                         
                         // We successfully inserted a contact and didn't hit the limit so increment the counter
@@ -252,7 +262,7 @@ fileprivate extension LibSessionUtilSpec {
                     }
                     
                     // Check that the record count matches the maximum when we last checked
-                    expect(numRecords).to(equal(270))
+                    expect(numRecords).to(equal(274))
                 }
                 
                 // MARK: ---- has not changed the max filled records
@@ -268,7 +278,10 @@ fileprivate extension LibSessionUtilSpec {
                         )
                         contacts_set(conf, &contact)
                         
-                        do { try CExceptionHelper.performSafely { config_push(conf).deallocate() } }
+                        do {
+                            config_push(conf)?.deallocate()
+                            try LibSessionError.throwIfNeeded(conf)
+                        }
                         catch { break }
                         
                         // We successfully inserted a contact and didn't hit the limit so increment the counter
@@ -277,7 +290,7 @@ fileprivate extension LibSessionUtilSpec {
                     
                     // Check that the record count matches the maximum when we last checked (seems to swap between
                     // these two on different test runs for some reason)
-                    expect(numRecords).to(satisfyAnyOf(equal(219), equal(220)))
+                    expect(numRecords).to(equal(223))
                 }
             }
             
