@@ -51,6 +51,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // Perform main setup
         Storage.resumeDatabaseAccess()
+        LibSession.resumeNetworkAccess()
         DispatchQueue.main.sync { self.setUpIfNecessary() { } }
 
         // Handle the push notification
@@ -349,7 +350,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         Log.info("Complete silently.")
-        LibSession.closeNetworkConnections()
+        LibSession.suspendNetworkAccess()
         Storage.suspendDatabaseAccess()
         Log.flush()
         
@@ -416,7 +417,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
         Log.error("Show generic failure message due to error: \(error).")
-        LibSession.closeNetworkConnections()
+        LibSession.suspendNetworkAccess()
         Storage.suspendDatabaseAccess()
         Log.flush()
         

@@ -100,7 +100,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         // When the thread picker disappears it means the user has left the screen (this will be called
         // whether the user has sent the message or cancelled sending)
-        LibSession.closeNetworkConnections()
+        LibSession.suspendNetworkAccess()
         Storage.suspendDatabaseAccess()
         Log.flush()
     }
@@ -229,6 +229,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "vc_share_sending_message".localized()) { activityIndicator in
             Storage.resumeDatabaseAccess()
+            LibSession.resumeNetworkAccess()
             
             let swarmPublicKey: String = {
                 switch threadVariant {
@@ -314,7 +315,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .receive(on: DispatchQueue.main)
                 .sinkUntilComplete(
                     receiveCompletion: { [weak self] result in
-                        LibSession.closeNetworkConnections()
+                        LibSession.suspendNetworkAccess()
                         Storage.suspendDatabaseAccess()
                         Log.flush()
                         activityIndicator.dismiss { }

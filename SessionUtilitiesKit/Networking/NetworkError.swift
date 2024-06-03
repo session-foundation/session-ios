@@ -15,6 +15,7 @@ public enum NetworkError: LocalizedError, Equatable {
     case badRequest(error: String, rawData: Data?)
     case requestFailed(error: String, rawData: Data?)
     case timeout
+    case suspended
     case unknown
     
     public var errorDescription: String? {
@@ -27,6 +28,7 @@ public enum NetworkError: LocalizedError, Equatable {
             case .unauthorised: return "Unauthorised (Failed to verify the signature)."
             case .badRequest(let error, _), .requestFailed(let error, _): return error
             case .timeout: return "The request timed out."
+            case .suspended: return "Network requests are suspended."
             case .unknown: return "An unknown error occurred."
         }
     }

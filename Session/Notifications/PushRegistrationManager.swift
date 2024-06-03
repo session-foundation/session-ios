@@ -287,6 +287,7 @@ public enum PushRegistrationError: Error {
         }
         
         Storage.resumeDatabaseAccess()
+        LibSession.resumeNetworkAccess()
         
         let maybeCall: SessionCall? = Storage.shared.write { db in
             let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(

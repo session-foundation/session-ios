@@ -12,6 +12,7 @@ import SessionUtilitiesKit
 public extension LibSession {
     private static var networkCache: Atomic<UnsafeMutablePointer<network_object>?> = Atomic(nil)
     private static var snodeCachePath: String { "\(OWSFileSystem.appSharedDataDirectoryPath())/snodeCache" }
+    private static var isSuspended: Atomic<Bool> = Atomic(false)
     private static var lastPaths: Atomic<[[Snode]]> = Atomic([])
     private static var lastNetworkStatus: Atomic<NetworkStatus> = Atomic(.unknown)
     private static var pathsChangedCallbacks: Atomic<[UUID: ([[Snode]], UUID) -> ()]> = Atomic([:])
@@ -114,10 +115,16 @@ public extension LibSession {
         pathsChangedCallbacks.mutate { $0.removeValue(forKey: callbackId) }
     }
     
-    static func closeNetworkConnections() {
+    static func suspendNetworkAccess() {
+        isSuspended.mutate { $0 = true }
+        
         guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
         
         network_close_connections(network)
+    }
+    
+    static func resumeNetworkAccess() {
+        isSuspended.mutate { $0 = false }
     }
     
     static func clearSnodeCache() {
@@ -329,6 +336,11 @@ public extension LibSession {
     // MARK: - Internal Functions
     
     private static func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error> {
+        guard !isSuspended.wrappedValue else {
+            Log.warn("[LibSession] Attempted to access suspended network.")
+            return Fail(error: NetworkError.suspended).eraseToAnyPublisher()
+        }
+        
         guard networkCache.wrappedValue == nil else {
             return Just(networkCache.wrappedValue)
                 .setFailureType(to: Error.self)

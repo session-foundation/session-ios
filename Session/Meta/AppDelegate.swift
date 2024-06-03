@@ -147,6 +147,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UNUserNotificationCenter.current().delegate = self
         
         Storage.resumeDatabaseAccess()
+        LibSession.resumeNetworkAccess()
         
         // Reset the 'startTime' (since it would be invalid from the last launch)
         startTime = CACurrentMediaTime()
@@ -211,7 +212,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Stop all jobs except for message sending and when completed suspend the database
         JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) {
             if !self.hasCallOngoing() {
-                LibSession.closeNetworkConnections()
+                LibSession.suspendNetworkAccess()
                 Storage.suspendDatabaseAccess()
                 Log.info("[AppDelegate] completed network and database shutdowns.")
                 Log.flush()
@@ -281,6 +282,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         Storage.resumeDatabaseAccess()
+        LibSession.resumeNetworkAccess()
         
         // Background tasks only last for a certain amount of time (which can result in a crash and a
         // prompt appearing for the user), we want to avoid this and need to make sure to suspend the
@@ -298,7 +300,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             BackgroundPoller.isValid = false
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
-                LibSession.closeNetworkConnections()
+                LibSession.suspendNetworkAccess()
                 Storage.suspendDatabaseAccess()
                 Log.flush()
             }
@@ -325,7 +327,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 BackgroundPoller.isValid = false
                 
                 if Singleton.hasAppContext && Singleton.appContext.isInBackground {
-                    LibSession.closeNetworkConnections()
+                    LibSession.suspendNetworkAccess()
                     Storage.suspendDatabaseAccess()
                     Log.flush()
                 }
