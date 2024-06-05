@@ -209,35 +209,39 @@ struct FakeChat: View {
     ]
     
     var body: some View {
-        VStack(
-            alignment: .leading,
-            spacing: 18
-        ) {
-            ForEach(
-                0...(chatBubbles.count - 1),
-                id: \.self
-            ) { index in
-                let chatBubble: ChatBubble = chatBubbles[index]
-                let bubble = chatBubble
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: chatBubble.outgoing ? .trailing : .leading
-                    )
-                if index < numberOfBubblesShown {
-                    bubble
-                        .transition(
-                            AnyTransition
-                                .move(edge: .bottom)
-                                .combined(with:.opacity.animation(.easeIn(duration: 0.68)))
+        ScrollView(showsIndicators: false) {
+            VStack(
+                alignment: .leading,
+                spacing: 18
+            ) {
+                ForEach(
+                    0...(chatBubbles.count - 1),
+                    id: \.self
+                ) { index in
+                    let chatBubble: ChatBubble = chatBubbles[index]
+                    let bubble = chatBubble
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: chatBubble.outgoing ? .trailing : .leading
                         )
+                    if index < numberOfBubblesShown {
+                        bubble
+                            .transition(
+                                AnyTransition
+                                    .move(edge: .bottom)
+                                    .combined(with:.opacity.animation(.easeIn(duration: 0.68)))
+                            )
+                    }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .frame(
+                height: 320,
+                alignment: .bottom
+            )
+            .padding(.horizontal, 36)
         }
-        .frame(
-            height: 320,
-            alignment: .bottom
-        )
-        .padding(.horizontal, 36)
+        .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             guard numberOfBubblesShown < 4 else { return }
             
