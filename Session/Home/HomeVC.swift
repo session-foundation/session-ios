@@ -859,7 +859,11 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         
         let finalViewControllers: [UIViewController] = [
             self,
-            (isMessageRequest ? SessionTableViewController(viewModel: MessageRequestsViewModel()) : nil),
+            (
+                (isMessageRequest && action != .compose) ?
+                SessionTableViewController(viewModel: MessageRequestsViewModel()) :
+                nil
+            ),
             ConversationVC(
                 threadId: threadId,
                 threadVariant: variant,

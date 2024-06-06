@@ -125,6 +125,7 @@ struct NewMessageScreen: View {
         SessionApp.presentConversationCreatingIfNeeded(
             for: sessionId,
             variant: .contact,
+            action: .compose,
             dismissing: self.host.controller,
             animated: false
         )
