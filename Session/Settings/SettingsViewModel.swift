@@ -293,7 +293,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 backgroundStyle: .noBackground
                             ),
                             accessibility: Accessibility(
-                                identifier: "Session ID",
+                                identifier: "Account ID",
                                 label: state.profile.id
                             )
                         ),

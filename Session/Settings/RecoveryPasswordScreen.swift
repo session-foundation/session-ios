@@ -105,6 +105,12 @@ struct RecoveryPasswordScreen: View {
                                 Text(mnemonic)
                                     .font(.spaceMono(size: Values.verySmallFontSize))
                                     .multilineTextAlignment(.center)
+                                    .accessibility(
+                                        Accessibility(
+                                            identifier: "Recovery password container",
+                                            label: mnemonic
+                                        )
+                                    )
                                     .foregroundColor(themeColor: .sessionButton_text)
                                     .frame(
                                         maxWidth: .infinity,
