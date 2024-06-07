@@ -34,7 +34,7 @@ public enum Log {
         Log.logger.mutate { $0 = logger }
     }
     
-    public static func enterForeground() {
+    public static func appResumedExecution() {
         guard logger.wrappedValue != nil else { return }
         
         Log.empty()
@@ -161,6 +161,17 @@ public class Logger {
                 self.fileLogger = DDFileLogger(logFileManager: logFileManager)
         }
         
+        // We want to use the local datetime and show the timezone offset because it'll make
+        // it easier to debug when users provide logs and specify that something happened at
+        // a certain time (the default is UTC so we'd need to know the users timezone in order
+        // to convert and debug effectively)
+        let dateFormatter: DateFormatter = DateFormatter()
+        dateFormatter.formatterBehavior = .behavior10_4      // 10.4+ style
+        dateFormatter.locale = NSLocale.current              // Use the current locale and include the timezone instead of UTC
+        dateFormatter.timeZone = NSTimeZone.local
+        dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss:SSS ZZZZZ"
+        
+        self.fileLogger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
         self.fileLogger.rollingFrequency = kDayInterval // Refresh everyday
         self.fileLogger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
         DDLog.add(self.fileLogger)

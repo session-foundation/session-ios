@@ -785,6 +785,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 
                 let interaction: Interaction = try Interaction(
                     threadId: thread.id,
+                    threadVariant: thread.variant,
                     authorId: currentUserSessionId,
                     variant: .standardOutgoing,
                     timestampMs: SnodeAPI.currentOffsetTimestampMs(),

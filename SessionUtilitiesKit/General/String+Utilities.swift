@@ -78,6 +78,10 @@ public extension String {
 // MARK: - Formatting
 
 public extension String.StringInterpolation {
+    mutating func appendInterpolation(plural value: Int) {
+        appendInterpolation(value == 1 ? "" : "s")
+    }
+    
     mutating func appendInterpolation(_ value: TimeUnit, unit: TimeUnit.Unit, resolution: Int = 2) {
         appendLiteral("\(TimeUnit(value, unit: unit, resolution: resolution))")
     }

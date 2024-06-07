@@ -312,12 +312,13 @@ public enum PushRegistrationError: Error {
             let interaction: Interaction = try Interaction(
                 messageUuid: uuid,
                 threadId: thread.id,
+                threadVariant: thread.variant,
                 authorId: caller,
                 variant: .infoCall,
                 body: messageInfoString,
                 timestampMs: timestampMs
             )
-            .withDisappearingMessagesConfiguration(db)
+            .withDisappearingMessagesConfiguration(db, threadVariant: thread.variant)
             .inserted(db)
             
             call.callInteractionId = interaction.id

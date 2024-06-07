@@ -135,7 +135,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     func applicationWillEnterForeground(_ application: UIApplication) {
-        Log.enterForeground()
+        Log.appResumedExecution()
         Log.info("[AppDelegate] applicationWillEnterForeground.")
         
         /// **Note:** We _shouldn't_ need to call this here but for some reason the OS doesn't seems to
@@ -221,7 +221,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     func applicationDidReceiveMemoryWarning(_ application: UIApplication) {
-        Log.info("applicationDidReceiveMemoryWarning")
+        Log.warn("applicationDidReceiveMemoryWarning")
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
@@ -281,6 +281,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Background Fetching
     
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        Log.appResumedExecution()
+        Log.info("Starting background fetch.")
         Storage.resumeDatabaseAccess()
         LibSession.resumeNetworkAccess()
         

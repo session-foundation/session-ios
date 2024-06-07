@@ -1134,7 +1134,7 @@ public final class OpenGroupManager {
                 DispatchQueue.global(qos: .background).async(using: dependencies) {
                     // Hold on to the publisher until it has completed at least once
                     dependencies.storage
-                        .readPublisher { db -> (Data?, Network.PreparedRequest<Data>?) in
+                        .readPublisher { db -> (Data?, Network.Destination) in
                             if canUseExistingImage {
                                 let maybeExistingData: Data? = try? OpenGroup
                                     .select(.imageData)
@@ -1143,36 +1143,35 @@ public final class OpenGroupManager {
                                     .fetchOne(db)
                                 
                                 if let existingData: Data = maybeExistingData {
-                                    return (existingData, nil)
+                                    return (existingData, .fileServer)
                                 }
+                            }
+                            
+                            guard let openGroup: OpenGroup = try OpenGroup.fetchOne(db, id: threadId) else {
+                                throw StorageError.objectNotFound
                             }
                             
                             return (
                                 nil,
-                                try OpenGroupAPI
-                                    .preparedDownloadFile(
-                                        db,
-                                        fileId: fileId,
-                                        from: roomToken,
-                                        on: server,
-                                        using: dependencies
-                                    )
+                                try OpenGroupAPI.downloadDestination(
+                                    db,
+                                    fileId: fileId,
+                                    openGroup: openGroup,
+                                    using: dependencies
+                                )
                             )
                         }
-                        .flatMap { info in
-                            switch info {
-                                case (.some(let existingData), _):
+                        .flatMap { existingData, destination in
+                            switch existingData {
+                                case .some(let existingData):
                                     return Just(existingData)
                                         .setFailureType(to: Error.self)
                                         .eraseToAnyPublisher()
                                     
-                                case (_, .some(let preparedRequest)):
-                                    return preparedRequest.send(using: dependencies)
+                                case .none:
+                                    return LibSession
+                                        .downloadFile(from: destination)
                                         .map { _, imageData in imageData }
-                                        .eraseToAnyPublisher()
-                                    
-                                default:
-                                    return Fail(error: NetworkError.invalidPreparedRequest)
                                         .eraseToAnyPublisher()
                             }
                         }

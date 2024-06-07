@@ -1,4 +1,6 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtil
@@ -31,13 +33,29 @@ extension LibSession {
         }
         
         /// Finally register the actual logger callback
-        session_add_logger_full({ msgPtr, msgLen, _, _, lvl in
-            guard let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8) else { return }
+        session_add_logger_full({ msgPtr, msgLen, catPtr, catLen, lvl in
+            guard
+                let msg: String = String(pointer: msgPtr, length: msgLen, encoding: .utf8),
+                let cat: String = String(pointer: catPtr, length: catLen, encoding: .utf8)
+            else { return }
+            
+            /// Logs from libSession come through in the format:
+            /// `[yyyy-MM-dd hh:mm:ss] [+{lifetime}s] [{cat}:{lvl}|log.hpp:{line}] {message}`
+            /// We want to remove the extra data because it doesn't help the logs
+            let processedMessage: String = {
+                let logParts: [String] = msg.components(separatedBy: "] ")
+                
+                guard logParts.count == 4 else { return msg.trimmingCharacters(in: .whitespacesAndNewlines) }
+                
+                let message: String = String(logParts[3]).trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                return "[libSession:\(cat)] \(logParts[1])] \(message)"
+            }()
             
             Log.custom(
                 Log.Level(lvl),
-                msg.trimmingCharacters(in: .whitespacesAndNewlines),
-                withPrefixes: false,
+                processedMessage,
+                withPrefixes: true,
                 silenceForTests: false
             )
         })

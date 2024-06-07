@@ -21,6 +21,7 @@ class OpenGroupManagerSpec: QuickSpec {
             serverHash: "TestServerHash",
             messageUuid: nil,
             threadId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
+            threadVariant: .community,
             authorId: "TestAuthorId",
             variant: .standardOutgoing,
             body: "Test",

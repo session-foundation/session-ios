@@ -21,7 +21,7 @@ public extension LibSession {
     static var hasPaths: Bool { !lastPaths.wrappedValue.isEmpty }
     static var pathsDescription: String { lastPaths.wrappedValue.prettifiedDescription }
     
-    private class CallbackWrapper<Output> {
+    fileprivate class CallbackWrapper<Output> {
         public let resultPublisher: CurrentValueSubject<Output?, Error> = CurrentValueSubject(nil)
         private var pointersToDeallocate: [UnsafeRawPointer?] = []
         
@@ -116,6 +116,7 @@ public extension LibSession {
     }
     
     static func suspendNetworkAccess() {
+        Log.info("[LibSession] suspendNetworkAccess called.")
         isSuspended.mutate { $0 = true }
         
         guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
@@ -125,6 +126,7 @@ public extension LibSession {
     
     static func resumeNetworkAccess() {
         isSuspended.mutate { $0 = false }
+        Log.info("[LibSession] resumeNetworkAccess called.")
     }
     
     static func clearSnodeCache() {
@@ -193,7 +195,7 @@ public extension LibSession {
     }
     
     static func sendOnionRequest<T: Encodable>(
-        to destination: OnionRequestAPIDestination,
+        to destination: Network.Destination,
         body: T?,
         swarmPublicKey: String?,
         timeout: TimeInterval,
@@ -243,77 +245,10 @@ public extension LibSession {
                                     wrapper.unsafePointer()
                                 )
                                 
-                            case .server(let method, let scheme, let host, let endpoint, let port, let headers, let x25519PublicKey):
-                                let headerInfo: [(key: String, value: String)]? = headers?.map { ($0.key, $0.value) }
-                                
-                                // Handle the more complicated type conversions first
-                                let cHeaderKeysContent: [UnsafePointer<CChar>?] = (try? ((headerInfo ?? [])
-                                    .map { $0.key.cString(using: .utf8) }
-                                    .unsafeCopyCStringArray()))
-                                    .defaulting(to: [])
-                                let cHeaderValuesContent: [UnsafePointer<CChar>?] = (try? ((headerInfo ?? [])
-                                    .map { $0.value.cString(using: .utf8) }
-                                    .unsafeCopyCStringArray()))
-                                    .defaulting(to: [])
-                                
-                                guard
-                                    cHeaderKeysContent.count == cHeaderValuesContent.count,
-                                    cHeaderKeysContent.allSatisfy({ $0 != nil }),
-                                    cHeaderValuesContent.allSatisfy({ $0 != nil })
-                                else {
-                                    cHeaderKeysContent.forEach { $0?.deallocate() }
-                                    cHeaderValuesContent.forEach { $0?.deallocate() }
-                                    throw LibSessionError.invalidCConversion
-                                }
-                                
-                                // Convert the other types
-                                let targetScheme: String = (scheme ?? "https")
-                                let cMethod: UnsafePointer<CChar>? = (method ?? "GET")
-                                    .cString(using: .utf8)?
-                                    .unsafeCopy()
-                                let cTargetScheme: UnsafePointer<CChar>? = targetScheme
-                                    .cString(using: .utf8)?
-                                    .unsafeCopy()
-                                let cHost: UnsafePointer<CChar>? = host
-                                    .cString(using: .utf8)?
-                                    .unsafeCopy()
-                                let cEndpoint: UnsafePointer<CChar>? = endpoint
-                                    .cString(using: .utf8)?
-                                    .unsafeCopy()
-                                let cX25519Pubkey: UnsafePointer<CChar>? = x25519PublicKey
-                                    .suffix(64) // Quick way to drop '05' prefix if present
-                                    .cString(using: .utf8)?
-                                    .unsafeCopy()
-                                let cHeaderKeys: UnsafeMutablePointer<UnsafePointer<CChar>?>? = cHeaderKeysContent
-                                    .unsafeCopy()
-                                let cHeaderValues: UnsafeMutablePointer<UnsafePointer<CChar>?>? = cHeaderValuesContent
-                                    .unsafeCopy()
-                                let cServerDestination = network_server_destination(
-                                    method: cMethod,
-                                    protocol: cTargetScheme,
-                                    host: cHost,
-                                    endpoint: cEndpoint,
-                                    port: (port ?? (targetScheme == "https" ? 443 : 80)),
-                                    x25519_pubkey: cX25519Pubkey,
-                                    headers: cHeaderKeys,
-                                    header_values: cHeaderValues,
-                                    headers_size: (headerInfo ?? []).count
-                                )
-                                
-                                // Add a cleanup callback to deallocate the header arrays
-                                wrapper.addUnsafePointerToCleanup(cMethod)
-                                wrapper.addUnsafePointerToCleanup(cTargetScheme)
-                                wrapper.addUnsafePointerToCleanup(cHost)
-                                wrapper.addUnsafePointerToCleanup(cEndpoint)
-                                wrapper.addUnsafePointerToCleanup(cX25519Pubkey)
-                                cHeaderKeysContent.forEach { wrapper.addUnsafePointerToCleanup($0) }
-                                cHeaderValuesContent.forEach { wrapper.addUnsafePointerToCleanup($0) }
-                                wrapper.addUnsafePointerToCleanup(cHeaderKeys)
-                                wrapper.addUnsafePointerToCleanup(cHeaderValues)
-                                
+                            case .server:
                                 network_send_onion_request_to_server_destination(
                                     network,
-                                    cServerDestination,
+                                    try wrapper.cServerDestination(destination),
                                     cPayloadBytes,
                                     cPayloadBytes.count,
                                     Int64(floor(timeout * 1000)),
@@ -326,11 +261,114 @@ public extension LibSession {
                         }
                     }
                     .tryMap { success, timeout, statusCode, data -> (any ResponseInfoType, Data?) in
-                        try throwErrorIfNeeded(success, timeout, statusCode, data, using: dependencies)
+                        try throwErrorIfNeeded(success, timeout, statusCode, data)
                         return (Network.ResponseInfo(code: statusCode), data)
                     }
             }
             .eraseToAnyPublisher()
+    }
+    
+    static func uploadToServer(
+        _ data: Data,
+        to server: Network.Destination,
+        fileName: String?,
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<(ResponseInfoType, FileUploadResponse), Error> {
+        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
+        
+        return getOrCreateNetwork()
+            .tryFlatMap { network in
+                CallbackWrapper<Output>
+                    .create { wrapper in
+                        network_upload_to_server(
+                            network,
+                            try wrapper.cServerDestination(server),
+                            Array(data),
+                            data.count,
+                            fileName?.cString(using: .utf8),
+                            Int64(floor(Network.fileUploadTimeout * 1000)),
+                            { success, timeout, statusCode, dataPtr, dataLen, ctx in
+                                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
+                            },
+                            wrapper.unsafePointer()
+                        )
+                    }
+                    .tryMap { success, timeout, statusCode, maybeData -> (any ResponseInfoType, FileUploadResponse) in
+                        try throwErrorIfNeeded(success, timeout, statusCode, maybeData)
+                        
+                        guard let data: Data = maybeData else { throw NetworkError.parsingFailed }
+                        
+                        return (
+                            Network.ResponseInfo(code: statusCode),
+                            try FileUploadResponse.decoded(from: data, using: dependencies)
+                        )
+                    }
+            }
+    }
+    
+    static func downloadFile(from server: Network.Destination) -> AnyPublisher<(ResponseInfoType, Data), Error> {
+        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
+        
+        return getOrCreateNetwork()
+            .tryFlatMap { network in
+                return CallbackWrapper<Output>
+                    .create { wrapper in
+                        network_download_from_server(
+                            network,
+                            try wrapper.cServerDestination(server),
+                            Int64(floor(Network.fileDownloadTimeout * 1000)),
+                            { success, timeout, statusCode, dataPtr, dataLen, ctx in
+                                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
+                            },
+                            wrapper.unsafePointer()
+                        )
+                    }
+                    .tryMap { success, timeout, statusCode, maybeData -> (any ResponseInfoType, Data) in
+                        try throwErrorIfNeeded(success, timeout, statusCode, maybeData)
+                        
+                        guard let data: Data = maybeData else { throw NetworkError.parsingFailed }
+                        
+                        return (
+                            Network.ResponseInfo(code: statusCode),
+                            data
+                        )
+                    }
+            }
+    }
+    
+    static func checkClientVersion(
+        using dependencies: Dependencies = Dependencies()
+    ) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error> {
+        typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
+        
+        return getOrCreateNetwork()
+            .tryFlatMap { network in
+                return CallbackWrapper<Output>
+                    .create { wrapper in
+                        network_get_client_version(
+                            network,
+                            CLIENT_PLATFORM_IOS,
+                            Int64(floor(Network.fileDownloadTimeout * 1000)),
+                            { success, timeout, statusCode, dataPtr, dataLen, ctx in
+                                let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
+                                CallbackWrapper<Output>.run(ctx, (success, timeout, Int(statusCode), data))
+                            },
+                            wrapper.unsafePointer()
+                        )
+                    }
+                    .tryMap { success, timeout, statusCode, maybeData -> (any ResponseInfoType, AppVersionResponse) in
+                        try throwErrorIfNeeded(success, timeout, statusCode, maybeData)
+                        
+                        guard let data: Data = maybeData else { throw NetworkError.parsingFailed }
+                        
+                        return (
+                            Network.ResponseInfo(code: statusCode),
+                            try AppVersionResponse.decoded(from: data, using: dependencies)
+                        )
+                    }
+            }
     }
     
     // MARK: - Internal Functions
@@ -460,17 +498,14 @@ public extension LibSession {
         _ success: Bool,
         _ timeout: Bool,
         _ statusCode: Int,
-        _ data: Data?,
-        using dependencies: Dependencies
+        _ data: Data?
     ) throws {
         guard !success || statusCode < 200 || statusCode > 299 else { return }
         guard !timeout else { throw NetworkError.timeout }
         
         /// Handle status codes with specific meanings
         switch (statusCode, data.map { String(data: $0, encoding: .ascii) }) {
-            case (400, .none):
-                throw NetworkError.badRequest(error: NetworkError.unknown.errorDescription ?? "Bad Request", rawData: data)
-                
+            case (400, .none): throw NetworkError.badRequest(error: "\(NetworkError.unknown)", rawData: data)
             case (400, .some(let responseString)): throw NetworkError.badRequest(error: responseString, rawData: data)
                 
             case (401, _):
@@ -486,7 +521,16 @@ public extension LibSession {
             
             case (421, _): throw SnodeAPIError.unassociatedPubkey
             case (429, _): throw SnodeAPIError.rateLimited
-            case (500, _), (502, _), (503, _): throw SnodeAPIError.internalServerError
+            case (500, _): throw NetworkError.internalServerError
+            case (503, _): throw NetworkError.serviceUnavailable
+            case (502, .none): throw NetworkError.badGateway
+            case (502, .some(let responseString)):
+                guard responseString.count >= 64 && Hex.isValid(String(responseString.suffix(64))) else {
+                    throw NetworkError.badGateway
+                }
+                
+                throw SnodeAPIError.nodeNotFound(String(responseString.suffix(64)))
+                
             case (_, .none): throw NetworkError.unknown
             case (_, .some(let responseString)): throw NetworkError.requestFailed(error: responseString, rawData: data)
         }
@@ -551,5 +595,104 @@ extension LibSession {
                 lhs.ed25519PubkeyHex == rhs.ed25519PubkeyHex
             )
         }
+    }
+}
+
+// MARK: - Convenience
+
+public extension Network.Destination {
+    static var fileServer: Network.Destination = .server(
+        url: try! Network.fileServerUploadUrl(),
+        method: .post,
+        headers: nil,
+        x25519PublicKey: Network.fileServerPubkey()
+    )
+    
+    static func fileServer(downloadUrl: URL) -> Network.Destination {
+        return .server(
+            url: downloadUrl,
+            method: .get,
+            headers: nil,
+            x25519PublicKey: Network.fileServerPubkey(url: downloadUrl.absoluteString)
+        )
+    }
+}
+
+private extension LibSession.CallbackWrapper {
+    func cServerDestination(_ destination: Network.Destination) throws -> network_server_destination {
+        guard
+            case .server(let url, let method, let headers, let x25519PublicKey) = destination,
+            let host: String = url.host
+        else { throw NetworkError.invalidURL }
+        
+        let headerInfo: [(key: String, value: String)]? = headers?.map { ($0.key, $0.value) }
+        
+        // Handle the more complicated type conversions first
+        let cHeaderKeysContent: [UnsafePointer<CChar>?] = (try? ((headerInfo ?? [])
+            .map { $0.key.cString(using: .utf8) }
+            .unsafeCopyCStringArray()))
+            .defaulting(to: [])
+        let cHeaderValuesContent: [UnsafePointer<CChar>?] = (try? ((headerInfo ?? [])
+            .map { $0.value.cString(using: .utf8) }
+            .unsafeCopyCStringArray()))
+            .defaulting(to: [])
+        
+        guard
+            cHeaderKeysContent.count == cHeaderValuesContent.count,
+            cHeaderKeysContent.allSatisfy({ $0 != nil }),
+            cHeaderValuesContent.allSatisfy({ $0 != nil })
+        else {
+            cHeaderKeysContent.forEach { $0?.deallocate() }
+            cHeaderValuesContent.forEach { $0?.deallocate() }
+            throw LibSessionError.invalidCConversion
+        }
+        
+        // Convert the other types
+        let targetScheme: String = (url.scheme ?? "https")
+        let cMethod: UnsafePointer<CChar>? = method.rawValue
+            .cString(using: .utf8)?
+            .unsafeCopy()
+        let cTargetScheme: UnsafePointer<CChar>? = targetScheme
+            .cString(using: .utf8)?
+            .unsafeCopy()
+        let cHost: UnsafePointer<CChar>? = host
+            .cString(using: .utf8)?
+            .unsafeCopy()
+        let cEndpoint: UnsafePointer<CChar>? = url.path
+            .appending(url.query.map { value in "?\(value)" })
+            .cString(using: .utf8)?
+            .unsafeCopy()
+        let cX25519Pubkey: UnsafePointer<CChar>? = x25519PublicKey
+            .suffix(64) // Quick way to drop '05' prefix if present
+            .cString(using: .utf8)?
+            .unsafeCopy()
+        let cHeaderKeys: UnsafeMutablePointer<UnsafePointer<CChar>?>? = cHeaderKeysContent
+            .unsafeCopy()
+        let cHeaderValues: UnsafeMutablePointer<UnsafePointer<CChar>?>? = cHeaderValuesContent
+            .unsafeCopy()
+        let cServerDestination = network_server_destination(
+            method: cMethod,
+            protocol: cTargetScheme,
+            host: cHost,
+            endpoint: cEndpoint,
+            port: UInt16(url.port ?? (targetScheme == "https" ? 443 : 80)),
+            x25519_pubkey: cX25519Pubkey,
+            headers: cHeaderKeys,
+            header_values: cHeaderValues,
+            headers_size: (headerInfo ?? []).count
+        )
+        
+        // Add a cleanup callback to deallocate the header arrays
+        self.addUnsafePointerToCleanup(cMethod)
+        self.addUnsafePointerToCleanup(cTargetScheme)
+        self.addUnsafePointerToCleanup(cHost)
+        self.addUnsafePointerToCleanup(cEndpoint)
+        self.addUnsafePointerToCleanup(cX25519Pubkey)
+        cHeaderKeysContent.forEach { self.addUnsafePointerToCleanup($0) }
+        cHeaderValuesContent.forEach { self.addUnsafePointerToCleanup($0) }
+        self.addUnsafePointerToCleanup(cHeaderKeys)
+        self.addUnsafePointerToCleanup(cHeaderValues)
+        
+        return cServerDestination
     }
 }

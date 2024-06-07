@@ -47,7 +47,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         let isCallOngoing: Bool = (UserDefaults.sharedLokiProject?[.isCallOngoing])
             .defaulting(to: false)
-        let lastCallPreOffer: Date? = UserDefaults.sharedLokiProject?[.lastCallPreOffer]
 
         // Perform main setup
         Storage.resumeDatabaseAccess()
@@ -187,6 +186,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             try MessageReceiver.postHandleMessage(
                                 db,
                                 threadId: threadId,
+                                threadVariant: threadVariant,
                                 message: messageInfo.message
                             )
                             

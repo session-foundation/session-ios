@@ -544,6 +544,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate {
         let currentUserProfile: Profile = Profile.fetchOrCreateCurrentUser()
         let interaction: Interaction = Interaction(
             threadId: threadData.threadId,
+            threadVariant: threadData.threadVariant,
             authorId: (threadData.currentUserBlinded15PublicKey ?? threadData.currentUserPublicKey),
             variant: .standardOutgoing,
             body: text,

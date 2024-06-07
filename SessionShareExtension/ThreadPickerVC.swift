@@ -260,6 +260,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         // Create the interaction
                         let interaction: Interaction = try Interaction(
                             threadId: threadId,
+                            threadVariant: threadVariant,
                             authorId: getUserHexEncodedPublicKey(db),
                             variant: .standardOutgoing,
                             body: body,
