@@ -6,7 +6,7 @@ import Foundation
 import SessionUtilitiesKit
 
 public extension Network {
-    enum Destination: CustomStringConvertible {
+    enum Destination: Equatable {
         case snode(LibSession.Snode)
         case server(
             url: URL,
@@ -14,12 +14,5 @@ public extension Network {
             headers: [HTTPHeader: String]?,
             x25519PublicKey: String
         )
-        
-        public var description: String {
-            switch self {
-                case .snode(let snode): return "Service node \(snode.address)"
-                case .server(let url, _, _, _): return url.host.defaulting(to: "Unknown Host")
-            }
-        }
     }
 }

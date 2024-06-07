@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct AppVersionResponse: Codable {
+public struct AppVersionResponse: Codable {
     enum CodingKeys: String, CodingKey {
         case version = "result"
     }

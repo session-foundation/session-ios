@@ -21,7 +21,6 @@ class OpenGroupManagerSpec: QuickSpec {
             serverHash: "TestServerHash",
             messageUuid: nil,
             threadId: OpenGroup.idFor(roomToken: "testRoom", server: "testServer"),
-            threadVariant: .community,
             authorId: "TestAuthorId",
             variant: .standardOutgoing,
             body: "Test",
@@ -3153,7 +3152,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     URLRequest(url: URL(string: "https://open.getsession.org/room/test2/file/12")!),
                                     to: OpenGroupAPI.defaultServer,
                                     with: OpenGroupAPI.defaultServerPublicKey,
-                                    timeout: FileServerAPI.fileDownloadTimeout
+                                    timeout: Network.fileDownloadTimeout
                                 ),
                                 using: dependencies
                             )
