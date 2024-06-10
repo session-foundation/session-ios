@@ -3148,16 +3148,22 @@ class OpenGroupManagerSpec: QuickSpec {
                     mockNetwork
                         .when {
                             $0.send(
-                                .onionRequest(
-                                    URLRequest(url: URL(string: "https://open.getsession.org/room/test2/file/12")!),
-                                    to: OpenGroupAPI.defaultServer,
-                                    with: OpenGroupAPI.defaultServerPublicKey,
-                                    timeout: Network.fileDownloadTimeout
+                                .downloadFile(
+                                    from: .server(
+                                        url: URL(string: "https://open.getsession.org/room/test2/file/12")!,
+                                        method: .get,
+                                        headers: nil,
+                                        x25519PublicKey: TestConstants.publicKey
+                                    )
                                 ),
                                 using: dependencies
                             )
                         }
-                        .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+                        .thenReturn(
+                            Just((MockResponseInfo.mockValue, Data([1, 2, 3])))
+                                .setFailureType(to: Error.self)
+                                .eraseToAnyPublisher()
+                        )
 
                     let testDate: Date = Date(timeIntervalSince1970: 1234567890)
                     dependencies.dateNow = testDate
@@ -3189,8 +3195,12 @@ class OpenGroupManagerSpec: QuickSpec {
             context("when getting a room image") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.onionRequest(any(), to: any(), with: any()), using: dependencies) }
-                        .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+                        .when { $0.send(.downloadFile(from: any()), using: dependencies) }
+                        .thenReturn(
+                            Just((MockResponseInfo.mockValue, Data([1, 2, 3])))
+                                .setFailureType(to: Error.self)
+                                .eraseToAnyPublisher()
+                        )
                     
                     mockUserDefaults
                         .when { (defaults: inout any UserDefaultsType) -> Any? in defaults.object(forKey: any()) }

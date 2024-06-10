@@ -1169,8 +1169,11 @@ public final class OpenGroupManager {
                                         .eraseToAnyPublisher()
                                     
                                 case .none:
-                                    return LibSession
-                                        .downloadFile(from: destination)
+                                    return dependencies.network
+                                        .send(
+                                            .downloadFile(from: destination),
+                                            using: dependencies
+                                        )
                                         .map { _, imageData in imageData }
                                         .eraseToAnyPublisher()
                             }

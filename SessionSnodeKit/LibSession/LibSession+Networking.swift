@@ -7,6 +7,21 @@ import Combine
 import SessionUtil
 import SessionUtilitiesKit
 
+public extension Network.RequestType {
+    // FIXME: Clean up the network/libSession injection interface
+    static func downloadFile(
+        from destination: Network.Destination
+    ) -> Network.RequestType<Data> {
+        return Network.RequestType(
+            id: "downloadFile",
+            url: "\(destination)",
+            args: [destination]
+        ) { _ in
+            LibSession.downloadFile(from: destination).eraseToAnyPublisher()
+        }
+    }
+}
+
 // MARK: - LibSession
 
 public extension LibSession {
