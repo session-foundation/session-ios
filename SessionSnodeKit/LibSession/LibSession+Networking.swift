@@ -136,12 +136,16 @@ public extension LibSession {
         
         guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
         
-        network_close_connections(network)
+        network_suspend(network)
     }
     
     static func resumeNetworkAccess() {
         isSuspended.mutate { $0 = false }
         Log.info("[LibSession] resumeNetworkAccess called.")
+        
+        guard let network: UnsafeMutablePointer<network_object> = networkCache.wrappedValue else { return }
+        
+        network_resume(network)
     }
     
     static func clearSnodeCache() {

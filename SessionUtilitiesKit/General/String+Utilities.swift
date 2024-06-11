@@ -79,11 +79,15 @@ public extension String {
 
 public extension String.StringInterpolation {
     mutating func appendInterpolation(plural value: Int) {
-        appendInterpolation(value == 1 ? "" : "s")
+        appendInterpolation(value == 1 ? "" : "s") // stringlint:disable
+    }
+    
+    public mutating func appendInterpolation(period value: String) {
+        appendInterpolation(value.hasSuffix(".") ? "" : ".") // stringlint:disable
     }
     
     mutating func appendInterpolation(_ value: TimeUnit, unit: TimeUnit.Unit, resolution: Int = 2) {
-        appendLiteral("\(TimeUnit(value, unit: unit, resolution: resolution))")
+        appendLiteral("\(TimeUnit(value, unit: unit, resolution: resolution))") // stringlint:disable
     }
     
     mutating func appendInterpolation(_ value: Int, format: String) {
