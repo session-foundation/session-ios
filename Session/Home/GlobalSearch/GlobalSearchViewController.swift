@@ -430,7 +430,7 @@ extension GlobalSearchViewController {
             case .contactsAndGroups: 
                 guard !section.elements.isEmpty else { return UIView() }
                 titleLabel.font = .boldSystemFont(ofSize: Values.largeFontSize)
-                titleLabel.text = "SEARCH_SECTION_CONTACTS".localized()
+                titleLabel.text = "sessionConversations".localized()
                 break
             case .messages: 
                 guard !section.elements.isEmpty else { return UIView() }

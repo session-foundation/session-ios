@@ -1131,3 +1131,4 @@ The point that a message will disappear in a disappearing message update message
 "attachmentsNa" = "N/A";
 "search" = "Search";
 "messageRequestsAcceptDescription" = "Sending a message to this user will automatically accept their message request and reveal your Account ID.";
+"sessionConversations" = "Conversations";
