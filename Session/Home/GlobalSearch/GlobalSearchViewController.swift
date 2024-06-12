@@ -69,7 +69,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
             let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
             let section: String = initialCharacter.capitalized.isSingleAlphabet ?
                 initialCharacter.capitalized :
-                "Unknown"
+                "#"
                 
             if groupedContacts[section] == nil {
                 groupedContacts[section] = SectionModel(
@@ -96,9 +96,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                     }
                 }()
                 
-                if  title0.count != title1.count {
-                    return title0.count < title1.count
-                }
+                if title0 == "#" { return false }
                 return title0 < title1
             }
         )
