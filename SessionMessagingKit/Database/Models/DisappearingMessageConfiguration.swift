@@ -297,7 +297,8 @@ public extension DisappearingMessagesConfiguration {
             )
         )
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
-            wasRead: wasRead, 
+            threadVariant: threadVariant,
+            wasRead: wasRead,
             serverExpirationTimestamp: serverExpirationTimestamp,
             expiresInSeconds: self.durationSeconds,
             expiresStartedAtMs: (self.type == .disappearAfterSend) ? Double(timestampMs) : nil
@@ -305,6 +306,7 @@ public extension DisappearingMessagesConfiguration {
         let interaction = try Interaction(
             serverHash: serverHash,
             threadId: threadId,
+            threadVariant: threadVariant,
             authorId: authorId,
             variant: .infoDisappearingMessagesUpdate,
             body: self.messageInfoString(
@@ -321,6 +323,7 @@ public extension DisappearingMessagesConfiguration {
             Message.updateExpiryForDisappearAfterReadMessages(
                 db,
                 threadId: threadId,
+                threadVariant: threadVariant,
                 serverHash: serverHash,
                 expiresInSeconds: messageExpirationInfo.expiresInSeconds,
                 expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs
