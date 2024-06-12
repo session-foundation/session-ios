@@ -11,6 +11,7 @@ struct RecoveryPasswordScreen: View {
     @State private var copied: Bool = false
     @State private var showQRCode: Bool = false
     private let mnemonic: String
+    private let hexEncodedSeed: String?
     
     static private let cornerRadius: CGFloat = 13
     static private let backgroundCornerRadius: CGFloat = 17
@@ -18,10 +19,12 @@ struct RecoveryPasswordScreen: View {
     
     public init() throws {
         self.mnemonic = try Identity.mnemonic()
+        self.hexEncodedSeed = Identity.fetchHexEncodedSeed()
     }
     
     public init(hardcode: String) {
         self.mnemonic = hardcode
+        self.hexEncodedSeed = try? Mnemonic.decode(mnemonic: hardcode)
     }
     
     var body: some View {
@@ -74,7 +77,7 @@ struct RecoveryPasswordScreen: View {
                             
                             if self.showQRCode {
                                 QRCodeView(
-                                    string: mnemonic,
+                                    string: hexEncodedSeed ?? "",
                                     hasBackground: false,
                                     logo: "SessionShieldFilled",
                                     themeStyle: ThemeManager.currentTheme.interfaceStyle
