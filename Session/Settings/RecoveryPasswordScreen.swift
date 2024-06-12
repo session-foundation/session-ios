@@ -58,6 +58,7 @@ struct RecoveryPasswordScreen: View {
                                         maxHeight: Values.mediumFontSize
                                     )
                             }
+                            .padding(.bottom, Values.smallSpacing)
                             
                             Text("recovery_password_explanation_1".localized())
                                 .font(.system(size: Values.smallFontSize))
