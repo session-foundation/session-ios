@@ -114,6 +114,7 @@ extension MessageReceiver {
         _ = try Interaction(
             serverHash: nil, // Intentionally null so sync messages are seen as duplicates
             threadId: threadId,
+            threadVariant: threadVariant,
             authorId: sender,
             variant: .infoDisappearingMessagesUpdate,
             body: updatedConfig.messageInfoString(
@@ -141,12 +142,11 @@ extension MessageReceiver {
     ) throws {
         guard proto.hasExpirationType || proto.hasExpirationTimer else { return }
         guard
+            threadVariant != .community,
             let sender: String = message.sender,
             let timestampMs: UInt64 = message.sentTimestamp,
             Features.useNewDisappearingMessagesConfig
-        else {
-            return
-        }
+        else { return }
         
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: threadId)

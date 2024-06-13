@@ -209,7 +209,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 PagedData.processAndTriggerUpdates(
                     updatedData: self?.process(data: updatedData, for: updatedPageInfo),
                     currentDataRetriever: { self?.threadData },
-                    onDataChange: self?.onThreadChange,
+                    onDataChangeRetriever: { self?.onThreadChange },
                     onUnobservedDataChange: { updatedData, changeset in
                         self?.unobservedThreadDataChanges = (changeset.isEmpty ?
                             nil :
@@ -288,7 +288,7 @@ public class HomeViewModel: NavigatableStateHolder {
         PagedData.processAndTriggerUpdates(
             updatedData: updatedThreadData,
             currentDataRetriever: { [weak self] in (self?.unobservedThreadDataChanges?.0 ?? self?.threadData) },
-            onDataChange: onThreadChange,
+            onDataChangeRetriever: { [weak self] in self?.onThreadChange },
             onUnobservedDataChange: { [weak self] updatedData, changeset in
                 self?.unobservedThreadDataChanges = (changeset.isEmpty ?
                     nil :

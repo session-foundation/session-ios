@@ -302,9 +302,6 @@ final class NukeDataModal: Modal {
             $0.recentReactionTimestamps = []
         }
         
-        // Clear the Snode pool
-        LibSession.clearSnodeCache()
-        
         // Stop any pollers
         (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
         

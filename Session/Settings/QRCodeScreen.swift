@@ -49,6 +49,7 @@ struct QRCodeScreen: View {
             SessionApp.presentConversationCreatingIfNeeded(
                 for: hexEncodedPublicKey,
                 variant: .contact,
+                action: .compose,
                 dismissing: self.host.controller,
                 animated: false
             )

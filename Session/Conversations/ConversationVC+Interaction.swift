@@ -34,7 +34,7 @@ extension ConversationVC:
         openSettingsFromTitleView()
     }
     
-    @objc func  openSettingsFromTitleView() {
+    @objc func openSettingsFromTitleView() {
         switch self.titleView.currentLabelType {
             case .userCount:
                 if self.viewModel.threadData.threadVariant == .group || self.viewModel.threadData.threadVariant == .legacyGroup {
@@ -2010,6 +2010,9 @@ extension ConversationVC:
                                     .filter(id: cellViewModel.id)
                                     .deleteAll(db)
                             }
+                            
+                            // Stop it's audio if needed
+                            self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
                     }
                     
                     // Regardless of success we should dismiss and callback
@@ -2084,6 +2087,9 @@ extension ConversationVC:
                                             .filter(id: cellViewModel.id)
                                             .deleteAll(db)
                                     }
+                                    
+                                    // Stop it's audio if needed
+                                    self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
                             }
                         }
                         return
@@ -2098,6 +2104,9 @@ extension ConversationVC:
                             .filter(id: cellViewModel.id)
                             .deleteAll(db)
                     }
+                    
+                    // Stop it's audio if needed
+                    viewModel.stopAudioIfNeeded(for: cellViewModel)
                     return
                 }
                 
@@ -2166,6 +2175,9 @@ extension ConversationVC:
                                 using: dependencies
                             )
                     }
+                    
+                    // Stop it's audio if needed
+                    viewModel.stopAudioIfNeeded(for: cellViewModel)
                     return
                 }
                 
@@ -2191,6 +2203,9 @@ extension ConversationVC:
                             )
                     }
                     self?.showInputAccessoryView()
+                    
+                    // Stop it's audio if needed
+                    self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
                 })
                 
                 if cellViewModel.threadId != userPublicKey {

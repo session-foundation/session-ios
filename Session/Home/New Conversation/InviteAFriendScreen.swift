@@ -25,8 +25,7 @@ struct InviteAFriendScreen: View {
                     .foregroundColor(themeColor: .textPrimary)
                     .accessibility(
                         Accessibility(
-                            identifier: "Your account ID",
-                            label: "Your account ID"
+                            identifier: "Account ID"
                         )
                     )
                     .frame(

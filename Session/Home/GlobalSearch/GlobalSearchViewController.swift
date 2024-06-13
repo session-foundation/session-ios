@@ -46,7 +46,12 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
             try SessionThreadViewModel
                 .defaultContactsQuery(userPublicKey: getUserHexEncodedPublicKey(db))
                 .fetchAll(db)
-        }.defaulting(to: [])
+        }
+        .defaulting(to: [])
+        .sorted {
+            $0.displayName.lowercased() < $1.displayName.lowercased()
+        }
+        
         var groupedContacts: [String: SectionModel] = [:]
         contacts.forEach { contactViewModel in
             guard !contactViewModel.threadIsNoteToSelf else {
@@ -64,7 +69,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
             let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
             let section: String = initialCharacter.capitalized.isSingleAlphabet ?
                 initialCharacter.capitalized :
-                "Unknown"
+                "#"
                 
             if groupedContacts[section] == nil {
                 groupedContacts[section] = SectionModel(
@@ -78,22 +83,20 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         return SearchResultData(
             state: .defaultContacts,
             data: groupedContacts.values.sorted { sectionModel0, sectionModel1 in
-                let title0 = {
+                let title0: String = {
                     switch sectionModel0.model {
                         case .groupedContacts(let title): return title
                         default: return ""
                     }
                 }()
-                let title1 = {
+                let title1: String = {
                     switch sectionModel1.model {
                         case .groupedContacts(let title): return title
                         default: return ""
                     }
                 }()
                 
-                if  title0.count != title1.count {
-                    return title0.count < title1.count
-                }
+                if title0 == "#" { return false }
                 return title0 < title1
             }
         )
