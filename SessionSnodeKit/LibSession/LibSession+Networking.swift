@@ -550,6 +550,7 @@ public extension LibSession {
                 
                 throw SnodeAPIError.nodeNotFound(String(responseString.suffix(64)))
                 
+            case (504, _): throw NetworkError.gatewayTimeout
             case (_, .none): throw NetworkError.unknown
             case (_, .some(let responseString)): throw NetworkError.requestFailed(error: responseString, rawData: data)
         }

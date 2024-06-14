@@ -298,7 +298,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             
             guard BackgroundPoller.isValid else { return }
             
-            Log.info("Background poll failed due to manual timeout")
+            Log.info("Background poll failed due to manual timeout.")
             BackgroundPoller.isValid = false
             
             if Singleton.hasAppContext && Singleton.appContext.isInBackground {
