@@ -28,15 +28,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     override public func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         self.contentHandler = contentHandler
         self.request = request
-        
-        guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
-            Log.info("didReceive called with no content.")
-            return self.completeSilenty()
-        }
 
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
             Log.info("didReceive called while main app running.")
+            return self.completeSilenty(isMainAppAndActive: true)
+        }
+        
+        guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
+            Log.info("didReceive called with no content.")
             return self.completeSilenty()
         }
         
@@ -328,7 +328,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         completeSilenty()
     }
     
-    private func completeSilenty() {
+    private func completeSilenty(isMainAppAndActive: Bool = false) {
         // Ensure we only run this once
         guard
             hasCompleted.mutate({ hasCompleted in
@@ -343,8 +343,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             .read { db in try Interaction.fetchUnreadCount(db) }
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
+        
         Log.info("Complete silently.")
-        Storage.suspendDatabaseAccess()
+        if !isMainAppAndActive {
+            Storage.suspendDatabaseAccess()
+        }
         Log.flush()
         
         self.contentHandler!(silentContent)
