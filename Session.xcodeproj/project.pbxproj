@@ -183,6 +183,7 @@
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
 		88C614F4223F9BE0CB94E4E5 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35C5EF2AACD4A39D6E0E2C49 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionUtilitiesKit.framework */; };
 		941061402BBE45EB0056C084 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9410613F2BBE45EB0056C084 /* ActivityView.swift */; };
+		941BE62F2C1BF888005A880A /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941BE62E2C1BF887005A880A /* HomeScreen.swift */; };
 		9422EE2B2B8C3A97004C740D /* String+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9422EE2A2B8C3A97004C740D /* String+Utilities.swift */; };
 		942C9CA22B67769000B5153A /* SessionSearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942C9CA12B67769000B5153A /* SessionSearchBar.swift */; };
 		943C6D762B705B7D004ACE64 /* CompatibleScrollingVStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D752B705B7D004ACE64 /* CompatibleScrollingVStack.swift */; };
@@ -1373,6 +1374,7 @@
 		89EE44A6174C653D2F4DB573 /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SignalUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
 		91271A534D1D4AB949B1319E /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-SessionNotificationServiceExtension.app store release.xcconfig"; sourceTree = "<group>"; };
 		9410613F2BBE45EB0056C084 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
+		941BE62E2C1BF887005A880A /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		9422EE2A2B8C3A97004C740D /* String+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Utilities.swift"; sourceTree = "<group>"; };
 		942C9CA12B67769000B5153A /* SessionSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSearchBar.swift; sourceTree = "<group>"; };
 		943C6D752B705B7D004ACE64 /* CompatibleScrollingVStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompatibleScrollingVStack.swift; sourceTree = "<group>"; };
@@ -3169,6 +3171,7 @@
 				7BAF54CA27ACCEEC003D12F8 /* GlobalSearch */,
 				FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */,
 				B8BB82A4238F627000BA5194 /* HomeVC.swift */,
+				941BE62E2C1BF887005A880A /* HomeScreen.swift */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -6595,6 +6598,7 @@
 				FD37E9CC28A1E578003AE748 /* AppearanceViewController.swift in Sources */,
 				B8EB20F02640F7F000773E52 /* OpenGroupInvitationView.swift in Sources */,
 				C328254025CA55880062D0A7 /* ContextMenuVC.swift in Sources */,
+				941BE62F2C1BF888005A880A /* HomeScreen.swift in Sources */,
 				7BD687D12A5D0D1200D8E455 /* MessageInfoScreen.swift in Sources */,
 				7BD687D12A5D0D1200D8E455 /* MessageInfoScreen.swift in Sources */,
 				B8269D2925C7A4B400488AB4 /* InputView.swift in Sources */,
