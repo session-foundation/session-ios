@@ -6,6 +6,7 @@ import SessionUtilitiesKit
 import SessionSnodeKit
 
 public enum CheckForAppUpdatesJob: JobExecutor {
+    private static let updateCheckFrequency: TimeInterval = (4 * 60 * 60)  // Max every 4 hours
     public static var maxFailureCount: Int = -1
     public static var requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
@@ -34,7 +35,7 @@ public enum CheckForAppUpdatesJob: JobExecutor {
                 receiveCompletion: { _ in
                     var updatedJob: Job = job.with(
                         failureCount: 0,
-                        nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + (24 * 60 * 60))
+                        nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
                     )
                     
                     dependencies.storage.write(using: dependencies) { db in

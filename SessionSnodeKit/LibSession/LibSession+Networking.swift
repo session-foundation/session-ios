@@ -204,7 +204,7 @@ public extension LibSession {
                         switch result {
                             case .failure(let error): throw error
                             case .success(let nodes):
-                                guard nodes.count > count else { throw SnodeAPIError.unableToRetrieveSwarm }
+                                guard nodes.count >= count else { throw SnodeAPIError.unableToRetrieveSwarm }
                                 
                                 return nodes
                         }
