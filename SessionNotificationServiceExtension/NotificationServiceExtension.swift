@@ -169,7 +169,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     
                                 case (true, false):
                                     try MessageReceiver.insertCallInfoMessage(db, for: callMessage)
-                                    self?.handleSuccessForIncomingCall(db, for: callMessage)
+                                    return self?.handleSuccessForIncomingCall(db, for: callMessage)
                             }
                             
                             // Perform any required post-handling logic
@@ -357,21 +357,25 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         if #available(iOSApplicationExtension 14.5, *), Preferences.isCallKitSupported {
             guard let caller: String = callMessage.sender, let timestamp = callMessage.sentTimestamp else { return }
             
-            let payload: JSON = [
-                "uuid": callMessage.uuid,   // stringlint:disable
-                "caller": caller,           // stringlint:disable
-                "timestamp": timestamp      // stringlint:disable
-            ]
-            
-            CXProvider.reportNewIncomingVoIPPushPayload(payload) { error in
-                if let error = error {
-                    self.handleFailureForVoIP(db, for: callMessage)
-                    Log.error("Failed to notify main app of call message: \(error).")
-                }
-                else {
-                    Log.info("Successfully notified main app of call message.")
-                    UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
-                    self.completeSilenty()
+            let reportCall: () -> () = { [weak self] in
+                let payload: JSON = [
+                    "uuid": callMessage.uuid,   // stringlint:disable
+                    "caller": caller,           // stringlint:disable
+                    "timestamp": timestamp      // stringlint:disable
+                ]
+                
+                CXProvider.reportNewIncomingVoIPPushPayload(payload) { error in
+                    if let error = error {
+                        Log.error("Failed to notify main app of call message: \(error).")
+                        Storage.shared.read { db in
+                            self?.handleFailureForVoIP(db, for: callMessage)
+                        }
+                    }
+                    else {
+                        Log.info("Successfully notified main app of call message.")
+                        UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+                        self?.completeSilenty()
+                    }
                 }
             }
         }
@@ -408,7 +412,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         semaphore.wait()
         Log.info("Add remote notification request.")
-        completeSilenty()
+        
+        db.afterNextTransaction(
+            onCommit: { [weak self] _ in self?.completeSilenty() },
+            onRollback: { [weak self] _ in self?.completeSilenty() }
+        )
     }
 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
