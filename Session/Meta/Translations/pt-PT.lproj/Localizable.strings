@@ -1119,7 +1119,7 @@ The point that a message will disappear in a disappearing message update message
 //Start Conversation
 "qrYoursDescription" = "Friends can message you by scanning your QR code.";
 "start_conversation_screen_title" = "Start Conversation";
-"invite_a_friend_explanation" = "Invite your friend to chat with you on Session by sharing your Account ID with them";
+"invite_a_friend_explanation" = "Invite your friend to chat with you on Session by sharing your Account ID with them.";
 "accountIdEnter" = "Enter Account ID";
 "accountIdOrOnsEnter" = "Enter Account ID or ONS";
 "new_message_screen_enter_account_id_explanation" = "Start a new conversation by entering your friend's Account ID, ONS or scanning their QR code.";
