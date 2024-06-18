@@ -328,8 +328,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
         
         // Empty state view
         view.addSubview(emptyStateStackView)
-        emptyStateStackView.pin(.leading, to: .leading, of: view, withInset: Values.accountCreatedViewHorizontalOffset)
-        emptyStateStackView.pin(.trailing, to: .trailing, of: view, withInset: -Values.accountCreatedViewHorizontalOffset)
+        emptyStateStackView.set(.width, to: 300)
         emptyStateStackView.center(.horizontal, in: view)
         let verticalCenteringConstraint2 = emptyStateStackView.center(.vertical, in: view)
         verticalCenteringConstraint2.constant = -Values.massiveSpacing // Makes things appear centered visually

@@ -49,7 +49,6 @@ public enum Values {
     public static let veryLargeSpacing = CGFloat(35)
     public static let massiveSpacing = CGFloat(64)
     public static let onboardingButtonBottomOffset = isIPhone5OrSmaller ? CGFloat(52) : CGFloat(72)
-    public static let accountCreatedViewHorizontalOffset = isIPhone6OrSmaller ? CGFloat(24) : CGFloat(50)
     
     // MARK: - iPad Sizes
     public static let iPadModalWidth = UIScreen.main.bounds.width / 2
