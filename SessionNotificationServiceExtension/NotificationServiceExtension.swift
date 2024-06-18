@@ -378,6 +378,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     }
                 }
             }
+            
+            db.afterNextTransaction(
+                onCommit: { _ in reportCall() },
+                onRollback: { _ in reportCall() }
+            )
         }
         else {
             self.handleFailureForVoIP(db, for: callMessage)
