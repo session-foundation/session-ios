@@ -96,8 +96,11 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                     }
                 }()
                 
-                if title0 == "#" { return false }
-                return title0 < title1
+                if title0.isAlphabetic && title1.isAlphabetic {
+                    return title0 < title1
+                }
+                
+                return title1 == "#"
             }
         )
     }()
