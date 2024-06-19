@@ -12,6 +12,7 @@ struct HomeScreen: View {
     @EnvironmentObject var host: HostWrapper
     
     @State private var viewModel: HomeViewModel = HomeViewModel()
+    @State private var flow: Onboarding.Flow?
     
     var body: some View {
         ZStack(
@@ -23,20 +24,63 @@ struct HomeScreen: View {
                     SeedBanner()
                 }
                 
-                List(content: {
-                    viewModel.threadData.forEach { section in
-                        switch section.model {
-                            case .messageRequests:
-                                
-                            case .threads:
-                            
-                        }
-                    }
-                })
+                if viewModel.threadData.isEmpty {
+                    EmptyStateView(flow: $flow)
+                }
+                
+//                List(content: {
+//                    viewModel.threadData.forEach { section in
+//                        switch section.model {
+//                            case .messageRequests:
+//                                
+//                            case .threads:
+//                            
+//                        }
+//                    }
+//                })
             }
         )
     }
 }
+
+// MARK: EmptyStateView
+
+struct EmptyStateView: View {
+    @Binding var flow: Onboarding.Flow?
+    var body: some View {
+        VStack(
+            alignment: .center,
+            spacing: Values.smallSpacing,
+            content: {
+                if flow == .register {
+                    // Welcome state after account creation
+                    
+                } else {
+                    // Normal empty state
+                    Image("SessionGreen64")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(
+                            height: 103,
+                            alignment: .center
+                        )
+                }
+                
+                Text("conversationsNone".localized())
+                    .bold()
+                    .font(.system(size: Values.mediumFontSize))
+                    .foregroundColor(themeColor: .textPrimary)
+                
+                Text("onboardingHitThePlusButton".localized())
+                    .font(.system(size: Values.verySmallFontSize))
+                    .foregroundColor(themeColor: .textPrimary)
+                    .multilineTextAlignment(.center)
+            }
+        )
+    }
+}
+
+// MARK: SeedBanner
 
 struct SeedBanner: View {
     var body: some View {
