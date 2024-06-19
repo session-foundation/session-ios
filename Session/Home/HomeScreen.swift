@@ -54,7 +54,17 @@ struct EmptyStateView: View {
             content: {
                 if flow == .register {
                     // Welcome state after account creation
+                    Image("Hooray")
+                        .frame(
+                            height: 96,
+                            alignment: .center
+                        )
                     
+                    Text("onboardingAccountCreated".localized())
+                        .bold()
+                        .font(.system(size: Values.veryLargeFontSize))
+                        .foregroundColor(themeColor: .textPrimary)
+                        
                 } else {
                     // Normal empty state
                     Image("SessionGreen64")
@@ -62,6 +72,16 @@ struct EmptyStateView: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(
                             height: 103,
+                            alignment: .center
+                        )
+                    
+                    Image("SessionHeading")
+                        .resizable()
+                        .renderingMode(.template)
+                        .aspectRatio(contentMode: .fit)
+                        .foregroundColor(themeColor: .textPrimary)
+                        .frame(
+                            height: 22,
                             alignment: .center
                         )
                 }
