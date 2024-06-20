@@ -15,7 +15,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var didPerformSetup = false
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var request: UNNotificationRequest?
-    private var openGroupPollCancellable: AnyCancellable?
     private var hasCompleted: Atomic<Bool> = Atomic(false)
 
     public static let isFromRemoteKey = "remote"                                                                   // stringlint:disable
@@ -27,18 +26,21 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     // MARK: Did receive a remote push notification request
     
     override public func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
-        Log.info("didReceive called.")
         self.contentHandler = contentHandler
         self.request = request
-        
-        guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
-            return self.completeSilenty()
-        }
 
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
+            Log.info("didReceive called while main app running.")
+            return self.completeSilenty(isMainAppAndActive: true)
+        }
+        
+        guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
+            Log.info("didReceive called with no content.")
             return self.completeSilenty()
         }
+        
+        Log.info("didReceive called.")
         
         /// Create the context if we don't have it (needed before _any_ interaction with the database)
         if !Singleton.hasAppContext {
@@ -50,23 +52,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // Perform main setup
         Storage.resumeDatabaseAccess()
-        LibSession.resumeNetworkAccess()
         DispatchQueue.main.sync { self.setUpIfNecessary() { } }
 
         // Handle the push notification
         Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
-            let openGroupPollingPublishers: [AnyPublisher<Void, Error>] = self.pollForOpenGroups()
-            defer {
-                self.openGroupPollCancellable = Publishers
-                    .MergeMany(openGroupPollingPublishers)
-                    .subscribe(on: DispatchQueue.global(qos: .background))
-                    .subscribe(on: DispatchQueue.main)
-                    .sink(
-                        receiveCompletion:  { [weak self] _ in self?.completeSilenty() },
-                        receiveValue: { _ in }
-                    )
-            }
-            
             let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
                 notificationContent: notificationContent
             )
@@ -84,16 +73,17 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     // Just log if the notification was too long (a ~2k message should be able to fit so
                     // these will most commonly be call or config messages)
                     case .successTooLong:
-                        return Log.info("Received too long notification for namespace: \(metadata.namespace).")
+                        Log.info("Received too long notification for namespace: \(metadata.namespace).")
+                        return self.completeSilenty()
                         
-                    case .legacyForceSilent, .failureNoContent: return
+                    case .legacyForceSilent, .failureNoContent: return self.completeSilenty()
                 }
             }
             
             // HACK: It is important to use write synchronously here to avoid a race condition
             // where the completeSilenty() is called before the local notification request
             // is added to notification center
-            Storage.shared.write { db in
+            Storage.shared.write { [weak self] db in
                 do {
                     guard let processedMessage: ProcessedMessage = try Message.processRawReceivedMessageAsNotification(db, data: data, metadata: metadata) else {
                         throw NotificationError.messageProcessing
@@ -119,7 +109,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         /// extension, for all other message types we want to just use the standard `MessageReceiver.handle` call
                         case .standard(let threadId, let threadVariant, _, let messageInfo) where messageInfo.message is CallMessage:
                             guard let callMessage = messageInfo.message as? CallMessage else {
-                                return self.completeSilenty()
+                                throw NotificationError.ignorableMessage
                             }
                             
                             // Throw if the message is outdated and shouldn't be processed
@@ -138,7 +128,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             )
                             
                             guard case .preOffer = callMessage.kind else {
-                                return self.completeSilenty()
+                                throw NotificationError.ignorableMessage
                             }
                             
                             switch (db[.areCallsEnabled], isCallOngoing) {
@@ -179,7 +169,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                     
                                 case (true, false):
                                     try MessageReceiver.insertCallInfoMessage(db, for: callMessage)
-                                    self.handleSuccessForIncomingCall(db, for: callMessage)
+                                    return self?.handleSuccessForIncomingCall(db, for: callMessage)
                             }
                             
                             // Perform any required post-handling logic
@@ -200,6 +190,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 associatedWithProto: proto
                             )
                     }
+                    
+                    db.afterNextTransaction(
+                        onCommit: { _ in self?.completeSilenty() },
+                        onRollback: { _ in self?.completeSilenty() }
+                    )
                 }
                 catch {
                     // If an error occurred we want to rollback the transaction (by throwing) and then handle
@@ -207,16 +202,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     let handleError = {
                         switch error {
                             case MessageReceiverError.invalidGroupPublicKey, MessageReceiverError.noGroupKeyPair,
-                                MessageReceiverError.outdatedMessage:
-                                self.completeSilenty()
+                                MessageReceiverError.outdatedMessage, NotificationError.ignorableMessage:
+                                self?.completeSilenty()
                                 
                             case NotificationError.messageProcessing:
-                                self.handleFailure(for: notificationContent, error: .messageProcessing)
+                                self?.handleFailure(for: notificationContent, error: .messageProcessing)
                                 
                             case let msgError as MessageReceiverError:
-                                self.handleFailure(for: notificationContent, error: .messageHandling(msgError))
+                                self?.handleFailure(for: notificationContent, error: .messageHandling(msgError))
                                 
-                            default: self.handleFailure(for: notificationContent, error: .other(error))
+                            default: self?.handleFailure(for: notificationContent, error: .other(error))
                         }
                     }
                     
@@ -330,12 +325,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // Called just before the extension will be terminated by the system.
         // Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
         Log.warn("Execution time expired.")
-        openGroupPollCancellable?.cancel()
         completeSilenty()
     }
     
-    private func completeSilenty() {
-        // Ensure we on'y run this once
+    private func completeSilenty(isMainAppAndActive: Bool = false) {
+        // Ensure we only run this once
         guard
             hasCompleted.mutate({ hasCompleted in
                 let wasCompleted: Bool = hasCompleted
@@ -349,9 +343,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             .read { db in try Interaction.fetchUnreadCount(db) }
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
+        
         Log.info("Complete silently.")
-        LibSession.suspendNetworkAccess()
-        Storage.suspendDatabaseAccess()
+        if !isMainAppAndActive {
+            Storage.suspendDatabaseAccess()
+        }
         Log.flush()
         
         self.contentHandler!(silentContent)
@@ -361,23 +357,32 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         if #available(iOSApplicationExtension 14.5, *), Preferences.isCallKitSupported {
             guard let caller: String = callMessage.sender, let timestamp = callMessage.sentTimestamp else { return }
             
-            let payload: JSON = [
-                "uuid": callMessage.uuid,   // stringlint:disable
-                "caller": caller,           // stringlint:disable
-                "timestamp": timestamp      // stringlint:disable
-            ]
-            
-            CXProvider.reportNewIncomingVoIPPushPayload(payload) { error in
-                if let error = error {
-                    self.handleFailureForVoIP(db, for: callMessage)
-                    Log.error("Failed to notify main app of call message: \(error).")
-                }
-                else {
-                    Log.info("Successfully notified main app of call message.")
-                    UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
-                    self.completeSilenty()
+            let reportCall: () -> () = { [weak self] in
+                let payload: JSON = [
+                    "uuid": callMessage.uuid,   // stringlint:disable
+                    "caller": caller,           // stringlint:disable
+                    "timestamp": timestamp      // stringlint:disable
+                ]
+                
+                CXProvider.reportNewIncomingVoIPPushPayload(payload) { error in
+                    if let error = error {
+                        Log.error("Failed to notify main app of call message: \(error).")
+                        Storage.shared.read { db in
+                            self?.handleFailureForVoIP(db, for: callMessage)
+                        }
+                    }
+                    else {
+                        Log.info("Successfully notified main app of call message.")
+                        UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
+                        self?.completeSilenty()
+                    }
                 }
             }
+            
+            db.afterNextTransaction(
+                onCommit: { _ in reportCall() },
+                onRollback: { _ in reportCall() }
+            )
         }
         else {
             self.handleFailureForVoIP(db, for: callMessage)
@@ -412,12 +417,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         semaphore.wait()
         Log.info("Add remote notification request.")
-        Log.flush()
+        
+        db.afterNextTransaction(
+            onCommit: { [weak self] _ in self?.completeSilenty() },
+            onRollback: { [weak self] _ in self?.completeSilenty() }
+        )
     }
 
     private func handleFailure(for content: UNMutableNotificationContent, error: NotificationError) {
         Log.error("Show generic failure message due to error: \(error).")
-        LibSession.suspendNetworkAccess()
         Storage.suspendDatabaseAccess()
         Log.flush()
         
@@ -426,37 +434,5 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let userInfo: [String: Any] = [ NotificationServiceExtension.isFromRemoteKey: true ]
         content.userInfo = userInfo
         contentHandler!(content)
-    }
-    
-    // MARK: - Poll for open groups
-    
-    private func pollForOpenGroups() -> [AnyPublisher<Void, Error>] {
-        return Storage.shared
-            .read { db in
-                // The default room promise creates an OpenGroup with an empty `roomToken` value,
-                // we don't want to start a poller for this as the user hasn't actually joined a room
-                try OpenGroup
-                    .select(.server)
-                    .filter(OpenGroup.Columns.roomToken != "")
-                    .filter(OpenGroup.Columns.isActive)
-                    .distinct()
-                    .asRequest(of: String.self)
-                    .fetchSet(db)
-            }
-            .defaulting(to: [])
-            .map { server -> AnyPublisher<Void, Error> in
-                OpenGroupAPI.Poller(for: server)
-                    .poll(calledFromBackgroundPoller: true, isPostCapabilitiesRetry: false)
-                    .timeout(
-                        .seconds(20),
-                        scheduler: DispatchQueue.global(qos: .default),
-                        customError: { NotificationServiceError.timeout }
-                    )
-                    .eraseToAnyPublisher()
-            }
-    }
-    
-    private enum NotificationServiceError: Error {
-        case timeout
     }
 }
