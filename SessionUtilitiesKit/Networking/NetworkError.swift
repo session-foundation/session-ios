@@ -15,6 +15,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
     case internalServerError
     case badGateway
     case serviceUnavailable
+    case gatewayTimeout
     case badRequest(error: String, rawData: Data?)
     case requestFailed(error: String, rawData: Data?)
     case timeout
@@ -33,6 +34,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
             case .internalServerError: return "Internal server error (NetworkError.internalServerError)."
             case .badGateway: return "Bad gateway (NetworkError.badGateway)."
             case .serviceUnavailable: return "Service unavailable (NetworkError.serviceUnavailable)."
+            case .gatewayTimeout: return "Gateway timeout (NetworkError.gatewayTimeout)."
             case .badRequest(let error, _), .requestFailed(let error, _): return error
             case .timeout: return "The request timed out (NetworkError.timeout)."
             case .suspended: return "Network requests are suspended (NetworkError.suspended)."

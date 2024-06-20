@@ -37,8 +37,7 @@ public enum Log {
     public static func appResumedExecution() {
         guard logger.wrappedValue != nil else { return }
         
-        Log.empty()
-        Log.empty()
+        logger.wrappedValue?.loadExtensionLogsAndResumeLogging()
     }
     
     public static func logFilePath() -> String? {
@@ -46,7 +45,51 @@ public enum Log {
             let logger: Logger = logger.wrappedValue
         else { return nil }
         
-        return logger.fileLogger.logFileManager.sortedLogFilePaths.first
+        let logFiles: [String] = logger.fileLogger.logFileManager.sortedLogFilePaths
+        
+        guard !logFiles.isEmpty else { return nil }
+        
+        // If the latest log file is too short (ie. less that ~100kb) then we want to create a temporary file
+        // which contains the previous log file logs plus the logs from the newest file so we don't miss info
+        // that might be relevant for debugging
+        guard
+            logFiles.count > 1,
+            let attributes: [FileAttributeKey: Any] = try? FileManager.default.attributesOfItem(atPath: logFiles[0]),
+            let fileSize: UInt64 = attributes[.size] as? UInt64,
+            fileSize < (100 * 1024)
+        else { return logFiles[0] }
+        
+        // The file is too small so lets create a temp file to share instead
+        let tempDirectory: String = NSTemporaryDirectory()
+        let tempFilePath: String = URL(fileURLWithPath: tempDirectory)
+            .appendingPathComponent(URL(fileURLWithPath: logFiles[1]).lastPathComponent)
+            .path
+        
+        do {
+            try FileManager.default.copyItem(
+                atPath: logFiles[1],
+                toPath: tempFilePath
+            )
+            
+            guard let fileHandle: FileHandle = FileHandle(forWritingAtPath: tempFilePath) else {
+                throw StorageError.objectNotFound
+            }
+            
+            // Ensure we close the file handle
+            defer { fileHandle.closeFile() }
+            
+            // Move to the end of the file to insert the logs
+            if #available(iOS 13.4, *) { try fileHandle.seekToEnd() }
+            else { fileHandle.seekToEndOfFile() }
+            
+            // Append the data from the newest log to the temp file
+            let newestLogData: Data = try Data(contentsOf: URL(fileURLWithPath: logFiles[0]))
+            if #available(iOS 13.4, *) { try fileHandle.write(contentsOf: newestLogData) }
+            else { fileHandle.write(newestLogData) }
+        }
+        catch { return logFiles[0] }
+        
+        return tempFilePath
     }
     
     public static func flush() {
@@ -129,7 +172,7 @@ public enum Log {
     ) {
         guard
             let logger: Logger = logger.wrappedValue,
-            logger.startupCompleted.wrappedValue
+            !logger.isSuspended.wrappedValue
         else { return pendingStartupLogs.mutate { $0.append((level, message, withPrefixes, silenceForTests)) } }
         
         logger.log(level, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
@@ -143,7 +186,7 @@ public class Logger {
     private let primaryPrefix: String
     private let forceNSLog: Bool
     fileprivate let fileLogger: DDFileLogger
-    fileprivate let startupCompleted: Atomic<Bool> = Atomic(false)
+    fileprivate let isSuspended: Atomic<Bool> = Atomic(true)
     fileprivate var retrievePendingStartupLogs: (() -> [Log.LogInfo])?
     
     public init(
@@ -178,19 +221,22 @@ public class Logger {
         
         // Now that we are setup we should load the extension logs which will then
         // complete the startup process when completed
-        self.loadExtensionLogs()
+        self.loadExtensionLogsAndResumeLogging()
     }
     
     // MARK: - Functions
     
-    private func loadExtensionLogs() {
+    fileprivate func loadExtensionLogsAndResumeLogging() {
+        // Pause logging while we load the extension logs (want to avoid interleaving them where possible)
+        isSuspended.mutate { $0 = true }
+        
         // The extensions write their logs to the app shared directory but the main app writes
         // to a local directory (so they can be exported via XCode) - the below code reads any
         // logs from the shared directly and attempts to add them to the main app logs to make
         // debugging user issues in extensions easier
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let currentLogFileInfo: DDLogFileInfo = self?.fileLogger.currentLogFileInfo else {
-                self?.completeStartup(error: "Unable to retrieve current log file.")
+                self?.completeResumeLogging(error: "Unable to retrieve current log file.")
                 return
             }
             
@@ -257,19 +303,25 @@ public class Logger {
                         }
                 }
                 catch {
-                    self?.completeStartup(error: "Unable to write extension logs to current log file")
+                    self?.completeResumeLogging(error: "Unable to write extension logs to current log file")
                     return
                 }
                 
-                self?.completeStartup()
+                self?.completeResumeLogging()
             }
         }
     }
     
-    private func completeStartup(error: String? = nil) {
-        let pendingLogs: [Log.LogInfo] = startupCompleted.mutate { startupCompleted in
-            startupCompleted = true
+    private func completeResumeLogging(error: String? = nil) {
+        let pendingLogs: [Log.LogInfo] = isSuspended.mutate { isSuspended in
+            isSuspended = false
             return (retrievePendingStartupLogs?() ?? [])
+        }
+        
+        // If we had an error loading the extension logs then actually log it
+        if let error: String = error {
+            Log.empty()
+            log(.error, error, withPrefixes: true, silenceForTests: false)
         }
         
         // After creating a new logger we want to log two empty lines to make it easier to read

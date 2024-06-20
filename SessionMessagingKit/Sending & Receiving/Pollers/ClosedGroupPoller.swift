@@ -49,7 +49,7 @@ public final class ClosedGroupPoller: Poller {
     // MARK: - Abstract Methods
     
     override func pollerName(for publicKey: String) -> String {
-        return "closed group with public key: \(publicKey)"
+        return "Closed group poller with public key: \(publicKey)"
     }
 
     override func nextPollDelay(for publicKey: String, using dependencies: Dependencies) -> TimeInterval {
@@ -80,8 +80,7 @@ public final class ClosedGroupPoller: Poller {
         return nextPollInterval
     }
 
-    override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
-        SNLog("Polling failed for closed group with public key: \(publicKey) due to error: \(error).")
-        return true
+    override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> PollerErrorResponse {
+        return .continuePolling
     }
 }
