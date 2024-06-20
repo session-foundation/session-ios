@@ -14,9 +14,13 @@ struct HomeScreen: View {
     @State private var viewModel: HomeViewModel = HomeViewModel()
     @State private var flow: Onboarding.Flow?
     
+    init(flow: Onboarding.Flow? = nil) {
+        self.flow = flow
+    }
+    
     var body: some View {
         ZStack(
-            alignment: .topLeading,
+            alignment: .top,
             content: {
                 ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
                 
@@ -25,21 +29,34 @@ struct HomeScreen: View {
                 }
                 
                 if viewModel.threadData.isEmpty {
-                    EmptyStateView(flow: $flow)
+                    ZStack {
+                        EmptyStateView(flow: $flow)
+                    }
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity,
+                        alignment: .center
+                    )
+                    
                 }
                 
-//                List(content: {
-//                    viewModel.threadData.forEach { section in
-//                        switch section.model {
-//                            case .messageRequests:
-//                                
-//                            case .threads:
-//                            
-//                        }
-//                    }
-//                })
+
+                
+                
             }
         )
+    }
+}
+
+// MARK: ConversationList
+
+struct ConversationList: View {
+    @Binding private var viewModel: HomeViewModel
+    
+    var body: some View {
+        List(viewModel.threadData) { sectionModel in
+            
+        }
     }
 }
 
@@ -64,6 +81,10 @@ struct EmptyStateView: View {
                         .bold()
                         .font(.system(size: Values.veryLargeFontSize))
                         .foregroundColor(themeColor: .textPrimary)
+                    
+                    Text("onboardingBubbleWelcomeToSession".localized())
+                        .font(.system(size: Values.smallFontSize))
+                        .foregroundColor(themeColor: .sessionButton_text)
                         
                 } else {
                     // Normal empty state
@@ -74,6 +95,7 @@ struct EmptyStateView: View {
                             height: 103,
                             alignment: .center
                         )
+                        .padding(.bottom, Values.mediumSpacing)
                     
                     Image("SessionHeading")
                         .resizable()
@@ -84,7 +106,11 @@ struct EmptyStateView: View {
                             height: 22,
                             alignment: .center
                         )
+                        .padding(.bottom, Values.smallSpacing)
                 }
+                
+                Line(color: .borderSeparator)
+                    .padding(.vertical, Values.smallSpacing)
                 
                 Text("conversationsNone".localized())
                     .bold()
@@ -96,6 +122,10 @@ struct EmptyStateView: View {
                     .foregroundColor(themeColor: .textPrimary)
                     .multilineTextAlignment(.center)
             }
+        )
+        .frame(
+            width: 300,
+            alignment: .center
         )
     }
 }
@@ -191,5 +221,5 @@ struct SeedBanner: View {
 }
 
 #Preview {
-    HomeScreen()
+    HomeScreen(flow: .register)
 }
