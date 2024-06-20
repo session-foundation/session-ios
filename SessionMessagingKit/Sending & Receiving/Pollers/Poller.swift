@@ -17,6 +17,12 @@ public class Poller {
         hadValidHashUpdate: Bool
     )
     
+    internal enum PollerErrorResponse {
+        case stopPolling
+        case continuePolling
+        case continuePollingInfo(String)
+    }
+    
     private var cancellables: Atomic<[String: AnyCancellable]> = Atomic([:])
     internal var isPolling: Atomic<[String: Bool]> = Atomic([:])
     internal var pollCount: Atomic<[String: Int]> = Atomic([:])
@@ -72,7 +78,7 @@ public class Poller {
     }
     
     /// Perform and logic which should occur when the poll errors, will stop polling if `false` is returned
-    internal func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
+    internal func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> PollerErrorResponse {
         preconditionFailure("abstract class - override in subclass")
     }
 
@@ -125,17 +131,23 @@ public class Poller {
                 .sink(
                     receiveCompletion: { _ in },    // Never called
                     receiveValue: { result in
+                        // If the polling has been cancelled then don't continue
+                        guard self?.isPolling.wrappedValue[swarmPublicKey] == true else { return }
+                        
                         let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         
                         // Log information about the poll
                         switch result {
                             case .failure(let error):
                                 // Determine if the error should stop us from polling anymore
-                                guard self?.handlePollError(error, for: swarmPublicKey, using: dependencies) == true else {
-                                    return
+                                switch self?.handlePollError(error, for: swarmPublicKey, using: dependencies) {
+                                    case .stopPolling: return
+                                    case .continuePollingInfo(let info):
+                                        Log.error("\(pollerName) failed to process any messages due to error: \(error). \(info)")
+                                        
+                                    case .continuePolling, .none:
+                                        Log.error("\(pollerName) failed to process any messages due to error: \(error).")
                                 }
-                                
-                                Log.error("\(pollerName) failed to process any messages due to error: \(error)")
                                 
                             case .success(let response):
                                 let duration: TimeUnit = .seconds(endTime - lastPollStart)

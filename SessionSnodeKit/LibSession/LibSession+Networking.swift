@@ -204,7 +204,7 @@ public extension LibSession {
                         switch result {
                             case .failure(let error): throw error
                             case .success(let nodes):
-                                guard nodes.count > count else { throw SnodeAPIError.unableToRetrieveSwarm }
+                                guard nodes.count >= count else { throw SnodeAPIError.unableToRetrieveSwarm }
                                 
                                 return nodes
                         }
@@ -358,6 +358,7 @@ public extension LibSession {
     }
     
     static func checkClientVersion(
+        ed25519SecretKey: [UInt8],
         using dependencies: Dependencies = Dependencies()
     ) -> AnyPublisher<(ResponseInfoType, AppVersionResponse), Error> {
         typealias Output = (success: Bool, timeout: Bool, statusCode: Int, data: Data?)
@@ -366,9 +367,12 @@ public extension LibSession {
             .tryFlatMap { network in
                 return CallbackWrapper<Output>
                     .create { wrapper in
+                        var cEd25519SecretKey: [UInt8] = Array(ed25519SecretKey)
+                        
                         network_get_client_version(
                             network,
                             CLIENT_PLATFORM_IOS,
+                            &cEd25519SecretKey,
                             Int64(floor(Network.fileDownloadTimeout * 1000)),
                             { success, timeout, statusCode, dataPtr, dataLen, ctx in
                                 let data: Data? = dataPtr.map { Data(bytes: $0, count: dataLen) }
@@ -422,7 +426,7 @@ public extension LibSession {
                         return nil
                     }
                     
-                    guard network_init(&network, cCachePath, Features.useTestnet, true, &error) else {
+                    guard network_init(&network, cCachePath, Features.useTestnet, !Singleton.appContext.isMainApp, true, &error) else {
                         Log.error("[LibQuic] Unable to create network object: \(String(cString: error))")
                         return nil
                     }
@@ -550,6 +554,7 @@ public extension LibSession {
                 
                 throw SnodeAPIError.nodeNotFound(String(responseString.suffix(64)))
                 
+            case (504, _): throw NetworkError.gatewayTimeout
             case (_, .none): throw NetworkError.unknown
             case (_, .some(let responseString)): throw NetworkError.requestFailed(error: responseString, rawData: data)
         }

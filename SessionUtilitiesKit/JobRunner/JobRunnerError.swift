@@ -3,8 +3,6 @@
 import Foundation
 
 public enum JobRunnerError: Error {
-    case generic
-    
     case executorMissing
     case jobIdMissing
     case requiredThreadIdMissing
@@ -14,4 +12,6 @@ public enum JobRunnerError: Error {
     case missingDependencies
     
     case possibleDeferralLoop
+    
+    case unknown
 }
