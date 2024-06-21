@@ -428,7 +428,7 @@ open class Storage {
         Storage.shared.dbWriter = nil
         
         deleteDatabaseFiles()
-        try? deleteDbKeys()
+        do { try deleteDbKeys() } catch { Log.warn("Failed to delete database keys.") }
     }
     
     public static func reconfigureDatabase() {
@@ -444,9 +444,9 @@ open class Storage {
     }
     
     private static func deleteDatabaseFiles() {
-        OWSFileSystem.deleteFile(databasePath)
-        OWSFileSystem.deleteFile(databasePathShm)
-        OWSFileSystem.deleteFile(databasePathWal)
+        if !OWSFileSystem.deleteFile(databasePath) { Log.warn("Failed to delete database.") }
+        if !OWSFileSystem.deleteFile(databasePathShm) { Log.warn("Failed to delete database-shm.") }
+        if !OWSFileSystem.deleteFile(databasePathWal) { Log.warn("Failed to delete database-wal.") }
     }
     
     private static func deleteDbKeys() throws {

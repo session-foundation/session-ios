@@ -578,7 +578,8 @@ public struct ProfileManager {
         }
         
         // Download the profile picture if needed
-        guard avatarNeedsDownload else { return }
+        // FIXME: We don't want to trigger the download within the notification extension, as part of the groups rebuild this has been moved into a Job which won't be run so this logic can be removed
+        guard avatarNeedsDownload && Singleton.hasAppContext && Singleton.appContext.isMainApp else { return }
         
         let dedupeIdentifier: String = "AvatarDownload-\(publicKey)-\(targetAvatarUrl ?? "remove")" // stringlint:disable
         
