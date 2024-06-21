@@ -55,7 +55,25 @@ struct ConversationList: View {
     
     var body: some View {
         List(viewModel.threadData) { sectionModel in
-            
+            switch sectionModel.model {
+                case .messageRequests:
+                ZStack(
+                    alignment: .center,
+                    content: {
+                        
+                    }
+                )
+                    
+                case .threads:
+                    HStack(
+                        alignment: .center,
+                        content: {
+                            
+                        }
+                    )
+                    
+                default: preconditionFailure("Other sections should have no content")
+            }
         }
     }
 }
