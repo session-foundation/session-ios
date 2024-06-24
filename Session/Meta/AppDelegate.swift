@@ -211,7 +211,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // Stop all jobs except for message sending and when completed suspend the database
         JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) {
-            if !self.hasCallOngoing() {
+            if !self.hasCallOngoing() && Singleton.hasAppContext && Singleton.appContext.isInBackground {
                 LibSession.suspendNetworkAccess()
                 Storage.suspendDatabaseAccess()
                 Log.info("[AppDelegate] completed network and database shutdowns.")
