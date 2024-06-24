@@ -317,7 +317,7 @@
 "fast_mode" = "Rapida Maniero";
 "slow_mode_explanation" = "Session will occasionally check for new messages in the background.";
 "slow_mode" = "Malrapida Reĝimo";
-"vc_pn_mode_title" = "Message Notifications";
+"vc_pn_mode_title" = "Message notifications";
 "vc_link_device_recovery_phrase_tab_title" = "Ripara Frazo";
 "vc_link_device_scan_qr_code_explanation" = "Navigate to Settings → Recovery Phrase on your other device to show your QR code.";
 "vc_enter_recovery_phrase_title" = "Ripara Frazo";
