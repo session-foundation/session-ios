@@ -66,7 +66,7 @@ public enum Mnemonic {
     }
     
     public enum DecodingError : LocalizedError {
-        case generic, inputTooShort, missingLastWord, invalidWord, verificationFailed
+        case generic, inputTooShort, invalidWord, verificationFailed
     }
     
     public static func hash(hexEncodedString string: String, language: Language = .english) -> String {
@@ -118,7 +118,7 @@ public enum Mnemonic {
         
         // Check preconditions
         guard words.count >= 12 else { throw DecodingError.inputTooShort }
-        guard words.count == 12 else { throw DecodingError.generic }
+        guard !words.count.isMultiple(of: 3) else { throw DecodingError.generic }
         
         // Get checksum word
         let checksumWord = words.popLast()!

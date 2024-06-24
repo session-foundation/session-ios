@@ -86,9 +86,9 @@ struct LoadAccountScreen: View {
         } catch {
             if let decodingError = error as? Mnemonic.DecodingError {
                 switch decodingError {
-                    case .inputTooShort, .missingLastWord:
+                    case .inputTooShort:
                         errorString = "recoveryPasswordErrorMessageShort".localized()
-                    case .invalidWord, .verificationFailed:
+                    case .invalidWord:
                         errorString = "recoveryPasswordErrorMessageIncorrect".localized()
                     default:
                         errorString = "recoveryPasswordErrorMessageGeneric".localized()
