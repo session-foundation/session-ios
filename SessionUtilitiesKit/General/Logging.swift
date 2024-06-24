@@ -377,11 +377,11 @@ public class Logger {
         
         #if DEBUG
         print(logMessage)
-        #endif
-
+        #else
         if forceNSLog {
             NSLog(message)
         }
+        #endif
     }
 }
 
@@ -416,7 +416,7 @@ private extension DispatchQueue {
     }
 }
 
-// FIXME: Remove this once everything has been updated to use the new `Log.x()` methods
+// FIXME: Remove this once everything has been updated to use the new `Log.x()` methods.
 public func SNLog(_ message: String, forceNSLog: Bool = false) {
     Log.info(message)
 }

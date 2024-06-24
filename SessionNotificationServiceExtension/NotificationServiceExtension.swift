@@ -36,12 +36,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
             Log.info("didReceive called while main app running.")
-            return self.completeSilenty(isMainAppAndActive: true)
+            return self.completeSilenty(handledNotification: false, isMainAppAndActive: true)
         }
         
         guard let notificationContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
             Log.info("didReceive called with no content.")
-            return self.completeSilenty()
+            return self.completeSilenty(handledNotification: false)
         }
         
         Log.info("didReceive called.")
@@ -69,7 +69,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         guard metadata.accountId == getUserHexEncodedPublicKey(using: dependencies) else {
             guard !isPerformingResetup else {
                 Log.error("Received notification for an accountId that isn't the current user, resetup failed.")
-                return self.completeSilenty()
+                return self.completeSilenty(handledNotification: false)
             }
             
             Log.warn("Received notification for an accountId that isn't the current user, attempting to resetup.")
@@ -90,9 +90,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // these will most commonly be call or config messages)
                 case .successTooLong:
                     Log.info("Received too long notification for namespace: \(metadata.namespace), dataLength: \(metadata.dataLength).")
-                    return self.completeSilenty()
+                    return self.completeSilenty(handledNotification: false)
                     
-                case .legacyForceSilent, .failureNoContent: return self.completeSilenty()
+                case .legacyForceSilent:
+                    Log.info("Ignoring non-group legacy notification.")
+                    return self.completeSilenty(handledNotification: false)
+                    
+                case .failureNoContent:
+                    Log.warn("Failed due to missing notification content.")
+                    return self.completeSilenty(handledNotification: false)
             }
         }
         
@@ -189,6 +195,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 
                             case (true, false):
                                 try MessageReceiver.insertCallInfoMessage(db, for: callMessage)
+                                
+                                // Perform any required post-handling logic
+                                try MessageReceiver.postHandleMessage(
+                                    db,
+                                    threadId: threadId,
+                                    threadVariant: threadVariant,
+                                    message: messageInfo.message
+                                )
+                                
                                 return self?.handleSuccessForIncomingCall(db, for: callMessage)
                         }
                         
@@ -213,8 +228,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 }
                 
                 db.afterNextTransaction(
-                    onCommit: { _ in self?.completeSilenty() },
-                    onRollback: { _ in self?.completeSilenty() }
+                    onCommit: { _ in self?.completeSilenty(handledNotification: true) },
+                    onRollback: { _ in self?.completeSilenty(handledNotification: false) }
                 )
             }
             catch {
@@ -222,9 +237,22 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 // the error outside of the database
                 let handleError = {
                     switch error {
-                        case MessageReceiverError.invalidGroupPublicKey, MessageReceiverError.noGroupKeyPair,
-                            MessageReceiverError.outdatedMessage, NotificationError.ignorableMessage:
-                            self?.completeSilenty()
+                        case MessageReceiverError.noGroupKeyPair:
+                            Log.warn("Failed due to having no legacy group decryption keys.")
+                            self?.completeSilenty(handledNotification: false)
+                            
+                        case MessageReceiverError.outdatedMessage:
+                            Log.info("Ignoring notification for already seen message.")
+                            self?.completeSilenty(handledNotification: false)
+                            
+                        case NotificationError.ignorableMessage:
+                            Log.info("Ignoring message which requires no notification.")
+                            self?.completeSilenty(handledNotification: false)
+                            
+                        case MessageReceiverError.duplicateMessage, MessageReceiverError.duplicateControlMessage,
+                            MessageReceiverError.duplicateMessageNewSnode:
+                            Log.info("Ignoring duplicate message (probably received it just before going to the background).")
+                            self?.completeSilenty(handledNotification: false)
                             
                         case NotificationError.messageProcessing:
                             self?.handleFailure(for: notificationContent, error: .messageProcessing)
@@ -282,7 +310,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 switch result {
                     case .failure(let error):
                         Log.error("Failed to complete migrations: \(error).")
-                        self?.completeSilenty()
+                        self?.completeSilenty(handledNotification: false)
                         
                     case .success:
                         // We should never receive a non-voip notification on an app that doesn't support
@@ -292,7 +320,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         // and don't disturb the user. Messages will be processed when they open the app.
                         guard Storage.shared[.isReadyForAppExtensions] else {
                             Log.error("Not ready for extensions.")
-                            self?.completeSilenty()
+                            self?.completeSilenty(handledNotification: false)
                             return
                         }
                         
@@ -317,7 +345,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard Storage.shared.isValid else {
             Log.error("Storage invalid.")
-            return self.completeSilenty()
+            return self.completeSilenty(handledNotification: false)
         }
         
         // If the app wasn't ready then mark it as ready now
@@ -363,10 +391,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         // Called just before the extension will be terminated by the system.
         // Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
         Log.warn("Execution time expired.")
-        completeSilenty()
+        completeSilenty(handledNotification: false)
     }
     
-    private func completeSilenty(isMainAppAndActive: Bool = false) {
+    private func completeSilenty(handledNotification: Bool, isMainAppAndActive: Bool = false) {
         // Ensure we only run this once
         guard
             hasCompleted.mutate({ hasCompleted in
@@ -382,7 +410,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             .map { NSNumber(value: $0) }
             .defaulting(to: NSNumber(value: 0))
         
-        Log.info("Complete silently.")
+        Log.info(handledNotification ? "Completed after handling notification." : "Completed silently.")
         if !isMainAppAndActive {
             Storage.suspendDatabaseAccess()
         }
@@ -412,7 +440,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     else {
                         Log.info("Successfully notified main app of call message.")
                         UserDefaults.sharedLokiProject?[.lastCallPreOffer] = Date()
-                        self?.completeSilenty()
+                        self?.completeSilenty(handledNotification: true)
                     }
                 }
             }
@@ -457,8 +485,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.info("Add remote notification request.")
         
         db.afterNextTransaction(
-            onCommit: { [weak self] _ in self?.completeSilenty() },
-            onRollback: { [weak self] _ in self?.completeSilenty() }
+            onCommit: { [weak self] _ in self?.completeSilenty(handledNotification: true) },
+            onRollback: { [weak self] _ in self?.completeSilenty(handledNotification: false) }
         )
     }
 

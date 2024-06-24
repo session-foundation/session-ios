@@ -1633,7 +1633,7 @@ public final class JobQueue: Hashable {
         // immediately (in this case we don't trigger any job callbacks because the
         // job isn't actually done, it's going to try again immediately)
         if self.type == .blocking && job.shouldBlock {
-            SNLog("[JobRunner] \(queueContext) \(job.variant) job failed due to error: \(error ?? JobRunnerError.unknown); retrying immediately")
+            SNLog("[JobRunner] \(queueContext) \(job.variant) job failed due to error: \("\(error ?? JobRunnerError.unknown)".noPeriod); retrying immediately")
             
             // If it was a possible deferral loop then we don't actually want to
             // retry the job (even if it's a blocking one, this gives a small chance

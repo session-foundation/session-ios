@@ -235,6 +235,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info("[AppDelegate] applicationDidBecomeActive.")
         guard !SNUtilitiesKit.isRunningTests else { return }
         
+        Log.info("[AppDelegate] Setting 'isMainAppActive' to true.")
         UserDefaults.sharedLokiProject?[.isMainAppActive] = true
         
         ensureRootViewController(calledFrom: .didBecomeActive)
@@ -263,6 +264,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info("[AppDelegate] applicationWillResignActive.")
         clearAllNotificationsAndRestoreBadgeCount()
         
+        Log.info("[AppDelegate] Setting 'isMainAppActive' to false.")
         UserDefaults.sharedLokiProject?[.isMainAppActive] = false
 
         Log.flush()
