@@ -71,6 +71,7 @@ extension ProjectState {
         .contains("UIImage(named:", caseSensitive: false),
         .contains("UIImage(systemName:", caseSensitive: false),
         .contains("[UIImage imageNamed:", caseSensitive: false),
+        .contains("Image(", caseSensitive: false),
         .contains("UIFont(name:", caseSensitive: false),
         .contains(".dateFormat =", caseSensitive: false),
         .contains("accessibilityLabel =", caseSensitive: false),

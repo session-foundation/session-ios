@@ -53,25 +53,129 @@ struct HomeScreen: View {
 struct ConversationList: View {
     @Binding private var viewModel: HomeViewModel
     
+    private static let mutePrefix: String = "\u{e067}  " // stringlint:disable
+    private static let unreadCountViewSize: CGFloat = 20
+    private static let statusIndicatorSize: CGFloat = 14
+    
     var body: some View {
         List(viewModel.threadData) { sectionModel in
             switch sectionModel.model {
                 case .messageRequests:
-                ZStack(
-                    alignment: .center,
-                    content: {
-                        
-                    }
-                )
-                    
-                case .threads:
-                    HStack(
-                        alignment: .center,
-                        content: {
-                            
+                    Section {
+                        ForEach(sectionModel.elements) { threadViewModel in
+                            HStack(
+                                alignment: .center,
+                                content: {
+                                    Image("icon_msg_req")
+                                        .renderingMode(.template)
+                                        .resizable()
+                                        .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
+                                        .overlay(
+                                            Circle()
+                                                .fill(themeColor: .conversationButton_unreadBubbleBackground)
+                                                .frame(
+                                                    width: ProfilePictureView.Size.list.viewSize,
+                                                    height: ProfilePictureView.Size.list.viewSize
+                                                )
+                                        )
+                                    
+                                    Text("sessionMessageRequests".localized())
+                                        .bold()
+                                        .font(.system(size: Values.mediumFontSize))
+                                        .foregroundColor(themeColor: .textPrimary)
+                                        .padding(.leading, Values.mediumSpacing)
+                                        .padding(.trailing, Values.verySmallSpacing)
+                                    
+                                    Text("\(threadViewModel.threadUnreadCount ?? 0)")
+                                        .bold()
+                                        .font(.system(size: Values.veryLargeFontSize))
+                                        .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
+                                        .overlay(
+                                            Circle()
+                                                .fill(themeColor: .conversationButton_unreadBubbleBackground)
+                                                .frame(
+                                                    width: ConversationList.unreadCountViewSize,
+                                                    height: ConversationList.unreadCountViewSize
+                                                )
+                                        )
+                                }
+                            )
+                            .backgroundColor(themeColor: .conversationButton_unreadBackground)
+                            .frame(
+                                width: .infinity,
+                                height: 68
+                            )
                         }
-                    )
-                    
+                    }
+                case .threads:
+                    Section {
+                        ForEach(sectionModel.elements) { threadViewModel in
+                            let unreadCount: UInt = (threadViewModel.threadUnreadCount ?? 0)
+                            let threadIsUnread: Bool = (
+                                unreadCount > 0 ||
+                                threadViewModel.threadWasMarkedUnread == true
+                            )
+                            let themeBackgroundColor: ThemeValue = (threadIsUnread ?
+                                .conversationButton_unreadBackground :
+                                .conversationButton_background
+                            )
+                            
+                            HStack(
+                                alignment: .center,
+                                content: {
+                                    if threadViewModel.threadIsBlocked == true {
+                                        Rectangle()
+                                            .fill(themeColor: .danger)
+                                            .frame(
+                                                width: Values.accentLineThickness,
+                                                height: .infinity
+                                            )
+                                    } else if unreadCount > 0 {
+                                        Rectangle()
+                                            .fill(themeColor: .conversationButton_unreadStripBackground)
+                                            .frame(
+                                                width: Values.accentLineThickness,
+                                                height: .infinity
+                                            )
+                                    }
+                                    
+                                    ProfilePictureSwiftUI(
+                                        size: .list,
+                                        publicKey: threadViewModel.threadId,
+                                        threadVariant: threadViewModel.threadVariant,
+                                        customImageData: threadViewModel.openGroupProfilePictureData,
+                                        profile: threadViewModel.profile,
+                                        additionalProfile: threadViewModel.additionalProfile
+                                    )
+                                    
+                                    
+                                    
+                                    if threadViewModel.threadPinnedPriority > 0 {
+                                        Image("Pin")
+                                            .resizable()
+                                            .renderingMode(.template)
+                                            .foregroundColor(themeColor: .textSecondary)
+                                            .scaledToFit()
+                                            .frame(
+                                                width: ConversationList.unreadCountViewSize,
+                                                height: ConversationList.unreadCountViewSize
+                                            )
+                                    }
+                                    
+                                    if threadIsUnread {
+                                        if unreadCount > 0 {
+                                            
+                                        }
+                                    }
+                                }
+                            )
+                            .backgroundColor(themeColor: themeBackgroundColor)
+                            .frame(
+                                width: .infinity,
+                                height: 68
+                            )
+                        }
+                    }
                 default: preconditionFailure("Other sections should have no content")
             }
         }
