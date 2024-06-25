@@ -199,6 +199,7 @@
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
 		94C5DCB02BE88170003AA8C5 /* BezierPathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C5DCAF2BE88170003AA8C5 /* BezierPathView.swift */; };
 		94E12DBC2C24063A00D28EE0 /* SessionButton_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E12DBB2C24063A00D28EE0 /* SessionButton_SwiftUI.swift */; };
+		94E89A9B2C2A997B00FB18E1 /* ConversationList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E89A9A2C2A997B00FB18E1 /* ConversationList.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
 		A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4F17A06537000A904E /* AddressBookUI.framework */; };
@@ -1391,6 +1392,7 @@
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
 		94C5DCAF2BE88170003AA8C5 /* BezierPathView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BezierPathView.swift; sourceTree = "<group>"; };
 		94E12DBB2C24063A00D28EE0 /* SessionButton_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionButton_SwiftUI.swift; sourceTree = "<group>"; };
+		94E89A9A2C2A997B00FB18E1 /* ConversationList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConversationList.swift; path = Session/Home/ConversationList.swift; sourceTree = SOURCE_ROOT; };
 		987AE169AEA3246E4C0897B1 /* Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionShareExtension.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_GlobalDependencies_FrameworkAndExtensionDependencies_ExtendedDependencies_SessionShareExtension.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		998762BFD08C2415FE71186C /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionUtilitiesKit.debug.xcconfig"; sourceTree = "<group>"; };
 		9DE2662E4E5838CD8E1AF35F /* Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig"; path = "Target Support Files/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension/Pods-GlobalDependencies-FrameworkAndExtensionDependencies-ExtendedDependencies-SessionShareExtension.app store release.xcconfig"; sourceTree = "<group>"; };
@@ -3175,6 +3177,7 @@
 				FDCDB8DF2811007F00352A0C /* HomeViewModel.swift */,
 				B8BB82A4238F627000BA5194 /* HomeVC.swift */,
 				941BE62E2C1BF887005A880A /* HomeScreen.swift */,
+				94E89A9A2C2A997B00FB18E1 /* ConversationList.swift */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -6550,6 +6553,7 @@
 				FD09C5E628260FF9000CE219 /* MediaGalleryViewModel.swift in Sources */,
 				7B9F71D32852EEE2006DFE7B /* Emoji.swift in Sources */,
 				FDC498BB2AC1606C00EDD897 /* AppNotificationUserInfoKey.swift in Sources */,
+				94E89A9B2C2A997B00FB18E1 /* ConversationList.swift in Sources */,
 				C328250F25CA06020062D0A7 /* VoiceMessageView.swift in Sources */,
 				3488F9362191CC4000E524CC /* MediaView.swift in Sources */,
 				B8569AC325CB5D2900DBA3DB /* ConversationVC+Interaction.swift in Sources */,
