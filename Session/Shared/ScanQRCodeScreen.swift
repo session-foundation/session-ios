@@ -9,12 +9,12 @@ struct ScanQRCodeScreen: View {
     @Binding var error: String?
     @State var hasCameraAccess: Bool = (AVCaptureDevice.authorizationStatus(for: .video) == .authorized)
     
-    var continueAction: (((() -> ())?) -> Void)?
+    var continueAction: (((() -> ())?, (() -> ())?) -> Void)?
     
     init(
         _ result: Binding<String>,
         error: Binding<String?>,
-        continueAction: (((() -> ())?) -> Void)?
+        continueAction: (((() -> ())?, (() -> ())?) -> Void)?
     ) {
         self._result = result
         self._error = error
@@ -25,9 +25,9 @@ struct ScanQRCodeScreen: View {
         ZStack{
             if hasCameraAccess {
                 VStack {
-                    QRCodeScanningVC_SwiftUI { result, onError in
+                    QRCodeScanningVC_SwiftUI { result, onSuccess, onError in
                         self.result = result
-                        continueAction?(onError)
+                        continueAction?(onSuccess, onError)
                     }
                 }
                 .frame(

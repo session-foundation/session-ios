@@ -63,7 +63,7 @@ struct NewMessageScreen: View {
         }
     }
     
-    func continueWithAccountIdFromQRCode(onError: (() -> ())?) {
+    func continueWithAccountIdFromQRCode(onSuccess: (() -> ())?, onError: (() -> ())?) {
         startNewPrivateChatIfPossible(with: accountIdOrONS, onError: onError)
     }
     

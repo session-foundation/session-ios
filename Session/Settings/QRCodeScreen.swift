@@ -56,7 +56,7 @@ struct QRCodeScreen: View {
         }
     }
     
-    func continueWithAccountId(onError: (() -> ())?) {
+    func continueWithAccountId(onSuccess: (() -> ())?, onError: (() -> ())?) {
         let hexEncodedPublicKey = accountId
         startNewPrivateChatIfPossible(with: hexEncodedPublicKey, onError: onError)
     }

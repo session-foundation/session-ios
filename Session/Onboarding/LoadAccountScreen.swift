@@ -50,7 +50,7 @@ struct LoadAccountScreen: View {
         }
     }
     
-    private func continueWithSeed(seed: Data, from source: Onboarding.SeedSource, onError: (() -> ())?) {
+    private func continueWithSeed(seed: Data, from source: Onboarding.SeedSource, onSuccess: (() -> ())?, onError: (() -> ())?) {
         if (seed.count != 16) {
             errorString =  source.genericErrorMessage
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
@@ -67,15 +67,19 @@ struct LoadAccountScreen: View {
                 x25519KeyPair: x25519KeyPair
             )
         
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            onSuccess?()
+        }
+        
         // Otherwise continue on to request push notifications permissions
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: .link))
         viewController.setUpNavBarSessionIcon()
         self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     
-    func continueWithhexEncodedSeed(onError: (() -> ())?) {
+    func continueWithhexEncodedSeed(onSuccess: (() -> ())?, onError: (() -> ())?) {
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed, from: .qrCode, onError: onError)
+        continueWithSeed(seed: seed, from: .qrCode, onSuccess: onSuccess, onError: onError)
     }
     
     func continueWithMnemonic() {
@@ -99,7 +103,7 @@ struct LoadAccountScreen: View {
             return
         }
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed, from: .mnemonic, onError: nil)
+        continueWithSeed(seed: seed, from: .mnemonic, onSuccess: nil, onError: nil)
     }
 }
 
