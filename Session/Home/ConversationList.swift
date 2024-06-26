@@ -32,7 +32,7 @@ struct ConversationList: View {
                                         .renderingMode(.template)
                                         .resizable()
                                         .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
-                                        .overlay(
+                                        .background(
                                             Circle()
                                                 .fill(themeColor: .conversationButton_unreadBubbleBackground)
                                                 .frame(
@@ -52,7 +52,7 @@ struct ConversationList: View {
                                         .bold()
                                         .font(.system(size: Values.veryLargeFontSize))
                                         .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
-                                        .overlay(
+                                        .background(
                                             Circle()
                                                 .fill(themeColor: .conversationButton_unreadBubbleBackground)
                                                 .frame(
@@ -133,7 +133,7 @@ struct ConversationList: View {
                                                             .bold()
                                                             .font(.system(size: info.unreadCountFontSize))
                                                             .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
-                                                            .overlay(
+                                                            .background(
                                                                 Capsule()
                                                                     .fill(themeColor: .conversationButton_unreadBubbleBackground)
                                                                     .frame(minWidth: ConversationList.unreadCountViewSize)
@@ -169,7 +169,7 @@ struct ConversationList: View {
                                                             .bold()
                                                             .font(.system(size: Values.verySmallFontSize))
                                                             .foregroundColor(themeColor: .conversationButton_unreadBubbleText)
-                                                            .overlay(
+                                                            .background(
                                                                 Circle()
                                                                     .fill(themeColor: .conversationButton_unreadBubbleBackground)
                                                                     .frame(
@@ -217,6 +217,7 @@ struct ConversationList: View {
                 default: preconditionFailure("Other sections should have no content")
             }
         }
+        .transparentListBackground()
     }
 }
 
