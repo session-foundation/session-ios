@@ -5,7 +5,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SignalCoreKit
 
 class ScreenLockUI {
     public static let shared: ScreenLockUI = ScreenLockUI()

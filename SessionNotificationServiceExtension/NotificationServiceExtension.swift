@@ -8,7 +8,6 @@ import UserNotifications
 import BackgroundTasks
 import SessionMessagingKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
@@ -228,7 +227,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     // MARK: Setup
 
     private func setUpIfNecessary(completion: @escaping () -> Void) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // The NSE will often re-use the same process, so if we're
         // already set up we want to do nothing; we're already ready
@@ -238,16 +237,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.info("Performing setup.")
         didPerformSetup = true
 
-        _ = AppVersion.sharedInstance()
-
-        Cryptography.seedRandom()
+        _ = AppVersion.shared
 
         AppSetup.setupEnvironment(
             retrySetupIfDatabaseInvalid: true,
             appSpecificBlock: {
                 Log.setup(with: Logger(
                     primaryPrefix: "NotificationServiceExtension",                                               // stringlint:disable
-                    customDirectory: "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/NotificationExtension", // stringlint:disable
+                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/NotificationExtension", // stringlint:disable
                     forceNSLog: true
                 ))
                 
@@ -288,7 +285,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     private func versionMigrationsDidComplete(needsConfigSync: Bool) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // If we need a config sync then trigger it now
         if needsConfigSync {
@@ -301,7 +298,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
 
     private func checkIsAppReady(migrationsCompleted: Bool) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // Only mark the app as ready once.
         guard !Singleton.appReadiness.isAppReady else { return }

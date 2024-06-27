@@ -3,8 +3,6 @@
 import Foundation
 import Combine
 import GRDB
-import Sodium
-import Curve25519Kit
 import SessionUtilitiesKit
 import SessionSnodeKit
 
@@ -13,15 +11,6 @@ extension KeyPair: Mocked {
         publicKey: Data(hex: TestConstants.publicKey).bytes,
         secretKey: Data(hex: TestConstants.edSecretKey).bytes
     )
-}
-
-extension ECKeyPair: Mocked {
-    static var mockValue: Self {
-        try! Self.init(
-            publicKeyData: Data(hex: TestConstants.publicKey),
-            privateKeyData: Data(hex: TestConstants.privateKey)
-        )
-    }
 }
 
 extension Database: Mocked {

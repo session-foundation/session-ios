@@ -42,23 +42,22 @@ public enum AppSetup {
         
         AppSetup.hasRun.mutate { $0 = true }
         
-        var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(labelStr: #function)
+        var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function)
         
         DispatchQueue.global(qos: .userInitiated).async {
             // Order matters here.
             //
             // All of these "singletons" should have any dependencies used in their
             // initializers injected.
-            OWSBackgroundTaskManager.shared().observeNotifications()
+            Singleton.backgroundTaskManager.startObservingNotifications()
             
             // Attachments can be stored to NSTemporaryDirectory()
             // If you receive a media message while the device is locked, the download will fail if
             // the temporary directory is NSFileProtectionComplete
-            let success: Bool = OWSFileSystem.protectFileOrFolder(
-                atPath: NSTemporaryDirectory(),
+            try? FileSystem.protectFileOrFolder(
+                at: NSTemporaryDirectory(),
                 fileProtectionType: .completeUntilFirstUserAuthentication
             )
-            assert(success)
 
             SessionEnvironment.shared = SessionEnvironment(
                 audioSession: OWSAudioSession(),
@@ -82,11 +81,11 @@ public enum AppSetup {
     }
     
     public static func runPostSetupMigrations(
-        backgroundTask: OWSBackgroundTask? = nil,
+        backgroundTask: SessionBackgroundTask? = nil,
         migrationProgressChanged: ((CGFloat, TimeInterval) -> ())? = nil,
         migrationsCompletion: @escaping (Result<Void, Error>, Bool) -> ()
     ) {
-        var backgroundTask: OWSBackgroundTask? = (backgroundTask ?? OWSBackgroundTask(labelStr: #function))
+        var backgroundTask: SessionBackgroundTask? = (backgroundTask ?? SessionBackgroundTask(label: #function))
         
         Storage.shared.perform(
             migrationTargets: [

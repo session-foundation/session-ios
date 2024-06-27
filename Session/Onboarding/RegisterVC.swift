@@ -1,12 +1,12 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import Sodium
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
 final class RegisterVC : BaseVC {
+    private let dependencies: Dependencies
     private var seed: Data! { didSet { updateKeyPair() } }
     private var ed25519KeyPair: KeyPair!
     private var x25519KeyPair: KeyPair! { didSet { updatePublicKeyLabel() } }
@@ -51,6 +51,18 @@ final class RegisterVC : BaseVC {
         
         return result
     }()
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - Lifecycle
     
@@ -216,7 +228,7 @@ final class RegisterVC : BaseVC {
                 x25519KeyPair: x25519KeyPair
             )
             
-        let displayNameVC: DisplayNameVC = DisplayNameVC(flow: .register)
+        let displayNameVC: DisplayNameVC = DisplayNameVC(flow: .register, using: dependencies)
         self.navigationController?.pushViewController(displayNameVC, animated: true)
     }
     

@@ -6,6 +6,7 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 final class RestoreVC: BaseVC {
+    private let dependencies: Dependencies
     private var spacer1HeightConstraint: NSLayoutConstraint!
     private var spacer2HeightConstraint: NSLayoutConstraint!
     private var spacer3HeightConstraint: NSLayoutConstraint!
@@ -44,6 +45,18 @@ final class RestoreVC: BaseVC {
         
         return result
     }()
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - Lifecycle
     
@@ -226,7 +239,7 @@ final class RestoreVC: BaseVC {
                 x25519KeyPair: keyPairs.x25519KeyPair
             )
         
-        let pnModeVC: PNModeVC = PNModeVC(flow: .recover)
+        let pnModeVC: PNModeVC = PNModeVC(flow: .recover, using: dependencies)
         self.navigationController?.pushViewController(pnModeVC, animated: true)
     }
     

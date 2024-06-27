@@ -9,6 +9,12 @@ import SessionUtilitiesKit
 
 // MARK: - Convenience
 
+public extension LibSession {
+    enum Crypto {
+        public typealias Domain = String
+    }
+}
+
 internal extension LibSession {
     /// This is a buffer period within which we will process messages which would result in a config change, any message which would normally
     /// result in a config change which was sent before `lastConfigMessage.timestamp - configChangeBufferPeriod` will not
@@ -388,8 +394,8 @@ public extension LibSession {
         // false)
         guard
             threadVariant == .community || (
-                SessionId(from: threadId)?.prefix != .blinded15 &&
-                SessionId(from: threadId)?.prefix != .blinded25
+                (try? SessionId(from: threadId))?.prefix != .blinded15 &&
+                (try? SessionId(from: threadId))?.prefix != .blinded25
             )
         else { return false }
         
