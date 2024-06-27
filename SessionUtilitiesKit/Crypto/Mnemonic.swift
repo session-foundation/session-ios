@@ -117,8 +117,8 @@ public enum Mnemonic {
         let n = truncatedWordSet.count
         
         // Check preconditions
-        guard words.count >= 12 else { throw DecodingError.inputTooShort }
-        guard !words.count.isMultiple(of: 3) else { throw DecodingError.generic }
+        guard words.count > 12 else { throw DecodingError.inputTooShort }
+        guard words.count < 14 else { throw DecodingError.generic }
         
         // Get checksum word
         let checksumWord = words.popLast()!
