@@ -202,7 +202,7 @@ struct HomeScreen: View {
         )
     }
     
-    private func createNewConversation() {
+    func createNewConversation() {
         let viewController = SessionHostingViewController(
             rootView: StartConversationScreen(),
             customizedNavigationBackground: .backgroundSecondary
