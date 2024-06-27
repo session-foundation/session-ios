@@ -4,7 +4,6 @@
 
 import Foundation
 import SessionUtil
-import SignalCoreKit
 
 // MARK: - LibSession
 

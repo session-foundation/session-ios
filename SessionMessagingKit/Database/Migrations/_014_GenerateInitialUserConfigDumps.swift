@@ -79,7 +79,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
                     .filter { thread in
                         thread.variant == .contact &&
                         thread.id != userPublicKey &&
-                        SessionId(from: thread.id)?.prefix == .standard
+                        (try? SessionId(from: thread.id))?.prefix == .standard
                     }
                     .map { $0.id }
                 let contactsData: [ContactInfo] = try Contact

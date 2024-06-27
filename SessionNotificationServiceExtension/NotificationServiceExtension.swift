@@ -8,7 +8,6 @@ import UserNotifications
 import BackgroundTasks
 import SessionMessagingKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionUtilitiesKit
 
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
@@ -276,7 +275,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     // MARK: Setup
 
     private func setUpIfNecessary(completion: @escaping () -> Void) {
-        AssertIsOnMainThread()
+        Log.assertOnMainThread()
 
         // The NSE will often re-use the same process, so if we're
         // already set up we want to do nothing; we're already ready
@@ -286,9 +285,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         Log.info("Performing setup.")
         didPerformSetup = true
 
-        _ = AppVersion.sharedInstance()
-
-        Cryptography.seedRandom()
+        _ = AppVersion.shared
 
         AppSetup.setupEnvironment(
             retrySetupIfDatabaseInvalid: true,
@@ -296,7 +293,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 Log.setup(with: Logger(
                     primaryPrefix: "NotificationServiceExtension",                                               // stringlint:disable
                     level: .info,
-                    customDirectory: "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/NotificationExtension", // stringlint:disable
+                    customDirectory: "\(FileManager.default.appSharedDataDirectoryPath)/Logs/NotificationExtension", // stringlint:disable
                     forceNSLog: true
                 ))
                 
@@ -335,15 +332,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     private func versionMigrationsDidComplete(needsConfigSync: Bool, completion: @escaping () -> Void) {
-        AssertIsOnMainThread()
-        
+        Log.assertOnMainThread()
+
         // If we need a config sync then trigger it now
         if needsConfigSync {
             Storage.shared.write { db in
                 ConfigurationSyncJob.enqueue(db, publicKey: getUserHexEncodedPublicKey(db))
             }
         }
-        
+
         // App isn't ready until storage is ready AND all version migrations are complete.
         guard Storage.shared.isValid else {
             Log.error("Storage invalid.")

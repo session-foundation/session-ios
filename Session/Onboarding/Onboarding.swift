@@ -2,7 +2,6 @@
 
 import Foundation
 import Combine
-import Sodium
 import GRDB
 import SessionUtilitiesKit
 import SessionMessagingKit

@@ -10,6 +10,10 @@ import SessionUtilitiesKit
 // MARK: - Convenience
 
 public extension LibSession {
+    enum Crypto {
+        public typealias Domain = String
+    }
+
     /// A `0` `priority` value indicates visible, but not pinned
     static let visiblePriority: Int32 = 0
     
@@ -390,8 +394,8 @@ public extension LibSession {
         // false)
         guard
             threadVariant == .community || (
-                SessionId(from: threadId)?.prefix != .blinded15 &&
-                SessionId(from: threadId)?.prefix != .blinded25
+                (try? SessionId(from: threadId))?.prefix != .blinded15 &&
+                (try? SessionId(from: threadId))?.prefix != .blinded25
             )
         else { return false }
         

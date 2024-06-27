@@ -8,7 +8,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SignalCoreKit
 import SessionSnodeKit
 
 @UIApplicationMain
@@ -38,8 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Singleton.setup(appContext: MainAppContext())
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
-        Cryptography.seedRandom()
-        AppVersion.sharedInstance()
+        _ = AppVersion.shared
         AppEnvironment.shared.pushRegistrationManager.createVoipRegistryIfNecessary()
 
         // Prevent the device from sleeping during database view async registration
@@ -209,9 +207,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // NOTE: Fix an edge case where user taps on the callkit notification
         // but answers the call on another device
         stopPollers(shouldStopUserPoller: !self.hasCallOngoing())
-        
-        // FIXME: Move this to be initialised as part of `AppDelegate`
-        let dependencies: Dependencies = Dependencies()
         
         // Stop all jobs except for message sending and when completed suspend the database
         JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { neededBackgroundProcessing in
@@ -393,7 +388,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             DeviceSleepManager.sharedInstance.removeBlock(blockObject: self)
             
             /// App launch hasn't really completed until the main screen is loaded so wait until then to register it
-            AppVersion.sharedInstance().mainAppLaunchDidComplete()
+            AppVersion.shared.mainAppLaunchDidComplete()
             
             /// App won't be ready for extensions and no need to enqueue a config sync unless we successfully completed startup
             Storage.shared.writeAsync { db in
@@ -406,7 +401,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 db[.isReadyForAppExtensions] = true
                 
                 if Identity.userCompletedRequiredOnboarding(db) {
-                    let appVersion: AppVersion = AppVersion.sharedInstance()
+                    let appVersion: AppVersion = AppVersion.shared
                     
                     // If the device needs to sync config or the user updated to a new version
                     if
@@ -661,8 +656,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 }
                 
             case .completed:
-                DispatchQueue.main.async {
-                    let viewController: HomeVC = HomeVC()
+                DispatchQueue.main.async { [dependencies] in
+                    let viewController: HomeVC = HomeVC(using: dependencies)
                     
                     /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
                     /// continue as we don't want to show a blank home screen
@@ -752,8 +747,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// the notification or choosing a UNNotificationAction. The delegate must be set before the application returns from
     /// application:didFinishLaunchingWithOptions:.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
-            AppEnvironment.shared.userNotificationActionHandler.handleNotificationResponse(response, completionHandler: completionHandler)
+        Singleton.appReadiness.runNowOrWhenAppDidBecomeReady { [dependencies] in
+            AppEnvironment.shared.userNotificationActionHandler.handleNotificationResponse(response, completionHandler: completionHandler, using: dependencies)
         }
     }
 

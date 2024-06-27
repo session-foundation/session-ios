@@ -274,7 +274,7 @@ internal extension LibSession {
         let targetContacts: [SyncedContactInfo] = contactData
             .filter {
                 $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard
+                (try? SessionId(from: $0.id))?.prefix == .standard
             }
         
         // If we only updated the current user contact then no need to continue
@@ -380,7 +380,7 @@ internal extension LibSession {
         let targetContacts: [Contact] = updatedContacts
             .filter {
                 $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard
+                (try? SessionId(from: $0.id))?.prefix == .standard
             }
         
         // If we only updated the current user contact then no need to continue
@@ -453,7 +453,7 @@ internal extension LibSession {
         let targetProfiles: [Profile] = updatedProfiles
             .filter {
                 $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard &&
+                (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         
@@ -507,7 +507,7 @@ internal extension LibSession {
         let targetDisappearingConfigs: [DisappearingMessagesConfiguration] = updatedDisappearingConfigs
             .filter {
                 $0.id != userPublicKey &&
-                SessionId(from: $0.id)?.prefix == .standard &&
+                (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
         

@@ -7,7 +7,6 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SignalCoreKit
 
 class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UITableViewDelegate, UITableViewDataSource {
     fileprivate typealias SectionModel = ArraySection<SearchSection, SessionThreadViewModel>
@@ -41,6 +40,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     
     // MARK: - Variables
     
+    private let dependencies: Dependencies
     private lazy var defaultSearchResults: SearchResultData = {
         let nonalphabeticNameTitle: String = "#" // stringlint:disable
         let contacts: [SessionThreadViewModel] = Storage.shared.read { db -> [SessionThreadViewModel]? in
@@ -116,10 +116,22 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     
     @objc public var searchText = "" {
         didSet {
-            AssertIsOnMainThread()
+            Log.assertOnMainThread()
             // Use a slight delay to debounce updates.
             refreshSearchResults()
         }
+    }
+    
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        self.dependencies = dependencies
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - UI Components
@@ -207,12 +219,14 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
             searchBarContainer.addSubview(ipadCancelButton)
             
             ipadCancelButton.pin(.trailing, to: .trailing, of: searchBarContainer)
-            ipadCancelButton.autoVCenterInSuperview()
-            searchBar.autoPinEdgesToSuperviewEdges(with: UIEdgeInsets.zero, excludingEdge: .trailing)
+            ipadCancelButton.center(.vertical, in: searchBarContainer)
+            searchBar.pin(.top, to: .top, of: searchBar)
+            searchBar.pin(.leading, to: .leading, of: searchBar)
             searchBar.pin(.trailing, to: .leading, of: ipadCancelButton, withInset: -Values.smallSpacing)
+            searchBar.pin(.bottom, to: .bottom, of: searchBar)
         }
         else {
-            searchBar.autoPinEdgesToSuperviewMargins()
+            searchBar.pin(toMarginsOf: searchBarContainer)
         }
     }
 
@@ -322,7 +336,7 @@ extension GlobalSearchViewController: UISearchBarDelegate {
     }
 
     func updateSearchText() {
-        guard let searchText = searchBar.text?.ows_stripped() else { return }
+        guard let searchText = searchBar.text?.stripped else { return }
         self.searchText = searchText
     }
 }
@@ -363,7 +377,12 @@ extension GlobalSearchViewController {
         }
     }
 
-    private func show(threadId: String, threadVariant: SessionThread.Variant, focusedInteractionInfo: Interaction.TimestampInfo? = nil, animated: Bool = true) {
+    private func show(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        focusedInteractionInfo: Interaction.TimestampInfo? = nil,
+        animated: Bool = true
+    ) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
                 self?.show(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo, animated: animated)
@@ -387,7 +406,8 @@ extension GlobalSearchViewController {
         let viewController: ConversationVC = ConversationVC(
             threadId: threadId,
             threadVariant: threadVariant,
-            focusedInteractionInfo: focusedInteractionInfo
+            focusedInteractionInfo: focusedInteractionInfo,
+            using: dependencies
         )
         self.navigationController?.pushViewController(viewController, animated: true)
     }
