@@ -274,7 +274,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     // MARK: Setup
 
-    private func setUpIfNecessary(completion: @escaping () -> Void) {
+    private func setUpIfNecessary(using dependencies: Dependencies, completion: @escaping () -> Void) {
         Log.assertOnMainThread()
 
         // The NSE will often re-use the same process, so if we're

@@ -60,7 +60,7 @@ public extension LibSession {
     // MARK: - Variables
     
     // FIXME: This is a temporary work-around for fixing the database unit tests (it's done properly in the Groups Rebuild branch but would require too many changes to pull across properly)
-   private static var dependencies: Atomic<Dependencies> = Atomic(Dependencies())
+    private static var dependencies: Atomic<Dependencies> = Atomic(Dependencies())
     
     internal static func syncDedupeId(_ publicKey: String) -> String {
         return "EnqueueConfigurationSyncJob-\(publicKey)"   // stringlint:disable
@@ -68,12 +68,9 @@ public extension LibSession {
     
     static var libSessionVersion: String { String(cString: LIBSESSION_UTIL_VERSION_STR) }
     
-    
     // MARK: - Loading
     
-    static func clearMemoryState(using dependencies: Dependencies? = nil) {
-        // FIXME: Replace this with the proper dependency injection (added in Groups Rebuild)
-        let dependencies: Dependencies = (dependencies ?? LibSession.dependencies.wrappedValue)
+    static func clearMemoryState(using dependencies: Dependencies) {
         dependencies.caches.mutate(cache: .libSession) { $0.removeAll() }
     }
     
@@ -81,7 +78,7 @@ public extension LibSession {
         _ db: Database? = nil,
         userPublicKey: String,
         ed25519SecretKey: [UInt8]?,
-        using dependencies: Dependencies? = nil
+        using dependencies: Dependencies
     ) {
         // FIXME: Replace this with the proper dependency injection (added in Groups Rebuild)
         let dependencies: Dependencies = {
@@ -106,6 +103,9 @@ public extension LibSession {
             }
             return
         }
+        
+        // FIXME: This is a temporary work-around for fixing the database unit tests (it's done properly in the Groups Rebuild branch but would require too many changes to pull across properly)
+        LibSession.dependencies = Atomic(dependencies)
         
         // Retrieve the existing dumps from the database
         let existingDumps: Set<ConfigDump> = ((try? ConfigDump.fetchSet(db)) ?? [])

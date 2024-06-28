@@ -108,7 +108,7 @@ public enum AppSetup {
                         // SessionUtil state
                         LibSession.loadState(
                             db,
-                            userPublicKey: getUserHexEncodedPublicKey(db),
+                            userPublicKey: getUserHexEncodedPublicKey(db, using: dependencies),
                             ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey,
                             using: dependencies
                         )

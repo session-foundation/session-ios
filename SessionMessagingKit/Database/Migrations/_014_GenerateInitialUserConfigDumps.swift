@@ -26,7 +26,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
         }
         
         // Create the initial config state
-        let userPublicKey: String = getUserHexEncodedPublicKey(db)
+        let userPublicKey: String = getUserHexEncodedPublicKey(db, using: dependencies)
         let timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
         
         LibSession.loadState(db, userPublicKey: userPublicKey, ed25519SecretKey: secretKey, using: dependencies)
@@ -43,7 +43,7 @@ enum _014_GenerateInitialUserConfigDumps: Migration {
             .config(for: .userProfile, publicKey: userPublicKey)
             .mutate { conf in
                 try LibSession.update(
-                    profile: Profile.fetchOrCreateCurrentUser(db),
+                    profile: Profile.fetchOrCreateCurrentUser(db, using: dependencies),
                     in: conf
                 )
                 

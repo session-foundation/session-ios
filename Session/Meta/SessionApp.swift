@@ -108,8 +108,11 @@ public struct SessionApp {
 
     // MARK: - Functions
     
-    public static func resetAppData(onReset: (() -> ())? = nil) {
-        LibSession.clearMemoryState()
+    public static func resetAppData(
+        using dependencies: Dependencies,
+        onReset: (() -> ())? = nil
+    ) {
+        LibSession.clearMemoryState(using: dependencies)
         LibSession.clearSnodeCache()
         LibSession.suspendNetworkAccess()
         PushNotificationAPI.resetKeys()

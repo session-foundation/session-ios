@@ -54,6 +54,7 @@ internal extension LibSession {
         _ db: Database,
         for variant: ConfigDump.Variant,
         publicKey: String,
+        using dependencies: Dependencies = Dependencies(),
         change: (UnsafeMutablePointer<config_object>?) throws -> ()
     ) throws {
         // Since we are doing direct memory manipulation we are using an `Atomic`
@@ -61,7 +62,7 @@ internal extension LibSession {
         let needsPush: Bool
         
         do {
-            needsPush = try LibSession
+            needsPush = try dependencies.caches[.libSession]
                 .config(for: variant, publicKey: publicKey)
                 .mutate { conf in
                     guard conf != nil else { throw LibSessionError.nilConfigObject }

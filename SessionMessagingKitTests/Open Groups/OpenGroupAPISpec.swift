@@ -19,43 +19,34 @@ class OpenGroupAPISpec: QuickSpec {
         @TestState var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { try $0.perform(.hash(message: anyArray(), outputLength: any())) }
+                    .when { $0.generate(.hash(message: anyArray(), key: anyArray(), length: any())) }
                     .thenReturn([])
                 crypto
                     .when { crypto in
                         crypto.generate(
-                            .blindedKeyPair(serverPublicKey: any(), edKeyPair: any(), using: any())
+                            .blinded15KeyPair(serverPublicKey: any(), ed25519SecretKey: anyArray())
                         )
                     }
                     .thenReturn(
                         KeyPair(
-                            publicKey: Data.data(fromHex: TestConstants.publicKey)!.bytes,
-                            secretKey: Data.data(fromHex: TestConstants.edSecretKey)!.bytes
+                            publicKey: Data(hex: TestConstants.publicKey).bytes,
+                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
                         )
                     )
                 crypto
-                    .when {
-                        try $0.perform(
-                            .sogsSignature(
-                                message: anyArray(),
-                                secretKey: anyArray(),
-                                blindedSecretKey: anyArray(),
-                                blindedPublicKey: anyArray()
-                            )
-                        )
-                    }
+                    .when { $0.generate(.signatureBlind15(message: anyArray(), serverPublicKey: any(), ed25519SecretKey: anyArray())) }
                     .thenReturn("TestSogsSignature".bytes)
                 crypto
-                    .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
+                    .when { $0.generate(.signature(message: anyArray(), ed25519SecretKey: anyArray())) }
                     .thenReturn("TestSignature".bytes)
                 crypto
-                    .when { try $0.perform(.signEd25519(data: anyArray(), keyPair: any())) }
+                    .when { $0.generate(.signatureXed25519(data: anyArray(), curve25519PrivateKey: anyArray())) }
                     .thenReturn("TestStandardSignature".bytes)
                 crypto
-                    .when { try $0.perform(.generateNonce16()) }
+                    .when { $0.generate(.randomBytes(16)) }
                     .thenReturn(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!.bytes)
                 crypto
-                    .when { try $0.perform(.generateNonce24()) }
+                    .when { $0.generate(.randomBytes(24)) }
                     .thenReturn(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!.bytes)
             }
         )
@@ -73,10 +64,10 @@ class OpenGroupAPISpec: QuickSpec {
                     SNMessagingKit.self
                 ],
                 initialData: { db in
-                    try Identity(variant: .x25519PublicKey, data: Data.data(fromHex: TestConstants.publicKey)!).insert(db)
-                    try Identity(variant: .x25519PrivateKey, data: Data.data(fromHex: TestConstants.privateKey)!).insert(db)
-                    try Identity(variant: .ed25519PublicKey, data: Data.data(fromHex: TestConstants.edPublicKey)!).insert(db)
-                    try Identity(variant: .ed25519SecretKey, data: Data.data(fromHex: TestConstants.edSecretKey)!).insert(db)
+                    try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                    try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                    try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                    try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
                     
                     try OpenGroup(
                         server: "testServer",
@@ -758,7 +749,7 @@ class OpenGroupAPISpec: QuickSpec {
                     it("fails to sign if no signature is generated") {
                         mockCrypto.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockCrypto
-                            .when { try $0.perform(.signEd25519(data: anyArray(), keyPair: any())) }
+                            .when { $0.generate(.signatureXed25519(data: anyArray(), curve25519PrivateKey: anyArray())) }
                             .thenReturn(nil)
                         
                         var preparationError: Error?
@@ -881,16 +872,7 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
                         mockCrypto
-                            .when {
-                                try $0.perform(
-                                    .sogsSignature(
-                                        message: anyArray(),
-                                        secretKey: anyArray(),
-                                        blindedSecretKey: anyArray(),
-                                        blindedPublicKey: anyArray()
-                                    )
-                                )
-                            }
+                            .when { $0.generate(.signatureBlind15(message: anyArray(), serverPublicKey: any(), ed25519SecretKey: anyArray())) }
                             .thenReturn(nil)
                         
                         var preparationError: Error?
@@ -1061,7 +1043,7 @@ class OpenGroupAPISpec: QuickSpec {
                     it("fails to sign if no signature is generated") {
                         mockCrypto.reset() // The 'keyPair' value doesn't equate so have to explicitly reset
                         mockCrypto
-                            .when { try $0.perform(.signEd25519(data: anyArray(), keyPair: any())) }
+                            .when { $0.generate(.signatureXed25519(data: anyArray(), curve25519PrivateKey: anyArray())) }
                             .thenReturn(nil)
                         
                         var preparationError: Error?
@@ -1180,16 +1162,7 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ fails to sign if no signature is generated
                     it("fails to sign if no signature is generated") {
                         mockCrypto
-                            .when {
-                                try $0.perform(
-                                    .sogsSignature(
-                                        message: anyArray(),
-                                        secretKey: anyArray(),
-                                        blindedSecretKey: anyArray(),
-                                        blindedPublicKey: anyArray()
-                                    )
-                                )
-                            }
+                            .when { $0.generate(.signatureBlind15(message: anyArray(), serverPublicKey: any(), ed25519SecretKey: anyArray())) }
                             .thenReturn(nil)
                         
                         var preparationError: Error?
@@ -1806,7 +1779,7 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ fails when the signature is not generated
                     it("fails when the signature is not generated") {
                         mockCrypto
-                            .when { try $0.perform(.signature(message: anyArray(), secretKey: anyArray())) }
+                            .when { $0.generate(.signature(message: anyArray(), ed25519SecretKey: anyArray())) }
                             .thenReturn(nil)
                         
                         var preparationError: Error?
@@ -1867,13 +1840,9 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ fails when the blindedKeyPair is not generated
                     it("fails when the blindedKeyPair is not generated") {
                         mockCrypto
-                            .when { [dependencies = dependencies!] in
-                                $0.generate(
-                                    .blindedKeyPair(
-                                        serverPublicKey: any(),
-                                        edKeyPair: any(),
-                                        using: dependencies
-                                    )
+                            .when { crypto in
+                                crypto.generate(
+                                    .blinded15KeyPair(serverPublicKey: any(), ed25519SecretKey: anyArray())
                                 )
                             }
                             .thenReturn(nil)
@@ -1900,13 +1869,9 @@ class OpenGroupAPISpec: QuickSpec {
                     // MARK: ------ fails when the sogsSignature is not generated
                     it("fails when the sogsSignature is not generated") {
                         mockCrypto
-                            .when { [dependencies = dependencies!] in
-                                $0.generate(
-                                    .blindedKeyPair(
-                                        serverPublicKey: any(),
-                                        edKeyPair: any(),
-                                        using: dependencies
-                                    )
+                            .when { crypto in
+                                crypto.generate(
+                                    .blinded15KeyPair(serverPublicKey: any(), ed25519SecretKey: anyArray())
                                 )
                             }
                             .thenReturn(nil)
