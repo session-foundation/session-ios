@@ -19,7 +19,7 @@ public enum Log {
     )
     
     public enum Level {
-        case trace
+        case verbose
         case debug
         case info
         case warn
@@ -123,8 +123,8 @@ public enum Log {
                 arguments: ptr)
         }
     }
-    // TODO: Rename to 'verbose'
-    public static func trace(
+    
+    public static func verbose(
         _ message: String,
         withPrefixes: Bool = true,
         silenceForTests: Bool = false,
@@ -132,7 +132,7 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
-        custom(.trace, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
+        custom(.verbose, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests, file: file, function: function, line: line)
     }
     
     public static func debug(
@@ -433,7 +433,7 @@ public class Logger {
         
         switch level {
             case .off: return
-            case .trace: DDLogVerbose("💙 \(logMessage)", file: file, function: function, line: line)
+            case .verbose: DDLogVerbose("💙 \(logMessage)", file: file, function: function, line: line)
             case .debug: DDLogDebug("💚 \(logMessage)", file: file, function: function, line: line)
             case .info: DDLogInfo("💛 \(logMessage)", file: file, function: function, line: line)
             case .warn: DDLogWarn("🧡 \(logMessage)", file: file, function: function, line: line)

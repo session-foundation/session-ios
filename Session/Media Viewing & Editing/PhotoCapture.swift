@@ -391,7 +391,7 @@ extension PhotoCapture: CaptureButtonDelegate {
     }
 
     func longPressCaptureButton(_ captureButton: CaptureButton, didUpdateZoomAlpha zoomAlpha: CGFloat) {
-        Log.trace("[PhotoCapture] zoomAlpha: \(zoomAlpha)")
+        Log.verbose("[PhotoCapture] zoomAlpha: \(zoomAlpha)")
         updateZoom(alpha: zoomAlpha)
     }
 }
@@ -522,7 +522,7 @@ class CaptureOutput {
 
         let videoOrientation = delegate.captureOrientation
         photoVideoConnection.videoOrientation = videoOrientation
-        Log.trace("[CaptureOutput] videoOrientation: \(videoOrientation)")
+        Log.verbose("[CaptureOutput] videoOrientation: \(videoOrientation)")
 
         return imageOutput.takePhoto(delegate: delegate)
     }

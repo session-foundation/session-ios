@@ -505,7 +505,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
     }
 
     private func search(query: String) {
-        Log.trace("[GifPickerViewController] searching: \(query)")
+        Log.verbose("[GifPickerViewController] searching: \(query)")
 
         progressiveSearchTimer?.invalidate()
         progressiveSearchTimer = nil
@@ -523,13 +523,13 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                     switch result {
                         case .finished: break
                         case .failure:
-                            Log.trace("[GifPickerViewController] search failed.")
+                            Log.verbose("[GifPickerViewController] search failed.")
                             // TODO: Present this error to the user.
                             self?.viewMode = .error
                     }
                 },
                 receiveValue: { [weak self] imageInfos in
-                    Log.trace("[GifPickerViewController] search complete")
+                    Log.verbose("[GifPickerViewController] search complete")
                     self?.imageInfos = imageInfos
                     
                     if imageInfos.count > 0 {

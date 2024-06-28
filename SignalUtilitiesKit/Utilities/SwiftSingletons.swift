@@ -20,7 +20,7 @@ public class SwiftSingletons: NSObject {
             Log.error("[SwiftSingletons] Duplicate singleton: \(singletonClassName).")
             return
         }
-        Log.trace("[SwiftSingletons] Registering singleton: \(singletonClassName).")
+        Log.verbose("[SwiftSingletons] Registering singleton: \(singletonClassName).")
         classSet.insert(singletonClassName)
     }
 

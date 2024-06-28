@@ -501,7 +501,7 @@ class ImageEditorCropViewController: OWSViewController {
         // Handle the GR if necessary.
         switch gestureRecognizer.state {
         case .began:
-            Log.trace("[ImageEditorCropViewController] began: \(transform.unitTranslation)")
+            Log.verbose("[ImageEditorCropViewController] began: \(transform.unitTranslation)")
             gestureStartTransform = transform
             // Pans that start near the crop rectangle should be treated as crop gestures.
             panCropRegion = cropRegion(forGestureRecognizer: gestureRecognizer)
