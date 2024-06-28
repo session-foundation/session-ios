@@ -676,6 +676,8 @@
 		FD6A39722C2E3F5800762359 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39702C2E3F5800762359 /* GRDBExtensions.swift */; };
 		FD6A39732C2E3F5800762359 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39702C2E3F5800762359 /* GRDBExtensions.swift */; };
 		FD6A39742C2E3F5800762359 /* GRDBExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39702C2E3F5800762359 /* GRDBExtensions.swift */; };
+		FD6A39772C2E885600762359 /* SSKMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39762C2E885600762359 /* SSKMockedExtensions.swift */; };
+		FD6A397A2C2E88EB00762359 /* SSKMockedExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A39762C2E885600762359 /* SSKMockedExtensions.swift */; };
 		FD6A7A692818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A682818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift */; };
 		FD6A7A6B2818C17C00035AC1 /* UpdateProfilePictureJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6A2818C17C00035AC1 /* UpdateProfilePictureJob.swift */; };
 		FD6A7A6D2818C61500035AC1 /* _002_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */; };
@@ -1813,6 +1815,7 @@
 		FD6A39442C2B783D00762359 /* UINavigationController+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UINavigationController+Utilities.swift"; sourceTree = "<group>"; };
 		FD6A39482C2BB85A00762359 /* Crypto+Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crypto+Attachments.swift"; sourceTree = "<group>"; };
 		FD6A39702C2E3F5800762359 /* GRDBExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GRDBExtensions.swift; sourceTree = "<group>"; };
+		FD6A39762C2E885600762359 /* SSKMockedExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSKMockedExtensions.swift; sourceTree = "<group>"; };
 		FD6A7A682818BE7300035AC1 /* RetrieveDefaultOpenGroupRoomsJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrieveDefaultOpenGroupRoomsJob.swift; sourceTree = "<group>"; };
 		FD6A7A6A2818C17C00035AC1 /* UpdateProfilePictureJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateProfilePictureJob.swift; sourceTree = "<group>"; };
 		FD6A7A6C2818C61500035AC1 /* _002_SetupStandardJobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _002_SetupStandardJobs.swift; sourceTree = "<group>"; };
@@ -3939,6 +3942,14 @@
 			path = Crypto;
 			sourceTree = "<group>";
 		};
+		FD6A39752C2E884500762359 /* _TestUtilities */ = {
+			isa = PBXGroup;
+			children = (
+				FD6A39762C2E885600762359 /* SSKMockedExtensions.swift */,
+			);
+			path = _TestUtilities;
+			sourceTree = "<group>";
+		};
 		FD7115F528C8150600B47552 /* Combine */ = {
 			isa = PBXGroup;
 			children = (
@@ -5253,6 +5264,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		FD5E93D32C12D3990038C25A /* Add App Group To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -5271,6 +5283,7 @@
 		};
 		FD5E93D42C12D3CB0038C25A /* Add Commit Hash To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -5314,6 +5327,7 @@
 		};
 		FD5E93D62C12D8270038C25A /* Add App Group To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -5332,6 +5346,7 @@
 		};
 		FD5E93D72C12DA400038C25A /* Add App Group To Build Info Plist */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -6284,6 +6299,7 @@
 				FD7C37BE2BBB8BBD009DEEA7 /* SnodeRequestSpec.swift in Sources */,
 				FD7C37C02BBB8BE1009DEEA7 /* Mocked.swift in Sources */,
 				FD7C37BF2BBB8BDF009DEEA7 /* Mock.swift in Sources */,
+				FD6A39772C2E885600762359 /* SSKMockedExtensions.swift in Sources */,
 				FD7C37C22BBB8BED009DEEA7 /* MockCaches.swift in Sources */,
 				FD7C37C62BBB8C08009DEEA7 /* TestConstants.swift in Sources */,
 				FD22724E2C327BA5004D8A6C /* SSKMockedExtensions.swift in Sources */,
