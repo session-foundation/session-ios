@@ -168,7 +168,8 @@ final class LinkDeviceVC: BaseVC, UIPageViewControllerDataSource, UIPageViewCont
             .preregister(
                 with: seed,
                 ed25519KeyPair: ed25519KeyPair,
-                x25519KeyPair: x25519KeyPair
+                x25519KeyPair: x25519KeyPair,
+                using: dependencies
             )
         
         // Otherwise continue on to request push notifications permissions

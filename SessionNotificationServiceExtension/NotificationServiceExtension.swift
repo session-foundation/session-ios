@@ -27,6 +27,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     override public func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         self.contentHandler = contentHandler
         self.request = request
+        
+        // Called via the OS so create a default 'Dependencies' instance
+        let dependencies: Dependencies = Dependencies()
 
         // Abort if the main app is running
         guard !(UserDefaults.sharedLokiProject?[.isMainAppActive]).defaulting(to: false) else {
@@ -51,7 +54,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
         // Perform main setup
         Storage.resumeDatabaseAccess()
-        DispatchQueue.main.sync { self.setUpIfNecessary() { } }
+        DispatchQueue.main.sync { self.setUpIfNecessary(using: dependencies) { } }
 
         // Handle the push notification
         Singleton.appReadiness.runNowOrWhenAppDidBecomeReady {
@@ -226,7 +229,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 
     // MARK: Setup
 
-    private func setUpIfNecessary(completion: @escaping () -> Void) {
+    private func setUpIfNecessary(using dependencies: Dependencies, completion: @escaping () -> Void) {
         Log.assertOnMainThread()
 
         // The NSE will often re-use the same process, so if we're
@@ -280,7 +283,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 }
                 
                 completion()
-            }
+            },
+            using: dependencies
         )
     }
     

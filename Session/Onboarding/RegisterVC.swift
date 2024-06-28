@@ -225,7 +225,8 @@ final class RegisterVC : BaseVC {
             .preregister(
                 with: seed,
                 ed25519KeyPair: ed25519KeyPair,
-                x25519KeyPair: x25519KeyPair
+                x25519KeyPair: x25519KeyPair,
+                using: dependencies
             )
             
         let displayNameVC: DisplayNameVC = DisplayNameVC(flow: .register, using: dependencies)

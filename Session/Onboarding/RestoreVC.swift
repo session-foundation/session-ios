@@ -236,7 +236,8 @@ final class RestoreVC: BaseVC {
             .preregister(
                 with: seed,
                 ed25519KeyPair: keyPairs.ed25519KeyPair,
-                x25519KeyPair: keyPairs.x25519KeyPair
+                x25519KeyPair: keyPairs.x25519KeyPair,
+                using: dependencies
             )
         
         let pnModeVC: PNModeVC = PNModeVC(flow: .recover, using: dependencies)

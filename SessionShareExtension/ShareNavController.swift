@@ -79,7 +79,8 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
                             self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync)
                         }
                 }
-            }
+            },
+            using: dependencies
         )
 
         // We don't need to use "screen protection" in the SAE.
