@@ -258,7 +258,7 @@ class PhotoCaptureViewController: OWSViewController {
             // since the "face up" and "face down" orientations aren't reflected in the photo output,
             // we need to capture the last known _other_ orientation so we can reflect the appropriate
             // portrait/landscape in our captured photos.
-            Log.trace("[PhotoCaptureViewController] lastKnownCaptureOrientation: \(lastKnownCaptureOrientation)->\(captureOrientation)")
+            Log.verbose("[PhotoCaptureViewController] lastKnownCaptureOrientation: \(lastKnownCaptureOrientation)->\(captureOrientation)")
             lastKnownCaptureOrientation = captureOrientation
             updateIconOrientations(isAnimated: true, captureOrientation: captureOrientation)
         }
@@ -267,7 +267,7 @@ class PhotoCaptureViewController: OWSViewController {
     // MARK: -
 
     private func updateIconOrientations(isAnimated: Bool, captureOrientation: AVCaptureVideoOrientation) {
-        Log.trace("[PhotoCaptureViewController] captureOrientation: \(captureOrientation)")
+        Log.verbose("[PhotoCaptureViewController] captureOrientation: \(captureOrientation)")
 
         let transformFromOrientation: CGAffineTransform
         switch captureOrientation {
@@ -522,7 +522,7 @@ class CaptureButton: UIView {
 
             let alpha = ratio.clamp(0, 1)
 
-            Log.trace("[CaptureButton] distance: \(distance), alpha: \(alpha)")
+            Log.verbose("[CaptureButton] distance: \(distance), alpha: \(alpha)")
 
             let zoomIndicatorDiameter = alpha.lerp(recordingDiameter, 3)
             self.zoomIndicatorSizeConstraints.forEach { $0.constant = zoomIndicatorDiameter }
@@ -672,7 +672,7 @@ class RecordingTimerView: UIView {
     @objc
     private func updateView() {
         let recordingDuration = self.recordingDuration
-        Log.trace("[RecordingTimerView] recordingDuration: \(recordingDuration)")
+        Log.verbose("[RecordingTimerView] recordingDuration: \(recordingDuration)")
         let durationDate = Date(timeIntervalSinceReferenceDate: recordingDuration)
         label.text = timeFormatter.string(from: durationDate)
     }

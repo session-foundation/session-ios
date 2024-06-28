@@ -409,7 +409,7 @@ public class MediaView: UIView {
         // our load attempt is complete.
         let loadCompletion: (AnyObject?) -> Void = { [weak self] possibleMedia in
             guard self?.loadState.wrappedValue == .loading else {
-                Log.trace("[MediaView] Skipping obsolete load.")
+                Log.verbose("[MediaView] Skipping obsolete load.")
                 return
             }
             guard let media: AnyObject = possibleMedia else {
@@ -431,7 +431,7 @@ public class MediaView: UIView {
         }
 
         if let media: AnyObject = self.mediaCache?.object(forKey: cacheKey as NSString) {
-            Log.trace("[MediaView] media cache hit")
+            Log.verbose("[MediaView] media cache hit")
             
             guard Thread.isMainThread else {
                 DispatchQueue.main.async {
@@ -444,11 +444,11 @@ public class MediaView: UIView {
             return
         }
 
-        Log.trace("[MediaView] media cache miss")
+        Log.verbose("[MediaView] media cache miss")
 
         MediaView.loadQueue.async { [weak self] in
             guard self?.loadState.wrappedValue == .loading else {
-                Log.trace("[MediaView] Skipping obsolete load.")
+                Log.verbose("[MediaView] Skipping obsolete load.")
                 return
             }
             

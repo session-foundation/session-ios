@@ -327,7 +327,7 @@ public extension LinkPreview {
         url urlString: String,
         remainingRetries: UInt = 3
     ) -> AnyPublisher<(Data, URLResponse), Error> {
-        Log.trace("[LinkPreview] Download url: \(urlString)")
+        Log.verbose("[LinkPreview] Download url: \(urlString)")
 
         // let sessionConfiguration = ContentProxy.sessionConfiguration() // Loki: Signal's proxy appears to have been banned by YouTube
         let sessionConfiguration = URLSessionConfiguration.ephemeral
@@ -446,7 +446,7 @@ public extension LinkPreview {
             title = normalizedTitle
         }
 
-        Log.trace("[LinkPreview] Title: \(String(describing: title))")
+        Log.verbose("[LinkPreview] Title: \(String(describing: title))")
 
         guard let rawImageUrlString = content.ogImageUrlString ?? content.faviconUrlString else {
             return Contents(title: title)

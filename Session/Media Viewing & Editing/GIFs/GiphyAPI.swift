@@ -78,7 +78,7 @@ class GiphyRendition: ProxiedContentAssetDescription {
     }
 
     public func log() {
-        Log.trace("[GiphyRendition] \t \(format), \(name), \(width), \(height), \(fileSize)")
+        Log.verbose("[GiphyRendition] \t \(format), \(name), \(width), \(height), \(fileSize)")
     }
 }
 
@@ -110,7 +110,7 @@ class GiphyImageInfo: NSObject {
     }
 
     public func log() {
-        Log.trace("[GiphyImageInfo] giphyId: \(giphyId), \(renditions.count)")
+        Log.verbose("[GiphyImageInfo] giphyId: \(giphyId), \(renditions.count)")
         for rendition in renditions {
             rendition.log()
         }
@@ -286,13 +286,13 @@ enum GiphyAPI {
         return urlSession
             .dataTaskPublisher(for: url)
             .mapError { urlError in
-                Log.trace("[GiphyAPI] Search request failed: \(urlError)")
+                Log.verbose("[GiphyAPI] Search request failed: \(urlError)")
                 
                 // URLError codes are negative values
                 return NetworkError.unknown
             }
             .map { data, _ in
-                Log.trace("[GiphyAPI] Search request succeeded")
+                Log.verbose("[GiphyAPI] Search request succeeded")
                 
                 guard let imageInfos = self.parseGiphyImages(responseData: data) else {
                     Log.error("[GiphyAPI] Unable to parse trending images")
@@ -340,7 +340,7 @@ enum GiphyAPI {
                 return NetworkError.unknown
             }
             .tryMap { data, _ -> [GiphyImageInfo] in
-                Log.trace("[GiphyAPI] Search request succeeded")
+                Log.verbose("[GiphyAPI] Search request succeeded")
                 
                 guard let imageInfos = self.parseGiphyImages(responseData: data) else {
                     throw NetworkError.invalidResponse
@@ -487,7 +487,7 @@ enum GiphyAPI {
             return nil
         }
         guard parsedValue > 0 else {
-            Log.trace("[GiphyAPI] \(typeName) has non-positive \(key): \(parsedValue).")
+            Log.verbose("[GiphyAPI] \(typeName) has non-positive \(key): \(parsedValue).")
             return nil
         }
         return parsedValue

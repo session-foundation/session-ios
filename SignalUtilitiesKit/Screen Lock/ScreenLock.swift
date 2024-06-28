@@ -65,11 +65,11 @@ public class ScreenLock {
                     unexpectedFailure(ScreenLockError.general(description: error))
                 
                 case .success:
-                    Log.trace("[ScreenLock] Local authentication succeeded.")
+                    Log.verbose("[ScreenLock] Local authentication succeeded.")
                     success()
                 
                 case .cancel:
-                    Log.trace("[ScreenLock] Local authentication cancelled.")
+                    Log.verbose("[ScreenLock] Local authentication cancelled.")
                     cancel()
             }
         }

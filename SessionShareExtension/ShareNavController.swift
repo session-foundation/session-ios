@@ -735,14 +735,14 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
     private func isVideoNeedingRelocation(itemProvider: NSItemProvider, itemUrl: URL) -> Bool {
         let pathExtension = itemUrl.pathExtension
         guard pathExtension.count > 0 else {
-            Log.trace("item URL has no file extension: \(itemUrl).")
+            Log.verbose("item URL has no file extension: \(itemUrl).")
             return false
         }
         guard let utiTypeForURL = MimeTypeUtil.utiType(forFileExtension: pathExtension) else {
-            Log.trace("item has unknown UTI type: \(itemUrl).")
+            Log.verbose("item has unknown UTI type: \(itemUrl).")
             return false
         }
-        Log.trace("utiTypeForURL: \(utiTypeForURL)")
+        Log.verbose("utiTypeForURL: \(utiTypeForURL)")
         guard utiTypeForURL == kUTTypeMPEG4 as String else {
             // Either it's not a video or it was a video which was not auto-converted to mp4.
             // Not affected by the issue.

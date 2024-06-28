@@ -71,7 +71,7 @@ extension ConversationSearchController: UISearchControllerDelegate {
 
 extension ConversationSearchController: UISearchResultsUpdating {
     public func updateSearchResults(for searchController: UISearchController) {
-        Log.trace("searchBar.text: \( searchController.searchBar.text ?? "<blank>")")
+        Log.verbose("searchBar.text: \( searchController.searchBar.text ?? "<blank>")")
 
         guard
             let searchText: String = searchController.searchBar.text?.stripped,

@@ -36,25 +36,25 @@ public class ImageEditorContents {
     }
 
     public func append(item: ImageEditorItem) {
-        Log.trace("[ImageEditorContents] append: \(item.itemId)")
+        Log.verbose("[ImageEditorContents] append: \(item.itemId)")
 
         itemMap.append(key: item.itemId, value: item)
     }
 
     public func replace(item: ImageEditorItem) {
-        Log.trace("[ImageEditorContents] replace: \(item.itemId)")
+        Log.verbose("[ImageEditorContents] replace: \(item.itemId)")
 
         itemMap.replace(key: item.itemId, value: item)
     }
 
     public func remove(item: ImageEditorItem) {
-        Log.trace("[ImageEditorContents] remove: \(item.itemId)")
+        Log.verbose("[ImageEditorContents] remove: \(item.itemId)")
 
         itemMap.remove(key: item.itemId)
     }
 
     public func remove(itemId: String) {
-        Log.trace("[ImageEditorContents] remove: \(itemId)")
+        Log.verbose("[ImageEditorContents] remove: \(itemId)")
 
         itemMap.remove(key: itemId)
     }

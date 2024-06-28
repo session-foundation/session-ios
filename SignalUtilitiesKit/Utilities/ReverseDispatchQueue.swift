@@ -47,7 +47,7 @@ public class ReverseDispatchQueue: NSObject {
             self.items.append(item)
 
             if ReverseDispatchQueue.isVerbose {
-                Log.trace("[ReverseDispatchQueue] Enqueued[\(self.label)]: \(item.index)")
+                Log.verbose("[ReverseDispatchQueue] Enqueued[\(self.label)]: \(item.index)")
             }
 
             self.process()
@@ -64,7 +64,7 @@ public class ReverseDispatchQueue: NSObject {
                 return
             }
             if ReverseDispatchQueue.isVerbose {
-                Log.trace("[ReverseDispatchQueue] Processing[\(self.label)]: \(item.index)")
+                Log.verbose("[ReverseDispatchQueue] Processing[\(self.label)]: \(item.index)")
             }
             item.workBlock()
 

@@ -510,7 +510,7 @@ public class Logger {
         
         switch level {
             case .off: return
-            case .trace: DDLogVerbose("💙 \(logMessage)", file: file, function: function, line: line)
+            case .verbose: DDLogVerbose("💙 \(logMessage)", file: file, function: function, line: line)
             case .debug: DDLogDebug("💚 \(logMessage)", file: file, function: function, line: line)
             case .info: DDLogInfo("💛 \(logMessage)", file: file, function: function, line: line)
             case .warn: DDLogWarn("🧡 \(logMessage)", file: file, function: function, line: line)
