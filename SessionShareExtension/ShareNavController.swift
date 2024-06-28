@@ -54,6 +54,7 @@ final class ShareNavController: UINavigationController, ShareViewDelegate {
             appSpecificBlock: {
                 Log.setup(with: Logger(
                     primaryPrefix: "SessionShareExtension",                                              // stringlint:disable
+                    level: .info,
                     customDirectory: "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/ShareExtension" // stringlint:disable
                 ))
                 

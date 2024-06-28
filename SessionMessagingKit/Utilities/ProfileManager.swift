@@ -210,7 +210,7 @@ public struct ProfileManager {
         let filePath: String = ProfileManager.profileAvatarFilepath(filename: fileName)
         var backgroundTask: OWSBackgroundTask? = OWSBackgroundTask(label: funcName)
         
-        Log.trace("downloading profile avatar: \(profile.id)")
+        Log.verbose("downloading profile avatar: \(profile.id)")
         currentAvatarDownloads.mutate { $0.insert(profile.id) }
         
         LibSession

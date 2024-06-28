@@ -51,7 +51,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         AppSetup.setupEnvironment(
             appSpecificBlock: {
-                Log.setup(with: Logger(primaryPrefix: "Session"))
+                Log.setup(with: Logger(primaryPrefix: "Session", level: .info))
                 Log.info("[AppDelegate] Setting up environment.")
                 
                 // Setup LibSession
@@ -210,8 +210,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let dependencies: Dependencies = Dependencies()
         
         // Stop all jobs except for message sending and when completed suspend the database
-        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) {
-            if !self.hasCallOngoing() && Singleton.hasAppContext && Singleton.appContext.isInBackground {
+        JobRunner.stopAndClearPendingJobs(exceptForVariant: .messageSend, using: dependencies) { neededBackgroundProcessing in
+            if !self.hasCallOngoing() && (!neededBackgroundProcessing || Singleton.hasAppContext && Singleton.appContext.isInBackground) {
                 LibSession.suspendNetworkAccess()
                 Storage.suspendDatabaseAccess()
                 Log.info("[AppDelegate] completed network and database shutdowns.")

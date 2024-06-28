@@ -295,6 +295,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             appSpecificBlock: {
                 Log.setup(with: Logger(
                     primaryPrefix: "NotificationServiceExtension",                                               // stringlint:disable
+                    level: .info,
                     customDirectory: "\(OWSFileSystem.appSharedDataDirectoryPath())/Logs/NotificationExtension", // stringlint:disable
                     forceNSLog: true
                 ))
