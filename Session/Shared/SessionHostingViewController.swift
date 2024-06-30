@@ -7,9 +7,10 @@ public class HostWrapper: ObservableObject {
     public weak var controller: UIViewController?
 }
 
-public enum NavigationItemPosition {
-    case left
-    case right
+public enum NavigationItem {
+    case profile(profile: Profile)
+    case search
+    case close
 }
 
 public class SessionHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>>, ThemedNavigation where Content : View {
@@ -20,6 +21,9 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
     public var navigationBackground: ThemeValue? { customizedNavigationBackground }
     private let customizedNavigationBackground: ThemeValue?
     private let shouldHideNavigationBar: Bool
+    
+    private var leftBarButtonItemAction: (() -> ())?
+    private var rightBarButtonItemAction: (() -> ())?
 
     lazy var navBarTitleLabel: UILabel = {
         let result = UILabel()
@@ -77,6 +81,8 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         }
         super.viewWillDisappear(animated)
     }
+    
+    // MARK: Navigation bar title
 
     internal func setNavBarTitle(_ title: String, customFontSize: CGFloat? = nil) {
         let container = UIView()
@@ -120,15 +126,69 @@ public class SessionHostingViewController<Content>: UIHostingController<Modified
         navigationItem.titleView = logoImageView
     }
     
-    internal func setUpDismissingButton(on postion: NavigationItemPosition) {
-        let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
-        closeButton.themeTintColor = .textPrimary
-        switch postion {
-            case .left:
-                navigationItem.leftBarButtonItem = closeButton
-            case .right:
-                navigationItem.rightBarButtonItem = closeButton
-        }
+    // MARK: Navigation bar button items
+    
+    internal func setUpNavBarButton(leftItem: NavigationItem? = nil, rightItem: NavigationItem? = nil, leftAction: (() -> ())? = nil, rightAction: (() -> ())? = nil) {
+        self.leftBarButtonItemAction = leftAction
+        self.rightBarButtonItemAction = rightAction
+        navigationItem.leftBarButtonItem = generateBarButtonItem(item: leftItem, action: #selector(leftBarButtonAction))
+        navigationItem.rightBarButtonItem = generateBarButtonItem(item: rightItem, action: #selector(rightBarButtonAction))
+    }
+    
+    private func generateBarButtonItem(item: NavigationItem?, action: Selector?) -> UIBarButtonItem? {
+        guard let navigationItem: NavigationItem = item else { return nil }
+        switch navigationItem {
+            case .profile(let profile):
+                // Profile picture view
+                let profilePictureView = ProfilePictureView(size: .navigation)
+                profilePictureView.accessibilityIdentifier = "User settings"
+                profilePictureView.accessibilityLabel = "User settings"
+                profilePictureView.isAccessibilityElement = true
+                profilePictureView.update(
+                    publicKey: profile.id,
+                    threadVariant: .contact,
+                    customImageData: nil,
+                    profile: profile,
+                    additionalProfile: nil
+                )
+                
+                let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: action)
+                profilePictureView.addGestureRecognizer(tapGestureRecognizer)
+                
+                // Path status indicator
+                let pathStatusView = PathStatusView()
+                pathStatusView.accessibilityLabel = "Current onion routing path indicator"
+                
+                // Container view
+                let profilePictureViewContainer = UIView()
+                profilePictureViewContainer.addSubview(profilePictureView)
+                profilePictureView.autoPinEdgesToSuperviewEdges()
+                profilePictureViewContainer.addSubview(pathStatusView)
+                pathStatusView.pin(.trailing, to: .trailing, of: profilePictureViewContainer)
+                pathStatusView.pin(.bottom, to: .bottom, of: profilePictureViewContainer)
+            
+                let result = UIBarButtonItem(customView: profilePictureViewContainer)
+                result.isAccessibilityElement = true
+                return result
+            case .search:
+                let result = UIBarButtonItem(barButtonSystemItem: .search, target: self, action: action)
+                result.accessibilityLabel = "Search button"
+                result.isAccessibilityElement  = true
+                return result
+            case .close:
+                let result = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
+                result.themeTintColor = .textPrimary
+                result.isAccessibilityElement = true
+                return result
+            }
+    }
+    
+    @objc private func leftBarButtonAction() {
+        self.leftBarButtonItemAction?()
+    }
+    
+    @objc private func rightBarButtonAction() {
+        self.rightBarButtonItemAction?()
     }
     
     @objc private func close() {

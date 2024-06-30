@@ -1,6 +1,7 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -33,7 +34,7 @@ struct HomeScreen: View {
                 ThemeManager.currentTheme.colorSwiftUI(for: .backgroundPrimary).ignoresSafeArea()
                 
                 if viewModel.state.showViewedSeedBanner {
-                    SeedBanner()
+                    SeedBanner(action: handleContinueButtonTapped)
                 }
                 
                 if viewModel.threadData.isEmpty {
@@ -52,90 +53,19 @@ struct HomeScreen: View {
                 NewConversationButton(action: createNewConversation)
             }
         )
+        .onReceive(Just(viewModel), perform: { updatedViewModel in
+            (self.host.controller as? SessionHostingViewController<HomeScreen>)?.setUpNavBarButton(
+                leftItem: .profile(profile: updatedViewModel.state.userProfile),
+                rightItem: .search,
+                leftAction: openSettings,
+                rightAction: showSearchUI
+            )
+        })
     }
-    
-    // MARK: - Updating
-    
-    public func startObservingChanges(didReturnFromBackground: Bool = false, onReceivedInitialChange: (() -> ())? = nil) {
-        guard dataChangeObservable == nil else { return }
         
-        var runAndClearInitialChangeCallback: (() -> ())? = nil
-        
-        runAndClearInitialChangeCallback = {
-            guard self.hasLoadedInitialStateData == true && self.hasLoadedInitialThreadData == true else { return }
-            
-            onReceivedInitialChange?()
-            runAndClearInitialChangeCallback = nil
-        }
-        
-        dataChangeObservable = Storage.shared.start(
-            viewModel.observableState,
-            onError: { _ in },
-            onChange: { state in
-                // The default scheduler emits changes on the main thread
-                self.handleUpdates(state)
-                runAndClearInitialChangeCallback?()
-            }
-        )
-        
-        self.viewModel.onThreadChange = { updatedThreadData, changeset in
-            self.handleThreadUpdates(updatedThreadData, changeset: changeset)
-            runAndClearInitialChangeCallback?()
-        }
-        
-        // Note: When returning from the background we could have received notifications but the
-        // PagedDatabaseObserver won't have them so we need to force a re-fetch of the current
-        // data to ensure everything is up to date
-        if didReturnFromBackground {
-            DispatchQueue.global(qos: .userInitiated).async {
-                self.viewModel.pagedDataObserver?.reload()
-            }
-        }
-    }
-    
-    private func stopObservingChanges() {
-        // Stop observing database changes
-        self.dataChangeObservable = nil
-        self.viewModel.onThreadChange = nil
-    }
-    
-    private func autoLoadNextPageIfNeeded() {
-        guard
-            self.hasLoadedInitialThreadData &&
-            !self.isAutoLoadingNextPage &&
-            !self.isLoadingMore
-        else { return }
-        
-        self.isAutoLoadingNextPage = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + PagedData.autoLoadNextPageDelay) { [weak self] in
-            self?.isAutoLoadingNextPage = false
-            
-            // Note: We sort the headers as we want to prioritise loading newer pages over older ones
-            let sections: [(HomeViewModel.Section, CGRect)] = (self?.viewModel.threadData
-                .enumerated()
-                .map { index, section in (section.model, (self?.tableView.rectForHeader(inSection: index) ?? .zero)) })
-                .defaulting(to: [])
-            let shouldLoadMore: Bool = sections
-                .contains { section, headerRect in
-                    section == .loadMore &&
-                    headerRect != .zero &&
-                    (self?.tableView.bounds.contains(headerRect) == true)
-                }
-            
-            guard shouldLoadMore else { return }
-            
-            self?.isLoadingMore = true
-            
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.viewModel.pagedDataObserver?.load(.pageAfter)
-            }
-        }
-    }
-    
     // MARK: - Interaction
     
-    func handleContinueButtonTapped(from seedReminderView: SeedReminderView) {
+    func handleContinueButtonTapped() {
         if let recoveryPasswordView: RecoveryPasswordScreen = try? RecoveryPasswordScreen() {
             let viewController: SessionHostingViewController = SessionHostingViewController(rootView: recoveryPasswordView)
             viewController.setNavBarTitle("sessionRecoveryPassword".localized())
@@ -208,7 +138,7 @@ struct HomeScreen: View {
             customizedNavigationBackground: .backgroundSecondary
         )
         viewController.setNavBarTitle("conversationsStart".localized())
-        viewController.setUpDismissingButton(on: .right)
+        viewController.setUpNavBarButton(rightItem: .close)
         
         let navigationController = StyledNavigationController(rootViewController: viewController)
         if UIDevice.current.isIPad {
@@ -371,6 +301,12 @@ struct EmptyStateView: View {
 // MARK: SeedBanner
 
 struct SeedBanner: View {
+    private var action: () -> ()
+    
+    init(action: @escaping () -> Void) {
+        self.action = action
+    }
+    
     var body: some View {
         ZStack(
             alignment: .topLeading,
@@ -423,7 +359,7 @@ struct SeedBanner: View {
                         Spacer()
                         
                         Button {
-                            
+                            action()
                         } label: {
                             Text("theContinue".localized())
                                 .bold()

@@ -897,7 +897,7 @@ final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableViewDataS
             customizedNavigationBackground: .backgroundSecondary
         )
         viewController.setNavBarTitle("conversationsStart".localized())
-        viewController.setUpDismissingButton(on: .right)
+        viewController.setUpNavBarButton(rightItem: .close)
         
         let navigationController = StyledNavigationController(rootViewController: viewController)
         if UIDevice.current.isIPad {

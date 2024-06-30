@@ -3,4 +3,3 @@
 import Combine
 import GRDB
 
-struct HomeViewModelRequest: Querya
