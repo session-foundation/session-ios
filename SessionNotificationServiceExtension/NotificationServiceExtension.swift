@@ -329,7 +329,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             self?.versionMigrationsDidComplete(needsConfigSync: needsConfigSync, completion: completion)
                         }
                 }
-            }
+            },
+            using: dependencies
         )
     }
     
@@ -371,14 +372,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         LibSession.clearMemoryState()
         dependencies.caches.mutate(cache: .general) { $0.clearCachedUserPublicKey() }
         
-        self.setUpIfNecessary() { [weak self] in
+        self.setUpIfNecessary() { [weak self, dependencies] in
             // If we had already done a setup then `libSession` won't have been re-setup so
             // we need to do so now (this ensures it has the correct user keys as well)
             Storage.shared.read { db in
                 LibSession.loadState(
                     db,
                     userPublicKey: getUserHexEncodedPublicKey(db),
-                    ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey
+                    ed25519SecretKey: Identity.fetchUserEd25519KeyPair(db)?.secretKey,
+                    using: dependencies
                 )
             }
             

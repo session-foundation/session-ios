@@ -82,8 +82,8 @@ public extension JobRunnerType {
             .contains(where: { $0.detailsData == detailsData })
     }
     
-    func stopAndClearPendingJobs(exceptForVariant: Job.Variant? = nil, using dependencies: Dependencies, onComplete: (() -> ())? = nil) {
-        stopAndClearPendingJobs(exceptForVariant: exceptForVariant, using: dependencies, onComplete: onComplete)
+    func stopAndClearPendingJobs(using dependencies: Dependencies) {
+        stopAndClearPendingJobs(exceptForVariant: nil, using: dependencies, onComplete: nil)
     }
     
     // MARK: -- Job Scheduling

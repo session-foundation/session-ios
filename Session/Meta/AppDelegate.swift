@@ -15,6 +15,8 @@ import SessionSnodeKit
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     private static let maxRootViewControllerInitialQueryDuration: TimeInterval = 10
     
+    /// The AppDelete is initialised by the OS so we should init an instance of `Dependencies` to be used throughout
+    let dependencies: Dependencies = Dependencies()
     var window: UIWindow?
     var backgroundSnapshotBlockerWindow: UIWindow?
     var appStartupWindow: UIWindow?
@@ -93,7 +95,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 /// we don't want to access it until after the migrations run
                 ThemeManager.mainWindow = mainWindow
                 self?.completePostMigrationSetup(calledFrom: .finishLaunching, needsConfigSync: needsConfigSync)
-            }
+            },
+            using: dependencies
         )
         
         if SessionEnvironment.shared?.callManager.wrappedValue?.currentCall == nil {
@@ -168,7 +171,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             
             // Dispatch async so things can continue to be progressed if a migration does need to run
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
                 AppSetup.runPostSetupMigrations(
                     migrationProgressChanged: { progress, minEstimatedTotalTime in
                         self?.loadingViewController?.updateProgress(
@@ -191,7 +194,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             calledFrom: .enterForeground(initialLaunchFailed: initialLaunchFailed),
                             needsConfigSync: needsConfigSync
                         )
-                    }
+                    },
+                    using: dependencies
                 )
             }
         }
@@ -459,7 +463,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
-                alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { _ in
+                alert.addAction(UIAlertAction(title: "vc_restore_title".localized(), style: .destructive) { [dependencies] _ in
                     // Reset the current database for a clean migration
                     Storage.resetForCleanMigration()
                     
@@ -484,7 +488,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 case .success:
                                     self?.completePostMigrationSetup(calledFrom: lifecycleMethod, needsConfigSync: needsConfigSync)
                             }
-                        }
+                        },
+                        using: dependencies
                     )
                 })
                 
@@ -637,8 +642,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Navigate to the approriate screen depending on the onboarding state
         switch Onboarding.State.current {
             case .newUser:
-                DispatchQueue.main.async {
-                    let viewController: LandingVC = LandingVC()
+                DispatchQueue.main.async { [dependencies] in
+                    let viewController: LandingVC = LandingVC(using: dependencies)
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
                 }
