@@ -1848,7 +1848,7 @@ public extension SessionThreadViewModel {
                 \(SQL("\(userPublicKey)")) AS \(ViewModel.Columns.currentUserPublicKey)
 
             FROM \(SessionThread.self)
-            JOIN \(contactProfile) ON \(contactProfile[.id]) = \(thread[.id])
+            LEFT JOIN \(contactProfile) ON \(contactProfile[.id]) = \(thread[.id])
         
             WHERE \(SQL("\(thread[.variant]) = \(SessionThread.Variant.contact)"))
         """
