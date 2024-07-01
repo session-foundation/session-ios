@@ -42,7 +42,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     // MARK: - Variables
     
     private lazy var defaultSearchResults: SearchResultData = {
-        let nonalphabeticNameTitle: String = "#"
+        let nonalphabeticNameTitle: String = "#" // stringlint:disable
         let contacts: [SessionThreadViewModel] = Storage.shared.read { db -> [SessionThreadViewModel]? in
             try SessionThreadViewModel
                 .defaultContactsQuery(userPublicKey: getUserHexEncodedPublicKey(db))

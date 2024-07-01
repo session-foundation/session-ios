@@ -190,7 +190,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     )
                                     return
                                 }
-                                guard !ProfileManager.isToLong(profileName: updatedNickname) else {
+                                guard !ProfileManager.isTooLong(profileName: updatedNickname) else {
                                     self?.transitionToScreen(
                                         ConfirmationModal(
                                             info: ConfirmationModal.Info(
