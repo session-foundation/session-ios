@@ -209,7 +209,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         // Has mention view
         hasMentionView.addSubview(hasMentionLabel)
-        unreadCountView.setCompressionResistance(to: .required)
+        hasMentionLabel.setCompressionResistance(to: .required)
         hasMentionLabel.pin(to: hasMentionView)
         
         // Label stack view
