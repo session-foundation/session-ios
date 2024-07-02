@@ -134,7 +134,8 @@ struct LandingScreen: View {
         
         let viewController: SessionHostingViewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: .register))
         viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+        viewController.setUpClearDataBackButton(flow: .register)
+        self.host.controller?.navigationController?.setViewControllers([viewController], animated: true)
     }
     
     private func restore() {

@@ -60,7 +60,7 @@ struct LoadAccountScreen: View {
         }
         let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
         
-        Onboarding.Flow.link
+        Onboarding.Flow.recover
             .preregister(
                 with: seed,
                 ed25519KeyPair: ed25519KeyPair,
@@ -72,9 +72,10 @@ struct LoadAccountScreen: View {
         }
         
         // Otherwise continue on to request push notifications permissions
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: .link))
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: .recover))
         viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+        viewController.setUpClearDataBackButton(flow: .recover)
+        self.host.controller?.navigationController?.setViewControllers([viewController], animated: true)
     }
     
     func continueWithhexEncodedSeed(onSuccess: (() -> ())?, onError: (() -> ())?) {

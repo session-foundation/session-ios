@@ -175,6 +175,6 @@ struct CircularProgressView: View {
 
 struct LoadingView_Previews: PreviewProvider {
     static var previews: some View {
-        LoadingScreen(flow: .link, preview: true)
+        LoadingScreen(flow: .recover, preview: true)
     }
 }

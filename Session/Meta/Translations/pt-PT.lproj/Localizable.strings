@@ -1108,7 +1108,6 @@ The point that a message will disappear in a disappearing message update message
 "qrNotRecoveryPassword" = "This QR code does not contain a Recovery Password";
 "warning" = "Warning";
 "quitButton" = "Quit";
-"cancel" = "Cancel";
 "onboardingBackLoadAccount" = "You cannot go back further. In order to stop loading your account, Session needs to quit.";
 "onboardingBackAccountCreation" = "You cannot go back further. In order to cancel your account creation, Session needs to quit.";
 
