@@ -94,18 +94,11 @@ struct LandingScreen: View {
                 Button {
                     openLegalUrl()
                 } label: {
-                    let attributedText: NSAttributedString = {
-                        let text = String(format: "onboardingTosPrivacy".localized(), "onboardingTos".localized(), "onboardingPrivacy".localized())
-                        let result = NSMutableAttributedString(
-                            string: text,
-                            attributes: [ .font : UIFont.systemFont(ofSize: Values.verySmallFontSize)]
-                        )
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "onboardingTos".localized()))
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.verySmallFontSize), range: (text as NSString).range(of: "onboardingPrivacy".localized()))
-                        
-                        return result
-                    }()
+                    let attributedText: NSAttributedString = "onboardingTosPrivacy"
+                        .localized()
+                        .formatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize))
                     AttributedText(attributedText)
+                        .font(.system(size: Values.verySmallFontSize))
                         .foregroundColor(themeColor: .textPrimary)
                 }
                 .accessibility(
