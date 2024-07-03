@@ -156,7 +156,7 @@ public final class JobRunner: JobRunnerType {
                 case (.failed(let lhsError, let lhsPermanent), .failed(let rhsError, let rhsPermanent)):
                     return (
                         // Not a perfect solution but should be good enough
-                        "\(lhsError ?? JobRunnerError.generic)" == "\(rhsError ?? JobRunnerError.generic)" &&
+                        "\(lhsError ?? JobRunnerError.unknown)" == "\(rhsError ?? JobRunnerError.unknown)" &&
                         lhsPermanent == rhsPermanent
                     )
                     
@@ -299,7 +299,8 @@ public final class JobRunner: JobRunnerType {
                 jobVariants: [
                     jobVariants.remove(.expirationUpdate),
                     jobVariants.remove(.getExpiration),
-                    jobVariants.remove(.disappearingMessages)
+                    jobVariants.remove(.disappearingMessages),
+                    jobVariants.remove(.checkForAppUpdates) // Don't want this to block other jobs
                 ].compactMap { $0 }
             ),
             
@@ -1632,7 +1633,7 @@ public final class JobQueue: Hashable {
         // immediately (in this case we don't trigger any job callbacks because the
         // job isn't actually done, it's going to try again immediately)
         if self.type == .blocking && job.shouldBlock {
-            SNLog("[JobRunner] \(queueContext) \(job.variant) job failed; retrying immediately")
+            SNLog("[JobRunner] \(queueContext) \(job.variant) job failed due to error: \(error ?? JobRunnerError.unknown); retrying immediately")
             
             // If it was a possible deferral loop then we don't actually want to
             // retry the job (even if it's a blocking one, this gives a small chance
@@ -1664,7 +1665,7 @@ public final class JobQueue: Hashable {
         let maxFailureCount: Int = (executorMap.wrappedValue[job.variant]?.maxFailureCount ?? 0)
         let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + JobRunner.getRetryInterval(for: job))
         var dependantJobIds: [Int64] = []
-        var failureText: String = "failed"
+        var failureText: String = "failed due to error: \(error ?? JobRunnerError.unknown)"
         
         dependencies.storage.write(using: dependencies) { db in
             /// Retrieve a list of dependant jobs so we can clear them from the queue
@@ -1683,8 +1684,8 @@ public final class JobQueue: Hashable {
                 )
             else {
                 failureText = (maxFailureCount >= 0 && updatedFailureCount > maxFailureCount ?
-                    "failed permanently; too many retries" :
-                    "failed permanently"
+                    "failed permanently due to error: \(error ?? JobRunnerError.unknown); too many retries" :
+                    "failed permanently due to error: \(error ?? JobRunnerError.unknown)"
                 )
                 
                 // If the job permanently failed or we have performed all of our retry attempts
@@ -1696,7 +1697,7 @@ public final class JobQueue: Hashable {
                 return
             }
             
-            failureText = "failed; scheduling retry (failure count is \(updatedFailureCount))"
+            failureText = "failed due to error: \(error ?? JobRunnerError.unknown); scheduling retry (failure count is \(updatedFailureCount))"
             
             try job
                 .with(

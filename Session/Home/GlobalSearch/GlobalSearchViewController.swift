@@ -42,6 +42,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     // MARK: - Variables
     
     private lazy var defaultSearchResults: SearchResultData = {
+        let nonalphabeticNameTitle: String = "#" // stringlint:disable
         let contacts: [SessionThreadViewModel] = Storage.shared.read { db -> [SessionThreadViewModel]? in
             try SessionThreadViewModel
                 .defaultContactsQuery(userPublicKey: getUserHexEncodedPublicKey(db))
@@ -69,7 +70,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
             let initialCharacter: String = (displayName.length > 0 ? displayName.substring(to: 1) : "")
             let section: String = initialCharacter.capitalized.isSingleAlphabet ?
                 initialCharacter.capitalized :
-                "#"
+                nonalphabeticNameTitle
                 
             if groupedContacts[section] == nil {
                 groupedContacts[section] = SectionModel(
@@ -96,8 +97,11 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
                     }
                 }()
                 
-                if title0 == "#" { return false }
-                return title0 < title1
+                if ![title0, title1].contains(nonalphabeticNameTitle) {
+                    return title0 < title1
+                }
+                
+                return title1 == nonalphabeticNameTitle
             }
         )
     }()

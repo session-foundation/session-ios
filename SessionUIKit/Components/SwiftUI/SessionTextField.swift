@@ -131,7 +131,7 @@ public struct SessionTextField<ExplanationView>: View where ExplanationView: Vie
                 }
             }
             .frame(
-                height: 50,
+                height: 54,
                 alignment: .top
             )
         }

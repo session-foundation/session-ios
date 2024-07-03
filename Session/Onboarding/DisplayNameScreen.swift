@@ -101,7 +101,7 @@ struct DisplayNameScreen: View {
             error = "displayNameErrorDescription".localized()
             return
         }
-        guard !ProfileManager.isToLong(profileName: displayName) else {
+        guard !ProfileManager.isTooLong(profileName: displayName) else {
             error = "displayNameErrorDescriptionShorter".localized()
             return
         }

@@ -74,8 +74,8 @@ public extension String.StringInterpolation {
         appendInterpolation(value == 1 ? "" : "s") // stringlint:disable
     }
     
-    public mutating func appendInterpolation(period value: String) {
-        appendInterpolation(value.hasSuffix(".") ? "" : ".") // stringlint:disable
+    mutating func appendInterpolation(_ value: String, number: Int, singular: String = "", plural: String = "s") {
+        appendInterpolation("\(value)\(number == 1 ? singular : plural)") // stringlint:disable
     }
     
     mutating func appendInterpolation(_ value: TimeUnit, unit: TimeUnit.Unit, resolution: Int = 2) {

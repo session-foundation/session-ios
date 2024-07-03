@@ -63,7 +63,7 @@ public final class CurrentUserPoller: Poller {
         return min(maxRetryInterval, nextDelay)
     }
     
-    override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> Bool {
+    override func handlePollError(_ error: Error, for publicKey: String, using dependencies: Dependencies) -> PollerErrorResponse {
         if UserDefaults.sharedLokiProject?[.isMainAppActive] != true {
             // Do nothing when an error gets throws right after returning from the background (happens frequently)
         }
@@ -71,13 +71,13 @@ public final class CurrentUserPoller: Poller {
             let drainBehaviour: Atomic<SwarmDrainBehaviour> = drainBehaviour.wrappedValue[publicKey],
             case .limitedReuse(_, .some(let targetSnode), _, _, _) = drainBehaviour.wrappedValue
         {
-            SNLog("Main Poller polling \(targetSnode) failed with error: \(period: "\(error)"); switching to next snode.")
             drainBehaviour.mutate { $0 = $0.clearTargetSnode() }
+            return .continuePollingInfo("Switching from \(targetSnode) to next snode.")
         }
         else {
-            SNLog("Polling failed due to having no target service node.")
+            return .continuePollingInfo("Had no target snode.")
         }
         
-        return true
+        return .continuePolling
     }
 }

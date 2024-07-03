@@ -100,7 +100,7 @@ enum Onboarding {
     }
     
     enum Flow {
-        case register, recover, link
+        case register, recover
         
         /// If the user returns to an earlier screen during Onboarding we might need to clear out a partially created
         /// account (eg. returning from the PN setting screen to the seed entry screen when linking a device)
@@ -151,7 +151,7 @@ enum Onboarding {
                 )
                 
                 // No need to show the seed again if the user is restoring or linking
-                db[.hasViewedSeed] = (self == .recover || self == .link)
+                db[.hasViewedSeed] = (self == .recover)
                 
                 // Create a contact for the current user and set their approval/trusted statuses so
                 // they don't get weird behaviours

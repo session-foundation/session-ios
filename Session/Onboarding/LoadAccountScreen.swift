@@ -47,7 +47,7 @@ struct LoadAccountScreen: View {
         }
     }
     
-    private func continueWithSeed(seed: Data, from source: Onboarding.SeedSource, onError: (() -> ())?) {
+    private func continueWithSeed(seed: Data, from source: Onboarding.SeedSource, onSuccess: (() -> ())?, onError: (() -> ())?) {
         if (seed.count != 16) {
             errorString =  source.genericErrorMessage
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
@@ -57,22 +57,27 @@ struct LoadAccountScreen: View {
         }
         let (ed25519KeyPair, x25519KeyPair) = try! Identity.generate(from: seed)
         
-        Onboarding.Flow.link
+        Onboarding.Flow.recover
             .preregister(
                 with: seed,
                 ed25519KeyPair: ed25519KeyPair,
                 x25519KeyPair: x25519KeyPair
             )
         
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            onSuccess?()
+        }
+        
         // Otherwise continue on to request push notifications permissions
-        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: .link))
+        let viewController: SessionHostingViewController = SessionHostingViewController(rootView: PNModeScreen(flow: .recover))
         viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+        viewController.setUpClearDataBackButton(flow: .recover)
+        self.host.controller?.navigationController?.setViewControllers([viewController], animated: true)
     }
     
-    func continueWithhexEncodedSeed(onError: (() -> ())?) {
+    func continueWithhexEncodedSeed(onSuccess: (() -> ())?, onError: (() -> ())?) {
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed, from: .qrCode, onError: onError)
+        continueWithSeed(seed: seed, from: .qrCode, onSuccess: onSuccess, onError: onError)
     }
     
     func continueWithMnemonic() {
@@ -83,9 +88,9 @@ struct LoadAccountScreen: View {
         } catch {
             if let decodingError = error as? Mnemonic.DecodingError {
                 switch decodingError {
-                    case .inputTooShort, .missingLastWord:
+                    case .inputTooShort:
                         errorString = "recoveryPasswordErrorMessageShort".localized()
-                    case .invalidWord, .verificationFailed:
+                    case .invalidWord:
                         errorString = "recoveryPasswordErrorMessageIncorrect".localized()
                     default:
                         errorString = "recoveryPasswordErrorMessageGeneric".localized()
@@ -96,7 +101,7 @@ struct LoadAccountScreen: View {
             return
         }
         let seed = Data(hex: hexEncodedSeed)
-        continueWithSeed(seed: seed, from: .mnemonic, onError: nil)
+        continueWithSeed(seed: seed, from: .mnemonic, onSuccess: nil, onError: nil)
     }
 }
 
