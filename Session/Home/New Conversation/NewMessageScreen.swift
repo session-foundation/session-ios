@@ -100,7 +100,7 @@ struct NewMessageScreen: View {
                                                 SnodeAPIError.onsValidationFailed:
                                                 return "onsErrorUnableToSearch".localized()
                                             case SnodeAPIError.onsNotFound:
-                                                return "new_message_screen_error_msg_unrecognized_ons".localized()
+                                                return "onsErrorNotRecognized".localized()
                                             case is NetworkError:
                                                 return "onsErrorUnableToSearch".localized()
                                             default: break

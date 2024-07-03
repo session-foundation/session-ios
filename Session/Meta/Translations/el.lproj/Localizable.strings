@@ -724,3 +724,6 @@
 "permissionsMicrophoneAccessRequiredIos" = "{app_name} needs microphone access to make calls and record audio messages."; // NSMicrophoneUsageDescription
 "disappearingMessagesCountdownBigMobile" = "Auto-deletes in {time_large}";
 "disappearingMessagesCountdownBigSmallMobile" = "Auto-deletes in {time_large} {time_small}";
+"quitButton" = "Quit";
+"onboardingBackLoadAccount" = "You cannot go back further. In order to stop loading your account, Session needs to quit.";
+"onboardingBackAccountCreation" = "You cannot go back further. In order to cancel your account creation, Session needs to quit.";
