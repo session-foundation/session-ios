@@ -96,20 +96,11 @@ struct NewMessageScreen: View {
                                 modalActivityIndicator.dismiss {
                                     let message: String = {
                                         switch error {
-                                            case SnodeAPIError.onsDecryptionFailed, SnodeAPIError.onsHashingFailed,
-                                                SnodeAPIError.onsValidationFailed:
-                                                return "onsErrorUnableToSearch".localized()
                                             case SnodeAPIError.onsNotFound:
                                                 return "new_message_screen_error_msg_unrecognized_ons".localized()
-                                            case is NetworkError:
+                                            default:
                                                 return "onsErrorUnableToSearch".localized()
-                                            default: break
                                         }
-                                        
-                                        return (maybeSessionId?.prefix == .blinded15 || maybeSessionId?.prefix == .blinded25 ?
-                                            "accountIdErrorInvalid".localized() :
-                                            "new_message_screen_error_msg_unrecognized_ons".localized()
-                                        )
                                     }()
                                     
                                     errorString = message
