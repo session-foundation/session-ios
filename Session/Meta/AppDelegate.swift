@@ -646,6 +646,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 DispatchQueue.main.async {
                     let viewController = SessionHostingViewController(rootView: DisplayNameScreen(flow: .register))
                     viewController.setUpNavBarSessionIcon()
+                    viewController.setUpClearDataBackButton(flow: .register)
                     populateHomeScreenTimer.invalidate()
                     rootViewControllerSetupComplete(viewController)
                 }
