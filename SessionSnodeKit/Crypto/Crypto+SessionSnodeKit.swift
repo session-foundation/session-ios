@@ -28,9 +28,10 @@ internal extension Crypto.Generator {
             
             guard
                 cNonce.count == 24,
+                var cName: [CChar] = name.lowercased().cString(using: .utf8),
                 session_decrypt_ons_response(
-                    name.lowercased().cString(using: .utf8),
-                    name.count,
+                    &cName,
+                    cName.count,
                     &cCiphertext,
                     cCiphertext.count,
                     &cNonce,
