@@ -1304,7 +1304,7 @@ public final class JobQueue: Hashable {
         
         // Run the first job in the pendingJobsQueue
         if !wasAlreadyRunning {
-            Log.info("[JobRunner] Starting \(queueContext) with (\(jobCount) job\(jobCount != 1 ? "s" : ""))", silenceForTests: true)
+            Log.info("[JobRunner] Starting \(queueContext) with (\(jobCount) job\(jobCount != 1 ? "s" : ""))")
         }
         runNextJob(using: dependencies)
     }

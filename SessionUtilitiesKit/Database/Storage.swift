@@ -481,8 +481,8 @@ open class Storage {
                     $0.invalidate()
                     
                     // Don't want to log on the main thread as to avoid confusion when debugging issues
-                    DispatchQueue.global(qos: .default).async {
-                        SNLog("[Storage\(fileName)] Slow \(actionName) taking longer than \(Storage.writeWarningThreadshold, format: ".2", omitZeroDecimal: true)s - \(info.function)")
+                    DispatchQueue.global(qos: .background).async {
+                        Log.warn("[Storage\(fileName)] Slow \(actionName) taking longer than \(Storage.writeWarningThreadshold, format: ".2", omitZeroDecimal: true)s - \(info.function)")
                     }
                 }
             }()
@@ -493,8 +493,8 @@ open class Storage {
                 if timeout != nil && timeout?.isValid == false {
                     let end: CFTimeInterval = CACurrentMediaTime()
                     
-                    DispatchQueue.global(qos: .default).async {
-                        SNLog("[Storage\(fileName)] Slow \(actionName) completed after \(end - start, format: ".2", omitZeroDecimal: true)s")
+                    DispatchQueue.global(qos: .background).async {
+                        Log.warn("[Storage\(fileName)] Slow \(actionName) completed after \(end - start, format: ".2", omitZeroDecimal: true)s")
                     }
                 }
                 

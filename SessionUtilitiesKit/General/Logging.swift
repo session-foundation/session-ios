@@ -3,12 +3,13 @@
 // stringlint:disable
 
 import Foundation
+import OSLog
 import SignalCoreKit
 
 // MARK: - Log
 
 public enum Log {
-    fileprivate typealias LogInfo = (level: Log.Level, message: String, withPrefixes: Bool, silenceForTests: Bool)
+    fileprivate typealias LogInfo = (level: Log.Level, categories: [Category], message: String)
     
     public enum Level: Comparable {
         case verbose
@@ -20,15 +21,31 @@ public enum Log {
         case off
     }
     
+    public struct Category: ExpressibleByStringLiteral, ExpressibleByExtendedGraphemeClusterLiteral, ExpressibleByUnicodeScalarLiteral {
+        public typealias StringLiteralType = String
+        
+        fileprivate let rawValue: String
+        
+        public init(stringLiteral value: String) {
+            self.rawValue = value
+        }
+        
+        public init(unicodeScalarLiteral value: Character) {
+            self.rawValue = String(value)
+        }
+    }
+    
     private static var logger: Atomic<Logger?> = Atomic(nil)
     private static var pendingStartupLogs: Atomic<[LogInfo]> = Atomic([])
     
     public static func setup(with logger: Logger) {
-        logger.retrievePendingStartupLogs = {
-            pendingStartupLogs.mutate { pendingStartupLogs in
-                let logs: [LogInfo] = pendingStartupLogs
-                pendingStartupLogs = []
-                return logs
+        logger.retrievePendingStartupLogs.mutate {
+            $0 = {
+                pendingStartupLogs.mutate { pendingStartupLogs in
+                    let logs: [LogInfo] = pendingStartupLogs
+                    pendingStartupLogs = []
+                    return logs
+                }
             }
         }
         Log.logger.mutate { $0 = logger }
@@ -116,79 +133,54 @@ public enum Log {
         }
     }
     
-    public static func verbose(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false
-    ) {
-        custom(.verbose, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
-    }
+    public static func verbose(_ msg: String) { custom(.verbose, [], msg) }
+    public static func verbose(_ cat: Category, _ msg: String) { custom(.verbose, [cat], msg) }
+    public static func verbose(_ cats: [Category], _ msg: String) { custom(.verbose, cats, msg) }
     
-    public static func debug(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false
-    ) {
-        custom(.debug, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
-    }
+    public static func debug(_ msg: String) { custom(.debug, [], msg) }
+    public static func debug(_ cat: Category, _ msg: String) { custom(.debug, [cat], msg) }
+    public static func debug(_ cats: [Category], _ msg: String) { custom(.debug, cats, msg) }
     
-    public static func info(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false
-    ) {
-        custom(.info, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
-    }
+    public static func info(_ msg: String) { custom(.info, [], msg) }
+    public static func info(_ cat: Category, _ msg: String) { custom(.info, [cat], msg) }
+    public static func info(_ cats: [Category], _ msg: String) { custom(.info, cats, msg) }
     
-    public static func warn(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false
-    ) {
-        custom(.warn, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
-    }
+    public static func warn(_ msg: String) { custom(.warn, [], msg) }
+    public static func warn(_ cat: Category, _ msg: String) { custom(.warn, [cat], msg) }
+    public static func warn(_ cats: [Category], _ msg: String) { custom(.warn, cats, msg) }
     
-    public static func error(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false
-    ) {
-        custom(.error, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
-    }
+    public static func error(_ msg: String) { custom(.error, [], msg) }
+    public static func error(_ cat: Category, _ msg: String) { custom(.error, [cat], msg) }
+    public static func error(_ cats: [Category], _ msg: String) { custom(.error, cats, msg) }
     
-    public static func critical(
-        _ message: String,
-        withPrefixes: Bool = true,
-        silenceForTests: Bool = false
-    ) {
-        custom(.critical, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
-    }
+    public static func critical(_ msg: String) { custom(.critical, [], msg) }
+    public static func critical(_ cat: Category, _ msg: String) { custom(.critical, [cat], msg) }
+    public static func critical(_ cats: [Category], _ msg: String) { custom(.critical, cats, msg) }
     
     public static func custom(
         _ level: Log.Level,
-        _ message: String,
-        withPrefixes: Bool,
-        silenceForTests: Bool
+        _ categories: [Category],
+        _ message: String
     ) {
         guard
             let logger: Logger = logger.wrappedValue,
             !logger.isSuspended.wrappedValue
-        else { return pendingStartupLogs.mutate { $0.append((level, message, withPrefixes, silenceForTests)) } }
+        else { return pendingStartupLogs.mutate { $0.append((level, categories, message)) } }
         
-        logger.log(level, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
+        logger.log(level, categories, message)
     }
 }
 
 // MARK: - Logger
 
 public class Logger {
-    private let isRunningTests: Bool = (ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil)
     private let primaryPrefix: String
-    private var level: Log.Level
     private let forceNSLog: Bool
+    private let level: Atomic<Log.Level>
+    private let systemLoggers: Atomic<[String: SystemLoggerType]> = Atomic([:])
     fileprivate let fileLogger: DDFileLogger
     fileprivate let isSuspended: Atomic<Bool> = Atomic(true)
-    fileprivate var retrievePendingStartupLogs: (() -> [Log.LogInfo])?
+    fileprivate let retrievePendingStartupLogs: Atomic<(() -> [Log.LogInfo])?> = Atomic(nil)
     
     public init(
         primaryPrefix: String,
@@ -197,7 +189,7 @@ public class Logger {
         forceNSLog: Bool = false
     ) {
         self.primaryPrefix = primaryPrefix
-        self.level = level
+        self.level = Atomic(level)
         self.forceNSLog = forceNSLog
         
         switch customDirectory {
@@ -318,13 +310,19 @@ public class Logger {
     private func completeResumeLogging(error: String? = nil) {
         let pendingLogs: [Log.LogInfo] = isSuspended.mutate { isSuspended in
             isSuspended = false
-            return (retrievePendingStartupLogs?() ?? [])
+            
+            // Retrieve any logs that were added during
+            return retrievePendingStartupLogs.mutate { retriever in
+                let result: [Log.LogInfo] = (retriever?() ?? [])
+                retriever = nil
+                return result
+            }
         }
         
         // If we had an error loading the extension logs then actually log it
         if let error: String = error {
             Log.empty()
-            log(.error, error, withPrefixes: true, silenceForTests: false)
+            log(.error, [], error)
         }
         
         // After creating a new logger we want to log two empty lines to make it easier to read
@@ -332,30 +330,27 @@ public class Logger {
         Log.empty()
         
         // Add any logs that were pending during the startup process
-        pendingLogs.forEach { level, message, withPrefixes, silenceForTests in
-            log(level, message, withPrefixes: withPrefixes, silenceForTests: silenceForTests)
+        pendingLogs.forEach { level, categories, message in
+            log(level, categories, message)
         }
     }
     
     fileprivate func log(
         _ level: Log.Level,
-        _ message: String,
-        withPrefixes: Bool,
-        silenceForTests: Bool
+        _ categories: [Log.Category],
+        _ message: String
     ) {
-        guard !silenceForTests || !isRunningTests else { return }
-        guard level >= self.level else { return }
+        guard level >= self.level.wrappedValue else { return }
         
         // Sort out the prefixes
         let logPrefix: String = {
-            guard withPrefixes else { return "" }
-            
             let prefixes: String = [
                 primaryPrefix,
                 (Thread.isMainThread ? "Main" : nil),
                 (DispatchQueue.isDBWriteQueue ? "DBWrite" : nil)
             ]
             .compactMap { $0 }
+            .appending(contentsOf: categories.map { $0.rawValue })
             .joined(separator: ", ")
             
             return "[\(prefixes)] "
@@ -376,16 +371,68 @@ public class Logger {
             case .info: OWSLogger.info(logMessage)
             case .warn: OWSLogger.warn(logMessage)
             case .error, .critical: OWSLogger.error(logMessage)
-            
+        }
+        
+        let mainCategory: String = (categories.first?.rawValue ?? "[General]")
+        var systemLogger: SystemLoggerType? = systemLoggers.wrappedValue[mainCategory]
+        
+        if systemLogger == nil {
+            systemLogger = systemLoggers.mutate {
+                if #available(iOS 14.0, *) {
+                    $0[mainCategory] = SystemLogger(category: mainCategory)
+                }
+                else {
+                    $0[mainCategory] = LegacySystemLogger(forceNSLog: forceNSLog)
+                }
+                return $0[mainCategory]
+            }
         }
         
         #if DEBUG
-        print(logMessage)
-        #else
-        if forceNSLog {
-            NSLog(message)
-        }
+        systemLogger?.log(level, logMessage)
         #endif
+    }
+}
+
+// MARK: - SystemLogger
+
+private protocol SystemLoggerType {
+    func log(_ level: Log.Level, _ log: String)
+}
+
+private class LegacySystemLogger: SystemLoggerType {
+    private let forceNSLog: Bool
+    
+    init(forceNSLog: Bool) {
+        self.forceNSLog = forceNSLog
+    }
+    
+    public func log(_ level: Log.Level, _ log: String) {
+        guard !forceNSLog else { return NSLog(log) }
+        
+        print(log)
+    }
+}
+
+@available(iOSApplicationExtension 14.0, *)
+private class SystemLogger: SystemLoggerType {
+    private static let subsystem: String = Bundle.main.bundleIdentifier!
+    private let logger: os.Logger
+    
+    init(category: String) {
+        logger = os.Logger(subsystem: SystemLogger.subsystem, category: category)
+    }
+    
+    public func log(_ level: Log.Level, _ log: String) {
+        switch level {
+            case .off: return
+            case .verbose: logger.trace("\(log)")
+            case .debug: logger.debug("\(log)")
+            case .info: logger.info("\(log)")
+            case .warn: logger.warning("\(log)")
+            case .error: logger.error("\(log)")
+            case .critical: logger.critical("\(log)")
+        }
     }
 }
 

@@ -44,6 +44,7 @@ extension ProjectState {
         .contains("Log.warn(", caseSensitive: false),
         .contains("Log.error(", caseSensitive: false),
         .contains("Log.critical(", caseSensitive: false),
+        .contains("Log.Category =", caseSensitive: false),
         .contains("logMessage:", caseSensitive: false),
         .contains("owsFailDebug(", caseSensitive: false),
         .contains("#imageLiteral(resourceName:", caseSensitive: false),

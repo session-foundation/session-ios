@@ -33,13 +33,13 @@ public extension Migration {
         using dependencies: Dependencies
     ) -> ((_ db: Database) throws -> ()) {
         return { (db: Database) in
-            Log.info("[Migration Info] Starting \(targetIdentifier.key(with: self))", silenceForTests: true)
+            Log.info("[Migration Info] Starting \(targetIdentifier.key(with: self))")
             storage?.willStartMigration(db, self)
             storage?.internalCurrentlyRunningMigration.mutate { $0 = (targetIdentifier, self) }
             defer { storage?.internalCurrentlyRunningMigration.mutate { $0 = nil } }
             
             try migrate(db, using: dependencies)
-            Log.info("[Migration Info] Completed \(targetIdentifier.key(with: self))", silenceForTests: true)
+            Log.info("[Migration Info] Completed \(targetIdentifier.key(with: self))")
         }
     }
 }
