@@ -83,7 +83,8 @@ public extension Crypto.Generator {
                 .unsafeCopyUInt8Array()))
                 .defaulting(to: [])
             var secretKey: [UInt8] = ed25519PrivateKey
-            var cEncryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_encrypt_for_multiple_simple_ed25519(
+            var cDomain: [CChar] = try domain.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            let cEncryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_encrypt_for_multiple_simple_ed25519(
                 &outLen,
                 &cMessages,
                 &messageSizes,
@@ -91,7 +92,7 @@ public extension Crypto.Generator {
                 &cRecipients,
                 recipients.count,
                 &secretKey,
-                domain.cString(using: .utf8),
+                &cDomain,
                 nil,
                 0
             )
@@ -232,13 +233,14 @@ public extension Crypto.Generator {
             var cEncryptedData: [UInt8] = Array(ciphertext)
             var cEd25519PrivateKey: [UInt8] = ed25519PrivateKey
             var cSenderPubkey: [UInt8] = senderSessionId.publicKey
-            var cDecryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_decrypt_for_multiple_simple_ed25519(
+            var cDomain: [CChar] = try domain.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
+            let cDecryptedDataPtr: UnsafeMutablePointer<UInt8>? = session_decrypt_for_multiple_simple_ed25519(
                 &outLen,
                 &cEncryptedData,
                 cEncryptedData.count,
                 &cEd25519PrivateKey,
                 &cSenderPubkey,
-                domain.cString(using: .utf8)
+                &cDomain
             )
 
             let decryptedData: Data? = cDecryptedDataPtr.map { Data(bytes: $0, count: outLen) }

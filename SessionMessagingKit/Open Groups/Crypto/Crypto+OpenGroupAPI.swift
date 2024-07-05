@@ -139,10 +139,16 @@ public extension Crypto.Verification {
             id: "sessionId",
             args: [standardSessionId, blindedSessionId, serverPublicKey]
         ) {
+            guard
+                var cStandardSessionId: [CChar] = standardSessionId.cString(using: .utf8),
+                var cBlindedSessionId: [CChar] = blindedSessionId.cString(using: .utf8),
+                var cServerPublicKey: [CChar] = serverPublicKey.cString(using: .utf8)
+            else { return false }
+            
             return session_id_matches_blinded_id(
-                standardSessionId.cString(using: .utf8),
-                blindedSessionId.cString(using: .utf8),
-                serverPublicKey.cString(using: .utf8)
+                &cStandardSessionId,
+                &cBlindedSessionId,
+                &cServerPublicKey
             )
         }
     }
