@@ -495,6 +495,11 @@
 		FD1D732A2A85AA2000E3F410 /* Setting+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1D73292A85AA2000E3F410 /* Setting+Utilities.swift */; };
 		FD1D732E2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1D732D2A86114600E3F410 /* _015_BlockCommunityMessageRequests.swift */; };
 		FD1F9C9F2A862BE60050F671 /* MigrationRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F9C9E2A862BE60050F671 /* MigrationRequirement.swift */; };
+		FD22866F2C38D42300BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD22866E2C38D42300BC06F7 /* DifferenceKit */; };
+		FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286702C38D43000BC06F7 /* DifferenceKit */; };
+		FD2286732C38D43900BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286722C38D43900BC06F7 /* DifferenceKit */; };
+		FD2286752C38D4DD00BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286742C38D4DD00BC06F7 /* DifferenceKit */; };
+		FD2286792C38D4FF00BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286782C38D4FF00BC06F7 /* DifferenceKit */; };
 		FD23CE1B2A651E6D0000B97C /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE1A2A651E6D0000B97C /* Network.swift */; };
 		FD23CE242A675C440000B97C /* Crypto+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE232A675C440000B97C /* Crypto+SessionMessagingKit.swift */; };
 		FD23CE262A676B5B0000B97C /* DependenciesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE252A676B5B0000B97C /* DependenciesSpec.swift */; };
@@ -2129,6 +2134,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD2286752C38D4DD00BC06F7 /* DifferenceKit in Frameworks */,
 				C32824D325C9F9790062D0A7 /* SessionSnodeKit.framework in Frameworks */,
 				B8D64FC725BA78520029CFC0 /* SessionMessagingKit.framework in Frameworks */,
 				C3D90A5C25773A25002C9DF5 /* SessionUtilitiesKit.framework in Frameworks */,
@@ -2159,6 +2165,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */,
 				FD6A396B2C2D284500762359 /* YYImage in Frameworks */,
 				FD37E9EF28A5ED70003AE748 /* SessionUtilitiesKit.framework in Frameworks */,
 			);
@@ -2171,6 +2178,7 @@
 				FD6A396F2C2E3D4400762359 /* YYImage in Frameworks */,
 				C38EF48A255B7E3F007E1867 /* SessionUIKit.framework in Frameworks */,
 				FD6A39222C2AA91D00762359 /* NVActivityIndicatorView in Frameworks */,
+				FD22866F2C38D42300BC06F7 /* DifferenceKit in Frameworks */,
 				C33FD9C2255A54EF00E217F9 /* SessionMessagingKit.framework in Frameworks */,
 				C33FD9C4255A54EF00E217F9 /* SessionSnodeKit.framework in Frameworks */,
 				C33FD9C5255A54EF00E217F9 /* SessionUtilitiesKit.framework in Frameworks */,
@@ -2207,6 +2215,7 @@
 				FD6A39102C2A93CD00762359 /* WebRTC in Frameworks */,
 				FD9BDE002A5D22B7005F1EBC /* libSessionUtil.a in Frameworks */,
 				FD9BDE012A5D24EA005F1EBC /* SessionUIKit.framework in Frameworks */,
+				FD2286732C38D43900BC06F7 /* DifferenceKit in Frameworks */,
 				FDC4386C27B4E90300C60D73 /* SessionUtilitiesKit.framework in Frameworks */,
 				C3C2A70B25539E1E00C340D1 /* SessionSnodeKit.framework in Frameworks */,
 				FD6A39132C2A946A00762359 /* SwiftProtobuf in Frameworks */,
@@ -2243,6 +2252,7 @@
 				A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */,
 				D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */,
 				C331FF222558F9D300070591 /* SessionUIKit.framework in Frameworks */,
+				FD2286792C38D4FF00BC06F7 /* DifferenceKit in Frameworks */,
 				D2179CFE16BB0B480006F3AB /* SystemConfiguration.framework in Frameworks */,
 				D2179CFC16BB0B3A0006F3AB /* CoreTelephony.framework in Frameworks */,
 				D221A08E169C9E5E00537ABF /* UIKit.framework in Frameworks */,
@@ -4560,6 +4570,9 @@
 				C3D90A5925773A1A002C9DF5 /* PBXTargetDependency */,
 			);
 			name = SessionShareExtension;
+			packageProductDependencies = (
+				FD2286742C38D4DD00BC06F7 /* DifferenceKit */,
+			);
 			productName = SignalShareExtension;
 			productReference = 453518681FC635DD00210559 /* SessionShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -4605,6 +4618,7 @@
 			name = SessionUIKit;
 			packageProductDependencies = (
 				FD6A396A2C2D284500762359 /* YYImage */,
+				FD2286702C38D43000BC06F7 /* DifferenceKit */,
 			);
 			productName = SessionUIKit;
 			productReference = C331FF1B2558F9D300070591 /* SessionUIKit.framework */;
@@ -4627,6 +4641,7 @@
 			packageProductDependencies = (
 				FD6A39212C2AA91D00762359 /* NVActivityIndicatorView */,
 				FD6A396E2C2E3D4400762359 /* YYImage */,
+				FD22866E2C38D42300BC06F7 /* DifferenceKit */,
 			);
 			productName = SignalUtilitiesKit;
 			productReference = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */;
@@ -4695,6 +4710,7 @@
 			packageProductDependencies = (
 				FD6A390F2C2A93CD00762359 /* WebRTC */,
 				FD6A39122C2A946A00762359 /* SwiftProtobuf */,
+				FD2286722C38D43900BC06F7 /* DifferenceKit */,
 			);
 			productName = SessionMessagingKit;
 			productReference = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */;
@@ -4730,6 +4746,7 @@
 				FD6A394E2C2D060C00762359 /* YYImage */,
 				FD6A395B2C2D10C700762359 /* YYImage */,
 				FD6A39682C2D283A00762359 /* YYImage */,
+				FD2286782C38D4FF00BC06F7 /* DifferenceKit */,
 			);
 			productName = RedPhone;
 			productReference = D221A089169C9E5E00537ABF /* Session.app */;
@@ -7104,14 +7121,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjack.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Curve25519Kit/Curve25519Kit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/GRDB.swift/GRDB.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SQLCipher/SQLCipher.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SignalCoreKit/SignalCoreKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Sodium/Sodium.framework/Headers\"",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium/Headers\"",
-					"$(PODS_ROOT)/SQLCipher",
 					"$(TARGET_BUILD_DIR)/libSessionUtil/Headers/**",
 				);
 				INFOPLIST_FILE = SessionSnodeKit/Meta/Info.plist;
@@ -7124,7 +7133,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium\"",
 					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
 					/usr/lib/swift,
 					"\"$(TARGET_BUILD_DIR)/libSessionUtil\"",
@@ -7139,7 +7147,7 @@
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"${PODS_XCFRAMEWORKS_BUILD_DIR}/Clibsodium\" \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
+				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7204,14 +7212,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjack.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Curve25519Kit/Curve25519Kit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/GRDB.swift/GRDB.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SQLCipher/SQLCipher.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SignalCoreKit/SignalCoreKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Sodium/Sodium.framework/Headers\"",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium/Headers\"",
-					"$(PODS_ROOT)/SQLCipher",
 					"$(TARGET_BUILD_DIR)/libSessionUtil/Headers/**",
 				);
 				INFOPLIST_FILE = SessionSnodeKit/Meta/Info.plist;
@@ -7224,7 +7224,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium\"",
 					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
 					/usr/lib/swift,
 					"\"$(TARGET_BUILD_DIR)/libSessionUtil\"",
@@ -7239,7 +7238,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"${PODS_XCFRAMEWORKS_BUILD_DIR}/Clibsodium\" \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
+				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7284,19 +7283,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjack.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Curve25519Kit/Curve25519Kit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/DifferenceKit/DifferenceKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/GRDB.swift/GRDB.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/PureLayout/PureLayout.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SAMKeychain/SAMKeychain.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SQLCipher/SQLCipher.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SignalCoreKit/SignalCoreKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Sodium/Sodium.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/YYImage/YYImage.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/libwebp/libwebp.framework/Headers\"",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium/Headers\"",
-					"$(PODS_ROOT)/SQLCipher",
 					"$(TARGET_BUILD_DIR)/libSessionUtil/Headers/**",
 				);
 				INFOPLIST_FILE = SessionUtilitiesKit/Meta/Info.plist;
@@ -7309,7 +7295,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium\"",
 					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
 					/usr/lib/swift,
 					"\"$(TARGET_BUILD_DIR)/libSessionUtil\"",
@@ -7324,7 +7309,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"${PODS_XCFRAMEWORKS_BUILD_DIR}/Clibsodium\" \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
+				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7389,19 +7374,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjack.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Curve25519Kit/Curve25519Kit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/DifferenceKit/DifferenceKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/GRDB.swift/GRDB.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/PureLayout/PureLayout.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SAMKeychain/SAMKeychain.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SQLCipher/SQLCipher.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SignalCoreKit/SignalCoreKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Sodium/Sodium.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/YYImage/YYImage.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/libwebp/libwebp.framework/Headers\"",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium/Headers\"",
-					"$(PODS_ROOT)/SQLCipher",
 					"$(TARGET_BUILD_DIR)/libSessionUtil/Headers/**",
 				);
 				INFOPLIST_FILE = SessionUtilitiesKit/Meta/Info.plist;
@@ -7414,7 +7386,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium\"",
 					"\"${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
 					/usr/lib/swift,
 					"\"$(TARGET_BUILD_DIR)/libSessionUtil\"",
@@ -7430,7 +7401,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"${PODS_XCFRAMEWORKS_BUILD_DIR}/Clibsodium\" \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
+				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -7475,18 +7446,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjack.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Curve25519Kit/Curve25519Kit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/DifferenceKit/DifferenceKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/GRDB.swift/GRDB.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/PureLayout/PureLayout.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SAMKeychain/SAMKeychain.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SQLCipher/SQLCipher.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SignalCoreKit/SignalCoreKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Sodium/Sodium.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SwiftProtobuf/SwiftProtobuf.framework/Headers\"",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium/Headers\"",
-					"$(PODS_ROOT)/SQLCipher",
 					"${SRCROOT}/LibSession-Util/include/**",
 				);
 				INFOPLIST_FILE = SessionMessagingKit/Meta/Info.plist;
@@ -7500,7 +7459,6 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium\"",
 					/usr/lib/swift,
 					"\"$(TARGET_BUILD_DIR)/libSessionUtil\"",
 				);
@@ -7514,7 +7472,7 @@
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"${PODS_XCFRAMEWORKS_BUILD_DIR}/Clibsodium\" \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
+				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -7580,18 +7538,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/CocoaLumberjack/CocoaLumberjack.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Curve25519Kit/Curve25519Kit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/DifferenceKit/DifferenceKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/GRDB.swift/GRDB.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/PureLayout/PureLayout.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SAMKeychain/SAMKeychain.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SQLCipher/SQLCipher.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SignalCoreKit/SignalCoreKit.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/Sodium/Sodium.framework/Headers\"",
-					"\"${PODS_CONFIGURATION_BUILD_DIR}/SwiftProtobuf/SwiftProtobuf.framework/Headers\"",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium/Headers\"",
-					"$(PODS_ROOT)/SQLCipher",
 					"${SRCROOT}/LibSession-Util/include/**",
 				);
 				INFOPLIST_FILE = SessionMessagingKit/Meta/Info.plist;
@@ -7605,7 +7551,6 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}\"",
-					"\"${PODS_XCFRAMEWORKS_BUILD_DIR}/Sodium\"",
 					/usr/lib/swift,
 					"\"$(TARGET_BUILD_DIR)/libSessionUtil\"",
 				);
@@ -7620,7 +7565,7 @@
 				STRIP_INSTALLED_PRODUCT = YES;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_INCLUDE_PATHS = "$(inherited) \"${PODS_XCFRAMEWORKS_BUILD_DIR}/Clibsodium\" \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
+				SWIFT_INCLUDE_PATHS = "$(inherited) \"$(TARGET_BUILD_DIR)/libSessionUtil\"";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -8662,6 +8607,31 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		FD22866E2C38D42300BC06F7 /* DifferenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
+			productName = DifferenceKit;
+		};
+		FD2286702C38D43000BC06F7 /* DifferenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
+			productName = DifferenceKit;
+		};
+		FD2286722C38D43900BC06F7 /* DifferenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
+			productName = DifferenceKit;
+		};
+		FD2286742C38D4DD00BC06F7 /* DifferenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
+			productName = DifferenceKit;
+		};
+		FD2286782C38D4FF00BC06F7 /* DifferenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
+			productName = DifferenceKit;
+		};
 		FD6A38E52C2A4D8E00762359 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A38E42C2A4D8E00762359 /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
